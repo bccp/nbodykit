@@ -257,10 +257,12 @@ def main():
 
     # sort the labels by halo size
     arg = N[1:].argsort()[::-1] + 1
-    P = numpy.arange(Nhalo0, dtype='i4')
+    P = numpy.arange(Nhalo0)
     P[arg] = numpy.arange(len(arg))
     label = P[label]
-    
+
+    del P
+
     # redo again
     N = numpy.bincount(label, minlength=Nhalo0)
     comm.Allreduce(MPI.IN_PLACE, N, op=MPI.SUM)
