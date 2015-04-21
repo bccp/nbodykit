@@ -257,15 +257,14 @@ def main():
     # size of halos
     N = numpy.bincount(label.view(dtype='i8'), minlength=Nhalo0)
     comm.Allreduce(MPI.IN_PLACE, N, op=MPI.SUM)
-    
     # N[0] is nonhalo
 
     # sort the labels by halo size
     arg = N[1:].argsort()[::-1] + 1
     P = numpy.arange(Nhalo0)
-    P[arg] = numpy.arange(len(arg))
+    P[arg] = numpy.arange(len(arg)) + 1
     label = P[label]
-
+        
     del P
 
     # redo again
