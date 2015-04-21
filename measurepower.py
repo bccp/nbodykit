@@ -28,7 +28,7 @@ parser.add_argument("Nmesh", type=int,
 parser.add_argument("output", help='write power to this file')
 parser.add_argument("--bunchsize", type=int, default=1024*1024*4,
         help='Number of particles to read per rank. A larger number usually means faster IO, but less memory for the FFT mesh')
-parser.add_argument("--remove-cic", default='anisotropic', metavar="anisotropic|isotropic|none",
+parser.add_argument("--remove-cic", default='anisotropic', choices=["anisotropic","isotropic", "none"],
         help='deconvolve cic, anisotropic is the proper way, see http://www.personal.psu.edu/duj13/dissertation/djeong_diss.pdf')
 parser.add_argument("--remove-shotnoise", action='store_true', default=False, 
         help='removing the shot noise term')
@@ -91,6 +91,7 @@ def main():
 
     if ns.remove_cic == 'isotropic':
         tmp = 1.0 - 0.666666667 * numpy.sin(wout * 0.5) ** 2
+        psout /= tmp
 
     if ns.remove_shotnoise:
         psout -= (pm.BoxSize) ** 3 / Ntot
