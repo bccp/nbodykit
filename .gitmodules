@@ -1,18 +1,18 @@
 [submodule "kdcount"]
-	path = kdcount
+	path = extern/kdcount
 	url = http://github.com/rainwoodman/kdcount
 [submodule "pypm"]
-	path = pypm
+	path = extern/pypm
 	url = http://github.com/rainwoodman/pypm
 [submodule "pfft-python"]
-	path = pfft-python
+	path = extern/pfft-python
 	url = http://github.com/rainwoodman/pfft-python
 [submodule "MP-sort"]
-	path = MP-sort
+	path = extern/MP-sort
 	url = http://github.com/rainwoodman/MP-sort
 [submodule "qrpm"]
-	path = qrpm
+	path = extern/qrpm
 	url = http://github.com/rainwoodman/qrpm
 [submodule "sharedmem"]
-	path = sharedmem
+	path = extern/sharedmem
 	url = http://github.com/rainwoodman/sharedmem

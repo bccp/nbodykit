@@ -14,11 +14,11 @@ def addpath(relpath):
     root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     sys.path.insert(0, os.path.join(root, relpath))
 
-addpath('kdcount')
-addpath('MP-sort')
-addpath('pfft-python')
-addpath('pypm')
-addpath('sharedmem')
+addpath('extern/kdcount')
+addpath('extern/MP-sort')
+addpath('extern/pfft-python')
+addpath('extern/pypm')
+addpath('extern/sharedmem')
 
 import kdcount
 import mpsort
