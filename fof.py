@@ -5,22 +5,17 @@ import logging
 
 from argparse import ArgumentParser
 import numpy
-from mpi4py import MPI
-
-import nbodykit
-
-from nbodykit.distributedarray import DistributedArray
-from nbodykit.tpm import TPMSnapshotFile, read
-
-from kdcount import cluster
-from pypm.domain import GridND
 
 
-parser = ArgumentParser("",
+parser = ArgumentParser("Friend-of-Friend Finder",
         description=
-     "",
+        """
+        Find friend of friend groups from a Nbody simulation snapshot
+        """,
         epilog=
-     ""
+        """
+        This script is written by Yu Feng, as part of `nbodykit'. 
+        """
         )
 
 parser.add_argument("filename", 
@@ -33,6 +28,16 @@ parser.add_argument("output", help='output file')
 
 ns = parser.parse_args()
 logging.basicConfig(level=logging.DEBUG)
+
+from mpi4py import MPI
+
+import nbodykit
+
+from nbodykit.distributedarray import DistributedArray
+from nbodykit.tpm import TPMSnapshotFile, read
+
+from kdcount import cluster
+from pypm.domain import GridND
 def equiv_class(labels, values, op, dense_labels=False, identity=None, minlength=None):
     """
     apply operation to equivalent classes by label, on values

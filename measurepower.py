@@ -14,7 +14,7 @@ parser = ArgumentParser("Parallel Power Spectrum Calculator",
      """,
         epilog=
      """
-        This script is written by Yu Feng, as part of `pypm' which depends on `pfft-python' and mpi4py. 
+        This script is written by Yu Feng, as part of `nbodykit'. 
         The author would like thank Marcel Schmittfull for the explanation on cic, shotnoise, and k==0 plane errors.
      """
         )
