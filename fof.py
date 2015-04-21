@@ -251,7 +251,7 @@ def main():
 
     # size of halos
     N = numpy.bincount(label.view(dtype='i8'), minlength=Nhalo0)
-    N = comm.allreduce(N, op=MPI.SUM)
+    comm.Allreduce(MPI.IN_PLACE, N, op=MPI.SUM)
     
     # N[0] is nonhalo
 
@@ -263,7 +263,7 @@ def main():
     
     # redo again
     N = numpy.bincount(label, minlength=Nhalo0)
-    N = comm.allreduce(N, op=MPI.SUM)
+    comm.Allreduce(MPI.IN_PLACE, N, op=MPI.SUM)
 
     # do center of mass
     posmin = equiv_class(label, pos, op=numpy.fmin, dense_labels=True, identity=numpy.inf,
