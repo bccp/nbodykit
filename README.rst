@@ -3,6 +3,8 @@ nbodykit
 
 Software kit for N-body simulations. From particle mesh simulation to analysis.
 
+.. image:: https://raw.githubusercontent.com/bccp/nbodykit/master/nbodykit-icon.svg
+
 Build
 -----
 
