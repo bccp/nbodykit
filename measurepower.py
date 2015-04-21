@@ -3,16 +3,7 @@ from sys import stdout
 from sys import stderr
 import logging
 
-import numpy
 from argparse import ArgumentParser
-from mpi4py import MPI
-
-import nbodykit
-from nbodykit.tpm import TPMSnapshotFile, read
-
-from pypm.particlemesh import ParticleMesh
-from pypm.transfer import TransferFunction
-
 
 parser = ArgumentParser("Parallel Power Spectrum Calculator",
         description=
@@ -44,6 +35,16 @@ parser.add_argument("--remove-shotnoise", action='store_true', default=False,
 
 ns = parser.parse_args()
 logging.basicConfig(level=logging.DEBUG)
+
+import numpy
+import nbodykit
+from nbodykit.tpm import TPMSnapshotFile, read
+
+from pypm.particlemesh import ParticleMesh
+from pypm.transfer import TransferFunction
+
+
+from mpi4py import MPI
 
 def main():
     pm = ParticleMesh(ns.BoxSize, ns.Nmesh)
