@@ -64,9 +64,6 @@ def main():
 
     pm.r2c()
     
-    def RemoveShotnoise(complex, w):
-        complex[:] -= (1.0 / Ntot) ** 0.5
-
     def AnisotropicCIC(complex, w):
         for wi in w:
             tmp = (1 - 2. / 3 * numpy.sin(0.5 * wi) ** 2) ** 0.5
@@ -83,9 +80,6 @@ def main():
     if ns.remove_cic == 'anisotropic':
         chain.append(AnisotropicCIC)
 
-    if ns.remove_shotnoise:
-        chain.append(RemoveShotnoise)
-
     chain.append(TransferFunction.PowerSpectrum(wout, psout))
         
     # measure the raw power spectrum, nothing is removed.
@@ -97,6 +91,9 @@ def main():
 
     if ns.remove_cic == 'isotropic':
         tmp = 1.0 - 0.666666667 * numpy.sin(wout * 0.5) ** 2
+
+    if ns.remove_shotnoise:
+        psout -= (pm.BoxSize) ** 3 / Ntot
 
     if pm.comm.rank == 0:
         if ns.output != '-':
