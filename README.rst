@@ -3,6 +3,16 @@ nbodykit
 
 Software kit for N-body simulations. From particle mesh simulation to analysis.
 
+The software is built on top of existing tools. Please refer to their
+documentations:
+
+- `pfft`_    : massively parallel fast fourier transform, pencil domains
+- `pfft-python`_  : python binding of pfft
+- `pypm`_     :  particle mesh framework in Python
+- `kdcount`_   : pair-counting and friend-of-friend clustering with KD-Tree
+- `MP-sort`_   : massively parallel sorting 
+- `sharedmem`_ : in-node parallelism with fork and copy-on-write.
+
 Build
 -----
 
@@ -54,4 +64,10 @@ those doing QPM simulations under the nbody directory.
 qrpm is currently not integrated to the kit. It is quicker particle mesh mock code. The
 goal is to add an embeded python intepreter (currently has lua) to the root rank.
 
-
+.. _`pfft-python`: http://github.com/rainwoodman/pfft-python
+.. _`pfft`: http://github.com/mpip/pfft
+.. _`pypm`: http://github.com/rainwoodman/pypm
+.. _`kdcount`: http://github.com/rainwoodman/kdcount
+.. _`sharedmem`: http://github.com/rainwoodman/sharedmem
+.. _`MP-sort`: http://github.com/rainwoodman/MP-sort
+.. _`qrpm`: http://github.com/rainwoodman/qrpm
