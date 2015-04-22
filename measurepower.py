@@ -26,6 +26,8 @@ parser.add_argument("BoxSize", type=float,
 parser.add_argument("Nmesh", type=int, 
         help='size of calculation mesh, recommend 2 * Ngrid')
 parser.add_argument("output", help='write power to this file')
+parser.add_argument("--binshift", type=float, default=0.0,
+        help='Shift the bin center by this fraction of the bin width. Default is 0.0. Marcel uses 0.5. this shall rarely be changed.' )
 parser.add_argument("--bunchsize", type=int, default=1024*1024*4,
         help='Number of particles to read per rank. A larger number usually means faster IO, but less memory for the FFT mesh')
 parser.add_argument("--remove-cic", default='anisotropic', choices=["anisotropic","isotropic", "none"],
@@ -72,6 +74,53 @@ def main():
     wout = numpy.empty(pm.Nmesh//2)
     psout = numpy.empty(pm.Nmesh//2)
 
+    def PowerSpectrum(complex, w):
+        comm = pm.comm
+
+        wedges = numpy.linspace(0, numpy.pi, wout.size + 1, endpoint=True)
+        wedges += ns.binshift * wedges[1]
+
+        w2edges = wedges ** 2
+
+        # pickup the singular plane that is single counted (r2c transform)
+        singular = w[-1] == 0
+
+        scratch = 0.0
+        for wi in w:
+            scratch = scratch + wi ** 2
+
+        # now scratch stores w ** 2
+        dig = numpy.digitize(scratch.flat, w2edges)
+
+        # take the sum of w
+        scratch **= 0.5
+        # the singular plane is down weighted by 0.5
+        scratch[singular] *= 0.5
+
+        wsum = numpy.bincount(dig, weights=scratch.flat, minlength=wout.size + 2)[1: -1]
+        wsum = comm.allreduce(wsum, MPI.SUM)
+
+        # take the sum of weights
+        scratch[...] = 1.0
+        # the singular plane is down weighted by 0.5
+        scratch[singular] = 0.5
+
+        N = numpy.bincount(dig, weights=scratch.flat, minlength=wout.size + 2)[1: -1]
+        N = comm.allreduce(N, MPI.SUM)
+
+        # take the sum of power
+        numpy.abs(complex, out=scratch)
+        scratch[...] **= 2.0
+        # the singular plane is down weighted by 0.5
+        scratch[singular] *= 0.5
+
+        P = numpy.bincount(dig, weights=scratch.flat, minlength=wout.size + 2)[1: -1]
+        P = comm.allreduce(P, MPI.SUM)
+
+        psout[:] = P / N 
+        wout[:] = wsum / N
+
+
     chain = [
         TransferFunction.NormalizeDC,
         TransferFunction.RemoveDC,
@@ -80,7 +129,7 @@ def main():
     if ns.remove_cic == 'anisotropic':
         chain.append(AnisotropicCIC)
 
-    chain.append(TransferFunction.PowerSpectrum(wout, psout))
+    chain.append(PowerSpectrum)
         
     # measure the raw power spectrum, nothing is removed.
     pm.push()
