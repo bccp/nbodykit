@@ -34,7 +34,7 @@ from mpi4py import MPI
 import nbodykit
 
 from nbodykit.distributedarray import DistributedArray
-from nbodykit.files import TPMSnapshotFile, read
+from nbodykit.files import TPMSnapshotFile, read, Snapshot
 
 from kdcount import cluster
 from pypm.domain import GridND
@@ -188,6 +188,7 @@ def main():
     domain = GridND(grid)
     if comm.rank == 0:
         logging.info('grid %s' % str(grid) )
+
     for i, P in enumerate(read(comm, ns.filename, TPMSnapshotFile, columns=['Position', 'ID'])):
         pass
     # make sure in one round all particles are in
@@ -289,14 +290,40 @@ def main():
         print 'total groups', N.shape
         print 'total particles', N.sum()
         print 'above 32', (N > 32).sum()
-    
-    with open(ns.output + '.%03d' % comm.rank, 'w') as ff:
-        label = numpy.int32(label)
-        label.tofile(ff)
+
     with open(ns.output + '.halo', 'w') as ff:
         numpy.int32(len(N)).tofile(ff)
         numpy.int32(N).tofile(ff)
         numpy.float32(hpos).tofile(ff)
+    del N
+    del hpos
+
+    npart = None
+    if comm.rank == 0:
+        snapshot = Snapshot(ns.filename,TPMSnapshotFile)
+        for i in range(len(snapshot.npart)):
+            with open(ns.output + 'grp.%02d' % i, 'w') as ff:
+                pass
+        npart = snapshot.npart
+    npart = comm.bcast(npart)
+
+    start = sum(comm.allgather(len(label))[:comm.rank])
+    end = sum(comm.allgather(len(label))[:comm.rank+1])
+    label = numpy.int32(label)
+    written = 0
+    for i in range(len(npart)):
+        filestart = sum(npart[:i])
+        fileend = sum(npart[:i+1])
+        mystart = start - filestart
+        myend = end - filestart
+        if myend <= 0 : continue
+        if mystart >= npart[i] : continue
+        if myend > npart[i]: myend = npart[i]
+        if mystart < 0: mystart = 0
+        with open(ns.output + 'grp.%02d' % i, 'r+') as ff:
+            ff.seek(mystart * 4, 1)
+            label[written:written + myend - mystart].tofile(ff)
+        written += myend - mystart
 
     return
 

@@ -25,6 +25,8 @@ class SnapshotFile:
             return self.read_id(mystart, myend)
         if column == "Velocity":
             return self.read_vel(mystart, myend)
+        if column == "Label":
+            return self.read_label(mystart, myend)
 
     def read_pos(self, mystart, myend):
         """
@@ -64,9 +66,29 @@ class SnapshotFile:
         """
         raise NotImplementedError
 
+    def read_label(self, mystart, myend):
+        """
+        Read Group Label of particles
+
+        Parameters
+        ----------
+        mystart   : int
+            offset to start reading within this file. (inclusive)
+        myend     : int
+            offset to end reading within this file. (exclusive)
+
+        Returns
+        -------
+        label : array_like (myend - mystart)
+            group label of particles.
+
+        """
+        raise NotImplementedError
+
 class TPMSnapshotFile(SnapshotFile):
     def __init__(self, basename, fid):
         self.filename = basename + ".%02d" % fid
+        self.grpfilename = basename + ".grp.%02d" % fid
         with open(self.filename, 'r') as ff:
             header = numpy.fromfile(ff, dtype='i4', count=7)
         self.header = header
@@ -89,6 +111,11 @@ class TPMSnapshotFile(SnapshotFile):
             ff.seek(self.npart * 12, 1)
             ff.seek(mystart * 8, 1)
             return numpy.fromfile(ff, count=myend - mystart, dtype=('i8'))
+
+    def read_label(self, mystart, myend):
+        with open(self.grpfilename, 'r') as ff:
+            ff.seek(mystart * 4, 1)
+            return numpy.fromfile(ff, count=myend - mystart, dtype=('i4'))
 
 class Snapshot(object):
     def __init__(self, filename, filetype):
