@@ -34,7 +34,7 @@ from mpi4py import MPI
 import nbodykit
 
 from nbodykit.distributedarray import DistributedArray
-from nbodykit.tpm import TPMSnapshotFile, read
+from nbodykit.files import TPMSnapshotFile, read
 
 from kdcount import cluster
 from pypm.domain import GridND

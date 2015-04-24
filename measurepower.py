@@ -40,7 +40,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 import numpy
 import nbodykit
-from nbodykit.tpm import TPMSnapshotFile, read
+from nbodykit.files import TPMSnapshotFile, read
 
 from pypm.particlemesh import ParticleMesh
 from pypm.transfer import TransferFunction
