@@ -41,6 +41,7 @@ logging.basicConfig(level=logging.DEBUG)
 import numpy
 import nbodykit
 from nbodykit.files import TPMSnapshotFile, read
+from nbodykit.measurepower import measurepower
 
 from pypm.particlemesh import ParticleMesh
 from pypm.transfer import TransferFunction
@@ -65,93 +66,19 @@ def main():
             logging.info('round %d, npaint %d, nread %d' % (round, npaint, nread))
         Ntot = Ntot + nread
 
-    pm.r2c()
-    
-    def AnisotropicCIC(complex, w):
-        for wi in w:
-            tmp = (1 - 2. / 3 * numpy.sin(0.5 * wi) ** 2) ** 0.5
-            complex[:] /= tmp
-
-    wout = numpy.empty(pm.Nmesh//2)
-    psout = numpy.empty(pm.Nmesh//2)
-
-    def PowerSpectrum(complex, w):
-        comm = pm.comm
-
-        wedges = numpy.linspace(0, numpy.pi, wout.size + 1, endpoint=True)
-        wedges += ns.binshift * wedges[1]
-
-        w2edges = wedges ** 2
-
-        # pickup the singular plane that is single counted (r2c transform)
-        singular = w[-1] == 0
-
-        scratch = 0.0
-        for wi in w:
-            scratch = scratch + wi ** 2
-
-        # now scratch stores w ** 2
-        dig = numpy.digitize(scratch.flat, w2edges)
-
-        # take the sum of w
-        scratch **= 0.5
-        # the singular plane is down weighted by 0.5
-        scratch[singular] *= 0.5
-
-        wsum = numpy.bincount(dig, weights=scratch.flat, minlength=wout.size + 2)[1: -1]
-        wsum = comm.allreduce(wsum, MPI.SUM)
-
-        # take the sum of weights
-        scratch[...] = 1.0
-        # the singular plane is down weighted by 0.5
-        scratch[singular] = 0.5
-
-        N = numpy.bincount(dig, weights=scratch.flat, minlength=wout.size + 2)[1: -1]
-        N = comm.allreduce(N, MPI.SUM)
-
-        # take the sum of power
-        numpy.abs(complex, out=scratch)
-        scratch[...] **= 2.0
-        # the singular plane is down weighted by 0.5
-        scratch[singular] *= 0.5
-
-        P = numpy.bincount(dig, weights=scratch.flat, minlength=wout.size + 2)[1: -1]
-        P = comm.allreduce(P, MPI.SUM)
-
-        psout[:] = P / N 
-        wout[:] = wsum / N
-
-
-    chain = [
-        TransferFunction.NormalizeDC,
-        TransferFunction.RemoveDC,
-    ]
-
-    if ns.remove_cic == 'anisotropic':
-        chain.append(AnisotropicCIC)
-
-    chain.append(PowerSpectrum)
-        
-    # measure the raw power spectrum, nothing is removed.
-    pm.push()
-    pm.transfer(chain)
-    kout = wout * pm.Nmesh / pm.BoxSize
-    psout *= (pm.BoxSize) ** 3
-    pm.pop()
-
-    if ns.remove_cic == 'isotropic':
-        tmp = 1.0 - 0.666666667 * numpy.sin(wout * 0.5) ** 2
-        psout /= tmp
-
     if ns.remove_shotnoise:
-        psout -= (pm.BoxSize) ** 3 / Ntot
+        shotnoise = pm.BoxSize ** 3 / Ntot
+    else:
+        shotnoise = 0
+
+    k, p = measurepower(pm, ns.binshift, ns.remove_cic, shotnoise)
 
     if pm.comm.rank == 0:
         if ns.output != '-':
             myout = open(ns.output, 'w')
         else:
             myout = stdout
-        numpy.savetxt(myout, zip(kout, psout), '%0.7g')
+        numpy.savetxt(myout, zip(k, p), '%0.7g')
         myout.flush()
 
 main()
