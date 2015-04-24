@@ -188,7 +188,7 @@ def main():
     domain = GridND(grid)
     if comm.rank == 0:
         logging.info('grid %s' % str(grid) )
-    for i, P in enumerate(read(comm, ns.filename, TPMSnapshotFile)):
+    for i, P in enumerate(read(comm, ns.filename, TPMSnapshotFile, columns=['Position', 'ID'])):
         pass
     # make sure in one round all particles are in
     assert i == 0

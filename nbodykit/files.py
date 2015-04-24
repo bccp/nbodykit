@@ -18,6 +18,14 @@ class SnapshotFile:
                 break
             i = i + 1
 
+    def read(self, column, mystart, myend):
+        if column == "Position":
+            return self.read_pos(mystart, myend)
+        if column == "ID":
+            return self.read_id(mystart, myend)
+        if column == "Velocity":
+            return self.read_vel(mystart, myend)
+
     def read_pos(self, mystart, myend):
         """
         Read positions of particles, normalized to (0, 1)        
@@ -82,7 +90,37 @@ class TPMSnapshotFile(SnapshotFile):
             ff.seek(mystart * 8, 1)
             return numpy.fromfile(ff, count=myend - mystart, dtype=('i8'))
 
-def read(comm, filename, filetype, BunchSize=None):
+class Snapshot(object):
+    def __init__(self, filename, filetype):
+        self.filename = filename
+        self.filetype = filetype
+        self.npart = numpy.array(
+            [ff.npart for ff in filetype.enum(filename)],
+            dtype='i8')
+
+    def read(self, column, start, end):
+        """this function provides a continuous view of multiple files"""
+
+        NpartPerFile = self.npart
+        NpartCumFile = numpy.concatenate([[0], numpy.cumsum(self.npart)])
+        data = []
+        # add an empty item
+        ff = self.filetype(self.filename, 0)
+        data.append(ff.read(column, 0, 0))
+
+        for i in range(len(NpartPerFile)):
+            if end <= NpartCumFile[i]: continue
+            if start >= NpartCumFile[i+1]: continue
+            # find the intersection in this file
+            mystart = max(start - NpartCumFile[i], 0)
+            myend = min(end - NpartCumFile[i], NpartPerFile[i])
+
+            ff = self.filetype(self.filename, i)
+            data.append(ff.read(column, mystart, myend))
+    
+        return numpy.concatenate(data, axis=0)
+
+def read(comm, filename, filetype, columns=['Position', 'ID'], bunchsize=None):
     """
     Parallel reading. This is a generator function.
 
@@ -99,7 +137,7 @@ def read(comm, filename, filetype, BunchSize=None):
         Communicator
     filename : string
         base name of the snapshot file
-    BunchSize : int
+    bunchsize : int
         Number of particles to read per rank in each iteration.
         if None, all particles are read in one iteration
 
@@ -113,50 +151,22 @@ def read(comm, filename, filetype, BunchSize=None):
         P['ID']       is the ID of particles
 
     """
+    snapshot = None
     if comm.rank == 0:
-        NpartPerFile = numpy.array(
-            [ff.npart for ff in filetype.enum(filename)],
-            dtype='i8')
-        logging.info('found %d files, npart=%d' % (len(NpartPerFile), sum(NpartPerFile)))
-    else:
-        NpartPerFile = None
+        snapshot = Snapshot(filename, filetype)
+    snapshot = comm.bcast(snapshot)
 
-    NpartPerFile = comm.bcast(NpartPerFile)
-    NpartCumFile = numpy.concatenate([[0], numpy.cumsum(NpartPerFile)])
+    Ntot = snapshot.npart.sum()
 
-    def read_chunk(start, end):
-        """this function provides a continuous view of multiple files"""
-        pos = []
-        id = []
-        for i in range(len(NpartPerFile)):
-            if end <= NpartCumFile[i]: continue
-            if start >= NpartCumFile[i+1]: continue
-            # find the intersection in this file
-            mystart = max(start - NpartCumFile[i], 0)
-            myend = min(end - NpartCumFile[i], NpartPerFile[i])
-
-            ff = filetype(filename, i)
-            pos.append(ff.read_pos(mystart, myend))
-            id.append(ff.read_id(mystart, myend))
-            
-        # ensure a good shape even if pos = []
-        if len(pos) == 0:
-            return (numpy.empty((0, 3), dtype='f4'),
-                    numpy.empty((0), dtype='i8'))
-        return (numpy.concatenate(pos, axis=0).reshape(-1, 3),
-                numpy.concatenate(id, axis=0).reshape(-1))
-
-
-    Ntot = NpartCumFile[-1]
     mystart = comm.rank * Ntot // comm.size
     myend = (comm.rank + 1) * Ntot // comm.size
 
-    if BunchSize is None:
-        BunchSize = int(Ntot)
+    if bunchsize is None:
+        bunchsize = int(Ntot)
         # set to a sufficiently large number.
 
     Nchunk = 0
-    for i in range(mystart, myend, BunchSize):
+    for i in range(mystart, myend, bunchsize):
         Nchunk += 1
     
     # ensure every rank yields the same number of times
@@ -164,17 +174,15 @@ def read(comm, filename, filetype, BunchSize=None):
 
     Nchunk = max(comm.allgather(Nchunk))
     for i in range(Nchunk):
-        a, b, c = slice(mystart + i * BunchSize, 
-                        mystart + (i +1)* BunchSize)\
+        a, b, c = slice(mystart + i * bunchsize, 
+                        mystart + (i +1)* bunchsize)\
                     .indices(myend) 
         P = {}
-        pos, id = read_chunk(a, b)
-        P['Position'] = pos
-        P['ID'] = id
+        for column in columns:
+            P[column] = snapshot.read(column, a, b)
         #print comm.allreduce(P['Position'].max(), op=MPI.MAX)
         #print comm.allreduce(P['Position'].min(), op=MPI.MIN)
         #print P['ID'].max(), P['ID'].min()
-        P['Mass'] = 1.0
         yield P
-        i = i + BunchSize
+        i = i + bunchsize
 

@@ -52,7 +52,8 @@ def main():
     pm = ParticleMesh(ns.BoxSize, ns.Nmesh)
 
     Ntot = 0
-    for round, P in enumerate(read(pm.comm, ns.filename, TPMSnapshotFile, ns.bunchsize)):
+    for round, P in enumerate(read(pm.comm, ns.filename, TPMSnapshotFile, 
+                columns=['Position'], bunchsize=ns.bunchsize)):
         P['Position'] *= ns.BoxSize
         layout = pm.decompose(P['Position'])
         tpos = layout.exchange(P['Position'])
