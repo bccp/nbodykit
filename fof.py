@@ -20,8 +20,6 @@ parser = ArgumentParser("Friend-of-Friend Finder",
 
 parser.add_argument("filename", 
         help='basename of the input, only runpb format is supported in this script')
-parser.add_argument("BoxSize", type=float, 
-        help='BoxSize in Mpc/h')
 parser.add_argument("LinkingLength", type=float, 
         help='LinkingLength in mean separation (0.2)')
 parser.add_argument("output", help='output file')
@@ -35,108 +33,40 @@ import nbodykit
 
 from nbodykit.distributedarray import DistributedArray
 from nbodykit.files import TPMSnapshotFile, read, Snapshot
+from nbodykit.ndarray import equiv_class, replacesorted
+from nbodykit import halos
 
 from kdcount import cluster
 from pypm.domain import GridND
-def equiv_class(labels, values, op, dense_labels=False, identity=None, minlength=None):
-    """
-    apply operation to equivalent classes by label, on values
+
+def assign_halo_label(minid, comm, thresh):
+    """ 
+    Convert minid to sequential labels starting from 0.
+
+    This routine is used to assign halo label to particles with
+    the same minid.
+    Halos with less than thresh particles are reclassified to 0.
 
     Parameters
     ----------
-    labels  : array_like
-        the label of objects, starting from 0.
-    values  : array_like
-        the values of objects (len(labels), ...)
-    op      : :py:class:`numpy.ufunc`
-        the operation to apply
+    minid : array_like, ('i8')
+        The minimum particle id of the halo. All particles of a halo 
+        have the same minid
+    thresh : int
+        halo with less than thresh particles are merged into halo 0
+    comm : py:class:`MPI.Comm`
+        communicator. since this is a collective operation
 
     Returns
     -------
-        the value of each equivalent class
-
-    Examples
-    --------
-    >>> x = numpy.arange(10)
-    >>> print equiv_class(x, x, numpy.fmin, dense_labels=True)
-    [0 1 2 3 4 5 6 7 8 9]
-
-    >>> x = numpy.arange(10)
-    >>> v = numpy.arange(20).reshape(10, 2)
-    >>> x[1] = 0
-    >>> print equiv_class(x, 1.0 * v, numpy.fmin, dense_labels=True, identity=numpy.inf)
-    [[  0.   1.]
-     [ inf  inf]
-     [  4.   5.]
-     [  6.   7.]
-     [  8.   9.]
-     [ 10.  11.]
-     [ 12.  13.]
-     [ 14.  15.]
-     [ 16.  17.]
-     [ 18.  19.]]
-
+    labels : array_like ('i8')
+        The new labels of particles. Note that this is ordered
+        by the size of halo, with the exception 0 represents all
+        particles that are in halos that contain less than thresh particles.
+    
     """
-    # dense labels
-    if not dense_labels:
-        junk, labels = numpy.unique(labels, return_inverse=True)
-        del junk
-    N = numpy.bincount(labels)
-    offsets = numpy.concatenate([[0], N.cumsum()], axis=0)[:-1]
-    arg = labels.argsort()
-    if identity is None: identity = op.identity
-    if minlength is None:
-        minlength = len(N)
 
-    result = numpy.empty(minlength, dtype=(values.dtype, values.shape[1:]))
-    result[:len(N)] = op.reduceat(values[arg], offsets)
-
-    if (N == 0).any():
-        result[N == 0] = identity
-
-    if minlength is not None and len(N) < minlength:
-        result[len(N):] = identity
-
-    return result
-
-def replacesorted(arr, sorted, b, out=None):
-    """
-    replace a with corresponding b in arr
-
-    Parameters
-    ----------
-    arr : array_like
-        input array
-    sorted   : array_like 
-        sorted
-
-    b   : array_like
-
-    out : array_like,
-        output array
-    Result
-    ------
-    newarr  : array_like
-        arr with a replaced by corresponding b
-
-    Examples
-    --------
-    >>> print replacesorted(numpy.arange(10), numpy.arange(5), numpy.ones(5))
-    [1 1 1 1 1 5 6 7 8 9]
-
-    """
-    if out is None:
-        out = arr.copy()
-    if len(sorted) == 0:
-        return out
-    ind = sorted.searchsorted(arr)
-    ind.clip(0, len(sorted) - 1, out=ind)
-    arr = numpy.array(arr)
-    found = sorted[ind] == arr
-    out[found] = b[ind[found]]
-    return out
-
-def densify(minid, comm, thresh):
+    
     Nitem = len(minid)
 
     data = numpy.empty(Nitem, dtype=[
@@ -175,6 +105,17 @@ def densify(minid, comm, thresh):
     
     label = data['minid'].local.copy().view('i8')
 
+    Nhalo0 = max(comm.allgather(label.max())) + 1
+
+    Nlocal = numpy.bincount(label, minlength=Nhalo0)
+    comm.Allreduce(MPI.IN_PLACE, Nlocal, op=MPI.SUM)
+
+    # sort the labels by halo size
+    arg = Nlocal[1:].argsort()[::-1] + 1
+    P = numpy.arange(Nhalo0)
+    P[arg] = numpy.arange(len(arg)) + 1
+    label = P[label]
+        
     return label
 
 def main():
@@ -248,42 +189,14 @@ def main():
 
     minid = layout.gather(minid, mode=numpy.fmin)
 
-    label = densify(minid, comm, thresh=32)
+    label = assign_halo_label(minid, comm, thresh=32) 
 
-    Nhalo0 = max(comm.allgather(label.max())) + 1
+    N = halos.count(label, comm=comm)
 
     if comm.rank == 0:
-        print 'total halos is', Nhalo0
+        print 'total halos is', len(N)
 
-    # size of halos
-    N = numpy.bincount(label.view(dtype='i8'), minlength=Nhalo0)
-    comm.Allreduce(MPI.IN_PLACE, N, op=MPI.SUM)
-    # N[0] is nonhalo
-
-    # sort the labels by halo size
-    arg = N[1:].argsort()[::-1] + 1
-    P = numpy.arange(Nhalo0)
-    P[arg] = numpy.arange(len(arg)) + 1
-    label = P[label]
-        
-    del P
-
-    # redo again
-    N = numpy.bincount(label, minlength=Nhalo0)
-    comm.Allreduce(MPI.IN_PLACE, N, op=MPI.SUM)
-
-    # do center of mass
-    posmin = equiv_class(label, pos, op=numpy.fmin, dense_labels=True, identity=numpy.inf,
-                    minlength=len(N))
-    comm.Allreduce(MPI.IN_PLACE, posmin, op=MPI.MIN)
-    dpos = pos - posmin[label]
-    dpos[dpos < -0.5] += 1.0
-    dpos[dpos >= 0.5] -= 1.0
-    dpos = equiv_class(label, dpos, op=numpy.add, dense_labels=True, minlength=len(N))
-    
-    comm.Allreduce(MPI.IN_PLACE, dpos, op=MPI.SUM)
-    dpos /= N[:, None]
-    hpos = posmin + dpos
+    hpos = halos.centerofmass(label, pos, boxsize=1.0, comm=comm)
 
     if comm.rank == 0:
         print N
@@ -291,10 +204,11 @@ def main():
         print 'total particles', N.sum()
         print 'above 32', (N > 32).sum()
 
-    with open(ns.output + '.halo', 'w') as ff:
-        numpy.int32(len(N)).tofile(ff)
-        numpy.int32(N).tofile(ff)
-        numpy.float32(hpos).tofile(ff)
+        with open(ns.output + '.halo', 'w') as ff:
+            numpy.int32(len(N)).tofile(ff)
+            numpy.int32(N).tofile(ff)
+            numpy.float32(hpos).tofile(ff)
+        print hpos
     del N
     del hpos
 
@@ -302,7 +216,7 @@ def main():
     if comm.rank == 0:
         snapshot = Snapshot(ns.filename,TPMSnapshotFile)
         for i in range(len(snapshot.npart)):
-            with open(ns.output + 'grp.%02d' % i, 'w') as ff:
+            with open(ns.output + '.grp.%02d' % i, 'w') as ff:
                 pass
         npart = snapshot.npart
     npart = comm.bcast(npart)
@@ -320,7 +234,7 @@ def main():
         if mystart >= npart[i] : continue
         if myend > npart[i]: myend = npart[i]
         if mystart < 0: mystart = 0
-        with open(ns.output + 'grp.%02d' % i, 'r+') as ff:
+        with open(ns.output + '.grp.%02d' % i, 'r+') as ff:
             ff.seek(mystart * 4, 1)
             label[written:written + myend - mystart].tofile(ff)
         written += myend - mystart

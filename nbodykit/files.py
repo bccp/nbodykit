@@ -213,3 +213,49 @@ def read(comm, filename, filetype, columns=['Position', 'ID'], bunchsize=None):
         yield P
         i = i + bunchsize
 
+
+class HaloFile(object):
+    """
+    nbodykit halo catalogue file
+
+    Attributes
+    ----------
+    nhalo : int
+        Number of halos in the file
+    
+    """
+    def __init__(self, filename):
+        self.filename = filename
+        self.nhalo = int(numpy.fromfile(self.filename, 'i4', 1)[0])
+
+    def read(self, column):
+        """
+        Read a data column from the catalogue
+
+        Parameters
+        ----------
+        column : string
+            column to read: CenterOfMass or Mass
+        
+        Returns
+        -------
+            the data column; all halos are returned.
+
+        """
+        if column == 'CenterOfMass':
+            return self.read_pos()
+        elif column == 'Mass':
+            return self.read_mass()
+        else:
+            raise KeyError("column `%s' unknown" % str(column))
+
+    def read_mass(self):
+        with open(self.filename, 'r') as ff:
+            ff.seek(4, 0)
+            return numpy.fromfile(ff, count=self.nhalo, dtype='i4')
+
+    def read_pos(self):
+        with open(self.filename, 'r') as ff:
+            ff.seek(4 + self.nhalo * 4, 0)
+            return numpy.fromfile(ff, count=self.nhalo, dtype=('f4', 3))
+
