@@ -20,6 +20,8 @@ parser.add_argument("icfilename",
         help='basename of the ic, only runpb format is supported in this script')
 parser.add_argument("snapfilename", 
         help='basename of the snapshot, only runpb format is supported in this script')
+parser.add_argument("halolabel", 
+        help='basename of the halo label files, only nbodykit format is supported in this script')
 parser.add_argument("output", help='write output to this file')
 
 ns = parser.parse_args()
@@ -27,7 +29,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 import numpy
 import nbodykit
-from nbodykit.files import TPMSnapshotFile, read, Snapshot
+from nbodykit import files
 from nbodykit import halos
 
 import mpsort
@@ -35,9 +37,20 @@ from mpi4py import MPI
 
 def main():
     comm = MPI.COMM_WORLD
-    IC = Snapshot(ns.icfilename, TPMSnapshotFile)
-    SNAP = Snapshot(ns.snapfilename, TPMSnapshotFile)
+    IC, SNAP, LABEL = None, None, None
+    if comm.rank == 0:
+        IC = files.Snapshot(ns.icfilename, files.TPMSnapshotFile)
+        SNAP = files.Snapshot(ns.snapfilename, files.TPMSnapshotFile)
+        LABEL = files.Snapshot(ns.halolabel, files.HaloLabelFile)
+
+    IC = comm.bcast(IC)
+    SNAP = comm.bcast(SNAP)
+    LABEL = comm.bcast(LABEL)
+ 
     Ntot = sum(IC.npart)
+    assert Ntot == sum(SNAP.npart)
+    assert Ntot == sum(LABEL.npart)
+
     start = comm.rank * Ntot  // comm.size
     end   = (comm.rank + 1)* Ntot  // comm.size
     data = numpy.empty(end - start, dtype=[
@@ -45,7 +58,7 @@ def main():
                 ('ID', ('i8')), 
                 ])
     data['ID'] = SNAP.read("ID", start, end)
-    data['Label'] = SNAP.read("Label", start, end)
+    data['Label'] = LABEL.read("Label", start, end)
 
     mpsort.sort(data, orderby='ID')
 
@@ -69,9 +82,11 @@ def main():
     if comm.rank == 0:
         logging.info("Total number of halos: %d" % len(N))
         logging.info("N %s" % str(N))
+        LinkingLength = LABEL.get_file(0).linking_length
 
         with open(ns.output + '.ichalo', 'w') as ff:
             numpy.int32(len(N)).tofile(ff)
+            numpy.float32(LinkingLength).tofile(ff)
             numpy.int32(N).tofile(ff)
             numpy.float32(hpos).tofile(ff)
         print hpos

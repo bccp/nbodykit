@@ -67,28 +67,12 @@ class SnapshotFile:
         raise NotImplementedError
 
     def read_label(self, mystart, myend):
-        """
-        Read Group Label of particles
-
-        Parameters
-        ----------
-        mystart   : int
-            offset to start reading within this file. (inclusive)
-        myend     : int
-            offset to end reading within this file. (exclusive)
-
-        Returns
-        -------
-        label : array_like (myend - mystart)
-            group label of particles.
-
-        """
         raise NotImplementedError
 
 class TPMSnapshotFile(SnapshotFile):
     def __init__(self, basename, fid):
         self.filename = basename + ".%02d" % fid
-        self.grpfilename = basename + ".grp.%02d" % fid
+
         with open(self.filename, 'r') as ff:
             header = numpy.fromfile(ff, dtype='i4', count=7)
         self.header = header
@@ -112,18 +96,17 @@ class TPMSnapshotFile(SnapshotFile):
             ff.seek(mystart * 8, 1)
             return numpy.fromfile(ff, count=myend - mystart, dtype=('i8'))
 
-    def read_label(self, mystart, myend):
-        with open(self.grpfilename, 'r') as ff:
-            ff.seek(mystart * 4, 1)
-            return numpy.fromfile(ff, count=myend - mystart, dtype=('i4'))
-
 class Snapshot(object):
     def __init__(self, filename, filetype):
-        self.filename = filename
-        self.filetype = filetype
         self.npart = numpy.array(
             [ff.npart for ff in filetype.enum(filename)],
             dtype='i8')
+
+        self.filename = filename
+        self.filetype = filetype
+
+    def get_file(self, i):
+        return self.filetype(self.filename, i)
 
     def read(self, column, start, end):
         """this function provides a continuous view of multiple files"""
@@ -213,6 +196,29 @@ def read(comm, filename, filetype, columns=['Position', 'ID'], bunchsize=None):
         yield P
         i = i + bunchsize
 
+class HaloLabelFile(SnapshotFile):
+    """
+    nbodykit halo label file
+
+    Attributes
+    ----------
+    npart : int
+        Number of particles in this file
+    linking_length : float
+        linking length. For example, 0.2 or 0.168
+        
+    """
+    def __init__(self, filename, fid):
+        self.filename = filename + ".grp.%02d" % fid
+        with open(self.filename, 'r') as ff:
+            self.npart = numpy.fromfile(ff, 'i4', 1)
+            self.linking_length = numpy.fromfile(ff, 'f4', 1)
+    def read_label(self, mystart, myend):
+        with open(self.filename, 'r') as ff:
+            ff.seek(8)
+            ff.seek(mystart * 4, 1)
+            return numpy.fromfile(ff, 'i4', count=myend-mystart)
+            
 
 class HaloFile(object):
     """
@@ -226,7 +232,9 @@ class HaloFile(object):
     """
     def __init__(self, filename):
         self.filename = filename
-        self.nhalo = int(numpy.fromfile(self.filename, 'i4', 1)[0])
+        with open(self.filename, 'r') as ff:
+            self.nhalo = int(numpy.fromfile(ff, 'i4', 1)[0])
+            self.linking_length = float(numpy.fromfile(ff, 'f4', 1)[0])
 
     def read(self, column):
         """
@@ -251,11 +259,11 @@ class HaloFile(object):
 
     def read_mass(self):
         with open(self.filename, 'r') as ff:
-            ff.seek(4, 0)
+            ff.seek(8, 0)
             return numpy.fromfile(ff, count=self.nhalo, dtype='i4')
 
     def read_pos(self):
         with open(self.filename, 'r') as ff:
-            ff.seek(4 + self.nhalo * 4, 0)
+            ff.seek(8 + self.nhalo * 4, 0)
             return numpy.fromfile(ff, count=self.nhalo, dtype=('f4', 3))
 

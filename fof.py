@@ -206,6 +206,7 @@ def main():
 
         with open(ns.output + '.halo', 'w') as ff:
             numpy.int32(len(N)).tofile(ff)
+            numpy.float32(ns.LinkingLength).tofile(ff)
             numpy.int32(N).tofile(ff)
             numpy.float32(hpos).tofile(ff)
         print hpos
@@ -215,10 +216,12 @@ def main():
     npart = None
     if comm.rank == 0:
         snapshot = Snapshot(ns.filename,TPMSnapshotFile)
+        npart = snapshot.npart
         for i in range(len(snapshot.npart)):
             with open(ns.output + '.grp.%02d' % i, 'w') as ff:
+                numpy.int32(npart[i]).tofile(ff)
+                numpy.float32(ns.LinkingLength).tofile(ff)
                 pass
-        npart = snapshot.npart
     npart = comm.bcast(npart)
 
     start = sum(comm.allgather(len(label))[:comm.rank])
@@ -235,6 +238,7 @@ def main():
         if myend > npart[i]: myend = npart[i]
         if mystart < 0: mystart = 0
         with open(ns.output + '.grp.%02d' % i, 'r+') as ff:
+            ff.seek(8, 0)
             ff.seek(mystart * 4, 1)
             label[written:written + myend - mystart].tofile(ff)
         written += myend - mystart
