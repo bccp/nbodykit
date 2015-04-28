@@ -31,6 +31,26 @@ Then build with
 
 It may take a while to build fftw and pfft.
 
+.. note::
+
+    On Edison, remember to unload darshan
+
+        module unload darshan
+
+    and preferentially, load PrgEnv-gnu
+
+        module unload PrgEnv-intel
+        module unload PrgEnv-gray
+        module load PrgEnv-gnu
+
+    then load python
+
+        module load python
+        module load cython
+        module load numpy
+        module load mpi4py
+
+
 Packages are ready to use after importing the nbodykit namespace.
 
 .. code:: python
