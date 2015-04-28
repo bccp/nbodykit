@@ -31,19 +31,25 @@ Then build with
 
 It may take a while to build fftw and pfft.
 
-.. note::
+.. attention:: Edison Notes
 
     On Edison, remember to unload darshan
+
+    .. code::
 
         module unload darshan
 
     and preferentially, load PrgEnv-gnu
+
+    .. code::
 
         module unload PrgEnv-intel
         module unload PrgEnv-gray
         module load PrgEnv-gnu
 
     then load python
+
+    .. code::
 
         module load python
         module load cython
