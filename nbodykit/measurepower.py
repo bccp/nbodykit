@@ -96,11 +96,9 @@ def measurepower(pm, binshift=0.0, remove_cic="anisotropic", shotnoise=0.0):
     chain.append(PowerSpectrum)
         
     # measure the raw power spectrum, nothing is removed.
-    pm.push()
     pm.transfer(chain)
     kout = wout * pm.Nmesh / pm.BoxSize
     psout *= (pm.BoxSize) ** 3
-    pm.pop()
 
     if remove_cic == 'isotropic':
         tmp = 1.0 - 0.666666667 * numpy.sin(wout * 0.5) ** 2
