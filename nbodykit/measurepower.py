@@ -46,43 +46,46 @@ def measurepower(pm, binshift=0.0, remove_cic="anisotropic", shotnoise=0.0):
 
         w2edges = wedges ** 2
 
-        # pickup the singular plane that is single counted (r2c transform)
-        singular = w[-1] == 0
+        P = numpy.zeros(len(psout))
+        N = numpy.zeros(len(psout))
+        for row in range(complex.shape[0]):
+            # pickup the singular plane that is single counted (r2c transform)
+            singular = w[0][-1] == 0
 
-        scratch = 0.0
-        for wi in w:
-            scratch = scratch + wi ** 2
+            scratch = w[0][row] ** 2
+            for wi in w[1:]:
+                scratch = scratch + wi[0] ** 2
 
-        # now scratch stores w ** 2
-        dig = numpy.digitize(scratch.flat, w2edges)
+            # now scratch stores w ** 2
+            dig = numpy.digitize(scratch.flat, w2edges)
 
-        # take the sum of w
-        scratch **= 0.5
-        # the singular plane is down weighted by 0.5
-        scratch[singular] *= 0.5
+            # take the sum of w
+            scratch **= 0.5
+            # the singular plane is down weighted by 0.5
+            scratch[singular] *= 0.5
 
-        wsum = numpy.bincount(dig, weights=scratch.flat, minlength=wout.size + 2)[1: -1]
-        wsum = comm.allreduce(wsum, MPI.SUM)
+            wsum = numpy.bincount(dig, weights=scratch.flat, minlength=wout.size + 2)[1: -1]
+            wsum = comm.allreduce(wsum, MPI.SUM)
 
-        # take the sum of weights
-        scratch[...] = 1.0
-        # the singular plane is down weighted by 0.5
-        scratch[singular] = 0.5
+            # take the sum of weights
+            scratch[...] = 1.0
+            # the singular plane is down weighted by 0.5
+            scratch[singular] = 0.5
 
-        N = numpy.bincount(dig, weights=scratch.flat, minlength=wout.size + 2)[1: -1]
-        N = comm.allreduce(N, MPI.SUM)
+            N1 = numpy.bincount(dig, weights=scratch.flat, minlength=wout.size + 2)[1: -1]
+            N += comm.allreduce(N1, MPI.SUM)
 
-        # take the sum of power
-        numpy.abs(complex, out=scratch)
-        scratch[...] **= 2.0
-        # the singular plane is down weighted by 0.5
-        scratch[singular] *= 0.5
+            # take the sum of power
+            numpy.abs(complex[row], out=scratch)
+            scratch[...] **= 2.0
+            # the singular plane is down weighted by 0.5
+            scratch[singular] *= 0.5
 
-        P = numpy.bincount(dig, weights=scratch.flat, minlength=wout.size + 2)[1: -1]
-        P = comm.allreduce(P, MPI.SUM)
+            P1 = numpy.bincount(dig, weights=scratch.flat, minlength=wout.size + 2)[1: -1]
+            P += comm.allreduce(P1, MPI.SUM)
 
-        psout[:] = P / N 
-        wout[:] = wsum / N
+            psout[:] = P / N 
+            wout[:] = wsum / N
 
 
     chain = [
