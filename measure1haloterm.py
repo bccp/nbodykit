@@ -17,14 +17,14 @@ parser = ArgumentParser("Measuring 1 halo term",
 
 parser.add_argument("snapfilename", 
         help='basename of the snapshot, only runpb format is supported in this script')
-parser.add_argument("boxsize", 
-        help='size of box', type=float)
-parser.add_argument("Nmesh", 
-        help='Nmesh', type=int)
 parser.add_argument("halolabel", 
         help='basename of the halo label files, only nbodykit format is supported in this script')
 parser.add_argument("halocatalogue", 
         help='halocatalogue')
+parser.add_argument("boxsize", 
+        help='size of box', type=float)
+parser.add_argument("Nmesh", 
+        help='Nmesh', type=int)
 parser.add_argument("output", help='write output to this file')
 
 ns = parser.parse_args()
@@ -92,7 +92,7 @@ def main():
     
     ul = numpy.unique(data['Label'])
 
-    bins = correlate.RBinning(40./ ns.boxsize, Nbins=Nmesh)
+    bins = correlate.RBinning(40./ ns.boxsize, Nbins=ns.Nmesh)
     sum1 = numpy.zeros(len(bins.centers))
 
     for l in ul:
