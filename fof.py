@@ -23,6 +23,7 @@ parser.add_argument("filename",
 parser.add_argument("LinkingLength", type=float, 
         help='LinkingLength in mean separation (0.2)')
 parser.add_argument("output", help='output file')
+parser.add_argument("--nmin", type=float, default=32, help='minimum number of particles in a halo')
 
 ns = parser.parse_args()
 logging.basicConfig(level=logging.DEBUG)
@@ -189,7 +190,7 @@ def main():
 
     minid = layout.gather(minid, mode=numpy.fmin)
 
-    label = assign_halo_label(minid, comm, thresh=32) 
+    label = assign_halo_label(minid, comm, thresh=ns.nmin) 
 
     N = halos.count(label, comm=comm)
 
@@ -202,7 +203,7 @@ def main():
         print N
         print 'total groups', N.shape
         print 'total particles', N.sum()
-        print 'above 32', (N > 32).sum()
+        print 'above ', ns.nmin, (N >ns.nmin).sum()
 
         with open(ns.output + '.halo', 'w') as ff:
             numpy.int32(len(N)).tofile(ff)
