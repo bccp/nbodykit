@@ -22,7 +22,7 @@ parser.add_argument("filename",
         help='basename of the input, only runpb format is supported in this script')
 parser.add_argument("LinkingLength", type=float, 
         help='LinkingLength in mean separation (0.2)')
-parser.add_argument("output", help='output file')
+parser.add_argument("output", help='output file; output.grp.N and output.halo are written')
 parser.add_argument("--nmin", type=float, default=32, help='minimum number of particles in a halo')
 
 ns = parser.parse_args()
