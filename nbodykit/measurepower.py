@@ -46,6 +46,7 @@ def measurepower(pm, binshift=0.0, remove_cic="anisotropic", shotnoise=0.0):
 
         w2edges = wedges ** 2
 
+        wsum = numpy.zeros(len(psout))
         P = numpy.zeros(len(psout))
         N = numpy.zeros(len(psout))
         for row in range(complex.shape[0]):
@@ -64,8 +65,8 @@ def measurepower(pm, binshift=0.0, remove_cic="anisotropic", shotnoise=0.0):
             # the singular plane is down weighted by 0.5
             scratch[singular] *= 0.5
 
-            wsum = numpy.bincount(dig, weights=scratch.flat, minlength=wout.size + 2)[1: -1]
-            wsum = comm.allreduce(wsum, MPI.SUM)
+            wsum1 = numpy.bincount(dig, weights=scratch.flat, minlength=wout.size + 2)[1: -1]
+            wsum += comm.allreduce(wsum1, MPI.SUM)
 
             # take the sum of weights
             scratch[...] = 1.0
