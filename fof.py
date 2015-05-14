@@ -204,7 +204,7 @@ def main():
         print 'total groups', N.shape
         print 'total particles', N.sum()
         print 'above ', ns.nmin, (N >ns.nmin).sum()
-
+        N[0] = -1
         with open(ns.output + '.halo', 'w') as ff:
             numpy.int32(len(N)).tofile(ff)
             numpy.float32(ns.LinkingLength).tofile(ff)
