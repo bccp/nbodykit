@@ -4,7 +4,7 @@ from pypm.particlemesh import ParticleMesh
 from pypm.transfer import TransferFunction
 from mpi4py import MPI
 
-def measurepower(pm, binshift=0.0, remove_cic="anisotropic", shotnoise=0.0):
+def measurepower(pm, complex, binshift=0.0, remove_cic="anisotropic", shotnoise=0.0):
     """ Measure power spectrum from density field painted on pm 
 
         The power spectrum is measured in bins of k, from 0 to the Nyquist (Nmesh / 2)
@@ -12,6 +12,12 @@ def measurepower(pm, binshift=0.0, remove_cic="anisotropic", shotnoise=0.0):
 
         Parameters
         ----------
+        pm : ParticleMesh
+            A particle mesh object
+
+        complex: array_like
+            the complex fourier space field to measure power from.
+
         binshift   : float
             shift the center of bins by this fraction if a bin width
         remove_cic : string
@@ -28,8 +34,8 @@ def measurepower(pm, binshift=0.0, remove_cic="anisotropic", shotnoise=0.0):
         After the measurement the density field is destroyed.
 
     """
-    pm.r2c()
-    
+    pm.complex[:] = complex
+ 
     def AnisotropicCIC(complex, w):
         for wi in w:
             tmp = (1 - 2. / 3 * numpy.sin(0.5 * wi) ** 2) ** 0.5

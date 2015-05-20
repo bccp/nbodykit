@@ -49,9 +49,8 @@ from pypm.transfer import TransferFunction
 
 from mpi4py import MPI
 
-def main():
-    pm = ParticleMesh(ns.BoxSize, ns.Nmesh)
-
+def paint_darkmatter(pm, filename, fileformat):
+    pm.real[:] = 0
     Ntot = 0
     for round, P in enumerate(read(pm.comm, ns.filename, TPMSnapshotFile, 
                 columns=['Position'], bunchsize=ns.bunchsize)):
@@ -65,13 +64,21 @@ def main():
         if pm.comm.rank == 0:
             logging.info('round %d, npaint %d, nread %d' % (round, npaint, nread))
         Ntot = Ntot + nread
+    return Ntot
+
+def main():
+    pm = ParticleMesh(ns.BoxSize, ns.Nmesh)
+
+    Ntot = paint_darkmatter(pm, ns.filename, TPMSnapshotFile)
 
     if ns.remove_shotnoise:
         shotnoise = pm.BoxSize ** 3 / Ntot
     else:
         shotnoise = 0
 
-    k, p = measurepower(pm, ns.binshift, ns.remove_cic, shotnoise)
+    pm.r2c()
+
+    k, p = measurepower(pm, pm.complex, ns.binshift, ns.remove_cic, shotnoise)
 
     if pm.comm.rank == 0:
         if ns.output != '-':

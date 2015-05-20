@@ -54,17 +54,15 @@ from itertools import izip
 
 from mpi4py import MPI
 
-def main():
-    pm = ParticleMesh(ns.BoxSize, ns.Nmesh)
+def paint_halos(pm, halocatalogue, BoxSize, m0, massmin, massmax):
     if pm.comm.rank == 0:
-        
-        hf = files.HaloFile(ns.halocatalogue)
+        hf = files.HaloFile(halocatalogue)
         nhalo = hf.nhalo
         halopos = numpy.float32(hf.read_pos())
-        halomass = numpy.float32(hf.read_mass() * ns.m0)
+        halomass = numpy.float32(hf.read_mass() * m0)
         logmass = numpy.log10(halomass)
-        mask = logmass > ns.massmin
-        mask &= logmass < ns.massmax
+        mask = logmass > massmin
+        mask &= logmass < massmax
         print logmass
         halopos = halopos[mask]
         logging.info("total number of halos in mass range is %d" % mask.sum())
@@ -76,20 +74,28 @@ def main():
     P['Position'] = halopos
 
     Ntot = len(halopos)
-    P['Position'] *= ns.BoxSize
+    P['Position'] *= BoxSize
 
     layout = pm.decompose(P['Position'])
     tpos = layout.exchange(P['Position'])
     pm.paint(tpos)
 
     npaint = pm.comm.allreduce(len(tpos), op=MPI.SUM) 
+    return Ntot
+
+def main():
+    pm = ParticleMesh(ns.BoxSize, ns.Nmesh)
+
+    Ntot = paint_halos(pm, ns.halocatalogue, ns.BoxSize, ns.m0, ns.massmin, ns.massmax)
 
     if ns.remove_shotnoise:
         shotnoise = pm.BoxSize ** 3 / Ntot
     else:
         shotnoise = 0
 
-    k, p = measurepower(pm, ns.binshift, ns.remove_cic, shotnoise)
+    pm.r2c()
+
+    k, p = measurepower(pm, pm.complex, ns.binshift, ns.remove_cic, shotnoise)
 
     if pm.comm.rank == 0:
         if ns.output != '-':
