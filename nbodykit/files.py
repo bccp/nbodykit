@@ -76,7 +76,7 @@ class TPMSnapshotFile(SnapshotFile):
         with open(self.filename, 'r') as ff:
             header = numpy.fromfile(ff, dtype='i4', count=7)
         self.header = header
-        self.npart = header[2]
+        self.npart = int(header[2])
 
     def read_pos(self, mystart, myend):
         with open(self.filename, 'r') as ff:
