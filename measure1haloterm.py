@@ -56,15 +56,19 @@ def main():
 
     N = h.read_mass()
 
+    N0 = Ntot - sum(N[1:])
     # halos are assigned to ranks 0, 1, 2, 3 ...
     halorank = numpy.arange(len(N)) % comm.size
     # but non halos are special we will fix it later.
     halorank[0] = -1
 
-    NonhaloStart = comm.rank * numpy.int64(N[0]) // comm.size
-    NonhaloEnd   = (comm.rank + 1)* numpy.int64(N[0]) // comm.size
+    NonhaloStart = comm.rank * int(N0) // comm.size
+    NonhaloEnd   = (comm.rank + 1)* int(N0) // comm.size
 
     myNtotal = numpy.sum(N[halorank == comm.rank], dtype='i8') + (NonhaloEnd - NonhaloStart)
+
+    print("Rank %d NonhaloStart %d NonhaloEnd %d myNtotal %d" %
+            (comm.rank, NonhaloStart, NonhaloEnd, myNtotal))
 
     data = numpy.empty(myNtotal, dtype=[
                 ('Position', ('f4', 3)), 
@@ -103,10 +107,12 @@ def main():
         dataset = correlate.points(pos, boxsize=1.0)
         result = correlate.paircount(dataset, dataset, bins, np=0)
         sum1 += result.sum1
+        if l % 1000 == 0:
+            print l
 
     sum1 = comm.allreduce(sum1, MPI.SUM)
     Ntot = sum(SNAP.npart)
-    RR = 4. / 3 * numpy.pi * numpy.diff(bins.edges**3) * (Ntot *Ntot)
+    RR = 4. / 3 * numpy.pi * numpy.diff(bins.edges**3) * (1.0 * Ntot *Ntot)
 
     k = numpy.arange(ns.Nmesh // 2) * 2 * numpy.pi / ns.boxsize
     # asymtotically zero at r. The mean doesn't matter as 
@@ -119,6 +125,9 @@ def main():
 
         if ns.output != '-':
             ff = open(ns.output, 'w')
+            ff2 = open(ns.output +'.xi' , 'w')
+            with ff2:
+                numpy.savetxt(ff2, zip(bins.centers, sum1 / RR - 1.0))
         else:
             ff = stdout
         with ff:
