@@ -54,7 +54,7 @@ from itertools import izip
 from mpi4py import MPI
 
 def main():
-    pm = ParticleMesh(ns.BoxSize, ns.Nmesh)
+    pm = ParticleMesh(ns.BoxSize, ns.Nmesh, dtype='f4')
     if pm.comm.rank == 0:
         
         hf = files.HaloFile(ns.halocatalogue)

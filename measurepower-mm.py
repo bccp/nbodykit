@@ -71,7 +71,7 @@ def main():
     if MPI.COMM_WORLD.rank == 0:
         print 'importing done'
 
-    pm = ParticleMesh(ns.BoxSize, ns.Nmesh)
+    pm = ParticleMesh(ns.BoxSize, ns.Nmesh, dtype='f4')
 
     Ntot = paint_darkmatter(pm, ns.filename1, TPMSnapshotFile)
 
