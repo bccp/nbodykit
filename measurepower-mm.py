@@ -75,16 +75,30 @@ def main():
 
     Ntot = paint_darkmatter(pm, ns.filename1, TPMSnapshotFile)
 
+    if MPI.COMM_WORLD.rank == 0:
+        print 'painting done'
     pm.r2c()
+    if MPI.COMM_WORLD.rank == 0:
+        print 'r2c done'
 
     complex = pm.complex.copy()
     numpy.conjugate(complex, out=complex)
 
     Ntot = paint_darkmatter(pm, ns.filename2, TPMSnapshotFile)
+    if MPI.COMM_WORLD.rank == 0:
+        print 'painting 2 done'
     pm.r2c()
+    if MPI.COMM_WORLD.rank == 0:
+        print 'r2c 2 done'
     complex *= pm.complex
     complex **= 0.5
+
+    if MPI.COMM_WORLD.rank == 0:
+        print 'cross done'
     k, p = measurepower(pm, complex, ns.binshift, ns.remove_cic, 0)
+
+    if MPI.COMM_WORLD.rank == 0:
+        print 'measure'
 
     if pm.comm.rank == 0:
         if ns.output != '-':

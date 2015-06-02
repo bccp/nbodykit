@@ -81,8 +81,13 @@ def main():
         shotnoise = 0
 
     pm.r2c()
+    if MPI.COMM_WORLD.rank == 0:
+        print 'r2c done'
 
     k, p = measurepower(pm, pm.complex, ns.binshift, ns.remove_cic, shotnoise)
+
+    if MPI.COMM_WORLD.rank == 0:
+        print 'measure power done'
 
     if pm.comm.rank == 0:
         if ns.output != '-':
