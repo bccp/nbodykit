@@ -59,7 +59,7 @@ def measurepower(pm, complex, binshift=0.0, remove_cic="anisotropic", shotnoise=
             # pickup the singular plane that is single counted (r2c transform)
             singular = w[0][-1] == 0
 
-            scratch = w[0][row] ** 2
+            scratch = numpy.float64(w[0][row] ** 2)
             for wi in w[1:]:
                 scratch = scratch + wi[0] ** 2
 
@@ -72,7 +72,7 @@ def measurepower(pm, complex, binshift=0.0, remove_cic="anisotropic", shotnoise=
             scratch[singular] *= 0.5
 
             wsum1 = numpy.bincount(dig, weights=scratch.flat, minlength=wout.size + 2)[1: -1]
-            wsum += comm.allreduce(wsum1, MPI.SUM)
+            wsum += wsum1
 
             # take the sum of weights
             scratch[...] = 1.0
@@ -80,7 +80,7 @@ def measurepower(pm, complex, binshift=0.0, remove_cic="anisotropic", shotnoise=
             scratch[singular] = 0.5
 
             N1 = numpy.bincount(dig, weights=scratch.flat, minlength=wout.size + 2)[1: -1]
-            N += comm.allreduce(N1, MPI.SUM)
+            N += N1
 
             # take the sum of power
             numpy.abs(complex[row], out=scratch)
@@ -89,10 +89,14 @@ def measurepower(pm, complex, binshift=0.0, remove_cic="anisotropic", shotnoise=
             scratch[singular] *= 0.5
 
             P1 = numpy.bincount(dig, weights=scratch.flat, minlength=wout.size + 2)[1: -1]
-            P += comm.allreduce(P1, MPI.SUM)
+            P += P1
 
-            psout[:] = P / N 
-            wout[:] = wsum / N
+        wsum = comm.allreduce(wsum, MPI.SUM)
+        P = comm.allreduce(P, MPI.SUM)
+        N = comm.allreduce(N, MPI.SUM)
+
+        psout[:] = P / N 
+        wout[:] = wsum / N
 
 
     chain = [
