@@ -74,6 +74,8 @@ def paint_halos(pm, halocatalogue, BoxSize, m0, massmin, massmax):
     P['Position'] = halopos
 
     Ntot = len(halopos)
+    Ntot = comm.bcast(Ntot)
+
     P['Position'] *= BoxSize
 
     layout = pm.decompose(P['Position'])
