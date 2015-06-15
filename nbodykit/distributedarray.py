@@ -2,26 +2,13 @@ import numpy
 import mpsort
 from mpi4py import MPI
 
-class DistributedArray(object):
-    """
-    Distributed Array Object
-
-    A distributed array is striped along ranks
-
-    Attributes
-    ----------
-    comm : :py:class:`mpi4py.MPI.Comm`
-        the communicator
-
-    local : array_like
-        the local data
-
-    """
-    def __init__(self, local, comm=MPI.COMM_WORLD):
+class LinearTopology(object):
+    """ Helper object for the topology of a distributed array 
+    """ 
+    def __init__(self, local, comm):
         self.local = local
         self.comm = comm
 
-    @property
     def heads(self):
         head = None
         if len(self.local) > 0:
@@ -29,7 +16,6 @@ class DistributedArray(object):
 
         return self.comm.allgather(head)
 
-    @property
     def tails(self):
         tail = None
         if len(self.local) > 0:
@@ -37,7 +23,7 @@ class DistributedArray(object):
 
         return self.comm.allgather(tail)
 
-    def ring(self):
+    def prev(self):
         """
         The item before and the item after the local data.
 
@@ -57,9 +43,21 @@ class DistributedArray(object):
 
         """
 
+        tails = [None]
+        oldtail = None
+        for tail in self.tails():
+            if tail is None:
+                tails.append(oldtail)
+            else:
+                tails.append(tail)
+                oldtail = tail
+        prev = tails[self.comm.rank]
+        return prev
+
+    def next(self):
         heads = []
         oldhead = None
-        for head in self.heads:
+        for head in self.heads():
             if head is None:
                 heads.append(oldhead)
             else:
@@ -67,19 +65,30 @@ class DistributedArray(object):
                 oldhead = head
         heads.append(None)
 
-        tails = [None]
-        oldtail = None
-        for tail in self.tails:
-            if tail is None:
-                tails.append(oldtail)
-            else:
-                tails.append(tail)
-                oldtail = tail
-
-        prev = tails[self.comm.rank]
         next = heads[self.comm.rank + 1]
-        return prev, next
+        return next
     
+
+class DistributedArray(object):
+    """
+    Distributed Array Object
+
+    A distributed array is striped along ranks
+
+    Attributes
+    ----------
+    comm : :py:class:`mpi4py.MPI.Comm`
+        the communicator
+
+    local : array_like
+        the local data
+
+    """
+    def __init__(self, local, comm=MPI.COMM_WORLD):
+        self.local = local
+        self.comm = comm
+        self.topology = LinearTopology(local, comm)
+
     def sort(self, orderby=None):
         """
         Sort array globally by key orderby.
@@ -92,7 +101,7 @@ class DistributedArray(object):
     def __getitem__(self, key):
         return DistributedArray(self.local[key], self.comm)
 
-    def unique(self):
+    def unique_labels(self):
         """
         Assign unique labels to sorted local. 
 
@@ -106,12 +115,15 @@ class DistributedArray(object):
             the new labels, starting from 0
 
         """
-        prev, next = self.ring()
+        prev, next = self.topology.prev(), self.topology.next()
          
         junk, label = numpy.unique(self.local, return_inverse=True)
         if len(self.local) == 0:
             Nunique = 0
         else:
+            # watch out: this is to make sure after shifting first 
+            # labels on the next rank is the same as my last label
+            # when there is a spill-over.
             if next == self.local[-1]:
                 Nunique = len(junk) - 1
             else:
@@ -144,7 +156,7 @@ class DistributedArray(object):
         if the local array is [ (0, 0), (0, 1)], 
         Then the counts array is [ (3, ), (3, 1)]
         """
-        prev, next = self.ring()
+        prev, next = self.topology.prev(), self.topology.next()
         if prev is not None:
             offset = prev
             if len(self.local) > 0:
@@ -153,18 +165,16 @@ class DistributedArray(object):
         else:
             offset = 0
 
-        self.local -= offset
-        N = numpy.bincount(self.local)
-        self.local += offset
+        N = numpy.bincount(self.local - offset)
 
         if local:
             return N
 
-        heads = self.heads
-        tails = self.tails
+        heads = self.topology.heads()
+        tails = self.topology.tails()
 
         distN = DistributedArray(N, self.comm)
-        headsN, tailsN = distN.heads, distN.tails
+        headsN, tailsN = distN.topology.heads(), distN.topology.tails()
 
         if len(N) > 0:
             for i in reversed(range(self.comm.rank)):
@@ -194,7 +204,7 @@ def test():
     if d.comm.rank == 0:
         print 'new', a
 
-    u = d['key'].unique()
+    u = d['key'].unique_labels()
     a = d.comm.allgather(u.local)
     if d.comm.rank == 0:
         print 'unique', a

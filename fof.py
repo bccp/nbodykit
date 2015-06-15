@@ -72,39 +72,43 @@ def assign_halo_label(minid, comm, thresh):
 
     data = numpy.empty(Nitem, dtype=[
             ('origind', 'u8'), 
-            ('minid', 'u8'),
+            ('fofid', 'u8'),
             ])
+    # assign origind for recovery of ordering, since
+    # we need to work in sorted fofid 
     data['origind'] = sum(comm.allgather(Nitem)[:comm.rank]) \
             + numpy.arange(Nitem)
-    data['minid'] = minid
+    data['fofid'] = minid
     data = DistributedArray(data, comm)
 
-    data.sort('minid')
-
-    label = data['minid'].unique()
+    # first attempt is to assign fofid for each group
+    data.sort('fofid')
+    label = data['fofid'].unique_labels()
     
     N = label.bincount()
     
+    # now eliminate those with less than thresh particles
     small = N.local <= 32
 
     Nlocal = label.bincount(local=True)
+    # mask == True for particles in small halos
     mask = numpy.repeat(small, Nlocal)
  
     # globally shift halo id by one
     label.local += 1
     label.local[mask] = 0
 
-    data['minid'].local[:] = label.local[:]
+    data['fofid'].local[:] = label.local[:]
 
-    data.sort('minid')
+    data.sort('fofid')
 
-    label = data['minid'].unique() 
+    label = data['fofid'].unique_labels() 
 
-    data['minid'].local[:] = label.local[:]
+    data['fofid'].local[:] = label.local[:]
 
     data.sort('origind')
     
-    label = data['minid'].local.copy().view('i8')
+    label = data['fofid'].local.copy().view('i8')
 
     Nhalo0 = max(comm.allgather(label.max())) + 1
 

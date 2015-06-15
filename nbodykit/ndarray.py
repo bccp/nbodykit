@@ -18,6 +18,10 @@ def equiv_class(labels, values, op, dense_labels=False, identity=None, minlength
         the values of objects (len(labels), ...)
     op      : :py:class:`numpy.ufunc`
         the operation to apply
+    dense_labels: boolean
+        If the labels are already dense (from 0 to Nobjects - 1)
+        If False, :py:meth:`numpy.unique` is used to convert
+        the labels internally
 
     Returns
     -------
