@@ -2,6 +2,11 @@ import numpy
 import mpsort
 from mpi4py import MPI
 
+class EmptyRankType(object):
+    def __repr__(self):
+        return "EmptyRank"
+EmptyRank = EmptyRankType()
+
 class LinearTopology(object):
     """ Helper object for the topology of a distributed array 
     """ 
@@ -10,14 +15,31 @@ class LinearTopology(object):
         self.comm = comm
 
     def heads(self):
-        head = None
+        """
+        The first items on each rank. 
+        
+        Returns
+        -------
+        heads : list
+            a list of first items, EmptyRank is used for empty ranks
+        """
+
+        head = EmptyRank
         if len(self.local) > 0:
             head = self.local[0]
 
         return self.comm.allgather(head)
 
     def tails(self):
-        tail = None
+        """
+        The last items on each rank. 
+        
+        Returns
+        -------
+        tails: list
+            a list of last items, EmptyRank is used for empty ranks
+        """
+        tail = EmptyRank
         if len(self.local) > 0:
             tail = self.local[-1]
 
@@ -25,28 +47,24 @@ class LinearTopology(object):
 
     def prev(self):
         """
-        The item before and the item after the local data.
+        The item before the local data.
 
-        This method fetches the last item before the local data,
-        and the first item after the local data. If the rank before /
-        after current rank is empty, item before / after that rank is
-        used. 
+        This method fetches the last item before the local data.
+        If the rank before is empty, the rank before is used. 
 
-        If no item is before / after local data, None is set to prev, next
+        If no item is before this rank, EmptyRank is returned
 
         Returns
         -------
         prev : scalar
-            Item before local data, or None if all ranks before this rank is empty.
-        next : scalar
-            Item after local data, or None if all ranks after this rank is empty.
+            Item before local data, or EmptyRank if all ranks before this rank is empty.
 
         """
 
-        tails = [None]
-        oldtail = None
+        tails = [EmptyRank]
+        oldtail = EmptyRank
         for tail in self.tails():
-            if tail is None:
+            if tail is EmptyRank:
                 tails.append(oldtail)
             else:
                 tails.append(tail)
@@ -55,15 +73,30 @@ class LinearTopology(object):
         return prev
 
     def next(self):
+        """
+        The item after the local data.
+
+        This method the first item after the local data. 
+        If the rank after current rank is empty, 
+        item after that rank is used. 
+
+        If no item is after local data, EmptyRank is returned.
+
+        Returns
+        -------
+        next : scalar
+            Item after local data, or EmptyRank if all ranks after this rank is empty.
+
+        """
         heads = []
-        oldhead = None
+        oldhead = EmptyRank
         for head in self.heads():
-            if head is None:
+            if head is EmptyRank:
                 heads.append(oldhead)
             else:
                 heads.append(head)
                 oldhead = head
-        heads.append(None)
+        heads.append(EmptyRank)
 
         next = heads[self.comm.rank + 1]
         return next
@@ -156,8 +189,8 @@ class DistributedArray(object):
         if the local array is [ (0, 0), (0, 1)], 
         Then the counts array is [ (3, ), (3, 1)]
         """
-        prev, next = self.topology.prev(), self.topology.next()
-        if prev is not None:
+        prev = self.topology.prev()
+        if prev is not EmptyRank:
             offset = prev
             if len(self.local) > 0:
                 if prev != self.local[0]:
@@ -188,12 +221,14 @@ class DistributedArray(object):
 
 def test():
     comm = MPI.COMM_WORLD
-    local = numpy.empty((comm.rank + 1), 
+    local = numpy.empty((comm.rank), 
             dtype=[('key', 'u8'), ('value', 'u8'), ('rank', 'i8')])
     d = DistributedArray(local)
     local['key'] = numpy.arange(len(local))
     local['value'] = d.comm.rank * 10 + local['key']
     local['rank'] = d.comm.rank
+
+    print d.topology.heads()
 
     a = d.comm.allgather(d.local['key'])
     if d.comm.rank == 0:
