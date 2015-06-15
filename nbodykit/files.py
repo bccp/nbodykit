@@ -104,6 +104,8 @@ class Snapshot(object):
 
         self.filename = filename
         self.filetype = filetype
+        if len(self.npart) == 0:
+            raise IOError("No files were found under `%s`" % filename)
 
     def get_file(self, i):
         return self.filetype(self.filename, i)
