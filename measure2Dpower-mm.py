@@ -83,20 +83,25 @@ def main():
     if MPI.COMM_WORLD.rank == 0:
         print 'r2c done'
 
-    complex = pm.complex.copy()
-    numpy.conjugate(complex, out=complex)
+    if ns.filename1 != ns.filename2:
+        # cross power 
+        complex = pm.complex.copy()
+        numpy.conjugate(complex, out=complex)
 
-    Ntot = paint_darkmatter(pm, ns.filename2, TPMSnapshotFile)
-    if MPI.COMM_WORLD.rank == 0:
-        print 'painting 2 done'
-    pm.r2c()
-    if MPI.COMM_WORLD.rank == 0:
-        print 'r2c 2 done'
-    complex *= pm.complex
-    complex **= 0.5
+        Ntot = paint_darkmatter(pm, ns.filename2, TPMSnapshotFile)
+        if MPI.COMM_WORLD.rank == 0:
+            print 'painting 2 done'
+        pm.r2c()
+        if MPI.COMM_WORLD.rank == 0:
+            print 'r2c 2 done'
+        complex *= pm.complex
+        complex **= 0.5
 
-    if MPI.COMM_WORLD.rank == 0:
-        print 'cross done'
+        if MPI.COMM_WORLD.rank == 0:
+            print 'cross done'
+    else:
+        # auto power 
+        complex = pm.complex
 
     k, mu, p, N, edges = measure2Dpower(pm, complex, ns.binshift, ns.remove_cic, 0, ns.Nmu)
   
