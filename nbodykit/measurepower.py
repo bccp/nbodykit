@@ -4,6 +4,11 @@ from pypm.particlemesh import ParticleMesh
 from pypm.transfer import TransferFunction
 from mpi4py import MPI
 
+def AnisotropicCIC(comm, complex, w):
+    for wi in w:
+        tmp = (1 - 2. / 3 * numpy.sin(0.5 * wi) ** 2) ** 0.5
+        complex[:] /= tmp
+
 def measurepower(pm, complex, binshift=0.0, remove_cic="anisotropic", shotnoise=0.0):
     """ Measure power spectrum from density field painted on pm 
 
@@ -36,16 +41,10 @@ def measurepower(pm, complex, binshift=0.0, remove_cic="anisotropic", shotnoise=
     """
     pm.complex[:] = complex
  
-    def AnisotropicCIC(complex, w):
-        for wi in w:
-            tmp = (1 - 2. / 3 * numpy.sin(0.5 * wi) ** 2) ** 0.5
-            complex[:] /= tmp
-
     wout = numpy.empty(pm.Nmesh//2)
     psout = numpy.empty(pm.Nmesh//2)
 
-    def PowerSpectrum(complex, w):
-        comm = pm.comm
+    def PowerSpectrum(comm, complex, w):
 
         wedges = numpy.linspace(0, numpy.pi, wout.size + 1, endpoint=True)
         wedges += binshift * wedges[1]
@@ -158,10 +157,6 @@ def measure2Dpower(pm, complex, binshift=0.0, remove_cic="anisotropic", shotnois
     Nfreq = pm.Nmesh//2
     
     pm.complex[:] = complex
-    def AnisotropicCIC(complex, w):
-        for wi in w:
-            tmp = (1 - 2. / 3 * numpy.sin(0.5 * wi) ** 2) ** 0.5
-            complex[:] /= tmp
     
     class PowerSpectrum2D(object):
     
@@ -175,17 +170,16 @@ def measure2Dpower(pm, complex, binshift=0.0, remove_cic="anisotropic", shotnois
             
             self.Nmu = mu_bins
             self.Nfreq = k_bins
-            
-        def __call__(self, complex, w):
-            comm = pm.comm
 
-            # freq bin edges
             self.wedges = numpy.linspace(0, numpy.pi, self.Nfreq + 1, endpoint=True)
             self.wedges += binshift * self.wedges[1]
-            w2edges = self.wedges ** 2
-        
             # mu bin edges
             self.muedges = numpy.linspace(0, 1, self.Nmu+1, endpoint=True)
+            
+        def __call__(self, comm, complex, w):
+            # freq bin edges
+            w2edges = self.wedges ** 2
+        
         
             ndims = (self.Nfreq+2, self.Nmu+2)
             musum = numpy.zeros(ndims[0]*ndims[1])
@@ -260,12 +254,11 @@ def measure2Dpower(pm, complex, binshift=0.0, remove_cic="anisotropic", shotnois
         TransferFunction.NormalizeDC,
         TransferFunction.RemoveDC,
     ]
-
     if remove_cic == 'anisotropic':
         chain.append(AnisotropicCIC)
 
     P = PowerSpectrum2D(Nfreq, Nmu)
-    chain.append(lambda complex, w: P(complex, w))
+    chain.append(P)
         
     # measure the raw power spectrum, nothing is removed.
     pm.transfer(chain)
