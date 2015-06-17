@@ -97,7 +97,8 @@ def main():
 
     if MPI.COMM_WORLD.rank == 0:
         print 'cross done'
-        k, mu, p, N, edges = measure2Dpower(pm, complex, ns.binshift, ns.remove_cic, 0, ns.Nmu)
+
+    k, mu, p, N, edges = measure2Dpower(pm, complex, ns.binshift, ns.remove_cic, 0, ns.Nmu)
   
     if MPI.COMM_WORLD.rank == 0:
         print 'measure'
