@@ -66,6 +66,25 @@ class SnapshotFile:
         """
         raise NotImplementedError
 
+    def read_vel(self, mystart, myend):
+        """
+        Read velocity of particles
+
+        Parameters
+        ----------
+        mystart   : int
+            offset to start reading within this file. (inclusive)
+        myend     : int
+            offset to end reading within this file. (exclusive)
+
+        Returns
+        -------
+        vel : array_like (myend - mystart)
+            velocity of particles, corrected for ??red-shift distortion        
+
+        """
+        raise NotImplementedError
+
     def read_label(self, mystart, myend):
         raise NotImplementedError
 
@@ -95,6 +114,16 @@ class TPMSnapshotFile(SnapshotFile):
             ff.seek(self.npart * 12, 1)
             ff.seek(mystart * 8, 1)
             return numpy.fromfile(ff, count=myend - mystart, dtype=('i8'))
+
+    def read_vel(self, mystart, myend):
+        with open(self.filename, 'r') as ff:
+            # skip header
+            ff.seek(7 * 4, 0)
+            # jump to mystart of velocity
+            ff.seek(self.npart * 12, 1)
+            ff.seek(mystart * 12, 1)
+            return numpy.fromfile(ff, count=myend - mystart, dtype=('f4', 3))
+
 
 class Snapshot(object):
     def __init__(self, filename, filetype):
