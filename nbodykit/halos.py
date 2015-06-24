@@ -35,22 +35,26 @@ def centerofmass(label, pos, boxsize=1.0, comm=MPI.COMM_WORLD):
     N = numpy.bincount(label, minlength=Nhalo0)
     comm.Allreduce(MPI.IN_PLACE, N, op=MPI.SUM)
 
-    posmin = equiv_class(label, pos, op=numpy.fmin, dense_labels=True, identity=numpy.inf,
-                    minlength=len(N))
-    comm.Allreduce(MPI.IN_PLACE, posmin, op=MPI.MIN)
-    dpos = pos - posmin[label]
     if boxsize is not None:
+        posmin = equiv_class(label, pos, op=numpy.fmin, dense_labels=True, identity=numpy.inf,
+                        minlength=len(N))
+        comm.Allreduce(MPI.IN_PLACE, posmin, op=MPI.MIN)
+        dpos = pos - posmin[label]
         bhalf = boxsize * 0.5
         dpos[dpos < -bhalf] += boxsize
         dpos[dpos >= bhalf] -= boxsize
-
+    else:
+        dpos = pos
     dpos = equiv_class(label, dpos, op=numpy.add, dense_labels=True, minlength=len(N))
     
     comm.Allreduce(MPI.IN_PLACE, dpos, op=MPI.SUM)
     dpos /= N[:, None]
-    hpos = posmin + dpos
+
     if boxsize:
+        hpos = posmin + dpos
         hpos %= boxsize
+    else:
+        hpos = dpos
     return hpos
     
 def count(label, comm=MPI.COMM_WORLD):
