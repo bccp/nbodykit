@@ -281,10 +281,12 @@ class HaloFile(object):
             the data column; all halos are returned.
 
         """
-        if column == 'CenterOfMass':
+        if column == 'Position':
             return self.read_pos()
         elif column == 'Mass':
             return self.read_mass()
+        elif column == 'Velocity':
+            return self.read_vel()
         else:
             raise KeyError("column `%s' unknown" % str(column))
 
@@ -296,5 +298,11 @@ class HaloFile(object):
     def read_pos(self):
         with open(self.filename, 'r') as ff:
             ff.seek(8 + self.nhalo * 4, 0)
+            return numpy.fromfile(ff, count=self.nhalo, dtype=('f4', 3))
+
+    def read_vel(self):
+        with open(self.filename, 'r') as ff:
+            ff.seek(8 + self.nhalo * 4, 0)
+            ff.seek(self.nhalo * 12, 1)
             return numpy.fromfile(ff, count=self.nhalo, dtype=('f4', 3))
 
