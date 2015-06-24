@@ -135,14 +135,13 @@ def main():
     if comm.rank == 0:
         logging.info('grid %s' % str(grid) )
 
-    for i, P in enumerate(read(comm, ns.filename, TPMSnapshotFile, columns=['Position', 'ID'])):
-        pass
-    # make sure in one round all particles are in
-    assert i == 0
+    [P] = read(comm, ns.filename, TPMSnapshotFile, columns=['Position', 'ID'])
 
-    pos = P['Position'][::1]
-    id = P['ID'][::1]
-    Ntot = sum(comm.allgather(len(pos)))
+    tpos = P['Position']
+    tid = P['ID']
+    del P
+
+    Ntot = sum(comm.allgather(len(tpos)))
 
     if comm.rank == 0:
         logging.info('Total number of particles %d, ll %g' % (Ntot, ns.LinkingLength))
@@ -151,10 +150,11 @@ def main():
     #print pos
     #print ((pos[0] - pos[1]) ** 2).sum()** 0.5, ll
   
-    layout = domain.decompose(pos, smoothing=ll * 1)
+    layout = domain.decompose(tpos, smoothing=ll * 1)
 
-    tpos = layout.exchange(pos)
-    tid = layout.exchange(id)
+    tpos = layout.exchange(tpos)
+    tid = layout.exchange(tid)
+
     logging.info('domain %d has %d particles' % (comm.rank, len(tid)))
 
     data = cluster.dataset(tpos, boxsize=1.0)
@@ -201,7 +201,13 @@ def main():
     if comm.rank == 0:
         print 'total halos is', len(N)
 
-    hpos = halos.centerofmass(label, pos, boxsize=1.0, comm=comm)
+    [P] = read(comm, ns.filename, TPMSnapshotFile, columns=['Position'])
+
+    hpos = halos.centerofmass(label, P['Position'], boxsize=1.0, comm=comm)
+
+    [P] = read(comm, ns.filename, TPMSnapshotFile, columns=['Velocity'])
+
+    hvel = halos.centerofmass(label, P['Velocity'], boxsize=None, comm=comm)
 
     if comm.rank == 0:
         print N
@@ -214,6 +220,7 @@ def main():
             numpy.float32(ns.LinkingLength).tofile(ff)
             numpy.int32(N).tofile(ff)
             numpy.float32(hpos).tofile(ff)
+            numpy.float32(hvel).tofile(ff)
         print hpos
     del N
     del hpos
