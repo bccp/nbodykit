@@ -181,6 +181,7 @@ parser.add_argument("output", help='write power to this file')
 parser.add_argument("--Nmu", type=int, default=5,
         help='the number of mu bins to use' )
 
+ns = parser.parse_args()
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -197,7 +198,6 @@ from mpi4py import MPI
 
 def main():
 
-    ns = parser.parse_args()
 
     if MPI.COMM_WORLD.rank == 0:
         print 'importing done'
