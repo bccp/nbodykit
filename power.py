@@ -30,16 +30,12 @@ parser.add_argument("BoxSize", type=float,
 parser.add_argument("Nmesh", type=int, 
         help='size of calculation mesh, recommend 2 * Ngrid')
 
-parser.add_argument("output", help='write power to this file') 
-
 parser.add_argument("--binshift", type=float, default=0.0,
         help='Shift the bin center by this fraction of the bin width. Default is 0.0. Marcel uses 0.5. this shall rarely be changed.' )
 parser.add_argument("--bunchsize", type=int, default=1024*1024*4,
         help='Number of particles to read per rank. A larger number usually means faster IO, but less memory for the FFT mesh')
 parser.add_argument("--remove-cic", default='anisotropic', choices=["anisotropic","isotropic", "none"],
         help='deconvolve cic, anisotropic is the proper way, see http://www.personal.psu.edu/duj13/dissertation/djeong_diss.pdf')
-parser.add_argument("--Nmu", type=int, default=5,
-        help='the number of mu bins to use' )
 
 class InputDesc(object):
     """ describing an input field. 
@@ -67,6 +63,9 @@ class InputDesc(object):
     def __eq__(self, other):
         return self.string == other.string
 
+    def __ne__(self, other):
+        return self.string != other.string
+
     @classmethod
     def add_parser(kls, name, usage):
         return kls.subparsers.add_parser(name, 
@@ -79,92 +78,6 @@ class InputDesc(object):
             rt.append(kls.subparsers.choices[k].format_help())
 
         return '\n'.join(rt)
-
-parser.add_argument("input", nargs='+', type=InputDesc, help=InputDesc.format_help())
-
-logging.basicConfig(level=logging.DEBUG)
-
-import numpy
-import nbodykit
-from nbodykit import files 
-from nbodykit.measurepower import measure2Dpower, measurepower
-
-from pypm.particlemesh import ParticleMesh
-from pypm.transfer import TransferFunction
-
-
-from mpi4py import MPI
-
-def main():
-
-    ns = parser.parse_args()
-
-    if MPI.COMM_WORLD.rank == 0:
-        print 'importing done'
-
-    pm = ParticleMesh(ns.BoxSize, ns.Nmesh, dtype='f4')
-
-    Ntot1 = ns.input[0].paint(ns, pm)
-
-    if MPI.COMM_WORLD.rank == 0:
-        print 'painting done'
-    pm.r2c()
-    if MPI.COMM_WORLD.rank == 0:
-        print 'r2c done'
-
-    if len(ns.input) > 1:
-        # cross power 
-        complex = pm.complex.copy()
-        numpy.conjugate(complex, out=complex)
-
-        Ntot2 = ns.input[1].paint(ns, pm)
-        if MPI.COMM_WORLD.rank == 0:
-            print 'painting 2 done'
-        pm.r2c()
-        if MPI.COMM_WORLD.rank == 0:
-            print 'r2c 2 done'
-        complex *= pm.complex
-        complex **= 0.5
-
-        if MPI.COMM_WORLD.rank == 0:
-            print 'cross done'
-    else:
-        # auto power 
-        complex = pm.complex
-    
-    if ns.mode == "1d":
-        do1d(pm, complex, ns)
-
-    if ns.mode == "2d":
-        do2d(pm, complex, ns)
-    
-def do2d(pm, complex, ns):
-    k, mu, p, N, edges = measure2Dpower(pm, complex, ns.binshift, ns.remove_cic, 0, ns.Nmu)
-  
-    if MPI.COMM_WORLD.rank == 0:
-        print 'measure'
-
-    if pm.comm.rank == 0:
-        if ns.output != '-':
-            myout = open(ns.output, 'w')
-        else:
-            myout = stdout
-        numpy.savetxt(myout, zip(k.flat, mu.flat, p.flat, N.flat), '%0.7g')
-        myout.flush()
-
-def do1d(pm, complex, ns):
-    k, p = measurepower(pm, complex, ns.binshift, ns.remove_cic, 0)
-
-    if MPI.COMM_WORLD.rank == 0:
-        print 'measure'
-
-    if pm.comm.rank == 0:
-        if ns.output != '-':
-            myout = open(ns.output, 'w')
-        else:
-            myout = stdout
-        numpy.savetxt(myout, zip(k, p), '%0.7g')
-        myout.flush()
 
 class HaloFilePainter(object):
     def __init__(self, data): 
@@ -259,5 +172,98 @@ class TPMSnapshotPainter(object):
         return Ntot
 
 TPMSnapshotPainter.register(InputDesc) 
+
+
+parser.add_argument("input", nargs=2, type=InputDesc, help=InputDesc.format_help())
+
+parser.add_argument("output", help='write power to this file') 
+
+parser.add_argument("--Nmu", type=int, default=5,
+        help='the number of mu bins to use' )
+
+
+logging.basicConfig(level=logging.DEBUG)
+
+import numpy
+import nbodykit
+from nbodykit import files 
+from nbodykit.measurepower import measure2Dpower, measurepower
+
+from pypm.particlemesh import ParticleMesh
+from pypm.transfer import TransferFunction
+
+
+from mpi4py import MPI
+
+def main():
+
+    ns = parser.parse_args()
+
+    if MPI.COMM_WORLD.rank == 0:
+        print 'importing done'
+
+    pm = ParticleMesh(ns.BoxSize, ns.Nmesh, dtype='f4')
+
+    Ntot1 = ns.input[0].paint(ns, pm)
+
+    if MPI.COMM_WORLD.rank == 0:
+        print 'painting done'
+    pm.r2c()
+    if MPI.COMM_WORLD.rank == 0:
+        print 'r2c done'
+
+    if ns.input[0] != ns.input[1]:
+        # cross power 
+        complex = pm.complex.copy()
+        numpy.conjugate(complex, out=complex)
+
+        Ntot2 = ns.input[1].paint(ns, pm)
+        if MPI.COMM_WORLD.rank == 0:
+            print 'painting 2 done'
+        pm.r2c()
+        if MPI.COMM_WORLD.rank == 0:
+            print 'r2c 2 done'
+        complex *= pm.complex
+        complex **= 0.5
+
+        if MPI.COMM_WORLD.rank == 0:
+            print 'cross done'
+    else:
+        # auto power 
+        complex = pm.complex
+    
+    if ns.mode == "1d":
+        do1d(pm, complex, ns)
+
+    if ns.mode == "2d":
+        do2d(pm, complex, ns)
+    
+def do2d(pm, complex, ns):
+    k, mu, p, N, edges = measure2Dpower(pm, complex, ns.binshift, ns.remove_cic, 0, ns.Nmu)
+  
+    if MPI.COMM_WORLD.rank == 0:
+        print 'measure'
+
+    if pm.comm.rank == 0:
+        if ns.output != '-':
+            myout = open(ns.output, 'w')
+        else:
+            myout = stdout
+        numpy.savetxt(myout, zip(k.flat, mu.flat, p.flat, N.flat), '%0.7g')
+        myout.flush()
+
+def do1d(pm, complex, ns):
+    k, p = measurepower(pm, complex, ns.binshift, ns.remove_cic, 0)
+
+    if MPI.COMM_WORLD.rank == 0:
+        print 'measure'
+
+    if pm.comm.rank == 0:
+        if ns.output != '-':
+            myout = open(ns.output, 'w')
+        else:
+            myout = stdout
+        numpy.savetxt(myout, zip(k, p), '%0.7g')
+        myout.flush()
 
 main()
