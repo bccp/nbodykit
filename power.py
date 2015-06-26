@@ -122,9 +122,9 @@ class TPMSnapshotPainter(object):
         pm.real[:] = 0
         Ntot = 0
         for round, P in enumerate(
-                read(pm.comm, 
+                files.read(pm.comm, 
                     desc.path, 
-                    desc.type, 
+                    files.TPMSnapshotFile, 
                     columns=['Position'], 
                     bunchsize=ns.bunchsize)):
 
@@ -190,7 +190,7 @@ def main():
         complex = pm.complex.copy()
         numpy.conjugate(complex, out=complex)
 
-        Ntot2 = ns.input2.paint(ns, ns.input2, pm)
+        Ntot2 = ns.input2.painter(ns, ns.input2, pm)
         if MPI.COMM_WORLD.rank == 0:
             print 'painting 2 done'
         pm.r2c()
