@@ -16,6 +16,7 @@ parser = ArgumentParser("Parallel Power Spectrum Calculator",
         epilog=
      """
         This script is written by Yu Feng, as part of `nbodykit'. 
+        Other contributors are: Nick Hand, Man-yat Chu
         The author would like thank Marcel Schmittfull for the explanation on cic, shotnoise, and k==0 plane errors.
      """
         )
@@ -125,7 +126,7 @@ class TPMSnapshotPainter(object):
                 files.read(pm.comm, 
                     desc.path, 
                     files.TPMSnapshotFile, 
-                    columns=['Position'], 
+                    columns=['Position', 'Velocity'], 
                     bunchsize=ns.bunchsize)):
 
             nread = pm.comm.allreduce(len(P['Position']), op=MPI.SUM) 
