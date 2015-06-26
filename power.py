@@ -44,21 +44,24 @@ class InputDesc(object):
 
         2)  TPMSnapshot:path
     """
-    parser = ArgumentParser("")
+    parser = ArgumentParser("", add_help=False)
     subparsers = parser.add_subparsers()
-    h = subparsers.add_parser("self")
-    h.set_defaults(painter=None)
 
     def __init__(self, string):
         self.string = string
         words = string.split(':')
+
         ns = self.parser.parse_args(words)
         self.__dict__.update(ns.__dict__)
+
+    def __eq__(self, other):
+        return self.string == other.string
 
     @classmethod
     def add_parser(kls, name, usage):
         return kls.subparsers.add_parser(name, 
                 usage=usage, add_help=False)
+
     @classmethod
     def format_help(kls):
         rt = []
@@ -71,13 +74,13 @@ class HaloFilePainter(object):
     @classmethod
     def register(kls, inputdesc):
         h = inputdesc.add_parser("HaloFile", 
-            usage="HaloFile:path:min:max:m0[:--rsd=[x|y|z]]",
+            usage="HaloFile:path:logMmin:logMmax:m0[:-rsd=[x|y|z]]",
             )
         h.add_argument("path", help="path to file")
         h.add_argument("logMmin", type=float, help="log10 min mass")
         h.add_argument("logMmax", type=float, help="log10 max mass")
         h.add_argument("m0", type=float, help="mass mass of a particle")
-        h.add_argument("--rsd", 
+        h.add_argument("-rsd", 
             choices="xyz", help="direction to do Redshift distortion")
 
         h.set_defaults(painter=kls.paint)
@@ -87,19 +90,25 @@ class HaloFilePainter(object):
             hf = files.HaloFile(desc.path)
             nhalo = hf.nhalo
             halopos = numpy.float32(hf.read_pos())
+            halovel = numpy.float32(hf.read_vel())
             halomass = numpy.float32(hf.read_mass() * desc.m0)
             logmass = numpy.log10(halomass)
             mask = logmass > desc.logMmin
             mask &= logmass < desc.logMmax
             halopos = halopos[mask]
+            halovel = halovel[mask]
             logging.info("total number of halos in mass range is %d" % mask.sum())
         else:
             halopos = numpy.empty((0, 3), dtype='f4')
+            halovel = numpy.empty((0, 3), dtype='f4')
             halomass = numpy.empty(0, dtype='f4')
 
         Ntot = len(halopos)
         Ntot = pm.comm.bcast(Ntot)
 
+        if desc.rsd is not None:
+            dir = 'xyz'.index(desc.rsd)
+            halopos[:, dir] += halovel[:, dir]
         halopos *= ns.BoxSize
 
         layout = pm.decompose(halopos)
@@ -113,10 +122,10 @@ class TPMSnapshotPainter(object):
     @classmethod
     def register(kls, inputdesc):
         h = inputdesc.add_parser("TPMSnapshot", 
-            usage="TPMSnapshot:path[:--rsd=[x|y|z]]")
+            usage="TPMSnapshot:path[:-rsd=[x|y|z]]")
         h.add_argument("path", help="path to file")
-        h.add_argument("--rsd", 
-            choices="xyz", help="direction to do Redshift distortion")
+        h.add_argument("-rsd", 
+            choices="xyz", default=None, help="direction to do Redshift distortion")
         h.set_defaults(painter=kls.paint)
     @classmethod
     def paint(kls, ns, desc, pm):
@@ -130,6 +139,10 @@ class TPMSnapshotPainter(object):
                     bunchsize=ns.bunchsize)):
 
             nread = pm.comm.allreduce(len(P['Position']), op=MPI.SUM) 
+
+            if desc.rsd is not None:
+                dir = "xyz".index(desc.rsd)
+                P['Position'][:, dir] += P['Velocity'][:, dir]
 
             P['Position'] *= ns.BoxSize
             layout = pm.decompose(P['Position'])
@@ -151,8 +164,7 @@ parser.add_argument("Nmesh", type=int,
         help='size of calculation mesh, recommend 2 * Ngrid')
 parser.add_argument("output", help='write power to this file') 
 
-parser.add_argument("input1", type=InputDesc, help=InputDesc.format_help())
-parser.add_argument("input2", type=InputDesc, help="see input1", default=None)
+parser.add_argument("input", nargs='+', type=InputDesc, help=InputDesc.format_help())
 
 ns = parser.parse_args()
 
@@ -178,7 +190,7 @@ def main():
 
     pm = ParticleMesh(ns.BoxSize, ns.Nmesh, dtype='f4')
 
-    Ntot1 = ns.input1.painter(ns, ns.input1, pm)
+    Ntot1 = ns.input[0].painter(ns, ns.input[0], pm)
 
     if MPI.COMM_WORLD.rank == 0:
         print 'painting done'
@@ -186,12 +198,12 @@ def main():
     if MPI.COMM_WORLD.rank == 0:
         print 'r2c done'
 
-    if ns.input2.painter is not None:
+    if len(ns.input) > 1:
         # cross power 
         complex = pm.complex.copy()
         numpy.conjugate(complex, out=complex)
 
-        Ntot2 = ns.input2.painter(ns, ns.input2, pm)
+        Ntot2 = ns.input[1].painter(ns, ns.input[1], pm)
         if MPI.COMM_WORLD.rank == 0:
             print 'painting 2 done'
         pm.r2c()
