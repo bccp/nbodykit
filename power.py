@@ -20,6 +20,8 @@ parser = ArgumentParser("Parallel Power Spectrum Calculator",
      """
         )
 
+parser.add_argument("mode", choices=["2d", "1d"]) 
+
 parser.add_argument("--binshift", type=float, default=0.0,
         help='Shift the bin center by this fraction of the bin width. Default is 0.0. Marcel uses 0.5. this shall rarely be changed.' )
 parser.add_argument("--bunchsize", type=int, default=1024*1024*4,
@@ -142,7 +144,6 @@ class TPMSnapshotPainter(object):
 TPMSnapshotPainter.register(InputDesc) 
 HaloFilePainter.register(InputDesc) 
 
-parser.add_argument("mode", choices=["2d", "1d"]) 
 parser.add_argument("BoxSize", type=float, 
         help='BoxSize in Mpc/h')
 parser.add_argument("Nmesh", type=int, 
@@ -161,7 +162,7 @@ logging.basicConfig(level=logging.DEBUG)
 import numpy
 import nbodykit
 from nbodykit import files 
-from nbodykit.measurepower import measure2Dpower
+from nbodykit.measurepower import measure2Dpower, measurepower
 
 from pypm.particlemesh import ParticleMesh
 from pypm.transfer import TransferFunction
@@ -203,7 +204,14 @@ def main():
     else:
         # auto power 
         complex = pm.complex
+    
+    if ns.mode == "1d":
+        do1d(pm, complex, ns)
 
+    if ns.mode == "2d":
+        do2d(pm, complex, ns)
+    
+def do2d(pm, complex, ns):
     k, mu, p, N, edges = measure2Dpower(pm, complex, ns.binshift, ns.remove_cic, 0, ns.Nmu)
   
     if MPI.COMM_WORLD.rank == 0:
@@ -215,6 +223,20 @@ def main():
         else:
             myout = stdout
         numpy.savetxt(myout, zip(k.flat, mu.flat, p.flat, N.flat), '%0.7g')
+        myout.flush()
+
+def do1d(pm, complex, ns):
+    k, p = measurepower(pm, complex, ns.binshift, ns.remove_cic, 0)
+
+    if MPI.COMM_WORLD.rank == 0:
+        print 'measure'
+
+    if pm.comm.rank == 0:
+        if ns.output != '-':
+            myout = open(ns.output, 'w')
+        else:
+            myout = stdout
+        numpy.savetxt(myout, zip(k, p), '%0.7g')
         myout.flush()
 
 main()
