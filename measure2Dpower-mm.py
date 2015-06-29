@@ -91,7 +91,7 @@ def main():
         numpy.conjugate(complex, out=complex)
 
         Ntot = paint_darkmatter(pm, ns.filename2, TPMSnapshotFile)
-        print 'paint done'
+
         if MPI.COMM_WORLD.rank == 0:
             print 'painting 2 done'
         pm.r2c()
