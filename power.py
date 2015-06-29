@@ -84,12 +84,8 @@ def main():
     # setup the particle mesh object
     pm = ParticleMesh(ns.BoxSize, ns.Nmesh, dtype='f4')
 
-    # sort out if we have 1 or 2 inputs
-    input1 = ns.inputs[0]
-    input2 = None
-    if len(ns.inputs) > 1:
-        input2 = ns.inputs[1]
-    Ntot1 = input1.paint(ns, pm)
+    # paint first input
+    Ntot1 = ns.inputs[0].paint(ns, pm)
 
     # painting
     if MPI.COMM_WORLD.rank == 0:
@@ -99,11 +95,11 @@ def main():
         print 'r2c done'
 
     # do the cross power
-    if input2 is not None and input2 != input1:
+    if len(ns.inputs) > 1 and ns.inputs[0] != ns.inputs[1]:
         complex = pm.complex.copy()
         numpy.conjugate(complex, out=complex)
 
-        Ntot2 = input2.paint(ns, pm)
+        Ntot2 = ns.inputs[1].paint(ns, pm)
         if MPI.COMM_WORLD.rank == 0:
             print 'painting 2 done'
         pm.r2c()
