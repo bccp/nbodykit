@@ -12,23 +12,23 @@ class InputFieldType(object):
         This class is responsible for handling the parsing of arguments 
         that must be passed to each separate painter plugin.
     """
-    parser = ArgumentParser("", prefix_chars="-&")
+    parser = ArgumentParser("", prefix_chars="-&", add_help=False)
     subparsers = parser.add_subparsers()
-    h = subparsers.add_parser("self")
-    h.set_defaults(painter=None)
 
     def __init__(self, string):
         self.string = string
         words = string.split(':')
+        
         ns = self.parser.parse_args(words)
-        self.__dict__.update(ns.__dict__)
+        self.painter = ns.klass(ns)
+        # steal the paint method
+        self.paint = self.painter.paint
 
     def __eq__(self, other):
-        return (isinstance(other, self.__class__)
-            and self.string == other.string)
-    
+        return self.string == other.string
+
     def __ne__(self, other):
-        return not self.__eq__(other)
+        return self.string != other.string
     
     @classmethod
     def add_parser(kls, name, usage):
@@ -45,7 +45,8 @@ class InputFieldType(object):
             return "error: no available input field types"
         else:
             return '\n'.join(rt)
-    #-------------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------------
 def available_field_types():
     """ Return a list of the names of the available field types,
         which have matching painter plugins in the `painters` directory

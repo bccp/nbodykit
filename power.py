@@ -90,7 +90,7 @@ def main():
     input2 = None
     if len(ns.inputs) > 1:
         input2 = ns.inputs[1]
-    Ntot1 = input1.painter(ns, input1, pm)
+    Ntot1 = input1.paint(ns, pm)
 
     # painting
     if MPI.COMM_WORLD.rank == 0:
@@ -104,7 +104,7 @@ def main():
         complex = pm.complex.copy()
         numpy.conjugate(complex, out=complex)
 
-        Ntot2 = input2.painter(ns, input2, pm)
+        Ntot2 = input2.paint(ns, pm)
         if MPI.COMM_WORLD.rank == 0:
             print 'painting 2 done'
         pm.r2c()

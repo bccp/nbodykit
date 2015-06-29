@@ -5,10 +5,13 @@ from mpi4py import MPI
 
 class HaloFilePainter(object):
     
+    def __init__(self, data): 
+        self.__dict__.update(data.__dict__)
+        
     @classmethod
     def register(kls, inputdesc):
         h = inputdesc.add_parser("HaloFile", 
-            usage="HaloFile:path:min:max:m0[:&rsd=[x|y|z]]",
+            usage="HaloFile:path:logMmin:logMmax:m0[:&rsd=[x|y|z]]",
             )
         h.add_argument("path", help="path to file")
         h.add_argument("logMmin", type=float, help="log10 min mass")
@@ -17,27 +20,32 @@ class HaloFilePainter(object):
         h.add_argument("&rsd", 
             choices="xyz", help="direction to do redshift distortion")
 
-        h.set_defaults(painter=kls.paint)
+        h.set_defaults(klass=kls)
     
-    @classmethod
-    def paint(kls, ns, desc, pm):
+    def paint(self, ns, pm):
         if pm.comm.rank == 0:
-            hf = files.HaloFile(desc.path)
+            hf = files.HaloFile(self.path)
             nhalo = hf.nhalo
             halopos = numpy.float32(hf.read_pos())
-            halomass = numpy.float32(hf.read_mass() * desc.m0)
+            halovel = numpy.float32(hf.read_vel())
+            halomass = numpy.float32(hf.read_mass() * self.m0)
             logmass = numpy.log10(halomass)
-            mask = logmass > desc.logMmin
-            mask &= logmass < desc.logMmax
+            mask = logmass > self.logMmin
+            mask &= logmass < self.logMmax
             halopos = halopos[mask]
+            halovel = halovel[mask]
             logging.info("total number of halos in mass range is %d" % mask.sum())
         else:
             halopos = numpy.empty((0, 3), dtype='f4')
+            halovel = numpy.empty((0, 3), dtype='f4')
             halomass = numpy.empty(0, dtype='f4')
 
         Ntot = len(halopos)
         Ntot = pm.comm.bcast(Ntot)
 
+        if self.rsd is not None:
+            dir = 'xyz'.index(self.rsd)
+            halopos[:, dir] += halovel[:, dir]
         halopos *= ns.BoxSize
 
         layout = pm.decompose(halopos)
