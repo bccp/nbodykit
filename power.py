@@ -5,7 +5,7 @@ import logging
 import functools
 
 from argparse import ArgumentParser, RawTextHelpFormatter
-from power_io.field_input import InputFieldType, register_field_types
+from plugins import painters
 
 #--------------------------------------------------
 # setup the parser
@@ -46,10 +46,10 @@ parser.add_argument("BoxSize", type=float, help='BoxSize in Mpc/h')
 parser.add_argument("Nmesh", type=int, help='size of calculation mesh, recommend 2 * Ngrid')
 parser.add_argument("output", help='write power to this file') 
 
-# add the input field types, first registering all defined field types 
-register_field_types(InputFieldType) 
-h = "one or two input fields, specifed as:\n\n"
-parser.add_argument("inputs", nargs="+", type=InputFieldType, help=h+InputFieldType.format_help())
+# add the input field types
+h = "one or two input fields, specified as:\n\n"
+parser.add_argument("inputs", nargs="+", type=painters.InputFieldType, 
+                    help=h+painters.InputFieldType.format_help())
 
 # add the optional arguments
 parser.add_argument("--binshift", type=float, default=0.0,
@@ -77,7 +77,6 @@ from pypm.particlemesh import ParticleMesh
 from mpi4py import MPI
 
 def main():
-
 
     if MPI.COMM_WORLD.rank == 0:
         print 'importing done'
