@@ -26,12 +26,11 @@ parser = ArgumentParser("Parallel Power Spectrum Calculator",
         This script is written by Yu Feng, as part of `nbodykit'. 
         Other contributors are: Nick Hand, Man-yat Chu
         The author would like thank Marcel Schmittfull for the explanation on cic, shotnoise, and k==0 plane errors.
-     """,
-     fromfile_prefix_chars='@'
-        )
+     """
+     )
         
 # override file reading option to treat each space-separated word as 
-# an argument and ignore comments
+# an argument and ignore comments. Can put option + value on same line
 def line_reader(self, line):
     for arg in line.split():
         if not arg.strip():
@@ -101,7 +100,7 @@ def main():
         print 'r2c done'
 
     # do the cross power
-    if input2 is not None:
+    if input2 is not None and input2 != input1:
         complex = pm.complex.copy()
         numpy.conjugate(complex, out=complex)
 
