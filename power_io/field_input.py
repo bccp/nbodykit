@@ -23,6 +23,13 @@ class InputFieldType(object):
         ns = self.parser.parse_args(words)
         self.__dict__.update(ns.__dict__)
 
+    def __eq__(self, other):
+        return (isinstance(other, self.__class__)
+            and self.string == other.string)
+    
+    def __ne__(self, other):
+        return not self.__eq__(other)
+    
     @classmethod
     def add_parser(kls, name, usage):
         return kls.subparsers.add_parser(name, 
