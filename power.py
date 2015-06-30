@@ -63,6 +63,8 @@ parser.add_argument("--remove-cic", default='anisotropic', choices=["anisotropic
 parser.add_argument("--Nmu", type=int, default=5,
         help='the number of mu bins to use' )
 
+parser.add_argument("-x", type=plugins.load, nargs="*", help='path of additional plugins to be loaded' )
+
 # parse
 ns = parser.parse_args()
 

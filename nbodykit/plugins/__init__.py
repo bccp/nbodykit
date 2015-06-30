@@ -89,8 +89,35 @@ class InputPainter:
         else:
             return '\n'.join(rt)
 
-builtins = ['TPMSnapshotPainter', 'HaloFilePainter']
 import os.path
+
+def load(filename, namespace=None):
+    """ An adapter for ArgumentParser to load a plugin.
+        
+        Parameters
+        ----------
+        filename : string
+            path to the .py file
+        namespace : dict
+            global namespace, if None, an empty space will be created
+        
+        Returns
+        -------
+        namespace : dict
+            modified global namespace of the plugin script.
+    """
+    if namespace is None:
+        namespace = {}
+    if os.path.isdir(filename):
+        # FIXME: walk the dir and load all .py files.
+        raise ValueError("Can not load directory")
+    try:
+        execfile(filename, namespace)
+    except Exception as e:
+        raise RuntimeError("Failed to load plugin '%s': %s" % (filename, str(e)))
+    return namespace
+
+builtins = ['TPMSnapshotPainter', 'HaloFilePainter']
 for plugin in builtins:
-    execfile(os.path.join(os.path.dirname(__file__), plugin + '.py'))
+    globals().update(load(os.path.join(os.path.dirname(__file__), plugin + '.py')))
  
