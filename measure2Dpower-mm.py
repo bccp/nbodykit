@@ -55,14 +55,17 @@ def paint_darkmatter(pm, filename, fileformat):
     pm.real[:] = 0
     Ntot = 0
     for round, P in enumerate(read(pm.comm, filename, TPMSnapshotFile, 
-                columns=['Position'], bunchsize=ns.bunchsize)):
+                columns=['Position', 'Velocity'], bunchsize=ns.bunchsize)):
+        P['Position'][:, 2] += P['Velocity'][:, 2]
+        P['Position'][:, 2] %= 1.0
         P['Position'] *= ns.BoxSize
+
         layout = pm.decompose(P['Position'])
         tpos = layout.exchange(P['Position'])
         #print tpos.shape
         pm.paint(tpos)
         npaint = pm.comm.allreduce(len(tpos), op=MPI.SUM) 
-        nread = pm.comm.allreduce(len(P['Position']), op=MPI.SUM) 
+        nread = pm.comm.allreduce(len(P['Position']), op=MPI.SUM)
         if pm.comm.rank == 0:
             logging.info('round %d, npaint %d, nread %d' % (round, npaint, nread))
         Ntot = Ntot + nread
@@ -82,13 +85,13 @@ def main():
     pm.r2c()
     if MPI.COMM_WORLD.rank == 0:
         print 'r2c done'
-
     if ns.filename1 != ns.filename2:
         # cross power 
         complex = pm.complex.copy()
         numpy.conjugate(complex, out=complex)
 
         Ntot = paint_darkmatter(pm, ns.filename2, TPMSnapshotFile)
+
         if MPI.COMM_WORLD.rank == 0:
             print 'painting 2 done'
         pm.r2c()
