@@ -50,7 +50,7 @@ parser.add_argument("output", help='write power to this file')
 
 # add the input field types
 h = "one or two input fields, specified as:\n\n"
-parser.add_argument("inputs", nargs="+", type=plugins.InputPainter, 
+parser.add_argument("inputs", nargs="+", type=plugins.InputPainter.parse, 
                     help=h+plugins.InputPainter.format_help())
 
 # add the optional arguments

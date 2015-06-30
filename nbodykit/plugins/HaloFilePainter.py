@@ -9,9 +9,6 @@ import logging
 class HaloFilePainter(InputPainter):
     field_type = "HaloFile"
     
-    def __init__(self, data): 
-        self.__dict__.update(data.__dict__)
-                
     @classmethod
     def register(kls):
         

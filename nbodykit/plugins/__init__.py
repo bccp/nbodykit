@@ -53,14 +53,21 @@ class InputPainter:
     subparsers = parser.add_subparsers()
     field_type = None
 
-    def __init__(self, string): 
-        self.string = string
+    def __init__(self, dict):
+        self.__dict__.update(dict)
+
+    @classmethod
+    def parse(kls, string): 
         words = string.split(':')
         
-        ns = self.parser.parse_args(words)
-        self.painter = ns.klass(ns)
-        # steal the paint method
-        self.paint = self.painter.paint
+        ns = kls.parser.parse_args(words)
+        klass = ns.klass
+        d = ns.__dict__
+        # break the cycle
+        del d['klass']
+        d['string'] = string
+        painter = klass(d)
+        return painter
 
     def __eq__(self, other):
         return self.string == other.string

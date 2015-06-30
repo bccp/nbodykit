@@ -8,9 +8,6 @@ import logging
 class TPMSnapshotPainter(InputPainter):
     field_type = "TPMSnapshot"
     
-    def __init__(self, data):
-        self.__dict__.update(data.__dict__)
-    
     @classmethod
     def register(kls):
         h = kls.add_parser(kls.field_type, 
