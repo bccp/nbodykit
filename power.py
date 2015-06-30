@@ -5,7 +5,9 @@ import logging
 import functools
 
 from argparse import ArgumentParser, RawTextHelpFormatter
-from plugins import painters
+import numpy
+import nbodykit
+from nbodykit import plugins
 
 #--------------------------------------------------
 # setup the parser
@@ -48,8 +50,8 @@ parser.add_argument("output", help='write power to this file')
 
 # add the input field types
 h = "one or two input fields, specified as:\n\n"
-parser.add_argument("inputs", nargs="+", type=painters.InputFieldType, 
-                    help=h+painters.InputFieldType.format_help())
+parser.add_argument("inputs", nargs="+", type=plugins.InputPainter, 
+                    help=h+plugins.InputPainter.format_help())
 
 # add the optional arguments
 parser.add_argument("--binshift", type=float, default=0.0,
@@ -70,8 +72,6 @@ ns = parser.parse_args()
 
 logging.basicConfig(level=logging.DEBUG)
 
-import numpy
-import nbodykit
 from nbodykit.measurepower import measure2Dpower, measurepower
 from pypm.particlemesh import ParticleMesh
 from mpi4py import MPI
