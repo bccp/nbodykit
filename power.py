@@ -9,6 +9,13 @@ import numpy
 import nbodykit
 from nbodykit import plugins
 
+# First process the plugins
+preparser = ArgumentParser(add_help=False)
+preparser.add_argument("-x", type=plugins.load, nargs="*")
+# Process the plugins
+preparser.exit = lambda a, b: None
+ns, unknown = preparser.parse_known_args()
+        
 #--------------------------------------------------
 # setup the parser
 #--------------------------------------------------
@@ -17,6 +24,7 @@ from nbodykit import plugins
 parser = ArgumentParser("Parallel Power Spectrum Calculator",
         formatter_class=RawTextHelpFormatter,
         fromfile_prefix_chars="@",
+        add_help=True,
         description=
      """Calculating matter power spectrum from RunPB input files. 
         Output is written to stdout, in Mpc/h units. 
@@ -30,7 +38,9 @@ parser = ArgumentParser("Parallel Power Spectrum Calculator",
         The author would like thank Marcel Schmittfull for the explanation on cic, shotnoise, and k==0 plane errors.
      """
      )
-        
+
+parser.add_argument("-x", 
+    nargs="*", help='path of additional plugins to be loaded' )
 # override file reading option to treat each space-separated word as 
 # an argument and ignore comments. Can put option + value on same line
 def line_reader(self, line):
@@ -63,10 +73,8 @@ parser.add_argument("--remove-cic", default='anisotropic', choices=["anisotropic
 parser.add_argument("--Nmu", type=int, default=5,
         help='the number of mu bins to use' )
 
-parser.add_argument("-x", type=plugins.load, nargs="*", help='path of additional plugins to be loaded' )
-
 # parse
-ns = parser.parse_args()
+ns = parser.parse_args(unknown)
 
 #--------------------------------------------------
 # done with the parser. now do the real calculation
