@@ -11,7 +11,7 @@ from nbodykit import plugins
 
 # First process the plugins
 preparser = ArgumentParser(add_help=False)
-preparser.add_argument("-x", type=plugins.load, nargs="*")
+preparser.add_argument("-X", type=plugins.load, action="append")
 # Process the plugins
 preparser.exit = lambda a, b: None
 ns, unknown = preparser.parse_known_args()
@@ -39,7 +39,7 @@ parser = ArgumentParser("Parallel Power Spectrum Calculator",
      """
      )
 
-parser.add_argument("-x", 
+parser.add_argument("-X", 
     nargs="*", help='path of additional plugins to be loaded' )
 # override file reading option to treat each space-separated word as 
 # an argument and ignore comments. Can put option + value on same line
