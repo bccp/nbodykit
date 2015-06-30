@@ -2,9 +2,16 @@ from sys import argv
 from sys import stdout
 from sys import stderr
 import logging
+import functools
 
 from argparse import ArgumentParser, RawTextHelpFormatter
+from plugins import painters
 
+#--------------------------------------------------
+# setup the parser
+#--------------------------------------------------
+
+# initialize the parser
 parser = ArgumentParser("Parallel Power Spectrum Calculator",
         formatter_class=RawTextHelpFormatter,
         fromfile_prefix_chars="@",
@@ -20,204 +27,79 @@ parser = ArgumentParser("Parallel Power Spectrum Calculator",
         Other contributors are: Nick Hand, Man-yat Chu
         The author would like thank Marcel Schmittfull for the explanation on cic, shotnoise, and k==0 plane errors.
      """
-        )
+     )
+        
+# override file reading option to treat each space-separated word as 
+# an argument and ignore comments. Can put option + value on same line
+def line_reader(self, line):
+    for arg in line.split():
+        if not arg.strip():
+            continue
+        if arg[0] == '#':
+            break
+        yield arg
+parser.convert_arg_line_to_args = functools.partial(line_reader, parser)
 
+# add the positional arguments
 parser.add_argument("mode", choices=["2d", "1d"]) 
+parser.add_argument("BoxSize", type=float, help='BoxSize in Mpc/h')
+parser.add_argument("Nmesh", type=int, help='size of calculation mesh, recommend 2 * Ngrid')
+parser.add_argument("output", help='write power to this file') 
 
-parser.add_argument("BoxSize", type=float, 
-        help='BoxSize in Mpc/h')
+# add the input field types
+h = "one or two input fields, specified as:\n\n"
+parser.add_argument("inputs", nargs="+", type=painters.InputFieldType, 
+                    help=h+painters.InputFieldType.format_help())
 
-parser.add_argument("Nmesh", type=int, 
-        help='size of calculation mesh, recommend 2 * Ngrid')
-
+# add the optional arguments
 parser.add_argument("--binshift", type=float, default=0.0,
         help='Shift the bin center by this fraction of the bin width. Default is 0.0. Marcel uses 0.5. this shall rarely be changed.' )
 parser.add_argument("--bunchsize", type=int, default=1024*1024*4,
         help='Number of particles to read per rank. A larger number usually means faster IO, but less memory for the FFT mesh')
 parser.add_argument("--remove-cic", default='anisotropic', choices=["anisotropic","isotropic", "none"],
         help='deconvolve cic, anisotropic is the proper way, see http://www.personal.psu.edu/duj13/dissertation/djeong_diss.pdf')
-
-class InputDesc(object):
-    """ describing an input field. 
-        Format is 
-
-        1)  HaloFile:path:min:max:m0
-
-        where mmin and mmax are the min/max mass in log10
-        m0 is the mass of a particle
-
-        2)  TPMSnapshot:path
-    """
-    parser = ArgumentParser("", add_help=False)
-    subparsers = parser.add_subparsers()
-
-    def __init__(self, string):
-        self.string = string
-        words = string.split(':')
-
-        ns = self.parser.parse_args(words)
-        self.painter = ns.klass(ns)
-        # steal the paint method
-        self.paint = self.painter.paint
-
-    def __eq__(self, other):
-        return self.string == other.string
-
-    def __ne__(self, other):
-        return self.string != other.string
-
-    @classmethod
-    def add_parser(kls, name, usage):
-        return kls.subparsers.add_parser(name, 
-                usage=usage, add_help=False)
-
-    @classmethod
-    def format_help(kls):
-        rt = []
-        for k in kls.subparsers.choices:
-            rt.append(kls.subparsers.choices[k].format_help())
-
-        return '\n'.join(rt)
-
-class HaloFilePainter(object):
-    def __init__(self, data): 
-        self.__dict__.update(data.__dict__)
-
-    @classmethod
-    def register(kls, inputdesc):
-        h = inputdesc.add_parser("HaloFile", 
-            usage="HaloFile:path:logMmin:logMmax:m0[:-rsd=[x|y|z]]",
-            )
-        h.add_argument("path", help="path to file")
-        h.add_argument("logMmin", type=float, help="log10 min mass")
-        h.add_argument("logMmax", type=float, help="log10 max mass")
-        h.add_argument("m0", type=float, help="mass mass of a particle")
-        h.add_argument("-rsd", 
-            choices="xyz", help="direction to do Redshift distortion")
-
-        h.set_defaults(klass=kls)
-
-    def paint(self, ns, pm):
-        if pm.comm.rank == 0:
-            hf = files.HaloFile(self.path)
-            nhalo = hf.nhalo
-            halopos = numpy.float32(hf.read_pos())
-            halovel = numpy.float32(hf.read_vel())
-            halomass = numpy.float32(hf.read_mass() * self.m0)
-            logmass = numpy.log10(halomass)
-            mask = logmass > self.logMmin
-            mask &= logmass < self.logMmax
-            halopos = halopos[mask]
-            halovel = halovel[mask]
-            logging.info("total number of halos in mass range is %d" % mask.sum())
-        else:
-            halopos = numpy.empty((0, 3), dtype='f4')
-            halovel = numpy.empty((0, 3), dtype='f4')
-            halomass = numpy.empty(0, dtype='f4')
-
-        Ntot = len(halopos)
-        Ntot = pm.comm.bcast(Ntot)
-
-        if self.rsd is not None:
-            dir = 'xyz'.index(self.rsd)
-            halopos[:, dir] += halovel[:, dir]
-        halopos *= ns.BoxSize
-
-        layout = pm.decompose(halopos)
-        tpos = layout.exchange(halopos)
-        pm.paint(tpos)
-
-        npaint = pm.comm.allreduce(len(tpos), op=MPI.SUM) 
-        return Ntot
-HaloFilePainter.register(InputDesc) 
-
-class TPMSnapshotPainter(object):
-    def __init__(self, data):
-        self.__dict__.update(data.__dict__)
-
-    @classmethod
-    def register(kls, inputdesc):
-        h = inputdesc.add_parser("TPMSnapshot", 
-            usage="TPMSnapshot:path[:-rsd=[x|y|z]]")
-        h.add_argument("path", help="path to file")
-        h.add_argument("-rsd", 
-            choices="xyz", default=None, help="direction to do Redshift distortion")
-        h.set_defaults(klass=kls)
-
-    def paint(self, ns, pm):
-        pm.real[:] = 0
-        Ntot = 0
-        for round, P in enumerate(
-                files.read(pm.comm, 
-                    self.path, 
-                    files.TPMSnapshotFile, 
-                    columns=['Position', 'Velocity'], 
-                    bunchsize=ns.bunchsize)):
-
-            nread = pm.comm.allreduce(len(P['Position']), op=MPI.SUM) 
-
-            if self.rsd is not None:
-                dir = "xyz".index(self.rsd)
-                P['Position'][:, dir] += P['Velocity'][:, dir]
-
-            P['Position'] *= ns.BoxSize
-            layout = pm.decompose(P['Position'])
-            tpos = layout.exchange(P['Position'])
-            #print tpos.shape
-            pm.paint(tpos)
-            npaint = pm.comm.allreduce(len(tpos), op=MPI.SUM) 
-            if pm.comm.rank == 0:
-                logging.info('round %d, npaint %d, nread %d' % (round, npaint, nread))
-            Ntot = Ntot + nread
-        return Ntot
-
-TPMSnapshotPainter.register(InputDesc) 
-
-
-parser.add_argument("input", nargs=2, type=InputDesc, help=InputDesc.format_help())
-
-parser.add_argument("output", help='write power to this file') 
-
 parser.add_argument("--Nmu", type=int, default=5,
         help='the number of mu bins to use' )
 
+# parse
 ns = parser.parse_args()
+
+#--------------------------------------------------
+# done with the parser. now do the real calculation
+#--------------------------------------------------
 
 logging.basicConfig(level=logging.DEBUG)
 
 import numpy
 import nbodykit
-from nbodykit import files 
 from nbodykit.measurepower import measure2Dpower, measurepower
-
 from pypm.particlemesh import ParticleMesh
-from pypm.transfer import TransferFunction
-
-
 from mpi4py import MPI
 
 def main():
 
-
     if MPI.COMM_WORLD.rank == 0:
         print 'importing done'
 
+    # setup the particle mesh object
     pm = ParticleMesh(ns.BoxSize, ns.Nmesh, dtype='f4')
 
-    Ntot1 = ns.input[0].paint(ns, pm)
+    # paint first input
+    Ntot1 = ns.inputs[0].paint(ns, pm)
 
+    # painting
     if MPI.COMM_WORLD.rank == 0:
         print 'painting done'
     pm.r2c()
     if MPI.COMM_WORLD.rank == 0:
         print 'r2c done'
 
-    if ns.input[0] != ns.input[1]:
-        # cross power 
+    # do the cross power
+    if len(ns.inputs) > 1 and ns.inputs[0] != ns.inputs[1]:
         complex = pm.complex.copy()
         numpy.conjugate(complex, out=complex)
 
-        Ntot2 = ns.input[1].paint(ns, pm)
+        Ntot2 = ns.inputs[1].paint(ns, pm)
         if MPI.COMM_WORLD.rank == 0:
             print 'painting 2 done'
         pm.r2c()
@@ -228,10 +110,11 @@ def main():
 
         if MPI.COMM_WORLD.rank == 0:
             print 'cross done'
+    # do the auto power
     else:
-        # auto power 
         complex = pm.complex
     
+    # call the appropriate function for 1d/2d cases
     if ns.mode == "1d":
         do1d(pm, complex, ns)
 
