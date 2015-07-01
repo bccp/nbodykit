@@ -2,20 +2,40 @@ from sys import argv
 from sys import stdout
 from sys import stderr
 import logging
-import functools
+
+logging.basicConfig(level=logging.DEBUG)
 
 from argparse import ArgumentParser, RawTextHelpFormatter
 import numpy
 import nbodykit
 from nbodykit import plugins
 
+# override file reading option to treat each space-separated word as 
+# an argument and ignore comments. Can put option + value on same line
+import re
+
+def line_reader(line):
+    r = line.find(' #')
+    if r >= 0:
+        line = line[:r] 
+    r = line.find('\t#')
+    if r >= 0:
+        line = line[:r] 
+
+    words = re.findall(r'(?:[^\s,"]|"(?:\\.|[^"])*")+', line)
+    for w in words:
+        yield w
+
 # First process the plugins
-preparser = ArgumentParser(add_help=False)
+preparser = ArgumentParser(add_help=False, 
+        fromfile_prefix_chars="@")
 preparser.add_argument("-X", type=plugins.load, action="append")
 # Process the plugins
 preparser.exit = lambda a, b: None
+preparser.convert_arg_line_to_args = line_reader
+
 ns, unknown = preparser.parse_known_args()
-        
+
 #--------------------------------------------------
 # setup the parser
 #--------------------------------------------------
@@ -39,18 +59,9 @@ parser = ArgumentParser("Parallel Power Spectrum Calculator",
      """
      )
 
-parser.add_argument("-X", 
-    nargs="*", help='path of additional plugins to be loaded' )
-# override file reading option to treat each space-separated word as 
-# an argument and ignore comments. Can put option + value on same line
-def line_reader(self, line):
-    for arg in line.split():
-        if not arg.strip():
-            continue
-        if arg[0] == '#':
-            break
-        yield arg
-parser.convert_arg_line_to_args = functools.partial(line_reader, parser)
+parser.convert_arg_line_to_args = line_reader
+
+parser.add_argument("-X", action='append', help='path of additional plugins to be loaded' )
 
 # add the positional arguments
 parser.add_argument("mode", choices=["2d", "1d"]) 
@@ -74,13 +85,11 @@ parser.add_argument("--Nmu", type=int, default=5,
         help='the number of mu bins to use' )
 
 # parse
-ns = parser.parse_args(unknown)
+ns = parser.parse_args()
 
 #--------------------------------------------------
 # done with the parser. now do the real calculation
 #--------------------------------------------------
-
-logging.basicConfig(level=logging.DEBUG)
 
 from nbodykit.measurepower import measure2Dpower, measurepower
 from pypm.particlemesh import ParticleMesh
