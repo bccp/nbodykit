@@ -136,7 +136,7 @@ def do2d(pm, complex, ns):
         myout.flush()
 
 def do1d(pm, complex, ns):
-    k, p = measurepower(pm, complex, ns.binshift, ns.remove_cic, 0)
+    k, p, N, kedges = measurepower(pm, complex, ns.binshift, ns.remove_cic, 0)
 
     if MPI.COMM_WORLD.rank == 0:
         print 'measure'

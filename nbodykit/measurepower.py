@@ -43,7 +43,9 @@ def measurepower(pm, complex, binshift=0.0, remove_cic="anisotropic", shotnoise=
  
     wout = numpy.empty(pm.Nmesh//2)
     psout = numpy.empty(pm.Nmesh//2)
-
+    Nout = numpy.empty(pm.Nmesh//2)
+    kedges = numpy.empty(wout.size+1)
+    
     def PowerSpectrum(comm, complex, w):
 
         wedges = numpy.linspace(0, numpy.pi, wout.size + 1, endpoint=True)
@@ -96,7 +98,8 @@ def measurepower(pm, complex, binshift=0.0, remove_cic="anisotropic", shotnoise=
 
         psout[:] = P / N 
         wout[:] = wsum / N
-
+        Nout[:] = N
+        kedges[:] = wedges
 
     chain = [
         TransferFunction.NormalizeDC,
@@ -119,7 +122,7 @@ def measurepower(pm, complex, binshift=0.0, remove_cic="anisotropic", shotnoise=
 
     psout -= shotnoise
 
-    return kout, psout
+    return kout, psout, Nout, kedges*pm.Nmesh/pm.BoxSize
     
 def measure2Dpower(pm, complex, binshift=0.0, remove_cic="anisotropic", shotnoise=0.0, Nmu=5):
     """ Measure 2D power spectrum P(k,mu) from density field painted on pm 
