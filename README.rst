@@ -31,6 +31,14 @@ Then build with
 
 It may take a while to build fftw and pfft.
 
+.. attention:: Mac Notes
+
+    On Mac, the `LDSHARED` environment variable must be explicitly set. In bash, the command is
+
+    .. code::
+
+        export LDSHARED="gcc -bundle -undefined dynamic_lookup"; ./build.sh
+   
 .. attention:: Edison Notes
 
     On Edison, remember to unload darshan
