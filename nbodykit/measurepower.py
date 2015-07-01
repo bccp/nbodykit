@@ -63,6 +63,10 @@ def measurepower(pm, complex, binshift=0.0, remove_cic="anisotropic", shotnoise=
                 scratch = scratch + wi[0] ** 2
 
             # now scratch stores w ** 2
+            if len(scratch.flat) == 0:
+                # no data
+                continue
+
             dig = numpy.digitize(scratch.flat, w2edges)
 
             # take the sum of w
@@ -196,6 +200,11 @@ def measure2Dpower(pm, complex, binshift=0.0, remove_cic="anisotropic", shotnois
                     scratch = scratch + wi[0] ** 2
 
                 # now scratch stores w ** 2
+
+                if len(scratch.flat) == 0:
+                    # no data
+                    continue
+
                 dig_w = numpy.digitize(scratch.flat, w2edges)
             
                 # make scratch just w
