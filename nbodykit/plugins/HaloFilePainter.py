@@ -13,13 +13,13 @@ class HaloFilePainter(InputPainter):
     def register(kls):
         
         h = kls.add_parser(kls.field_type, 
-            usage=kls.field_type+":path:logMmin:logMmax:m0[:&rsd=[x|y|z]]",
+            usage=kls.field_type+":path:logMmin:logMmax:m0[:-rsd=[x|y|z]]",
             )
         h.add_argument("path", help="path to file")
         h.add_argument("logMmin", type=float, help="log10 min mass")
         h.add_argument("logMmax", type=float, help="log10 max mass")
         h.add_argument("m0", type=float, help="mass mass of a particle")
-        h.add_argument("&rsd", 
+        h.add_argument("-rsd", 
             choices="xyz", help="direction to do redshift distortion")
         h.set_defaults(klass=kls)
     
