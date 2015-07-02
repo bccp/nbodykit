@@ -48,6 +48,9 @@ parser.add_argument("--bunchsize", type=int, default=1024*1024*4,
         help='Number of particles to read per rank. A larger number usually means faster IO, but less memory for the FFT mesh')
 parser.add_argument("--remove-cic", default='anisotropic', choices=["anisotropic","isotropic", "none"],
         help='deconvolve cic, anisotropic is the proper way, see http://www.personal.psu.edu/duj13/dissertation/djeong_diss.pdf')
+parser.add_argument("--remove-shotnoise", action='store_true', default=False,
+        help='Remove shotnoise')
+
 parser.add_argument("--Nmu", type=int, default=5,
         help='the number of mu bins to use' )
 
@@ -99,16 +102,22 @@ def main():
     # do the auto power
     else:
         complex = pm.complex
-    
+        Ntot2 = Ntot1 
+
+    if ns.remove_shotnoise:
+        shotnoise = pm.BoxSize ** 3 / (1.0 * Ntot1 * Ntot2) ** 0.5
+    else:
+        shotnoise = 0
+ 
     # call the appropriate function for 1d/2d cases
     if ns.mode == "1d":
-        do1d(pm, complex, ns)
+        do1d(pm, complex, ns, shotnoise)
 
     if ns.mode == "2d":
-        do2d(pm, complex, ns)
+        do2d(pm, complex, ns, shotnoise)
     
-def do2d(pm, complex, ns):
-    result = measure2Dpower(pm, complex, ns.binshift, ns.remove_cic, 0, ns.Nmu)
+def do2d(pm, complex, ns, snotnoise):
+    result = measure2Dpower(pm, complex, ns.binshift, ns.remove_cic, shotnoise, ns.Nmu)
   
     if MPI.COMM_WORLD.rank == 0:
         print 'measure'
@@ -117,8 +126,8 @@ def do2d(pm, complex, ns):
         storage = plugins.PowerSpectrumStorage.get(ns.mode, ns.output)
         storage.write(dict(zip(['k','mu','power','modes','edges'], result)))
 
-def do1d(pm, complex, ns):
-    result = measurepower(pm, complex, ns.binshift, ns.remove_cic, 0)
+def do1d(pm, complex, ns, shotnoise):
+    result = measurepower(pm, complex, ns.binshift, ns.remove_cic, shotnoise)
 
     if MPI.COMM_WORLD.rank == 0:
         print 'measure'
