@@ -33,6 +33,12 @@ It may take a while to build fftw and pfft.
 
 .. attention:: Mac Notes
 
+    autotools are needed on a Mac
+    
+    .. code::
+    
+        sudo port install autoconf automake libtool
+        
     On Mac, the `LDSHARED` environment variable must be explicitly set. In bash, the command is
 
     .. code::
