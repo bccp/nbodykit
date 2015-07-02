@@ -116,7 +116,7 @@ def main():
     if ns.mode == "2d":
         do2d(pm, complex, ns, shotnoise)
     
-def do2d(pm, complex, ns, snotnoise):
+def do2d(pm, complex, ns, shotnoise):
     result = measure2Dpower(pm, complex, ns.binshift, ns.remove_cic, shotnoise, ns.Nmu)
   
     if MPI.COMM_WORLD.rank == 0:
