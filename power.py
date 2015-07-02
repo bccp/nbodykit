@@ -9,42 +9,13 @@ from argparse import ArgumentParser, RawTextHelpFormatter
 import numpy
 import nbodykit
 from nbodykit import plugins
-
-# override file reading option to treat each space-separated word as 
-# an argument and ignore comments. Can put option + value on same line
-import re
-
-def line_reader(line):
-    r = line.find(' #')
-    if r >= 0:
-        line = line[:r] 
-    r = line.find('\t#')
-    if r >= 0:
-        line = line[:r] 
-
-    words = re.findall(r'(?:[^\s,"]|"(?:\\.|[^"])*")+', line)
-    for w in words:
-        yield w
-
-# First process the plugins
-preparser = ArgumentParser(add_help=False, 
-        fromfile_prefix_chars="@")
-preparser.add_argument("-X", type=plugins.load, action="append")
-# Process the plugins
-preparser.exit = lambda a, b: None
-preparser.convert_arg_line_to_args = line_reader
-
-ns, unknown = preparser.parse_known_args()
-
+from nbodykit.utils import ArgumentParser
 #--------------------------------------------------
 # setup the parser
 #--------------------------------------------------
 
 # initialize the parser
 parser = ArgumentParser("Parallel Power Spectrum Calculator",
-        formatter_class=RawTextHelpFormatter,
-        fromfile_prefix_chars="@",
-        add_help=True,
         description=
      """Calculating matter power spectrum from RunPB input files. 
         Output is written to stdout, in Mpc/h units. 
@@ -58,10 +29,6 @@ parser = ArgumentParser("Parallel Power Spectrum Calculator",
         The author would like thank Marcel Schmittfull for the explanation on cic, shotnoise, and k==0 plane errors.
      """
      )
-
-parser.convert_arg_line_to_args = line_reader
-
-parser.add_argument("-X", action='append', help='path of additional plugins to be loaded' )
 
 # add the positional arguments
 parser.add_argument("mode", choices=["2d", "1d"]) 
