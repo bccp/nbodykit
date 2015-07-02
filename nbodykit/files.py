@@ -306,3 +306,49 @@ class HaloFile(object):
             ff.seek(self.nhalo * 12, 1)
             return numpy.fromfile(ff, count=self.nhalo, dtype=('f4', 3))
 
+def ReadPower2DPlainText(filename):
+    """
+    Reads the plain text storage of a 2D power spectrum measurement,
+    as output by the `nbodykit.plugins.Power2DStorage` plugin
+    
+    Returns
+    -------
+    data : dict
+        Dictionary 
+    """
+    toret = {}
+    with open(filename, 'r') as ff:
+        
+        # read number of k and mu bins are first line
+        Nk, Nmu = map(int, ff.readline().split())
+        # names of data columns on second line
+        columns = ff.readline().split()
+        
+        # read the column data
+        for name in columns: toret[name] = numpy.empty(Nk*Nmu)
+        for i in range(Nk*Nmu):
+            fields = map(float, ff.readline().split())
+            for icol, val in enumerate(fields):
+                toret[columns[icol]][i] = val
+                
+        # reshape properly to (Nk, Nmu)
+        for name in columns:        
+            toret[name] = toret[name].reshape((Nk,Nmu))
+        
+        # read the edges for k and mu bins
+        edges = []
+        edges_names = ['kedges', 'muedges']
+        for i, name in enumerate(edges_names):
+ 
+            if ff.readline().strip() == name:
+                N = int(ff.readline())
+                edges.append(numpy.empty(N))
+                for j in range(N):
+                    edges[i][j] = float(ff.readline())
+        toret['edges'] = edges
+        
+    return toret
+                
+            
+                
+        
