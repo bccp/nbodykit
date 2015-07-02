@@ -122,7 +122,7 @@ def measurepower(pm, complex, binshift=0.0, remove_cic="anisotropic", shotnoise=
 
     psout -= shotnoise
 
-    return kout, psout
+    return kout, psout, Nout, kedges*pm.Nmesh/pm.BoxSize
     
 def measure2Dpower(pm, complex, binshift=0.0, remove_cic="anisotropic", shotnoise=0.0, Nmu=5):
     """ Measure 2D power spectrum P(k,mu) from density field painted on pm 

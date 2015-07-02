@@ -134,9 +134,6 @@ class PowerSpectrumStorage:
 
     def write(self, data):
         return NotImplemented
-
-    def read(self):
-        return NotImplemented
             
 #------------------------------------------------------------------------------          
 import os.path
