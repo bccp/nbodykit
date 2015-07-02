@@ -49,7 +49,7 @@ class InputPainter:
     
     from argparse import ArgumentParser
 
-    parser = ArgumentParser("", prefix_chars="-&", add_help=False)
+    parser = ArgumentParser("", add_help=False)
     subparsers = parser.add_subparsers()
     field_type = None
 
@@ -81,7 +81,7 @@ class InputPainter:
     @classmethod
     def add_parser(kls, name, usage):
         return kls.subparsers.add_parser(name, 
-                usage=usage, add_help=False, prefix_chars="&")
+                usage=usage, add_help=False)
     
     @classmethod
     def format_help(kls):

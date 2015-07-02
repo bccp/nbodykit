@@ -11,9 +11,9 @@ class TPMSnapshotPainter(InputPainter):
     @classmethod
     def register(kls):
         h = kls.add_parser(kls.field_type, 
-            usage=kls.field_type+":path[:&rsd=[x|y|z]]")
+            usage=kls.field_type+":path[:-rsd=[x|y|z]]")
         h.add_argument("path", help="path to file")
-        h.add_argument("&rsd", 
+        h.add_argument("-rsd", 
             choices="xyz", default=None, help="direction to do redshift distortion")
         h.set_defaults(klass=kls)
 
