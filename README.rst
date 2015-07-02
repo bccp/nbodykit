@@ -97,19 +97,15 @@ Note that actual packages are still under their own namespaces, for example
 This is to maintain the relative independence of the packages; but up to debate
 may be changed.
 
-Only two exceptions are packages specific to nbodykit.
+Top Level Executables
+=====================
 
-.. code:: python
+We provide two top level executables, fof.py and power.py. They need to be documented.
+For now, run them with '-h' to see the inline help.
 
-    from nbodykit import tpm
-    from nbodykit import distributedarray
+power.py is a Power Spectrum calculator.
 
-
-Some other code pieces in pypm shall be migrated to nbodykit as well. Most notouriously
-those doing QPM simulations under the nbody directory.
-
-qrpm is currently not integrated to the kit. It is quicker particle mesh mock code. The
-goal is to add an embeded python intepreter (currently has lua) to the root rank.
+fof.py is a friend of friend finder.
 
 .. _`pfft-python`: http://github.com/rainwoodman/pfft-python
 .. _`pfft`: http://github.com/mpip/pfft
