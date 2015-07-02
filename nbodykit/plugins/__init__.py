@@ -96,6 +96,49 @@ class InputPainter:
         else:
             return '\n'.join(rt)
 
+#------------------------------------------------------------------------------
+import sys
+import contextlib
+
+class PowerSpectrumStorage:
+    __metaclass__ = PluginMount
+
+    field_type = None
+    klasses = {}
+
+    def __init__(self, path):
+        self.path = path
+
+    @classmethod
+    def add_storage_klass(kls, klass):
+        kls.klasses[klass.field_type] = klass
+
+    @classmethod
+    def get(kls, dim, path):
+        klass = kls.klasses[dim]
+        obj = klass(path)
+        return obj
+        
+    @contextlib.contextmanager
+    def open(self):
+        if self.path and self.path != '-':
+            ff = open(self.path, 'w')
+        else:
+            ff = sys.stdout
+            
+        try:
+            yield ff
+        finally:
+            if ff is not sys.stdout:
+                ff.close()
+
+    def write(self, data):
+        return NotImplemented
+
+    def read(self):
+        return NotImplemented
+            
+#------------------------------------------------------------------------------          
 import os.path
 
 def load(filename, namespace=None):
@@ -124,7 +167,8 @@ def load(filename, namespace=None):
         raise RuntimeError("Failed to load plugin '%s': %s" % (filename, str(e)))
     return namespace
 
-builtins = ['TPMSnapshotPainter', 'HaloFilePainter']
+
+builtins = ['TPMSnapshotPainter', 'HaloFilePainter', 'Power1DStorage', 'Power2DStorage']
 for plugin in builtins:
     globals().update(load(os.path.join(os.path.dirname(__file__), plugin + '.py')))
  
