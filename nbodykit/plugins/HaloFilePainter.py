@@ -47,6 +47,7 @@ class HaloFilePainter(InputPainter):
         if self.rsd is not None:
             dir = 'xyz'.index(self.rsd)
             halopos[:, dir] += halovel[:, dir]
+            halopos[:, dir] %= 1.0 # enforce periodic boundary conditions
         halopos *= ns.BoxSize
 
         layout = pm.decompose(halopos)
