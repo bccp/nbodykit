@@ -124,7 +124,7 @@ def do2d(pm, complex, ns, shotnoise):
 
     if pm.comm.rank == 0:
         storage = plugins.PowerSpectrumStorage.get(ns.mode, ns.output)
-        storage.write(dict(zip(['k','mu','power','modes','edges'], result)))
+        storage.write(dict(zip(['k','mu','power','modes','edges'], result)), shot_noise=shotnoise)
 
 def do1d(pm, complex, ns, shotnoise):
     result = measurepower(pm, complex, ns.binshift, ns.remove_cic, shotnoise)

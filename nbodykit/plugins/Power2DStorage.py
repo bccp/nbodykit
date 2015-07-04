@@ -8,7 +8,17 @@ class Power2DStorage(PowerSpectrumStorage):
     def register(kls):
         PowerSpectrumStorage.add_storage_klass(kls)
 
-    def write(self, data):
+    def write(self, data, **metadata):
+        """
+        Write a 2D power spectrum as plain text.
+                
+        Parameters
+        ----------
+        data : dict
+            the data columns to write out
+        metadata : dict
+            any additional metadata to write out at the end of the file
+        """
         keys = data.keys()
         
         # necessary and optional 2D data columns
@@ -33,13 +43,22 @@ class Power2DStorage(PowerSpectrumStorage):
             # write out flattened columns
             numpy.savetxt(ff, zip(*[data[k].flat for k in names2D]), '%0.7g')
             
-            # lastly, write out edges if we have them
-            if 'edges' in data:
-                edges_names = ['kedges', 'muedges']
-                for name, edges in zip(edges_names, data['edges']):
-                    header = "%s\n%d\n" %(name, len(edges))
-                    values = "".join("%0.7g\n" %e for e in edges)
-                    ff.write(header+values)
-                    
+            # write out edges
+            if 'edges' not in data:
+                raise ValueError("To write Power2DStorage, please specify `edges=[k_edges, mu_edges]`")
+                
+            edges_names = ['kedges', 'muedges']
+            for name, edges in zip(edges_names, data['edges']):
+                header = "%s %d\n" %(name, len(edges))
+                values = "".join("%0.7g\n" %e for e in edges)
+                ff.write(header+values)
+            
+            # lastly, write out metadata, if any
+            if len(metadata):
+                ff.write("metadata %d\n" %len(metadata))
+                for k,v in metadata.iteritems():
+                    ff.write("%s %s %s\n" %(k, str(v), type(v).__name__))
+            
             ff.flush()
+            
             

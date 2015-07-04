@@ -314,7 +314,11 @@ def ReadPower2DPlainText(filename):
     Returns
     -------
     data : dict
-        Dictionary 
+        dictionary holding the `edges` data, as well as the
+        data columns for the P(k,mu) measurement
+    metadata : dict
+        any additional metadata to store as part of the 
+        P(k,mu) measurement
     """
     toret = {}
     with open(filename, 'r') as ff:
@@ -339,15 +343,27 @@ def ReadPower2DPlainText(filename):
         edges = []
         edges_names = ['kedges', 'muedges']
         for i, name in enumerate(edges_names):
- 
-            if ff.readline().strip() == name:
-                N = int(ff.readline())
-                edges.append(numpy.empty(N))
-                for j in range(N):
-                    edges[i][j] = float(ff.readline())
+            fields = ff.readline().split()
+            N = int(fields[-1])
+            edges.append(numpy.empty(N))
+            for j in range(N):
+                edges[i][j] = float(ff.readline())
         toret['edges'] = edges
         
-    return toret
+        # read any metadata
+        metadata = {}
+        fields = ff.readline().split()
+        if fields[0].strip() == 'metadata':
+            N = int(fields[-1])
+            for i in range(N):
+                fields = ff.readline().split()
+                cast = fields[-1]
+                if cast not in __builtins__:
+                    raise TypeError("Metadata must have builtin type")
+                else:
+                    metadata[fields[0]] = __builtins__[cast](fields[1])
+               
+    return toret, metadata
                 
             
                 
