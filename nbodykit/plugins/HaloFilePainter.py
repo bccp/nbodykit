@@ -1,9 +1,8 @@
 from nbodykit.plugins import InputPainter
 
-# FIXME: these apply to the individual painters, 
-# maybe move to each class?
 import numpy
 import logging
+from nbodykit import files 
 
 #------------------------------------------------------------------------------          
 class HaloFilePainter(InputPainter):
