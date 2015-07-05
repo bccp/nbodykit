@@ -1,7 +1,7 @@
 import numpy as np
 import numpy.ma.mrecords as mrecords
 
-def rebin(index, edges, data, weights):
+def rebin(index, edges, data, weights, sum_only):
     """
     Rebin data stored in a masked recarray, using the edges specified
     
@@ -19,7 +19,9 @@ def rebin(index, edges, data, weights):
     weights : array_like
         The weights to use when re-binning. Must have the same shape
         as `data`
-        
+    sum_only : list of str
+        A list of strings specifying fields in `data` that will 
+        only be summed when combining bins. 
     """
     if data.shape != weights.shape:
         raise ValueError("data and weights do not have same shape in rebin")
@@ -47,12 +49,18 @@ def rebin(index, edges, data, weights):
         N = np.bincount(mi, weights=weights[inds], minlength=ndims[0]*ndims[1])
         
         # now sum the data columns
-        valsum = np.bincount(mi, weights=data[name][inds]*weights[inds], minlength=ndims[0]*ndims[1])
+        w = weights[inds]
+        if name in sum_only:
+            w = weights[inds]*0.+1 # unity if we are just summing
+        valsum = np.bincount(mi, weights=data[name][inds]*w, minlength=ndims[0]*ndims[1])
         
-        # ignore warnings -- want N == 0 to be set as NaNs
-        with np.errstate(invalid='ignore'):
-            toret[name] = (valsum / N).reshape(ndims)[1:-1, 1:-1]
-        
+        if name in sum_only:
+            toret[name] = valsum.reshape(ndims)[1:-1, 1:-1]
+        else:
+            # ignore warnings -- want N == 0 to be set as NaNs
+            with np.errstate(invalid='ignore'):
+                toret[name] = (valsum / N).reshape(ndims)[1:-1, 1:-1]
+            
     return toret
 
 
@@ -89,10 +97,14 @@ class PkmuResult(object):
     muedges : array_like
         the edges of the mu bins used. shape is `Nmu+1`
     force_index_match : bool
-         If `True`, when indexing using `k` or `mu` values, return
-         results for the nearest bin to the value specified
+        If `True`, when indexing using `k` or `mu` values, return
+        results for the nearest bin to the value specified
+    sum_only : list of str
+        A list of strings specifying fields in `data` that will 
+        only be summed when combining bins.
     """
-    def __init__(self, kedges, muedges, data, force_index_match=False, **kwargs):
+    def __init__(self, kedges, muedges, data, force_index_match=False, 
+                  sum_only=None, **kwargs):
         """
         Parameters
         ----------
@@ -107,6 +119,9 @@ class PkmuResult(object):
         force_index_match : bool
              If `True`, when indexing using `k` or `mu` values, return
              results for the nearest bin to the value specified
+        sum_only : list of str
+            A list of strings specifying fields in `data` that will 
+            only be summed when combining bins. 
         **kwargs
             Any additional metadata for the power spectrum object can
             be passed as keyword arguments here
@@ -133,6 +148,11 @@ class PkmuResult(object):
                
         # match closest index always returns nearest bin value                         
         self.force_index_match = force_index_match
+        
+        # fields which are averaged
+        self.sum_only = []
+        if self.sum_only is not None:
+            self.sum_only = sum_only
         
         # save any metadata too
         self._metadata = []
@@ -183,9 +203,17 @@ class PkmuResult(object):
     def from_pickle(cls, filename):
         import pickle
         d = pickle.load(open(filename, 'r'))
+        
+        # the data
         data = {name : d['data'][name].data for name in d['columns']}
+        
+        # the metadata
         kwargs = {k:d[k] for k in d['_metadata']}
-        return PkmuResult(d['kedges'], d['muedges'], data, d['force_index_match'], **kwargs)
+        
+        # add the named keywords, if present
+        kwargs['force_index_match'] = d.get('force_index_match', False)
+        kwargs['sum_only'] = d.get('sum_only', None)
+        return PkmuResult(d['kedges'], d['muedges'], data, **kwargs)
     
     #--------------------------------------------------------------------------
     # convenience properties
@@ -249,10 +277,11 @@ class PkmuResult(object):
             
         # get the rebinned data
         edges[i] = bins
-        new_data = rebin(index, edges, self.data, weights)
+        new_data = rebin(index, edges, self.data, weights, self.sum_only)
         
         # return a new PkmuResult
-        return PkmuResult(edges[0], edges[1], new_data, self.force_index_match)
+        meta = {k:getattr(self,k) for k in self._metadata}
+        return PkmuResult(edges[0], edges[1], new_data, self.force_index_match, self.sum_only, **meta)
         
     #--------------------------------------------------------------------------
     # main functions
@@ -292,10 +321,12 @@ class PkmuResult(object):
         i = (np.abs(index-val)).argmin()
         return index[i]
         
-    def Pk(self, mu):
+    def Pk(self, mu=None, weights=None):
         """
         Return the power measured P(k) at a specific value of mu, as a 
-        masked numpy recarray. 
+        masked numpy recarray. If no `mu` is provided, return the
+        data averaged over all mu bins, optionally weighted by
+        `weights`
         
         Notes
         -----
@@ -317,15 +348,25 @@ class PkmuResult(object):
         Pk : numpy.ma.mrecords.MaskedRecords
             A masked recarray specifying the P(k) slice at the mu-bin specified
         """
-        if not isinstance(mu, int): 
-            mu = self._get_index('mu', mu)
+        # return the average over mu
+        if mu is None:
+            index = [self.index.k_center, self.index.mu_center]
+            edges = [self.kedges, self.muedges]
+            Pk = self._reindex(1, index, edges, np.linspace(edges[1][0],edges[1][-1],2), weights)
+            return np.squeeze(Pk.data)
+        # return a specific mu slice
+        else:
+            if not isinstance(mu, int): 
+                mu = self._get_index('mu', mu)
         
-        return self.data[:,mu]
+            return self.data[:,mu]
         
-    def Pmu(self, k):
+    def Pmu(self, k=None, weights=None):
         """
         Return the power measured P(mu) at a specific value of k, as a 
-        masked numpy recarray. 
+        masked numpy recarray. If no `k` is provided, return the
+        data averaged over all k bins, optionally weighted by
+        `weights`
         
         Notes
         -----
@@ -347,10 +388,18 @@ class PkmuResult(object):
         Pmu : numpy.ma.mrecords.MaskedRecords
             A masked recarray specifying the P(mu) slice at the k-bin specified
         """
-        if not isinstance(k, int): 
-            k = self._get_index('k', k)
+        # return the average over k
+        if k is None:
+            index = [self.index.k_center, self.index.mu_center]
+            edges = [self.kedges, self.muedges]
+            Pk = self._reindex(0, index, edges, np.linspace(edges[0][0],edges[0][-1],2), weights)
+            return np.squeeze(Pk.data)
+        # return a specific k slice
+        else:            
+            if not isinstance(k, int): 
+                k = self._get_index('k', k)
         
-        return self.data[k,:]
+            return self.data[k,:]
         
     def reindex_mu(self, bins, weights=None):
         """
