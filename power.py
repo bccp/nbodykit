@@ -97,14 +97,14 @@ def main():
         # power in cross case: c1.real*c2.real + c1.imag*c2.imag
         complex.real *= pm.complex.real
         complex.imag *= pm.complex.imag
-        complex.real **= 0.5
-        complex.imag **= 0.5
 
         if MPI.COMM_WORLD.rank == 0:
             print 'cross done'
     # do the auto power
     else:
         complex = pm.complex
+        complex.real **= 2
+        complex.imag **= 2
         Ntot2 = Ntot1 
 
     if ns.remove_shotnoise:

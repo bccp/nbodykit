@@ -87,8 +87,7 @@ def measurepower(pm, complex, binshift=0.0, remove_cic="anisotropic", shotnoise=
             N += N1
 
             # take the sum of power
-            numpy.abs(complex[row], out=scratch)
-            scratch[...] **= 2.0
+            scratch[...] = complex[row].real + complex[row].imag
             # the singular plane is down weighted by 0.5
             scratch[singular] *= 0.5
 
@@ -240,8 +239,7 @@ def measure2Dpower(pm, complex, binshift=0.0, remove_cic="anisotropic", shotnois
                 N += N1
 
                 # take the sum of power
-                numpy.abs(complex[row], out=scratch)
-                scratch[...] **= 2.0
+                scratch[...] = complex[row].real + complex[row].imag
                 # the singular plane is down weighted by 0.5
                 scratch[singular] *= 0.5
 
