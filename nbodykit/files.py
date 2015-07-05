@@ -306,6 +306,89 @@ class HaloFile(object):
             ff.seek(self.nhalo * 12, 1)
             return numpy.fromfile(ff, count=self.nhalo, dtype=('f4', 3))
 
+class FileSelection(object):
+    
+    import operator
+    comparison_operators = {'<' : operator.lt, '<=' : operator.le, 
+                            '>' : operator.gt, '>=' : operator.ge, 
+                            '==' : operator.eq, '!=' : operator.ne, 
+                            'and' : numpy.logical_and, 'or' : numpy.logical_or,
+                            'not' : numpy.logical_not }
+    
+    def __init__(self, str_selection):
+        try:
+            import pyparsing as pp
+        except:
+            raise ImportError("`pyparsing` must be installed to use `CatalogSelection`")
+                
+        # set up the regex for the individual terms
+        operator = pp.Regex(">=|<=|!=|>|<|==").setName("operator")
+        number = pp.Regex(r"[+-]?\d+(:?\.\d*)?(:?[eE][+-]?\d+)?")
+        identifier = pp.Word(pp.alphanums, pp.alphanums + "_")
+
+        # look for things like key (operator) value
+        condition = pp.Group(identifier + operator + (number|identifier))
+        self.selection_expr = pp.operatorPrecedence(condition, 
+                                                    [("not", 1, pp.opAssoc.RIGHT,), 
+                                                     ("and", 2, pp.opAssoc.LEFT,), 
+                                                     ("or", 2, pp.opAssoc.LEFT,)])
+                                                  
+        # save the string condition and parse it
+        self.parse_selection(str_selection)
+        
+    def __iter__(self):
+        return iter(self.selection)
+            
+    def __str__(self):
+        return self.string_selection
+        
+    def parse_selection(self, str_selection):
+        """
+        Parse the input string condition
+        """        
+        self.string_selection = str_selection
+        self.selection = self.selection_expr.parseString(str_selection)[0]
+    
+    def get_mask(self, data):
+        return self._is_valid(data, self.selection)
+    
+    def _is_valid(self, data, flags):
+
+        # return the string representation
+        if isinstance(flags, basestring):
+            return flags
+        # the flags is a pyparsing.ParseResults
+        else:
+            # this is a not clause
+            if len(flags) == 2:
+                # only need operator and value
+                operator = self.comparison_operators[flags[0]]
+                value = self._is_valid(data, flags[-1])
+                ans = operator(value)
+            # this is an and/or clause
+            else:                
+                # get the key, value and operator function
+                key = self._is_valid(data, flags[0])
+                value = self._is_valid(data, flags[-1])
+                operator = self.comparison_operators[flags[1]]
+                
+                # if key is string, must cast value and get data attribute
+                if isinstance(key, basestring):
+                    if hasattr(data, 'dtypes'):
+                        value = data.dtypes[key].type(value)
+                    elif hasattr(data, 'dtype'):
+                        value = data.dtype[key].type(value)
+                    else:
+                        raise TypeError("data must be a pandas.DataFrame or numpy.recarray")
+                    
+                    if not hasattr(data, key):
+                        raise ValueError("input data has not attribute `%s`" %key)
+                    key = getattr(data, key)
+                    
+                ans = operator(key, value)
+                
+            return numpy.asarray(ans)
+
 def ReadPower2DPlainText(filename):
     """
     Reads the plain text storage of a 2D power spectrum measurement,
