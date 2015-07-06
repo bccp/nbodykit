@@ -48,7 +48,7 @@ class HDFPainter(InputPainter):
         
         args = kls.field_type+":path:key"
         options = "[:-usecols= x y z][:-poscols= x y z]\n[:-velcols= vx vy vz]" + \
-                  "[:-rsd=[x|y|z]][:-posf=0.001][:-velf=0.001][:-select=flags]"
+                  "[:-rsd=[x|y|z]][:-posf=0.001][:-velf=0.001][:-select=conditions]"
         h = kls.add_parser(kls.field_type, usage=args+options)
         
         h.add_argument("path", help="path to file")
@@ -67,7 +67,7 @@ class HDFPainter(InputPainter):
         h.add_argument("-velf", default=1., type=float, 
             help="factor to scale the velocities")
         h.add_argument("-select", default=None, type=files.FileSelection, 
-            help='row selection based on flags specified as string')
+            help='row selection based on conditions for example, "column > value and column < value"')
         h.set_defaults(klass=kls)
     
     def paint(self, ns, pm):
@@ -80,7 +80,7 @@ class HDFPainter(InputPainter):
             # read in the hdf5 file using pandas
             data = pd.read_hdf(self.path, self.key, columns=self.usecols)
             
-            # select based on input flags
+            # select based on input conditions
             if self.select is not None:
                 mask = self.select.get_mask(data)
                 data = data[mask]

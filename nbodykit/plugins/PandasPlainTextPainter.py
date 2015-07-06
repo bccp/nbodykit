@@ -55,7 +55,7 @@ class PandasPlainTextPainter(InputPainter):
         
         args = kls.field_type+":path:names"
         options = "[:-usecols= x y z][:-poscols= x y z]\n[:-velcols= vx vy vz]" + \
-                  "[:-rsd=[x|y|z]][:-posf=0.001][:-velf=0.001][:-select=flags]"
+                  "[:-rsd=[x|y|z]][:-posf=0.001][:-velf=0.001][:-select=conditions]"
         h = kls.add_parser(kls.field_type, usage=args+options)
         
         h.add_argument("path", help="path to file")
@@ -74,7 +74,7 @@ class PandasPlainTextPainter(InputPainter):
         h.add_argument("-velf", default=1., type=float, 
             help="factor to scale the velocities")
         h.add_argument("-select", default=None, type=files.FileSelection, 
-            help='row selection based on flags specified as string')
+            help='row selection based on conditions specified as string')
         h.set_defaults(klass=kls)
     
     def paint(self, ns, pm):
@@ -94,7 +94,7 @@ class PandasPlainTextPainter(InputPainter):
             kwargs['usecols'] = self.usecols
             data = pd.read_csv(self.path, **kwargs)
             
-            # select based on input flags
+            # select based on input conditions
             if self.select is not None:
                 mask = self.select.get_mask(data)
                 data = data[mask]
