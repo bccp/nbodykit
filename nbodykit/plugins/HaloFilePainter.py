@@ -12,45 +12,49 @@ class HaloFilePainter(InputPainter):
     def register(kls):
         
         h = kls.add_parser(kls.field_type, 
-            usage=kls.field_type+":path:logMmin:logMmax:m0[:-rsd=[x|y|z]]",
+            usage=kls.field_type+":path:m0[:-rsd=[x|y|z]][:-select=conditions]",
             )
         h.add_argument("path", help="path to file")
-        h.add_argument("logMmin", type=float, help="log10 min mass")
-        h.add_argument("logMmax", type=float, help="log10 max mass")
         h.add_argument("m0", type=float, help="mass mass of a particle")
         h.add_argument("-rsd", 
             choices="xyz", help="direction to do redshift distortion")
+        h.add_argument("-select", default=None, type=files.FileSelection, 
+            help='row selection based on logmass, e.g. logmass > 13 and logmass < 15')
         h.set_defaults(klass=kls)
     
     def paint(self, ns, pm):
+        dtype = numpy.dtype([
+            ('position', ('f4', 3)),
+            ('velocity', ('f4', 3)),
+            ('logmass', 'f4')])
+        
         if pm.comm.rank == 0:
             hf = files.HaloFile(self.path)
             nhalo = hf.nhalo
-            halopos = numpy.float32(hf.read_pos())
-            halovel = numpy.float32(hf.read_vel())
-            halomass = numpy.float32(hf.read_mass() * self.m0)
-            logmass = numpy.log10(halomass)
-            mask = logmass > self.logMmin
-            mask &= logmass < self.logMmax
-            halopos = halopos[mask]
-            halovel = halovel[mask]
-            logging.info("total number of halos in mass range is %d" % mask.sum())
+            data = numpy.empty(nhalo, dtype)
+            
+            data['position']= numpy.float32(hf.read_pos())
+            data['velocity']= numpy.float32(hf.read_vel())
+            data['logmass'] = numpy.log10(numpy.float32(hf.read_mass() * self.m0))
+            # select based on selection conditions
+            if self.select is not None:
+                mask = self.select.get_mask(data)
+                data = data[mask]
+            logging.info("total number of halos in mass range is %d / %d" % (len(data), nhalo))
         else:
-            halopos = numpy.empty((0, 3), dtype='f4')
-            halovel = numpy.empty((0, 3), dtype='f4')
-            halomass = numpy.empty(0, dtype='f4')
+            data = numpy.empty(0, dtype=dtype)
 
-        Ntot = len(halopos)
+        Ntot = len(data)
         Ntot = pm.comm.bcast(Ntot)
 
         if self.rsd is not None:
             dir = 'xyz'.index(self.rsd)
-            halopos[:, dir] += halovel[:, dir]
-            halopos[:, dir] %= 1.0 # enforce periodic boundary conditions
-        halopos *= ns.BoxSize
+            data['position'][:, dir] += data['velocity'][:, dir]
+            data['position'][:, dir] %= 1.0 # enforce periodic boundary conditions
+        data['position'] *= ns.BoxSize
 
-        layout = pm.decompose(halopos)
-        tpos = layout.exchange(halopos)
+        layout = pm.decompose(data['position'])
+        tpos = layout.exchange(data['position'])
         pm.paint(tpos)
 
         npaint = pm.comm.allreduce(len(tpos)) 
