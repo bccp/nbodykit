@@ -1,5 +1,4 @@
-import numpy as np
-import numpy.ma.mrecords as mrecords
+import numpy
 
 def rebin(index, edges, data, weights, sum_only):
     """
@@ -12,8 +11,8 @@ def rebin(index, edges, data, weights, sum_only):
         be the number of bin dimensions
     edges : list of arrays
         A list of arrays specifying the bin edges in each dimension
-    data : numpy.ma.mrecords.MaskedRecords
-        Masked recarray with each field representing a data column
+    data : numpy.ma.core.MaskedArray
+        Masked structured array with each field representing a data column
         to be re-binned. Masked elements will not contribute to the
         re-binned results
     weights : array_like
@@ -32,11 +31,11 @@ def rebin(index, edges, data, weights, sum_only):
     dig = []
     ndims = []
     for i in range(len(index)):
-        dig.append(np.digitize(index[i].flat, edges[i]))
+        dig.append(numpy.digitize(index[i].flat, edges[i]))
         ndims.append(len(edges[i])+1)
         
     # make the multi index for tracking flat indices
-    multi_index = np.ravel_multi_index(dig, ndims)
+    multi_index = numpy.ravel_multi_index(dig, ndims)
     
     # loop over each field in the recarray
     names = data.dtype.names
@@ -46,19 +45,19 @@ def rebin(index, edges, data, weights, sum_only):
         mi = multi_index[inds.flatten()]
         
         # first count values in each bin
-        N = np.bincount(mi, weights=weights[inds], minlength=ndims[0]*ndims[1])
+        N = numpy.bincount(mi, weights=weights[inds], minlength=ndims[0]*ndims[1])
         
         # now sum the data columns
         w = weights[inds]
         if name in sum_only:
             w = weights[inds]*0.+1 # unity if we are just summing
-        valsum = np.bincount(mi, weights=data[name][inds]*w, minlength=ndims[0]*ndims[1])
+        valsum = numpy.bincount(mi, weights=data[name][inds]*w, minlength=ndims[0]*ndims[1])
         
         if name in sum_only:
             toret[name] = valsum.reshape(ndims)[1:-1, 1:-1]
         else:
             # ignore warnings -- want N == 0 to be set as NaNs
-            with np.errstate(invalid='ignore'):
+            with numpy.errstate(invalid='ignore'):
                 toret[name] = (valsum / N).reshape(ndims)[1:-1, 1:-1]
             
     return toret
@@ -80,11 +79,11 @@ class PkmuResult(object):
     
     Attributes
     ----------
-    data    : :py:class:`numpy.ma.mrecords.MaskedRecords`
+    data    : :py:class:`numpy.ma.core.MaskedArray`
         a masked structured array holding the data, where masked
         elements represent (k,mu) bins with missing data
-    index   : :py:class:`numpy.rec.recarray`
-        a recarray with field names `k_center`, `mu_center` that
+    index   : :py:class:`numpy.ndarray`
+        a structured array with field names `k_center`, `mu_center` that
         stores the center bin values. Same shape as `data`
     Nk      : int
         the number of k bins
@@ -115,7 +114,7 @@ class PkmuResult(object):
         data : dict
             Dictionary holding 2D arrays of data. The keys
             will be used to infer the field names in the
-            resulting np.recarray
+            resulting numpy.recarray
         force_index_match : bool
              If `True`, when indexing using `k` or `mu` values, return
              results for the nearest bin to the value specified
@@ -132,21 +131,29 @@ class PkmuResult(object):
         self.muedges = muedges
         
         # treat any NaNs as missing data
-        mask = np.zeros((len(kedges)-1, len(muedges)-1), dtype=bool)
+        mask = numpy.zeros((len(kedges)-1, len(muedges)-1), dtype=bool)
+        dtypes = []
         for name in self.columns:
-            mask = np.logical_or(mask, ~np.isfinite(data[name]))
+            mask = numpy.logical_or(mask, ~numpy.isfinite(data[name]))
+            dtypes.append((name, data[name].dtype))
 
-        # make a masked recarray to store the data
-        self.data = np.rec.fromarrays(data.values(), names=self.columns)
-        self.data = np.ma.array(self.data, mask=mask).view(mrecords.mrecarray)
+        # create a structured array to store the data
+        shape = (len(self.kedges)-1, len(self.muedges)-1)
+        self.data = numpy.empty(shape, dtype=numpy.dtype(dtypes))
+        for name in self.columns:
+            self.data[name] = data[name]
         
-        # now store the cente (k,mu) of each bin as the index
+        # now make it a masked array
+        self.data = numpy.ma.array(self.data, mask=mask)
+        
+        # now store the center (k,mu) of each bin as the index
         k_center = 0.5*(kedges[1:]+kedges[:-1])[...,None]
         mu_center = 0.5*(muedges[1:]+muedges[:-1])[None,...]
-        self.index = np.rec.fromarrays(np.broadcast_arrays(k_center,mu_center), 
-                                        names=['k_center', 'mu_center'])
-               
-        # match closest index always returns nearest bin value                         
+        dtypes = numpy.dtype([('k_center', k_center.dtype), ('mu_center', mu_center.dtype)])
+        self.index = numpy.empty(shape, dtype=dtypes)
+        self.index['k_center'], self.index['mu_center'] = numpy.broadcast_arrays(k_center,mu_center)
+
+        # match closest index always returns nearest bin value
         self.force_index_match = force_index_match
         
         # fields which are averaged
@@ -214,17 +221,42 @@ class PkmuResult(object):
         kwargs['force_index_match'] = d.get('force_index_match', False)
         kwargs['sum_only'] = d.get('sum_only', None)
         return PkmuResult(d['kedges'], d['muedges'], data, **kwargs)
+        
+    @classmethod
+    def from_dict(cls, d, **kwargs):
+        """
+        Return a PkmuResult object from a dictionary of data. Additional
+        metadata can be specified as keyword arguments
+        
+        Notes
+        -----
+        The `edges` data must be given in the input dictionary. This should
+        specify a list of size 2, with the format `[k_edges, mu_edges]`
+        
+        Parameters
+        ----------
+        d : dict
+            dictionary of arrays to be stored as the data columns and bin 
+            edges
+        **kwargs 
+            any additional keywords or metadata to be stored
+        """
+        d = d.copy() # copy so we don't edit for caller
+        if 'edges' not in d:
+            raise ValueError("must supply `edges` data in input dictionary")
+        edges = d.pop('edges')
+        return PkmuResult(edges[0], edges[1], d, **kwargs)
     
     #--------------------------------------------------------------------------
     # convenience properties
     #--------------------------------------------------------------------------
     @property
     def k_center(self):
-        return self.index.k_center[:,0]
+        return self.index['k_center'][:,0]
     
     @property
     def mu_center(self):
-        return self.index.mu_center[0,:]
+        return self.index['mu_center'][0,:]
     
     @property
     def Nmu(self):
@@ -244,7 +276,7 @@ class PkmuResult(object):
             index = self.mu_center
 
         if self.force_index_match:
-            i = (np.abs(index-val)).argmin()
+            i = (numpy.abs(index-val)).argmin()
         else:
             try:
                 i = list(index).index(val)
@@ -261,14 +293,14 @@ class PkmuResult(object):
         if isinstance(bins, int):
             if bins >= N_old:
                 raise ValueError("Can only reindex into fewer than %d bins" %N_old)
-            bins = np.linspace(edges[i][0], edges[i][-1], bins+1)
+            bins = numpy.linspace(edges[i][0], edges[i][-1], bins+1)
         else:
             if len(bins) >= N_old:
                 raise ValueError("Can only reindex into fewer than %d bins" %N_old)
         
         # compute the weights
         if weights is None:
-            weights = np.ones((self.Nk, self.Nmu))
+            weights = numpy.ones((self.Nk, self.Nmu))
         else:
             if isinstance(weights, basestring):
                 if weights not in self.columns:
@@ -303,7 +335,6 @@ class PkmuResult(object):
         index_val : float
             The center value of the bin closest to `val`
         """
-        
         # verify input
         if isinstance(name, basestring):
             if name not in ['k','mu']:
@@ -318,7 +349,7 @@ class PkmuResult(object):
         if name == 'mu' or name == 1:
             index = self.mu_center
 
-        i = (np.abs(index-val)).argmin()
+        i = (numpy.abs(index-val)).argmin()
         return index[i]
         
     def Pk(self, mu=None, weights=None):
@@ -345,15 +376,16 @@ class PkmuResult(object):
             
         Returns
         -------
-        Pk : numpy.ma.mrecords.MaskedRecords
-            A masked recarray specifying the P(k) slice at the mu-bin specified
+        Pk : numpy.ma.core.MaskedArray
+            A masked structured array specifying the P(k) slice at the 
+            mu-bin specified
         """
         # return the average over mu
         if mu is None:
-            index = [self.index.k_center, self.index.mu_center]
+            index = [self.index['k_center'], self.index['mu_center']]
             edges = [self.kedges, self.muedges]
-            Pk = self._reindex(1, index, edges, np.linspace(edges[1][0],edges[1][-1],2), weights)
-            return np.squeeze(Pk.data)
+            Pk = self._reindex(1, index, edges, numpy.linspace(edges[1][0],edges[1][-1],2), weights)
+            return numpy.squeeze(Pk.data)
         # return a specific mu slice
         else:
             if not isinstance(mu, int): 
@@ -385,15 +417,16 @@ class PkmuResult(object):
             
         Returns
         -------
-        Pmu : numpy.ma.mrecords.MaskedRecords
-            A masked recarray specifying the P(mu) slice at the k-bin specified
+        Pmu : numpy.ma.core.MaskedArray
+            A masked structured array specifying the P(mu) slice at the 
+            k-bin specified
         """
         # return the average over k
         if k is None:
-            index = [self.index.k_center, self.index.mu_center]
+            index = [self.index['k_center'], self.index['mu_center']]
             edges = [self.kedges, self.muedges]
-            Pk = self._reindex(0, index, edges, np.linspace(edges[0][0],edges[0][-1],2), weights)
-            return np.squeeze(Pk.data)
+            Pk = self._reindex(0, index, edges, numpy.linspace(edges[0][0],edges[0][-1],2), weights)
+            return numpy.squeeze(Pk.data)
         # return a specific k slice
         else:            
             if not isinstance(k, int): 
@@ -422,7 +455,7 @@ class PkmuResult(object):
         pkmu : PkmuResult
             class holding the re-binned results
         """
-        index = [self.index.k_center, self.index.mu_center]
+        index = [self.index['k_center'], self.index['mu_center']]
         edges = [self.kedges, self.muedges]
         return self._reindex(1, index, edges, bins, weights)
     
@@ -447,7 +480,7 @@ class PkmuResult(object):
         pkmu : PkmuResult
             class holding the re-binned results
         """
-        index = [self.index.k_center, self.index.mu_center]
+        index = [self.index['k_center'], self.index['mu_center']]
         edges = [self.kedges, self.muedges]
         return self._reindex(0, index, edges, bins, weights)
         
