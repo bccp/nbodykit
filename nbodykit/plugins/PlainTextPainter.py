@@ -91,10 +91,10 @@ class PlainTextPainter(InputPainter):
                 data = data[mask]
             
             # get position and velocity, if we have it
-            pos = numpy.vstack(data[k] for k in self.poscols).T
+            pos = numpy.vstack(data[k] for k in self.poscols).T.astype('f4')
             pos *= self.posf
             if self.velcols is not None:
-                vel = numpy.vstack(data[k] for k in self.velcols).T
+                vel = numpy.vstack(data[k] for k in self.velcols).T.astype('f4')
                 vel *= self.velf
             else:
                 vel = numpy.empty(0, dtype=('f4', 3))
