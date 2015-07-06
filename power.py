@@ -84,7 +84,8 @@ def main():
         print 'r2c done'
 
     # do the cross power
-    if len(ns.inputs) > 1 and ns.inputs[0] != ns.inputs[1]:
+    do_cross = len(ns.inputs) > 1 and ns.inputs[0] != ns.inputs[1]
+    if do_cross:
         complex = pm.complex.copy()
 
         Ntot2 = ns.inputs[1].paint(ns, pm)
@@ -107,8 +108,8 @@ def main():
         complex.imag **= 2
         Ntot2 = Ntot1 
 
-    if ns.remove_shotnoise:
-        shotnoise = pm.BoxSize ** 3 / (1.0 * Ntot1 * Ntot2) ** 0.5
+    if ns.remove_shotnoise and not do_cross:
+        shotnoise = pm.BoxSize ** 3 / (1.0*Ntot1)
     else:
         shotnoise = 0
  
