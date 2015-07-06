@@ -13,7 +13,7 @@ class CollapsedHaloPainter(InputPainter):
     @classmethod
     def register(kls):
         h = kls.add_parser(kls.field_type, 
-            usage=kls.field_type+":pathhalo:logMmin:logMmax:m0:pathmatter:pathlabel[:&rsd={x|y|z}]",
+            usage=kls.field_type+":pathhalo:logMmin:logMmax:m0:pathmatter:pathlabel[:-rsd={x|y|z}]",
             )
         h.add_argument("pathhalo", help="path to file")
         h.add_argument("logMmin", type=float, help="log10 min mass")
@@ -21,7 +21,7 @@ class CollapsedHaloPainter(InputPainter):
         h.add_argument("m0", type=float, help="mass mass of a particle")
         h.add_argument("pathmatter", help="path to matter file")
         h.add_argument("pathlabel", help="path to label file")
-        h.add_argument("&rsd", 
+        h.add_argument("-rsd", 
             choices="xyz", help="direction to do redshift distortion")
         h.set_defaults(klass=kls)
     
@@ -58,6 +58,7 @@ class CollapsedHaloPainter(InputPainter):
             if self.rsd is not None:
                 dir = 'xyz'.index(self.rsd)
                 P['Position'][:, dir] += P['Velocity'][:, dir]
+                P['Position'][:, dir] %= 1.0 # enforce periodic boundary conditions
 
             P['Position'] *= ns.BoxSize
             layout = pm.decompose(P['Position'])

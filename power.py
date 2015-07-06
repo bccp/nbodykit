@@ -86,7 +86,6 @@ def main():
     # do the cross power
     if len(ns.inputs) > 1 and ns.inputs[0] != ns.inputs[1]:
         complex = pm.complex.copy()
-        numpy.conjugate(complex, out=complex)
 
         Ntot2 = ns.inputs[1].paint(ns, pm)
         if MPI.COMM_WORLD.rank == 0:
@@ -94,14 +93,18 @@ def main():
         pm.r2c()
         if MPI.COMM_WORLD.rank == 0:
             print 'r2c 2 done'
-        complex *= pm.complex
-        complex **= 0.5
+            
+        # power in cross case: c1.real*c2.real + c1.imag*c2.imag
+        complex.real *= pm.complex.real
+        complex.imag *= pm.complex.imag
 
         if MPI.COMM_WORLD.rank == 0:
             print 'cross done'
     # do the auto power
     else:
         complex = pm.complex
+        complex.real **= 2
+        complex.imag **= 2
         Ntot2 = Ntot1 
 
     if ns.remove_shotnoise:

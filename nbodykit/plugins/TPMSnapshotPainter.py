@@ -32,6 +32,7 @@ class TPMSnapshotPainter(InputPainter):
             if self.rsd is not None:
                 dir = "xyz".index(self.rsd)
                 P['Position'][:, dir] += P['Velocity'][:, dir]
+                P['Position'][:, dir] %= 1.0 # enforce periodic boundary conditions
 
             P['Position'] *= ns.BoxSize
             layout = pm.decompose(P['Position'])
