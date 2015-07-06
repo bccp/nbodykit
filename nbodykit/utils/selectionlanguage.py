@@ -25,14 +25,14 @@ class Query(object):
         str_selection : str
             the boolean expression as a string
         """
-
         # set up the regex for the individual terms
         operator = Regex(">=|<=|!=|>|<|==").setName("operator")
         number = Regex(r"[+-]?\d+(:?\.\d*)?(:?[eE][+-]?\d+)?")
+        quoted_str = QuotedString("'", unquoteResults=False)
         identifier = Word(alphanums, alphanums + "_")
 
         # look for things like key (operator) value
-        condition = Group(identifier + operator + (number|identifier))
+        condition = Group(identifier + operator + (number|quoted_str))
         self.selection_expr = operatorPrecedence(condition, 
                                                     [("not", 1, opAssoc.RIGHT,), 
                                                      ("and", 2, opAssoc.LEFT,), 
@@ -40,7 +40,7 @@ class Query(object):
                                                   
         # save the string condition and parse it
         self.parse_selection(str_selection)
-                    
+          
     def __str__(self):
         return self.string_selection
         
@@ -50,7 +50,7 @@ class Query(object):
         """        
         self.string_selection = str_selection
         self.selection = self.selection_expr.parseString(str_selection)[0]
-    
+        
     def get_mask(self, data):
         """
         Apply the selection to the specified data and return the 
