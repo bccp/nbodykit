@@ -379,44 +379,41 @@ class FileSelection(object):
         mask : numpy.ndarray
             the boolean mask corresponding to the selection string
         """
-        return self._is_valid(data, self.selection)
+        return self._evaluate(data, self.selection)
     
-    def _is_valid(self, data, flags):
+    def _evaluate(self, data, conditions):
         """
-        Internal recursive function to parse nested boolean
+        Internal recursive function to evaluate parsed nested boolean
         expressions and return the combined boolean mask
         """
         # return the string representation
-        if isinstance(flags, basestring):
-            return flags
-        # the flags is a pyparsing.ParseResults
+        if isinstance(conditions, basestring):
+            return conditions
+        # the conditions is a pyparsing.ParseResults
         else:
-            # this is a not clause
-            if len(flags) == 2:
+            if len(conditions) == 2:
+                # this is a binary operator
                 # only need operator and value
-                operator = self.comparison_operators[flags[0]]
-                value = self._is_valid(data, flags[-1])
+                operator, value = conditions
+                operator = self.comparison_operators[operator]
+                value = self._evaluate(data, value)
                 ans = operator(value)
             # this is an and/or clause
-            else:                
+            elif len(conditions) == 3:                
+                # this is a binary operator
                 # get the key, value and operator function
-                key = self._is_valid(data, flags[0])
-                value = self._is_valid(data, flags[-1])
-                operator = self.comparison_operators[flags[1]]
-                
-                # if key is string, must cast value and get data attribute
+                # this transforms the node on the fly 
+                # because LHS subnode and RHS subnode are treated
+                # differently. LHS is always assumed to be a column reference
+                # rhs as a value
+                key, operator, value = conditions
+                key = self._evaluate(data, key)
+                value = self._evaluate(data, value)
+                operator = self.comparison_operators[operator]
                 if isinstance(key, basestring):
-                    if hasattr(data, 'dtypes'):
-                        value = data.dtypes[key].type(value)
-                    elif hasattr(data, 'dtype'):
-                        value = data.dtype[key].type(value)
-                    else:
-                        raise TypeError("data must be a pandas.DataFrame or numpy.recarray")
-                    
-                    if not hasattr(data, key):
-                        raise ValueError("input data has not attribute `%s`" %key)
-                    key = getattr(data, key)
-                    
+                    key = data[key]
+                if isinstance(value, basestring):
+                    value = eval(value)
                 ans = operator(key, value)
                 
             return numpy.asarray(ans)
