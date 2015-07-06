@@ -100,10 +100,10 @@ class PandasPlainTextPainter(InputPainter):
                 data = data[mask]
             
             # get position and velocity, if we have it
-            pos = data[self.poscols].values
+            pos = data[self.poscols].values.astype('f4')
             pos *= self.posf
             if self.velcols is not None:
-                vel = data[self.velcols].values
+                vel = data[self.velcols].values.astype('f4')
                 vel *= self.velf
             else:
                 vel = numpy.empty(0, dtype=('f4', 3))
