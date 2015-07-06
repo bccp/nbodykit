@@ -1,6 +1,9 @@
 from sys import argv
 from sys import stdout
 from sys import stderr
+import sys
+import os.path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import logging
 
 from argparse import ArgumentParser
