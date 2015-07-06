@@ -1,5 +1,5 @@
 import argparse
-import plugins
+from .. import plugins
 import re
 
 class ArgumentParser(argparse.ArgumentParser):

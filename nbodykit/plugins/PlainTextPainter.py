@@ -2,7 +2,7 @@ from nbodykit.plugins import InputPainter
 
 import numpy
 from nbodykit import files
-
+from nbodykit.utils import selectionlanguage
 def list_str(value):
     return value.split()
 
@@ -72,7 +72,7 @@ class PlainTextPainter(InputPainter):
             help="factor to scale the positions")
         h.add_argument("-velf", default=1., type=float, 
             help="factor to scale the velocities")
-        h.add_argument("-select", default=None, type=files.FileSelection, 
+        h.add_argument("-select", default=None, type=selectionlanguage.Query, 
             help='row selection based on conditions specified as string')
         h.set_defaults(klass=kls)
     

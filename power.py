@@ -5,11 +5,10 @@ import logging
 
 logging.basicConfig(level=logging.DEBUG)
 
-from argparse import ArgumentParser, RawTextHelpFormatter
 import numpy
 import nbodykit
 from nbodykit import plugins
-from nbodykit.utils import ArgumentParser
+from nbodykit.utils.argumentparser import ArgumentParser
 #--------------------------------------------------
 # setup the parser
 #--------------------------------------------------

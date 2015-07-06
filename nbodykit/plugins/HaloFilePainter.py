@@ -3,6 +3,7 @@ from nbodykit.plugins import InputPainter
 import numpy
 import logging
 from nbodykit import files 
+from nbodykit.utils import selectionlanguage
 
 #------------------------------------------------------------------------------          
 class HaloFilePainter(InputPainter):
@@ -18,7 +19,7 @@ class HaloFilePainter(InputPainter):
         h.add_argument("m0", type=float, help="mass mass of a particle")
         h.add_argument("-rsd", 
             choices="xyz", help="direction to do redshift distortion")
-        h.add_argument("-select", default=None, type=files.FileSelection, 
+        h.add_argument("-select", default=None, type=selectionlanguage.Query,
             help='row selection based on logmass, e.g. logmass > 13 and logmass < 15')
         h.set_defaults(klass=kls)
     
