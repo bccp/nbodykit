@@ -34,8 +34,5 @@ class ArgumentParser(argparse.ArgumentParser):
         r = line.find('\t#')
         if r >= 0:
             line = line[:r] 
-
-        words = re.findall(r'(?:[^\s,"]|"(?:\\.|[^"])*")+', line)
-        for w in words:
-            yield w
+        yield line
 
