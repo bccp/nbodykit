@@ -7,22 +7,22 @@ from nbodykit import files
 def list_str(value):
     return value.split()
          
-class PandasPlainTextPainter(InputPainter):
-    field_type = "PandasPlainText"
+class HDFPainter(InputPainter):
+    field_type = "HDF"
     
     @classmethod
     def register(kls):
         
-        args = kls.field_type+":path:names"
+        args = kls.field_type+":path:key"
         options = "[:-usecols= x y z][:-poscols= x y z]\n[:-velcols= vx vy vz]" + \
                   "[:-rsd=[x|y|z]][:-posf=0.001][:-velf=0.001][:-select=flags]"
         h = kls.add_parser(kls.field_type, usage=args+options)
         
         h.add_argument("path", help="path to file")
-        h.add_argument("names", type=list_str, 
-            help="names of columns in file")
+        h.add_argument("key", type=str, 
+            help="group identifier in the HDF5 file")
         h.add_argument("-usecols", type=list_str, 
-            help="only read these columns from file")
+            default=None, help="only read these columns from file")
         h.add_argument("-poscols", type=list_str, default=['x','y','z'], 
             help="names of the position columns")
         h.add_argument("-velcols", type=list_str, default=None,
@@ -42,17 +42,10 @@ class PandasPlainTextPainter(InputPainter):
             try:
                 import pandas as pd
             except:
-                raise ImportError("pandas must be installed to use PandasPlainTextPainter")
+                raise ImportError("pandas must be installed to use HDFPainter")
                 
-            # read in the plain text file using pandas
-            kwargs = {}
-            kwargs['comment'] = '#'
-            kwargs['names'] = self.names
-            kwargs['header'] = None
-            kwargs['engine'] = 'c'
-            kwargs['delim_whitespace'] = True
-            kwargs['usecols'] = self.usecols
-            data = pd.read_csv(self.path, **kwargs)
+            # read in the hdf5 file using pandas
+            data = pd.read_hdf(self.path, self.key, columns=self.usecols)
             
             # select based on input flags
             if self.select is not None:

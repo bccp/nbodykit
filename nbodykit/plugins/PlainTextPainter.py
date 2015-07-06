@@ -6,9 +6,9 @@ from nbodykit import files
 
 def list_str(value):
     return value.split()
-         
-class PandasPlainTextPainter(InputPainter):
-    field_type = "PandasPlainText"
+
+class PlainTextPainter(InputPainter):
+    field_type = "PlainText"
     
     @classmethod
     def register(kls):
@@ -38,21 +38,13 @@ class PandasPlainTextPainter(InputPainter):
         h.set_defaults(klass=kls)
     
     def paint(self, ns, pm):
-        if pm.comm.rank == 0:
-            try:
-                import pandas as pd
-            except:
-                raise ImportError("pandas must be installed to use PandasPlainTextPainter")
-                
-            # read in the plain text file using pandas
+        if pm.comm.rank == 0: 
+            # read in the plain text file as a recarray
             kwargs = {}
-            kwargs['comment'] = '#'
+            kwargs['comments'] = '#'
             kwargs['names'] = self.names
-            kwargs['header'] = None
-            kwargs['engine'] = 'c'
-            kwargs['delim_whitespace'] = True
             kwargs['usecols'] = self.usecols
-            data = pd.read_csv(self.path, **kwargs)
+            data = numpy.recfromtxt(self.path, **kwargs)
             
             # select based on input flags
             if self.select is not None:
@@ -60,10 +52,10 @@ class PandasPlainTextPainter(InputPainter):
                 data = data[mask]
             
             # get position and velocity, if we have it
-            pos = data[self.poscols].values
+            pos = numpy.vstack(data[k] for k in self.poscols).T
             pos *= self.posf
             if self.velcols is not None:
-                vel = data[self.velcols].values
+                vel = numpy.vstack(data[k] for k in self.velcols).T
                 vel *= self.velf
             else:
                 vel = numpy.empty(0, dtype=('f4', 3))
