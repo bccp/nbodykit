@@ -117,9 +117,10 @@ def main():
         do1d(pm, complex, ns, shotnoise)
 
     if ns.mode == "2d":
-        do2d(pm, complex, ns, shotnoise)
+        meta = {'box_size':pm.BoxSize, 'N1':Ntot1, 'N2':Ntot2, 'shot_noise':shotnoise}
+        do2d(pm, complex, ns, shotnoise, **meta)
     
-def do2d(pm, complex, ns, shotnoise):
+def do2d(pm, complex, ns, shotnoise, **meta):
     result = measure2Dpower(pm, complex, ns.binshift, ns.remove_cic, shotnoise, ns.Nmu)
   
     if MPI.COMM_WORLD.rank == 0:
@@ -127,7 +128,7 @@ def do2d(pm, complex, ns, shotnoise):
 
     if pm.comm.rank == 0:
         storage = plugins.PowerSpectrumStorage.get(ns.mode, ns.output)
-        storage.write(dict(zip(['k','mu','power','modes','edges'], result)), shot_noise=shotnoise)
+        storage.write(dict(zip(['k','mu','power','modes','edges'], result)), **meta)
 
 def do1d(pm, complex, ns, shotnoise):
     result = measurepower(pm, complex, ns.binshift, ns.remove_cic, shotnoise)
