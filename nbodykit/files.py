@@ -307,7 +307,18 @@ class HaloFile(object):
             return numpy.fromfile(ff, count=self.nhalo, dtype=('f4', 3))
 
 class FileSelection(object):
+    """
+    Class to parse boolean expressions and return boolean masks
+    based on data with named fields. 
     
+    Notes
+    -----
+    * requires pyparsing module to be installed
+    * operators that can be parsed are (<, <=, >, >=, ==, !=, and, or, not)
+    * can parse nested boolean expressions
+    * keys in boolean expressions, i.e., (key operator value), must
+    be named columns of the data object passed to `get_mask`
+    """
     import operator
     comparison_operators = {'<' : operator.lt, '<=' : operator.le, 
                             '>' : operator.gt, '>=' : operator.ge, 
@@ -316,10 +327,16 @@ class FileSelection(object):
                             'not' : numpy.logical_not }
     
     def __init__(self, str_selection):
+        """
+        Parameters
+        ----------
+        str_selection : str
+            the boolean expression as a string
+        """
         try:
             import pyparsing as pp
         except:
-            raise ImportError("`pyparsing` must be installed to use `CatalogSelection`")
+            raise ImportError("`pyparsing` must be installed to use FileSelection")
                 
         # set up the regex for the individual terms
         operator = pp.Regex(">=|<=|!=|>|<|==").setName("operator")
@@ -335,10 +352,7 @@ class FileSelection(object):
                                                   
         # save the string condition and parse it
         self.parse_selection(str_selection)
-        
-    def __iter__(self):
-        return iter(self.selection)
-            
+                    
     def __str__(self):
         return self.string_selection
         
@@ -350,10 +364,28 @@ class FileSelection(object):
         self.selection = self.selection_expr.parseString(str_selection)[0]
     
     def get_mask(self, data):
+        """
+        Apply the selection to the specified data and return the 
+        implied boolean mask
+        
+        Parameters
+        ----------
+        data : pandas.DataFrame or numpy.recarray
+            data object that must have named fields, necessary for
+            type-casting the values in the selection string
+        
+        Returns
+        -------
+        mask : numpy.ndarray
+            the boolean mask corresponding to the selection string
+        """
         return self._is_valid(data, self.selection)
     
     def _is_valid(self, data, flags):
-
+        """
+        Internal recursive function to parse nested boolean
+        expressions and return the combined boolean mask
+        """
         # return the string representation
         if isinstance(flags, basestring):
             return flags
