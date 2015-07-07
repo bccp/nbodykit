@@ -1,6 +1,7 @@
 from nbodykit.plugins import InputPainter
 
 import numpy
+import logging
 from nbodykit import files
 from nbodykit.utils import selectionlanguage
 
@@ -94,11 +95,13 @@ class PandasPlainTextPainter(InputPainter):
             kwargs['delim_whitespace'] = True
             kwargs['usecols'] = self.usecols
             data = pd.read_csv(self.path, **kwargs)
+            nobj = len(data)
             
             # select based on input conditions
             if self.select is not None:
                 mask = self.select.get_mask(data)
                 data = data[mask]
+            logging.info("total number of objects selected is %d / %d" % (len(data), nobj))
             
             # get position and velocity, if we have it
             pos = data[self.poscols].values.astype('f4')
@@ -108,6 +111,7 @@ class PandasPlainTextPainter(InputPainter):
                 vel *= self.velf
             else:
                 vel = numpy.empty(0, dtype=('f4', 3))
+            
         else:
             pos = numpy.empty(0, dtype=('f4', 3))
             vel = numpy.empty(0, dtype=('f4', 3))

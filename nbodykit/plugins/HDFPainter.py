@@ -1,6 +1,7 @@
 from nbodykit.plugins import InputPainter
 
 import numpy
+import logging
 from nbodykit import files
 from nbodykit.utils import selectionlanguage
 
@@ -80,11 +81,13 @@ class HDFPainter(InputPainter):
                 
             # read in the hdf5 file using pandas
             data = pd.read_hdf(self.path, self.key, columns=self.usecols)
+            nobj = len(data)
             
             # select based on input conditions
             if self.select is not None:
                 mask = self.select.get_mask(data)
                 data = data[mask]
+            logging.info("total number of objects selected is %d / %d" % (len(data), nobj))
             
             # print out column names if we mess up input
             if not all(col in data.columns for col in self.poscols):

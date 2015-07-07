@@ -1,8 +1,10 @@
 from nbodykit.plugins import InputPainter
 
 import numpy
+import logging
 from nbodykit import files
 from nbodykit.utils import selectionlanguage
+
 def list_str(value):
     return value.split()
 
@@ -84,11 +86,13 @@ class PlainTextPainter(InputPainter):
             kwargs['names'] = self.names
             kwargs['usecols'] = self.usecols
             data = numpy.recfromtxt(self.path, **kwargs)
+            nobj = len(data)
             
             # select based on input conditions
             if self.select is not None:
                 mask = self.select.get_mask(data)
                 data = data[mask]
+            logging.info("total number of objects selected is %d / %d" % (len(data), nobj))
             
             # get position and velocity, if we have it
             pos = numpy.vstack(data[k] for k in self.poscols).T.astype('f4')
