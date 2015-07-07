@@ -297,7 +297,7 @@ class PkmuResult(object):
             
         # handle the metadata
         kwargs = {}
-        if key in pkmus[0]._metada:
+        for key in pkmus[0]._metadata:
             try:
                 kwargs[key] = numpy.mean([getattr(pkmu,key) for pkmu in pkmus])
             except:
