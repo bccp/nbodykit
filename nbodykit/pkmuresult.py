@@ -246,7 +246,64 @@ class PkmuResult(object):
             raise ValueError("must supply `edges` data in input dictionary")
         edges = d.pop('edges')
         return PkmuResult(edges[0], edges[1], d, **kwargs)
-    
+        
+    @classmethod
+    def from_list(cls, pkmus, weights=None, sum_only=None):
+        """
+        Return an average PkmuResult object from a list of PkmuResult 
+        objects, optionally using weights. For those columns in 
+        sum_only, the data will be summed and not averaged.
+        
+        Notes
+        -----
+        The input power spectra must be defined on the same grid
+        and have the same data columns.
+        
+        Parameters
+        ----------
+        pkmus : list of PkmuResult
+            the list of 2D power spectrum objects to average
+        
+        """
+        # check columns for all objects
+        columns = [pkmu.columns for pkmu in pkmus]
+        if not all(sorted(cols) == sorted(columns[0]) for cols in columns):
+            raise ValueError("cannot combine PkmuResults with different column names")
+        
+        # check edges too
+        for name in ['kedges', 'muedges']:
+            edges = [getattr(pkmu,name) for pkmu in pkmus]
+            if not all(numpy.allclose(e, edges[0]) for e in edges):
+                raise ValueError("cannot combine PkmuResults with different %s" %name)
+        
+        # compute the weights
+        if weights is None:
+            weights = numpy.ones((len(pkmus), pkmus[0].Nk, pkmus[0].Nmu))
+        else:
+            if isinstance(weights, basestring):
+                if weights not in columns[0]:
+                    raise ValueError("Cannot weight by `%s`; no such column" %weights)
+                weights = numpy.array([pkmu.data[weights].data for pkmu in pkmus])
+        
+        # take the mean or the sum
+        data = {}    
+        for name in columns[0]:
+            col_data = numpy.array([pkmu.data[name] for pkmu in pkmus])
+            if sum_only is None or name not in sum_only:
+                with numpy.errstate(invalid='ignore'):
+                    data[name] = (col_data*weights).sum(axis=0) / weights.sum(axis=0)
+            else:
+                data[name] = numpy.sum(col_data, axis=0)
+            
+        # the metadata
+        kwargs = {k:getattr(pkmus[0], k) for k in pkmus[0]._metadata}
+        
+        # add the named keywords, if present
+        kwargs['force_index_match'] = getattr(pkmus[0], 'force_index_match', False)
+        kwargs['sum_only'] = getattr(pkmus[0], 'sum_only', None)
+        
+        return PkmuResult(pkmus[0].kedges, pkmus[0].muedges, data, **kwargs)
+        
     #--------------------------------------------------------------------------
     # convenience properties
     #--------------------------------------------------------------------------
