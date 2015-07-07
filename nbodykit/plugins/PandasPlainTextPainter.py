@@ -1,6 +1,7 @@
 from nbodykit.plugins import InputPainter
 
 import numpy
+import logging
 from nbodykit import files
 from nbodykit.utils import selectionlanguage
 
@@ -56,7 +57,7 @@ class PandasPlainTextPainter(InputPainter):
         
         args = kls.field_type+":path:names"
         options = "[:-usecols= x y z][:-poscols= x y z]\n[:-velcols= vx vy vz]" + \
-                  "[:-rsd=[x|y|z]][:-posf=0.001][:-velf=0.001][:-select=conditions]"
+                  "[:-rsd=[x|y|z]][:-posf=1.0][:-velf=1.0][:-select=conditions]"
         h = kls.add_parser(kls.field_type, usage=args+options)
         
         h.add_argument("path", help="path to file")
@@ -94,11 +95,13 @@ class PandasPlainTextPainter(InputPainter):
             kwargs['delim_whitespace'] = True
             kwargs['usecols'] = self.usecols
             data = pd.read_csv(self.path, **kwargs)
+            nobj = len(data)
             
             # select based on input conditions
             if self.select is not None:
                 mask = self.select.get_mask(data)
                 data = data[mask]
+            logging.info("total number of objects selected is %d / %d" % (len(data), nobj))
             
             # get position and velocity, if we have it
             pos = data[self.poscols].values.astype('f4')
@@ -108,6 +111,7 @@ class PandasPlainTextPainter(InputPainter):
                 vel *= self.velf
             else:
                 vel = numpy.empty(0, dtype=('f4', 3))
+            
         else:
             pos = numpy.empty(0, dtype=('f4', 3))
             vel = numpy.empty(0, dtype=('f4', 3))
