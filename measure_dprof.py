@@ -5,9 +5,9 @@ import logging
 
 from argparse import ArgumentParser
 
-parser = ArgumentParser("Measuring 1 halo term",
+parser = ArgumentParser("Measuring density profile of halos",
         description=
-     """ Measuring the paircounting of particles within a halo
+     """ Measuring the average halo density profile. 
      """,
         epilog=
      """
@@ -23,8 +23,10 @@ parser.add_argument("halocatalogue",
         help='halocatalogue')
 parser.add_argument("boxsize", 
         help='size of box', type=float)
-parser.add_argument("Nmesh", 
-        help='Nmesh', type=int)
+parser.add_argument("nbins", 
+        help='number of bins for the density profile.', type=int)
+parser.add_argument("m0", 
+        help='m0, the mass of particle', type=float)
 parser.add_argument("output", help='write output to this file')
 
 ns = parser.parse_args()
@@ -101,7 +103,7 @@ def main():
     data = data[arg]
     
     ul = numpy.unique(data['Label'])
-    nbin=ns.Nmesh
+    nbin=ns.nbins
     den_prof=numpy.zeros(nbin+1)
     count_prof=numpy.zeros(nbin+1)
     bins=numpy.linspace(0,ns.boxsize,nbin)
@@ -122,7 +124,7 @@ def main():
             print l
     
     shell_vol = 4*3.1416*ns.boxsize/nbin*centre**2
-    den_prof = count_prof[1:-1]/shell_vol
+    den_prof = count_prof[1:-1]*ns.m0/shell_vol
 
     if comm.rank == 0:
         if ns.output != '-':
