@@ -56,7 +56,7 @@ class PandasPlainTextPainter(InputPainter):
         
         args = kls.field_type+":path:names"
         options = "[:-usecols= x y z][:-poscols= x y z]\n[:-velcols= vx vy vz]" + \
-                  "[:-rsd=[x|y|z]][:-posf=0.001][:-velf=0.001][:-select=conditions]"
+                  "[:-rsd=[x|y|z]][:-posf=1.0][:-velf=1.0][:-select=conditions]"
         h = kls.add_parser(kls.field_type, usage=args+options)
         
         h.add_argument("path", help="path to file")

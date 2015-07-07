@@ -49,7 +49,7 @@ class HDFPainter(InputPainter):
         
         args = kls.field_type+":path:key"
         options = "[:-usecols= x y z][:-poscols= x y z]\n[:-velcols= vx vy vz]" + \
-                  "[:-rsd=[x|y|z]][:-posf=0.001][:-velf=0.001][:-select=conditions]"
+                  "[:-rsd=[x|y|z]][:-posf=1.0][:-velf=1.0][:-select=conditions]"
         h = kls.add_parser(kls.field_type, usage=args+options)
         
         h.add_argument("path", help="path to file")
@@ -86,10 +86,17 @@ class HDFPainter(InputPainter):
                 mask = self.select.get_mask(data)
                 data = data[mask]
             
+            # print out column names if we mess up input
+            if not all(col in data.columns for col in self.poscols):
+                raise ValueError("position columns error; valid column names are %s" %data.columns)
+                
             # get position and velocity, if we have it
             pos = data[self.poscols].values.astype('f4')
             pos *= self.posf
             if self.velcols is not None:
+                if not all(col in data.columns for col in self.velcols):
+                    raise ValueError("velocity columns error; valid column names are %s" %data.columns)
+                    
                 vel = data[self.velcols].values.astype('f4')
                 vel *= self.velf
             else:
