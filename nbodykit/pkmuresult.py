@@ -295,8 +295,14 @@ class PkmuResult(object):
             else:
                 data[name] = numpy.sum(col_data, axis=0)
             
-        # the metadata
-        kwargs = {k:getattr(pkmus[0], k) for k in pkmus[0]._metadata}
+        # handle the metadata
+        kwargs = {}
+        if key in pkmus[0]._metada:
+            try:
+                kwargs[key] = numpy.mean([getattr(pkmu,key) for pkmu in pkmus])
+            except:
+                kwargs[key] = getattr(pkmus[0],key)
+            
         
         # add the named keywords, if present
         kwargs['force_index_match'] = getattr(pkmus[0], 'force_index_match', False)
