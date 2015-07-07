@@ -34,5 +34,5 @@ class ArgumentParser(argparse.ArgumentParser):
         r = line.find('\t#')
         if r >= 0:
             line = line[:r] 
-        yield line
+        yield line.strip() # remove any leading/trailing whitespace
 
