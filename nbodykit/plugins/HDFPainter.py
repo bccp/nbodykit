@@ -88,14 +88,16 @@ class HDFPainter(InputPainter):
             
             # print out column names if we mess up input
             if not all(col in data.columns for col in self.poscols):
-                raise ValueError("position columns error; valid column names are %s" %data.columns)
+                valid = "[%s]" %(", ".join(data.columns))
+                raise ValueError("position columns error; valid column names are "+valid)
                 
             # get position and velocity, if we have it
             pos = data[self.poscols].values.astype('f4')
             pos *= self.posf
             if self.velcols is not None:
                 if not all(col in data.columns for col in self.velcols):
-                    raise ValueError("velocity columns error; valid column names are %s" %data.columns)
+                    valid = "[%s]" %(", ".join(data.columns))
+                    raise ValueError("velocity columns error; valid column names are "+valid)
                     
                 vel = data[self.velcols].values.astype('f4')
                 vel *= self.velf
