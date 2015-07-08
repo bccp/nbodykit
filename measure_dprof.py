@@ -25,6 +25,8 @@ parser.add_argument("boxsize",
         help='size of box', type=float)
 parser.add_argument("nbins", 
         help='number of bins for the density profile.', type=int)
+parser.add_argument("mbins", 
+        help='number of bins for different masses of halos.', type=int)
 parser.add_argument("m0", 
         help='m0, the mass of particle', type=float)
 parser.add_argument("output", help='write output to this file')
@@ -59,10 +61,16 @@ def main():
  
     Ntot = sum(SNAP.npart)
     assert Ntot == sum(LABEL.npart)
-
-    h = files.HaloFile(ns.halocatalogue)
-    #print h.read_pos().shape()
-    N = h.read_mass()
+    if comm.rank == 0:
+        h = files.HaloFile(ns.halocatalogue)
+        #print h.read_pos().shape()
+        N = h.read_mass()
+        halo_pos = h.read_pos()*ns.boxsize
+    else:
+        N = None
+        halo_pos = None
+    N = comm.bcast(N)
+    halo_pos = comm.bcast(halo_pos)
 
     N0 = Ntot - sum(N[1:])
     # halos are assigned to ranks 0, 1, 2, 3 ...
@@ -104,13 +112,18 @@ def main():
     
     ul = numpy.unique(data['Label'])
     nbin=ns.nbins
-    den_prof=numpy.zeros(nbin+1)
-    count_prof=numpy.zeros(nbin+1)
-    bins=numpy.linspace(0,ns.boxsize,nbin)
+    mbin=ns.mbins
+    den_prof=numpy.zeros((nbin-2, mbin+1))
+    count_prof=numpy.zeros((nbin+1, mbin+1))
+    bins=numpy.linspace(0,ns.boxsize * 0.1,nbin)
+    mass_bins=numpy.linspace(numpy.amin(N),numpy.amax(N),mbin)
     left=bins[0:-1]
     right=bins[1:]
     centre=(left+right)/2
-    halo_pos = h.read_pos()*ns.boxsize
+    mleft=mass_bins[0:-1]
+    mright=mass_bins[1:]
+    mcentre=(mleft+mright)/2
+    m_ind = numpy.digitize(N, mass_bins)
 
     for l in ul:
         if l == 0: 
@@ -119,12 +132,13 @@ def main():
         end = data['Label'].searchsorted(l, side='right')
         pos = data['Position'][start:end]*ns.boxsize
         dist = distp(halo_pos[l,:], pos[:,:], ns.boxsize)
-        count_prof+=numpy.bincount(numpy.digitize(dist, bins),minlength=nbin+1)
+        count_prof[:,m_ind[l]]+=numpy.bincount(numpy.digitize(dist, bins),minlength=nbin+1)
         if l % 1000 == 0:
             print l
     
-    shell_vol = 4*3.1416*ns.boxsize/nbin*centre**2
-    den_prof = count_prof[1:-1]*ns.m0/shell_vol
+    count_prof = comm.allreduce(count_prof)
+    shell_vol = 4 * 3.1416 / 3. * numpy.diff(bins ** 3)
+    den_prof = count_prof[1:-1,:] /shell_vol[:,None] / len(halo_pos) / (Ntot / ns.boxsize ** 3) - 1
 
     if comm.rank == 0:
         if ns.output != '-':
@@ -133,6 +147,7 @@ def main():
         else:
             ff = stdout
         with ff:
+            ff.write('# centre of the mass bins %f' %mcentre) #######Still in progress of writing header
             numpy.savetxt(ff, zip(centre, den_prof))
 
 
