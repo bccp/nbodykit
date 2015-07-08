@@ -76,7 +76,8 @@ It may take a while to build fftw and pfft.
         module load cython
         module load numpy
         module load mpi4py
-
+    
+    Also prefix the compiler MPICC=cc
 
 Packages are ready to use after importing the nbodykit namespace.
 
@@ -106,6 +107,15 @@ For now, run them with '-h' to see the inline help.
 power.py is a Power Spectrum calculator.
 
 fof.py is a friend of friend finder.
+
+Example Data 
+------------
+
+Retrieve from
+
+    https://s3-us-west-1.amazonaws.com/nbodykit/nbodykit-testdata.tar.gz
+
+And extract them in nbodykit root directory.
 
 .. _`pfft-python`: http://github.com/rainwoodman/pfft-python
 .. _`pfft`: http://github.com/mpip/pfft

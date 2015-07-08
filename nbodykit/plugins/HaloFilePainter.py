@@ -56,7 +56,10 @@ class HaloFilePainter(InputPainter):
 
         layout = pm.decompose(data['position'])
         tpos = layout.exchange(data['position'])
-        pm.paint(tpos)
+        tvel = layout.exchange(data['velocity'])
+
+        weight = 1
+        pm.paint(tpos, weight)
 
         npaint = pm.comm.allreduce(len(tpos)) 
         return Ntot
