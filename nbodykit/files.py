@@ -358,11 +358,13 @@ def ReadPower2DPlainText(filename):
             for i in range(N):
                 fields = ff.readline().split()
                 cast = fields[-1]
-                if cast not in __builtins__:
-                    raise TypeError("Metadata must have builtin type")
-                else:
+                if cast in __builtins__:
                     metadata[fields[0]] = __builtins__[cast](fields[1])
-               
+                elif hasattr(numpy, cast):
+                     metadata[fields[0]] = getattr(numpy, cast)(fields[1])
+                else:
+                    raise TypeError("Metadata must have builtin or numpy type")
+
     return toret, metadata
                 
             
