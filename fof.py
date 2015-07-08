@@ -40,7 +40,7 @@ from nbodykit import halos
 from kdcount import cluster
 from pypm.domain import GridND
 
-def assign_halo_label(minid, comm, thresh):
+def assign_halo_label(data, comm, thresh):
     """ 
     Convert minid to sequential labels starting from 0.
 
@@ -66,20 +66,11 @@ def assign_halo_label(minid, comm, thresh):
         particles that are in halos that contain less than thresh particles.
     
     """
-
-    
-    Nitem = len(minid)
-
-    data = numpy.empty(Nitem, dtype=[
-            ('origind', 'u8'), 
-            ('fofid', 'u8'),
-            ])
-    # assign origind for recovery of ordering, since
-    # we need to work in sorted fofid 
-    data['origind'] = sum(comm.allgather(Nitem)[:comm.rank]) \
-            + numpy.arange(Nitem)
-    data['fofid'] = minid
+    data['origind'] = numpy.arange(len(data), dtype='i4')
+    data['origind'] += sum(comm.allgather(len(data))[:comm.rank]) \
+ 
     data = DistributedArray(data, comm)
+
 
     # first attempt is to assign fofid for each group
     data.sort('fofid')
@@ -99,6 +90,7 @@ def assign_halo_label(minid, comm, thresh):
     label.local[mask] = 0
 
     data['fofid'].local[:] = label.local[:]
+    del label
 
     data.sort('fofid')
 
@@ -108,7 +100,7 @@ def assign_halo_label(minid, comm, thresh):
 
     data.sort('origind')
     
-    label = data['fofid'].local.copy().view('i8')
+    label = data['fofid'].local.view('i8')
 
     Nhalo0 = max(comm.allgather(label.max())) + 1
 
@@ -123,6 +115,12 @@ def assign_halo_label(minid, comm, thresh):
         
     return label
 
+def local_fof(pos, ll):
+    data = cluster.dataset(pos, boxsize=1.0)
+    fof = cluster.fof(data, linking_length=ll, np=0, verbose=True)
+    labels = fof.labels
+    return labels
+
 def main():
     comm = MPI.COMM_WORLD
     np = split_size_2d(comm.size)
@@ -135,13 +133,9 @@ def main():
     if comm.rank == 0:
         logging.info('grid %s' % str(grid) )
 
-    [P] = read(comm, ns.filename, TPMSnapshotFile, columns=['Position', 'ID'])
+    [P] = read(comm, ns.filename, TPMSnapshotFile, columns=['Position'])
 
-    tpos = P['Position']
-    tid = P['ID']
-    del P
-
-    Ntot = sum(comm.allgather(len(tpos)))
+    Ntot = sum(comm.allgather(len(P['Position'])))
 
     if comm.rank == 0:
         logging.info('Total number of particles %d, ll %g' % (Ntot, ns.LinkingLength))
@@ -150,22 +144,26 @@ def main():
     #print pos
     #print ((pos[0] - pos[1]) ** 2).sum()** 0.5, ll
   
-    layout = domain.decompose(tpos, smoothing=ll * 1)
+    layout = domain.decompose(P['Position'], smoothing=ll * 1)
 
-    tpos = layout.exchange(tpos)
-    tid = layout.exchange(tid)
-
-    logging.info('domain %d has %d particles' % (comm.rank, len(tid)))
-
-    data = cluster.dataset(tpos, boxsize=1.0)
-    fof = cluster.fof(data, linking_length=ll, np=0, verbose=True)
+    P['Position'] = layout.exchange(P['Position'])
     
+    logging.info('domain %d has %d particles' % (comm.rank, len(P['Position'])))
+
+    labels = local_fof(P['Position'], ll)
+    del P
+
+    if comm.rank == 0:
+        logging.info('local fof done' )
+
+    [Pid] = read(comm, ns.filename, TPMSnapshotFile, columns=['ID'])
+    Pid['ID'] = layout.exchange(Pid['ID'])
     # initialize global labels
-    minid = equiv_class(fof.labels, tid, op=numpy.fmin)[fof.labels]
-    del fof
-    del data
-    del tpos
-    del tid
+    minid = equiv_class(labels, Pid['ID'], op=numpy.fmin)[labels]
+    del Pid
+
+    if comm.rank == 0:
+        logging.info("equiv class, done")
 
     while True:
         # merge, if a particle belongs to several ranks
@@ -193,9 +191,25 @@ def main():
         replacesorted(minid, old, new, out=minid)
 
     minid = layout.gather(minid, mode=numpy.fmin)
+    del layout
 
-    label = assign_halo_label(minid, comm, thresh=ns.nmin) 
+    if comm.rank == 0:
+        logging.info("merging, done")
 
+    Nitem = len(minid)
+
+    data = numpy.empty(Nitem, dtype=[
+            ('origind', 'u8'), 
+            ('fofid', 'u8'),
+            ])
+    # assign origind for recovery of ordering, since
+    # we need to work in sorted fofid 
+    data['fofid'] = minid
+    del minid
+
+    label = assign_halo_label(data, comm, thresh=ns.nmin)
+    label = label.copy()
+    del data
     N = halos.count(label, comm=comm)
 
     if comm.rank == 0:
