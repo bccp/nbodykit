@@ -62,12 +62,37 @@ ns = parser.parse_args()
 
 from nbodykit.measurepower import measure2Dpower, measurepower
 from pypm.particlemesh import ParticleMesh
+from pypm.transfer import TransferFunction
 from mpi4py import MPI
+
+def AnisotropicCIC(comm, complex, w):
+    for wi in w:
+        tmp = (1 - 2. / 3 * numpy.sin(0.5 * wi) ** 2) ** 0.5
+        complex[:] /= tmp
+
+def IsotropicCIC(comm, complex, w):
+    for row in range(complex.shape[0]):
+        scratch = numpy.float64(w[0][row] ** 2)
+        for wi in w[1:]:
+            scratch = scratch + wi[0] ** 2
+
+        tmp = (1.0 - 0.666666667 * numpy.sin(scratch * 0.5) ** 2) ** 0.5
+        complex[row] *= tmp
 
 def main():
 
     if MPI.COMM_WORLD.rank == 0:
         print 'importing done'
+
+    chain = [
+        TransferFunction.NormalizeDC,
+        TransferFunction.RemoveDC,
+    ]
+
+    if ns.remove_cic == 'anisotropic':
+        chain.append(AnisotropicCIC)
+    if ns.remove_cic == 'isotropic':
+        chain.append(IsotropicCIC)
 
     # setup the particle mesh object
     pm = ParticleMesh(ns.BoxSize, ns.Nmesh, dtype='f4')
@@ -82,29 +107,33 @@ def main():
     if MPI.COMM_WORLD.rank == 0:
         print 'r2c done'
 
+    # filter the field 
+    pm.transfer(chain)
+
     # do the cross power
     do_cross = len(ns.inputs) > 1 and ns.inputs[0] != ns.inputs[1]
+
     if do_cross:
-        complex = pm.complex.copy()
+        c1 = pm.complex.copy()
 
         Ntot2 = ns.inputs[1].paint(ns, pm)
+
         if MPI.COMM_WORLD.rank == 0:
             print 'painting 2 done'
+
         pm.r2c()
         if MPI.COMM_WORLD.rank == 0:
             print 'r2c 2 done'
-            
-        # power in cross case: c1.real*c2.real + c1.imag*c2.imag
-        complex.real *= pm.complex.real
-        complex.imag *= pm.complex.imag
 
-        if MPI.COMM_WORLD.rank == 0:
-            print 'cross done'
+        # filter the field 
+        pm.transfer(chain)
+        c2 = pm.complex
+  
     # do the auto power
     else:
-        complex = pm.complex
-        complex.real **= 2
-        complex.imag **= 2
+        c1 = pm.complex
+        c2 = pm.complex
+
         Ntot2 = Ntot1 
 
     if ns.remove_shotnoise and not do_cross:
@@ -112,32 +141,19 @@ def main():
     else:
         shotnoise = 0
  
-    # call the appropriate function for 1d/2d cases
     if ns.mode == "1d":
-        do1d(pm, complex, ns, shotnoise)
-
-    if ns.mode == "2d":
-        meta = {'box_size':pm.BoxSize, 'N1':Ntot1, 'N2':Ntot2, 'shot_noise':shotnoise}
-        do2d(pm, complex, ns, shotnoise, **meta)
-    
-def do2d(pm, complex, ns, shotnoise, **meta):
-    result = measure2Dpower(pm, complex, ns.binshift, ns.remove_cic, shotnoise, ns.Nmu)
-  
-    if MPI.COMM_WORLD.rank == 0:
-        print 'measure'
-
-    if pm.comm.rank == 0:
-        storage = plugins.PowerSpectrumStorage.get(ns.mode, ns.output)
-        storage.write(dict(zip(['k','mu','power','modes','edges'], result)), **meta)
-
-def do1d(pm, complex, ns, shotnoise):
-    result = measurepower(pm, complex, ns.binshift, ns.remove_cic, shotnoise)
+        result = measurepower(pm, c1, c2, ns.binshift, shotnoise)
+        meta = {}
+    elif ns.mode == "2d":
+        result = measure2Dpower(pm, c1, c2, ns.binshift, shotnoise, ns.Nmu)
+        result = dict(zip(['k','mu','power','modes','edges'], result))
+        meta = {'box_size':pm.BoxSize, 
+            'N1':Ntot1, 'N2':Ntot2, 'shot_noise': shotnoise}
 
     if MPI.COMM_WORLD.rank == 0:
         print 'measure'
-
-    if pm.comm.rank == 0:
         storage = plugins.PowerSpectrumStorage.get(ns.mode, ns.output)
         storage.write(result)
-        
+
+     
 main()
