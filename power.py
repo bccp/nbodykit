@@ -61,7 +61,7 @@ ns = parser.parse_args()
 # done with the parser. now do the real calculation
 #--------------------------------------------------
 
-from nbodykit.measurepower import measure2Dpower
+from nbodykit.measurepower import measurepower
 from pypm.particlemesh import ParticleMesh
 from pypm.transfer import TransferFunction
 from mpi4py import MPI
@@ -147,7 +147,7 @@ def main():
 
     # do the calculation
     meta = {}
-    result = measure2Dpower(pm, c1, c2, ns.Nmu, binshift=ns.binshift, 
+    result = measurepower(pm, c1, c2, ns.Nmu, binshift=ns.binshift, 
                             shotnoise=shotnoise, los=ns.los)
     
     # format the output appropriately
