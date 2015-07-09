@@ -4,8 +4,8 @@ from pypm.particlemesh import ParticleMesh
 from pypm.transfer import TransferFunction
 from mpi4py import MPI
 
-def measure2Dpower(pm, c1, c2, Nmu, binshift=0.0, shotnoise=0.0, los='z'):
-    """ Measure 2D power spectrum P(k,mu) from density field painted on pm 
+def measurepower(pm, c1, c2, Nmu, binshift=0.0, shotnoise=0.0, los='z'):
+    """ Measure power spectrum P(k,mu) from density field painted on pm 
 
         The power spectrum is measured in bins of k and mu. The k bins extend 
         from 0 to the Nyquist (Nmesh / 2), with the units consistent with 
@@ -39,9 +39,9 @@ def measure2Dpower(pm, c1, c2, Nmu, binshift=0.0, shotnoise=0.0, los='z'):
             The shot noise is (pm.BoxSize) ** 3 / Ntot, where Ntot is the total
             number of particles.
         
-        los : str
+        los : str, {'x','y','z'}
             the line-of-sight direction, which the angle `mu` is defined with
-            respect to. Default is `z` (last column)
+            respect to. Default is `z`.
             
     """
     Nfreq = pm.Nmesh//2
