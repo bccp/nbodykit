@@ -136,7 +136,22 @@ def write_power_params(tag, power_dict, select_params):
         
     return filename
             
-    
+  
+class SamplesAction(ap.Action):
+    valid = None
+    def __call__(self, parser, namespace, values, option_string=None, ):
+        import fnmatch
+        toret = []
+        for value in values:            
+            if value in self.valid:
+                toret.append(value)
+                continue
+            matches = [s for s in self.valid if fnmatch.fnmatch(s, value)]
+            if not len(matches):
+                raise ValueError("`sample` argument must be on of %s or a matching pattern" %self.valid)
+            toret += matches
+        setattr(namespace, self.dest, toret)
+  
 def parse_args(desc, samples):
     """
     Parse the command line arguments and return the namespace
@@ -156,6 +171,7 @@ def parse_args(desc, samples):
         namespace holding the commandline arguments
     """
     import argparse as ap
+    SamplesAction.valid = samples + ['all']
     
     parser = ap.ArgumentParser(description=desc, 
                 formatter_class=ap.ArgumentDefaultsHelpFormatter)
@@ -163,8 +179,8 @@ def parse_args(desc, samples):
     h = 'the name of the PBS job file to run. This file should take one' + \
         'command line argument specfying the input `power.py` parameter file'
     parser.add_argument('job_file', type=str, help=h)
-    h = 'the sample name'
-    parser.add_argument('samples', choices=samples+['all'], nargs='+', help=h)
+    h = 'the sample name(s); can also specify sampes with a unix-like file matching pattern'
+    parser.add_argument('samples', nargs="+", action=SamplesAction, help=h)
     h = 'the name of the file specifying the main power.py parameters'
     parser.add_argument('-p', '--power', required=True, type=str, help=h)
     h = 'the name of the file specifying the selection parameters'
