@@ -49,9 +49,10 @@ parser.add_argument("--remove-cic", default='anisotropic', choices=["anisotropic
         help='deconvolve cic, anisotropic is the proper way, see http://www.personal.psu.edu/duj13/dissertation/djeong_diss.pdf')
 parser.add_argument("--remove-shotnoise", action='store_true', default=False,
         help='Remove shotnoise')
-
 parser.add_argument("--Nmu", type=int, default=5,
-        help='the number of mu bins to use' )
+        help='the number of mu bins to use; if `mode = 1d`, then `Nmu` is set to 1' )
+parser.add_argument("--los", choices="xyz", default='z',
+        help="the line-of-sight direction, which the angle `mu` is defined with respect to")
 
 # parse
 ns = parser.parse_args()
@@ -60,7 +61,7 @@ ns = parser.parse_args()
 # done with the parser. now do the real calculation
 #--------------------------------------------------
 
-from nbodykit.measurepower import measure2Dpower, measurepower
+from nbodykit.measurepower import measure2Dpower
 from pypm.particlemesh import ParticleMesh
 from pypm.transfer import TransferFunction
 from mpi4py import MPI
@@ -141,19 +142,27 @@ def main():
     else:
         shotnoise = 0
  
+    # only need one mu bin if 1d case is requested
+    if ns.mode == "1d": ns.Nmu = 1 
+
+    # do the calculation
+    meta = {}
+    result = measure2Dpower(pm, c1, c2, ns.Nmu, binshift=ns.binshift, 
+                            shotnoise=shotnoise, los=ns.los)
+    
+    # format the output appropriately
     if ns.mode == "1d":
-        result = measurepower(pm, c1, c2, ns.binshift, shotnoise)
-        meta = {}
+        # this writes out 0 -> mean k, 2 -> mean power, 3 -> number of modes
+        # note: not writing k-edges due to different shape
+        result = map(numpy.ravel, (result[i] for i in [0, 2, 3]))
     elif ns.mode == "2d":
-        result = measure2Dpower(pm, c1, c2, ns.binshift, shotnoise, ns.Nmu)
         result = dict(zip(['k','mu','power','modes','edges'], result))
         meta = {'box_size':pm.BoxSize, 
             'N1':Ntot1, 'N2':Ntot2, 'shot_noise': shotnoise}
-
+        
     if MPI.COMM_WORLD.rank == 0:
         print 'measure'
         storage = plugins.PowerSpectrumStorage.get(ns.mode, ns.output)
-        storage.write(result)
-
-     
+        storage.write(result, **meta)
+ 
 main()
