@@ -55,7 +55,7 @@ def main():
     for cnt in range(args.start, args.stop, args.increment):
         with tempfile.NamedTemporaryFile(delete=False) as ff:
             tempfiles.append(ff.name)
-            kwargs = {args.cnt_name: cnt}
+            kwargs = {args.iter_str : cnt}
             if args.extras is not None:
                 for k in args.extras:
                     kwargs[k] = args.extras[k]
