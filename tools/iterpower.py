@@ -133,7 +133,7 @@ def write_power_params(tag, power_dict, select_params):
         
         # anything else is an option
         for d, k in params.iteritems():
-            ff.write("--%s=%s\n" %(d,k))
+            ff.write("%s=%s\n" %(d,k))
         
     return filename
             
