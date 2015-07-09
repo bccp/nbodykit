@@ -8,7 +8,7 @@ class Power2DStorage(PowerSpectrumStorage):
     def register(kls):
         PowerSpectrumStorage.add_storage_klass(kls)
 
-    def write(self, data, **metadata):
+    def write(self, data, **meta):
         """
         Write a 2D power spectrum as plain text.
                 
@@ -16,7 +16,7 @@ class Power2DStorage(PowerSpectrumStorage):
         ----------
         data : dict
             the data columns to write out
-        metadata : dict
+        meta : dict
             any additional metadata to write out at the end of the file
         """
         keys = data.keys()
@@ -54,9 +54,9 @@ class Power2DStorage(PowerSpectrumStorage):
                 ff.write(header+values)
             
             # lastly, write out metadata, if any
-            if len(metadata):
-                ff.write("metadata %d\n" %len(metadata))
-                for k,v in metadata.iteritems():
+            if len(meta):
+                ff.write("metadata %d\n" %len(meta))
+                for k,v in meta.iteritems():
                     ff.write("%s %s %s\n" %(k, str(v), type(v).__name__))
             
             ff.flush()

@@ -10,8 +10,7 @@ def equiv_class(labels, values, op, dense_labels=False, identity=None, minlength
     """
     apply operation to equivalent classes by label, on values
 
-    Parameters
-    ----------
+    Parameters ----------
     labels  : array_like
         the label of objects, starting from 0.
     values  : array_like

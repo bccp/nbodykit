@@ -132,7 +132,7 @@ class PowerSpectrumStorage:
             if ff is not sys.stdout:
                 ff.close()
 
-    def write(self, data):
+    def write(self, data, **meta):
         return NotImplemented
             
 #------------------------------------------------------------------------------          

@@ -49,9 +49,10 @@ parser.add_argument("--remove-cic", default='anisotropic', choices=["anisotropic
         help='deconvolve cic, anisotropic is the proper way, see http://www.personal.psu.edu/duj13/dissertation/djeong_diss.pdf')
 parser.add_argument("--remove-shotnoise", action='store_true', default=False,
         help='Remove shotnoise')
-
 parser.add_argument("--Nmu", type=int, default=5,
-        help='the number of mu bins to use' )
+        help='the number of mu bins to use; if `mode = 1d`, then `Nmu` is set to 1' )
+parser.add_argument("--los", choices="xyz", default='z',
+        help="the line-of-sight direction, which the angle `mu` is defined with respect to")
 
 # parse
 ns = parser.parse_args()
@@ -60,14 +61,39 @@ ns = parser.parse_args()
 # done with the parser. now do the real calculation
 #--------------------------------------------------
 
-from nbodykit.measurepower import measure2Dpower, measurepower
+from nbodykit.measurepower import measure2Dpower
 from pypm.particlemesh import ParticleMesh
+from pypm.transfer import TransferFunction
 from mpi4py import MPI
+
+def AnisotropicCIC(comm, complex, w):
+    for wi in w:
+        tmp = (1 - 2. / 3 * numpy.sin(0.5 * wi) ** 2) ** 0.5
+        complex[:] /= tmp
+
+def IsotropicCIC(comm, complex, w):
+    for row in range(complex.shape[0]):
+        scratch = numpy.float64(w[0][row] ** 2)
+        for wi in w[1:]:
+            scratch = scratch + wi[0] ** 2
+
+        tmp = (1.0 - 0.666666667 * numpy.sin(scratch * 0.5) ** 2) ** 0.5
+        complex[row] *= tmp
 
 def main():
 
     if MPI.COMM_WORLD.rank == 0:
         print 'importing done'
+
+    chain = [
+        TransferFunction.NormalizeDC,
+        TransferFunction.RemoveDC,
+    ]
+
+    if ns.remove_cic == 'anisotropic':
+        chain.append(AnisotropicCIC)
+    if ns.remove_cic == 'isotropic':
+        chain.append(IsotropicCIC)
 
     # setup the particle mesh object
     pm = ParticleMesh(ns.BoxSize, ns.Nmesh, dtype='f4')
@@ -82,29 +108,33 @@ def main():
     if MPI.COMM_WORLD.rank == 0:
         print 'r2c done'
 
+    # filter the field 
+    pm.transfer(chain)
+
     # do the cross power
     do_cross = len(ns.inputs) > 1 and ns.inputs[0] != ns.inputs[1]
+
     if do_cross:
-        complex = pm.complex.copy()
+        c1 = pm.complex.copy()
 
         Ntot2 = ns.inputs[1].paint(ns, pm)
+
         if MPI.COMM_WORLD.rank == 0:
             print 'painting 2 done'
+
         pm.r2c()
         if MPI.COMM_WORLD.rank == 0:
             print 'r2c 2 done'
-            
-        # power in cross case: c1.real*c2.real + c1.imag*c2.imag
-        complex.real *= pm.complex.real
-        complex.imag *= pm.complex.imag
 
-        if MPI.COMM_WORLD.rank == 0:
-            print 'cross done'
+        # filter the field 
+        pm.transfer(chain)
+        c2 = pm.complex
+  
     # do the auto power
     else:
-        complex = pm.complex
-        complex.real **= 2
-        complex.imag **= 2
+        c1 = pm.complex
+        c2 = pm.complex
+
         Ntot2 = Ntot1 
 
     if ns.remove_shotnoise and not do_cross:
@@ -112,32 +142,27 @@ def main():
     else:
         shotnoise = 0
  
-    # call the appropriate function for 1d/2d cases
-    if ns.mode == "1d":
-        do1d(pm, complex, ns, shotnoise)
+    # only need one mu bin if 1d case is requested
+    if ns.mode == "1d": ns.Nmu = 1 
 
-    if ns.mode == "2d":
-        meta = {'box_size':pm.BoxSize, 'N1':Ntot1, 'N2':Ntot2, 'shot_noise':shotnoise}
-        do2d(pm, complex, ns, shotnoise, **meta)
+    # do the calculation
+    meta = {}
+    result = measure2Dpower(pm, c1, c2, ns.Nmu, binshift=ns.binshift, 
+                            shotnoise=shotnoise, los=ns.los)
     
-def do2d(pm, complex, ns, shotnoise, **meta):
-    result = measure2Dpower(pm, complex, ns.binshift, ns.remove_cic, shotnoise, ns.Nmu)
-  
-    if MPI.COMM_WORLD.rank == 0:
-        print 'measure'
-
-    if pm.comm.rank == 0:
-        storage = plugins.PowerSpectrumStorage.get(ns.mode, ns.output)
-        storage.write(dict(zip(['k','mu','power','modes','edges'], result)), **meta)
-
-def do1d(pm, complex, ns, shotnoise):
-    result = measurepower(pm, complex, ns.binshift, ns.remove_cic, shotnoise)
-
-    if MPI.COMM_WORLD.rank == 0:
-        print 'measure'
-
-    if pm.comm.rank == 0:
-        storage = plugins.PowerSpectrumStorage.get(ns.mode, ns.output)
-        storage.write(result)
+    # format the output appropriately
+    if ns.mode == "1d":
+        # this writes out 0 -> mean k, 2 -> mean power, 3 -> number of modes
+        # note: not writing k-edges due to different shape
+        result = map(numpy.ravel, (result[i] for i in [0, 2, 3]))
+    elif ns.mode == "2d":
+        result = dict(zip(['k','mu','power','modes','edges'], result))
+        meta = {'box_size':pm.BoxSize, 
+            'N1':Ntot1, 'N2':Ntot2, 'shot_noise': shotnoise}
         
+    if MPI.COMM_WORLD.rank == 0:
+        print 'measure'
+        storage = plugins.PowerSpectrumStorage.get(ns.mode, ns.output)
+        storage.write(result, **meta)
+ 
 main()

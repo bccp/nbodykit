@@ -29,6 +29,8 @@ Then build with
 
     ./build.sh
 
+Note that sometimes 'git submodule update' is needed to sync the subpackages, do it often.
+
 It may take a while to build fftw and pfft.
 
 .. attention:: Mac Notes
