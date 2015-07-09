@@ -77,7 +77,8 @@ def read_power_params(filename):
     necessary = ['mode', 'box_size', 'Ncells', 'output', 'file1']
     if not all(key in toret for key in necessary):
         raise RuntimeError("missing keys in `read_power_params`: need %s" %necessary)
-        
+    if 'file2' not in toret:
+        toret['file2'] = toret['file1']
     return toret
 
 def write_power_params(tag, power_dict, select_params):
