@@ -11,7 +11,7 @@ parser = ArgumentParser("Measuring density profile of halos",
      """,
         epilog=
      """
-        This script is written by Yu Feng, as part of `nbodykit'. 
+        This script is written by Man-Yat Chu, as part of `nbodykit'. 
      """
         )
 
