@@ -118,8 +118,11 @@ def main():
         else:
             ff = stdout
         with ff:
-            print Nhalo_per_massbin
-   #         ff.write('# centre of the mass bins %f' % mcentre) #######Still in progress of writing header
+            ff.write('# nhalo_per_massbin: %s\n' % str(Nhalo_per_massbin))
+            ff.write('# edges of the mass bins %s\n' % 
+                ' '.join([str(m) for m in ns.logMedges])
+            )
+            ff.write('# r cumulative_dens_prof\n')
             numpy.savetxt(ff, numpy.concatenate(
             (redges[:, None] * ns.boxsize, den_prof), axis=-1))
 
