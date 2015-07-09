@@ -51,8 +51,8 @@ def read_power_params(filename):
                 string specifying the output file. Must have
                 `{tag}` in the string, which is replaced by 
                 the name of the selected sample
-            file : 
-                the string specifying the input file, which 
+            file1, file2 : 
+                the strings specifying the input file, which 
                 will have any selection appended to it
     *   Any other parameters in the dictionary are treated
         as options to `nbodykit::power.py`
@@ -72,6 +72,12 @@ def read_power_params(filename):
         if not line.strip() or line.lstrip()[0] == '#': continue
         fields = line.split('=', 1)
         toret[fields[0].strip()] = fields[-1].strip()
+    
+    # check the keys
+    necessary = ['mode', 'box_size', 'Ncells', 'output', 'file1']
+    if not all(key in toret for key in necessary):
+        raise RuntimeError("missing keys in `read_power_params`: need %s" %necessary)
+        
     return toret
 
 def write_power_params(tag, power_dict, select_params):
@@ -117,8 +123,8 @@ def write_power_params(tag, power_dict, select_params):
         ff.write(params.pop('output').replace("{tag}", tag)+'\n')
         
         # now the input files
-        file_fmt = params.pop('file')
         for i in range(len(select)):
+            file_fmt = params.pop('file%d' %i)
             if select[i] is not None:
                 file_fmt += ":-select= %s\n" %(select[i])
             ff.write(file_fmt)
