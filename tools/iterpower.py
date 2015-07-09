@@ -180,7 +180,7 @@ def parse_args(desc, samples):
         'command line argument specfying the input `power.py` parameter file'
     parser.add_argument('job_file', type=str, help=h)
     h = 'the sample name(s); can also specify sampes with a unix-like file matching pattern'
-    parser.add_argument('samples', nargs="+", action=SamplesAction, help=h)
+    parser.add_argument('samples', nargs="+", choices=SamplesAction.valid, action=SamplesAction, help=h)
     h = 'the name of the file specifying the main power.py parameters'
     parser.add_argument('-p', '--power', required=True, type=str, help=h)
     h = 'the name of the file specifying the selection parameters'
