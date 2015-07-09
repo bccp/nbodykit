@@ -124,7 +124,7 @@ def write_power_params(tag, power_dict, select_params):
         
         # now the input files
         for i in range(len(select)):
-            file_fmt = params.pop('file%d' %i)
+            file_fmt = params.pop('file%d' %(i+1))
             if select[i] is not None:
                 file_fmt += ":-select= %s\n" %(select[i])
             ff.write(file_fmt)
