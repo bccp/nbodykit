@@ -169,6 +169,9 @@ def parse_args(desc, samples):
     parser.add_argument('-p', '--power', required=True, type=str, help=h)
     h = 'the name of the file specifying the selection parameters'
     parser.add_argument('-s', '--select', required=True, type=str, help=h)
+    h = 'any additional environment variables to be passed to qsub through the -v option.' + \
+        ' Must be a comma separated list of strings of the  form  variable or variable=value.'
+    parser.add_argument('-v', '--variables', type=str, help=h)
     
     return parser.parse_args()
 
@@ -189,10 +192,14 @@ def qsub_samples(args, samples):
     s = read_selections(args.select)
     p = read_power_params(args.power)
     
+    # extra variables
+    extra_vars = "" if args.variables is None else ", "+args.variables
+    
     # submit the jobs
     for sample in args.samples:
         fname = write_power_params(sample, p, s)
-        ret = subprocess.call(['qsub', '-v', 'param_file=%s' %fname, args.job_file])
+        v_value = 'param_file=%s' %fname + extra_vars
+        ret = subprocess.call(['qsub', '-v', v_value, args.job_file])
         time.sleep(1)
 
     
