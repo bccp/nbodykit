@@ -240,7 +240,7 @@ class HaloLabelFile(SnapshotFile):
         
     """
     def __init__(self, filename, fid):
-        self.filename = filename + ".grp.%02d" % fid
+        self.filename = filename + ".%02d" % fid
         with open(self.filename, 'r') as ff:
             self.npart = numpy.fromfile(ff, 'i4', 1)
             self.linking_length = numpy.fromfile(ff, 'f4', 1)
