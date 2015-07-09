@@ -127,8 +127,8 @@ def write_power_params(tag, power_dict, select_params):
         for i in range(len(select)):
             file_fmt = file_fmts[i]
             if select[i] is not None:
-                file_fmt += ":-select= %s\n" %(select[i])
-            ff.write(file_fmt)
+                file_fmt += ":-select= %s" %(select[i])
+            ff.write(file_fmt+"\n")
         
         # anything else is an option
         for d, k in params.iteritems():
