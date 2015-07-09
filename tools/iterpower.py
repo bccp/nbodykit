@@ -1,4 +1,5 @@
-
+import argparse as ap
+    
 def read_selections(filename):
     """
     Read a parameter file that specifies the `select`
@@ -170,7 +171,6 @@ def parse_args(desc, samples):
     args : argparse.Namespace
         namespace holding the commandline arguments
     """
-    import argparse as ap
     SamplesAction.valid = samples + ['all']
     
     parser = ap.ArgumentParser(description=desc, 
