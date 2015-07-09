@@ -12,6 +12,10 @@ def measure2Dpower(pm, c1, c2, Nmu, binshift=0.0, shotnoise=0.0, los='z'):
         the units of the BoxSize. The mu range extends from 0 to 1.
         
 
+        Notes
+        -----
+        when Nmu == 1, the case reduces to the isotropic 1D power spectrum.
+
         Parameters
         ----------
         pm : ParticleMesh
