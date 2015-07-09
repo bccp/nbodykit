@@ -23,12 +23,17 @@ parser.add_argument("halocatalogue",
         help='halocatalogue')
 parser.add_argument("boxsize", 
         help='size of box', type=float)
-parser.add_argument("nbins", 
-        help='number of bins for the density profile.', type=int)
-parser.add_argument("mbins", 
-        help='number of bins for different masses of halos.', type=int)
+parser.add_argument("Rmax", 
+        help='Rmax physical units', type=float)
+parser.add_argument("--Rbins", 
+        help='number of R bins for the density profile.', type=int, default=100)
+parser.add_argument("--logMedges", 
+        help='edges for different mass bins of halos.', 
+        type=float, nargs='+', default=[12, 12.5, 13, 13.5, 14])
 parser.add_argument("m0", 
-        help='m0, the mass of particle', type=float)
+        help='m0, the mass of a particle', type=float)
+parser.add_argument("--bunchsize", 
+        help='number of particles to process per bunch', type=int, default=1024 * 1024)
 parser.add_argument("output", help='write output to this file')
 
 ns = parser.parse_args()
@@ -51,104 +56,72 @@ def distp(center, pos, boxsize):
 
 def main():
     comm = MPI.COMM_WORLD
-    SNAP, LABEL = None, None
-    if comm.rank == 0:
-        SNAP = files.Snapshot(ns.snapfilename, files.TPMSnapshotFile)
-        LABEL = files.Snapshot(ns.halolabel, files.HaloLabelFile)
-
-    SNAP = comm.bcast(SNAP)
-    LABEL = comm.bcast(LABEL)
  
-    Ntot = sum(SNAP.npart)
-    assert Ntot == sum(LABEL.npart)
     if comm.rank == 0:
         h = files.HaloFile(ns.halocatalogue)
         #print h.read_pos().shape()
         N = h.read_mass()
-        halo_pos = h.read_pos()*ns.boxsize
+        halo_pos = h.read_pos()
     else:
         N = None
         halo_pos = None
     N = comm.bcast(N)
     halo_pos = comm.bcast(halo_pos)
+    halo_mass = N * ns.m0
 
-    N0 = Ntot - sum(N[1:])
-    # halos are assigned to ranks 0, 1, 2, 3 ...
-    halorank = numpy.arange(len(N)) % comm.size
-    # but non halos are special we will fix it later.
-    halorank[0] = -1
+    halo_ind = numpy.digitize(numpy.log10(halo_mass), ns.logMedges)
+    Nhalo_per_massbin = numpy.bincount(halo_ind, minlength=len(ns.logMedges) + 1)
 
-    NonhaloStart = comm.rank * int(N0) // comm.size
-    NonhaloEnd   = (comm.rank + 1)* int(N0) // comm.size
+    redges = numpy.linspace(0, ns.Rmax / ns.boxsize, ns.Rbins + 2, endpoint=True)[1:]
+    den_prof = numpy.zeros((ns.Rbins, len(ns.logMedges) - 1))
+    count_prof = numpy.zeros((ns.Rbins + 2, len(ns.logMedges) + 1))
 
-    myNtotal = numpy.sum(N[halorank == comm.rank], dtype='i8') + (NonhaloEnd - NonhaloStart)
+    Ntot = 0
+    for round, (P, PL) in enumerate(
+            zip(files.read(comm, 
+                ns.snapfilename, 
+                files.TPMSnapshotFile, 
+                columns=['Position', 'Velocity'], 
+                bunchsize=ns.bunchsize),
+            files.read(comm, 
+                ns.halolabel, 
+                files.HaloLabelFile, 
+                columns=['Label'],
+                bunchsize=ns.bunchsize),
+            )):
+        m_ind = halo_ind[PL['Label']]
+        center = halo_pos[PL['Label']]
 
-    print("Rank %d NonhaloStart %d NonhaloEnd %d myNtotal %d" %
-            (comm.rank, NonhaloStart, NonhaloEnd, myNtotal))
+        dist = distp(center, P['Position'], 1.0)
+        d_ind = numpy.digitize(dist, redges)
+        
+        print d_ind.max(), m_ind.max()
+        ind = numpy.ravel_multi_index((d_ind, m_ind), 
+            count_prof.shape)
 
-    data = numpy.empty(myNtotal, dtype=[
-                ('Position', ('f4', 3)), 
-                ('Label', ('i4')), 
-                ('Rank', ('i4')), 
-                ])
+        count_prof.flat += numpy.bincount(ind, minlength=count_prof.size)
+        Ntot += len(PL['Label'])
 
-    allNtotal = comm.allgather(myNtotal)
-    start = sum(allNtotal[:comm.rank])
-    end = sum(allNtotal[:comm.rank+1])
-    data['Position'] = SNAP.read("Position", start, end)
-    data['Label'] = LABEL.read("Label", start, end)
-    data['Rank'] = halorank[data['Label']]
-    # now assign ranks to nonhalo particles
-    nonhalomask = (data['Label'] == 0)
-
-    nonhalocount = comm.allgather(nonhalomask.sum())
-
-    data['Rank'][nonhalomask] = (sum(nonhalocount[:comm.rank]) + numpy.arange(nonhalomask.sum())) % comm.size
-
-    mpsort.sort(data, orderby='Rank')
-
-    arg = data['Label'].argsort()
-    data = data[arg]
-    
-    ul = numpy.unique(data['Label'])
-    nbin=ns.nbins
-    mbin=ns.mbins
-    den_prof=numpy.zeros((nbin-2, mbin+1))
-    count_prof=numpy.zeros((nbin+1, mbin+1))
-    bins=numpy.linspace(0,ns.boxsize * 0.1,nbin)
-    mass_bins=numpy.linspace(numpy.amin(N),numpy.amax(N),mbin)
-    left=bins[0:-1]
-    right=bins[1:]
-    centre=(left+right)/2
-    mleft=mass_bins[0:-1]
-    mright=mass_bins[1:]
-    mcentre=(mleft+mright)/2
-    m_ind = numpy.digitize(N, mass_bins)
-
-    for l in ul:
-        if l == 0: 
-            continue
-        start = data['Label'].searchsorted(l, side='left')
-        end = data['Label'].searchsorted(l, side='right')
-        pos = data['Position'][start:end]*ns.boxsize
-        dist = distp(halo_pos[l,:], pos[:,:], ns.boxsize)
-        count_prof[:,m_ind[l]]+=numpy.bincount(numpy.digitize(dist, bins),minlength=nbin+1)
-        if l % 1000 == 0:
-            print l
-    
+    Ntot = comm.allreduce(Ntot)
     count_prof = comm.allreduce(count_prof)
-    shell_vol = 4 * 3.1416 / 3. * numpy.diff(bins ** 3)
-    den_prof = count_prof[1:-1,:] /shell_vol[:,None] / len(halo_pos) / (Ntot / ns.boxsize ** 3) - 1
+    count_prof = numpy.cumsum(count_prof, axis=0)
+    vol = 4 * numpy.pi / 3. * redges ** 3
+    # this is over density averaged over all halos in this mass bin
+    den_prof = count_prof[:-1, 1:-1] / vol[:, None] / \
+        Nhalo_per_massbin[None, 1:-1] / Ntot - 1
 
     if comm.rank == 0:
+        print count_prof[-1].sum()
+        print Ntot, ns.boxsize
         if ns.output != '-':
             ff = open(ns.output, 'w')
-            print ff
         else:
             ff = stdout
         with ff:
-            ff.write('# centre of the mass bins %f' %mcentre) #######Still in progress of writing header
-            numpy.savetxt(ff, zip(centre, den_prof))
+            print Nhalo_per_massbin
+   #         ff.write('# centre of the mass bins %f' % mcentre) #######Still in progress of writing header
+            numpy.savetxt(ff, numpy.concatenate(
+            (redges[:, None] * ns.boxsize, den_prof), axis=-1))
 
 
 
