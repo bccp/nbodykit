@@ -77,8 +77,6 @@ def read_power_params(filename):
     necessary = ['mode', 'box_size', 'Ncells', 'output', 'file1']
     if not all(key in toret for key in necessary):
         raise RuntimeError("missing keys in `read_power_params`: need %s" %necessary)
-    if 'file2' not in toret:
-        toret['file2'] = toret['file1']
     return toret
 
 def write_power_params(tag, power_dict, select_params):
@@ -124,8 +122,10 @@ def write_power_params(tag, power_dict, select_params):
         ff.write(params.pop('output').replace("{tag}", tag)+'\n')
         
         # now the input files
+        file_fmts = [params.pop('file1')]
+        file_fmts += [params.pop('file2', file_fmts[0])]
         for i in range(len(select)):
-            file_fmt = params.pop('file%d' %(i+1))
+            file_fmt = file_fmts[i]
             if select[i] is not None:
                 file_fmt += ":-select= %s\n" %(select[i])
             ff.write(file_fmt)
