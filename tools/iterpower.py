@@ -141,6 +141,7 @@ def write_power_params(tag, power_dict, select_params):
 class SamplesAction(ap.Action):
     valid = None
     def __call__(self, parser, namespace, values, option_string=None):
+        print self.valid, SamplesAction.valid
         import fnmatch
         toret = []
         print values
