@@ -141,18 +141,14 @@ def write_power_params(tag, power_dict, select_params):
 class SamplesAction(ap.Action):
     valid = None
     def __call__(self, parser, namespace, values, option_string=None):
-        print self.valid, SamplesAction.valid
         import fnmatch
         toret = []
         print values
         for value in values: 
-            print "value = ", value 
-            print "toret = ", toret
-            if value.strip() in self.valid:
-                toret.append(value.strip())
+            print "value = ", value  
+            if value in self.valid:
+                toret.append(value)
                 continue
-            else:
-                "VALUE NOT IN VALID"
             matches = [s for s in self.valid if fnmatch.fnmatch(s, value)]
             print "matches = ", matches
             if not len(matches):
