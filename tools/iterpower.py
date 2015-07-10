@@ -143,9 +143,7 @@ class SamplesAction(ap.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         import fnmatch
         toret = []
-        print values
-        for value in values: 
-            print "value = ", value  
+        for value in values:  
             if value in self.valid:
                 toret.append(value)
                 continue
