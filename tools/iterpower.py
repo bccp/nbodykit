@@ -147,9 +147,11 @@ class SamplesAction(ap.Action):
         print values
         for value in values: 
             print "value = ", value  
-            if value in self.valid:
-                toret.append(value)
+            if value.strip() in self.valid:
+                toret.append(value.strip())
                 continue
+            else:
+                "VALUE NOT IN VALID"
             matches = [s for s in self.valid if fnmatch.fnmatch(s, value)]
             print "matches = ", matches
             if not len(matches):
