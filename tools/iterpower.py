@@ -146,7 +146,8 @@ class SamplesAction(ap.Action):
         toret = []
         print values
         for value in values: 
-            print "value = ", value  
+            print "value = ", value 
+            print "toret = ", toret
             if value.strip() in self.valid:
                 toret.append(value.strip())
                 continue
