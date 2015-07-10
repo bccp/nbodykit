@@ -140,14 +140,17 @@ def write_power_params(tag, power_dict, select_params):
   
 class SamplesAction(ap.Action):
     valid = None
-    def __call__(self, parser, namespace, values, option_string=None, ):
+    def __call__(self, parser, namespace, values, option_string=None):
         import fnmatch
         toret = []
-        for value in values:            
+        print values
+        for value in values: 
+            print "value = ", value  
             if value in self.valid:
                 toret.append(value)
                 continue
             matches = [s for s in self.valid if fnmatch.fnmatch(s, value)]
+            print "matches = ", matches
             if not len(matches):
                 raise ValueError("`sample` argument must be on of %s or a matching pattern" %self.valid)
             toret += matches
