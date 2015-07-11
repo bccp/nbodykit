@@ -59,7 +59,7 @@ def main():
         # read the files
         results = glob(pattern)
         if not len(results):
-            raise RuntimeError("whoops, no files match input pattern")
+            raise RuntimeError("whoops, no files match input pattern `%s`" %pattern)
     
         # loop over each file
         data = []
