@@ -63,16 +63,18 @@ def main():
         print "averaging %d files..." %len(results)
     
         # loop over each file
-        data = []
+        data, meta = [], []
+        reader = files.ReadPower2DPlainText if args.mode == '2d' else files.ReadPower1DPlainText
         for f in results:
+            try:
+                d, m = reader(f)
+            except Exception as e:
+                raise RuntimeError("error reading `%s` as plain text file: %s" %(f, str(e)))
+            
             if args.mode == '2d':
-                try:
-                    d, meta = files.ReadPower2DPlainText(f)
-                except Exception as e:
-                    raise RuntimeError("error reading `%s` as a power 2D plain text file: %s" %(f, str(e)))
-                data.append(pkmuresult.PkmuResult.from_dict(d, **meta))
-            else:
-                data.append(numpy.loadtxt(f))
+                d = pkmuresult.PkmuResult.from_dict(d, **m)
+            data.append(d)
+            meta.append(m)
         
         # average and output
         if args.mode == '2d':
@@ -103,9 +105,14 @@ def main():
                     colavg[mask] = numpy.nan
                     avg.append(colavg)
 
+            # get the average meta data
+            new_meta = {}
+            for k in meta[0]:
+                new_meta[k] = numpy.mean([m[k] for m in meta], axis=0)
+                
             print "saving %s..." %output_file
             output = plugins.Power1DStorage(output_file) 
-            output.write(avg)
+            output.write(avg, **new_meta)
     
 if __name__ == '__main__':
     main()
