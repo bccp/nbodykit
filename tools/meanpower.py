@@ -47,14 +47,14 @@ def main():
             # do the pattern
             fmt_count = pattern.find('%s')
             if fmt_count > 0:
-                args = (args.nbatch[n])*fmt_count
-                pattern = pattern %args
+                fmt_strs = (args.nbatch[n])*fmt_count
+                pattern = pattern %fmt_strs
                 
             # and the output file
             fmt_count = output_file.find('%s')
             if fmt_count > 0:
-                args = (args.nbatch[n])*fmt_count
-                output_file = output_file %args
+                fmt_strs = (args.nbatch[n])*fmt_count
+                output_file = output_file %fmt_strs
         
         # read the files
         results = glob(pattern)
