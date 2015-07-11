@@ -58,12 +58,14 @@ def main():
         
         # read the files
         results = glob(pattern)
+        print pattern
         if not len(results):
             raise RuntimeError("whoops, no files match input pattern `%s`" %pattern)
     
         # loop over each file
         data = []
         for f in results:
+            print f
             print "averaging %d files..." %len(f)
             if args.mode == '2d':
                 try:
