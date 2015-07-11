@@ -25,7 +25,7 @@ h = 'the name of the output file'
 parser.add_argument('output', default=None, type=str, help=h)
 h = 'loop over these arguments, doing a string replace on the ' + \
     'input/output files, using %s format'
-parser.add_argument('--batch', args='+', type=str, help=h)
+parser.add_argument('--batch', nargs='+', type=str, help=h)
 
 args = parser.parse_args()
 
