@@ -42,18 +42,18 @@ def main():
         pattern = args.pattern
         output_file = args.output
         if args.batch is not None:
-            print "processing batch string %s..." %args.nbatch[n]
+            print "processing batch string %s..." %args.batch[n]
             
             # do the pattern
             fmt_count = pattern.find('%s')
             if fmt_count > 0:
-                fmt_strs = (args.nbatch[n])*fmt_count
+                fmt_strs = (args.batch[n])*fmt_count
                 pattern = pattern %fmt_strs
                 
             # and the output file
             fmt_count = output_file.find('%s')
             if fmt_count > 0:
-                fmt_strs = (args.nbatch[n])*fmt_count
+                fmt_strs = (args.batch[n])*fmt_count
                 output_file = output_file %fmt_strs
         
         # read the files
