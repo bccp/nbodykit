@@ -42,6 +42,7 @@ def main():
         pattern = args.pattern
         output_file = args.output
         if args.batch is not None:
+            print "processing batch string %s..." %args.nbatch[n]
             
             # do the pattern
             fmt_count = pattern.find('%s')
@@ -63,6 +64,7 @@ def main():
         # loop over each file
         data = []
         for f in results:
+            print "averaging %d files..." %len(f)
             if args.mode == '2d':
                 try:
                     d, meta = files.ReadPower2DPlainText(f)
