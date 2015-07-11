@@ -146,19 +146,18 @@ def main():
     if ns.mode == "1d": ns.Nmu = 1 
 
     # do the calculation
-    meta = {}
+    meta = {'box_size':pm.BoxSize, 'N1':Ntot1, 
+            'N2':Ntot2, 'shot_noise': shotnoise}
     result = measurepower(pm, c1, c2, ns.Nmu, binshift=ns.binshift, 
                             shotnoise=shotnoise, los=ns.los)
     
     # format the output appropriately
     if ns.mode == "1d":
         # this writes out 0 -> mean k, 2 -> mean power, 3 -> number of modes
-        # note: not writing k-edges due to different shape
+        meta['edges'] = result[-1][0] # write out kedges as metadata
         result = map(numpy.ravel, (result[i] for i in [0, 2, 3]))
     elif ns.mode == "2d":
         result = dict(zip(['k','mu','power','modes','edges'], result))
-        meta = {'box_size':pm.BoxSize, 
-            'N1':Ntot1, 'N2':Ntot2, 'shot_noise': shotnoise}
         
     if MPI.COMM_WORLD.rank == 0:
         print 'measure'
