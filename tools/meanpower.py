@@ -58,15 +58,13 @@ def main():
         
         # read the files
         results = glob(pattern)
-        print pattern
         if not len(results):
             raise RuntimeError("whoops, no files match input pattern `%s`" %pattern)
+        print "averaging %d files..." %len(results)
     
         # loop over each file
         data = []
         for f in results:
-            print f
-            print "averaging %d files..." %len(f)
             if args.mode == '2d':
                 try:
                     d, meta = files.ReadPower2DPlainText(f)
@@ -84,6 +82,8 @@ def main():
             data = {k:avg[k].data for k in avg.columns}
             data['edges'] = [avg.kedges, avg.muedges]
             meta = {k:getattr(avg,k) for k in avg._metadata}
+            
+            print "saving %s..." %output_file
             output.write(data, **meta)
         else:        
             avg = []
@@ -103,6 +103,7 @@ def main():
                     colavg[mask] = numpy.nan
                     avg.append(colavg)
 
+            print "saving %s..." %output_file
             output = plugins.Power1DStorage(output_file) 
             output.write(avg)
     
