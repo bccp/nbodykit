@@ -366,6 +366,81 @@ def ReadPower2DPlainText(filename):
                     raise TypeError("Metadata must have builtin or numpy type")
 
     return toret, metadata
+    
+def ReadPower1DPlainText(filename):
+    """
+    Reads the plain text storage of a 1D power spectrum measurement,
+    as output by the `nbodykit.plugins.Power1DStorage` plugin.
+    
+    Notes
+    -----
+    If `edges` is present in the file, they will be returned
+    as part of the metadata, with the key `edges`
+    
+    Returns
+    -------
+    data : dict
+        dictionary holding the `edges` data, as well as the
+        data columns for the P(k) measurement
+    metadata : dict
+        any additional metadata to store as part of the 
+        P(k) measurement
+    """
+    # utility function for removing # char from the start of lines
+    def remove_percent_sign(line):
+        if isinstance(line, basestring):
+            r = line.find('#')
+            if r >= 0:
+                return line[r+1:]
+            else:
+                return line
+        elif isinstance(line, list):
+            return [remove_comments(l) for l in line]
+            
+    data = []
+    metadata = {}
+    with open(filename, 'r') as ff:
+        
+        # loop over each line
+        lines = map(remove_percent_sign, ff.readlines())    
+        currline = 0
+        while True:
+            
+            # break if we are at the EOF
+            if currline == len(lines):
+                break
+            line = lines[currline]
+            
+            # read edges
+            if 'edges' in line:
+                fields = line.split()
+                N = int(fields[-1]) # number of edges
+                metadata['edges'] = numpy.array(map(float, lines[currline+1:currline+1+N]))
+                currline += 1+N
+                continue
+            
+            # read metadata
+            if 'metadata' in line:                
+                # read and cast the metadata properly
+                fields = line.split()
+                N = int(fields[-1]) # number of individual metadata lines
+                for i in range(N):
+                    fields = lines[currline+1+i].split()
+                    cast = fields[-1]
+                    if cast in __builtins__:
+                        metadata[fields[0]] = __builtins__[cast](fields[1])
+                    elif hasattr(numpy, cast):
+                         metadata[fields[0]] = getattr(numpy, cast)(fields[1])
+                    else:
+                        raise TypeError("metadata must have builtin or numpy type")
+                currline += 1+N
+                continue
+                
+            # add to the data
+            data.append(map(float, line.split()))
+            currline += 1
+            
+    return numpy.asarray(data), metadata
                 
             
                 
