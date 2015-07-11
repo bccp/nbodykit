@@ -45,13 +45,13 @@ def main():
             print "processing batch string %s..." %args.batch[n]
             
             # do the pattern
-            fmt_count = pattern.find('%s')
+            fmt_count = pattern.count('%s')
             if fmt_count > 0:
                 fmt_strs = (args.batch[n])*fmt_count
                 pattern = pattern %fmt_strs
                 
             # and the output file
-            fmt_count = output_file.find('%s')
+            fmt_count = output_file.count('%s')
             if fmt_count > 0:
                 fmt_strs = (args.batch[n])*fmt_count
                 output_file = output_file %fmt_strs
