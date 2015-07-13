@@ -103,7 +103,7 @@ class PkmuResult(object):
         only be summed when combining bins.
     """
     def __init__(self, kedges, muedges, data, force_index_match=False, 
-                  sum_only=None, **kwargs):
+                  sum_only=[], **kwargs):
         """
         Parameters
         ----------
@@ -157,9 +157,7 @@ class PkmuResult(object):
         self.force_index_match = force_index_match
         
         # fields which are averaged
-        self.sum_only = []
-        if self.sum_only is not None:
-            self.sum_only = sum_only
+        self.sum_only = sum_only
         
         # save any metadata too
         self._metadata = []
@@ -219,7 +217,7 @@ class PkmuResult(object):
         
         # add the named keywords, if present
         kwargs['force_index_match'] = d.get('force_index_match', False)
-        kwargs['sum_only'] = d.get('sum_only', None)
+        kwargs['sum_only'] = d.get('sum_only', [])
         return PkmuResult(d['kedges'], d['muedges'], data, **kwargs)
         
     @classmethod
@@ -248,7 +246,7 @@ class PkmuResult(object):
         return PkmuResult(edges[0], edges[1], d, **kwargs)
         
     @classmethod
-    def from_list(cls, pkmus, weights=None, sum_only=None):
+    def from_list(cls, pkmus, weights=None, sum_only=[]):
         """
         Return an average PkmuResult object from a list of PkmuResult 
         objects, optionally using weights. For those columns in 
@@ -289,7 +287,7 @@ class PkmuResult(object):
         data = {}    
         for name in columns[0]:
             col_data = numpy.array([pkmu.data[name] for pkmu in pkmus])
-            if sum_only is None or name not in sum_only:
+            if name not in sum_only:
                 with numpy.errstate(invalid='ignore'):
                     data[name] = (col_data*weights).sum(axis=0) / weights.sum(axis=0)
             else:
@@ -306,7 +304,7 @@ class PkmuResult(object):
         
         # add the named keywords, if present
         kwargs['force_index_match'] = getattr(pkmus[0], 'force_index_match', False)
-        kwargs['sum_only'] = getattr(pkmus[0], 'sum_only', None)
+        kwargs['sum_only'] = getattr(pkmus[0], 'sum_only', [])
         
         return PkmuResult(pkmus[0].kedges, pkmus[0].muedges, data, **kwargs)
         
