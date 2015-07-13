@@ -9,13 +9,14 @@ def measurepower(pm, c1, c2, Nmu, binshift=0.0, shotnoise=0.0, los='z'):
 
         The power spectrum is measured in bins of k and mu. The k bins extend 
         from 0 to the Nyquist (Nmesh / 2), with the units consistent with 
-        the units of the BoxSize. The mu range extends from 0 to 1.
-        
+        the units of the BoxSize. The mu range extends from 0 to 1.0. 
+        The mu bins are half-inclusive half-exclusive, except the last bin
+        is inclusive on both ends (to include mu = 1.0).
 
         Notes
         -----
         when Nmu == 1, the case reduces to the isotropic 1D power spectrum.
-
+        
         Parameters
         ----------
         pm : ParticleMesh
@@ -120,6 +121,14 @@ def measurepower(pm, c1, c2, Nmu, binshift=0.0, shotnoise=0.0, los='z'):
     musum = pm.comm.allreduce(musum, MPI.SUM)
     Psum = pm.comm.allreduce(Psum, MPI.SUM)
     Nsum = pm.comm.allreduce(Nsum, MPI.SUM)
+
+    # add the last 'internal' mu bin (mu == 1) to the last visible mu bin
+    # this makes the last visible mu bin inclusive on both ends.
+
+    Psum[:, -2] += Psum[:, -1]
+    musum[:, -2] += musum[:, -1]
+    wsum[:, -2] += wsum[:, -1]
+    Nsum[:, -2] += Nsum[:, -1]
 
     # reshape and slice to remove out of bounds points
     with numpy.errstate(invalid='ignore'):
