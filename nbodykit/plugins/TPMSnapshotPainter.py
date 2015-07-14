@@ -11,10 +11,12 @@ class TPMSnapshotPainter(InputPainter):
     @classmethod
     def register(kls):
         h = kls.add_parser(kls.field_type, 
-            usage=kls.field_type+":path[:-rsd=[x|y|z]]")
+            usage=kls.field_type+":path[:-rsd=[x|y|z]][:-mom=[x|y|z]")
         h.add_argument("path", help="path to file")
         h.add_argument("-rsd", 
             choices="xyz", default=None, help="direction to do redshift distortion")
+        h.add_argument("-mom", 
+            choices="xyz", default=None, help="paint momentum instead of mass")
         h.set_defaults(klass=kls)
 
     def paint(self, ns, pm):
@@ -37,8 +39,18 @@ class TPMSnapshotPainter(InputPainter):
             P['Position'] *= ns.BoxSize
             layout = pm.decompose(P['Position'])
             tpos = layout.exchange(P['Position'])
+
+            if self.mom is not None:
+                dir = "xyz".index(self.mom)
+                weight = 1.0 + P['Velocity'][:, dir].copy()
+                tweight = layout.exchange(weight)
+            else:
+                # uniform mass 
+                tweight = 1
+                
             #print tpos.shape
-            pm.paint(tpos)
+            pm.paint(tpos, tweight)
+
             npaint = pm.comm.allreduce(len(tpos)) 
             if pm.comm.rank == 0:
                 logging.info('round %d, npaint %d, nread %d' % (round, npaint, nread))
