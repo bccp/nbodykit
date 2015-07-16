@@ -28,6 +28,16 @@ class SnapshotFile:
         if column == "Label":
             return self.read_label(mystart, myend)
 
+    def write(self, column, mystart, data):
+        if column == "Position":
+            return self.write_pos(mystart, data)
+        if column == "ID":
+            return self.write_id(mystart, data)
+        if column == "Velocity":
+            return self.write_vel(mystart, data)
+        if column == "Label":
+            return self.write_label(mystart, data)
+
     def read_pos(self, mystart, myend):
         """
         Read positions of particles, normalized to (0, 1)        
@@ -97,6 +107,18 @@ class TPMSnapshotFile(SnapshotFile):
         self.header = header
         self.npart = int(header[2])
 
+    @classmethod
+    def create(kls, basename, fid, npart, meta={}):
+        filename = basename + ".%02d" % fid
+        header = numpy.zeros(7, dtype='i4')
+        header[2] = npart
+        header[0] = 1
+        
+        with open(filename, 'w') as ff:
+            header.tofile(ff)
+        self = kls(basename, fid)
+        return self
+ 
     def read_pos(self, mystart, myend):
         with open(self.filename, 'r') as ff:
             # skip header
@@ -104,6 +126,14 @@ class TPMSnapshotFile(SnapshotFile):
             # jump to mystart of positions
             ff.seek(mystart * 12, 1)
             return numpy.fromfile(ff, count=myend - mystart, dtype=('f4', 3))
+
+    def write_pos(self, mystart, data):
+        with open(self.filename, 'r+') as ff:
+            # skip header
+            ff.seek(7 * 4, 0)
+            # jump to mystart of positions
+            ff.seek(mystart * 12, 1)
+            return numpy.float32(data).tofile(ff)
 
     def read_id(self, mystart, myend):
         with open(self.filename, 'r') as ff:
@@ -115,6 +145,16 @@ class TPMSnapshotFile(SnapshotFile):
             ff.seek(mystart * 8, 1)
             return numpy.fromfile(ff, count=myend - mystart, dtype=('i8'))
 
+    def write_id(self, mystart, data):
+        with open(self.filename, 'r+') as ff:
+            # skip header
+            ff.seek(7 * 4, 0)
+            # jump to mystart of id
+            ff.seek(self.npart * 12, 1)
+            ff.seek(self.npart * 12, 1)
+            ff.seek(mystart * 8, 1)
+            return numpy.uint64(data).tofile(ff)
+
     def read_vel(self, mystart, myend):
         with open(self.filename, 'r') as ff:
             # skip header
@@ -123,6 +163,15 @@ class TPMSnapshotFile(SnapshotFile):
             ff.seek(self.npart * 12, 1)
             ff.seek(mystart * 12, 1)
             return numpy.fromfile(ff, count=myend - mystart, dtype=('f4', 3))
+
+    def write_vel(self, mystart, data):
+        with open(self.filename, 'r+') as ff:
+            # skip header
+            ff.seek(7 * 4, 0)
+            # jump to mystart of id
+            ff.seek(self.npart * 12, 1)
+            ff.seek(self.npart * 12, 1)
+            return numpy.float32(data).tofile(ff)
 
 
 class Snapshot(object):
@@ -135,6 +184,17 @@ class Snapshot(object):
         self.filetype = filetype
         if len(self.npart) == 0:
             raise IOError("No files were found under `%s`" % filename)
+
+    @classmethod
+    def create(kls, filename, filetype, npart):
+        """ create a striped snapshot. 
+            npart is a list of npart for each file 
+        """
+        for fid, npart1 in enumerate(npart):
+            filetype.create(filename, fid, npart)
+
+        self = kls(filename, filetype)
+        return self
 
     def get_file(self, i):
         return self.filetype(self.filename, i)
@@ -160,6 +220,27 @@ class Snapshot(object):
             data.append(ff.read(column, mystart, myend))
     
         return numpy.concatenate(data, axis=0)
+
+    def write(self, column, start, data):
+        """this function provides a continuous view of multiple files"""
+
+        NpartPerFile = self.npart
+        NpartCumFile = numpy.concatenate([[0], numpy.cumsum(self.npart)])
+        ff = self.filetype(self.filename, 0)
+        end = start + len(data)
+        offset = 0
+        for i in range(len(NpartPerFile)):
+            if end <= NpartCumFile[i]: continue
+            if start >= NpartCumFile[i+1]: continue
+            # find the intersection in this file
+            mystart = max(start - NpartCumFile[i], 0)
+            myend = min(end - NpartCumFile[i], NpartPerFile[i])
+
+            ff = self.filetype(self.filename, i)
+            ff.write(column, mystart, data[offset:offset + myend - mystart])
+            offset += myend - mystart
+    
+        return 
 
 def read(comm, filename, filetype, columns=['Position', 'ID'], bunchsize=None):
     """
