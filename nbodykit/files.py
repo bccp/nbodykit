@@ -191,7 +191,7 @@ class Snapshot(object):
             npart is a list of npart for each file 
         """
         for fid, npart1 in enumerate(npart):
-            filetype.create(filename, fid, npart)
+            filetype.create(filename, fid, npart1)
 
         self = kls(filename, filetype)
         return self
