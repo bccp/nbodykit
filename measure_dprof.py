@@ -95,7 +95,6 @@ def main():
         dist = distp(center, P['Position'], 1.0)
         d_ind = numpy.digitize(dist, redges)
         
-        print d_ind.max(), m_ind.max()
         ind = numpy.ravel_multi_index((d_ind, m_ind), 
             count_prof.shape)
 
@@ -111,14 +110,12 @@ def main():
         Nhalo_per_massbin[None, 1:-1] / Ntot - 1
 
     if comm.rank == 0:
-        print count_prof[-1].sum()
-        print Ntot, ns.boxsize
         if ns.output != '-':
             ff = open(ns.output, 'w')
         else:
             ff = stdout
         with ff:
-            ff.write('# nhalo_per_massbin: %s\n' % str(Nhalo_per_massbin))
+            ff.write('# nhalo_per_massbin: %s\n' % ' '.join([str(n) for n in Nhalo_per_massbin]))
             ff.write('# edges of the mass bins %s\n' % 
                 ' '.join([str(m) for m in ns.logMedges])
             )
