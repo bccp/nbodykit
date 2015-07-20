@@ -1,3 +1,83 @@
+import numpy
+
+# helper classes that are compiled at parse time
+# see http://pyparsing.wikispaces.com/file/view/simpleBool.py
+class CompOperand(object):
+    def __init__(self, t):
+        self.value = t[0]
+    def eval(self, data):
+        raise NotImplementedError
+    def __str__(self):
+         return self.value
+    __repr__ = __str__
+    
+class LeftCompOperand(CompOperand):
+    def eval(self, data):
+        try: 
+            return data[self.value]
+        except Exception as e:
+            raise RuntimeError("left hand side of selection query must be column reference: %s" %str(e))
+
+class RightCompOperand(CompOperand):
+    def eval(self, *args):
+        try:
+            return eval(self.value)
+        except Exception as e:
+            raise RuntimeError("right hand side of selection query cannot be eval'ed: %s" %str(e))
+            
+class CompOperator(object):
+    import operator
+    ops = {'<' : operator.lt, '<=' : operator.le, 
+            '>' : operator.gt, '>=' : operator.ge, 
+            '==' : operator.eq, '!=' : operator.ne}
+                            
+    def __init__(self, t):
+        self.args = t[0][0::2]
+        self.reprsymbol = t[0][1]
+        
+        if len(self.args) != 2 or self.reprsymbol not in self.ops.keys():
+            valid = ">=|<=|!=|>|<|=="
+            raise RuntimeError("comparison condition must be two strings separated by %s" %valid)
+            
+    def __str__(self):
+        sep = " %s " % self.reprsymbol
+        return "(" + sep.join(map(str,self.args)) + ")"
+    
+    def eval(self, *data):
+        return self.ops[self.reprsymbol](*[a.eval(*data) for a in self.args])
+    __repr__ = __str__
+    
+
+class BoolBinOp(object):
+    def __init__(self,t):
+        self.args = t[0][0::2]
+    def __str__(self):
+        sep = " %s " % self.reprsymbol
+        return "(" + sep.join(map(str,self.args)) + ")"
+    def eval(self, *data):
+        raise NotImplementedError
+    __repr__ = __str__
+    
+class BoolAnd(BoolBinOp):
+    reprsymbol = '&'
+    def eval(self, *data):
+        return numpy.all([a.eval(*data) for a in self.args], axis=0)
+
+class BoolOr(BoolBinOp):
+    reprsymbol = '|'
+    def eval(self, *data):
+        return numpy.any([a.eval(*data) for a in self.args], axis=0)
+
+class BoolNot(object):
+    def __init__(self,t):
+        self.arg = t[0][1]
+    def eval(self, *data):
+        return numpy.logical_not(self.arg.eval(*data))
+    def __str__(self):
+        return "~" + str(self.arg)
+    __repr__ = __str__
+
+    
 class Query(object):
     """
     Class to parse boolean expressions and return boolean masks
@@ -5,19 +85,26 @@ class Query(object):
     
     Notes
     -----
-    * requires pyparsing module to be installed
-    * operators that can be parsed are (<, <=, >, >=, ==, !=, and, or, not)
-    * can parse nested boolean expressions
-    * keys in boolean expressions, i.e., (key operator value), must
-    be named columns of the data object passed to `get_mask`
-    """
-    import operator
-    comparison_operators = {'<' : operator.lt, '<=' : operator.le, 
-                            '>' : operator.gt, '>=' : operator.ge, 
-                            '==' : operator.eq, '!=' : operator.ne, 
-                            'and' : lambda a, b: a & b, 'or' : lambda a, b: a| b,
-                            'not' : lambda a: ~a }
+    *   The string expression must be a `comparison condition`, separated
+        by a boolean operator (`and`, `or`, `not`). A comparison condition
+        has the syntax: 
+            
+        column_name comparison_operator value
+        
+        column_name : 
+            the name of a column in a data array. the values from the
+            data array with this column name are substituted into
+            the boolean expression
+        comparison_operator :
+            any of the following are valid: >, >=, <, <=, ==, !=
+        value : 
+            This must be able to have `eval` called on it. Usually
+            a number or single-quoted string
+    *   As many `comparison conditions` as needed can be nested
+        together, joined by `and`, `or`, or `not`
     
+    
+    """    
     def __init__(self, str_selection):
         """
         Parameters
@@ -26,18 +113,27 @@ class Query(object):
             the boolean expression as a string
         """
         # set up the regex for the individual terms
-        operator = Regex(">=|<=|!=|>|<|==").setName("operator")
+        operator = Regex(">=|<=|!=|>|<|==")
         number = Regex(r"[+-]?\d+(:?\.\d*)?(:?[eE][+-]?\d+)?")
         quoted_str = QuotedString("'", unquoteResults=False)
-        identifier = Word(alphanums, alphanums + "_")
+        lhs = Word(alphanums, alphanums + "_")
+        rhs = (number|quoted_str)
+        condition = Group(lhs + operator + rhs)
+        
+        # set parsing actions
+        lhs.setParseAction(LeftCompOperand)
+        rhs.setParseAction(RightCompOperand)
+        condition.setParseAction(CompOperator)
 
-        # look for things like key (operator) value
-        condition = Group(identifier + operator + (number|quoted_str))
-        self.selection_expr = operatorPrecedence(condition, 
-                                                    [("not", 1, opAssoc.RIGHT,), 
-                                                     ("and", 2, opAssoc.LEFT,), 
-                                                     ("or", 2, opAssoc.LEFT,)])
-                                                  
+        # define expression, based on expression operand and
+        # list of operations in precedence order
+        self.selection_expr = infixNotation(condition,
+                                        [
+                                        ("not", 1, opAssoc.RIGHT, BoolNot),
+                                        ("and", 2, opAssoc.LEFT,  BoolAnd),
+                                        ("or",  2, opAssoc.LEFT,  BoolOr),
+                                        ])
+                                                          
         # save the string condition and parse it
         self.parse_selection(str_selection)
           
@@ -67,44 +163,8 @@ class Query(object):
         mask : list or array like
             the boolean mask corresponding to the selection string
         """
-        return self._evaluate(data, self.selection)
+        return self.selection.eval(data)
     
-    def _evaluate(self, data, conditions):
-        """
-        Internal recursive function to evaluate parsed nested boolean
-        expressions and return the combined boolean mask
-        """
-        # return the string representation
-        if isinstance(conditions, basestring):
-            return conditions
-        # the conditions is a pyparsing.ParseResults
-        else:
-            if len(conditions) == 2:
-                # this is a binary operator
-                # only need operator and value
-                operator, value = conditions
-                operator = self.comparison_operators[operator]
-                value = self._evaluate(data, value)
-                ans = operator(value)
-            # this is an and/or clause
-            elif len(conditions) == 3:                
-                # this is a binary operator
-                # get the key, value and operator function
-                # this transforms the node on the fly 
-                # because LHS subnode and RHS subnode are treated
-                # differently. LHS is always assumed to be a column reference
-                # rhs as a value
-                key, operator, value = conditions
-                key = self._evaluate(data, key)
-                value = self._evaluate(data, value)
-                operator = self.comparison_operators[operator]
-                if isinstance(key, basestring):
-                    key = data[key]
-                if isinstance(value, basestring):
-                    value = eval(value)
-                ans = operator(key, value)
-                
-            return ans
 #
 #----------------------------------------------------------
 # embeded pyparsing
