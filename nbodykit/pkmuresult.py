@@ -125,22 +125,21 @@ class PkmuResult(object):
             Any additional metadata for the power spectrum object can
             be passed as keyword arguments here
         """
-        # name of the columns
-        self.columns = data.keys()
         self.kedges = kedges
         self.muedges = muedges
+        columns = data.keys()
         
         # treat any NaNs as missing data
         mask = numpy.zeros((len(kedges)-1, len(muedges)-1), dtype=bool)
         dtypes = []
-        for name in self.columns:
+        for name in columns:
             mask = numpy.logical_or(mask, ~numpy.isfinite(data[name]))
             dtypes.append((name, data[name].dtype))
 
         # create a structured array to store the data
         shape = (len(self.kedges)-1, len(self.muedges)-1)
         self.data = numpy.empty(shape, dtype=numpy.dtype(dtypes))
-        for name in self.columns:
+        for name in columns:
             self.data[name] = data[name]
         
         # now make it a masked array
@@ -166,6 +165,8 @@ class PkmuResult(object):
             setattr(self, k, v)
     
     def __getitem__(self, key):
+        if key in self.columns:
+            return self.data[key]
         try:
             new_key = ()
             
@@ -193,12 +194,6 @@ class PkmuResult(object):
             return self.data[key]
         except Exception as e:
             raise KeyError("Key not understood in __getitem__: %s" %(str(e)))
-    
-    def __getattr__(self, key):
-        if key in self.columns:
-            return self.data[key]
-        else:
-            return object.__getattr__(key)
     
     def to_pickle(self, filename):
         import pickle
@@ -311,6 +306,10 @@ class PkmuResult(object):
     #--------------------------------------------------------------------------
     # convenience properties
     #--------------------------------------------------------------------------
+    @property
+    def columns(self):
+        return list(self.data.dtype.names)
+        
     @property
     def k_center(self):
         return self.index['k_center'][:,0]
