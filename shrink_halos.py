@@ -50,9 +50,20 @@ def model(R, Mhalo):
     a = 0.501237530292
     R200 = a * (Mhalo / 1e13) ** 0.333333
     x = R / R200
-    Rc = R * numpy.log(1 + x**0.36) * 1.15
-    Rc = Rc.clip(0, R)
+    Rc = numpy.log(1 + x**0.36) * 1.15
+    Rc = Rc.clip(0, 1)
     return Rc
+def model(R, Mhalo):
+    a = 0.501237530292
+    R200 = a * (Mhalo / 1e13) ** 0.333333
+    x = R / R200
+    return f(x, R)
+
+def f(xxx, xx2):
+    rt = 0.8* xxx ** 0.25
+    #mask = xx2 < 0.1
+    #rt[mask] = 1.0
+    return rt.clip(0, 1)
 
 def main():
     comm = MPI.COMM_WORLD
@@ -80,12 +91,16 @@ def main():
     comm.barrier()
 
     Ntot = sum(snapfile.npart)
-    for i in range(0, Ntot, ns.bunchsize):
-        start, end, junk = slice(i, i + ns.bunchsize).indices(Ntot)
-        position = snapfile.read('Position', start, end)
-        velocity = snapfile.read('Velocity', start, end)
-        ID = snapfile.read('ID', start, end)
-        label = labelfile.read('Label', start, end)
+    for i in range(0, Ntot, ns.bunchsize * comm.size):
+        if comm.rank == 0:
+            print i, Ntot
+        start, end, junk = slice(i, i + ns.bunchsize * comm.size).indices(Ntot)
+        mystart = start + (end - start) * comm.rank // comm.size
+        myend = start + (end - start) * (comm.rank + 1) // comm.size
+        position = snapfile.read('Position', mystart, myend)
+        velocity = snapfile.read('Velocity', mystart, myend)
+        ID = snapfile.read('ID', mystart, myend)
+        label = labelfile.read('Label', mystart, myend)
 
         mask = label != 0
         label = label[mask]
@@ -95,13 +110,15 @@ def main():
         dist = distp(center, position2, 1.0)
         rwrong = numpy.einsum('ij,ij->i', dist, dist) ** 0.5
 
-        rcorrect = model(rwrong, mass)
-        dist *= (rcorrect / rwrong)[:, None]
+        rwrong *= ns.boxsize
+        rfact = model(rwrong, mass)
+        dist *= rfact[:, None]
         position2 = (center + dist) % 1.0
 
         position[mask] = position2
-        output.write('Position', start, position)
-        #output.write('Velocity', start, velocity)
-        output.write('ID', start, ID)
+        print 'writing at', mystart
+        output.write('Position', mystart, position)
+        output.write('Velocity', mystart, velocity)
+        output.write('ID', mystart, ID)
 
 main()
