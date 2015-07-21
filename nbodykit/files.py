@@ -17,86 +17,45 @@ class SnapshotFile:
                 # if file does not open properly, we are done
                 break
             i = i + 1
-
+    
+    column_names = set([
+       'Position', 
+       'Mass', 
+       'ID',
+       'Velocity',
+       'Label',
+    ])
     def read(self, column, mystart, myend):
-        if column == "Position":
-            return self.read_pos(mystart, myend)
-        if column == "ID":
-            return self.read_id(mystart, myend)
-        if column == "Velocity":
-            return self.read_vel(mystart, myend)
-        if column == "Label":
-            return self.read_label(mystart, myend)
+        """
+        Read a property column of particles
+
+        Parameters
+        ----------
+        mystart   : int
+            offset to start reading within this file. (inclusive)
+        myend     : int
+            offset to end reading within this file. (exclusive)
+
+        Returns
+        -------
+        data : array_like (myend - mystart)
+            data in unspecified units.
+
+        """
+        return NotImplementedError
 
     def write(self, column, mystart, data):
-        if column == "Position":
-            return self.write_pos(mystart, data)
-        if column == "ID":
-            return self.write_id(mystart, data)
-        if column == "Velocity":
-            return self.write_vel(mystart, data)
-        if column == "Label":
-            return self.write_label(mystart, data)
+        return NotImplementedError
 
-    def read_pos(self, mystart, myend):
-        """
-        Read positions of particles, normalized to (0, 1)        
+    def readat(self, offset, nitem, dtype):
+        with open(self.filename, 'r') as ff:
+            ff.seek(offset, 0)
+            return numpy.fromfile(ff, count=nitem, dtype=dtype)
 
-        Parameters
-        ----------
-        mystart   : int
-            offset to start reading within this file. (inclusive)
-        myend     : int
-            offset to end reading within this file. (exclusive)
-
-        Returns
-        -------
-        pos  : array_like (myend - mystart, 3)
-            position of particles, normalized to (0, 1)        
-
-        """
-        raise NotImplementedError
-
-    def read_id(self, mystart, myend):
-        """
-        Read ID of particles
-
-        Parameters
-        ----------
-        mystart   : int
-            offset to start reading within this file. (inclusive)
-        myend     : int
-            offset to end reading within this file. (exclusive)
-
-        Returns
-        -------
-        ID : array_like (myend - mystart)
-            ID of particles, normalized to (0, 1)        
-
-        """
-        raise NotImplementedError
-
-    def read_vel(self, mystart, myend):
-        """
-        Read velocity of particles
-
-        Parameters
-        ----------
-        mystart   : int
-            offset to start reading within this file. (inclusive)
-        myend     : int
-            offset to end reading within this file. (exclusive)
-
-        Returns
-        -------
-        vel : array_like (myend - mystart)
-            velocity of particles, corrected for ??red-shift distortion        
-
-        """
-        raise NotImplementedError
-
-    def read_label(self, mystart, myend):
-        raise NotImplementedError
+    def writeat(self, offset, data):
+        with open(self.filename, 'r+') as ff:
+            ff.seek(offset, 0)
+            return ff.tofile(ff)
 
 class TPMSnapshotFile(SnapshotFile):
     def __init__(self, basename, fid):
@@ -106,6 +65,11 @@ class TPMSnapshotFile(SnapshotFile):
             header = numpy.fromfile(ff, dtype='i4', count=7)
         self.header = header
         self.npart = int(header[2])
+        self.offset_table = {
+            'Position' : (('f4', 3), 7 * 4), 
+            'Velocity' : (('f4', 3), 7 * 4 + 12 * self.npart),
+            'ID' : (('u8'), 7 * 4 + 12 * self.npart * 2),
+        }
 
     @classmethod
     def create(kls, basename, fid, npart, meta={}):
@@ -119,60 +83,28 @@ class TPMSnapshotFile(SnapshotFile):
         self = kls(basename, fid)
         return self
  
-    def read_pos(self, mystart, myend):
+    def read(self, column, mystart=0, myend=-1):
+        dtype, offset = self.offset_table[column]
+        dtype = numpy.dtype(dtype)
+        if myend == -1:
+            myend = self.npart
+
         with open(self.filename, 'r') as ff:
             # skip header
-            ff.seek(7 * 4, 0)
+            ff.seek(offset, 0)
             # jump to mystart of positions
-            ff.seek(mystart * 12, 1)
-            return numpy.fromfile(ff, count=myend - mystart, dtype=('f4', 3))
+            ff.seek(mystart * dtype.itemsize, 1)
+            return numpy.fromfile(ff, count=myend - mystart, dtype=dtype)
 
-    def write_pos(self, mystart, data):
+    def write(self, column, mystart, data):
+        dtype, offset = self.offset_table[column]
+        dtype = numpy.dtype(dtype)
         with open(self.filename, 'r+') as ff:
             # skip header
-            ff.seek(7 * 4, 0)
+            ff.seek(offset, 0)
             # jump to mystart of positions
-            ff.seek(mystart * 12, 1)
-            return numpy.float32(data).tofile(ff)
-
-    def read_id(self, mystart, myend):
-        with open(self.filename, 'r') as ff:
-            # skip header
-            ff.seek(7 * 4, 0)
-            # jump to mystart of id
-            ff.seek(self.npart * 12, 1)
-            ff.seek(self.npart * 12, 1)
-            ff.seek(mystart * 8, 1)
-            return numpy.fromfile(ff, count=myend - mystart, dtype=('i8'))
-
-    def write_id(self, mystart, data):
-        with open(self.filename, 'r+') as ff:
-            # skip header
-            ff.seek(7 * 4, 0)
-            # jump to mystart of id
-            ff.seek(self.npart * 12, 1)
-            ff.seek(self.npart * 12, 1)
-            ff.seek(mystart * 8, 1)
-            return numpy.uint64(data).tofile(ff)
-
-    def read_vel(self, mystart, myend):
-        with open(self.filename, 'r') as ff:
-            # skip header
-            ff.seek(7 * 4, 0)
-            # jump to mystart of velocity
-            ff.seek(self.npart * 12, 1)
-            ff.seek(mystart * 12, 1)
-            return numpy.fromfile(ff, count=myend - mystart, dtype=('f4', 3))
-
-    def write_vel(self, mystart, data):
-        with open(self.filename, 'r+') as ff:
-            # skip header
-            ff.seek(7 * 4, 0)
-            # jump to mystart of id
-            ff.seek(self.npart * 12, 1)
-            ff.seek(self.npart * 12, 1)
-            return numpy.float32(data).tofile(ff)
-
+            ff.seek(mystart * dtype.itemsize, 1)
+            return data.astype(dtype.base).tofile(ff)
 
 class Snapshot(object):
     def __init__(self, filename, filetype):
@@ -325,12 +257,11 @@ class HaloLabelFile(SnapshotFile):
         with open(self.filename, 'r') as ff:
             self.npart = numpy.fromfile(ff, 'i4', 1)
             self.linking_length = numpy.fromfile(ff, 'f4', 1)
-    def read_label(self, mystart, myend):
-        with open(self.filename, 'r') as ff:
-            ff.seek(8)
-            ff.seek(mystart * 4, 1)
-            return numpy.fromfile(ff, 'i4', count=myend-mystart)
-            
+        self.offset_table = {
+            'Label': ('i4', 8),
+        }
+        self.read = TPMSnapshotFile.read.__get__(self)
+        self.write = TPMSnapshotFile.write.__get__(self)
 
 class HaloFile(object):
     """
@@ -346,46 +277,17 @@ class HaloFile(object):
         self.filename = filename
         with open(self.filename, 'r') as ff:
             self.nhalo = int(numpy.fromfile(ff, 'i4', 1)[0])
+            self.npart = self.nhalo
             self.linking_length = float(numpy.fromfile(ff, 'f4', 1)[0])
 
-    def read(self, column):
-        """
-        Read a data column from the catalogue
+        self.offset_table = {
+            'Mass': ('i4', 8),
+            'Position': (('f4', 3), 8 + 4 * self.nhalo),
+            'Velocity': (('f4', 3), 8 + 4 * self.nhalo + 12 * self.nhalo),
+        }
 
-        Parameters
-        ----------
-        column : string
-            column to read: CenterOfMass or Mass
-        
-        Returns
-        -------
-            the data column; all halos are returned.
-
-        """
-        if column == 'Position':
-            return self.read_pos()
-        elif column == 'Mass':
-            return self.read_mass()
-        elif column == 'Velocity':
-            return self.read_vel()
-        else:
-            raise KeyError("column `%s' unknown" % str(column))
-
-    def read_mass(self):
-        with open(self.filename, 'r') as ff:
-            ff.seek(8, 0)
-            return numpy.fromfile(ff, count=self.nhalo, dtype='i4')
-
-    def read_pos(self):
-        with open(self.filename, 'r') as ff:
-            ff.seek(8 + self.nhalo * 4, 0)
-            return numpy.fromfile(ff, count=self.nhalo, dtype=('f4', 3))
-
-    def read_vel(self):
-        with open(self.filename, 'r') as ff:
-            ff.seek(8 + self.nhalo * 4, 0)
-            ff.seek(self.nhalo * 12, 1)
-            return numpy.fromfile(ff, count=self.nhalo, dtype=('f4', 3))
+        self.read = TPMSnapshotFile.read.__get__(self)
+        self.write = TPMSnapshotFile.write.__get__(self)
 
 def ReadPower2DPlainText(filename):
     """

@@ -60,8 +60,8 @@ def main():
     if comm.rank == 0:
         h = files.HaloFile(ns.halocatalogue)
         #print h.read_pos().shape()
-        N = h.read_mass()
-        halo_pos = h.read_pos()
+        N = h.read('Mass')
+        halo_pos = h.read('Position')
     else:
         N = None
         halo_pos = None

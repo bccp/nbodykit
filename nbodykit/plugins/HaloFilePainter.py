@@ -34,9 +34,9 @@ class HaloFilePainter(InputPainter):
             nhalo = hf.nhalo
             data = numpy.empty(nhalo, dtype)
             
-            data['position']= numpy.float32(hf.read_pos())
-            data['velocity']= numpy.float32(hf.read_vel())
-            data['logmass'] = numpy.log10(numpy.float32(hf.read_mass() * self.m0))
+            data['position']= numpy.float32(hf.read('Position'))
+            data['velocity']= numpy.float32(hf.read('Velocity'))
+            data['logmass'] = numpy.log10(numpy.float32(hf.read('Mass') * self.m0))
             # select based on selection conditions
             if self.select is not None:
                 mask = self.select.get_mask(data)
