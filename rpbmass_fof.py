@@ -47,10 +47,10 @@ def main():
     sim = files.HaloFile(ns.sim_halo)
     nbody = files.HaloFile(ns.Nbody_halo)
 
-    sim_mass = sim.read_mass()
-    nbody_mass = nbody.read_mass()
-    sim_pos = sim.read_pos()
-    sim_vel = sim.read_vel()
+    sim_mass = sim.read('Mass')
+    nbody_mass = nbody.read('Mass')
+    sim_pos = sim.read('Position')
+    sim_vel = sim.read('Velocity')
     sim_link_l = sim.linking_length
     sim_nhalo = sim.nhalo
     nbody_nhalo = nbody.nhalo
