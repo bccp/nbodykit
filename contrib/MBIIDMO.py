@@ -77,7 +77,7 @@ class PainterPlugin(InputPainter):
         if self.rsd is not None:
             dir = 'xyz'.index(self.rsd)
             data['position'][:, dir] += data['velocity'][:, dir]
-            pos['position'][:, dir] %= ns.BoxSize # enforce periodic boundary conditions
+            data['position'][:, dir] %= ns.BoxSize # enforce periodic boundary conditions
 
         layout = pm.decompose(data['position'])
         tpos = layout.exchange(data['position'])
