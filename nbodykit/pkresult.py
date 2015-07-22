@@ -57,21 +57,21 @@ class PkResult(object):
             be passed as keyword arguments here
         """
         # name of the columns
-        columns = ['k', 'power', 'modes']
+        columns = data.keys()
         self.kedges = kedges
         
         # treat any NaNs as missing data
         mask = numpy.zeros(len(kedges)-1, dtype=bool)
         dtypes = []
-        for i, name in enumerate(columns):
-            mask = numpy.logical_or(mask, ~numpy.isfinite(data[:,i]))
-            dtypes.append((name, data[:,i].dtype))
+        for name in columns:
+            mask = numpy.logical_or(mask, ~numpy.isfinite(data[name]))
+            dtypes.append((name, data[name].dtype))
 
         # create a structured array to store the data
         shape = (len(self.kedges)-1)
         self.data = numpy.empty(shape, dtype=numpy.dtype(dtypes))
-        for i, name in enumerate(columns):
-            self.data[name] = data[:,i]
+        for name in columns:
+            self.data[name] = data[name]
         
         # now make it a masked array
         self.data = numpy.ma.array(self.data, mask=mask)
@@ -131,14 +131,14 @@ class PkResult(object):
         return PkResult(d['kedges'], data, **kwargs)
         
     @classmethod
-    def from_dict(cls, d, **kwargs):
+    def from_dict(cls, d, names, **kwargs):
         """
-        Return a PkmuResult object from a dictionary of data. Additional
-        metadata can be specified as keyword arguments
+        Return a PkmuResult object from a data array and column names. 
+        Additional metadata can be specified as keyword arguments
         
         Notes
         -----
-        The `kedges` data must be given in the input dictionary.
+        `edges` must be passed as a keyword
         
         Parameters
         ----------
@@ -148,14 +148,13 @@ class PkResult(object):
         **kwargs 
             any additional keywords or metadata to be stored
         """
-        d = d.copy() # copy so we don't edit for caller
-        if 'edges' not in d and 'edges' not in kwargs:
-            raise ValueError("must supply `edges` data in input dictionary or as keyword")
-        if 'edges' in d:
-            edges = d.pop('edges')
-        else:
-            edges = kwargs.pop('edges')
-        return PkResult(edges, d, **kwargs)
+        if 'edges' not in kwargs:
+            raise ValueError("must supply `edges` data as keyword")
+        if d.shape[-1] != len(names):
+            raise ValueError("a name for each of the %d data columns must be provided" %d.shape[-1])
+        edges = kwargs.pop('edges')
+        data_dict = {col:d[:,i] for i,col in enumerate(names)}
+        return PkResult(edges, data_dict, **kwargs)
         
     @classmethod
     def from_list(cls, pks, weights=None, sum_only=[]):
@@ -172,7 +171,7 @@ class PkResult(object):
         Parameters
         ----------
         pkmus : list of PkmuResult
-            the list of 2D power spectrum objects to average
+            the list of 1D power spectrum objects to average
         
         """
         # check columns for all objects
@@ -283,6 +282,41 @@ class PkResult(object):
     #--------------------------------------------------------------------------
     # main functions
     #--------------------------------------------------------------------------
+    def add_column(self, name, data):
+        """
+        Add a column with the name ``name`` to the data stored in ``self.data`
+        
+        Notes
+        -----
+        A new mask is calculated, with any elements in the new data masked
+        if they are not finite.
+        
+        Parameters
+        ----------
+        name : str
+            the name of the new data to be added to the structured array
+        data : numpy.ndarray
+            a numpy array to be added to ``self.data``, which must be the same
+            shape as ``self.data``
+        """
+        if numpy.shape(data) != self.data.shape:
+            raise ValueError("data to be added must have shape %s" %str(self.data.shape))
+            
+        dtype = self.data.dtype.descr
+        if name not in self.data.dtype.names:
+            dtype += [(name, data.dtype.type)]
+            
+        new = numpy.zeros(self.data.shape, dtype=dtype)
+        mask = numpy.zeros(self.data.shape, dtype=bool)
+        for col in self.columns:
+            new[col] = self.data[col]
+            mask = numpy.logical_or(mask, ~numpy.isfinite(new[col]))
+            
+        new[name] = data
+        mask = numpy.logical_or(mask, ~numpy.isfinite(new[name]))
+        
+        self.data = numpy.ma.array(new, mask=mask)
+        
     def nearest_bin_center(self, val):
         """
         Return the nearest `k` bin center value to the value `val`
