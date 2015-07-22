@@ -164,6 +164,9 @@ class PkmuResult(object):
             self._metadata.append(k)
             setattr(self, k, v)
     
+    def __contains__(self, key):
+        return key in self.columns
+    
     def __getitem__(self, key):
         if key in self.columns:
             return self.data[key]
