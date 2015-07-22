@@ -378,6 +378,41 @@ class PkmuResult(object):
     #--------------------------------------------------------------------------
     # main functions
     #--------------------------------------------------------------------------
+    def add_column(self, name, data):
+        """
+        Add a column with the name ``name`` to the data stored in ``self.data`
+        
+        Notes
+        -----
+        A new mask is calculated, with any elements in the new data masked
+        if they are not finite.
+        
+        Parameters
+        ----------
+        name : str
+            the name of the new data to be added to the structured array
+        data : numpy.ndarray
+            a numpy array to be added to ``self.data``, which must be the same
+            shape as ``self.data``
+        """
+        if numpy.shape(data) != self.data.shape:
+            raise ValueError("data to be added must have shape %s" %str(self.data.shape))
+            
+        dtype = self.data.dtype.descr
+        if name not in self.data.dtype.names:
+            dtype += [(name, data.dtype.type)]
+            
+        new = numpy.zeros(self.data.shape, dtype=dtype)
+        mask = numpy.zeros(self.data.shape, dtype=bool)
+        for col in self.columns:
+            new[col] = self.data[col]
+            mask = numpy.logical_or(mask, ~numpy.isfinite(new[col]))
+            
+        new[name] = data
+        mask = numpy.logical_or(mask, ~numpy.isfinite(new[name]))
+        
+        self.data = numpy.ma.array(new, mask=mask)
+            
     def nearest_bin_center(self, name, val):
         """
         Return the nearest `k` or `mu` bin center value to the value `val`
