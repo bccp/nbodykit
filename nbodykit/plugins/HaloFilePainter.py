@@ -49,7 +49,10 @@ class HaloFilePainter(InputPainter):
         else:
             data = numpy.empty(0, dtype=dtype)
 
-        Ntot = len(data)
+        if self.massweighted:
+            Ntot = data['length'].sum(dtype='f8')
+        else:
+            Ntot = len(data)
         Ntot = pm.comm.bcast(Ntot)
 
         if self.rsd is not None:
