@@ -17,6 +17,7 @@ class HaloFilePainter(InputPainter):
             )
         h.add_argument("path", help="path to file")
         h.add_argument("m0", type=float, help="mass mass of a particle")
+        h.add_argument("-massweighted", action='store_true', default=False, help="weight halos by mass?")
         h.add_argument("-rsd", 
             choices="xyz", help="direction to do redshift distortion")
         h.add_argument("-select", default=None, type=selectionlanguage.Query,
@@ -27,6 +28,7 @@ class HaloFilePainter(InputPainter):
         dtype = numpy.dtype([
             ('position', ('f4', 3)),
             ('velocity', ('f4', 3)),
+            ('length', 'f4'),
             ('logmass', 'f4')])
         
         if pm.comm.rank == 0:
@@ -37,6 +39,8 @@ class HaloFilePainter(InputPainter):
             data['position']= numpy.float32(hf.read('Position'))
             data['velocity']= numpy.float32(hf.read('Velocity'))
             data['logmass'] = numpy.log10(numpy.float32(hf.read('Mass') * self.m0))
+            data['length'] = numpy.float32(hf.read('Mass'))
+
             # select based on selection conditions
             if self.select is not None:
                 mask = self.select.get_mask(data)
@@ -58,7 +62,10 @@ class HaloFilePainter(InputPainter):
         tpos = layout.exchange(data['position'])
         tvel = layout.exchange(data['velocity'])
 
-        weight = 1
+        if self.massweighted:
+            weight = layout.exchange(data['length'])
+        else:
+            weight = 1
         pm.paint(tpos, weight)
 
         npaint = pm.comm.allreduce(len(tpos)) 
