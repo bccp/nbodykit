@@ -135,7 +135,7 @@ def measurepower(pm, c1, c2, Nmu, binshift=0.0, shotnoise=0.0, los='z'):
         power = (Psum / Nsum)[1:-1, 1:-1]
         wmean = (wsum / Nsum)[1:-1, 1:-1]
         mumean = (musum / Nsum)[1:-1, 1:-1]
-        N = Nsum[1:-1, 1:-1]
+        N = 2*Nsum[1:-1, 1:-1] # factor of 2 for real and imag modes
 
     # measure the raw power spectrum, nothing is removed.
     kout = wmean * pm.Nmesh / pm.BoxSize
