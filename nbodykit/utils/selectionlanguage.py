@@ -19,6 +19,19 @@ class LeftCompOperand(CompOperand):
             raise RuntimeError("left hand side of selection query must be column reference: %s" %str(e))
 
 class RightCompOperand(CompOperand):
+    
+    def __init__(self, t):
+        self.value = self.concat(t[0])
+    
+    def concat(self, s):
+        """concatenate parsed results into one string for eval'ing purposes"""
+        if isinstance(s, basestring):
+            return s
+        else:
+            toret = ""
+            for x in s: toret += self.concat(x)
+            return toret
+               
     def eval(self, *args):
         try:
             return eval(self.value)
@@ -116,8 +129,21 @@ class Query(object):
         operator = Regex(">=|<=|!=|>|<|==")
         number = Regex(r"[+-]?\d+(:?\.\d*)?(:?[eE][+-]?\d+)?")
         quoted_str = QuotedString("'", unquoteResults=False)
+        
+        # left hand side is just a wod
         lhs = Word(alphanums, alphanums + "_")
-        rhs = (number|quoted_str)
+        
+        # RHS can be arithmetic expression of numbers or a quoted string
+        expop = Literal('**')
+        multop = oneOf('* /')
+        plusop = oneOf('+ -')
+        arith_expr = operatorPrecedence(number,
+                                [(expop, 2, opAssoc.RIGHT),
+                                (multop, 2, opAssoc.LEFT),
+                                (plusop, 2, opAssoc.LEFT),]
+                                )
+        
+        rhs = (arith_expr|quoted_str)
         condition = Group(lhs + operator + rhs)
         
         # set parsing actions
