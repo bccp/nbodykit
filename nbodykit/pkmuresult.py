@@ -37,6 +37,10 @@ def rebin(index, edges, data, weights, sum_only):
     # make the multi index for tracking flat indices
     multi_index = numpy.ravel_multi_index(dig, ndims)
     
+    minlength = 1.
+    for x in ndims: minlength *= x
+    idx = tuple([slice(1, -1)]*len(ndims))
+    
     # loop over each field in the recarray
     names = data.dtype.names
     for name in names:
@@ -45,20 +49,21 @@ def rebin(index, edges, data, weights, sum_only):
         mi = multi_index[inds.flatten()]
         
         # first count values in each bin
-        N = numpy.bincount(mi, weights=weights[inds], minlength=ndims[0]*ndims[1])
+        N = numpy.bincount(mi, weights=weights[inds], minlength=minlength)
         
         # now sum the data columns
         w = weights[inds]
         if name in sum_only:
             w = weights[inds]*0.+1 # unity if we are just summing
-        valsum = numpy.bincount(mi, weights=data[name][inds]*w, minlength=ndims[0]*ndims[1])
+        valsum = numpy.bincount(mi, weights=data[name][inds]*w, minlength=minlength)
+        
         
         if name in sum_only:
-            toret[name] = valsum.reshape(ndims)[1:-1, 1:-1]
+            toret[name] = valsum.reshape(ndims)[idx]
         else:
             # ignore warnings -- want N == 0 to be set as NaNs
             with numpy.errstate(invalid='ignore'):
-                toret[name] = (valsum / N).reshape(ndims)[1:-1, 1:-1]
+                toret[name] = (valsum / N).reshape(ndims)[idx]
             
     return toret
 
@@ -163,6 +168,9 @@ class PkmuResult(object):
         for k, v in kwargs.iteritems():
             self._metadata.append(k)
             setattr(self, k, v)
+    
+    def __contains__(self, key):
+        return key in self.columns
     
     def __getitem__(self, key):
         if key in self.columns:
@@ -378,6 +386,41 @@ class PkmuResult(object):
     #--------------------------------------------------------------------------
     # main functions
     #--------------------------------------------------------------------------
+    def add_column(self, name, data):
+        """
+        Add a column with the name ``name`` to the data stored in ``self.data`
+        
+        Notes
+        -----
+        A new mask is calculated, with any elements in the new data masked
+        if they are not finite.
+        
+        Parameters
+        ----------
+        name : str
+            the name of the new data to be added to the structured array
+        data : numpy.ndarray
+            a numpy array to be added to ``self.data``, which must be the same
+            shape as ``self.data``
+        """
+        if numpy.shape(data) != self.data.shape:
+            raise ValueError("data to be added must have shape %s" %str(self.data.shape))
+            
+        dtype = self.data.dtype.descr
+        if name not in self.data.dtype.names:
+            dtype += [(name, data.dtype.type)]
+            
+        new = numpy.zeros(self.data.shape, dtype=dtype)
+        mask = numpy.zeros(self.data.shape, dtype=bool)
+        for col in self.columns:
+            new[col] = self.data[col]
+            mask = numpy.logical_or(mask, ~numpy.isfinite(new[col]))
+            
+        new[name] = data
+        mask = numpy.logical_or(mask, ~numpy.isfinite(new[name]))
+        
+        self.data = numpy.ma.array(new, mask=mask)
+            
     def nearest_bin_center(self, name, val):
         """
         Return the nearest `k` or `mu` bin center value to the value `val`
