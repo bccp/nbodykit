@@ -256,11 +256,11 @@ class PkResult(object):
     def _reindex(self, index, edges, bins, weights):
         
         # compute the bins
-        N_old = index.shape
+        N_old = index[0].shape
         if isinstance(bins, int):
             if bins >= N_old:
                 raise ValueError("Can only reindex into fewer than %d bins" %N_old)
-            bins = numpy.linspace(edges[0], edges[-1], bins+1)
+            bins = numpy.linspace(edges[0][0], edges[0][-1], bins+1)
         else:
             if len(bins) >= N_old:
                 raise ValueError("Can only reindex into fewer than %d bins" %N_old)
@@ -275,12 +275,12 @@ class PkResult(object):
                 weights = self.data[weights].data
             
         # get the rebinned data
-        edges = bins
+        edges[0] = bins
         new_data = rebin(index, edges, self.data, weights, self.sum_only)
         
         # return a new PkResult
         meta = {k:getattr(self,k) for k in self._metadata}
-        return PkResult(edges, new_data, self.force_index_match, self.sum_only, **meta)
+        return PkResult(edges[0], new_data, self.force_index_match, self.sum_only, **meta)
         
     #--------------------------------------------------------------------------
     # main functions
@@ -360,4 +360,4 @@ class PkResult(object):
             class holding the re-binned results
         """
         index = self.k_center
-        return self._reindex(self.k_center, self.kedges, bins, weights)
+        return self._reindex([self.k_center], [self.kedges], bins, weights)

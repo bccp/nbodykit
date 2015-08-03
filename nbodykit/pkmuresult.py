@@ -37,6 +37,10 @@ def rebin(index, edges, data, weights, sum_only):
     # make the multi index for tracking flat indices
     multi_index = numpy.ravel_multi_index(dig, ndims)
     
+    minlength = 1.
+    for x in ndims: minlength *= x
+    idx = tuple([slice(1, -1)]*len(ndims))
+    
     # loop over each field in the recarray
     names = data.dtype.names
     for name in names:
@@ -45,20 +49,21 @@ def rebin(index, edges, data, weights, sum_only):
         mi = multi_index[inds.flatten()]
         
         # first count values in each bin
-        N = numpy.bincount(mi, weights=weights[inds], minlength=ndims[0]*ndims[1])
+        N = numpy.bincount(mi, weights=weights[inds], minlength=minlength)
         
         # now sum the data columns
         w = weights[inds]
         if name in sum_only:
             w = weights[inds]*0.+1 # unity if we are just summing
-        valsum = numpy.bincount(mi, weights=data[name][inds]*w, minlength=ndims[0]*ndims[1])
+        valsum = numpy.bincount(mi, weights=data[name][inds]*w, minlength=minlength)
+        
         
         if name in sum_only:
-            toret[name] = valsum.reshape(ndims)[1:-1, 1:-1]
+            toret[name] = valsum.reshape(ndims)[idx]
         else:
             # ignore warnings -- want N == 0 to be set as NaNs
             with numpy.errstate(invalid='ignore'):
-                toret[name] = (valsum / N).reshape(ndims)[1:-1, 1:-1]
+                toret[name] = (valsum / N).reshape(ndims)[idx]
             
     return toret
 
