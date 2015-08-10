@@ -7,7 +7,9 @@ from argparse import ArgumentParser
 
 parser = ArgumentParser("Sorting Particles by the halo label",
         description=
-     """ Sorting particles by the Halo Label
+     """ Sorting particles by the Halo Label.
+         Particles not in any halo is put to the end. The first halo
+         offsets at 0.
      """,
         epilog=
      """
