@@ -34,22 +34,29 @@ class RightCompOperand(CompOperand):
                
     def eval(self, *args):
         try:
-            return eval(self.value)
+            return eval(self.value, {'inf':numpy.inf, 'nan':numpy.nan})
         except Exception as e:
             raise RuntimeError("right hand side of selection query cannot be eval'ed: %s" %str(e))
             
 class CompOperator(object):
     import operator
+    def _is(a, b):
+        if numpy.isnan(b):
+            return numpy.isnan(a)
+        else:
+            return operator.eq(a, b)
+
     ops = {'<' : operator.lt, '<=' : operator.le, 
             '>' : operator.gt, '>=' : operator.ge, 
-            '==' : operator.eq, '!=' : operator.ne}
+            '==' : operator.eq, '!=' : operator.ne,
+            'is' : _is }
                             
     def __init__(self, t):
         self.args = t[0][0::2]
         self.reprsymbol = t[0][1]
         
         if len(self.args) != 2 or self.reprsymbol not in self.ops.keys():
-            valid = ">=|<=|!=|>|<|=="
+            valid = ">=|<=|!=|>|<|==|is"
             raise RuntimeError("comparison condition must be two strings separated by %s" %valid)
             
     def __str__(self):
@@ -109,10 +116,14 @@ class Query(object):
             data array with this column name are substituted into
             the boolean expression
         comparison_operator :
-            any of the following are valid: >, >=, <, <=, ==, !=
+            any of the following are valid: >, >=, <, <=, ==, !=, is.
+            
         value : 
             This must be able to have `eval` called on it. Usually
-            a number or single-quoted string
+            a number or single-quoted string; nan and inf are also supported.
+
+    *   nan is tested by "is nan".
+
     *   As many `comparison conditions` as needed can be nested
         together, joined by `and`, `or`, or `not`
     
@@ -126,8 +137,10 @@ class Query(object):
             the boolean expression as a string
         """
         # set up the regex for the individual terms
-        operator = Regex(">=|<=|!=|>|<|==")
+        operator = Regex(">=|<=|!=|>|<|==|is")
         number = Regex(r"[+-]?\d+(:?\.\d*)?(:?[eE][+-]?\d+)?")
+        special_number = Regex(r"(inf|nan)")
+        number = number | special_number
         quoted_str = QuotedString("'", unquoteResults=False)
         
         # left hand side is just a wod
@@ -191,6 +204,14 @@ class Query(object):
         """
         return self.selection.eval(data)
     
+def test():
+    data = numpy.zeros(5, dtype=[('f', 'f8')])
+    data['f'][0] = numpy.nan
+    q = Query("f is nan")
+    m = q.get_mask(data)
+    assert m.sum() == 1
+    assert m[0] == True
+
 #
 #----------------------------------------------------------
 # embeded pyparsing
