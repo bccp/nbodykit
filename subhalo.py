@@ -4,6 +4,7 @@ from sys import stderr
 import logging
 
 from argparse import ArgumentParser
+import h5py
 
 parser = ArgumentParser("Subhalo finder ",
         description=
@@ -99,10 +100,15 @@ def main():
             ns.linklength * 1.0 / Ntot ** 0.3333, ns.vfactor, label))
     cat = numpy.concatenate(cat, axis=0)
     cat = comm.gather(cat)
+
     if comm.rank == 0:
         cat = numpy.concatenate(cat, axis=0)
-        print cat['Position'] * 64.
-
+        with h5py.File(ns.output) as f:
+            dataset = f.create_dataset('Subhalo', data=cat)
+            dataset.attrs['LinkingLength'] = ns.linklength
+            dataset.attrs['VFactor'] = ns.vfactor
+            dataset.attrs['Ntot'] = Ntot
+         
 def subfof(pos, vel, ll, vfactor, haloid):
     first = pos[0].copy()
     pos -= first
