@@ -24,11 +24,11 @@ parser.add_argument("halolabel",
 parser.add_argument("linklength", type=float,
         help='Linking length of subhalos, in units of mean particle seperation')
 
+parser.add_argument("vfactor", type=float, default=0.368,
+        help='velocity linking length in units of 1d velocity dispersion.')
+
 parser.add_argument("--Nmin", type=int,
         help='minimal length of halo to do FOF6D')
-
-parser.add_argument("--vfactor", type=float, default=0.368,
-        help='velocity linking length in units of 1d velocity dispersion.')
 
 parser.add_argument("output", help='write output to this file')
 
