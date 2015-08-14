@@ -5,7 +5,7 @@ import logging
 
 from argparse import ArgumentParser
 import numpy
-
+import h5py
 
 parser = ArgumentParser("Friend-of-Friend Finder",
         description=
@@ -229,12 +229,22 @@ def main():
         print 'total particles', N.sum()
         print 'above ', ns.nmin, (N >ns.nmin).sum()
         N[0] = -1
-        with open(ns.output + '.halo', 'w') as ff:
-            numpy.int32(len(N)).tofile(ff)
-            numpy.float32(ns.LinkingLength).tofile(ff)
-            numpy.int32(N).tofile(ff)
-            numpy.float32(hpos).tofile(ff)
-            numpy.float32(hvel).tofile(ff)
+
+        with h5py.File(ns.output + '.hdf5') as ff:
+            dataset = ff.create_dataset(
+                name='FOFGroups',
+                shape=(len(N),), 
+                dtype=[
+                ('Position', ('f4', 3)),
+                ('Velocity', ('f4', 3)),
+                ('Length', 'i4')]
+                )
+            dataset['Position'][:] = hpos
+            dataset['Velocity'][:] = hvel
+            dataset['Length'][:] = N
+            dataset.attrs['Ntot'] = Ntot
+            dataset.attrs['LinkLength'] = ns.LinkingLength
+
         print hpos
     del N
     del hpos
