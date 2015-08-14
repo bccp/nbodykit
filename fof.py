@@ -230,22 +230,26 @@ def main():
         print 'above ', ns.nmin, (N >ns.nmin).sum()
         N[0] = -1
 
-        with h5py.File(ns.output + '.hdf5') as ff:
-            dataset = ff.create_dataset(
-                name='FOFGroups',
-                shape=(len(N),), 
+        with h5py.File(ns.output + '.hdf5', 'w') as ff:
+            data = numpy.empty(shape=(len(N),), 
                 dtype=[
                 ('Position', ('f4', 3)),
                 ('Velocity', ('f4', 3)),
-                ('Length', 'i4')]
+                ('Length', 'i4')])
+            
+            data['Position'] = hpos
+            data['Velocity'] = hvel
+            data['Length'] = N
+
+            # do not create dataset then fill because of
+            # https://github.com/h5py/h5py/pull/606
+
+            dataset = ff.create_dataset(
+                name='FOFGroups', data=data
                 )
-            dataset['Position'][:] = hpos
-            dataset['Velocity'][:] = hvel
-            dataset['Length'][:] = N
             dataset.attrs['Ntot'] = Ntot
             dataset.attrs['LinkLength'] = ns.LinkingLength
 
-        print hpos
     del N
     del hpos
 
