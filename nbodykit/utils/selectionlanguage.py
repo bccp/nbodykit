@@ -186,6 +186,9 @@ class Query(object):
         self.string_selection = str_selection
         self.selection = self.selection_expr.parseString(str_selection)[0]
         
+    def __call__(self, data):
+        return self.get_mask(data)
+
     def get_mask(self, data):
         """
         Apply the selection to the specified data and return the 
