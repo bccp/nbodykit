@@ -69,8 +69,9 @@ class BOSSChallengeMockPainter(InputPainter):
         # assumed the position values are now in same
         # units as ns.BoxSize
         if self.scaled:
-            logging.info("multiplying by qperp = %.5f" %self.qperp)
-            logging.info("multiplying by qpar = %.5f" %self.qpar)
+            if pm.comm.rank == 0:
+                logging.info("multiplying by qperp = %.5f" %self.qperp)
+                logging.info("multiplying by qpar = %.5f" %self.qpar)
             pos[:,0] *= self.qperp
             pos[:,1] *= self.qperp
             pos[:,2] *= self.qpar
