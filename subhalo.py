@@ -130,15 +130,15 @@ def subfof(pos, vel, ll, vfactor, haloid):
     output = numpy.empty(Nsub, dtype=[
         ('Position', ('f4', 3)),
         ('Velocity', ('f4', 3)),
-        ('Mass', 'i4'),
+        ('Length', 'i4'),
         ('HaloID', 'i4'),
         ])
     output['Position'][...] = fof.center()[:Nsub, :3]
-    output['Mass'][...] = fof.length[:Nsub]
+    output['Length'][...] = fof.length[:Nsub]
     output['HaloID'][...] = haloid
 
     for i in range(3):
-        output['Velocity'][..., i] = fof.sum(oldvel[:, i])[:Nsub] / output['Mass']
+        output['Velocity'][..., i] = fof.sum(oldvel[:, i])[:Nsub] / output['Length']
 
 
     return output
