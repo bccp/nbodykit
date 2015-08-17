@@ -133,6 +133,7 @@ def subfof(pos, vel, ll, vfactor, haloid, Ntot):
         ('Position', ('f4', 3)),
         ('Velocity', ('f4', 3)),
         ('R200', 'f4'),
+        ('R1200', 'f4'),
         ('Length', 'i4'),
         ('HaloID', 'i4'),
         ])
@@ -148,31 +149,30 @@ def subfof(pos, vel, ll, vfactor, haloid, Ntot):
     data = cluster.dataset(pos)
     for i in range(Nsub):
         center = output['Position'][i] 
-        r1 = (output['Length'][i] / Ntot) ** 0.3333 * 3
-        output['R200'] = so(center, data, r1, Ntot)
+        r1 = (1.0 * output['Length'][i] / Ntot) ** 0.3333 * 3
+        output['R200'][i] = so(center, data, r1, Ntot, 200.)
+        output['R1200'][i] = so(center, data, output['R200'][i] * 0.5, Ntot, 1200.)
     return output
 
-def so(center, data, r1, nbar):
+def so(center, data, r1, nbar, thresh=200):
     center = numpy.array([center])
     dcenter = cluster.dataset(center)
     def delta(r):
         if r == 0:
-            return inf
+            return numpy.nan
         N = data.tree.count(dcenter.tree, [r])[0][0]
         n = N / (4 / 3 * numpy.pi * r ** 3)
         return 1.0 * n / nbar - 1
      
-    r1 = 0.001
     d1 = delta(r1)
 
-    while d1 > 200:
+    while d1 > thresh:
         r1 *= 1.4
         d1 = delta(r1)
-
     # d1 < 200
     r2 = r1
     d2 = d1
-    while d2 < 200:
+    while d2 < thresh:
         r2 *= 0.7
         d2 = delta(r2)
     # d2 > 200
@@ -180,10 +180,10 @@ def so(center, data, r1, nbar):
     while True:
         r = (r1 * r2) ** 0.5
         d = delta(r)
-        x = (d / 200 - 1.)
-        if x > 0.01:
+        x = (d - thresh)
+        if x > 0.1:
             r2 = r
-        elif x < -0.01:
+        elif x < -0.1:
             r1 = r
         else:
             return r
