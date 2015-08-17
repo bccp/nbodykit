@@ -97,19 +97,20 @@ def main():
         assert(data2['Label'][hstart:hend] == label).all()
         print 'Halo', label
         cat.append(subfof(data2['Position'][hstart:hend], data2['Velocity'][hstart:hend], 
-            ns.linklength * 1.0 / Ntot ** 0.3333, ns.vfactor, label))
+            ns.linklength * 1.0 / Ntot ** 0.3333, ns.vfactor, label, Ntot))
     cat = numpy.concatenate(cat, axis=0)
     cat = comm.gather(cat)
 
     if comm.rank == 0:
         cat = numpy.concatenate(cat, axis=0)
-        with h5py.File(ns.output) as f:
+        print cat
+        with h5py.File(ns.output, mode='w') as f:
             dataset = f.create_dataset('Subhalo', data=cat)
             dataset.attrs['LinkingLength'] = ns.linklength
             dataset.attrs['VFactor'] = ns.vfactor
             dataset.attrs['Ntot'] = Ntot
-         
-def subfof(pos, vel, ll, vfactor, haloid):
+
+def subfof(pos, vel, ll, vfactor, haloid, Ntot):
     first = pos[0].copy()
     pos -= first
     pos[pos > 0.5]  -= 1.0 
@@ -124,12 +125,14 @@ def subfof(pos, vel, ll, vfactor, haloid):
     vel *= ll
     data = numpy.concatenate(( pos, vel), axis=1)
     #data = pos
+
     data = cluster.dataset(data)
     fof = cluster.fof(data, linking_length=ll, np=0)
     Nsub = (fof.length > 20).sum()
     output = numpy.empty(Nsub, dtype=[
         ('Position', ('f4', 3)),
         ('Velocity', ('f4', 3)),
+        ('R200', 'f4'),
         ('Length', 'i4'),
         ('HaloID', 'i4'),
         ])
@@ -140,8 +143,50 @@ def subfof(pos, vel, ll, vfactor, haloid):
     for i in range(3):
         output['Velocity'][..., i] = fof.sum(oldvel[:, i])[:Nsub] / output['Length']
 
-
+    del fof
+    del data
+    data = cluster.dataset(pos)
+    for i in range(Nsub):
+        center = output['Position'][i] 
+        r1 = (output['Length'][i] / Ntot) ** 0.3333 * 3
+        output['R200'] = so(center, data, r1, Ntot)
     return output
+
+def so(center, data, r1, nbar):
+    center = numpy.array([center])
+    dcenter = cluster.dataset(center)
+    def delta(r):
+        if r == 0:
+            return inf
+        N = data.tree.count(dcenter.tree, [r])[0][0]
+        n = N / (4 / 3 * numpy.pi * r ** 3)
+        return 1.0 * n / nbar - 1
+     
+    r1 = 0.001
+    d1 = delta(r1)
+
+    while d1 > 200:
+        r1 *= 1.4
+        d1 = delta(r1)
+
+    # d1 < 200
+    r2 = r1
+    d2 = d1
+    while d2 < 200:
+        r2 *= 0.7
+        d2 = delta(r2)
+    # d2 > 200
+
+    while True:
+        r = (r1 * r2) ** 0.5
+        d = delta(r)
+        x = (d / 200 - 1.)
+        if x > 0.01:
+            r2 = r
+        elif x < -0.01:
+            r1 = r
+        else:
+            return r
 
 main()
 
