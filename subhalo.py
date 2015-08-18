@@ -134,6 +134,7 @@ def subfof(pos, vel, ll, vfactor, haloid, Ntot):
         ('Velocity', ('f4', 3)),
         ('R200', 'f4'),
         ('R1200', 'f4'),
+        ('R2400', 'f4'),
         ('R6000', 'f4'),
         ('Length', 'i4'),
         ('HaloID', 'i4'),
@@ -153,7 +154,8 @@ def subfof(pos, vel, ll, vfactor, haloid, Ntot):
         r1 = (1.0 * output['Length'][i] / Ntot) ** 0.3333 * 3
         output['R200'][i] = so(center, data, r1, Ntot, 200.)
         output['R1200'][i] = so(center, data, output['R200'][i] * 0.5, Ntot, 1200.)
-        output['R6000'][i] = so(center, data, output['R1200'][i] * 0.5, Ntot, 6000.)
+        output['R2400'][i] = so(center, data, output['R1200'][i] * 0.5, Ntot, 2400.)
+        output['R6000'][i] = so(center, data, output['R2400'][i] * 0.5, Ntot, 6000.)
     return output
 
 def so(center, data, r1, nbar, thresh=200):
