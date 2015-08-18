@@ -153,7 +153,7 @@ def subfof(pos, vel, ll, vfactor, haloid, Ntot):
         r1 = (1.0 * output['Length'][i] / Ntot) ** 0.3333 * 3
         output['R200'][i] = so(center, data, r1, Ntot, 200.)
         output['R1200'][i] = so(center, data, output['R200'][i] * 0.5, Ntot, 1200.)
-        output['R6000'][i] = so(center, data, output['R6000'][i] * 0.5, Ntot, 6000.)
+        output['R6000'][i] = so(center, data, output['R1200'][i] * 0.5, Ntot, 6000.)
     return output
 
 def so(center, data, r1, nbar, thresh=200):
