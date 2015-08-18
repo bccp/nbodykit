@@ -106,6 +106,16 @@ class PkmuResult(object):
     sum_only : list of str
         A list of strings specifying fields in `data` that will 
         only be summed when combining bins.
+        
+    Examples
+    --------
+    The following example shows how to read a power.py 2d output into
+    a PkmuResult object.
+    
+    >>> from nbodykit import files
+    >>> d, meta = files.ReadPower2DPlainText('some2dfile.txt')
+    >>> pkmuobj = PkmuResult.from_dict(d, **meta)
+    
     """
     def __init__(self, kedges, muedges, data, force_index_match=False, 
                   sum_only=[], **kwargs):
