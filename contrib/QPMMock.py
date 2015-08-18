@@ -89,8 +89,7 @@ class QPMMockPainter(InputPainter):
             if self.rsd is None:
                 pos *= self.qperp
             else:
-                other = [x for x in [0,1,2] if x != dir]
-                for i in [1,2,3]:
+                for i in [0,1,2]:
                     if i == dir:
                         pos[:,i] *= self.qpar
                     else:
