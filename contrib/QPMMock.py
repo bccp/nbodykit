@@ -32,6 +32,7 @@ class QPMMockPainter(InputPainter):
     
     def __init__(self, d):
         super(QPMMockPainter, self).__init__(d)
+        self._BoxSize0 = self.BoxSize.copy()
         
         # rescale the box size, if scaled = True
         if self.scaled:
@@ -97,7 +98,7 @@ class QPMMockPainter(InputPainter):
         if self.rsd is not None:
             dir = 'xyz'.index(self.rsd)
             pos[:, dir] += vel[:, dir]
-            pos[:, dir] %= self.BoxSize[dir] # enforce periodic boundary conditions
+            pos[:, dir] %= self._BoxSize[dir] # enforce periodic boundary conditions
         
         # rescale by AP factor
         if self.scaled:
