@@ -98,7 +98,7 @@ class QPMMockPainter(InputPainter):
         if self.rsd is not None:
             dir = 'xyz'.index(self.rsd)
             pos[:, dir] += vel[:, dir]
-            pos[:, dir] %= self._BoxSize[dir] # enforce periodic boundary conditions
+            pos[:, dir] %= self._BoxSize0[dir] # enforce periodic boundary conditions
         
         # rescale by AP factor
         if self.scaled:
