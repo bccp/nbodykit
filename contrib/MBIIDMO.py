@@ -1,5 +1,5 @@
 import numpy
-from nbodykit.plugins import InputPainter
+from nbodykit.plugins import InputPainter, BoxSize_t
 from nbodykit.utils import selectionlanguage
 import os.path
 import logging
@@ -9,11 +9,16 @@ class PainterPlugin(InputPainter):
     
     @classmethod
     def register(kls):
-        h = kls.add_parser(kls.field_type, 
-            usage=kls.field_type+":path:simulation:type[:-rsd=[x|y|z]][:-posf=0.001][:-velf=0.001][:-select=conditions]")
+        args = kls.field_type+":path:simulation:type:BoxSize"
+        options = "[:-rsd=[x|y|z]][:-posf=0.001][:-velf=0.001][:-select=conditions]"
+        h = kls.add_parser(kls.field_type, usage=args+options)
+        
         h.add_argument("path", help="path to file")
         h.add_argument("simulation", help="name of simulation", choices=["dmo", "mb2"])
         h.add_argument("type", help="type of objects", choices=["Centrals", "Satellites", "Both"])
+        h.add_argument("BoxSize", type=BoxSize_t,
+            help="the size of the isotropic box, or the sizes of the 3 box dimensions")
+            
         h.add_argument("-rsd", 
             choices="xyz", default=None, help="direction to do redshift distortion")
         h.add_argument("-posf", default=0.001, 
@@ -42,7 +47,7 @@ class PainterPlugin(InputPainter):
                 return numpy.nan
             
             
-    def paint(self, ns, pm):
+    def paint(self, pm):
         dtype = numpy.dtype([
                 ('position', ('f4', 3)),
                 ('velocity', ('f4', 3)),
@@ -77,7 +82,7 @@ class PainterPlugin(InputPainter):
         if self.rsd is not None:
             dir = 'xyz'.index(self.rsd)
             data['position'][:, dir] += data['velocity'][:, dir]
-            data['position'][:, dir] %= ns.BoxSize # enforce periodic boundary conditions
+            data['position'][:, dir] %= self.BoxSize[dir] # enforce periodic boundary conditions
 
         layout = pm.decompose(data['position'])
         tpos = layout.exchange(data['position'])

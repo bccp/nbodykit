@@ -1,30 +1,33 @@
-from nbodykit.plugins import InputPainter
+from nbodykit.plugins import InputPainter, BoxSize_t
 
 import numpy
 import logging
 from nbodykit import files 
 from nbodykit.utils import selectionlanguage
-
-#------------------------------------------------------------------------------          
+  
 class HaloFilePainter(InputPainter):
     field_type = "HaloFile"
     
     @classmethod
     def register(kls):
         
-        h = kls.add_parser(kls.field_type, 
-            usage=kls.field_type+":path:m0[:-rsd=[x|y|z]][:-select=conditions]",
-            )
+        args    = kls.field_type+":path:m0:BoxSize"
+        options = "[:-rsd=[x|y|z]][:-select=conditions][:-massweighted]"
+        h       = kls.add_parser(kls.field_type, usage=args+options)
+        
         h.add_argument("path", help="path to file")
         h.add_argument("m0", type=float, help="mass mass of a particle")
-        h.add_argument("-massweighted", action='store_true', default=False, help="weight halos by mass?")
-        h.add_argument("-rsd", 
-            choices="xyz", help="direction to do redshift distortion")
+        h.add_argument("BoxSize", type=BoxSize_t,
+            help="the size of the isotropic box, or the sizes of the 3 box dimensions")
+        h.add_argument("-massweighted", action='store_true', default=False, 
+            help="weight halos by mass?")
+        h.add_argument("-rsd", choices="xyz", 
+            help="direction to do redshift distortion")
         h.add_argument("-select", default=None, type=selectionlanguage.Query,
             help='row selection based on logmass, e.g. logmass > 13 and logmass < 15')
         h.set_defaults(klass=kls)
     
-    def paint(self, ns, pm):
+    def paint(self, pm):
         dtype = numpy.dtype([
             ('position', ('f4', 3)),
             ('velocity', ('f4', 3)),
@@ -59,8 +62,9 @@ class HaloFilePainter(InputPainter):
             dir = 'xyz'.index(self.rsd)
             data['position'][:, dir] += data['velocity'][:, dir]
             data['position'][:, dir] %= 1.0 # enforce periodic boundary conditions
-        data['position'] *= ns.BoxSize
-
+        
+        # put position into units of BoxSize before gridding
+        data['position'] *= self.BoxSize
         layout = pm.decompose(data['position'])
         tpos = layout.exchange(data['position'])
         tvel = layout.exchange(data['velocity'])

@@ -1,4 +1,4 @@
-from nbodykit.plugins import InputPainter
+from nbodykit.plugins import InputPainter, BoxSize_t
 import numpy
 import logging
          
@@ -27,16 +27,18 @@ class QPMMockPainter(InputPainter):
         multiply the velocity data by this factor
     """
     field_type = 'QPMMock'
-    qpar = 1.020096
-    qperp = 1.027742
+    qpar = 0.9851209643
+    qperp = 0.9925056798
     
     @classmethod
     def register(kls):
-        
-        usage = kls.field_type+":path[:-scaled][:-rsd][:-velf]"
+        usage = kls.field_type+":path:BoxSize[:-scaled][:-rsd][:-velf]"
         h = kls.add_parser(kls.field_type, usage=usage)
         
         h.add_argument("path", help="path to file")
+        h.add_argument("BoxSize", type=BoxSize_t,
+            help="the size of the isotropic box, or the sizes of the 3 box dimensions")
+
         h.add_argument("-scaled", action='store_true', 
             help='rescale the parallel and perp coordinates by the AP factor')
         h.add_argument("-rsd", choices="xyz",
@@ -45,7 +47,7 @@ class QPMMockPainter(InputPainter):
             help="factor to scale the velocities")
         h.set_defaults(klass=kls)
     
-    def paint(self, ns, pm):
+    def paint(self, pm):
         if pm.comm.rank == 0:
             try:
                 import pandas as pd
@@ -75,26 +77,31 @@ class QPMMockPainter(InputPainter):
         Ntot = len(pos)
         Ntot = pm.comm.bcast(Ntot)
 
-        # go to redshift-space
+        # go to redshift-space and wrap periodically
         if self.rsd is not None:
             dir = 'xyz'.index(self.rsd)
             pos[:, dir] += vel[:, dir]
-            pos[:, dir] %= ns.BoxSize # enforce periodic boundary conditions
+            pos[:, dir] %= self.BoxSize[dir] # enforce periodic boundary conditions
         
         # rescale by AP factor
         if self.scaled:
             if pm.comm.rank == 0:
                 logging.info("multiplying by qperp = %.5f" %self.qperp)
-                logging.info("multiplying by qpar = %.5f" %self.qpar)
+ 
+            # rescale positions and volume
             if self.rsd is None:
                 pos *= self.qperp
+                self.BoxSize *= self.qperp
             else:
-                other = [x for x in [0,1,2] if x != dir]
-                for i in [1,2,3]:
+                if pm.comm.rank == 0:
+                    logging.info("multiplying by qpar = %.5f" %self.qpar)
+                for i in [0,1,2]:
                     if i == dir:
                         pos[:,i] *= self.qpar
+                        self.BoxSize[i] *= self.qpar
                     else:
                         pos[:,i] *= self.qperp
+                        self.BoxSize[i] *= self.qperp
 
         layout = pm.decompose(pos)
         tpos = layout.exchange(pos)

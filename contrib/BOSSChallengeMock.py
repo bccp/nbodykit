@@ -1,5 +1,4 @@
-from nbodykit.plugins import InputPainter
-
+from nbodykit.plugins import InputPainter, BoxSize_t
 import numpy
 import logging
          
@@ -15,13 +14,16 @@ class BOSSChallengeMockPainter(InputPainter):
     -----
     * `pandas` must be installed to use
     * first three columns are `x`, `y`, `z`
-    * data is assumed to be in redshift-space, with `z` giving
-    the LOS axis
+    * data is assumed to be in redshift-space, with `z` (last axis) 
+    giving the LOS axis
     
     Parameters
     ----------
     path    : str
-        the path of the file to read the data from 
+        the path of the file to read the data from
+    BoxSize : float or array_like (3,)
+        the box size, either provided as a single float (isotropic)
+        or an array of the sizes of the three dimensions 
     scaled : bool, optional
         rescale the parallel and perp coordinates by the AP factor
     """
@@ -31,16 +33,17 @@ class BOSSChallengeMockPainter(InputPainter):
     
     @classmethod
     def register(kls):
-        
-        usage = kls.field_type+":path[:-scaled]"
+        usage = kls.field_type+":path:BoxSize:[:-scaled]"
         h = kls.add_parser(kls.field_type, usage=usage)
         
         h.add_argument("path", help="path to file")
+        h.add_argument("BoxSize", type=BoxSize_t,
+            help="the size of the isotropic box, or the sizes of the 3 box dimensions")
         h.add_argument("-scaled", action='store_true', 
             help='rescale the parallel and perp coordinates by the AP factor')
         h.set_defaults(klass=kls)
     
-    def paint(self, ns, pm):
+    def paint(self, pm):
         if pm.comm.rank == 0:
             try:
                 import pandas as pd
@@ -57,7 +60,6 @@ class BOSSChallengeMockPainter(InputPainter):
             kwargs['usecols'] = ['x', 'y', 'z']
             data = pd.read_csv(self.path, **kwargs)
             nobj = len(data)
-            
             logging.info("total number of objects read is %d" %nobj)
             
             # get position 
@@ -69,14 +71,19 @@ class BOSSChallengeMockPainter(InputPainter):
         Ntot = pm.comm.bcast(Ntot)
 
         # assumed the position values are now in same
-        # units as ns.BoxSize
+        # units as BoxSize 
         if self.scaled:
             if pm.comm.rank == 0:
                 logging.info("multiplying by qperp = %.5f" %self.qperp)
                 logging.info("multiplying by qpar = %.5f" %self.qpar)
-            pos[:,0] *= self.qperp
-            pos[:,1] *= self.qperp
-            pos[:,2] *= self.qpar
+
+            # scale the coordinates
+            pos[:,0:2] *= self.qperp
+            pos[:,-1] *= self.qpar
+            
+            # also scale the box
+            self.BoxSize[0:2] *= self.qperp
+            self.BoxSize[-1] *= self.qpar
 
         layout = pm.decompose(pos)
         tpos = layout.exchange(pos)

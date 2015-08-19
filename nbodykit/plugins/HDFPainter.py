@@ -1,13 +1,12 @@
-from nbodykit.plugins import InputPainter
+from nbodykit.plugins import InputPainter, BoxSize_t
 
 import numpy
 import logging
-from nbodykit import files
 from nbodykit.utils import selectionlanguage
 
 def list_str(value):
     return value.split()
-         
+             
 class HDFPainter(InputPainter):
     """
     Class to read field data from a plain text ASCII file
@@ -25,6 +24,9 @@ class HDFPainter(InputPainter):
         the path of the file to read the data from 
     key   : str
         the group identifier in the HDF5 file
+    BoxSize : float or array_like (3,)
+        the box size, either provided as a single float (isotropic)
+        or an array of the sizes of the three dimensions
     usecols : list of str, optional
          if not None, only these columns will be read from file
     poscols : list of str, optional
@@ -48,7 +50,7 @@ class HDFPainter(InputPainter):
     @classmethod
     def register(kls):
         
-        args = kls.field_type+":path:key"
+        args = kls.field_type+":path:key:BoxSize"
         options = "[:-usecols= x y z][:-poscols= x y z]\n[:-velcols= vx vy vz]" + \
                   "[:-rsd=[x|y|z]][:-posf=1.0][:-velf=1.0][:-select=conditions]"
         h = kls.add_parser(kls.field_type, usage=args+options)
@@ -56,6 +58,9 @@ class HDFPainter(InputPainter):
         h.add_argument("path", help="path to file")
         h.add_argument("key", type=str, 
             help="group identifier in the HDF5 file")
+        h.add_argument("BoxSize", type=BoxSize_t,
+            help="the size of the isotropic box, or the sizes of the 3 box dimensions")
+        
         h.add_argument("-usecols", type=list_str, 
             default=None, help="only read these columns from file")
         h.add_argument("-poscols", type=list_str, default=['x','y','z'], 
@@ -72,7 +77,7 @@ class HDFPainter(InputPainter):
             help='row selection based on conditions for example, "column > value and column < value"')
         h.set_defaults(klass=kls)
     
-    def paint(self, ns, pm):
+    def paint(self, pm):
         if pm.comm.rank == 0:
             try:
                 import pandas as pd
@@ -113,12 +118,12 @@ class HDFPainter(InputPainter):
         Ntot = len(pos)
         Ntot = pm.comm.bcast(Ntot)
 
-        # assumed the position values are now in same
-        # units as ns.BoxSize
+        # it is assumed the position values are now in same
+        # units as BoxSize
         if self.rsd is not None:
             dir = 'xyz'.index(self.rsd)
             pos[:, dir] += vel[:, dir]
-            pos[:, dir] %= ns.BoxSize # enforce periodic boundary conditions
+            pos[:, dir] %= self.BoxSize[dir] # enforce periodic boundary conditions
 
         layout = pm.decompose(pos)
         tpos = layout.exchange(pos)
