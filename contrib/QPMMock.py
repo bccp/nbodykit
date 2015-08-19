@@ -30,6 +30,22 @@ class QPMMockPainter(InputPainter):
     qpar = 0.9851209643
     qperp = 0.9925056798
     
+    def __init__(self, d):
+        super(QPMMockPainter, self).__init__(d)
+        
+        # rescale the box size, if scaled = True
+        if self.scaled:
+            if self.rsd is None:
+                self.BoxSize *= self.qperp
+            else:
+                dir = 'xyz'.index(self.rsd)
+                for i in [0,1,2]:
+                    if i == dir:
+                        self.BoxSize[i] *= self.qpar
+                    else:
+                        self.BoxSize[i] *= self.qperp
+        
+    
     @classmethod
     def register(kls):
         usage = kls.field_type+":path:BoxSize[:-scaled][:-rsd][:-velf]"
@@ -91,18 +107,14 @@ class QPMMockPainter(InputPainter):
             # rescale positions and volume
             if self.rsd is None:
                 pos *= self.qperp
-                self.BoxSize *= self.qperp
             else:
                 if pm.comm.rank == 0:
                     logging.info("multiplying by qpar = %.5f" %self.qpar)
                 for i in [0,1,2]:
                     if i == dir:
                         pos[:,i] *= self.qpar
-                        self.BoxSize[i] *= self.qpar
                     else:
                         pos[:,i] *= self.qperp
-                        self.BoxSize[i] *= self.qperp
-
 
         layout = pm.decompose(pos)
         tpos = layout.exchange(pos)

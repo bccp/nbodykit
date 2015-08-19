@@ -32,6 +32,14 @@ class BOSSChallengeMockPainter(InputPainter):
     qpar = 1.0
     qperp = 1.0
     
+    def __init__(self, d):
+        super(BOSSChallengeMockPainter, self).__init__(d)
+        
+        # rescale the box size, if scaled = True
+        if self.scaled:
+            self.BoxSize[-1] *= self.qpar
+            self.BoxSize[0:2] *= self.qperp
+    
     @classmethod
     def register(kls):
         usage = kls.field_type+":path:BoxSize:[:-scaled]"
@@ -80,10 +88,6 @@ class BOSSChallengeMockPainter(InputPainter):
             # scale the coordinates
             pos[:,0:2] *= self.qperp
             pos[:,-1] *= self.qpar
-            
-            # also scale the box
-            self.BoxSize[0:2] *= self.qperp
-            self.BoxSize[-1] *= self.qpar
 
         layout = pm.decompose(pos)
         tpos = layout.exchange(pos)
