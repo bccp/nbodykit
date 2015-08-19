@@ -20,6 +20,8 @@ class TPMSnapshotPainter(InputPainter):
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
         h.add_argument("-rsd", 
             choices="xyz", default=None, help="direction to do redshift distortion")
+        h.add_argument("-bunchsize", type=int, default=1024*1024*4,
+            help='Number of particles to read per rank. A larger number usually means faster IO, but less memory for the FFT mesh')
         h.add_argument("-mom", 
             choices="xyz", default=None, help="paint momentum instead of mass")
         h.set_defaults(klass=kls)
@@ -36,7 +38,7 @@ class TPMSnapshotPainter(InputPainter):
                     self.path, 
                     files.TPMSnapshotFile, 
                     columns=columns, 
-                    bunchsize=ns.bunchsize)):
+                    bunchsize=self.bunchsize)):
 
             nread = pm.comm.allreduce(len(P['Position'])) 
 
