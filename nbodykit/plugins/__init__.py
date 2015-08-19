@@ -22,7 +22,23 @@ class PluginMount(type):
             if hasattr(cls, 'register'):
                 cls.register()
 
-#------------------------------------------------------------------------------
+def BoxSize_t(value):
+    """
+    Parse a string of either a single float, or 
+    a space-separated string of 3 floats, representing 
+    a box size. Designed to be used by the Painter plugins
+    
+    Returns
+    -------
+    BoxSize : array_like
+        an array of size 3 giving the box size in each dimension
+    """
+    boxsize = numpy.empty(3, dtype='f8')
+    sizes = map(float, value.split())
+    if len(sizes) == 1: sizes = sizes[0]
+    boxsize[:] = sizes
+    return boxsize
+    
 class InputPainter:
     """
     Mount point for plugins which refer to the reading of input files 
@@ -75,7 +91,7 @@ class InputPainter:
     def __ne__(self, other):
         return self.string != other.string
 
-    def paint(self, ns, pm):
+    def paint(self, pm):
         return NotImplemented    
 
     @classmethod
