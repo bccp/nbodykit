@@ -127,11 +127,16 @@ def subfof(pos, vel, ll, vfactor, haloid, Ntot):
     #data = pos
 
     data = cluster.dataset(data)
-    fof = cluster.fof(data, linking_length=ll, np=0)
-    Nsub = (fof.length > 20).sum()
+    Nsub = 0
+    while Nsub == 0:
+        fof = cluster.fof(data, linking_length=ll, np=0)
+        ll *= 2
+        Nsub = (fof.length > 20).sum()
+
     output = numpy.empty(Nsub, dtype=[
         ('Position', ('f4', 3)),
         ('Velocity', ('f4', 3)),
+        ('LinkingLength', 'f4'),
         ('R200', 'f4'),
         ('R1200', 'f4'),
         ('R2400', 'f4'),
@@ -139,9 +144,11 @@ def subfof(pos, vel, ll, vfactor, haloid, Ntot):
         ('Length', 'i4'),
         ('HaloID', 'i4'),
         ])
+
     output['Position'][...] = fof.center()[:Nsub, :3]
     output['Length'][...] = fof.length[:Nsub]
     output['HaloID'][...] = haloid
+    output['LinkingLength'][...] = ll
 
     for i in range(3):
         output['Velocity'][..., i] = fof.sum(oldvel[:, i])[:Nsub] / output['Length']
