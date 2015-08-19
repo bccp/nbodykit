@@ -27,8 +27,8 @@ class QPMMockPainter(InputPainter):
         multiply the velocity data by this factor
     """
     field_type = 'QPMMock'
-    qpar = 1.020096
-    qperp = 1.027742
+    qpar = 0.9851209643
+    qperp = 0.9925056798
     
     @classmethod
     def register(kls):
