@@ -78,6 +78,7 @@ class QPMMockPainter(InputPainter):
             kwargs['header'] = None
             kwargs['engine'] = 'c'
             kwargs['delim_whitespace'] = True
+            kwargs['usecols'] = ['x', 'y', 'z', 'vx', 'vy', 'vz']
             data = pd.read_csv(self.path, **kwargs)
             nobj = len(data)
             
