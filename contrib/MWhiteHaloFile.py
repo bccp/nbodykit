@@ -1,17 +1,11 @@
-from nbodykit.plugins import InputPainter
+from nbodykit.plugins import InputPainter, BoxSize_t
 import numpy
 import logging
 from nbodykit.utils import selectionlanguage
 
 class MWhiteHaloFile(object):
     """
-    Halo catalog file using Martin White's format
-
-    Attributes
-    ----------
-    nhalo : int
-        Number of halos in the file
-    
+    Halo catalog file using Martin White's format    
     """
     def __init__(self, filename):
         self.filename = filename
@@ -68,17 +62,20 @@ class MWhiteHaloFilePainter(InputPainter):
     @classmethod
     def register(kls):
         
-        h = kls.add_parser(kls.field_type, 
-            usage=kls.field_type+":path[:-rsd=[x|y|z]][:-select=conditions]",
-            )
+        args = kls.field_type+":path:BoxSize"
+        options = "[:-rsd=[x|y|z]][:-select=conditions]"
+        h = kls.add_parser(kls.field_type, usage=args+options)
         h.add_argument("path", help="path to file")
+        h.add_argument("BoxSize", type=BoxSize_t,
+            help="the size of the isotropic box, or the sizes of the 3 box dimensions")
+            
         h.add_argument("-rsd", 
             choices="xyz", help="direction to do redshift distortion")
         h.add_argument("-select", default=None, type=selectionlanguage.Query,
             help='row selection based on logmass, e.g. logmass > 13 and logmass < 15')
         h.set_defaults(klass=kls)
     
-    def paint(self, ns, pm):
+    def paint(self, pm):
         dtype = numpy.dtype([
             ('position', ('f4', 3)),
             ('velocity', ('f4', 3)),
@@ -108,7 +105,10 @@ class MWhiteHaloFilePainter(InputPainter):
             dir = 'xyz'.index(self.rsd)
             data['position'][:, dir] += data['velocity'][:, dir]
             data['position'][:, dir] %= 1.0 # enforce periodic boundary conditions
-        data['position'] *= ns.BoxSize
+        
+        data['position'][:] *= self.BoxSize
+        
+        
         
         layout = pm.decompose(data['position'])
         tpos = layout.exchange(data['position'])

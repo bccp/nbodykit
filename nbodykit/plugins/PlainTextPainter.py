@@ -1,8 +1,7 @@
-from nbodykit.plugins import InputPainter
+from nbodykit.plugins import InputPainter, BoxSize_t
 
 import numpy
 import logging
-from nbodykit import files
 from nbodykit.utils import selectionlanguage
 
 def list_str(value):
@@ -31,6 +30,9 @@ class PlainTextPainter(InputPainter):
         one or more strings specifying the names of the data
         columns. Shape must be equal to number of columns
         in the field, otherwise, behavior is undefined
+    BoxSize : float or array_like (3,)
+        the box size, either provided as a single float (isotropic)
+        or an array of the sizes of the three dimensions
     usecols : list of str, optional
          if not None, only these columns will be read from file
     poscols : list of str, optional
@@ -54,7 +56,7 @@ class PlainTextPainter(InputPainter):
     @classmethod
     def register(kls):
         
-        args = kls.field_type+":path:names"
+        args = kls.field_type+":path:names:BoxSize"
         options = "[:-usecols= x y z][:-poscols= x y z]\n[:-velcols= vx vy vz]" + \
                   "[:-rsd=[x|y|z]][:-posf=1.0][:-velf=1.0][:-select=conditions]"
         h = kls.add_parser(kls.field_type, usage=args+options)
@@ -62,6 +64,9 @@ class PlainTextPainter(InputPainter):
         h.add_argument("path", help="path to file")
         h.add_argument("names", type=list_str, 
             help="names of columns in file")
+        h.add_argument("BoxSize", type=BoxSize_t,
+            help="the size of the isotropic box, or the sizes of the 3 box dimensions")
+        
         h.add_argument("-usecols", type=list_str, 
             help="only read these columns from file")
         h.add_argument("-poscols", type=list_str, default=['x','y','z'], 
@@ -78,7 +83,7 @@ class PlainTextPainter(InputPainter):
             help='row selection based on conditions specified as string')
         h.set_defaults(klass=kls)
     
-    def paint(self, ns, pm):
+    def paint(self, pm):
         if pm.comm.rank == 0: 
             # read in the plain text file as a recarray
             kwargs = {}
@@ -110,11 +115,11 @@ class PlainTextPainter(InputPainter):
         Ntot = pm.comm.bcast(Ntot)
 
         # assumed the position values are now in same
-        # units as ns.BoxSize
+        # units as BoxSize
         if self.rsd is not None:
             dir = 'xyz'.index(self.rsd)
             pos[:, dir] += vel[:, dir]
-            pos[:, dir] %= ns.BoxSize # enforce periodic boundary conditions
+            pos[:, dir] %= self.BoxSize[dir] # enforce periodic boundary conditions
 
         layout = pm.decompose(pos)
         tpos = layout.exchange(pos)

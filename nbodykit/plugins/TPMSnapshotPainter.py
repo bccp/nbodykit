@@ -1,6 +1,5 @@
-from nbodykit.plugins import InputPainter
+from nbodykit.plugins import InputPainter, BoxSize_t
 
-# These shall be merged here.
 from nbodykit import files 
 import logging
 
@@ -10,16 +9,22 @@ class TPMSnapshotPainter(InputPainter):
     
     @classmethod
     def register(kls):
-        h = kls.add_parser(kls.field_type, 
-            usage=kls.field_type+":path[:-rsd=[x|y|z]][:-mom=[x|y|z]")
+        
+        args = kls.field_type+":path:BoxSize"
+        options = "[:-rsd=[x|y|z]][:-mom=[x|y|z]"
+        h = kls.add_parser(kls.field_type, usage=args+options)
+        
+        
         h.add_argument("path", help="path to file")
+        h.add_argument("BoxSize", type=BoxSize_t,
+            help="the size of the isotropic box, or the sizes of the 3 box dimensions")
         h.add_argument("-rsd", 
             choices="xyz", default=None, help="direction to do redshift distortion")
         h.add_argument("-mom", 
             choices="xyz", default=None, help="paint momentum instead of mass")
         h.set_defaults(klass=kls)
 
-    def paint(self, ns, pm):
+    def paint(self, pm):
         pm.real[:] = 0
         Ntot = 0
         columns = ['Position']
@@ -40,7 +45,7 @@ class TPMSnapshotPainter(InputPainter):
                 P['Position'][:, dir] += P['Velocity'][:, dir]
                 P['Position'][:, dir] %= 1.0 # enforce periodic boundary conditions
 
-            P['Position'] *= ns.BoxSize
+            P['Position'] *= self.BoxSize
 
             layout = pm.decompose(P['Position'])
 

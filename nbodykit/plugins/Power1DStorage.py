@@ -45,6 +45,8 @@ class Power1DStorage(PowerSpectrumStorage):
             if len(meta):
                 ff.write("# metadata %d\n" %len(meta))
                 for k,v in meta.iteritems():
+                    if not numpy.isscalar(v):
+                        raise NotImplementedError("Power2DStorage cannot write out non-scalar metadata yet")
                     ff.write("# %s %s %s\n" %(k, str(v), type(v).__name__))
             ff.flush()
             

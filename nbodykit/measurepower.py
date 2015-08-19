@@ -8,7 +8,7 @@ def measurepower(pm, c1, c2, Nmu, binshift=0.0, shotnoise=0.0, los='z'):
     """ Measure power spectrum P(k,mu) from density field painted on pm 
 
         The power spectrum is measured in bins of k and mu. The k bins extend 
-        from 0 to the Nyquist (Nmesh / 2), with the units consistent with 
+        from 0 to the smallest 1D Nyquist (Nmesh / 2), with the units consistent with 
         the units of the BoxSize. The mu range extends from 0 to 1.0. 
         The mu bins are half-inclusive half-exclusive, except the last bin
         is inclusive on both ends (to include mu = 1.0).
@@ -48,57 +48,61 @@ def measurepower(pm, c1, c2, Nmu, binshift=0.0, shotnoise=0.0, los='z'):
     Nfreq = pm.Nmesh//2
     ndims = (Nfreq+2, Nmu+2)
     
-    wedges = numpy.linspace(0, numpy.pi, Nfreq + 1, endpoint=True)
-    wedges += binshift * wedges[1]
+    # kedges out to the minimum nyquist frequency (accounting for possibly anisotropic box)
+    BoxSize_min = numpy.amin(pm.BoxSize)
+    w_to_k = pm.Nmesh / BoxSize_min
+    kedges = numpy.linspace(0, numpy.pi*w_to_k, Nfreq + 1, endpoint=True)
+    kedges += binshift * kedges[1]
+    
     # mu bin edges
     muedges = numpy.linspace(0, 1, Nmu+1, endpoint=True)
     
     # freq bin edges
-    w2edges = wedges ** 2
+    k2edges = kedges ** 2
 
     musum = numpy.zeros(ndims)
-    wsum = numpy.zeros(ndims)
+    ksum = numpy.zeros(ndims)
     Psum = numpy.zeros(ndims)
     Nsum = numpy.zeros(ndims)
     
     # los index
     los_index = 'xyz'.index(los)
     
-    for row in range(len(pm.w[0])):
+    for row in range(len(pm.k[0])):
         # pickup the singular plane that is single counted (r2c transform)
-        singular = pm.w[2][-1] == 0
+        singular = pm.k[2][-1] == 0
 
-        # now scratch stores w ** 2
-        scratch = numpy.float64(pm.w[0][row] ** 2)
-        for wi in pm.w[1:]:
-            scratch = scratch + wi[0] ** 2
+        # now scratch stores k ** 2
+        scratch = numpy.float64(pm.k[0][row] ** 2)
+        for ki in pm.k[1:]:
+            scratch = scratch + ki[0] ** 2
 
         if len(scratch.flat) == 0:
             # no data
             continue
 
-        dig_w = numpy.digitize(scratch.flat, w2edges)
+        dig_k = numpy.digitize(scratch.flat, k2edges)
     
-        # make scratch just w
+        # make scratch just k
         scratch **= 0.5
     
         # store mu
         with numpy.errstate(invalid='ignore'):
             if los_index == 0:
-                mu = abs(pm.w[los_index][row]/scratch)
+                mu = abs(pm.k[los_index][row]/scratch)
             else:
-                mu = abs(pm.w[los_index][0]/scratch)
+                mu = abs(pm.k[los_index][0]/scratch)
         dig_mu = numpy.digitize(mu.flat, muedges)
         
         # make the multi-index
-        multi_index = numpy.ravel_multi_index([dig_w, dig_mu], ndims)
+        multi_index = numpy.ravel_multi_index([dig_k, dig_mu], ndims)
     
         # the singular plane is down weighted by 0.5
         scratch[singular] *= 0.5
         mu[singular] *= 0.5
     
-        # the w sum
-        wsum.flat += numpy.bincount(multi_index, weights=scratch.flat, minlength=wsum.size)
+        # the k sum
+        ksum.flat += numpy.bincount(multi_index, weights=scratch.flat, minlength=ksum.size)
     
         # the mu sum
         musum.flat += numpy.bincount(multi_index, weights=mu.flat, minlength=musum.size)
@@ -114,10 +118,9 @@ def measurepower(pm, c1, c2, Nmu, binshift=0.0, shotnoise=0.0, los='z'):
         scratch[...] = c1[row].real * c2[row].real + c1[row].imag * c2[row].imag
         # the singular plane is down weighted by 0.5
         scratch[singular] *= 0.5
-
         Psum.flat += numpy.bincount(multi_index, weights=scratch.flat, minlength=Psum.size)
 
-    wsum = pm.comm.allreduce(wsum, MPI.SUM)
+    ksum = pm.comm.allreduce(ksum, MPI.SUM)
     musum = pm.comm.allreduce(musum, MPI.SUM)
     Psum = pm.comm.allreduce(Psum, MPI.SUM)
     Nsum = pm.comm.allreduce(Nsum, MPI.SUM)
@@ -127,21 +130,18 @@ def measurepower(pm, c1, c2, Nmu, binshift=0.0, shotnoise=0.0, los='z'):
 
     Psum[:, -2] += Psum[:, -1]
     musum[:, -2] += musum[:, -1]
-    wsum[:, -2] += wsum[:, -1]
+    ksum[:, -2] += ksum[:, -1]
     Nsum[:, -2] += Nsum[:, -1]
 
     # reshape and slice to remove out of bounds points
     with numpy.errstate(invalid='ignore'):
         power = (Psum / Nsum)[1:-1, 1:-1]
-        wmean = (wsum / Nsum)[1:-1, 1:-1]
+        kmean = (ksum / Nsum)[1:-1, 1:-1]
         mumean = (musum / Nsum)[1:-1, 1:-1]
-        N = 2*Nsum[1:-1, 1:-1] # factor of 2 for real and imag modes
+        N = 2*Nsum[1:-1, 1:-1] # factor of 2 for modes with negative z not in r2c transform
 
-    # measure the raw power spectrum, nothing is removed.
-    kout = wmean * pm.Nmesh / pm.BoxSize
-    kedges = wedges * pm.Nmesh / pm.BoxSize
-    power *= (pm.BoxSize) ** 3
+    # each complex field has units of L^3, so power is L^6
+    power *= pm.BoxSize.prod() 
     power -= shotnoise
-
-    return kout, mumean, power, N, [kedges, muedges]
+    return kmean, mumean, power, N, [kedges, muedges]
 

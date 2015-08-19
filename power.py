@@ -31,7 +31,6 @@ parser = ArgumentParser("Parallel Power Spectrum Calculator",
 
 # add the positional arguments
 parser.add_argument("mode", choices=["2d", "1d"]) 
-parser.add_argument("BoxSize", type=float, help='BoxSize in Mpc/h')
 parser.add_argument("Nmesh", type=int, help='size of calculation mesh, recommend 2 * Ngrid')
 parser.add_argument("output", help='write power to this file. set as `-` for stdout') 
 
@@ -94,12 +93,12 @@ def main():
         chain.append(AnisotropicCIC)
     if ns.remove_cic == 'isotropic':
         chain.append(IsotropicCIC)
-
-    # setup the particle mesh object
-    pm = ParticleMesh(ns.BoxSize, ns.Nmesh, dtype='f4')
+        
+    # setup the particle mesh object, taking BoxSize from the painters
+    pm = ParticleMesh(ns.inputs[0].BoxSize, ns.Nmesh, dtype='f4')
 
     # paint first input
-    Ntot1 = ns.inputs[0].paint(ns, pm)
+    Ntot1 = ns.inputs[0].paint(pm)
 
     # painting
     if MPI.COMM_WORLD.rank == 0:
@@ -115,9 +114,13 @@ def main():
     do_cross = len(ns.inputs) > 1 and ns.inputs[0] != ns.inputs[1]
 
     if do_cross:
+        
+        # crash if box size isn't the same
+        if not numpy.all(ns.inputs[0].BoxSize == ns.inputs[1].BoxSize):
+            raise ValueError("mismatch in box sizes for cross power measurement")
+        
         c1 = pm.complex.copy()
-
-        Ntot2 = ns.inputs[1].paint(ns, pm)
+        Ntot2 = ns.inputs[1].paint(pm)
 
         if MPI.COMM_WORLD.rank == 0:
             print 'painting 2 done'
@@ -134,11 +137,10 @@ def main():
     else:
         c1 = pm.complex
         c2 = pm.complex
-
         Ntot2 = Ntot1 
 
     if ns.remove_shotnoise and not do_cross:
-        shotnoise = pm.BoxSize ** 3 / (1.0*Ntot1)
+        shotnoise =  pm.BoxSize.prod() / (1.0*Ntot1)
     else:
         shotnoise = 0
  
@@ -146,8 +148,9 @@ def main():
     if ns.mode == "1d": ns.Nmu = 1 
 
     # do the calculation
-    meta = {'box_size':pm.BoxSize, 'N1':Ntot1, 
-            'N2':Ntot2, 'shot_noise': shotnoise}
+    Lx, Ly, Lz = pm.BoxSize
+    meta = {'Lx':Lx, 'Ly':Ly, 'Lz':Lz, 'volume':Lx*Ly*Lz, 
+            'N1':Ntot1, 'N2':Ntot2, 'shot_noise': shotnoise}
     result = measurepower(pm, c1, c2, ns.Nmu, binshift=ns.binshift, 
                             shotnoise=shotnoise, los=ns.los)
     

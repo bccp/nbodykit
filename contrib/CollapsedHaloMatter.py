@@ -1,8 +1,6 @@
-from nbodykit.plugins import InputPainter
+from nbodykit.plugins import InputPainter, BoxSize_t
 from nbodykit import files
 from itertools import izip
-# FIXME: these apply to the individual painters, 
-# maybe move to each class?
 import numpy
 import logging
 
@@ -12,20 +10,24 @@ class CollapsedHaloPainter(InputPainter):
     
     @classmethod
     def register(kls):
-        h = kls.add_parser(kls.field_type, 
-            usage=kls.field_type+":pathhalo:logMmin:logMmax:m0:pathmatter:pathlabel[:-rsd={x|y|z}]",
-            )
+        args = kls.field_type+":pathhalo:BoxSize:logMmin:logMmax:m0:pathmatter:pathlabel"
+        options = "[:-rsd=[x|y|z]]"
+        h = kls.add_parser(kls.field_type, usage=args+options)
+        
         h.add_argument("pathhalo", help="path to file")
+        h.add_argument("BoxSize", type=BoxSize_t,
+            help="the size of the isotropic box, or the sizes of the 3 box dimensions")
         h.add_argument("logMmin", type=float, help="log10 min mass")
         h.add_argument("logMmax", type=float, help="log10 max mass")
         h.add_argument("m0", type=float, help="mass mass of a particle")
         h.add_argument("pathmatter", help="path to matter file")
         h.add_argument("pathlabel", help="path to label file")
+        
         h.add_argument("-rsd", 
             choices="xyz", help="direction to do redshift distortion")
         h.set_defaults(klass=kls)
     
-    def paint(self, ns, pm):
+    def paint(self, pm):
         if pm.comm.rank == 0:
             hf = files.HaloFile(self.pathhalo)
             nhalo = hf.nhalo
@@ -60,7 +62,7 @@ class CollapsedHaloPainter(InputPainter):
                 P['Position'][:, dir] += P['Velocity'][:, dir]
                 P['Position'][:, dir] %= 1.0 # enforce periodic boundary conditions
 
-            P['Position'] *= ns.BoxSize
+            P['Position'] *= self.BoxSize
             layout = pm.decompose(P['Position'])
             tpos = layout.exchange(P['Position'])
             #print tpos.shape
