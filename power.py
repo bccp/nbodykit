@@ -42,8 +42,6 @@ parser.add_argument("inputs", nargs="+", type=plugins.InputPainter.parse,
 # add the optional arguments
 parser.add_argument("--binshift", type=float, default=0.0,
         help='Shift the bin center by this fraction of the bin width. Default is 0.0. Marcel uses 0.5. this shall rarely be changed.' )
-parser.add_argument("--bunchsize", type=int, default=1024*1024*4,
-        help='Number of particles to read per rank. A larger number usually means faster IO, but less memory for the FFT mesh')
 parser.add_argument("--remove-cic", default='anisotropic', choices=["anisotropic","isotropic", "none"],
         help='deconvolve cic, anisotropic is the proper way, see http://www.personal.psu.edu/duj13/dissertation/djeong_diss.pdf')
 parser.add_argument("--remove-shotnoise", action='store_true', default=False,
