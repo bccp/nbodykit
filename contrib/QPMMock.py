@@ -32,13 +32,13 @@ class QPMMockPainter(InputPainter):
     
     @classmethod
     def register(kls):
-        
         usage = kls.field_type+":path:BoxSize[:-scaled][:-rsd][:-velf]"
         h = kls.add_parser(kls.field_type, usage=usage)
         
         h.add_argument("path", help="path to file")
         h.add_argument("BoxSize", type=BoxSize_t,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
+
         h.add_argument("-scaled", action='store_true', 
             help='rescale the parallel and perp coordinates by the AP factor')
         h.add_argument("-rsd", choices="xyz",
@@ -87,7 +87,7 @@ class QPMMockPainter(InputPainter):
         if self.scaled:
             if pm.comm.rank == 0:
                 logging.info("multiplying by qperp = %.5f" %self.qperp)
-                
+ 
             # rescale positions and volume
             if self.rsd is None:
                 pos *= self.qperp
@@ -102,6 +102,7 @@ class QPMMockPainter(InputPainter):
                     else:
                         pos[:,i] *= self.qperp
                         self.BoxSize[i] *= self.qperp
+
 
         layout = pm.decompose(pos)
         tpos = layout.exchange(pos)

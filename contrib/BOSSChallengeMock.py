@@ -1,5 +1,4 @@
 from nbodykit.plugins import InputPainter, BoxSize_t
-
 import numpy
 import logging
          
@@ -17,6 +16,7 @@ class BOSSChallengeMockPainter(InputPainter):
     * first three columns are `x`, `y`, `z`
     * data is assumed to be in redshift-space, with `z` (last axis) 
     giving the LOS axis
+
     
     Parameters
     ----------
@@ -34,7 +34,6 @@ class BOSSChallengeMockPainter(InputPainter):
     
     @classmethod
     def register(kls):
-        
         usage = kls.field_type+":path:BoxSize:[:-scaled]"
         h = kls.add_parser(kls.field_type, usage=usage)
         
@@ -85,7 +84,7 @@ class BOSSChallengeMockPainter(InputPainter):
             # also scale the box
             self.BoxSize[0:2] *= self.qperp
             self.BoxSize[-1] *= self.qpar
-            
+
         layout = pm.decompose(pos)
         tpos = layout.exchange(pos)
         pm.paint(tpos)
