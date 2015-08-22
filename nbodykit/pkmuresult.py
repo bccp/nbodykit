@@ -1,71 +1,61 @@
 import numpy
 
-def rebin(index, edges, data, weights, sum_only):
+def bin_ndarray(ndarray, new_shape, weights=None, operation=numpy.mean):
     """
-    Rebin data stored in a masked recarray, using the edges specified
+    Bins an ndarray in all axes based on the target shape, by summing 
+    or averaging.
     
     Parameters
     ----------
-    index : list of ndarrays
-        A list of arrays specifying the bin centers. The length should
-        be the number of bin dimensions
-    edges : list of arrays
-        A list of arrays specifying the bin edges in each dimension
-    data : numpy.ma.core.MaskedArray
-        Masked structured array with each field representing a data column
-        to be re-binned. Masked elements will not contribute to the
-        re-binned results
-    weights : array_like
-        The weights to use when re-binning. Must have the same shape
-        as `data`
-    sum_only : list of str
-        A list of strings specifying fields in `data` that will 
-        only be summed when combining bins. 
+    ndarray : array_like
+        the input array to re-bin
+    new_shape : tuple
+        the tuple holding the desired new shape
+    weights : array_like, optional
+        weights to multiply the input array by, before running the re-binning
+        operation, 
+    
+    Notes
+    -----
+    *   Dimensions in `new_shape` must be integral factor smaller than the 
+        old shape
+    *   Number of output dimensions must match number of input dimensions.
+    *   See https://gist.github.com/derricw/95eab740e1b08b78c03f
+    
+    Example
+    -------
+    >>> m = np.arange(0,100,1).reshape((10,10))
+    >>> n = bin_ndarray(m, new_shape=(5,5), operation=numpy.sum)
+    >>> print(n)
+    [[ 22  30  38  46  54]
+     [102 110 118 126 134]
+     [182 190 198 206 214]
+     [262 270 278 286 294]
+     [342 350 358 366 374]]
     """
-    if data.shape != weights.shape:
-        raise ValueError("data and weights do not have same shape in rebin")
+    if ndarray.shape == new_shape:
+        raise ValueError("why are we re-binning if the new shape equals the old shape?")
+    if ndarray.ndim != len(new_shape):
+        raise ValueError("Shape mismatch: {} -> {}".format(ndarray.shape, new_shape))
+    if numpy.sometrue(numpy.mod(ndarray.shape, new_shape)):
+        args = (str(new_shape), str(ndarray.shape))
+        msg = "desired shape of %s must be integer factor smaller than the old shape %s" %args
+        raise ValueError(msg)
         
-    toret = {}
+    compression_pairs = [(d, c//d) for d, c in zip(new_shape, ndarray.shape)]
+    flattened = [l for p in compression_pairs for l in p]
+    ndarray = ndarray.reshape(flattened)
+    if weights is not None: weights = weights.reshape(flattened)
     
-    # digitize each index
-    dig = []
-    ndims = []
-    for i in range(len(index)):
-        dig.append(numpy.digitize(index[i].flat, edges[i]))
-        ndims.append(len(edges[i])+1)
-        
-    # make the multi index for tracking flat indices
-    multi_index = numpy.ravel_multi_index(dig, ndims)
-    
-    minlength = 1.
-    for x in ndims: minlength *= x
-    idx = tuple([slice(1, -1)]*len(ndims))
-    
-    # loop over each field in the recarray
-    names = data.dtype.names
-    for name in names:
-        
-        inds = ~data[name].mask
-        mi = multi_index[inds.flatten()]
-        
-        # first count values in each bin
-        N = numpy.bincount(mi, weights=weights[inds], minlength=minlength)
-        
-        # now sum the data columns
-        w = weights[inds]
-        if name in sum_only: w = weights[inds]*0.+1 # unity if we are just summing
-        valsum = numpy.bincount(mi, weights=data[name][inds]*w, minlength=minlength)
-        
-        if name in sum_only:
-            toret[name] = valsum.reshape(ndims)[idx]
+    for i in range(len(new_shape)):
+        if weights is not None:
+            ndarray = operation(ndarray*weights, axis=-1*(i+1))
+            weights = numpy.sum(weights, axis=-1*(i+1))
+            ndarray /= weights
         else:
-            # ignore warnings -- want N == 0 to be set as NaNs
-            with numpy.errstate(invalid='ignore'):
-                toret[name] = (valsum / N).reshape(ndims)[idx]
-            
-    return toret
-
-
+            ndarray = operation(ndarray, axis=-1*(i+1))
+    return ndarray
+    
 class PkmuResult(object):
     """
     PkmuResult provides an interface to store and manipulate a 2D power 
@@ -361,40 +351,6 @@ class PkmuResult(object):
                                  "`force_index_match=True`: %s" %str(e))
                 
         return i
-            
-    def _reindex(self, i, index, edges, bins, weights):
-        
-        # compute the bins
-        N_old = index[i].shape[i]
-        if isinstance(bins, int):
-            if bins >= N_old:
-                raise ValueError("can only reindex into fewer than %d bins" %N_old)
-            bins = numpy.linspace(edges[i][0], edges[i][-1], bins+1)
-        else:
-            if i == 0:
-                old = self.k_center
-            else:
-                old = self.mu_center
-            valid = (old > numpy.amin(bins))&(old < numpy.amax(bins))
-            if len(bins) >= valid.sum():
-                raise ValueError("can only re-index into %d or fewer bins for this k-range" %valid.sum())
-        
-        # compute the weights
-        if weights is None:
-            weights = numpy.ones((self.Nk, self.Nmu))
-        else:
-            if isinstance(weights, basestring):
-                if weights not in self.columns:
-                    raise ValueError("Cannot weight by `%s`; no such column" %weights)
-                weights = self.data[weights].data
-            
-        # get the rebinned data
-        edges[i] = bins
-        new_data = rebin(index, edges, self.data, weights, self.sum_only)
-        
-        # return a new PkmuResult
-        meta = {k:getattr(self,k) for k in self._metadata}
-        return PkmuResult(edges[0], edges[1], new_data, self.force_index_match, self.sum_only, **meta)
         
     #--------------------------------------------------------------------------
     # main functions
@@ -549,58 +505,84 @@ class PkmuResult(object):
                 k = self._get_index('k', k)
         
             return self.data[k,:]
-        
-    def reindex_mu(self, bins, weights=None):
-        """
-        Reindex the mu dimension and return a PkmuResult holding
-        the re-binned data, optionally weighted by `weights`
-        
-        
-        Parameters
-        ---------
-        bins : integer or array_like
-            If an integer is given, `bins+1` edges are used. If a sequence,
-            then the values should specify the bin edges.
-        weights : str or array_like, optional
-            If a string is given, it is intepreted as the name of a 
-            data column in `self.data`. If a sequence is passed, then the
-            shape must be equal to (`self.Nk`, `self.Nmu`)
-            
-        Returns
-        -------
-        pkmu : PkmuResult
-            class holding the re-binned results
-        """
-        index = [self.index['k_center'], self.index['mu_center']]
-        edges = [self.kedges, self.muedges]
-        return self._reindex(1, index, edges, bins, weights)
     
-    def reindex_k(self, bins, weights=None):
+    def reindex_k(self, dk, weights=None, force=True, return_spacing=False):
         """
         Reindex the k dimension and return a PkmuResult holding
-        the re-binned data, optionally weighted by `weights`
+        the re-binned data, optionally weighted by `weights`. 
+        
+        Notes
+        -----
+        We can only re-bin to an integral factor of the current 
+        dimension size in order to inaccuracies when re-binning to 
+        overlapping bins
         
         
         Parameters
-        ---------
-        bins : integer or array_like
-            If an integer is given, `bins+1` edges are used. If a sequence,
-            then the values should specify the bin edges.
-        weights : str or array_like, optional
-            If a string is given, it is intepreted as the name of a 
-            data column in `self.data`. If a sequence is passed, then the
-            shape must be equal to (`self.Nk`, `self.Nmu`)
+        ----------
+        dk : float
+            the desired spacing for the re-binned data. If `force = True`,
+            the spacing used will be the closest value to this value, such
+            that the new bins are N times larger, when N is an integer
+        weights : array_like or str, optional (`None`)
+            an array to weight the data by before re-binning, or if
+            a string is provided, the name of a data column to use as weights
+        force : bool, optional (`True`)
+            if `True`, force the spacing to be a value such
+            that the new bins are N times larger, when N is an integer; otherwise,
+            raise an exception
+        return_spacing : bool, optional (`False`)
+            if `True`, return the new k spacing as the second return value
             
         Returns
         -------
         pkmu : PkmuResult
             class holding the re-binned results
+        dk : float, optional
+            the spacing used in the re-binned data
         """
         index = [self.index['k_center'], self.index['mu_center']]
         edges = [self.kedges, self.muedges]
-        return self._reindex(0, index, edges, bins, weights)
         
-    
-    
+        # determine the new binning
+        old_dk = numpy.diff(self.k_center)[0]
+        factor = numpy.round(dk/old_dk).astype('int')
+        if not factor:
+            raise ValueError("new spacing must be smaller than original spacing of %.2e h/Mpc" %old_dk)
+        if factor == 1:
+            raise ValueError("closest binning size to input `dk` is the same as current binning")
+        if old_dk*factor != dk and not force: 
+            raise ValueError("if `force = False`, new bin spacing must be an integral factor smaller than original")
+        
+        # make a copy of the data
+        data = self.data.copy()
+                
+        # get the weights
+        if isinstance(weights, basestring):
+            if weights not in self.columns:
+                raise ValueError("Cannot weight by `%s`; no such column" %weights)
+            weights = self.data[weights].data
             
+        # check if we need to discard bins from the end
+        leftover = self.Nk % factor
+        if leftover and not force:
+            args = (leftover, old_dk*factor)
+            raise ValueError("cannot re-bin because they are %d extra bins, using dk = %.2e h/Mpc" %args)
+        data = data[:-leftover,:]
+        if weights is not None: weights = weights[:-leftover, :]
         
+        # new edges
+        new_shape = (self.Nk/factor, self.Nmu)
+        new_kedges = numpy.linspace(self.kedges[0], self.kedges[-1], new_shape[0]+1)
+        
+        # the re-binned data
+        new_data = {}
+        for col in self.columns:
+            operation = numpy.nanmean
+            if weights is not None or col in self.sum_only:
+                operation = numpy.nansum
+            new_data[col] = bin_ndarray(data[col].data, new_shape, weights=weights, operation=operation)
+            
+        meta = {k:getattr(self,k) for k in self._metadata}
+        pkmu = PkmuResult(new_kedges, self.muedges, new_data, self.force_index_match, self.sum_only, **meta)
+        return (pkmu, dk) if return_spacing else pkmu
