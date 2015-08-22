@@ -565,7 +565,7 @@ class PkmuResult(object):
         if leftover and not force:
             args = (leftover, old_dk*factor)
             raise ValueError("cannot re-bin because they are %d extra bins, using dk = %.2e h/Mpc" %args)
-            
+
         if leftover:
             data = data[:-leftover,:]
             if weights is not None: weights = weights[:-leftover, :]
