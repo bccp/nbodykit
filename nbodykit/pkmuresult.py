@@ -540,10 +540,7 @@ class PkmuResult(object):
             class holding the re-binned results
         dk : float, optional
             the spacing used in the re-binned data
-        """
-        index = [self.index['k_center'], self.index['mu_center']]
-        edges = [self.kedges, self.muedges]
-        
+        """        
         # determine the new binning
         old_dk = numpy.diff(self.k_center)[0]
         factor = numpy.round(dk/old_dk).astype('int')
