@@ -53,10 +53,8 @@ def rebin(index, edges, data, weights, sum_only):
         
         # now sum the data columns
         w = weights[inds]
-        if name in sum_only:
-            w = weights[inds]*0.+1 # unity if we are just summing
+        if name in sum_only: w = weights[inds]*0.+1 # unity if we are just summing
         valsum = numpy.bincount(mi, weights=data[name][inds]*w, minlength=minlength)
-        
         
         if name in sum_only:
             toret[name] = valsum.reshape(ndims)[idx]
@@ -370,11 +368,16 @@ class PkmuResult(object):
         N_old = index[i].shape[i]
         if isinstance(bins, int):
             if bins >= N_old:
-                raise ValueError("Can only reindex into fewer than %d bins" %N_old)
+                raise ValueError("can only reindex into fewer than %d bins" %N_old)
             bins = numpy.linspace(edges[i][0], edges[i][-1], bins+1)
         else:
-            if len(bins) >= N_old:
-                raise ValueError("Can only reindex into fewer than %d bins" %N_old)
+            if i == 0:
+                old = self.k_center
+            else:
+                old = self.mu_center
+            valid = (old > numpy.amin(bins))&(old < numpy.amax(bins))
+            if len(bins) >= valid.sum():
+                raise ValueError("can only re-index into %d or fewer bins for this k-range" %valid.sum())
         
         # compute the weights
         if weights is None:

@@ -86,7 +86,7 @@ class QPMMockPainter(InputPainter):
             
             # get position 
             pos = data[['x', 'y', 'z']].values.astype('f4')
-            vel = data[['x', 'y', 'z']].values.astype('f4')
+            vel = data[['vx', 'vy', 'vz']].values.astype('f4')
             vel *= self.velf
         else:
             pos = numpy.empty(0, dtype=('f4', 3))
