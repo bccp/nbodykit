@@ -50,6 +50,10 @@ parser.add_argument("--Nmu", type=int, default=5,
         help='the number of mu bins to use; if `mode = 1d`, then `Nmu` is set to 1' )
 parser.add_argument("--los", choices="xyz", default='z',
         help="the line-of-sight direction, which the angle `mu` is defined with respect to")
+parser.add_argument("--dk", type=float,
+        help='the spacing of k bins to use; if not provided, the fundamental mode of the box is used')
+parser.add_argument("--kmin", type=float, default=0,
+        help='the edge of the first bin to use; default is 0')
 
 # parse
 ns = parser.parse_args()
@@ -150,7 +154,8 @@ def main():
     meta = {'Lx':Lx, 'Ly':Ly, 'Lz':Lz, 'volume':Lx*Ly*Lz, 
             'N1':Ntot1, 'N2':Ntot2, 'shot_noise': shotnoise}
     result = measurepower(pm, c1, c2, ns.Nmu, binshift=ns.binshift, 
-                            shotnoise=shotnoise, los=ns.los)
+                            shotnoise=shotnoise, los=ns.los, dk=ns.dk, 
+                            kmin=ns.kmin)
     
     # format the output appropriately
     if ns.mode == "1d":
