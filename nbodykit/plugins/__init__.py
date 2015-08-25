@@ -182,7 +182,7 @@ def load(filename, namespace=None):
 
 
 builtins = ['TPMSnapshotPainter', 'HaloFilePainter', 'PandasPlainTextPainter',
-            'PlainTextPainter', 'HDFPainter', 'Power1DStorage', 'Power2DStorage']
+            'PlainTextPainter', 'HDFPainter', 'Power1DStorage', 'Power2DStorage', 'fileformats/tpm']
 for plugin in builtins:
     globals().update(load(os.path.join(os.path.dirname(__file__), plugin + '.py')))
  
