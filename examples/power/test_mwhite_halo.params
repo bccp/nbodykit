@@ -1,0 +1,5 @@
+2d
+256
+../output/test_power_2d_mwhite_halo_test.dat
+MWhiteHaloFile:../data/mwhite_halo.fofp:1380.:-rsd=z
+-X=../../contrib/MWhiteHaloFile.py
