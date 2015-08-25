@@ -6,24 +6,36 @@ from nbodykit.utils import selectionlanguage
 
 def list_str(value):
     return value.split()
-             
-class HDFPainter(InputPainter):
+         
+class PandasPainter(InputPainter):
     """
-    Class to read field data from a plain text ASCII file
-    and paint the field onto a density grid. The data is read
-    from file using `pandas.read_hdf` and is stored internally 
-    in a `pandas.DataFrame`
+    Class to read field data from a Pandas data file
+    and paint the field onto a density grid. 
+    File types are guessed from the file name extension, or
+    specified via `-ftype` commandline argument.  
+    For text files, the data is read using `pandas.read_csv`. 
+    For HDF5 files (.hdf5), the data is read using `pandas.read_hdf5`.
     
+    Data is stored internally in a `pandas.DataFrame`. 
+
     Notes
     -----
     * `pandas` must be installed to use
+    * data file is assumed to be space-separated
+    * commented lines must begin with `#`, with all other lines
+    providing data values to be read
+    * `names` parameter must be equal to the number of data
+    columns, otherwise behavior is undefined
     
     Parameters
     ----------
     path    : str
         the path of the file to read the data from 
-    key   : str
-        the group identifier in the HDF5 file
+    names   : list of str
+        For text files, one or more strings specifying the names of the data
+        columns. Shape must be equal to number of columns
+        in the field, otherwise, behavior is undefined.
+        For hdf5 files, the name of the pandas data group.
     BoxSize : float or array_like (3,)
         the box size, either provided as a single float (isotropic)
         or an array of the sizes of the three dimensions
@@ -45,24 +57,24 @@ class HDFPainter(InputPainter):
         `type` and `mass`, you could specify 
         select= "type == central and mass > 1e14"
     """
-    field_type = "HDF"
+    field_type = "Pandas"
     
     @classmethod
     def register(kls):
         
-        args = kls.field_type+":path:key:BoxSize"
+        args = kls.field_type+":path:names:BoxSize"
         options = "[:-usecols= x y z][:-poscols= x y z]\n[:-velcols= vx vy vz]" + \
                   "[:-rsd=[x|y|z]][:-posf=1.0][:-velf=1.0][:-select=conditions]"
         h = kls.add_parser(kls.field_type, usage=args+options)
         
         h.add_argument("path", help="path to file")
-        h.add_argument("key", type=str, 
-            help="group identifier in the HDF5 file")
+        h.add_argument("names", type=list_str, 
+            help="names of columns in text file or name of the data group in hdf5 file")
         h.add_argument("BoxSize", type=BoxSize_t,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
-        
+                
         h.add_argument("-usecols", type=list_str, 
-            default=None, help="only read these columns from file")
+            help="only read these columns from file")
         h.add_argument("-poscols", type=list_str, default=['x','y','z'], 
             help="names of the position columns")
         h.add_argument("-velcols", type=list_str, default=None,
@@ -74,7 +86,9 @@ class HDFPainter(InputPainter):
         h.add_argument("-velf", default=1., type=float, 
             help="factor to scale the velocities")
         h.add_argument("-select", default=None, type=selectionlanguage.Query, 
-            help='row selection based on conditions for example, "column > value and column < value"')
+            help='row selection based on conditions specified as string')
+        h.add_argument("-ftype", default='auto', choices=['hdf5', 'text', 'auto'], 
+            help='Format of the Pandas storage container. auto is to guess from the file name.')
         h.set_defaults(klass=kls)
     
     def paint(self, pm):
@@ -82,10 +96,27 @@ class HDFPainter(InputPainter):
             try:
                 import pandas as pd
             except:
-                raise ImportError("pandas must be installed to use HDFPainter")
+                raise ImportError("pandas must be installed to use PandasPlainTextPainter")
                 
-            # read in the hdf5 file using pandas
-            data = pd.read_hdf(self.path, self.key, columns=self.usecols)
+            if self.ftype == 'auto':
+                if self.path.endswith('.hdf5'):
+                    self.ftype = 'hdf5'
+                else: 
+                    self.ftype = 'text'
+            if self.ftype == 'hdf5':
+                # read in the hdf5 file using pandas
+                data = pd.read_hdf(self.path, self.names[0], columns=self.usecols)
+            elif self.ftype == 'text':
+                # read in the plain text file using pandas
+                kwargs = {}
+                kwargs['comment'] = '#'
+                kwargs['names'] = self.names
+                kwargs['header'] = None
+                kwargs['engine'] = 'c'
+                kwargs['delim_whitespace'] = True
+                kwargs['usecols'] = self.usecols
+                data = pd.read_csv(self.path, **kwargs)
+
             nobj = len(data)
             
             # select based on input conditions
@@ -94,23 +125,15 @@ class HDFPainter(InputPainter):
                 data = data[mask]
             logging.info("total number of objects selected is %d / %d" % (len(data), nobj))
             
-            # print out column names if we mess up input
-            if not all(col in data.columns for col in self.poscols):
-                valid = "[%s]" %(", ".join(data.columns))
-                raise ValueError("position columns error; valid column names are "+valid)
-                
             # get position and velocity, if we have it
             pos = data[self.poscols].values.astype('f4')
             pos *= self.posf
             if self.velcols is not None:
-                if not all(col in data.columns for col in self.velcols):
-                    valid = "[%s]" %(", ".join(data.columns))
-                    raise ValueError("velocity columns error; valid column names are "+valid)
-                    
                 vel = data[self.velcols].values.astype('f4')
                 vel *= self.velf
             else:
                 vel = numpy.empty(0, dtype=('f4', 3))
+            
         else:
             pos = numpy.empty(0, dtype=('f4', 3))
             vel = numpy.empty(0, dtype=('f4', 3))
@@ -118,7 +141,7 @@ class HDFPainter(InputPainter):
         Ntot = len(pos)
         Ntot = pm.comm.bcast(Ntot)
 
-        # it is assumed the position values are now in same
+        # assumed the position values are now in same
         # units as BoxSize
         if self.rsd is not None:
             dir = 'xyz'.index(self.rsd)
