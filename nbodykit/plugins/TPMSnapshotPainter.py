@@ -22,14 +22,12 @@ class TPMSnapshotPainter(InputPainter):
             choices="xyz", default=None, help="direction to do redshift distortion")
         h.add_argument("-bunchsize", type=int, default=1024*1024*4,
             help='Number of particles to read per rank. A larger number usually means faster IO, but less memory for the FFT mesh')
-        h.add_argument("-mom", 
-            choices="xyz", default=None, help="paint momentum instead of mass")
         h.set_defaults(klass=kls)
 
     def read(self, comm):
         Ntot = 0
         columns = ['Position']
-        if self.rsd is not None or self.mom is not None:
+        if self.rsd is not None:
             columns.append('Velocity')
             
         for round, P in enumerate(
@@ -39,18 +37,13 @@ class TPMSnapshotPainter(InputPainter):
                     columns=columns, 
                     bunchsize=self.bunchsize)):
 
-            nread = comm.allreduce(len(P['Position'])) 
+            if comm.rank == 0:
+                logging.info('round %d, nread %d' % (round, len(P['Position'])))
 
             if self.rsd is not None:
-                dir = "xyz".index(self.rsd)
-                P['Position'][:, dir] += P['Velocity'][:, dir]
-                P['Position'][:, dir] %= 1.0 # enforce periodic boundary conditions
+                yield (P['Position'], P['Velocity'], None)
+            else:
+                yield (P['Position'], None)
 
-            P['Position'] *= self.BoxSize
-
-            yield (P['Position'], None)
-
-            if comm.rank == 0:
-                logging.info('round %d, nread %d' % (round, nread))
 
 #------------------------------------------------------------------------------

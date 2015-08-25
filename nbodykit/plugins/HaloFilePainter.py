@@ -52,17 +52,17 @@ class HaloFilePainter(InputPainter):
         else:
             data = numpy.empty(0, dtype=dtype)
 
-        if self.rsd is not None:
-            dir = 'xyz'.index(self.rsd)
-            data['position'][:, dir] += data['velocity'][:, dir]
-            data['position'][:, dir] %= 1.0 # enforce periodic boundary conditions
-        
-        # put position into units of BoxSize before gridding
-        data['position'] *= self.BoxSize
         if self.massweighted:
             weight = data['length']
         else:
             weight = None
+        # put position into units of BoxSize before gridding
+        data['position'] *= self.BoxSize
+        # put velocity into units of BoxSize before gridding
+        data['velocity'] *= self.BoxSize
 
-        yield (data['position'].copy(), weight)
-
+        if self.rsd is not None:
+            yield data['position'].copy(), data['velocity'].copy(), weight
+        else:
+            yield data['position'].copy(), weight
+        

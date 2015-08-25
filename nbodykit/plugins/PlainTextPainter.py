@@ -114,9 +114,7 @@ class PlainTextPainter(InputPainter):
         # assumed the position values are now in same
         # units as BoxSize
         if self.rsd is not None:
-            dir = 'xyz'.index(self.rsd)
-            pos[:, dir] += vel[:, dir]
-            pos[:, dir] %= self.BoxSize[dir] # enforce periodic boundary conditions
-
-        yield (pos, None)
+            yield (pos, vel, None)
+        else:
+            yield (pos, None) 
 
