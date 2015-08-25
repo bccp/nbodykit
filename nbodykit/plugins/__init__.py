@@ -58,8 +58,13 @@ class InputPainter:
     paint : method
         A method that performs the painting of the field. It 
         takes the following arguments:
-            ns : argparse.Namespace
             pm : pypm.particlemesh.ParticleMesh
+
+    read: method
+        A method that performs the reading of the field. It shall
+        returns the position (in 0 to BoxSize) and velocity (in the
+        same units as position), in chunks as an iterator.
+
     """
     __metaclass__ = PluginMount
     
@@ -91,8 +96,23 @@ class InputPainter:
     def __ne__(self, other):
         return self.string != other.string
 
-    def paint(self, pm):
+    def read(self, comm):
         return NotImplemented    
+
+    def paint(self, pm):
+        pm.real[:] = 0
+        Ntot = 0
+        for position, weight in self.read(pm.comm):
+            layout = pm.decompose(position)
+            position = layout.exchange(position)
+            if weight is None:
+                Ntot += len(position)
+                weight = 1
+            else:
+                weight = layout.exchange(weight)
+                Ntot += weight.sum()
+            pm.paint(position, weight)
+        return pm.comm.allreduce(Ntot)
 
     @classmethod
     def add_parser(kls, name, usage):

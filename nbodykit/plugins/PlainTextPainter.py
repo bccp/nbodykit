@@ -83,8 +83,8 @@ class PlainTextPainter(InputPainter):
             help='row selection based on conditions specified as string')
         h.set_defaults(klass=kls)
     
-    def paint(self, pm):
-        if pm.comm.rank == 0: 
+    def read(self, comm):
+        if comm.rank == 0: 
             # read in the plain text file as a recarray
             kwargs = {}
             kwargs['comments'] = '#'
@@ -111,9 +111,6 @@ class PlainTextPainter(InputPainter):
             pos = numpy.empty(0, dtype=('f4', 3))
             vel = numpy.empty(0, dtype=('f4', 3))
 
-        Ntot = len(pos)
-        Ntot = pm.comm.bcast(Ntot)
-
         # assumed the position values are now in same
         # units as BoxSize
         if self.rsd is not None:
@@ -121,10 +118,5 @@ class PlainTextPainter(InputPainter):
             pos[:, dir] += vel[:, dir]
             pos[:, dir] %= self.BoxSize[dir] # enforce periodic boundary conditions
 
-        layout = pm.decompose(pos)
-        tpos = layout.exchange(pos)
-        pm.paint(tpos)
-
-        npaint = pm.comm.allreduce(len(tpos)) 
-        return Ntot
+        yield (pos, None)
 
