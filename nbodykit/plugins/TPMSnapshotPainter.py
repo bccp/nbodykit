@@ -40,7 +40,9 @@ class TPMSnapshotPainter(InputPainter):
             if comm.rank == 0:
                 logging.info('round %d, nread %d' % (round, len(P['Position'])))
 
+            P['Position'] *= self.BoxSize
             if self.rsd is not None:
+                P['Velocity'] *= self.BoxSize
                 yield (P['Position'], P['Velocity'], None)
             else:
                 yield (P['Position'], None)
