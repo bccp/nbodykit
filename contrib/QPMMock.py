@@ -49,8 +49,7 @@ class QPMMockPainter(InputPainter):
     
     @classmethod
     def register(kls):
-        usage = kls.field_type+":path:BoxSize[:-scaled][:-rsd][:-velf]"
-        h = kls.add_parser(kls.field_type, usage=usage)
+        h = kls.add_parser(kls.field_type)
         
         h.add_argument("path", help="path to file")
         h.add_argument("BoxSize", type=BoxSize_t,

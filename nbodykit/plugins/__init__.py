@@ -38,7 +38,7 @@ def BoxSize_t(value):
     if len(sizes) == 1: sizes = sizes[0]
     boxsize[:] = sizes
     return boxsize
-    
+
 class InputPainter:
     """
     Mount point for plugins which refer to the reading of input files 
@@ -69,7 +69,6 @@ class InputPainter:
     __metaclass__ = PluginMount
     
     from argparse import ArgumentParser
-
     parser = ArgumentParser("", add_help=False)
     subparsers = parser.add_subparsers()
     field_type = None
@@ -130,9 +129,9 @@ class InputPainter:
         return pm.comm.allreduce(Ntot)
 
     @classmethod
-    def add_parser(kls, name, usage):
+    def add_parser(kls, name):
         return kls.subparsers.add_parser(name, 
-                usage=usage, add_help=False)
+                usage=None, add_help=False, formatter_class=HelpFormatterColon)
     
     @classmethod
     def format_help(kls):
@@ -185,6 +184,78 @@ class PowerSpectrumStorage:
 
     def write(self, data, **meta):
         return NotImplemented
+
+from argparse import RawTextHelpFormatter
+class HelpFormatterColon(RawTextHelpFormatter):
+    """ This class is used to format the ':' seperated usage strings """
+    def _format_usage(self, usage, actions, groups, prefix):
+        if prefix is None:
+            prefix = 'usage: '
+
+        # this stripped down version supports no groups
+        assert len(groups) == 0
+
+        prog = '%(prog)s' % dict(prog=self._prog)
+
+        # split optionals from positionals
+        optionals = []
+        positionals = []
+        for action in actions:
+            if action.option_strings:
+                optionals.append(action)
+            else:
+                positionals.append(action)
+
+        # build full usage string
+        format = self._format_actions_usage
+        action_usage = format(positionals + optionals, groups)
+        usage = ''.join([s for s in [prog, action_usage] if s])
+        # prefix with 'usage:'
+        return '%s%s\n\n' % (prefix, usage)
+
+    def _format_actions_usage(self, actions, groups):
+        # collect all actions format strings
+        parts = []
+        for i, action in enumerate(actions):
+
+            # produce all arg strings
+            if not action.option_strings:
+                part = self._format_args(action, action.dest)
+
+                part = ':' + part
+
+                # add the action string to the list
+                parts.append(part)
+
+            # produce the first way to invoke the option in brackets
+            else:
+                option_string = action.option_strings[0]
+
+                # if the Optional doesn't take a value, format is:
+                #    -s or --long
+                if action.nargs == 0:
+                    part = '%s' % option_string
+
+                # if the Optional takes a value, format is:
+                #    -s ARGS or --long ARGS
+                else:
+                    default = action.dest.upper()
+                    args_string = self._format_args(action, default)
+                    part = '%s %s' % (option_string, args_string)
+
+                # make it look optional if it's not required or in a group
+                if not action.required:
+                    part = '[:%s]' % part
+
+                # add the action string to the list
+                parts.append(part)
+
+        # join all the action items with spaces
+        text = ''.join([item for item in parts if item is not None])
+
+        # return the text
+        return text
+
             
 #------------------------------------------------------------------------------          
 import os.path
@@ -214,7 +285,6 @@ def load(filename, namespace=None):
     except Exception as e:
         raise RuntimeError("Failed to load plugin '%s': %s" % (filename, str(e)))
     return namespace
-
 
 builtins = ['TPMSnapshotPainter', 'HaloFilePainter', 'PandasPainter',
             'PlainTextPainter', 'Power1DStorage', 'Power2DStorage']

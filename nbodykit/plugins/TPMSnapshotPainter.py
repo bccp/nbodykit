@@ -10,9 +10,7 @@ class TPMSnapshotPainter(InputPainter):
     @classmethod
     def register(kls):
         
-        args = kls.field_type+":path:BoxSize"
-        options = "[:-rsd=[x|y|z]][:-mom=[x|y|z]"
-        h = kls.add_parser(kls.field_type, usage=args+options)
+        h = kls.add_parser(kls.field_type)
         
         
         h.add_argument("path", help="path to file")

@@ -10,9 +10,7 @@ class CollapsedHaloPainter(InputPainter):
     
     @classmethod
     def register(kls):
-        args = kls.field_type+":pathhalo:BoxSize:logMmin:logMmax:m0:pathmatter:pathlabel"
-        options = "[:-rsd=[x|y|z]]"
-        h = kls.add_parser(kls.field_type, usage=args+options)
+        h = kls.add_parser(kls.field_type)
         
         h.add_argument("pathhalo", help="path to file")
         h.add_argument("BoxSize", type=BoxSize_t,

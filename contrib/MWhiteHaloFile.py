@@ -62,9 +62,7 @@ class MWhiteHaloFilePainter(InputPainter):
     @classmethod
     def register(kls):
         
-        args = kls.field_type+":path:BoxSize"
-        options = "[:-rsd=[x|y|z]][:-select=conditions]"
-        h = kls.add_parser(kls.field_type, usage=args+options)
+        h = kls.add_parser(kls.field_type)
         h.add_argument("path", help="path to file")
         h.add_argument("BoxSize", type=BoxSize_t,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")

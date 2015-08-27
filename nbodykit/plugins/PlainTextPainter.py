@@ -56,10 +56,7 @@ class PlainTextPainter(InputPainter):
     @classmethod
     def register(kls):
         
-        args = kls.field_type+":path:names:BoxSize"
-        options = "[:-usecols= x y z][:-poscols= x y z]\n[:-velcols= vx vy vz]" + \
-                  "[:-rsd=[x|y|z]][:-posf=1.0][:-velf=1.0][:-select=conditions]"
-        h = kls.add_parser(kls.field_type, usage=args+options)
+        h = kls.add_parser(kls.field_type)
         
         h.add_argument("path", help="path to file")
         h.add_argument("names", type=list_str, 
@@ -68,10 +65,13 @@ class PlainTextPainter(InputPainter):
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
         
         h.add_argument("-usecols", type=list_str, 
+            metavar="x y z",
             help="only read these columns from file")
         h.add_argument("-poscols", type=list_str, default=['x','y','z'], 
+            metavar="x y z",
             help="names of the position columns")
         h.add_argument("-velcols", type=list_str, default=None,
+            metavar="vx vy vz",
             help="names of the velocity columns")
         h.add_argument("-rsd", choices="xyz", 
             help="direction to do redshift distortion")
