@@ -22,7 +22,7 @@ class PluginMount(type):
             if hasattr(cls, 'register'):
                 cls.register()
 
-def BoxSize_t(value):
+def BoxSizeParser(value):
     """
     Parse a string of either a single float, or 
     a space-separated string of 3 floats, representing 

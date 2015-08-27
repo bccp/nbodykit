@@ -1,5 +1,5 @@
 import numpy
-from nbodykit.plugins import InputPainter, BoxSize_t
+from nbodykit.plugins import InputPainter, BoxSizeParser
 from nbodykit.utils import selectionlanguage
 import os.path
 import logging
@@ -14,7 +14,7 @@ class PainterPlugin(InputPainter):
         h.add_argument("path", help="path to file")
         h.add_argument("simulation", help="name of simulation", choices=["dmo", "mb2"])
         h.add_argument("type", help="type of objects", choices=["Centrals", "Satellites", "Both"])
-        h.add_argument("BoxSize", type=BoxSize_t,
+        h.add_argument("BoxSize", type=BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
             
         h.add_argument("-rsd", 

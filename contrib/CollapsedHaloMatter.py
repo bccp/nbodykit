@@ -1,4 +1,4 @@
-from nbodykit.plugins import InputPainter, BoxSize_t
+from nbodykit.plugins import InputPainter, BoxSizeParser
 from nbodykit import files
 from itertools import izip
 import numpy
@@ -13,7 +13,7 @@ class CollapsedHaloPainter(InputPainter):
         h = kls.add_parser(kls.field_type)
         
         h.add_argument("pathhalo", help="path to file")
-        h.add_argument("BoxSize", type=BoxSize_t,
+        h.add_argument("BoxSize", type=BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
         h.add_argument("logMmin", type=float, help="log10 min mass")
         h.add_argument("logMmax", type=float, help="log10 max mass")

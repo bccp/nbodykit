@@ -1,4 +1,4 @@
-from nbodykit.plugins import InputPainter, BoxSize_t
+from nbodykit.plugins import InputPainter, BoxSizeParser
 
 import numpy
 import logging
@@ -14,7 +14,7 @@ class HaloFilePainter(InputPainter):
         h       = kls.add_parser(kls.field_type)
         
         h.add_argument("path", help="path to file")
-        h.add_argument("BoxSize", type=BoxSize_t,
+        h.add_argument("BoxSize", type=BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
         h.add_argument("m0", type=float, help="mass mass of a particle")
         h.add_argument("-massweighted", action='store_true', default=False, 
