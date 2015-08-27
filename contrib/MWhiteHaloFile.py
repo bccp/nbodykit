@@ -75,19 +75,22 @@ class MWhiteHaloFilePainter(InputPainter):
             help='row selection based on logmass, e.g. logmass > 13 and logmass < 15')
         h.set_defaults(klass=kls)
     
-    def paint(self, pm):
+    def read(self, columns, comm):
         dtype = numpy.dtype([
-            ('position', ('f4', 3)),
-            ('velocity', ('f4', 3)),
-            ('logmass', 'f4')])
+            ('Position', ('f4', 3)),
+            ('Velocity', ('f4', 3)),
+            ('logmass', 'f4'),
+            ('Mass', 'f4'), ])
             
-        if pm.comm.rank == 0:
+        if comm.rank == 0:
             hf = MWhiteHaloFile(self.path)
             nhalo = hf.nhalo
             data = numpy.empty(nhalo, dtype)
             
-            data['position']= numpy.float32(hf.read_pos())
-            data['velocity']= numpy.float32(hf.read_vel())
+            data['Position']= numpy.float32(hf.read_pos())
+            data['Velocity']= numpy.float32(hf.read_vel())
+            # unweighted!
+            data['Mass'] = 1.0
             data['logmass'] = numpy.log10(numpy.float32(hf.read_mass()))
             
             # select based on selection conditions
@@ -98,21 +101,7 @@ class MWhiteHaloFilePainter(InputPainter):
         else:
             data = numpy.empty(0, dtype=dtype)
 
-        Ntot = len(data)
-        Ntot = pm.comm.bcast(Ntot)
+        data['Position'][:] *= self.BoxSize
+        data['Velocity'][:] *= self.BoxSize
 
-        if self.rsd is not None:
-            dir = 'xyz'.index(self.rsd)
-            data['position'][:, dir] += data['velocity'][:, dir]
-            data['position'][:, dir] %= 1.0 # enforce periodic boundary conditions
-        
-        data['position'][:] *= self.BoxSize
-        
-        
-        
-        layout = pm.decompose(data['position'])
-        tpos = layout.exchange(data['position'])
-        pm.paint(tpos)
-
-        npaint = pm.comm.allreduce(len(tpos)) 
-        return Ntot
+        yield data

@@ -91,8 +91,8 @@ class PandasPainter(InputPainter):
             help='Format of the Pandas storage container. auto is to guess from the file name.')
         h.set_defaults(klass=kls)
     
-    def paint(self, pm):
-        if pm.comm.rank == 0:
+    def read(self, columns, comm):
+        if comm.rank == 0:
             try:
                 import pandas as pd
             except:
@@ -138,20 +138,13 @@ class PandasPainter(InputPainter):
             pos = numpy.empty(0, dtype=('f4', 3))
             vel = numpy.empty(0, dtype=('f4', 3))
 
-        Ntot = len(pos)
-        Ntot = pm.comm.bcast(Ntot)
+        R = {}
+        if 'Position' in columns:
+            R['Position'] = pos
+        if 'Velocity' in columns:
+            R['Velocity'] = vel
+        if 'Mass' in columns:
+            R['Mass'] = None
 
-        # assumed the position values are now in same
-        # units as BoxSize
-        if self.rsd is not None:
-            dir = 'xyz'.index(self.rsd)
-            pos[:, dir] += vel[:, dir]
-            pos[:, dir] %= self.BoxSize[dir] # enforce periodic boundary conditions
-
-        layout = pm.decompose(pos)
-        tpos = layout.exchange(pos)
-        pm.paint(tpos)
-
-        npaint = pm.comm.allreduce(len(tpos)) 
-        return Ntot
+        yield R
 

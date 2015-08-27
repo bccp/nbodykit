@@ -16,9 +16,9 @@ class HaloFilePainter(InputPainter):
         h       = kls.add_parser(kls.field_type, usage=args+options)
         
         h.add_argument("path", help="path to file")
-        h.add_argument("m0", type=float, help="mass mass of a particle")
         h.add_argument("BoxSize", type=BoxSize_t,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
+        h.add_argument("m0", type=float, help="mass mass of a particle")
         h.add_argument("-massweighted", action='store_true', default=False, 
             help="weight halos by mass?")
         h.add_argument("-rsd", choices="xyz", 
@@ -27,20 +27,22 @@ class HaloFilePainter(InputPainter):
             help='row selection based on logmass, e.g. logmass > 13 and logmass < 15')
         h.set_defaults(klass=kls)
     
-    def paint(self, pm):
+    def read(self, columns, comm):
         dtype = numpy.dtype([
-            ('position', ('f4', 3)),
-            ('velocity', ('f4', 3)),
+            ('Position', ('f4', 3)),
+            ('Velocity', ('f4', 3)),
+            ('Mass', ('f4', 3)),
             ('length', 'f4'),
             ('logmass', 'f4')])
         
-        if pm.comm.rank == 0:
+        if comm.rank == 0:
             hf = files.HaloFile(self.path)
             nhalo = hf.nhalo
             data = numpy.empty(nhalo, dtype)
             
-            data['position']= numpy.float32(hf.read('Position'))
-            data['velocity']= numpy.float32(hf.read('Velocity'))
+            data['Position']= numpy.float32(hf.read('Position'))
+            data['Velocity']= numpy.float32(hf.read('Velocity'))
+            data['Mass'] = numpy.float32(hf.read('Mass') * self.m0)
             data['logmass'] = numpy.log10(numpy.float32(hf.read('Mass') * self.m0))
             data['length'] = numpy.float32(hf.read('Mass'))
 
@@ -52,29 +54,13 @@ class HaloFilePainter(InputPainter):
         else:
             data = numpy.empty(0, dtype=dtype)
 
-        if self.massweighted:
-            Ntot = data['length'].sum(dtype='f8')
-        else:
-            Ntot = len(data)
-        Ntot = pm.comm.bcast(Ntot)
+        if not self.massweighted:
+            data['Mass'] = 1.0
 
-        if self.rsd is not None:
-            dir = 'xyz'.index(self.rsd)
-            data['position'][:, dir] += data['velocity'][:, dir]
-            data['position'][:, dir] %= 1.0 # enforce periodic boundary conditions
-        
         # put position into units of BoxSize before gridding
-        data['position'] *= self.BoxSize
-        layout = pm.decompose(data['position'])
-        tpos = layout.exchange(data['position'])
-        tvel = layout.exchange(data['velocity'])
+        data['Position'] *= self.BoxSize
+        # put velocity into units of BoxSize before gridding
+        data['Velocity'] *= self.BoxSize
 
-        if self.massweighted:
-            weight = layout.exchange(data['length'])
-        else:
-            weight = 1
-        pm.paint(tpos, weight)
-
-        npaint = pm.comm.allreduce(len(tpos)) 
-        return Ntot
-
+        yield data
+        
