@@ -1,0 +1,10 @@
+2d      # 1d or 2d
+256     # size of mesh
+../output/power_2d_pandas_hdf.dat  # output
+
+# here are the input files
+Pandas:../data/pandas_data.hdf5:data:1380. \
+:-poscols=x y z \
+:-velcols=vx vy vz \
+:-posf=1380.0:-velf=1380.0 \
+:-rsd=z 
