@@ -111,13 +111,18 @@ class PlainTextPainter(InputPainter):
             pos = numpy.empty(0, dtype=('f4', 3))
             vel = numpy.empty(0, dtype=('f4', 3))
 
-        R = {}
+        P = {}
         if 'Position' in columns:
-            R['Position'] = pos
-        if 'Velocity' in columns:
-            R['Velocity'] = vel
+            P['Position'] = pos
+        if 'Velocity' in columns or self.rsd is not None:
+            P['Velocity'] = vel
         if 'Mass' in columns:
-            R['Mass'] = None
+            P['Mass'] = None
 
-        yield R
+        if self.rsd is not None:
+            dir = "xyz".index(self.rsd)
+            P['Position'][:, dir] += P['Velocity'][:, dir]
+            P['Position'][:, dir] %= self.BoxSize[dir]
+
+        yield P
 

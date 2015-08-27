@@ -36,29 +36,35 @@ class HaloFilePainter(InputPainter):
         if comm.rank == 0:
             hf = files.HaloFile(self.path)
             nhalo = hf.nhalo
-            data = numpy.empty(nhalo, dtype)
+            P = numpy.empty(nhalo, dtype)
             
-            data['Position']= numpy.float32(hf.read('Position'))
-            data['Velocity']= numpy.float32(hf.read('Velocity'))
-            data['Mass'] = numpy.float32(hf.read('Mass') * self.m0)
-            data['logmass'] = numpy.log10(numpy.float32(hf.read('Mass') * self.m0))
-            data['length'] = numpy.float32(hf.read('Mass'))
+            P['Position']= numpy.float32(hf.read('Position'))
+            P['Velocity']= numpy.float32(hf.read('Velocity'))
+            P['Mass'] = numpy.float32(hf.read('Mass') * self.m0)
+            P['logmass'] = numpy.log10(numpy.float32(hf.read('Mass') * self.m0))
+            P['length'] = numpy.float32(hf.read('Mass'))
 
             # select based on selection conditions
             if self.select is not None:
-                mask = self.select.get_mask(data)
-                data = data[mask]
-            logging.info("total number of halos in mass range is %d / %d" % (len(data), nhalo))
+                mask = self.select.get_mask(P)
+                P = P[mask]
+            logging.info("total number of halos in mass range is %d / %d" % (len(P), nhalo))
         else:
-            data = numpy.empty(0, dtype=dtype)
+            P = numpy.empty(0, dtype=dtype)
 
         if not self.massweighted:
-            data['Mass'] = 1.0
+            P['Mass'] = 1.0
 
         # put position into units of BoxSize before gridding
-        data['Position'] *= self.BoxSize
+        P['Position'] *= self.BoxSize
         # put velocity into units of BoxSize before gridding
-        data['Velocity'] *= self.BoxSize
+        P['Velocity'] *= self.BoxSize
 
-        yield data
+        
+        if self.rsd is not None:
+            dir = "xyz".index(self.rsd)
+            P['Position'][:, dir] += P['Velocity'][:, dir]
+            P['Position'][:, dir] %= self.BoxSize[dir]
+
+        yield P
         

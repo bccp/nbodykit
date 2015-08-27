@@ -101,21 +101,12 @@ class InputPainter:
     def paint(self, pm):
         pm.real[:] = 0
         Ntot = 0
-        if self.rsd is not None:
-            chunks = self.read(['Position', 'Velocity', 'Mass'], pm.comm)
-        else:
-            chunks = self.read(['Position', 'Mass'], pm.comm)
+
+        chunks = self.read(['Position', 'Mass'], pm.comm)
 
         for chunk in chunks:
             position = chunk['Position']
             weight = chunk['Mass']
-
-            if self.rsd is not None:
-                velocity = chunk['Velocity']
-                dir = "xyz".index(self.rsd)
-                position[:, dir] += velocity[:, dir]
-                del velocity
-                position[:, dir] %= self.BoxSize[dir]
 
             layout = pm.decompose(position)
             position = layout.exchange(position)

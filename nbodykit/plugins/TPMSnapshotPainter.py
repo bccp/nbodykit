@@ -24,14 +24,24 @@ class TPMSnapshotPainter(InputPainter):
 
     def read(self, columns, comm):
         Ntot = 0
-        if 'Mass' in columns:
-            columns.remove('Mass')
+        # avoid reading Velocity if RSD is not requested.
+        # this is only needed for large data like a TPMSnapshot
+        # for small Pandas reader etc it doesn't take time to
+        # read velocity
+
+        if self.rsd is not None:
+            newcolumns = set(columns + ['Velocity'])
+        else:
+            newcolumns = set(columns)
+
+        if 'Mass' in newcolumns:
+            newcolumns.remove('Mass')
 
         for round, P in enumerate(
                 files.read(comm, 
                     self.path, 
                     files.TPMSnapshotFile, 
-                    columns=columns, 
+                    columns=newcolumns, 
                     bunchsize=self.bunchsize)):
 
             if comm.rank == 0:
@@ -41,6 +51,16 @@ class TPMSnapshotPainter(InputPainter):
             P['Mass'] = None
             if 'Velocity' in P:
                 P['Velocity'] *= self.BoxSize
+
+            if self.rsd is not None:
+                dir = "xyz".index(self.rsd)
+                P['Position'][:, dir] += P['Velocity'][:, dir]
+                P['Position'][:, dir] %= self.BoxSize[dir]
+
+            for key in P:
+                if key not in columns:
+                    del P[key]
+
             yield P
 
 #------------------------------------------------------------------------------

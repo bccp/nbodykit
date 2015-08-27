@@ -83,23 +83,28 @@ class MWhiteHaloFilePainter(InputPainter):
         if comm.rank == 0:
             hf = MWhiteHaloFile(self.path)
             nhalo = hf.nhalo
-            data = numpy.empty(nhalo, dtype)
+            P = numpy.empty(nhalo, dtype)
             
-            data['Position']= numpy.float32(hf.read_pos())
-            data['Velocity']= numpy.float32(hf.read_vel())
+            P['Position']= numpy.float32(hf.read_pos())
+            P['Velocity']= numpy.float32(hf.read_vel())
             # unweighted!
-            data['Mass'] = 1.0
-            data['logmass'] = numpy.log10(numpy.float32(hf.read_mass()))
+            P['Mass'] = 1.0
+            P['logmass'] = numpy.log10(numpy.float32(hf.read_mass()))
             
             # select based on selection conditions
             if self.select is not None:
-                mask = self.select.get_mask(data)
-                data = data[mask]
-            logging.info("total number of halos in mass range is %d / %d" % (len(data), nhalo))
+                mask = self.select.get_mask(P)
+                P = P[mask]
+            logging.info("total number of halos in mass range is %d / %d" % (len(P), nhalo))
         else:
-            data = numpy.empty(0, dtype=dtype)
+            P = numpy.empty(0, dtype=dtype)
 
-        data['Position'][:] *= self.BoxSize
-        data['Velocity'][:] *= self.BoxSize
+        P['Position'][:] *= self.BoxSize
+        P['Velocity'][:] *= self.BoxSize
 
-        yield data
+        if self.rsd is not None:
+            dir = "xyz".index(self.rsd)
+            P['Position'][:, dir] += P['Velocity'][:, dir]
+            P['Position'][:, dir] %= self.BoxSize[dir]
+
+        yield P
