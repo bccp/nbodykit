@@ -98,27 +98,6 @@ class InputPainter:
     def read(self, columns, comm):
         return NotImplemented    
 
-    def paint(self, pm):
-        pm.real[:] = 0
-        Ntot = 0
-
-        chunks = self.read(['Position', 'Mass'], pm.comm)
-
-        for chunk in chunks:
-            position = chunk['Position']
-            weight = chunk['Mass']
-
-            layout = pm.decompose(position)
-            position = layout.exchange(position)
-            if weight is None:
-                Ntot += len(position)
-                weight = 1
-            else:
-                weight = layout.exchange(weight)
-                Ntot += weight.sum()
-            pm.paint(position, weight)
-        return pm.comm.allreduce(Ntot)
-
     @classmethod
     def add_parser(kls, name):
         return kls.subparsers.add_parser(name, 

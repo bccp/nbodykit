@@ -2,6 +2,7 @@ from sys import argv
 from sys import stdout
 from sys import stderr
 import logging
+import warnings
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -96,7 +97,7 @@ def main():
     pm = ParticleMesh(ns.inputs[0].BoxSize, ns.Nmesh, dtype='f4')
 
     # paint first input
-    Ntot1 = ns.inputs[0].paint(pm)
+    Ntot1 = paint(ns.inputs[0], pm)
 
     # painting
     if MPI.COMM_WORLD.rank == 0:
@@ -118,7 +119,7 @@ def main():
             raise ValueError("mismatch in box sizes for cross power measurement")
         
         c1 = pm.complex.copy()
-        Ntot2 = ns.inputs[1].paint(pm)
+        Ntot2 = paint(ns.inputs[1], pm)
 
         if MPI.COMM_WORLD.rank == 0:
             print 'painting 2 done'
@@ -165,4 +166,33 @@ def main():
         storage = plugins.PowerSpectrumStorage.get(ns.mode, ns.output)
         storage.write(result, **meta)
  
+def paint(input, pm):
+    # compatibility with the older painters. 
+    # We need to get rid of them.
+    if hasattr(input, 'paint'):
+        if pm.comm.rank == 0:
+            warnings.warn('paint method of type %s shall be replaced with a read method'
+                % type(input), DeprecationWarning)
+        return input.paint(pm)
+
+    pm.real[:] = 0
+    Ntot = 0
+
+    chunks = input.read(['Position', 'Mass'], pm.comm)
+
+    for chunk in chunks:
+        position = chunk['Position']
+        weight = chunk['Mass']
+
+        layout = pm.decompose(position)
+        position = layout.exchange(position)
+        if weight is None:
+            Ntot += len(position)
+            weight = 1
+        else:
+            weight = layout.exchange(weight)
+            Ntot += weight.sum()
+        pm.paint(position, weight)
+    return pm.comm.allreduce(Ntot)
+
 main()
