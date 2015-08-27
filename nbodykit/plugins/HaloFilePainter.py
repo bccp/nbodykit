@@ -27,10 +27,11 @@ class HaloFilePainter(InputPainter):
             help='row selection based on logmass, e.g. logmass > 13 and logmass < 15')
         h.set_defaults(klass=kls)
     
-    def read(self, comm):
+    def read(self, columns, comm):
         dtype = numpy.dtype([
-            ('position', ('f4', 3)),
-            ('velocity', ('f4', 3)),
+            ('Position', ('f4', 3)),
+            ('Velocity', ('f4', 3)),
+            ('Mass', ('f4', 3)),
             ('length', 'f4'),
             ('logmass', 'f4')])
         
@@ -39,8 +40,9 @@ class HaloFilePainter(InputPainter):
             nhalo = hf.nhalo
             data = numpy.empty(nhalo, dtype)
             
-            data['position']= numpy.float32(hf.read('Position'))
-            data['velocity']= numpy.float32(hf.read('Velocity'))
+            data['Position']= numpy.float32(hf.read('Position'))
+            data['Velocity']= numpy.float32(hf.read('Velocity'))
+            data['Mass'] = numpy.float32(hf.read('Mass') * self.m0)
             data['logmass'] = numpy.log10(numpy.float32(hf.read('Mass') * self.m0))
             data['length'] = numpy.float32(hf.read('Mass'))
 
@@ -52,17 +54,13 @@ class HaloFilePainter(InputPainter):
         else:
             data = numpy.empty(0, dtype=dtype)
 
-        if self.massweighted:
-            weight = data['length']
-        else:
-            weight = None
-        # put position into units of BoxSize before gridding
-        data['position'] *= self.BoxSize
-        # put velocity into units of BoxSize before gridding
-        data['velocity'] *= self.BoxSize
+        if not self.massweighted:
+            data['Mass'] = 1.0
 
-        if self.rsd is not None:
-            yield data['position'].copy(), data['velocity'].copy(), weight
-        else:
-            yield data['position'].copy(), weight
+        # put position into units of BoxSize before gridding
+        data['Position'] *= self.BoxSize
+        # put velocity into units of BoxSize before gridding
+        data['Velocity'] *= self.BoxSize
+
+        yield data
         

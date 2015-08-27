@@ -91,7 +91,7 @@ class PandasPainter(InputPainter):
             help='Format of the Pandas storage container. auto is to guess from the file name.')
         h.set_defaults(klass=kls)
     
-    def read(self, comm):
+    def read(self, columns, comm):
         if comm.rank == 0:
             try:
                 import pandas as pd
@@ -138,8 +138,13 @@ class PandasPainter(InputPainter):
             pos = numpy.empty(0, dtype=('f4', 3))
             vel = numpy.empty(0, dtype=('f4', 3))
 
-        if self.rsd is not None:
-            yield pos, vel, None
-        else:
-            yield pos, None
+        R = {}
+        if 'Position' in columns:
+            R['Position'] = pos
+        if 'Velocity' in columns:
+            R['Velocity'] = vel
+        if 'Mass' in columns:
+            R['Mass'] = None
+
+        yield R
 

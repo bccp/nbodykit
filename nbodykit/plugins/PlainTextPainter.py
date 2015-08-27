@@ -83,7 +83,7 @@ class PlainTextPainter(InputPainter):
             help='row selection based on conditions specified as string')
         h.set_defaults(klass=kls)
     
-    def read(self, comm):
+    def read(self, columns, comm):
         if comm.rank == 0: 
             # read in the plain text file as a recarray
             kwargs = {}
@@ -111,10 +111,13 @@ class PlainTextPainter(InputPainter):
             pos = numpy.empty(0, dtype=('f4', 3))
             vel = numpy.empty(0, dtype=('f4', 3))
 
-        # assumed the position values are now in same
-        # units as BoxSize
-        if self.rsd is not None:
-            yield (pos, vel, None)
-        else:
-            yield (pos, None) 
+        R = {}
+        if 'Position' in columns:
+            R['Position'] = pos
+        if 'Velocity' in columns:
+            R['Velocity'] = vel
+        if 'Mass' in columns:
+            R['Mass'] = None
+
+        yield R
 

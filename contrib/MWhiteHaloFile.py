@@ -75,19 +75,22 @@ class MWhiteHaloFilePainter(InputPainter):
             help='row selection based on logmass, e.g. logmass > 13 and logmass < 15')
         h.set_defaults(klass=kls)
     
-    def read(self, comm):
+    def read(self, columns, comm):
         dtype = numpy.dtype([
-            ('position', ('f4', 3)),
-            ('velocity', ('f4', 3)),
-            ('logmass', 'f4')])
+            ('Position', ('f4', 3)),
+            ('Velocity', ('f4', 3)),
+            ('logmass', 'f4'),
+            ('Mass', 'f4'), ])
             
         if comm.rank == 0:
             hf = MWhiteHaloFile(self.path)
             nhalo = hf.nhalo
             data = numpy.empty(nhalo, dtype)
             
-            data['position']= numpy.float32(hf.read_pos())
-            data['velocity']= numpy.float32(hf.read_vel())
+            data['Position']= numpy.float32(hf.read_pos())
+            data['Velocity']= numpy.float32(hf.read_vel())
+            # unweighted!
+            data['Mass'] = 1.0
             data['logmass'] = numpy.log10(numpy.float32(hf.read_mass()))
             
             # select based on selection conditions
@@ -98,9 +101,7 @@ class MWhiteHaloFilePainter(InputPainter):
         else:
             data = numpy.empty(0, dtype=dtype)
 
-        data['position'][:] *= self.BoxSize
-        data['velocity'][:] *= self.BoxSize
-        if self.rsd is not None:
-            yield data['position'].copy(), data['velocity'].copy(), None
-        else:
-            yield data['position'].copy(), None 
+        data['Position'][:] *= self.BoxSize
+        data['Velocity'][:] *= self.BoxSize
+
+        yield data

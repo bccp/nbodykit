@@ -24,12 +24,11 @@ class TPMSnapshotPainter(InputPainter):
             help='Number of particles to read per rank. A larger number usually means faster IO, but less memory for the FFT mesh')
         h.set_defaults(klass=kls)
 
-    def read(self, comm):
+    def read(self, columns, comm):
         Ntot = 0
-        columns = ['Position']
-        if self.rsd is not None:
-            columns.append('Velocity')
-            
+        if 'Mass' in columns:
+            columns.remove('Mass')
+
         for round, P in enumerate(
                 files.read(comm, 
                     self.path, 
@@ -41,11 +40,9 @@ class TPMSnapshotPainter(InputPainter):
                 logging.info('round %d, nread %d' % (round, len(P['Position'])))
 
             P['Position'] *= self.BoxSize
-            if self.rsd is not None:
+            P['Mass'] = None
+            if 'Velocity' in P:
                 P['Velocity'] *= self.BoxSize
-                yield (P['Position'], P['Velocity'], None)
-            else:
-                yield (P['Position'], None)
-
+            yield P
 
 #------------------------------------------------------------------------------
