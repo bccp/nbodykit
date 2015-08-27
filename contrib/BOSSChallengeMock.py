@@ -16,7 +16,6 @@ class BOSSChallengeMockPainter(InputPainter):
     * first three columns are `x`, `y`, `z`
     * data is assumed to be in redshift-space, with `z` (last axis) 
     giving the LOS axis
-
     
     Parameters
     ----------
@@ -85,6 +84,7 @@ class BOSSChallengeMockPainter(InputPainter):
             if pm.comm.rank == 0:
                 logging.info("multiplying by qperp = %.5f" %self.qperp)
                 logging.info("multiplying by qpar = %.5f" %self.qpar)
+
             # scale the coordinates
             pos[:,0:2] *= self.qperp
             pos[:,-1] *= self.qpar
@@ -103,8 +103,8 @@ class BOSSChallengeBoxAPainter(BOSSChallengeMockPainter):
     
 class BOSSChallengeBoxBPainter(BOSSChallengeMockPainter):
     field_type = 'BOSSChallengeBoxB'
-    qperp = 0.9875682111
-    qpar = 0.9751013789
+    qperp = 0.998753592
+    qpar = 0.9975277944
     
 class BOSSChallengeBoxCPainter(BOSSChallengeMockPainter):
     field_type = 'BOSSChallengeBoxC'
