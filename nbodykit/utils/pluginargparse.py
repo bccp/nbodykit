@@ -97,3 +97,93 @@ class PluginArgumentParser(ArgumentParser):
         if len(store) > 0: 
             yield ''.join(store)
 
+from argparse import RawTextHelpFormatter
+
+class HelpFormatterColon(RawTextHelpFormatter):
+    """ This class is used to format the ':' seperated usage strings """
+    def _format_usage(self, usage, actions, groups, prefix):
+        if prefix is None:
+            prefix = 'usage: '
+
+        # this stripped down version supports no groups
+        assert len(groups) == 0
+
+        prog = '%(prog)s' % dict(prog=self._prog)
+
+        # split optionals from positionals
+        optionals = []
+        positionals = []
+        for action in actions:
+            if action.option_strings:
+                optionals.append(action)
+            else:
+                positionals.append(action)
+
+        # build full usage string
+        format = self._format_actions_usage
+        action_usage = format(positionals + optionals, groups)
+        usage = ''.join([s for s in [prog, action_usage] if s])
+        # prefix with 'usage:'
+        return '%s%s\n\n' % (prefix, usage)
+
+    def _format_actions_usage(self, actions, groups):
+        # collect all actions format strings
+        parts = []
+        for i, action in enumerate(actions):
+
+            # produce all arg strings
+            if not action.option_strings:
+                part = self._format_args(action, action.dest)
+
+                part = ':' + part
+
+                # add the action string to the list
+                parts.append(part)
+
+            # produce the first way to invoke the option in brackets
+            else:
+                option_string = action.option_strings[0]
+
+                # if the Optional doesn't take a value, format is:
+                #    -s or --long
+                if action.nargs == 0:
+                    part = '%s' % option_string
+
+                # if the Optional takes a value, format is:
+                #    -s ARGS or --long ARGS
+                else:
+                    default = action.dest.upper()
+                    args_string = self._format_args(action, default)
+                    part = '%s %s' % (option_string, args_string)
+
+                # make it look optional if it's not required or in a group
+                if not action.required:
+                    part = '[:%s]' % part
+
+                # add the action string to the list
+                parts.append(part)
+
+        # join all the action items with spaces
+        text = ''.join([item for item in parts if item is not None])
+
+        # return the text
+        return text
+
+import numpy
+def BoxSizeParser(value):
+    """
+    Parse a string of either a single float, or 
+    a space-separated string of 3 floats, representing 
+    a box size. Designed to be used by the Painter plugins
+    
+    Returns
+    -------
+    BoxSize : array_like
+        an array of size 3 giving the box size in each dimension
+    """
+    boxsize = numpy.empty(3, dtype='f8')
+    sizes = map(float, value.split())
+    if len(sizes) == 1: sizes = sizes[0]
+    boxsize[:] = sizes
+    return boxsize
+

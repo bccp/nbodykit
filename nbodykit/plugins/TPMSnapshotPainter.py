@@ -1,5 +1,5 @@
-from nbodykit.plugins import InputPainter, BoxSizeParser
-
+from nbodykit.plugins import InputPainter
+from nbodykit.utils.pluginargparse import BoxSizeParser
 from nbodykit import files 
 import logging
 
