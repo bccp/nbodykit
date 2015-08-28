@@ -1,5 +1,6 @@
 import numpy
-from nbodykit.plugins import InputPainter, BoxSizeParser
+from nbodykit.plugins import InputPainter
+from nbodykit.utils.pluginargparse import BoxSizeParser
 from nbodykit.utils import selectionlanguage
 import os.path
 import logging
