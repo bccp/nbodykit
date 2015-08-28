@@ -119,7 +119,7 @@ class QPMMockDataSource(DataSource):
         P['Velocity'] = vel
         P['Mass'] = None
 
-        yield P
+        yield [P[key] for key in columns]
 
     
 

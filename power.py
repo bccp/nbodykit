@@ -181,11 +181,8 @@ def paint(input, pm):
     pm.real[:] = 0
     Ntot = 0
 
-    chunks = input.read(['Position', 'Mass'], pm.comm, ns.bunchsize)
 
-    for chunk in chunks:
-        position = chunk['Position']
-        weight = chunk['Mass']
+    for position, weight in input.read(['Position', 'Mass'], pm.comm, ns.bunchsize):
 
         layout = pm.decompose(position)
         position = layout.exchange(position)

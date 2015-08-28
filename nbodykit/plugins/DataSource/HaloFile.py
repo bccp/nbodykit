@@ -66,5 +66,5 @@ class HaloFileDataSource(DataSource):
             P['Position'][:, dir] += P['Velocity'][:, dir]
             P['Position'][:, dir] %= self.BoxSize[dir]
 
-        yield P
+        yield [P[key] for key in columns]
         

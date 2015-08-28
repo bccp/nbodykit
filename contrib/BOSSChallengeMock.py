@@ -91,7 +91,7 @@ class BOSSChallengeMockDataSource(DataSource):
         P['Position'] = pos
         P['Mass'] = None
 
-        yield P
+        yield [P[key] for key in columns]
         
 class BOSSChallengeBoxADataSource(BOSSChallengeMockDataSource):
     field_type = 'BOSSChallengeBoxA'

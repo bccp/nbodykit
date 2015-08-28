@@ -66,6 +66,6 @@ class CollapsedHaloDataSource(DataSource):
             if comm.rank == 0:
                 logging.info('round %d, nread %d' % (round, nread))
 
-            yield P
+            yield [P[key] for key in columns]
 
 

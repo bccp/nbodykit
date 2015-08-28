@@ -39,9 +39,10 @@ class TPMSnapshotDataSource(DataSource):
                     bunchsize=bunchsize)):
 
             if comm.rank == 0:
-                logging.info('round %d, nread %d' % (round, len(P['Position'])))
+                logging.info('round %d, nread %d' % (round, len(P[P.keys()[0]])))
 
-            P['Position'] *= self.BoxSize
+            if 'Position' in P:
+                P['Position'] *= self.BoxSize
             P['Mass'] = None
             if 'Velocity' in P:
                 P['Velocity'] *= self.BoxSize
@@ -51,10 +52,6 @@ class TPMSnapshotDataSource(DataSource):
                 P['Position'][:, dir] += P['Velocity'][:, dir]
                 P['Position'][:, dir] %= self.BoxSize[dir]
 
-            for key in P:
-                if key not in columns:
-                    del P[key]
-
-            yield P
+            yield [P[key] for key in columns]
 
 #------------------------------------------------------------------------------
