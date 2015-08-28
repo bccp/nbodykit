@@ -1,4 +1,4 @@
-from nbodykit.plugins import InputPainter
+from nbodykit.plugins import DataSource
 from nbodykit.utils.pluginargparse import BoxSizeParser
 import numpy
 import logging
@@ -57,7 +57,7 @@ class MWhiteHaloFile(object):
             
             
 #------------------------------------------------------------------------------          
-class MWhiteHaloFilePainter(InputPainter):
+class MWhiteHaloFilePainter(DataSource):
     field_type = "MWhiteHaloFile"
     
     @classmethod

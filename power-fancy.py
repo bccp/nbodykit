@@ -34,8 +34,8 @@ parser.add_argument("output", help='write power to this file. set as `-` for std
 
 # add the input field types
 h = "one or two input fields, specified as:\n\n"
-parser.add_argument("inputs", nargs="+", type=plugins.InputPainter.parse, 
-                    help=h+plugins.InputPainter.format_help())
+parser.add_argument("inputs", nargs="+", type=plugins.DataSource.parse, 
+                    help=h+plugins.DataSource.format_help())
 
 # add the optional arguments
 parser.add_argument("--binshift", type=float, default=0.0,

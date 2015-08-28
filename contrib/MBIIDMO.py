@@ -1,11 +1,11 @@
 import numpy
-from nbodykit.plugins import InputPainter
+from nbodykit.plugins import DataSource
 from nbodykit.utils.pluginargparse import BoxSizeParser
 from nbodykit.utils import selectionlanguage
 import os.path
 import logging
 
-class PainterPlugin(InputPainter):
+class PainterPlugin(DataSource):
     field_type = "MBIIDMO"
     
     @classmethod

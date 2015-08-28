@@ -1,4 +1,4 @@
-from nbodykit.plugins import InputPainter
+from nbodykit.plugins import DataSource
 from nbodykit.utils.pluginargparse import BoxSizeParser
 
 import numpy
@@ -6,7 +6,7 @@ import logging
 from nbodykit import files 
 from nbodykit.utils import selectionlanguage
   
-class HaloFilePainter(InputPainter):
+class HaloFilePainter(DataSource):
     field_type = "HaloFile"
     
     @classmethod

@@ -1,9 +1,9 @@
-from nbodykit.plugins import InputPainter
+from nbodykit.plugins import DataSource
 from nbodykit.utils.pluginargparse import BoxSizeParser
 import numpy
 import logging
          
-class QPMMockPainter(InputPainter):
+class QPMMockPainter(DataSource):
     """
     Class to read data from the DR12 BOSS QPM periodic box 
     mocks, which are stored as a plain text ASCII file, and 

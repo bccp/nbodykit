@@ -1,4 +1,4 @@
-from nbodykit.plugins import InputPainter
+from nbodykit.plugins import DataSource
 from nbodykit.utils.pluginargparse import BoxSizeParser
 import numpy
 import logging
@@ -7,7 +7,7 @@ from nbodykit.utils import selectionlanguage
 def list_str(value):
     return value.split()
          
-class PandasPainter(InputPainter):
+class PandasPainter(DataSource):
     """
     Class to read field data from a Pandas data file
     and paint the field onto a density grid. 

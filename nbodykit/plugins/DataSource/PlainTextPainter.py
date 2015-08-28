@@ -1,4 +1,4 @@
-from nbodykit.plugins import InputPainter
+from nbodykit.plugins import DataSource
 from nbodykit.utils.pluginargparse import BoxSizeParser
 
 import numpy
@@ -8,7 +8,7 @@ from nbodykit.utils import selectionlanguage
 def list_str(value):
     return value.split()
 
-class PlainTextPainter(InputPainter):
+class PlainTextPainter(DataSource):
     """
     Class to read field data from a plain text ASCII file
     and paint the field onto a density grid. The data is read

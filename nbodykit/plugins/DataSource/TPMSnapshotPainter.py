@@ -1,10 +1,10 @@
-from nbodykit.plugins import InputPainter
+from nbodykit.plugins import DataSource
 from nbodykit.utils.pluginargparse import BoxSizeParser
 from nbodykit import files 
 import logging
 
 #------------------------------------------------------------------------------
-class TPMSnapshotPainter(InputPainter):
+class TPMSnapshotPainter(DataSource):
     field_type = "TPMSnapshot"
     
     @classmethod

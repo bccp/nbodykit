@@ -29,7 +29,7 @@ class PluginMount(type):
             if hasattr(cls, 'register'):
                 cls.register()
 
-class InputPainter:
+class DataSource:
     """
     Mount point for plugins which refer to the reading of input files 
     and the subsequent painting of those fields.

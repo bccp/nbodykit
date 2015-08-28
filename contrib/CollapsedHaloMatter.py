@@ -1,4 +1,4 @@
-from nbodykit.plugins import InputPainter
+from nbodykit.plugins import DataSource
 from nbodykit.utils.pluginargparse import BoxSizeParser
 from nbodykit import files
 from itertools import izip
@@ -6,7 +6,7 @@ import numpy
 import logging
 
 #------------------------------------------------------------------------------          
-class CollapsedHaloPainter(InputPainter):
+class CollapsedHaloPainter(DataSource):
     field_type = "CollapsedHaloMatter"
     
     @classmethod
