@@ -12,11 +12,18 @@ class PluginMount(type):
 
         # only executes when processing the mount point itself.
         if not hasattr(cls, 'plugins'):
-            cls.plugins = []
+            cls.plugins = {}
         # called for each plugin, which already has 'plugins' list
         else:
+            if not hasattr(cls, 'field_type'):
+                raise RuntimeError("Plugin class must carry a field_type.")
+
+            if cls.field_type in cls.plugins:
+                raise RuntimeError("Plugin class %s already registered with %s"
+                    % (cls.field_type, str(type(cls))))
+
             # track names of classes
-            cls.plugins.append(cls)
+            cls.plugins[cls.field_type] = cls
             
             # try to call register class method
             if hasattr(cls, 'register'):
@@ -51,26 +58,28 @@ class InputPainter:
     """
     __metaclass__ = PluginMount
     
-    from argparse import ArgumentParser
-    parser = ArgumentParser("", add_help=False)
-    subparsers = parser.add_subparsers()
     field_type = None
 
-    def __init__(self, dict):
-        self.__dict__.update(dict)
+    def __init__(self, args):
+        ns = self.parser.parse_args(args)
+        self.__dict__.update(ns.__dict__)
 
     @classmethod
-    def parse(kls, string): 
-        words = string.split(':')
+    def open(kls, connection): 
+        """ opens a file based on the connection string 
+
+            Parameters
+            ----------
+            connection: string
+                A colon (:) separated string of arguments.
+                The first field is the type of the connection.
+                The reset depends on the type of the conntection.
+        """
+        words = connection.split(':')
         
-        ns = kls.parser.parse_args(words)
-        klass = ns.klass
-        d = ns.__dict__
-        # break the cycle
-        del d['klass']
-        d['string'] = string
-        painter = klass(d)
-        return painter
+        klass = kls.plugins[words[0]]
+        self = klass(words[1:])
+        return self
 
     def __eq__(self, other):
         return self.string == other.string
@@ -82,18 +91,19 @@ class InputPainter:
         return NotImplemented    
 
     @classmethod
-    def add_parser(kls, name):
+    def add_parser(kls):
         from ..utils.pluginargparse import HelpFormatterColon
-        return kls.subparsers.add_parser(name, 
+        from argparse import ArgumentParser
+        kls.parser = ArgumentParser(kls.field_type, 
                 usage=None, add_help=False, formatter_class=HelpFormatterColon)
-    
+        return kls.parser
+
     @classmethod
     def format_help(kls):
         
         rt = []
-        for plugin in kls.plugins:
-            k = plugin.field_type
-            rt.append(kls.subparsers.choices[k].format_help())
+        for k in kls.plugins:
+            rt.append(kls.plugins[k].parser.format_help())
 
         if not len(rt):
             return "No available input field types"
@@ -118,7 +128,7 @@ class PowerSpectrumStorage:
         kls.klasses[klass.field_type] = klass
 
     @classmethod
-    def get(kls, dim, path):
+    def new(kls, dim, path):
         klass = kls.klasses[dim]
         obj = klass(path)
         return obj
@@ -143,7 +153,7 @@ class PowerSpectrumStorage:
 import os.path
 
 def load(filename, namespace=None):
-    """ An adapter for ArgumentParser to load a plugin.
+    """ load a plugin from filename.
         
         Parameters
         ----------

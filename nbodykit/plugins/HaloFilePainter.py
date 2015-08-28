@@ -12,7 +12,7 @@ class HaloFilePainter(InputPainter):
     @classmethod
     def register(kls):
         
-        h       = kls.add_parser(kls.field_type)
+        h       = kls.add_parser()
         
         h.add_argument("path", help="path to file")
         h.add_argument("BoxSize", type=BoxSizeParser,
@@ -24,7 +24,6 @@ class HaloFilePainter(InputPainter):
             help="direction to do redshift distortion")
         h.add_argument("-select", default=None, type=selectionlanguage.Query,
             help='row selection based on logmass, e.g. logmass > 13 and logmass < 15')
-        h.set_defaults(klass=kls)
     
     def read(self, columns, comm):
         dtype = numpy.dtype([

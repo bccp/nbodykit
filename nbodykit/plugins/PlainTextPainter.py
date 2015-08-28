@@ -57,7 +57,7 @@ class PlainTextPainter(InputPainter):
     @classmethod
     def register(kls):
         
-        h = kls.add_parser(kls.field_type)
+        h = kls.add_parser()
         
         h.add_argument("path", help="path to file")
         h.add_argument("names", type=list_str, 
@@ -82,7 +82,6 @@ class PlainTextPainter(InputPainter):
             help="factor to scale the velocities")
         h.add_argument("-select", default=None, type=selectionlanguage.Query, 
             help='row selection based on conditions specified as string')
-        h.set_defaults(klass=kls)
     
     def read(self, columns, comm):
         if comm.rank == 0: 

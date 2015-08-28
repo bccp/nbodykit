@@ -10,7 +10,7 @@ class TPMSnapshotPainter(InputPainter):
     @classmethod
     def register(kls):
         
-        h = kls.add_parser(kls.field_type)
+        h = kls.add_parser()
         
         
         h.add_argument("path", help="path to file")
@@ -20,7 +20,6 @@ class TPMSnapshotPainter(InputPainter):
             choices="xyz", default=None, help="direction to do redshift distortion")
         h.add_argument("-bunchsize", type=int, default=1024*1024*4,
             help='Number of particles to read per rank. A larger number usually means faster IO, but less memory for the FFT mesh')
-        h.set_defaults(klass=kls)
 
     def read(self, columns, comm):
         Ntot = 0

@@ -42,14 +42,13 @@ class BOSSChallengeMockPainter(InputPainter):
     
     @classmethod
     def register(kls):
-        h = kls.add_parser(kls.field_type)
+        h = kls.add_parser()
         
         h.add_argument("path", help="path to file")
         h.add_argument("BoxSize", type=BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
         h.add_argument("-scaled", action='store_true', 
             help='rescale the parallel and perp coordinates by the AP factor')
-        h.set_defaults(klass=kls)
     
     def paint(self, pm):
         if pm.comm.rank == 0:

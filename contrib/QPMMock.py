@@ -49,7 +49,7 @@ class QPMMockPainter(InputPainter):
     
     @classmethod
     def register(kls):
-        h = kls.add_parser(kls.field_type)
+        h = kls.add_parser()
         
         h.add_argument("path", help="path to file")
         h.add_argument("BoxSize", type=BoxSizeParser,
@@ -61,7 +61,6 @@ class QPMMockPainter(InputPainter):
             help="direction to do redshift distortion")
         h.add_argument("-velf", default=1., type=float, 
             help="factor to scale the velocities")
-        h.set_defaults(klass=kls)
     
     def paint(self, pm):
         if pm.comm.rank == 0:

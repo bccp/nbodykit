@@ -9,7 +9,7 @@ class PainterPlugin(InputPainter):
     
     @classmethod
     def register(kls):
-        h = kls.add_parser(kls.field_type)
+        h = kls.add_parser()
         
         h.add_argument("path", help="path to file")
         h.add_argument("simulation", help="name of simulation", choices=["dmo", "mb2"])
@@ -25,7 +25,6 @@ class PainterPlugin(InputPainter):
                 help="factor to scale the velocities", type=float)
         h.add_argument("-select", default=None, type=selectionlanguage.Query,
             help="row selection based on logmass or subtype, e.g. logmass > 13 and logmass < 15 and subtype == 'A'")
-        h.set_defaults(klass=kls)
 
     def read_block(self, block, dtype, optional=False):
             

@@ -62,10 +62,7 @@ class PandasPainter(InputPainter):
     @classmethod
     def register(kls):
         
-        args = kls.field_type+":path:names:BoxSize"
-        options = "[:-usecols= x y z][:-poscols= x y z]\n[:-velcols= vx vy vz]" + \
-                  "[:-rsd=[x|y|z]][:-posf=1.0][:-velf=1.0][:-select=conditions]"
-        h = kls.add_parser(kls.field_type)
+        h = kls.add_parser()
         
         h.add_argument("path", help="path to file")
         h.add_argument("names", type=list_str, 
@@ -92,7 +89,6 @@ class PandasPainter(InputPainter):
             help='row selection based on conditions specified as string')
         h.add_argument("-ftype", default='auto', choices=['hdf5', 'text', 'auto'], 
             help='Format of the Pandas storage container. auto is to guess from the file name.')
-        h.set_defaults(klass=kls)
     
     def read(self, columns, comm):
         if comm.rank == 0:

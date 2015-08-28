@@ -63,7 +63,7 @@ class MWhiteHaloFilePainter(InputPainter):
     @classmethod
     def register(kls):
         
-        h = kls.add_parser(kls.field_type)
+        h = kls.add_parser()
         h.add_argument("path", help="path to file")
         h.add_argument("BoxSize", type=BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
@@ -72,7 +72,6 @@ class MWhiteHaloFilePainter(InputPainter):
             choices="xyz", help="direction to do redshift distortion")
         h.add_argument("-select", default=None, type=selectionlanguage.Query,
             help='row selection based on logmass, e.g. logmass > 13 and logmass < 15')
-        h.set_defaults(klass=kls)
     
     def read(self, columns, comm):
         dtype = numpy.dtype([

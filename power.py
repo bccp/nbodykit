@@ -38,7 +38,7 @@ parser.add_argument("output", help='write power to this file. set as `-` for std
 
 # add the input field types
 h = "one or two input fields, specified as:\n\n"
-parser.add_argument("inputs", nargs="+", type=plugins.InputPainter.parse, 
+parser.add_argument("inputs", nargs="+", type=plugins.InputPainter.open, 
                     help=h+plugins.InputPainter.format_help())
 
 # add the optional arguments
@@ -164,7 +164,7 @@ def main():
         
     if MPI.COMM_WORLD.rank == 0:
         print 'measure'
-        storage = plugins.PowerSpectrumStorage.get(ns.mode, ns.output)
+        storage = plugins.PowerSpectrumStorage.new(ns.mode, ns.output)
         storage.write(result, **meta)
  
 def paint(input, pm):
