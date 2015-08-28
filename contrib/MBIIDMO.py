@@ -44,20 +44,21 @@ class PainterPlugin(InputPainter):
                 return numpy.nan
             
             
-    def paint(self, pm):
+    def read(self, columns, comm):
         dtype = numpy.dtype([
-                ('position', ('f4', 3)),
-                ('velocity', ('f4', 3)),
+                ('Position', ('f4', 3)),
+                ('Velocity', ('f4', 3)),
+                ('Mass', 'f4'),
                 ('logmass', 'f8'), 
                 ('subtype', 'S1'),
                 ('magnitude', ('f8', 5))])
                 
-        if pm.comm.rank == 0:
+        if comm.rank == 0:
             
             pos = self.read_block('pos', dtype['position'])
             data = numpy.empty(len(pos), dtype=dtype)
-            data['position'] = pos
-            data['velocity'] = self.read_block('vel', dtype['velocity'])
+            data['Position'] = pos
+            data['Velocity'] = self.read_block('vel', dtype['velocity'])
             data['logmass'] = numpy.log10(self.read_block('mass', dtype['logmass']))
             data['subtype'] = self.read_block('subtype', dtype['subtype'], optional=True)
             data['magnitude'] = self.read_block('magnitude', dtype['magnitude'], optional=True)
@@ -68,22 +69,15 @@ class PainterPlugin(InputPainter):
                 data = data[mask]
             logging.info("total number of galaxies selected is %d / %d" % (len(data), len(pos)))
 
-            data['position'] *= self.posf
-            data['velocity'] *= self.velf
+            data['Position'] *= self.posf
+            data['Velocity'] *= self.velf
+            data['Mass'] = 1.0
         else:
             data = numpy.empty(0, dtype=dtype)
 
-        Ntot = len(data)
-        Ntot = pm.comm.bcast(Ntot)
-
         if self.rsd is not None:
             dir = 'xyz'.index(self.rsd)
-            data['position'][:, dir] += data['velocity'][:, dir]
-            data['position'][:, dir] %= self.BoxSize[dir] # enforce periodic boundary conditions
+            data['Position'][:, dir] += data['Velocity'][:, dir]
+            data['Position'][:, dir] %= self.BoxSize[dir] # enforce periodic boundary conditions
 
-        layout = pm.decompose(data['position'])
-        tpos = layout.exchange(data['position'])
-        pm.paint(tpos)
-
-        npaint = pm.comm.allreduce(len(tpos)) 
-        return Ntot
+        yield data

@@ -50,8 +50,8 @@ class BOSSChallengeMockPainter(InputPainter):
         h.add_argument("-scaled", action='store_true', 
             help='rescale the parallel and perp coordinates by the AP factor')
     
-    def paint(self, pm):
-        if pm.comm.rank == 0:
+    def read(self, columns, comm):
+        if comm.rank == 0:
             try:
                 import pandas as pd
             except:
@@ -74,25 +74,23 @@ class BOSSChallengeMockPainter(InputPainter):
         else:
             pos = numpy.empty(0, dtype=('f4', 3))
 
-        Ntot = len(pos)
-        Ntot = pm.comm.bcast(Ntot)
-
         # assumed the position values are now in same
         # units as BoxSize 
         if self.scaled:
-            if pm.comm.rank == 0:
+            if comm.rank == 0:
                 logging.info("multiplying by qperp = %.5f" %self.qperp)
                 logging.info("multiplying by qpar = %.5f" %self.qpar)
             # scale the coordinates
             pos[:,0:2] *= self.qperp
             pos[:,-1] *= self.qpar
 
-        layout = pm.decompose(pos)
-        tpos = layout.exchange(pos)
-        pm.paint(tpos)
+        if 'Velocity' in columns:
+            raise KeyError("Velocity is not supported")
+        P = {}
+        P['Position'] = pos
+        P['Mass'] = None
 
-        npaint = pm.comm.allreduce(len(tpos)) 
-        return Ntot
+        yield P
         
 class BOSSChallengeBoxAPainter(BOSSChallengeMockPainter):
     field_type = 'BOSSChallengeBoxA'

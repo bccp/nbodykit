@@ -62,8 +62,8 @@ class QPMMockPainter(InputPainter):
         h.add_argument("-velf", default=1., type=float, 
             help="factor to scale the velocities")
     
-    def paint(self, pm):
-        if pm.comm.rank == 0:
+    def read(self, columns, comm):
+        if comm.rank == 0:
             try:
                 import pandas as pd
             except:
@@ -90,9 +90,6 @@ class QPMMockPainter(InputPainter):
             pos = numpy.empty(0, dtype=('f4', 3))
             vel = numpy.empty(0, dtype=('f4', 3))
 
-        Ntot = len(pos)
-        Ntot = pm.comm.bcast(Ntot)
-
         # go to redshift-space and wrap periodically
         if self.rsd is not None:
             dir = 'xyz'.index(self.rsd)
@@ -101,14 +98,14 @@ class QPMMockPainter(InputPainter):
         
         # rescale by AP factor
         if self.scaled:
-            if pm.comm.rank == 0:
+            if comm.rank == 0:
                 logging.info("multiplying by qperp = %.5f" %self.qperp)
  
             # rescale positions and volume
             if self.rsd is None:
                 pos *= self.qperp
             else:
-                if pm.comm.rank == 0:
+                if comm.rank == 0:
                     logging.info("multiplying by qpar = %.5f" %self.qpar)
                 for i in [0,1,2]:
                     if i == dir:
@@ -116,13 +113,12 @@ class QPMMockPainter(InputPainter):
                     else:
                         pos[:,i] *= self.qperp
 
-        layout = pm.decompose(pos)
-        tpos = layout.exchange(pos)
-        pm.paint(tpos)
+        P = {}
+        P['Position'] = pos
+        P['Velocity'] = vel
+        P['Mass'] = None
 
-        npaint = pm.comm.allreduce(len(tpos)) 
-        return Ntot
-
+        yield P
 
     
 
