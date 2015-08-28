@@ -4,7 +4,7 @@ from nbodykit import files
 import logging
 
 #------------------------------------------------------------------------------
-class TPMSnapshotPainter(DataSource):
+class TPMSnapshotDataSource(DataSource):
     field_type = "TPMSnapshot"
     
     @classmethod

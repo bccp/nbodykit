@@ -6,7 +6,7 @@ import logging
 from nbodykit import files 
 from nbodykit.utils import selectionlanguage
   
-class HaloFilePainter(DataSource):
+class HaloFileDataSource(DataSource):
     field_type = "HaloFile"
     
     @classmethod
