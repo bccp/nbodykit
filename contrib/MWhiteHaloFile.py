@@ -57,7 +57,7 @@ class MWhiteHaloFile(object):
             
             
 #------------------------------------------------------------------------------          
-class MWhiteHaloFilePainter(DataSource):
+class MWhiteHaloFileDataSource(DataSource):
     field_type = "MWhiteHaloFile"
     
     @classmethod

@@ -5,7 +5,7 @@ from nbodykit.utils import selectionlanguage
 import os.path
 import logging
 
-class PainterPlugin(DataSource):
+class DataSourcePlugin(DataSource):
     field_type = "MBIIDMO"
     
     @classmethod

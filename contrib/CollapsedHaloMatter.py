@@ -6,7 +6,7 @@ import numpy
 import logging
 
 #------------------------------------------------------------------------------          
-class CollapsedHaloPainter(DataSource):
+class CollapsedHaloDataSource(DataSource):
     field_type = "CollapsedHaloMatter"
     
     @classmethod

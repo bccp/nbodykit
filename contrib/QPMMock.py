@@ -3,7 +3,7 @@ from nbodykit.utils.pluginargparse import BoxSizeParser
 import numpy
 import logging
          
-class QPMMockPainter(DataSource):
+class QPMMockDataSource(DataSource):
     """
     Class to read data from the DR12 BOSS QPM periodic box 
     mocks, which are stored as a plain text ASCII file, and 
@@ -32,7 +32,7 @@ class QPMMockPainter(DataSource):
     qperp = 0.9925056798
     
     def __init__(self, d):
-        super(QPMMockPainter, self).__init__(d)
+        super(QPMMockDataSource, self).__init__(d)
         self._BoxSize0 = self.BoxSize.copy()
         
         # rescale the box size, if scaled = True
@@ -68,7 +68,7 @@ class QPMMockPainter(DataSource):
             try:
                 import pandas as pd
             except:
-                raise ImportError("pandas must be installed to use QPMMockPainter")
+                raise ImportError("pandas must be installed to use QPMMockDataSource")
                 
             # read in the plain text file using pandas
             kwargs = {}

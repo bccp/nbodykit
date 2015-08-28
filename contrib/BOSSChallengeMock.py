@@ -3,7 +3,7 @@ from nbodykit.utils.pluginargparse import BoxSizeParser
 import numpy
 import logging
          
-class BOSSChallengeMockPainter(DataSource):
+class BOSSChallengeMockDataSource(DataSource):
     """
     Class to read data from the DR12 BOSS periodic box challenge 
     mocks, which are stored as a plain text ASCII file, and 
@@ -34,7 +34,7 @@ class BOSSChallengeMockPainter(DataSource):
     qperp = 1.0
     
     def __init__(self, d):
-        super(BOSSChallengeMockPainter, self).__init__(d)
+        super(BOSSChallengeMockDataSource, self).__init__(d)
         
         # rescale the box size, if scaled = True
         if self.scaled:
@@ -56,7 +56,7 @@ class BOSSChallengeMockPainter(DataSource):
             try:
                 import pandas as pd
             except:
-                raise ImportError("pandas must be installed to use BOSSChallengeMockPainter")
+                raise ImportError("pandas must be installed to use BOSSChallengeMockDataSource")
                 
             # read in the plain text file using pandas
             kwargs = {}
@@ -93,37 +93,37 @@ class BOSSChallengeMockPainter(DataSource):
 
         yield P
         
-class BOSSChallengeBoxAPainter(BOSSChallengeMockPainter):
+class BOSSChallengeBoxADataSource(BOSSChallengeMockDataSource):
     field_type = 'BOSSChallengeBoxA'
     qperp = 0.998753592
     qpar = 0.9975277944
     
-class BOSSChallengeBoxBPainter(BOSSChallengeMockPainter):
+class BOSSChallengeBoxBDataSource(BOSSChallengeMockDataSource):
     field_type = 'BOSSChallengeBoxB'
     qperp = 0.9875682111
     qpar = 0.9751013789
     
-class BOSSChallengeBoxCPainter(BOSSChallengeMockPainter):
+class BOSSChallengeBoxCDataSource(BOSSChallengeMockDataSource):
     field_type = 'BOSSChallengeBoxC'
     qperp = 0.9875682111
     qpar = 0.9751013789
     
-class BOSSChallengeBoxDPainter(BOSSChallengeMockPainter):
+class BOSSChallengeBoxDDataSource(BOSSChallengeMockDataSource):
     field_type = 'BOSSChallengeBoxD'
     qperp = 0.9916978595
     qpar = 0.9834483344
     
-class BOSSChallengeBoxEPainter(BOSSChallengeMockPainter):
+class BOSSChallengeBoxEDataSource(BOSSChallengeMockDataSource):
     field_type = 'BOSSChallengeBoxE'
     qperp = 0.9916978595
     qpar = 0.9834483344
     
-class BOSSChallengeBoxFPainter(BOSSChallengeMockPainter):
+class BOSSChallengeBoxFDataSource(BOSSChallengeMockDataSource):
     field_type = 'BOSSChallengeBoxF'
     qperp = 0.998753592
     qpar = 0.9975277944
     
-class BOSSChallengeBoxGPainter(BOSSChallengeMockPainter):
+class BOSSChallengeBoxGDataSource(BOSSChallengeMockDataSource):
     field_type = 'BOSSChallengeBoxG'
     qperp = 0.998753592
     qpar = 0.9975277944
