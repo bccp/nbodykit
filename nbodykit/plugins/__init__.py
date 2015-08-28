@@ -151,6 +151,9 @@ class PowerSpectrumStorage:
 
 #------------------------------------------------------------------------------          
 import os.path
+import glob
+
+references = {}
 
 def load(filename, namespace=None):
     """ load a plugin from filename.
@@ -167,20 +170,22 @@ def load(filename, namespace=None):
         namespace : dict
             modified global namespace of the plugin script.
     """
+    if os.path.isdir(filename):
+        l = glob.glob(os.path.join(filename, "*.py"))
+        for f in l:
+            load(f, namespace)
+        return
     if namespace is None:
         namespace = {}
-    if os.path.isdir(filename):
-        # FIXME: walk the dir and load all .py files.
-        raise ValueError("Can not load directory")
+    namespace = dict(namespace)
     try:
         execfile(filename, namespace)
     except Exception as e:
         raise RuntimeError("Failed to load plugin '%s': %s" % (filename, str(e)))
-    return namespace
+    references[filename] = namespace
 
 builtins = ['TPMSnapshotPainter', 'HaloFilePainter', 'PandasPainter',
             'PlainTextPainter', 'Power1DStorage', 'Power2DStorage']
-reference = {}
 for plugin in builtins:
-    reference[plugin] = load(os.path.join(os.path.dirname(__file__), plugin + '.py'))
+    load(os.path.join(os.path.dirname(__file__), plugin + '.py'))
  
