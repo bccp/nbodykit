@@ -51,7 +51,7 @@ class BOSSChallengeMockDataSource(DataSource):
         h.add_argument("-scaled", action='store_true', 
             help='rescale the parallel and perp coordinates by the AP factor')
     
-    def read(self, columns, comm):
+    def read(self, columns, comm, bunchsize):
         if comm.rank == 0:
             try:
                 import pandas as pd

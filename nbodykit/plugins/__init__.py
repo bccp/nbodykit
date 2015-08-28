@@ -87,7 +87,10 @@ class DataSource:
     def __ne__(self, other):
         return self.string != other.string
 
-    def read(self, columns, comm):
+    def read(self, columns, comm, bunchsize=None):
+        """ Yield the data in the columns by "nchunks" as dictionaries. 
+            
+        """
         return NotImplemented    
 
     @classmethod

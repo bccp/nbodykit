@@ -42,6 +42,8 @@ parser.add_argument("inputs", nargs="+", type=plugins.DataSource.open,
                     help=h+plugins.DataSource.format_help())
 
 # add the optional arguments
+parser.add_argument("--bunchsize", type=int, default=1024*1024*4,
+    help='Number of particles to read per rank. A larger number usually means faster IO, but less memory for the FFT mesh. This is not respected by some data sources.')
 parser.add_argument("--binshift", type=float, default=0.0,
         help='Shift the bin center by this fraction of the bin width. Default is 0.0. Marcel uses 0.5. this shall rarely be changed.' )
 parser.add_argument("--remove-cic", default='anisotropic', choices=["anisotropic","isotropic", "none"],
@@ -179,7 +181,7 @@ def paint(input, pm):
     pm.real[:] = 0
     Ntot = 0
 
-    chunks = input.read(['Position', 'Mass'], pm.comm)
+    chunks = input.read(['Position', 'Mass'], pm.comm, ns.bunchsize)
 
     for chunk in chunks:
         position = chunk['Position']

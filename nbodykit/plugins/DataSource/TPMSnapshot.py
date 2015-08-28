@@ -11,17 +11,12 @@ class TPMSnapshotDataSource(DataSource):
     def register(kls):
         
         h = kls.add_parser()
-        
-        
         h.add_argument("path", help="path to file")
         h.add_argument("BoxSize", type=BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
         h.add_argument("-rsd", 
             choices="xyz", default=None, help="direction to do redshift distortion")
-        h.add_argument("-bunchsize", type=int, default=1024*1024*4,
-            help='Number of particles to read per rank. A larger number usually means faster IO, but less memory for the FFT mesh')
-
-    def read(self, columns, comm):
+    def read(self, columns, comm, bunchsize):
         Ntot = 0
         # avoid reading Velocity if RSD is not requested.
         # this is only needed for large data like a TPMSnapshot
@@ -41,7 +36,7 @@ class TPMSnapshotDataSource(DataSource):
                     self.path, 
                     files.TPMSnapshotFile, 
                     columns=newcolumns, 
-                    bunchsize=self.bunchsize)):
+                    bunchsize=bunchsize)):
 
             if comm.rank == 0:
                 logging.info('round %d, nread %d' % (round, len(P['Position'])))

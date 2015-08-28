@@ -25,7 +25,7 @@ class CollapsedHaloDataSource(DataSource):
         h.add_argument("-rsd", 
             choices="xyz", help="direction to do redshift distortion")
     
-    def read(self, columns, comm):
+    def read(self, columns, comm, bunchsize):
         if comm.rank == 0:
             hf = files.HaloFile(self.pathhalo)
             nhalo = hf.nhalo

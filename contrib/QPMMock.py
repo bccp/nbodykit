@@ -63,7 +63,7 @@ class QPMMockDataSource(DataSource):
         h.add_argument("-velf", default=1., type=float, 
             help="factor to scale the velocities")
     
-    def read(self, columns, comm):
+    def read(self, columns, comm, bunchsize):
         if comm.rank == 0:
             try:
                 import pandas as pd

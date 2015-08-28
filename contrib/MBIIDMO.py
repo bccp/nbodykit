@@ -45,7 +45,7 @@ class DataSourcePlugin(DataSource):
                 return numpy.nan
             
             
-    def read(self, columns, comm):
+    def read(self, columns, comm, bunchsize):
         dtype = numpy.dtype([
                 ('Position', ('f4', 3)),
                 ('Velocity', ('f4', 3)),

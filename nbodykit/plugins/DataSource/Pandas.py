@@ -90,7 +90,7 @@ class PandasDataSource(DataSource):
         h.add_argument("-ftype", default='auto', choices=['hdf5', 'text', 'auto'], 
             help='Format of the Pandas storage container. auto is to guess from the file name.')
     
-    def read(self, columns, comm):
+    def read(self, columns, comm, bunchsize):
         if comm.rank == 0:
             try:
                 import pandas as pd

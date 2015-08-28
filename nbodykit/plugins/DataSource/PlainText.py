@@ -83,7 +83,7 @@ class PlainTextDataSource(DataSource):
         h.add_argument("-select", default=None, type=selectionlanguage.Query, 
             help='row selection based on conditions specified as string')
     
-    def read(self, columns, comm):
+    def read(self, columns, comm, bunchsize):
         if comm.rank == 0: 
             # read in the plain text file as a recarray
             kwargs = {}
