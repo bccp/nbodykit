@@ -1,17 +1,18 @@
-from nbodykit.plugins import InputPainter, BoxSizeParser
+from nbodykit.plugins import DataSource
+from nbodykit.utils.pluginargparse import BoxSizeParser
 
 import numpy
 import logging
 from nbodykit import files 
 from nbodykit.utils import selectionlanguage
   
-class HaloFilePainter(InputPainter):
+class HaloFileDataSource(DataSource):
     field_type = "HaloFile"
     
     @classmethod
     def register(kls):
         
-        h       = kls.add_parser(kls.field_type)
+        h       = kls.add_parser()
         
         h.add_argument("path", help="path to file")
         h.add_argument("BoxSize", type=BoxSizeParser,
@@ -23,7 +24,6 @@ class HaloFilePainter(InputPainter):
             help="direction to do redshift distortion")
         h.add_argument("-select", default=None, type=selectionlanguage.Query,
             help='row selection based on logmass, e.g. logmass > 13 and logmass < 15')
-        h.set_defaults(klass=kls)
     
     def read(self, columns, comm):
         dtype = numpy.dtype([

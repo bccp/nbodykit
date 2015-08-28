@@ -12,34 +12,24 @@ class PluginMount(type):
 
         # only executes when processing the mount point itself.
         if not hasattr(cls, 'plugins'):
-            cls.plugins = []
+            cls.plugins = {}
         # called for each plugin, which already has 'plugins' list
         else:
+            if not hasattr(cls, 'field_type'):
+                raise RuntimeError("Plugin class must carry a field_type.")
+
+            if cls.field_type in cls.plugins:
+                raise RuntimeError("Plugin class %s already registered with %s"
+                    % (cls.field_type, str(type(cls))))
+
             # track names of classes
-            cls.plugins.append(cls)
+            cls.plugins[cls.field_type] = cls
             
             # try to call register class method
             if hasattr(cls, 'register'):
                 cls.register()
 
-def BoxSizeParser(value):
-    """
-    Parse a string of either a single float, or 
-    a space-separated string of 3 floats, representing 
-    a box size. Designed to be used by the Painter plugins
-    
-    Returns
-    -------
-    BoxSize : array_like
-        an array of size 3 giving the box size in each dimension
-    """
-    boxsize = numpy.empty(3, dtype='f8')
-    sizes = map(float, value.split())
-    if len(sizes) == 1: sizes = sizes[0]
-    boxsize[:] = sizes
-    return boxsize
-
-class InputPainter:
+class DataSource:
     """
     Mount point for plugins which refer to the reading of input files 
     and the subsequent painting of those fields.
@@ -68,26 +58,28 @@ class InputPainter:
     """
     __metaclass__ = PluginMount
     
-    from argparse import ArgumentParser
-    parser = ArgumentParser("", add_help=False)
-    subparsers = parser.add_subparsers()
     field_type = None
 
-    def __init__(self, dict):
-        self.__dict__.update(dict)
+    def __init__(self, args):
+        ns = self.parser.parse_args(args)
+        self.__dict__.update(ns.__dict__)
 
     @classmethod
-    def parse(kls, string): 
-        words = string.split(':')
+    def open(kls, connection): 
+        """ opens a file based on the connection string 
+
+            Parameters
+            ----------
+            connection: string
+                A colon (:) separated string of arguments.
+                The first field is the type of the connection.
+                The reset depends on the type of the conntection.
+        """
+        words = connection.split(':')
         
-        ns = kls.parser.parse_args(words)
-        klass = ns.klass
-        d = ns.__dict__
-        # break the cycle
-        del d['klass']
-        d['string'] = string
-        painter = klass(d)
-        return painter
+        klass = kls.plugins[words[0]]
+        self = klass(words[1:])
+        return self
 
     def __eq__(self, other):
         return self.string == other.string
@@ -99,17 +91,19 @@ class InputPainter:
         return NotImplemented    
 
     @classmethod
-    def add_parser(kls, name):
-        return kls.subparsers.add_parser(name, 
+    def add_parser(kls):
+        from ..utils.pluginargparse import HelpFormatterColon
+        from argparse import ArgumentParser
+        kls.parser = ArgumentParser(kls.field_type, 
                 usage=None, add_help=False, formatter_class=HelpFormatterColon)
-    
+        return kls.parser
+
     @classmethod
     def format_help(kls):
         
         rt = []
-        for plugin in kls.plugins:
-            k = plugin.field_type
-            rt.append(kls.subparsers.choices[k].format_help())
+        for k in kls.plugins:
+            rt.append(kls.plugins[k].parser.format_help())
 
         if not len(rt):
             return "No available input field types"
@@ -134,7 +128,7 @@ class PowerSpectrumStorage:
         kls.klasses[klass.field_type] = klass
 
     @classmethod
-    def get(kls, dim, path):
+    def new(kls, dim, path):
         klass = kls.klasses[dim]
         obj = klass(path)
         return obj
@@ -155,83 +149,14 @@ class PowerSpectrumStorage:
     def write(self, data, **meta):
         return NotImplemented
 
-from argparse import RawTextHelpFormatter
-class HelpFormatterColon(RawTextHelpFormatter):
-    """ This class is used to format the ':' seperated usage strings """
-    def _format_usage(self, usage, actions, groups, prefix):
-        if prefix is None:
-            prefix = 'usage: '
-
-        # this stripped down version supports no groups
-        assert len(groups) == 0
-
-        prog = '%(prog)s' % dict(prog=self._prog)
-
-        # split optionals from positionals
-        optionals = []
-        positionals = []
-        for action in actions:
-            if action.option_strings:
-                optionals.append(action)
-            else:
-                positionals.append(action)
-
-        # build full usage string
-        format = self._format_actions_usage
-        action_usage = format(positionals + optionals, groups)
-        usage = ''.join([s for s in [prog, action_usage] if s])
-        # prefix with 'usage:'
-        return '%s%s\n\n' % (prefix, usage)
-
-    def _format_actions_usage(self, actions, groups):
-        # collect all actions format strings
-        parts = []
-        for i, action in enumerate(actions):
-
-            # produce all arg strings
-            if not action.option_strings:
-                part = self._format_args(action, action.dest)
-
-                part = ':' + part
-
-                # add the action string to the list
-                parts.append(part)
-
-            # produce the first way to invoke the option in brackets
-            else:
-                option_string = action.option_strings[0]
-
-                # if the Optional doesn't take a value, format is:
-                #    -s or --long
-                if action.nargs == 0:
-                    part = '%s' % option_string
-
-                # if the Optional takes a value, format is:
-                #    -s ARGS or --long ARGS
-                else:
-                    default = action.dest.upper()
-                    args_string = self._format_args(action, default)
-                    part = '%s %s' % (option_string, args_string)
-
-                # make it look optional if it's not required or in a group
-                if not action.required:
-                    part = '[:%s]' % part
-
-                # add the action string to the list
-                parts.append(part)
-
-        # join all the action items with spaces
-        text = ''.join([item for item in parts if item is not None])
-
-        # return the text
-        return text
-
-            
 #------------------------------------------------------------------------------          
 import os.path
+import glob
+
+references = {}
 
 def load(filename, namespace=None):
-    """ An adapter for ArgumentParser to load a plugin.
+    """ load a plugin from filename.
         
         Parameters
         ----------
@@ -245,19 +170,21 @@ def load(filename, namespace=None):
         namespace : dict
             modified global namespace of the plugin script.
     """
+    if os.path.isdir(filename):
+        l = glob.glob(os.path.join(filename, "*.py"))
+        for f in l:
+            load(f, namespace)
+        return
     if namespace is None:
         namespace = {}
-    if os.path.isdir(filename):
-        # FIXME: walk the dir and load all .py files.
-        raise ValueError("Can not load directory")
+    namespace = dict(namespace)
     try:
         execfile(filename, namespace)
     except Exception as e:
         raise RuntimeError("Failed to load plugin '%s': %s" % (filename, str(e)))
-    return namespace
+    references[filename] = namespace
 
-builtins = ['TPMSnapshotPainter', 'HaloFilePainter', 'PandasPainter',
-            'PlainTextPainter', 'Power1DStorage', 'Power2DStorage']
+builtins = ['DataSource', 'Power1DStorage.py', 'Power2DStorage.py']
 for plugin in builtins:
-    globals().update(load(os.path.join(os.path.dirname(__file__), plugin + '.py')))
+    load(os.path.join(os.path.dirname(__file__), plugin))
  

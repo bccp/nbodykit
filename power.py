@@ -9,13 +9,14 @@ logging.basicConfig(level=logging.DEBUG)
 import numpy
 import nbodykit
 from nbodykit import plugins
-from nbodykit.utils.argumentparser import ArgumentParser
+from nbodykit.utils.pluginargparse import PluginArgumentParser
 #--------------------------------------------------
 # setup the parser
 #--------------------------------------------------
 
 # initialize the parser
-parser = ArgumentParser("Parallel Power Spectrum Calculator",
+parser = PluginArgumentParser("Parallel Power Spectrum Calculator",
+        loader=plugins.load,
         description=
      """Calculating matter power spectrum from RunPB input files. 
         Output is written to stdout, in Mpc/h units. 
@@ -37,8 +38,8 @@ parser.add_argument("output", help='write power to this file. set as `-` for std
 
 # add the input field types
 h = "one or two input fields, specified as:\n\n"
-parser.add_argument("inputs", nargs="+", type=plugins.InputPainter.parse, 
-                    help=h+plugins.InputPainter.format_help())
+parser.add_argument("inputs", nargs="+", type=plugins.DataSource.open, 
+                    help=h+plugins.DataSource.format_help())
 
 # add the optional arguments
 parser.add_argument("--binshift", type=float, default=0.0,
@@ -163,7 +164,7 @@ def main():
         
     if MPI.COMM_WORLD.rank == 0:
         print 'measure'
-        storage = plugins.PowerSpectrumStorage.get(ns.mode, ns.output)
+        storage = plugins.PowerSpectrumStorage.new(ns.mode, ns.output)
         storage.write(result, **meta)
  
 def paint(input, pm):

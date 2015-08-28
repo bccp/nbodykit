@@ -1,21 +1,26 @@
-from nbodykit.plugins import InputPainter, BoxSizeParser
-
+from nbodykit.plugins import DataSource
+from nbodykit.utils.pluginargparse import BoxSizeParser
 import numpy
 import logging
 from nbodykit.utils import selectionlanguage
 
 def list_str(value):
     return value.split()
-
-class PlainTextPainter(InputPainter):
+         
+class PandasDataSource(DataSource):
     """
-    Class to read field data from a plain text ASCII file
-    and paint the field onto a density grid. The data is read
-    from file using `numpy.recfromtxt` and store the data in 
-    a `numpy.recarray`
+    Class to read field data from a Pandas data file
+    and paint the field onto a density grid. 
+    File types are guessed from the file name extension, or
+    specified via `-ftype` commandline argument.  
+    For text files, the data is read using `pandas.read_csv`. 
+    For HDF5 files (.hdf5), the data is read using `pandas.read_hdf5`.
     
+    Data is stored internally in a `pandas.DataFrame`. 
+
     Notes
     -----
+    * `pandas` must be installed to use
     * data file is assumed to be space-separated
     * commented lines must begin with `#`, with all other lines
     providing data values to be read
@@ -27,9 +32,10 @@ class PlainTextPainter(InputPainter):
     path    : str
         the path of the file to read the data from 
     names   : list of str
-        one or more strings specifying the names of the data
+        For text files, one or more strings specifying the names of the data
         columns. Shape must be equal to number of columns
-        in the field, otherwise, behavior is undefined
+        in the field, otherwise, behavior is undefined.
+        For hdf5 files, the name of the pandas data group.
     BoxSize : float or array_like (3,)
         the box size, either provided as a single float (isotropic)
         or an array of the sizes of the three dimensions
@@ -51,19 +57,19 @@ class PlainTextPainter(InputPainter):
         `type` and `mass`, you could specify 
         select= "type == central and mass > 1e14"
     """
-    field_type = "PlainText"
+    field_type = "Pandas"
     
     @classmethod
     def register(kls):
         
-        h = kls.add_parser(kls.field_type)
+        h = kls.add_parser()
         
         h.add_argument("path", help="path to file")
         h.add_argument("names", type=list_str, 
-            help="names of columns in file")
+            help="names of columns in text file or name of the data group in hdf5 file")
         h.add_argument("BoxSize", type=BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
-        
+                
         h.add_argument("-usecols", type=list_str, 
             metavar="x y z",
             help="only read these columns from file")
@@ -81,16 +87,35 @@ class PlainTextPainter(InputPainter):
             help="factor to scale the velocities")
         h.add_argument("-select", default=None, type=selectionlanguage.Query, 
             help='row selection based on conditions specified as string')
-        h.set_defaults(klass=kls)
+        h.add_argument("-ftype", default='auto', choices=['hdf5', 'text', 'auto'], 
+            help='Format of the Pandas storage container. auto is to guess from the file name.')
     
     def read(self, columns, comm):
-        if comm.rank == 0: 
-            # read in the plain text file as a recarray
-            kwargs = {}
-            kwargs['comments'] = '#'
-            kwargs['names'] = self.names
-            kwargs['usecols'] = self.usecols
-            data = numpy.recfromtxt(self.path, **kwargs)
+        if comm.rank == 0:
+            try:
+                import pandas as pd
+            except:
+                raise ImportError("pandas must be installed to use PandasPlainTextDataSource")
+                
+            if self.ftype == 'auto':
+                if self.path.endswith('.hdf5'):
+                    self.ftype = 'hdf5'
+                else: 
+                    self.ftype = 'text'
+            if self.ftype == 'hdf5':
+                # read in the hdf5 file using pandas
+                data = pd.read_hdf(self.path, self.names[0], columns=self.usecols)
+            elif self.ftype == 'text':
+                # read in the plain text file using pandas
+                kwargs = {}
+                kwargs['comment'] = '#'
+                kwargs['names'] = self.names
+                kwargs['header'] = None
+                kwargs['engine'] = 'c'
+                kwargs['delim_whitespace'] = True
+                kwargs['usecols'] = self.usecols
+                data = pd.read_csv(self.path, **kwargs)
+
             nobj = len(data)
             
             # select based on input conditions
@@ -100,13 +125,14 @@ class PlainTextPainter(InputPainter):
             logging.info("total number of objects selected is %d / %d" % (len(data), nobj))
             
             # get position and velocity, if we have it
-            pos = numpy.vstack(data[k] for k in self.poscols).T.astype('f4')
+            pos = data[self.poscols].values.astype('f4')
             pos *= self.posf
             if self.velcols is not None:
-                vel = numpy.vstack(data[k] for k in self.velcols).T.astype('f4')
+                vel = data[self.velcols].values.astype('f4')
                 vel *= self.velf
             else:
                 vel = numpy.empty(0, dtype=('f4', 3))
+            
         else:
             pos = numpy.empty(0, dtype=('f4', 3))
             vel = numpy.empty(0, dtype=('f4', 3))

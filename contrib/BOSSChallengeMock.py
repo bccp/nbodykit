@@ -1,8 +1,9 @@
-from nbodykit.plugins import InputPainter, BoxSizeParser
+from nbodykit.plugins import DataSource
+from nbodykit.utils.pluginargparse import BoxSizeParser
 import numpy
 import logging
          
-class BOSSChallengeMockPainter(InputPainter):
+class BOSSChallengeMockDataSource(DataSource):
     """
     Class to read data from the DR12 BOSS periodic box challenge 
     mocks, which are stored as a plain text ASCII file, and 
@@ -33,7 +34,7 @@ class BOSSChallengeMockPainter(InputPainter):
     qperp = 1.0
     
     def __init__(self, d):
-        super(BOSSChallengeMockPainter, self).__init__(d)
+        super(BOSSChallengeMockDataSource, self).__init__(d)
         
         # rescale the box size, if scaled = True
         if self.scaled:
@@ -42,21 +43,20 @@ class BOSSChallengeMockPainter(InputPainter):
     
     @classmethod
     def register(kls):
-        h = kls.add_parser(kls.field_type)
+        h = kls.add_parser()
         
         h.add_argument("path", help="path to file")
         h.add_argument("BoxSize", type=BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
         h.add_argument("-scaled", action='store_true', 
             help='rescale the parallel and perp coordinates by the AP factor')
-        h.set_defaults(klass=kls)
     
-    def paint(self, pm):
-        if pm.comm.rank == 0:
+    def read(self, columns, comm):
+        if comm.rank == 0:
             try:
                 import pandas as pd
             except:
-                raise ImportError("pandas must be installed to use BOSSChallengeMockPainter")
+                raise ImportError("pandas must be installed to use BOSSChallengeMockDataSource")
                 
             # read in the plain text file using pandas
             kwargs = {}
@@ -75,57 +75,55 @@ class BOSSChallengeMockPainter(InputPainter):
         else:
             pos = numpy.empty(0, dtype=('f4', 3))
 
-        Ntot = len(pos)
-        Ntot = pm.comm.bcast(Ntot)
-
         # assumed the position values are now in same
         # units as BoxSize 
         if self.scaled:
-            if pm.comm.rank == 0:
+            if comm.rank == 0:
                 logging.info("multiplying by qperp = %.5f" %self.qperp)
                 logging.info("multiplying by qpar = %.5f" %self.qpar)
             # scale the coordinates
             pos[:,0:2] *= self.qperp
             pos[:,-1] *= self.qpar
 
-        layout = pm.decompose(pos)
-        tpos = layout.exchange(pos)
-        pm.paint(tpos)
+        if 'Velocity' in columns:
+            raise KeyError("Velocity is not supported")
+        P = {}
+        P['Position'] = pos
+        P['Mass'] = None
 
-        npaint = pm.comm.allreduce(len(tpos)) 
-        return Ntot
+        yield P
         
-class BOSSChallengeBoxAPainter(BOSSChallengeMockPainter):
+class BOSSChallengeBoxADataSource(BOSSChallengeMockDataSource):
     field_type = 'BOSSChallengeBoxA'
     qperp = 0.998753592
     qpar = 0.9975277944
     
-class BOSSChallengeBoxBPainter(BOSSChallengeMockPainter):
+class BOSSChallengeBoxBDataSource(BOSSChallengeMockDataSource):
     field_type = 'BOSSChallengeBoxB'
     qperp = 0.9875682111
     qpar = 0.9751013789
     
-class BOSSChallengeBoxCPainter(BOSSChallengeMockPainter):
+class BOSSChallengeBoxCDataSource(BOSSChallengeMockDataSource):
     field_type = 'BOSSChallengeBoxC'
     qperp = 0.9875682111
     qpar = 0.9751013789
     
-class BOSSChallengeBoxDPainter(BOSSChallengeMockPainter):
+class BOSSChallengeBoxDDataSource(BOSSChallengeMockDataSource):
     field_type = 'BOSSChallengeBoxD'
     qperp = 0.9916978595
     qpar = 0.9834483344
     
-class BOSSChallengeBoxEPainter(BOSSChallengeMockPainter):
+class BOSSChallengeBoxEDataSource(BOSSChallengeMockDataSource):
     field_type = 'BOSSChallengeBoxE'
     qperp = 0.9916978595
     qpar = 0.9834483344
     
-class BOSSChallengeBoxFPainter(BOSSChallengeMockPainter):
+class BOSSChallengeBoxFDataSource(BOSSChallengeMockDataSource):
     field_type = 'BOSSChallengeBoxF'
     qperp = 0.998753592
     qpar = 0.9975277944
     
-class BOSSChallengeBoxGPainter(BOSSChallengeMockPainter):
+class BOSSChallengeBoxGDataSource(BOSSChallengeMockDataSource):
     field_type = 'BOSSChallengeBoxG'
     qperp = 0.998753592
     qpar = 0.9975277944

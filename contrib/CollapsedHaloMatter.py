@@ -1,16 +1,17 @@
-from nbodykit.plugins import InputPainter, BoxSizeParser
+from nbodykit.plugins import DataSource
+from nbodykit.utils.pluginargparse import BoxSizeParser
 from nbodykit import files
 from itertools import izip
 import numpy
 import logging
 
 #------------------------------------------------------------------------------          
-class CollapsedHaloPainter(InputPainter):
+class CollapsedHaloDataSource(DataSource):
     field_type = "CollapsedHaloMatter"
     
     @classmethod
     def register(kls):
-        h = kls.add_parser(kls.field_type)
+        h = kls.add_parser()
         
         h.add_argument("pathhalo", help="path to file")
         h.add_argument("BoxSize", type=BoxSizeParser,
@@ -23,10 +24,9 @@ class CollapsedHaloPainter(InputPainter):
         
         h.add_argument("-rsd", 
             choices="xyz", help="direction to do redshift distortion")
-        h.set_defaults(klass=kls)
     
-    def paint(self, pm):
-        if pm.comm.rank == 0:
+    def read(self, columns, comm):
+        if comm.rank == 0:
             hf = files.HaloFile(self.pathhalo)
             nhalo = hf.nhalo
             halopos = numpy.float32(hf.read_pos())
@@ -39,14 +39,13 @@ class CollapsedHaloPainter(InputPainter):
             halopos = None
             halomask = None
 
-        halopos = pm.comm.bcast(halopos)
-        halomask = pm.comm.bcast(halomask)
+        halopos = comm.bcast(halopos)
+        halomask = comm.bcast(halomask)
 
-        Ntot = 0
         for round, (P, PL) in enumerate(izip(
-                    files.read(pm.comm, self.pathmatter, files.TPMSnapshotFile, 
+                    files.read(comm, self.pathmatter, files.TPMSnapshotFile, 
                         columns=['Position', 'Velocity'], bunchsize=ns.bunchsize),
-                    files.read(pm.comm, self.pathlabel, files.HaloLabelFile, 
+                    files.read(comm, self.pathlabel, files.HaloLabelFile, 
                         columns=['Label'], bunchsize=ns.bunchsize),
                     )):
             mask = PL['Label'] != 0
@@ -61,16 +60,12 @@ class CollapsedHaloPainter(InputPainter):
                 P['Position'][:, dir] %= 1.0 # enforce periodic boundary conditions
 
             P['Position'] *= self.BoxSize
-            layout = pm.decompose(P['Position'])
-            tpos = layout.exchange(P['Position'])
-            #print tpos.shape
-            pm.paint(tpos)
-            npaint = pm.comm.allreduce(len(tpos)) 
-            nread = pm.comm.allreduce(len(P['Position'])) 
-            if pm.comm.rank == 0:
-                logging.info('round %d, npaint %d, nread %d' % (round, npaint, nread))
-            Ntot = Ntot + nread
+            P['Velocity'] *= self.BoxSize
+            P['Mass'] = None
 
-        npaint = pm.comm.allreduce(len(tpos)) 
-        return Ntot
+            if comm.rank == 0:
+                logging.info('round %d, nread %d' % (round, nread))
+
+            yield P
+
 

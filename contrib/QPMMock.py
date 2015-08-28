@@ -1,8 +1,9 @@
-from nbodykit.plugins import InputPainter, BoxSizeParser
+from nbodykit.plugins import DataSource
+from nbodykit.utils.pluginargparse import BoxSizeParser
 import numpy
 import logging
          
-class QPMMockPainter(InputPainter):
+class QPMMockDataSource(DataSource):
     """
     Class to read data from the DR12 BOSS QPM periodic box 
     mocks, which are stored as a plain text ASCII file, and 
@@ -31,7 +32,7 @@ class QPMMockPainter(InputPainter):
     qperp = 0.9925056798
     
     def __init__(self, d):
-        super(QPMMockPainter, self).__init__(d)
+        super(QPMMockDataSource, self).__init__(d)
         self._BoxSize0 = self.BoxSize.copy()
         
         # rescale the box size, if scaled = True
@@ -49,7 +50,7 @@ class QPMMockPainter(InputPainter):
     
     @classmethod
     def register(kls):
-        h = kls.add_parser(kls.field_type)
+        h = kls.add_parser()
         
         h.add_argument("path", help="path to file")
         h.add_argument("BoxSize", type=BoxSizeParser,
@@ -61,14 +62,13 @@ class QPMMockPainter(InputPainter):
             help="direction to do redshift distortion")
         h.add_argument("-velf", default=1., type=float, 
             help="factor to scale the velocities")
-        h.set_defaults(klass=kls)
     
-    def paint(self, pm):
-        if pm.comm.rank == 0:
+    def read(self, columns, comm):
+        if comm.rank == 0:
             try:
                 import pandas as pd
             except:
-                raise ImportError("pandas must be installed to use QPMMockPainter")
+                raise ImportError("pandas must be installed to use QPMMockDataSource")
                 
             # read in the plain text file using pandas
             kwargs = {}
@@ -91,9 +91,6 @@ class QPMMockPainter(InputPainter):
             pos = numpy.empty(0, dtype=('f4', 3))
             vel = numpy.empty(0, dtype=('f4', 3))
 
-        Ntot = len(pos)
-        Ntot = pm.comm.bcast(Ntot)
-
         # go to redshift-space and wrap periodically
         if self.rsd is not None:
             dir = 'xyz'.index(self.rsd)
@@ -102,14 +99,14 @@ class QPMMockPainter(InputPainter):
         
         # rescale by AP factor
         if self.scaled:
-            if pm.comm.rank == 0:
+            if comm.rank == 0:
                 logging.info("multiplying by qperp = %.5f" %self.qperp)
  
             # rescale positions and volume
             if self.rsd is None:
                 pos *= self.qperp
             else:
-                if pm.comm.rank == 0:
+                if comm.rank == 0:
                     logging.info("multiplying by qpar = %.5f" %self.qpar)
                 for i in [0,1,2]:
                     if i == dir:
@@ -117,13 +114,12 @@ class QPMMockPainter(InputPainter):
                     else:
                         pos[:,i] *= self.qperp
 
-        layout = pm.decompose(pos)
-        tpos = layout.exchange(pos)
-        pm.paint(tpos)
+        P = {}
+        P['Position'] = pos
+        P['Velocity'] = vel
+        P['Mass'] = None
 
-        npaint = pm.comm.allreduce(len(tpos)) 
-        return Ntot
-
+        yield P
 
     
 
