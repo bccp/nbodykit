@@ -1,33 +1,44 @@
-import argparse
-from .. import plugins
+from argparse import ArgumentParser
+from argparse import RawTextHelpFormatter
+
 import re
 import sys
 
     
-class ArgumentParser(argparse.ArgumentParser):
-    def __init__(self, *largs, **kwargs):
-        kwargs['formatter_class'] = argparse.RawTextHelpFormatter
+class PluginArgumentParser(ArgumentParser):
+    """ An argument parser that loads plugins before dropping to
+        the second stage parsing.
+        
+        Parameters
+        ----------
+        loader : callable
+
+            a function to load the plugin
+
+    """
+    def __init__(self, name, loader, *largs, **kwargs):
+        kwargs['formatter_class'] = RawTextHelpFormatter
         kwargs['fromfile_prefix_chars']="@"
         args = kwargs.pop('args', None)
             
-        preparser = argparse.ArgumentParser(add_help=False, 
+        preparser = ArgumentParser(add_help=False, 
                 fromfile_prefix_chars=kwargs['fromfile_prefix_chars'])
-        preparser.add_argument("-X", type=plugins.load, action="append")
+        preparser.add_argument("-X", type=loader, action="append")
         # Process the plugins
         preparser.exit = lambda a, b: None
 #        preparser.convert_arg_line_to_args = self.convert_arg_line_to_args
-        preparser._read_args_from_files = ArgumentParser._read_args_from_files.__get__(preparser)         
-        preparser._yield_args_from_files = ArgumentParser._yield_args_from_files.__get__(preparser)         
-        preparser.convert_args_file_to_args = ArgumentParser.convert_args_file_to_args.__get__(preparser)         
+        preparser._read_args_from_files = PluginArgumentParser._read_args_from_files.__get__(preparser)         
+        preparser._yield_args_from_files = PluginArgumentParser._yield_args_from_files.__get__(preparser)         
+        preparser.convert_args_file_to_args = PluginArgumentParser.convert_args_file_to_args.__get__(preparser)         
 
         self.ns, unknown = preparser.parse_known_args(args) 
 
-        argparse.ArgumentParser.__init__(self, *largs, **kwargs)
+        ArgumentParser.__init__(self, name, *largs, **kwargs)
 
         self.add_argument("-X", action='append', help='path of additional plugins to be loaded' )
  
     def parse_args(self, args=None):
-        return argparse.ArgumentParser.parse_args(self, args)
+        return ArgumentParser.parse_args(self, args)
 
     # override file reading option to treat each line as 
     # an argument and ignore comments. Can put option + value on same line

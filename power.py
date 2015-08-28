@@ -9,13 +9,14 @@ logging.basicConfig(level=logging.DEBUG)
 import numpy
 import nbodykit
 from nbodykit import plugins
-from nbodykit.utils.argumentparser import ArgumentParser
+from nbodykit.utils.pluginargparse import PluginArgumentParser
 #--------------------------------------------------
 # setup the parser
 #--------------------------------------------------
 
 # initialize the parser
-parser = ArgumentParser("Parallel Power Spectrum Calculator",
+parser = PluginArgumentParser("Parallel Power Spectrum Calculator",
+        loader=plugins.load,
         description=
      """Calculating matter power spectrum from RunPB input files. 
         Output is written to stdout, in Mpc/h units. 
