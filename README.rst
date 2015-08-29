@@ -97,29 +97,30 @@ Note that actual packages are still under their own namespaces, for example
 
     import pypm
 
-This is to maintain the relative independence of the packages; but up to debate
-may be changed.
+This is to maintain the relative independence of the packages. 
 
 Top Level Executables
 =====================
 
-We provide two top level executables, fof.py and power.py. They need to be documented.
-For now, run them with '-h' to see the inline help.
+The tools are provide as top level executable scripts. 
 
-power.py is a Power Spectrum calculator.
+They need to be documented. For now, run them with '-h' to see the inline help.
 
-fof.py is a friend of friend finder.
+- power.py is a Power Spectrum calculator.
 
-subhalo.py is a FOF6D subhalo finder.
+- fof.py is a friend of friend finder.
 
-Example Data 
-------------
+- subhalo.py is a FOF6D subhalo finder.
 
-Retrieve from
+Examples
+--------
 
-    https://s3-us-west-1.amazonaws.com/nbodykit/nbodykit-testdata.tar.gz
+There are example scripts (which also act as integrated tests) in examples directory.
+The supporting data for these scripts can be retrieved from 
 
-And extract them in nbodykit root directory.
+    https://s3-us-west-1.amazonaws.com/nbodykit/nbodykit-data.tar.gz
+
+Check get_data.sh for details.
 
 .. _`pfft-python`: http://github.com/rainwoodman/pfft-python
 .. _`pfft`: http://github.com/mpip/pfft
