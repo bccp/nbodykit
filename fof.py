@@ -261,7 +261,7 @@ def main():
     del hpos
 
     Ntot = comm.allreduce(len(label))
-    nfile = (Ntot + 512 ** 2 - 1) // (512 ** 3 )
+    nfile = (Ntot + 512 ** 3 - 1) // (512 ** 3 )
     
     npart = [ 
         (i+1) * Ntot // nfile - i * Ntot // nfile \
