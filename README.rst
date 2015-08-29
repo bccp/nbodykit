@@ -110,6 +110,8 @@ power.py is a Power Spectrum calculator.
 
 fof.py is a friend of friend finder.
 
+subhalo.py is a FOF6D subhalo finder.
+
 Example Data 
 ------------
 
