@@ -73,8 +73,8 @@ def main():
                 ('Label', ('i4')), 
                 ('Rank', ('i4')), 
                 ])
-        mydata['Position'] = Position[mask]
-        mydata['Velocity'] = Velocity[mask]
+        mydata['Position'] = Position[mask] / ns.datasource.BoxSize
+        mydata['Velocity'] = Velocity[mask] / ns.datasource.BoxSize
         mydata['Label'] = label[mask]
         PIG.append(mydata)
         del mydata
@@ -127,15 +127,14 @@ def main():
             dataset.attrs['LinkingLength'] = ns.linklength
             dataset.attrs['VFactor'] = ns.vfactor
             dataset.attrs['Ntot'] = Ntot
+            dataset.attrs['BoxSize'] = ns.datasource.BoxSize
 
 def subfof(pos, vel, ll, vfactor, haloid, Ntot):
-    pos /= ns.datasource.BoxSize
     first = pos[0].copy()
     pos -= first
     pos[pos > 0.5]  -= 1.0 
     pos[pos < -0.5] += 1.0 
     pos += first
-    pos *= ns.datasource.BoxSize
 
     oldvel = vel.copy()
     vmean = vel.mean(axis=0, dtype='f8')

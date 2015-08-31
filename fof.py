@@ -222,10 +222,12 @@ def main():
 
     [[Position]] = ns.datasource.read(['Position'], comm, bunchsize=None)
 
+    Position /= ns.datasource.BoxSize
     hpos = halos.centerofmass(label, Position, boxsize=1.0, comm=comm)
     del Position
 
     [[Velocity]] = ns.datasource.read(['Velocity'], comm, bunchsize=None)
+    Velocity /= ns.datasource.BoxSize
 
     hvel = halos.centerofmass(label, Velocity, boxsize=None, comm=comm)
     del Velocity
@@ -256,6 +258,7 @@ def main():
                 )
             dataset.attrs['Ntot'] = Ntot
             dataset.attrs['LinkLength'] = ns.LinkingLength
+            dataset.attrs['BoxSize'] = ns.datasource.BoxSize
 
     del N
     del hpos
