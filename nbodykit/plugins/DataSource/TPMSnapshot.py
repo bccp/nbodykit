@@ -1,7 +1,6 @@
 from nbodykit.plugins import DataSource
 from nbodykit.utils.pluginargparse import BoxSizeParser
 from nbodykit import files 
-import logging
 
 #------------------------------------------------------------------------------
 class TPMSnapshotDataSource(DataSource):
@@ -37,9 +36,6 @@ class TPMSnapshotDataSource(DataSource):
                     files.TPMSnapshotFile, 
                     columns=newcolumns, 
                     bunchsize=bunchsize)):
-
-            if comm.rank == 0:
-                logging.info('round %d, nread %d' % (round, len(P[P.keys()[0]])))
 
             if 'Position' in P:
                 P['Position'] *= self.BoxSize
