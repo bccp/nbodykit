@@ -183,7 +183,7 @@ def main():
         total = comm.allreduce(merged.sum())
             
         if comm.rank == 0:
-            print 'merged ', total, 'halos'
+            logging.info('merged %d halos', total)
 
         if total == 0:
             del minid_new
@@ -218,7 +218,9 @@ def main():
     N = halos.count(label, comm=comm)
 
     if comm.rank == 0:
-        print 'total halos is', len(N)
+        logging.info('Length of entries %s ', str(N))
+        logging.info('Length of entries %s ', N.shape[0])
+        logging.info('Total particles %s ', N.sum())
 
     [[Position]] = ns.datasource.read(['Position'], comm, bunchsize=None)
 
@@ -233,13 +235,8 @@ def main():
     del Velocity
 
     if comm.rank == 0:
-        print N
-        print 'total groups', N.shape
-        print 'total particles', N.sum()
-        print 'above ', ns.nmin, (N >ns.nmin).sum()
-        N[0] = 0
-
         with h5py.File(ns.output + '.hdf5', 'w') as ff:
+            N[0] = 0
             data = numpy.empty(shape=(len(N),), 
                 dtype=[
                 ('Position', ('f4', 3)),
@@ -249,7 +246,7 @@ def main():
             data['Position'] = hpos
             data['Velocity'] = hvel
             data['Length'] = N
-
+            
             # do not create dataset then fill because of
             # https://github.com/h5py/h5py/pull/606
 

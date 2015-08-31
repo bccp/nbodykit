@@ -123,7 +123,7 @@ def main():
         cat = numpy.concatenate(cat, axis=0)
         print cat
         with h5py.File(ns.output, mode='w') as f:
-            dataset = f.create_dataset('Subhalo', data=cat)
+            dataset = f.create_dataset('Subhalos', data=cat)
             dataset.attrs['LinkingLength'] = ns.linklength
             dataset.attrs['VFactor'] = ns.vfactor
             dataset.attrs['Ntot'] = Ntot

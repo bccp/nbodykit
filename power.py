@@ -181,9 +181,12 @@ def paint(input, pm):
     pm.real[:] = 0
     Ntot = 0
 
-
+    if pm.comm.rank == 0: 
+        logging.info("BoxSize = %s", str(input.BoxSize))
     for position, weight in input.read(['Position', 'Mass'], pm.comm, ns.bunchsize):
-
+        if len(position) > 0:
+            logging.info("position range on rank %d is %s:%s", pm.comm.rank, 
+                    position.min(axis=0), position.max(axis=0))
         layout = pm.decompose(position)
         position = layout.exchange(position)
         if weight is None:
