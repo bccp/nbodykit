@@ -1,8 +1,41 @@
 nbodykit
 ========
 
-Software kit for N-body simulations. From particle mesh simulation to analysis.
+Software kit for cosmological N-body simulations. 
 
+Top Level Executables
+=====================
+
+The tools are provide as top level executable scripts. 
+All tools are MPI parallel.  We can deal with very large simulations.
+
+- power.py is a Power Spectrum calculator.
+
+- fof.py is a friend of friend feature (halo) identifier.
+
+- subhalo.py is a FOF6D sub-feature (subhalo) identifier .
+
+Run them with '-h' to see the inline help.
+
+Each takes a few 'datasource' strings that specify the format of the inputs.
+
+Examples
+--------
+
+There are example scripts (which also act as integrated tests) in examples directory.
+The supporting data for these scripts can be retrieved from 
+
+    https://s3-us-west-1.amazonaws.com/nbodykit/nbodykit-data.tar.gz
+
+Check get_data.sh for details.
+
+.. _`pfft-python`: http://github.com/rainwoodman/pfft-python
+.. _`pfft`: http://github.com/mpip/pfft
+.. _`pypm`: http://github.com/rainwoodman/pypm
+.. _`kdcount`: http://github.com/rainwoodman/kdcount
+.. _`sharedmem`: http://github.com/rainwoodman/sharedmem
+.. _`MP-sort`: http://github.com/rainwoodman/MP-sort
+.. _`qrpm`: http://github.com/rainwoodman/qrpm
 The software is built on top of existing tools. Please refer to their
 documentations:
 
@@ -99,33 +132,3 @@ Note that actual packages are still under their own namespaces, for example
 
 This is to maintain the relative independence of the packages. 
 
-Top Level Executables
-=====================
-
-The tools are provide as top level executable scripts. 
-
-They need to be documented. For now, run them with '-h' to see the inline help.
-
-- power.py is a Power Spectrum calculator.
-
-- fof.py is a friend of friend finder.
-
-- subhalo.py is a FOF6D subhalo finder.
-
-Examples
---------
-
-There are example scripts (which also act as integrated tests) in examples directory.
-The supporting data for these scripts can be retrieved from 
-
-    https://s3-us-west-1.amazonaws.com/nbodykit/nbodykit-data.tar.gz
-
-Check get_data.sh for details.
-
-.. _`pfft-python`: http://github.com/rainwoodman/pfft-python
-.. _`pfft`: http://github.com/mpip/pfft
-.. _`pypm`: http://github.com/rainwoodman/pypm
-.. _`kdcount`: http://github.com/rainwoodman/kdcount
-.. _`sharedmem`: http://github.com/rainwoodman/sharedmem
-.. _`MP-sort`: http://github.com/rainwoodman/MP-sort
-.. _`qrpm`: http://github.com/rainwoodman/qrpm
