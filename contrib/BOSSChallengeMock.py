@@ -17,7 +17,6 @@ class BOSSChallengeMockDataSource(DataSource):
     * first three columns are `x`, `y`, `z`
     * data is assumed to be in redshift-space, with `z` (last axis) 
     giving the LOS axis
-
     
     Parameters
     ----------
@@ -81,6 +80,7 @@ class BOSSChallengeMockDataSource(DataSource):
             if comm.rank == 0:
                 logging.info("multiplying by qperp = %.5f" %self.qperp)
                 logging.info("multiplying by qpar = %.5f" %self.qpar)
+
             # scale the coordinates
             pos[:,0:2] *= self.qperp
             pos[:,-1] *= self.qpar
@@ -100,8 +100,8 @@ class BOSSChallengeBoxADataSource(BOSSChallengeMockDataSource):
     
 class BOSSChallengeBoxBDataSource(BOSSChallengeMockDataSource):
     field_type = 'BOSSChallengeBoxB'
-    qperp = 0.9875682111
-    qpar = 0.9751013789
+    qperp = 0.998753592
+    qpar = 0.9975277944
     
 class BOSSChallengeBoxCDataSource(BOSSChallengeMockDataSource):
     field_type = 'BOSSChallengeBoxC'
