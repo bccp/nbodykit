@@ -78,7 +78,7 @@ It may take a while to build fftw and pfft.
 
     .. code::
 
-        export LDSHARED="mpicc -bundle -undefined dynamic_lookup"; ./build.sh
+        export LDSHARED="mpicc -bundle -undefined dynamic_lookup -DOMPI_IMPORTS"; ./build.sh
         
    On recent versions of MacPorts, we also need to tell mpicc to use gcc rather than the default clang
    compiler, which doesn't compile fftw correctly due to lack of openmp support.
