@@ -12,34 +12,24 @@ class PluginMount(type):
 
         # only executes when processing the mount point itself.
         if not hasattr(cls, 'plugins'):
-            cls.plugins = []
+            cls.plugins = {}
         # called for each plugin, which already has 'plugins' list
         else:
+            if not hasattr(cls, 'field_type'):
+                raise RuntimeError("Plugin class must carry a field_type.")
+
+            if cls.field_type in cls.plugins:
+                raise RuntimeError("Plugin class %s already registered with %s"
+                    % (cls.field_type, str(type(cls))))
+
             # track names of classes
-            cls.plugins.append(cls)
+            cls.plugins[cls.field_type] = cls
             
             # try to call register class method
             if hasattr(cls, 'register'):
                 cls.register()
 
-def BoxSize_t(value):
-    """
-    Parse a string of either a single float, or 
-    a space-separated string of 3 floats, representing 
-    a box size. Designed to be used by the Painter plugins
-    
-    Returns
-    -------
-    BoxSize : array_like
-        an array of size 3 giving the box size in each dimension
-    """
-    boxsize = numpy.empty(3, dtype='f8')
-    sizes = map(float, value.split())
-    if len(sizes) == 1: sizes = sizes[0]
-    boxsize[:] = sizes
-    return boxsize
-    
-class InputPainter:
+class DataSource:
     """
     Mount point for plugins which refer to the reading of input files 
     and the subsequent painting of those fields.
@@ -58,32 +48,38 @@ class InputPainter:
     paint : method
         A method that performs the painting of the field. It 
         takes the following arguments:
-            ns : argparse.Namespace
             pm : pypm.particlemesh.ParticleMesh
+
+    read: method
+        A method that performs the reading of the field. It shall
+        returns the position (in 0 to BoxSize) and velocity (in the
+        same units as position), in chunks as an iterator.
+
     """
     __metaclass__ = PluginMount
     
-    from argparse import ArgumentParser
-
-    parser = ArgumentParser("", add_help=False)
-    subparsers = parser.add_subparsers()
     field_type = None
 
-    def __init__(self, dict):
-        self.__dict__.update(dict)
+    def __init__(self, args):
+        ns = self.parser.parse_args(args)
+        self.__dict__.update(ns.__dict__)
 
     @classmethod
-    def parse(kls, string): 
-        words = string.split(':')
+    def open(kls, connection): 
+        """ opens a file based on the connection string 
+
+            Parameters
+            ----------
+            connection: string
+                A colon (:) separated string of arguments.
+                The first field is the type of the connection.
+                The reset depends on the type of the conntection.
+        """
+        words = connection.split(':')
         
-        ns = kls.parser.parse_args(words)
-        klass = ns.klass
-        d = ns.__dict__
-        # break the cycle
-        del d['klass']
-        d['string'] = string
-        painter = klass(d)
-        return painter
+        klass = kls.plugins[words[0]]
+        self = klass(words[1:])
+        return self
 
     def __eq__(self, other):
         return self.string == other.string
@@ -91,21 +87,26 @@ class InputPainter:
     def __ne__(self, other):
         return self.string != other.string
 
-    def paint(self, pm):
+    def read(self, columns, comm, bunchsize=None):
+        """ Yield the data in the columns by "nchunks" as dictionaries. 
+            
+        """
         return NotImplemented    
 
     @classmethod
-    def add_parser(kls, name, usage):
-        return kls.subparsers.add_parser(name, 
-                usage=usage, add_help=False)
-    
+    def add_parser(kls):
+        from ..utils.pluginargparse import HelpFormatterColon
+        from argparse import ArgumentParser
+        kls.parser = ArgumentParser(kls.field_type, 
+                usage=None, add_help=False, formatter_class=HelpFormatterColon)
+        return kls.parser
+
     @classmethod
     def format_help(kls):
         
         rt = []
-        for plugin in kls.plugins:
-            k = plugin.field_type
-            rt.append(kls.subparsers.choices[k].format_help())
+        for k in kls.plugins:
+            rt.append(kls.plugins[k].parser.format_help())
 
         if not len(rt):
             return "No available input field types"
@@ -130,7 +131,7 @@ class PowerSpectrumStorage:
         kls.klasses[klass.field_type] = klass
 
     @classmethod
-    def get(kls, dim, path):
+    def new(kls, dim, path):
         klass = kls.klasses[dim]
         obj = klass(path)
         return obj
@@ -150,12 +151,15 @@ class PowerSpectrumStorage:
 
     def write(self, data, **meta):
         return NotImplemented
-            
+
 #------------------------------------------------------------------------------          
 import os.path
+import glob
+
+references = {}
 
 def load(filename, namespace=None):
-    """ An adapter for ArgumentParser to load a plugin.
+    """ load a plugin from filename.
         
         Parameters
         ----------
@@ -169,20 +173,21 @@ def load(filename, namespace=None):
         namespace : dict
             modified global namespace of the plugin script.
     """
+    if os.path.isdir(filename):
+        l = glob.glob(os.path.join(filename, "*.py"))
+        for f in l:
+            load(f, namespace)
+        return
     if namespace is None:
         namespace = {}
-    if os.path.isdir(filename):
-        # FIXME: walk the dir and load all .py files.
-        raise ValueError("Can not load directory")
+    namespace = dict(namespace)
     try:
         execfile(filename, namespace)
     except Exception as e:
         raise RuntimeError("Failed to load plugin '%s': %s" % (filename, str(e)))
-    return namespace
+    references[filename] = namespace
 
-
-builtins = ['TPMSnapshotPainter', 'HaloFilePainter', 'PandasPlainTextPainter',
-            'PlainTextPainter', 'HDFPainter', 'Power1DStorage', 'Power2DStorage']
+builtins = ['DataSource', 'Power1DStorage.py', 'Power2DStorage.py']
 for plugin in builtins:
-    globals().update(load(os.path.join(os.path.dirname(__file__), plugin + '.py')))
+    load(os.path.join(os.path.dirname(__file__), plugin))
  

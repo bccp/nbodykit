@@ -1,8 +1,9 @@
-from nbodykit.plugins import InputPainter, BoxSize_t
+from nbodykit.plugins import DataSource
+from nbodykit.utils.pluginargparse import BoxSizeParser
 import numpy
 import logging
          
-class QPMMockPainter(InputPainter):
+class QPMMockDataSource(DataSource):
     """
     Class to read data from the DR12 BOSS QPM periodic box 
     mocks, which are stored as a plain text ASCII file, and 
@@ -31,8 +32,9 @@ class QPMMockPainter(InputPainter):
     qperp = 0.9925056798
     
     def __init__(self, d):
-        super(QPMMockPainter, self).__init__(d)
-        
+        super(QPMMockDataSource, self).__init__(d)
+        self._BoxSize0 = self.BoxSize.copy()
+
         # rescale the box size, if scaled = True
         if self.scaled:
             if self.rsd is None:
@@ -48,11 +50,10 @@ class QPMMockPainter(InputPainter):
     
     @classmethod
     def register(kls):
-        usage = kls.field_type+":path:BoxSize[:-scaled][:-rsd][:-velf]"
-        h = kls.add_parser(kls.field_type, usage=usage)
+        h = kls.add_parser()
         
         h.add_argument("path", help="path to file")
-        h.add_argument("BoxSize", type=BoxSize_t,
+        h.add_argument("BoxSize", type=BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
 
         h.add_argument("-scaled", action='store_true', 
@@ -61,14 +62,13 @@ class QPMMockPainter(InputPainter):
             help="direction to do redshift distortion")
         h.add_argument("-velf", default=1., type=float, 
             help="factor to scale the velocities")
-        h.set_defaults(klass=kls)
     
-    def paint(self, pm):
-        if pm.comm.rank == 0:
+    def read(self, columns, comm, bunchsize):
+        if comm.rank == 0:
             try:
                 import pandas as pd
             except:
-                raise ImportError("pandas must be installed to use QPMMockPainter")
+                raise ImportError("pandas must be installed to use QPMMockDataSource")
                 
             # read in the plain text file using pandas
             kwargs = {}
@@ -77,6 +77,7 @@ class QPMMockPainter(InputPainter):
             kwargs['header'] = None
             kwargs['engine'] = 'c'
             kwargs['delim_whitespace'] = True
+            kwargs['usecols'] = ['x', 'y', 'z', 'vx', 'vy', 'vz']
             data = pd.read_csv(self.path, **kwargs)
             nobj = len(data)
             
@@ -84,31 +85,28 @@ class QPMMockPainter(InputPainter):
             
             # get position 
             pos = data[['x', 'y', 'z']].values.astype('f4')
-            vel = data[['x', 'y', 'z']].values.astype('f4')
+            vel = data[['vx', 'vy', 'vz']].values.astype('f4')
             vel *= self.velf
         else:
             pos = numpy.empty(0, dtype=('f4', 3))
             vel = numpy.empty(0, dtype=('f4', 3))
 
-        Ntot = len(pos)
-        Ntot = pm.comm.bcast(Ntot)
-
         # go to redshift-space and wrap periodically
         if self.rsd is not None:
             dir = 'xyz'.index(self.rsd)
             pos[:, dir] += vel[:, dir]
-            pos[:, dir] %= self.BoxSize[dir] # enforce periodic boundary conditions
+            pos[:, dir] %= self._BoxSize0[dir] # enforce periodic boundary conditions
         
         # rescale by AP factor
         if self.scaled:
-            if pm.comm.rank == 0:
+            if comm.rank == 0:
                 logging.info("multiplying by qperp = %.5f" %self.qperp)
  
             # rescale positions and volume
             if self.rsd is None:
                 pos *= self.qperp
             else:
-                if pm.comm.rank == 0:
+                if comm.rank == 0:
                     logging.info("multiplying by qpar = %.5f" %self.qpar)
                 for i in [0,1,2]:
                     if i == dir:
@@ -116,13 +114,12 @@ class QPMMockPainter(InputPainter):
                     else:
                         pos[:,i] *= self.qperp
 
-        layout = pm.decompose(pos)
-        tpos = layout.exchange(pos)
-        pm.paint(tpos)
+        P = {}
+        P['Position'] = pos
+        P['Velocity'] = vel
+        P['Mass'] = None
 
-        npaint = pm.comm.allreduce(len(tpos)) 
-        return Ntot
-
+        yield [P[key] for key in columns]
 
     
 

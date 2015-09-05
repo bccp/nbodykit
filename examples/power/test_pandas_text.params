@@ -1,0 +1,4 @@
+2d
+256
+../output/power_2d_pandas_plaintext_test.dat
+Pandas:../data/plaintext.txt:x y z z_redshift is_sat N_sat collided resolved:1380:-poscols=x y z_redshift:-ftype=text

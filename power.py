@@ -2,19 +2,21 @@ from sys import argv
 from sys import stdout
 from sys import stderr
 import logging
+import warnings
 
 logging.basicConfig(level=logging.DEBUG)
 
 import numpy
 import nbodykit
 from nbodykit import plugins
-from nbodykit.utils.argumentparser import ArgumentParser
+from nbodykit.utils.pluginargparse import PluginArgumentParser
 #--------------------------------------------------
 # setup the parser
 #--------------------------------------------------
 
 # initialize the parser
-parser = ArgumentParser("Parallel Power Spectrum Calculator",
+parser = PluginArgumentParser("Parallel Power Spectrum Calculator",
+        loader=plugins.load,
         description=
      """Calculating matter power spectrum from RunPB input files. 
         Output is written to stdout, in Mpc/h units. 
@@ -36,14 +38,14 @@ parser.add_argument("output", help='write power to this file. set as `-` for std
 
 # add the input field types
 h = "one or two input fields, specified as:\n\n"
-parser.add_argument("inputs", nargs="+", type=plugins.InputPainter.parse, 
-                    help=h+plugins.InputPainter.format_help())
+parser.add_argument("inputs", nargs="+", type=plugins.DataSource.open, 
+                    help=h+plugins.DataSource.format_help())
 
 # add the optional arguments
+parser.add_argument("--bunchsize", type=int, default=1024*1024*4,
+    help='Number of particles to read per rank. A larger number usually means faster IO, but less memory for the FFT mesh. This is not respected by some data sources.')
 parser.add_argument("--binshift", type=float, default=0.0,
         help='Shift the bin center by this fraction of the bin width. Default is 0.0. Marcel uses 0.5. this shall rarely be changed.' )
-parser.add_argument("--bunchsize", type=int, default=1024*1024*4,
-        help='Number of particles to read per rank. A larger number usually means faster IO, but less memory for the FFT mesh')
 parser.add_argument("--remove-cic", default='anisotropic', choices=["anisotropic","isotropic", "none"],
         help='deconvolve cic, anisotropic is the proper way, see http://www.personal.psu.edu/duj13/dissertation/djeong_diss.pdf')
 parser.add_argument("--remove-shotnoise", action='store_true', default=False,
@@ -52,6 +54,10 @@ parser.add_argument("--Nmu", type=int, default=5,
         help='the number of mu bins to use; if `mode = 1d`, then `Nmu` is set to 1' )
 parser.add_argument("--los", choices="xyz", default='z',
         help="the line-of-sight direction, which the angle `mu` is defined with respect to")
+parser.add_argument("--dk", type=float,
+        help='the spacing of k bins to use; if not provided, the fundamental mode of the box is used')
+parser.add_argument("--kmin", type=float, default=0,
+        help='the edge of the first bin to use; default is 0')
 
 # parse
 ns = parser.parse_args()
@@ -98,7 +104,7 @@ def main():
     pm = ParticleMesh(ns.inputs[0].BoxSize, ns.Nmesh, dtype='f4')
 
     # paint first input
-    Ntot1 = ns.inputs[0].paint(pm)
+    Ntot1 = paint(ns.inputs[0], pm)
 
     # painting
     if MPI.COMM_WORLD.rank == 0:
@@ -120,7 +126,7 @@ def main():
             raise ValueError("mismatch in box sizes for cross power measurement")
         
         c1 = pm.complex.copy()
-        Ntot2 = ns.inputs[1].paint(pm)
+        Ntot2 = paint(ns.inputs[1], pm)
 
         if MPI.COMM_WORLD.rank == 0:
             print 'painting 2 done'
@@ -152,7 +158,8 @@ def main():
     meta = {'Lx':Lx, 'Ly':Ly, 'Lz':Lz, 'volume':Lx*Ly*Lz, 
             'N1':Ntot1, 'N2':Ntot2, 'shot_noise': shotnoise}
     result = measurepower(pm, c1, c2, ns.Nmu, binshift=ns.binshift, 
-                            shotnoise=shotnoise, los=ns.los)
+                            shotnoise=shotnoise, los=ns.los, dk=ns.dk, 
+                            kmin=ns.kmin)
     
     # format the output appropriately
     if ns.mode == "1d":
@@ -164,7 +171,36 @@ def main():
         
     if MPI.COMM_WORLD.rank == 0:
         print 'measure'
-        storage = plugins.PowerSpectrumStorage.get(ns.mode, ns.output)
+        storage = plugins.PowerSpectrumStorage.new(ns.mode, ns.output)
         storage.write(result, **meta)
  
+def paint(input, pm):
+    # compatibility with the older painters. 
+    # We need to get rid of them.
+    if hasattr(input, 'paint'):
+        if pm.comm.rank == 0:
+            warnings.warn('paint method of type %s shall be replaced with a read method'
+                % type(input), DeprecationWarning)
+        return input.paint(pm)
+
+    pm.real[:] = 0
+    Ntot = 0
+
+    if pm.comm.rank == 0: 
+        logging.info("BoxSize = %s", str(input.BoxSize))
+    for position, weight in input.read(['Position', 'Mass'], pm.comm, ns.bunchsize):
+        if len(position) > 0:
+            logging.info("position range on rank %d is %s:%s", pm.comm.rank, 
+                    position.min(axis=0), position.max(axis=0))
+        layout = pm.decompose(position)
+        position = layout.exchange(position)
+        if weight is None:
+            Ntot += len(position)
+            weight = 1
+        else:
+            weight = layout.exchange(weight)
+            Ntot += weight.sum()
+        pm.paint(position, weight)
+    return pm.comm.allreduce(Ntot)
+
 main()

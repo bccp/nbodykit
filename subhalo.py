@@ -3,12 +3,15 @@ from sys import stdout
 from sys import stderr
 import logging
 
-from argparse import ArgumentParser
+from nbodykit.utils.pluginargparse import PluginArgumentParser
+from nbodykit import plugins
 import h5py
 
-parser = ArgumentParser("Subhalo finder ",
+parser = PluginArgumentParser(None,
+        loader=plugins.load,
         description=
      """ 
+        Finding subhalos from FOF groups. This is a variant of FOF6D.
      """,
         epilog=
      """
@@ -16,8 +19,8 @@ parser = ArgumentParser("Subhalo finder ",
      """
         )
 
-parser.add_argument("snapfilename", 
-        help='basename of the snapshot, only runpb format is supported in this script')
+parser.add_argument("datasource", type=plugins.DataSource.open,
+        help='Data source')
 parser.add_argument("halolabel", 
         help='basename of the halo label files, only nbodykit format is supported in this script')
 
@@ -47,57 +50,72 @@ from kdcount import cluster
 
 def main():
     comm = MPI.COMM_WORLD
-    SNAP, LABEL = None, None
+    LABEL = None
     if comm.rank == 0:
-        SNAP = files.Snapshot(ns.snapfilename, files.TPMSnapshotFile)
         LABEL = files.Snapshot(ns.halolabel, files.HaloLabelFile)
 
-    SNAP = comm.bcast(SNAP)
     LABEL = comm.bcast(LABEL)
  
-    Ntot = sum(SNAP.npart)
-    assert Ntot == sum(LABEL.npart)
+    offset = 0
+    
+    PIG = []
+    for Position, Velocity in \
+            ns.datasource.read(['Position', 'Velocity'], comm, bunchsize=4*1024*1024):
 
-    mystart = Ntot * comm.rank // comm.size
-    myend = Ntot * (comm.rank + 1) // comm.size
-
-    data = numpy.empty(myend - mystart, dtype=[
+        mystart = offset + sum(comm.allgather(len(Position))[:comm.rank])
+        myend = mystart + len(Position)
+        label = LABEL.read("Label", mystart, myend)
+        offset += comm.allreduce(len(Position))
+        mask = label != 0 
+        mydata = numpy.empty(mask.sum(), dtype=[
                 ('Position', ('f4', 3)), 
                 ('Velocity', ('f4', 3)), 
                 ('Label', ('i4')), 
                 ('Rank', ('i4')), 
                 ])
-    data['Position'] = SNAP.read("Position", mystart, myend)
-    data['Velocity'] = SNAP.read("Velocity", mystart, myend)
-    data['Label'] = LABEL.read("Label", mystart, myend)
+        mydata['Position'] = Position[mask] / ns.datasource.BoxSize
+        mydata['Velocity'] = Velocity[mask] / ns.datasource.BoxSize
+        mydata['Label'] = label[mask]
+        PIG.append(mydata)
+        del mydata
+    Ntot = offset
 
-    # remove particles not in any halos
-    data = data[data['Label'] != 0]
+    PIG = numpy.concatenate(PIG, axis=0)
 
-    Nhalo = comm.allreduce(data['Label'].max(), op=MPI.MAX) + 1
+    Nhalo = comm.allreduce(
+        PIG['Label'].max() if len(PIG['Label']) > 0 else 0, op=MPI.MAX) + 1
 
     # now count number of particles per halo
-    data['Rank'] = data['Label'] % comm.size
+    PIG['Rank'] = PIG['Label'] % comm.size
 
-    Nlocal = numpy.bincount(data['Rank'], minlength=comm.size)
-    Nlocal = comm.allreduce(Nlocal, op=MPI.SUM)[comm.rank]
-    data2 = numpy.empty(Nlocal, data.dtype)
+    Nlocal = comm.allreduce(
+                numpy.bincount(PIG['Rank'], minlength=comm.size)
+             )[comm.rank]
 
-    mpsort.sort(data, orderby='Rank', out=data2)
+    PIG2 = numpy.empty(Nlocal, PIG.dtype)
 
-    assert (data2['Rank'] == comm.rank).all()
+    mpsort.sort(PIG, orderby='Rank', out=PIG2)
+    del PIG
 
-    data2.sort(order=['Label'])
+    assert (PIG2['Rank'] == comm.rank).all()
 
+    PIG2.sort(order=['Label'])
+
+    logging.info('halos = %d', Nhalo)
     cat = []
-    for label in numpy.unique(data2['Label']):
-        hstart = data2['Label'].searchsorted(label, side='left')
-        hend = data2['Label'].searchsorted(label, side='right')
+    for haloid in numpy.unique(PIG2['Label']):
+        hstart = PIG2['Label'].searchsorted(haloid, side='left')
+        hend = PIG2['Label'].searchsorted(haloid, side='right')
         if hstart - hend < ns.Nmin: continue
-        assert(data2['Label'][hstart:hend] == label).all()
-        print 'Halo', label
-        cat.append(subfof(data2['Position'][hstart:hend], data2['Velocity'][hstart:hend], 
-            ns.linklength * 1.0 / Ntot ** 0.3333, ns.vfactor, label, Ntot))
+        assert(PIG2['Label'][hstart:hend] == haloid).all()
+        print 'Halo', haloid
+        cat.append(
+            subfof(
+                PIG2['Position'][hstart:hend], 
+                PIG2['Velocity'][hstart:hend], 
+                ns.linklength * (ns.datasource.BoxSize.prod() / Ntot) ** 0.3333, 
+                ns.vfactor, haloid, Ntot))
+
     cat = numpy.concatenate(cat, axis=0)
     cat = comm.gather(cat)
 
@@ -105,10 +123,11 @@ def main():
         cat = numpy.concatenate(cat, axis=0)
         print cat
         with h5py.File(ns.output, mode='w') as f:
-            dataset = f.create_dataset('Subhalo', data=cat)
+            dataset = f.create_dataset('Subhalos', data=cat)
             dataset.attrs['LinkingLength'] = ns.linklength
             dataset.attrs['VFactor'] = ns.vfactor
             dataset.attrs['Ntot'] = Ntot
+            dataset.attrs['BoxSize'] = ns.datasource.BoxSize
 
 def subfof(pos, vel, ll, vfactor, haloid, Ntot):
     first = pos[0].copy()
@@ -127,11 +146,16 @@ def subfof(pos, vel, ll, vfactor, haloid, Ntot):
     #data = pos
 
     data = cluster.dataset(data)
-    fof = cluster.fof(data, linking_length=ll, np=0)
-    Nsub = (fof.length > 20).sum()
+    Nsub = 0
+    while Nsub == 0:
+        fof = cluster.fof(data, linking_length=ll, np=0)
+        ll *= 2
+        Nsub = (fof.length > 20).sum()
+
     output = numpy.empty(Nsub, dtype=[
         ('Position', ('f4', 3)),
         ('Velocity', ('f4', 3)),
+        ('LinkingLength', 'f4'),
         ('R200', 'f4'),
         ('R1200', 'f4'),
         ('R2400', 'f4'),
@@ -139,9 +163,11 @@ def subfof(pos, vel, ll, vfactor, haloid, Ntot):
         ('Length', 'i4'),
         ('HaloID', 'i4'),
         ])
+
     output['Position'][...] = fof.center()[:Nsub, :3]
     output['Length'][...] = fof.length[:Nsub]
     output['HaloID'][...] = haloid
+    output['LinkingLength'][...] = ll
 
     for i in range(3):
         output['Velocity'][..., i] = fof.sum(oldvel[:, i])[:Nsub] / output['Length']

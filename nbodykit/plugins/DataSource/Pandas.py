@@ -1,5 +1,5 @@
-from nbodykit.plugins import InputPainter, BoxSize_t
-
+from nbodykit.plugins import DataSource
+from nbodykit.utils.pluginargparse import BoxSizeParser
 import numpy
 import logging
 from nbodykit.utils import selectionlanguage
@@ -7,13 +7,17 @@ from nbodykit.utils import selectionlanguage
 def list_str(value):
     return value.split()
          
-class PandasPlainTextPainter(InputPainter):
+class PandasDataSource(DataSource):
     """
-    Class to read field data from a plain text ASCII file
-    and paint the field onto a density grid. The data is read
-    from file using `pandas.read_csv` and is stored internally in 
-    a `pandas.DataFrame`
+    Class to read field data from a Pandas data file
+    and paint the field onto a density grid. 
+    File types are guessed from the file name extension, or
+    specified via `-ftype` commandline argument.  
+    For text files, the data is read using `pandas.read_csv`. 
+    For HDF5 files (.hdf5), the data is read using `pandas.read_hdf5`.
     
+    Data is stored internally in a `pandas.DataFrame`. 
+
     Notes
     -----
     * `pandas` must be installed to use
@@ -28,9 +32,10 @@ class PandasPlainTextPainter(InputPainter):
     path    : str
         the path of the file to read the data from 
     names   : list of str
-        one or more strings specifying the names of the data
+        For text files, one or more strings specifying the names of the data
         columns. Shape must be equal to number of columns
-        in the field, otherwise, behavior is undefined
+        in the field, otherwise, behavior is undefined.
+        For hdf5 files, the name of the pandas data group.
     BoxSize : float or array_like (3,)
         the box size, either provided as a single float (isotropic)
         or an array of the sizes of the three dimensions
@@ -52,27 +57,27 @@ class PandasPlainTextPainter(InputPainter):
         `type` and `mass`, you could specify 
         select= "type == central and mass > 1e14"
     """
-    field_type = "PandasPlainText"
+    field_type = "Pandas"
     
     @classmethod
     def register(kls):
         
-        args = kls.field_type+":path:names:BoxSize"
-        options = "[:-usecols= x y z][:-poscols= x y z]\n[:-velcols= vx vy vz]" + \
-                  "[:-rsd=[x|y|z]][:-posf=1.0][:-velf=1.0][:-select=conditions]"
-        h = kls.add_parser(kls.field_type, usage=args+options)
+        h = kls.add_parser()
         
         h.add_argument("path", help="path to file")
         h.add_argument("names", type=list_str, 
-            help="names of columns in file")
-        h.add_argument("BoxSize", type=BoxSize_t,
+            help="names of columns in text file or name of the data group in hdf5 file")
+        h.add_argument("BoxSize", type=BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
                 
         h.add_argument("-usecols", type=list_str, 
+            metavar="x y z",
             help="only read these columns from file")
         h.add_argument("-poscols", type=list_str, default=['x','y','z'], 
+            metavar="x y z",
             help="names of the position columns")
         h.add_argument("-velcols", type=list_str, default=None,
+            metavar="vx vy vz",
             help="names of the velocity columns")
         h.add_argument("-rsd", choices="xyz", 
             help="direction to do redshift distortion")
@@ -82,24 +87,35 @@ class PandasPlainTextPainter(InputPainter):
             help="factor to scale the velocities")
         h.add_argument("-select", default=None, type=selectionlanguage.Query, 
             help='row selection based on conditions specified as string')
-        h.set_defaults(klass=kls)
+        h.add_argument("-ftype", default='auto', choices=['hdf5', 'text', 'auto'], 
+            help='Format of the Pandas storage container. auto is to guess from the file name.')
     
-    def paint(self, pm):
-        if pm.comm.rank == 0:
+    def read(self, columns, comm, bunchsize):
+        if comm.rank == 0:
             try:
                 import pandas as pd
             except:
-                raise ImportError("pandas must be installed to use PandasPlainTextPainter")
+                raise ImportError("pandas must be installed to use PandasPlainTextDataSource")
                 
-            # read in the plain text file using pandas
-            kwargs = {}
-            kwargs['comment'] = '#'
-            kwargs['names'] = self.names
-            kwargs['header'] = None
-            kwargs['engine'] = 'c'
-            kwargs['delim_whitespace'] = True
-            kwargs['usecols'] = self.usecols
-            data = pd.read_csv(self.path, **kwargs)
+            if self.ftype == 'auto':
+                if self.path.endswith('.hdf5'):
+                    self.ftype = 'hdf5'
+                else: 
+                    self.ftype = 'text'
+            if self.ftype == 'hdf5':
+                # read in the hdf5 file using pandas
+                data = pd.read_hdf(self.path, self.names[0], columns=self.usecols)
+            elif self.ftype == 'text':
+                # read in the plain text file using pandas
+                kwargs = {}
+                kwargs['comment'] = '#'
+                kwargs['names'] = self.names
+                kwargs['header'] = None
+                kwargs['engine'] = 'c'
+                kwargs['delim_whitespace'] = True
+                kwargs['usecols'] = self.usecols
+                data = pd.read_csv(self.path, **kwargs)
+
             nobj = len(data)
             
             # select based on input conditions
@@ -121,20 +137,18 @@ class PandasPlainTextPainter(InputPainter):
             pos = numpy.empty(0, dtype=('f4', 3))
             vel = numpy.empty(0, dtype=('f4', 3))
 
-        Ntot = len(pos)
-        Ntot = pm.comm.bcast(Ntot)
+        P = {}
+        if 'Position' in columns:
+            P['Position'] = pos
+        if 'Velocity' in columns or self.rsd is not None:
+            P['Velocity'] = vel
+        if 'Mass' in columns:
+            P['Mass'] = None
 
-        # assumed the position values are now in same
-        # units as BoxSize
         if self.rsd is not None:
-            dir = 'xyz'.index(self.rsd)
-            pos[:, dir] += vel[:, dir]
-            pos[:, dir] %= self.BoxSize[dir] # enforce periodic boundary conditions
+            dir = "xyz".index(self.rsd)
+            P['Position'][:, dir] += P['Velocity'][:, dir]
+            P['Position'][:, dir] %= self.BoxSize[dir]
 
-        layout = pm.decompose(pos)
-        tpos = layout.exchange(pos)
-        pm.paint(tpos)
-
-        npaint = pm.comm.allreduce(len(tpos)) 
-        return Ntot
+        yield [P[key] for key in columns]
 

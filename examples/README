@@ -1,0 +1,7 @@
+This folder contains example parameter files for the various scripts in nbodykit.
+
+The scripts in nbodykit can read in commandline arguments from parameter file with
+the '@' operator. For example
+
+python power.py @boss-challenge-mock1.param
+

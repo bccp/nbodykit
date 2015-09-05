@@ -4,7 +4,7 @@ from pypm.particlemesh import ParticleMesh
 from pypm.transfer import TransferFunction
 from mpi4py import MPI
 
-def measurepower(pm, c1, c2, Nmu, binshift=0.0, shotnoise=0.0, los='z'):
+def measurepower(pm, c1, c2, Nmu, binshift=0.0, shotnoise=0.0, los='z', dk=None, kmin=0):
     """ Measure power spectrum P(k,mu) from density field painted on pm 
 
         The power spectrum is measured in bins of k and mu. The k bins extend 
@@ -44,18 +44,28 @@ def measurepower(pm, c1, c2, Nmu, binshift=0.0, shotnoise=0.0, los='z'):
             the line-of-sight direction, which the angle `mu` is defined with
             respect to. Default is `z`.
             
+        dk : float, optional
+            use this spacing for k bins; if not provided, the fundamental mode
+            of the box :math: `2 pi / BoxSize` is used
+        
+        kmin : float, optional
+            the edge of the first k bin to use; default is 0
+            
     """
-    Nfreq = pm.Nmesh//2
-    ndims = (Nfreq+2, Nmu+2)
-    
     # kedges out to the minimum nyquist frequency (accounting for possibly anisotropic box)
     BoxSize_min = numpy.amin(pm.BoxSize)
     w_to_k = pm.Nmesh / BoxSize_min
-    kedges = numpy.linspace(0, numpy.pi*w_to_k, Nfreq + 1, endpoint=True)
-    kedges += binshift * kedges[1]
-    
+    if dk is None: 
+        dk = 2*numpy.pi/BoxSize_min
+    kedges = numpy.arange(kmin, numpy.pi*w_to_k + dk/2, dk)
+    kedges += binshift * dk
+        
     # mu bin edges
     muedges = numpy.linspace(0, 1, Nmu+1, endpoint=True)
+    
+    # store for convenience
+    Nfreq = len(kedges) - 1 
+    ndims = (Nfreq+2, Nmu+2)
     
     # freq bin edges
     k2edges = kedges ** 2

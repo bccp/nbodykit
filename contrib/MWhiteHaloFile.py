@@ -1,4 +1,5 @@
-from nbodykit.plugins import InputPainter, BoxSize_t
+from nbodykit.plugins import DataSource
+from nbodykit.utils.pluginargparse import BoxSizeParser
 import numpy
 import logging
 from nbodykit.utils import selectionlanguage
@@ -56,63 +57,54 @@ class MWhiteHaloFile(object):
             
             
 #------------------------------------------------------------------------------          
-class MWhiteHaloFilePainter(InputPainter):
+class MWhiteHaloFileDataSource(DataSource):
     field_type = "MWhiteHaloFile"
     
     @classmethod
     def register(kls):
         
-        args = kls.field_type+":path:BoxSize"
-        options = "[:-rsd=[x|y|z]][:-select=conditions]"
-        h = kls.add_parser(kls.field_type, usage=args+options)
+        h = kls.add_parser()
         h.add_argument("path", help="path to file")
-        h.add_argument("BoxSize", type=BoxSize_t,
+        h.add_argument("BoxSize", type=BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
             
         h.add_argument("-rsd", 
             choices="xyz", help="direction to do redshift distortion")
         h.add_argument("-select", default=None, type=selectionlanguage.Query,
             help='row selection based on logmass, e.g. logmass > 13 and logmass < 15')
-        h.set_defaults(klass=kls)
     
-    def paint(self, pm):
+    def read(self, columns, comm, bunchsize):
         dtype = numpy.dtype([
-            ('position', ('f4', 3)),
-            ('velocity', ('f4', 3)),
-            ('logmass', 'f4')])
+            ('Position', ('f4', 3)),
+            ('Velocity', ('f4', 3)),
+            ('logmass', 'f4'),
+            ('Mass', 'f4'), ])
             
-        if pm.comm.rank == 0:
+        if comm.rank == 0:
             hf = MWhiteHaloFile(self.path)
             nhalo = hf.nhalo
-            data = numpy.empty(nhalo, dtype)
+            P = numpy.empty(nhalo, dtype)
             
-            data['position']= numpy.float32(hf.read_pos())
-            data['velocity']= numpy.float32(hf.read_vel())
-            data['logmass'] = numpy.log10(numpy.float32(hf.read_mass()))
+            P['Position']= numpy.float32(hf.read_pos())
+            P['Velocity']= numpy.float32(hf.read_vel())
+            # unweighted!
+            P['Mass'] = 1.0
+            P['logmass'] = numpy.log10(numpy.float32(hf.read_mass()))
             
             # select based on selection conditions
             if self.select is not None:
-                mask = self.select.get_mask(data)
-                data = data[mask]
-            logging.info("total number of halos in mass range is %d / %d" % (len(data), nhalo))
+                mask = self.select.get_mask(P)
+                P = P[mask]
+            logging.info("total number of halos in mass range is %d / %d" % (len(P), nhalo))
         else:
-            data = numpy.empty(0, dtype=dtype)
+            P = numpy.empty(0, dtype=dtype)
 
-        Ntot = len(data)
-        Ntot = pm.comm.bcast(Ntot)
+        P['Position'][:] *= self.BoxSize
+        P['Velocity'][:] *= self.BoxSize
 
         if self.rsd is not None:
-            dir = 'xyz'.index(self.rsd)
-            data['position'][:, dir] += data['velocity'][:, dir]
-            data['position'][:, dir] %= 1.0 # enforce periodic boundary conditions
-        
-        data['position'][:] *= self.BoxSize
-        
-        
-        
-        layout = pm.decompose(data['position'])
-        tpos = layout.exchange(data['position'])
-        pm.paint(tpos)
+            dir = "xyz".index(self.rsd)
+            P['Position'][:, dir] += P['Velocity'][:, dir]
+            P['Position'][:, dir] %= self.BoxSize[dir]
 
-        npaint = pm.comm.allreduce(len(tpos)) 
-        return Ntot
+        yield [P[key] for key in columns]

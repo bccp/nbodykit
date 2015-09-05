@@ -3,11 +3,13 @@ from sys import stdout
 from sys import stderr
 import logging
 
-from argparse import ArgumentParser
+from nbodykit.utils.pluginargparse import PluginArgumentParser
+from nbodykit import plugins
 import numpy
 import h5py
 
-parser = ArgumentParser("Friend-of-Friend Finder",
+parser = PluginArgumentParser(None,
+        loader=plugins.load,
         description=
         """
         Find friend of friend groups from a Nbody simulation snapshot
@@ -18,8 +20,9 @@ parser = ArgumentParser("Friend-of-Friend Finder",
         """
         )
 
-parser.add_argument("filename", 
-        help='basename of the input, only runpb format is supported in this script')
+h = "Data source to read particle position:\n\n"
+parser.add_argument("datasource", type=plugins.DataSource.open,
+        help=h + plugins.DataSource.format_help())
 parser.add_argument("LinkingLength", type=float, 
         help='LinkingLength in mean separation (0.2)')
 parser.add_argument("output", help='output file; output.grp.N and output.halo are written')
@@ -33,7 +36,6 @@ from mpi4py import MPI
 import nbodykit
 
 from nbodykit.distributedarray import DistributedArray
-from nbodykit.files import TPMSnapshotFile, read, Snapshot
 from nbodykit.ndarray import equiv_class, replacesorted
 from nbodykit import halos
 
@@ -133,9 +135,12 @@ def main():
     if comm.rank == 0:
         logging.info('grid %s' % str(grid) )
 
-    [P] = read(comm, ns.filename, TPMSnapshotFile, columns=['Position'])
-
-    Ntot = sum(comm.allgather(len(P['Position'])))
+    # read in all !
+    [[Position]] = ns.datasource.read(['Position'], comm, bunchsize=None)
+    Position /= ns.datasource.BoxSize
+    print Position.shape
+    print Position.max(axis=0)
+    Ntot = sum(comm.allgather(len(Position)))
 
     if comm.rank == 0:
         logging.info('Total number of particles %d, ll %g' % (Ntot, ns.LinkingLength))
@@ -144,23 +149,23 @@ def main():
     #print pos
     #print ((pos[0] - pos[1]) ** 2).sum()** 0.5, ll
   
-    layout = domain.decompose(P['Position'], smoothing=ll * 1)
+    layout = domain.decompose(Position, smoothing=ll * 1)
 
-    P['Position'] = layout.exchange(P['Position'])
-    
-    logging.info('domain %d has %d particles' % (comm.rank, len(P['Position'])))
+    Position = layout.exchange(Position)
+ 
+    logging.info('domain %d has %d particles' % (comm.rank, len(Position)))
 
-    labels = local_fof(P['Position'], ll)
-    del P
+    labels = local_fof(Position, ll)
+    del Position
 
     if comm.rank == 0:
         logging.info('local fof done' )
 
-    [Pid] = read(comm, ns.filename, TPMSnapshotFile, columns=['ID'])
-    Pid['ID'] = layout.exchange(Pid['ID'])
+    [[ID]] = ns.datasource.read(['ID'], comm, bunchsize=None)
+    ID = layout.exchange(ID)
     # initialize global labels
-    minid = equiv_class(labels, Pid['ID'], op=numpy.fmin)[labels]
-    del Pid
+    minid = equiv_class(labels, ID, op=numpy.fmin)[labels]
+    del ID
 
     if comm.rank == 0:
         logging.info("equiv class, done")
@@ -178,7 +183,7 @@ def main():
         total = comm.allreduce(merged.sum())
             
         if comm.rank == 0:
-            print 'merged ', total, 'halos'
+            logging.info('merged %d halos', total)
 
         if total == 0:
             del minid_new
@@ -213,24 +218,25 @@ def main():
     N = halos.count(label, comm=comm)
 
     if comm.rank == 0:
-        print 'total halos is', len(N)
+        logging.info('Length of entries %s ', str(N))
+        logging.info('Length of entries %s ', N.shape[0])
+        logging.info('Total particles %s ', N.sum())
 
-    [P] = read(comm, ns.filename, TPMSnapshotFile, columns=['Position'])
+    [[Position]] = ns.datasource.read(['Position'], comm, bunchsize=None)
 
-    hpos = halos.centerofmass(label, P['Position'], boxsize=1.0, comm=comm)
+    Position /= ns.datasource.BoxSize
+    hpos = halos.centerofmass(label, Position, boxsize=1.0, comm=comm)
+    del Position
 
-    [P] = read(comm, ns.filename, TPMSnapshotFile, columns=['Velocity'])
+    [[Velocity]] = ns.datasource.read(['Velocity'], comm, bunchsize=None)
+    Velocity /= ns.datasource.BoxSize
 
-    hvel = halos.centerofmass(label, P['Velocity'], boxsize=None, comm=comm)
+    hvel = halos.centerofmass(label, Velocity, boxsize=None, comm=comm)
+    del Velocity
 
     if comm.rank == 0:
-        print N
-        print 'total groups', N.shape
-        print 'total particles', N.sum()
-        print 'above ', ns.nmin, (N >ns.nmin).sum()
-        N[0] = -1
-
         with h5py.File(ns.output + '.hdf5', 'w') as ff:
+            N[0] = 0
             data = numpy.empty(shape=(len(N),), 
                 dtype=[
                 ('Position', ('f4', 3)),
@@ -240,7 +246,7 @@ def main():
             data['Position'] = hpos
             data['Velocity'] = hvel
             data['Length'] = N
-
+            
             # do not create dataset then fill because of
             # https://github.com/h5py/h5py/pull/606
 
@@ -249,20 +255,24 @@ def main():
                 )
             dataset.attrs['Ntot'] = Ntot
             dataset.attrs['LinkLength'] = ns.LinkingLength
+            dataset.attrs['BoxSize'] = ns.datasource.BoxSize
 
     del N
     del hpos
 
-    npart = None
+    Ntot = comm.allreduce(len(label))
+    nfile = (Ntot + 512 ** 3 - 1) // (512 ** 3 )
+    
+    npart = [ 
+        (i+1) * Ntot // nfile - i * Ntot // nfile \
+            for i in range(nfile) ]
+
     if comm.rank == 0:
-        snapshot = Snapshot(ns.filename,TPMSnapshotFile)
-        npart = snapshot.npart
-        for i in range(len(snapshot.npart)):
+        for i in range(len(npart)):
             with open(ns.output + '.grp.%02d' % i, 'w') as ff:
                 numpy.int32(npart[i]).tofile(ff)
                 numpy.float32(ns.LinkingLength).tofile(ff)
                 pass
-    npart = comm.bcast(npart)
 
     start = sum(comm.allgather(len(label))[:comm.rank])
     end = sum(comm.allgather(len(label))[:comm.rank+1])
