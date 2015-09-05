@@ -1,2 +1,4 @@
 *.pyc
-
+examples/data
+examples/nbodykit-data.tar.gz
+examples/output
