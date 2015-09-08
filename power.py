@@ -58,6 +58,8 @@ parser.add_argument("--dk", type=float,
         help='the spacing of k bins to use; if not provided, the fundamental mode of the box is used')
 parser.add_argument("--kmin", type=float, default=0,
         help='the edge of the first bin to use; default is 0')
+parser.add_argument("-l", "--multipoles", type=lambda x: map(int, x.split()),
+        help='compute the power multipoles specified by these `ell` values, i.e., `-l=0` is the monopole')
 
 # parse
 ns = parser.parse_args()
@@ -66,7 +68,7 @@ ns = parser.parse_args()
 # done with the parser. now do the real calculation
 #--------------------------------------------------
 
-from nbodykit.measurepower import measurepower
+from nbodykit.measurepower import measurepower, measurepoles
 from pypm.particlemesh import ParticleMesh
 from pypm.transfer import TransferFunction
 from mpi4py import MPI
@@ -153,22 +155,34 @@ def main():
     # only need one mu bin if 1d case is requested
     if ns.mode == "1d": ns.Nmu = 1 
 
-    # do the calculation
+    # store some meta data
     Lx, Ly, Lz = pm.BoxSize
     meta = {'Lx':Lx, 'Ly':Ly, 'Lz':Lz, 'volume':Lx*Ly*Lz, 
             'N1':Ntot1, 'N2':Ntot2, 'shot_noise': shotnoise}
-    result = measurepower(pm, c1, c2, ns.Nmu, binshift=ns.binshift, 
-                            shotnoise=shotnoise, los=ns.los, dk=ns.dk, 
-                            kmin=ns.kmin)
+            
+    # measure P(k,mu)
+    if ns.multipoles is None:
+        result = measurepower(pm, c1, c2, ns.Nmu, binshift=ns.binshift, 
+                                shotnoise=shotnoise, los=ns.los, dk=ns.dk, 
+                                kmin=ns.kmin)
+    # measure multipoles
+    else:
+        ns.mode = '1d'
+        result = measurepoles(pm, c1, c2, ns.multipoles, binshift=ns.binshift, 
+                                los=ns.los, dk=ns.dk, kmin=ns.kmin)
+    
     
     # format the output appropriately
-    if ns.mode == "1d":
+    if ns.multipoles is not None:
+        meta['edges'] = result[-1]
+        result = [result[0], result[2]] + list(numpy.squeeze(numpy.split(result[1], len(ns.multipoles), axis=1)))
+    elif ns.mode == "1d":
         # this writes out 0 -> mean k, 2 -> mean power, 3 -> number of modes
         meta['edges'] = result[-1][0] # write out kedges as metadata
         result = map(numpy.ravel, (result[i] for i in [0, 2, 3]))
     elif ns.mode == "2d":
         result = dict(zip(['k','mu','power','modes','edges'], result))
-        
+
     if MPI.COMM_WORLD.rank == 0:
         print 'measure'
         storage = plugins.PowerSpectrumStorage.new(ns.mode, ns.output)
