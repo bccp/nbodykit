@@ -370,7 +370,7 @@ def ReadPower1DPlainText(filename):
         P(k) measurement
     """
     # utility function for removing # char from the start of lines
-    def remove_percent_sign(line):
+    def remove_comment_chars(line):
         if isinstance(line, basestring):
             r = line.find('#')
             if r >= 0:
@@ -378,14 +378,17 @@ def ReadPower1DPlainText(filename):
             else:
                 return line
         elif isinstance(line, list):
-            return [remove_comments(l) for l in line]
+            return [remove_comment_chars(l) for l in line]
             
-    data = []
+    # read the data
+    data = numpy.loadtxt(filename, comments='#')
+    
+    # extract the metadata
     metadata = {}
     with open(filename, 'r') as ff:
         
         # loop over each line
-        lines = map(remove_percent_sign, ff.readlines())    
+        lines = remove_comment_chars(ff.readlines())
         currline = 0
         while True:
             
@@ -420,10 +423,9 @@ def ReadPower1DPlainText(filename):
                 continue
                 
             # add to the data
-            data.append(map(float, line.split()))
             currline += 1
             
-    return numpy.asarray(data), metadata
+    return data, metadata
                 
             
                 
