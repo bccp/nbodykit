@@ -5,6 +5,8 @@ import numpy
 import logging
 from nbodykit.utils import selectionlanguage
 
+logger = logging.getLogger('PlainText')
+
 def list_str(value):
     return value.split()
 
@@ -97,7 +99,7 @@ class PlainTextDataSource(DataSource):
             if self.select is not None:
                 mask = self.select.get_mask(data)
                 data = data[mask]
-            logging.info("total number of objects selected is %d / %d" % (len(data), nobj))
+            logger.info("total number of objects selected is %d / %d" % (len(data), nobj))
             
             # get position and velocity, if we have it
             pos = numpy.vstack(data[k] for k in self.poscols).T.astype('f4')

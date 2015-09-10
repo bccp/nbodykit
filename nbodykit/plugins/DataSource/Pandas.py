@@ -4,6 +4,8 @@ import numpy
 import logging
 from nbodykit.utils import selectionlanguage
 
+logger = logging.getLogger('Pandas')
+
 def list_str(value):
     return value.split()
          
@@ -122,7 +124,7 @@ class PandasDataSource(DataSource):
             if self.select is not None:
                 mask = self.select.get_mask(data)
                 data = data[mask]
-            logging.info("total number of objects selected is %d / %d" % (len(data), nobj))
+            logger.info("total number of objects selected is %d / %d" % (len(data), nobj))
             
             # get position and velocity, if we have it
             pos = data[self.poscols].values.astype('f4')

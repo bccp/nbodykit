@@ -7,9 +7,10 @@ rank = MPI.COMM_WORLD.rank
 name = MPI.Get_processor_name()
 logging.basicConfig(level=logging.DEBUG,
                     format='rank %d on %s: '%(rank,name) + \
-                            '%(asctime)s %(levelname)-8s %(message)s',
+                            '%(asctime)s %(name)-15s %(levelname)-8s %(message)s',
                     datefmt='%m-%d %H:%M')
-
+logger = logging.getLogger('power.py')
+              
 import nbodykit
 from nbodykit import plugins
 from nbodykit.utils.pluginargparse import PluginArgumentParser
@@ -110,7 +111,7 @@ def compute_power(ns):
         functions
     """
     if rank == 0:
-        logging.info('importing done')
+        logger.info('importing done')
 
     chain = [TransferFunction.NormalizeDC, TransferFunction.RemoveDC]
     if ns.remove_cic == 'anisotropic':
@@ -126,10 +127,10 @@ def compute_power(ns):
 
     # painting
     if rank == 0:
-        logging.info('painting done')
+        logger.info('painting done')
     pm.r2c()
     if rank == 0:
-        logging.info('r2c done')
+        logger.info('r2c done')
 
     # filter the field 
     pm.transfer(chain)
@@ -147,11 +148,11 @@ def compute_power(ns):
         Ntot2 = paint(ns.inputs[1], pm, ns)
 
         if rank == 0:
-            logging.info('painting 2 done')
+            logger.info('painting 2 done')
 
         pm.r2c()
         if rank == 0:
-            logging.info('r2c 2 done')
+            logger.info('r2c 2 done')
 
         # filter the field 
         pm.transfer(chain)
@@ -189,7 +190,7 @@ def compute_power(ns):
         
     # save the output
     if rank == 0:
-        logging.info('measurement done; saving')
+        logger.info('measurement done; saving to %s' %ns.output)
         storage = plugins.PowerSpectrumStorage.new(ns.mode, ns.output)
         storage.write(result, **meta)
  
@@ -224,10 +225,10 @@ def paint(input, pm, ns):
     Ntot = 0
 
     if pm.comm.rank == 0: 
-        logging.info("BoxSize = %s", str(input.BoxSize))
+        logger.info("BoxSize = %s", str(input.BoxSize))
     for position, weight in input.read(['Position', 'Mass'], pm.comm, ns.bunchsize):
         if len(position) > 0:
-            logging.info("position range on rank %d is %s:%s", pm.comm.rank, 
+            logger.info("position range on rank %d is %s:%s", pm.comm.rank, 
                     position.min(axis=0), position.max(axis=0))
         layout = pm.decompose(position)
         # Ntot shall be calculated before exchange. Issue #55.
@@ -251,7 +252,6 @@ def main():
     ns = initialize_power_parser().parse_args()
     
     # set logging level
-    logger = logging.getLogger("")
     logger.setLevel(ns.log_level)
     
     # do the work
