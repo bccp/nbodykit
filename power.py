@@ -189,7 +189,7 @@ def compute_power(ns):
         
     # save the output
     if rank == 0:
-        logging.info('measurement done; saving')
+        logging.info('measurement done; saving to %s' %ns.output)
         storage = plugins.PowerSpectrumStorage.new(ns.mode, ns.output)
         storage.write(result, **meta)
  
