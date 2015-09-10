@@ -110,6 +110,9 @@ def compute_power(ns):
         the parser namespace corresponding to the ``initialize_power_parser``
         functions
     """
+    # set logging level
+    logger.setLevel(ns.log_level)
+    
     if rank == 0:
         logger.info('importing done')
 
@@ -250,10 +253,7 @@ def main():
     """
     # parse
     ns = initialize_power_parser().parse_args()
-    
-    # set logging level
-    logger.setLevel(ns.log_level)
-    
+        
     # do the work
     compute_power(ns)
 
