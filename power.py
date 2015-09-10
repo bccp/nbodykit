@@ -21,7 +21,7 @@ from pypm.transfer import TransferFunction
 #--------------------------------------------------
 # setup the parser
 #--------------------------------------------------
-def initialize_power_parser(args=None):
+def initialize_power_parser(**kwargs):
     """
     Initialize the command-line parser for ``power.py``, 
     optionally providing``args`` to be passed to the
@@ -30,8 +30,8 @@ def initialize_power_parser(args=None):
     
     Parameters
     ----------
-    args : list
-        list of arguments to pass to the `PluginArgumentParser` class
+    kwargs : 
+        keyword arguments to pass to the `PluginArgumentParser` class
     """
     parser = PluginArgumentParser("Parallel Power Spectrum Calculator",
             loader=plugins.load,
@@ -47,7 +47,7 @@ def initialize_power_parser(args=None):
             Other contributors are: Nick Hand, Man-yat Chu
             The author would like thank Marcel Schmittfull for the explanation on cic, shotnoise, and k==0 plane errors.
          """,
-            args=args
+            **kwargs
          )
 
     # add the positional arguments
@@ -99,7 +99,7 @@ def IsotropicCIC(comm, complex, w):
         tmp = (1.0 - 0.666666667 * numpy.sin(scratch * 0.5) ** 2) ** 0.5
         complex[row] *= tmp
 
-def compute_power(ns):
+def compute_power(ns, comm=None):
     """
     Compute the power spectrum. Given a `Namespace`, this is the function,
     that computes and saves the power spectrum. It does all the work.
@@ -109,7 +109,14 @@ def compute_power(ns):
     ns : argparse.Namespace
         the parser namespace corresponding to the ``initialize_power_parser``
         functions
+    comm : MPI.Communicator
+        the communicator to pass to the ``ParticleMesh`` object
     """
+    rank = comm.rank if comm is not None else MPI.COMM_WORLD.rank
+    
+    # set logging level
+    logger.setLevel(ns.log_level)
+    
     if rank == 0:
         logger.info('importing done')
 
@@ -120,7 +127,7 @@ def compute_power(ns):
         chain.append(IsotropicCIC)
         
     # setup the particle mesh object, taking BoxSize from the painters
-    pm = ParticleMesh(ns.inputs[0].BoxSize, ns.Nmesh, dtype='f4')
+    pm = ParticleMesh(ns.inputs[0].BoxSize, ns.Nmesh, dtype='f4', comm=comm)
 
     # paint first input
     Ntot1 = paint(ns.inputs[0], pm, ns)
@@ -250,11 +257,9 @@ def main():
     """
     # parse
     ns = initialize_power_parser().parse_args()
-    
-    # set logging level
-    logger.setLevel(ns.log_level)
-    
+        
     # do the work
     compute_power(ns)
 
-main()
+if __name__ == '__main__':
+    main()
