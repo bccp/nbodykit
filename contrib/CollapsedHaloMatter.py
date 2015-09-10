@@ -5,7 +5,8 @@ from itertools import izip
 import numpy
 import logging
 
-#------------------------------------------------------------------------------          
+logger = logging.getLogger('CollapsedHalo')
+    
 class CollapsedHaloDataSource(DataSource):
     field_type = "CollapsedHaloMatter"
     
@@ -34,7 +35,7 @@ class CollapsedHaloDataSource(DataSource):
             logmass = numpy.log10(halomass)
             halomask = logmass > self.logMmin
             halomask &= logmass < self.logMmax
-            logging.info("total number of halos in mass range is %d" % halomask.sum())
+            logger.info("total number of halos in mass range is %d" % halomask.sum())
         else:
             halopos = None
             halomask = None
@@ -50,7 +51,7 @@ class CollapsedHaloDataSource(DataSource):
                     )):
             mask = PL['Label'] != 0
             mask &= halomask[PL['Label']]
-            logging.info("Number of particles in halos is %d" % mask.sum())
+            logger.info("Number of particles in halos is %d" % mask.sum())
 
             P['Position'][mask] = halopos[PL['Label'][mask]]
 
@@ -64,7 +65,7 @@ class CollapsedHaloDataSource(DataSource):
             P['Mass'] = None
 
             if comm.rank == 0:
-                logging.info('round %d, nread %d' % (round, nread))
+                logger.info('round %d, nread %d' % (round, nread))
 
             yield [P[key] for key in columns]
 
