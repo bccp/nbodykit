@@ -230,13 +230,16 @@ def paint(input, pm, ns):
             logging.info("position range on rank %d is %s:%s", pm.comm.rank, 
                     position.min(axis=0), position.max(axis=0))
         layout = pm.decompose(position)
-        position = layout.exchange(position)
+        # Ntot shall be calculated before exchange. Issue #55.
         if weight is None:
             Ntot += len(position)
             weight = 1
         else:
-            weight = layout.exchange(weight)
             Ntot += weight.sum()
+            weight = layout.exchange(weight)
+           
+        position = layout.exchange(position)
+
         pm.paint(position, weight)
     return pm.comm.allreduce(Ntot)
 
