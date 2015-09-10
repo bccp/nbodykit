@@ -78,10 +78,11 @@ def measurepower(pm, c1, c2, Nmu, binshift=0.0, shotnoise=0.0, los='z', dk=None,
     # los index
     los_index = 'xyz'.index(los)
     
+    # count everything but z = 0 plane twice (r2c transform stores 1/2 modes)
+    nonsingular = numpy.squeeze(pm.k[2] != 0) # has length of Nz now
+    
     for row in range(len(pm.k[0])):
-        # pickup the singular plane that is single counted (r2c transform)
-        singular = pm.k[2][-1] == 0
-
+        
         # now scratch stores k ** 2
         scratch = numpy.float64(pm.k[0][row] ** 2)
         for ki in pm.k[1:]:
@@ -107,9 +108,9 @@ def measurepower(pm, c1, c2, Nmu, binshift=0.0, shotnoise=0.0, los='z', dk=None,
         # make the multi-index
         multi_index = numpy.ravel_multi_index([dig_k, dig_mu], ndims)
     
-        # the singular plane is down weighted by 0.5
-        scratch[singular] *= 0.5
-        mu[singular] *= 0.5
+        # count modes not in singular plane twice
+        scratch[:, nonsingular] *= 2.
+        mu[:, nonsingular] *= 2.
     
         # the k sum
         ksum.flat += numpy.bincount(multi_index, weights=scratch.flat, minlength=ksum.size)
@@ -119,15 +120,15 @@ def measurepower(pm, c1, c2, Nmu, binshift=0.0, shotnoise=0.0, los='z', dk=None,
     
         # take the sum of weights
         scratch[...] = 1.0
-        # the singular plane is down weighted by 0.5
-        scratch[singular] = 0.5
+        # count modes not in singular plane twice
+        scratch[:, nonsingular] = 2.
 
         Nsum.flat += numpy.bincount(multi_index, weights=scratch.flat, minlength=Nsum.size)
 
         # take the sum of power
         scratch[...] = c1[row].real * c2[row].real + c1[row].imag * c2[row].imag
         # the singular plane is down weighted by 0.5
-        scratch[singular] *= 0.5
+        scratch[:, nonsingular] *= 2.
         Psum.flat += numpy.bincount(multi_index, weights=scratch.flat, minlength=Psum.size)
 
     ksum = pm.comm.allreduce(ksum, MPI.SUM)
@@ -137,7 +138,6 @@ def measurepower(pm, c1, c2, Nmu, binshift=0.0, shotnoise=0.0, los='z', dk=None,
 
     # add the last 'internal' mu bin (mu == 1) to the last visible mu bin
     # this makes the last visible mu bin inclusive on both ends.
-
     Psum[:, -2] += Psum[:, -1]
     musum[:, -2] += musum[:, -1]
     ksum[:, -2] += ksum[:, -1]
@@ -148,7 +148,7 @@ def measurepower(pm, c1, c2, Nmu, binshift=0.0, shotnoise=0.0, los='z', dk=None,
         power = (Psum / Nsum)[1:-1, 1:-1]
         kmean = (ksum / Nsum)[1:-1, 1:-1]
         mumean = (musum / Nsum)[1:-1, 1:-1]
-        N = 2*Nsum[1:-1, 1:-1] # factor of 2 for modes with negative z not in r2c transform
+        N = Nsum[1:-1, 1:-1]
 
     # each complex field has units of L^3, so power is L^6
     power *= pm.BoxSize.prod() 
