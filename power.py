@@ -21,7 +21,7 @@ from pypm.transfer import TransferFunction
 #--------------------------------------------------
 # setup the parser
 #--------------------------------------------------
-def initialize_power_parser(args=None):
+def initialize_power_parser(**kwargs):
     """
     Initialize the command-line parser for ``power.py``, 
     optionally providing``args`` to be passed to the
@@ -30,8 +30,8 @@ def initialize_power_parser(args=None):
     
     Parameters
     ----------
-    args : list
-        list of arguments to pass to the `PluginArgumentParser` class
+    kwargs : 
+        keyword arguments to pass to the `PluginArgumentParser` class
     """
     parser = PluginArgumentParser("Parallel Power Spectrum Calculator",
             loader=plugins.load,
@@ -47,7 +47,7 @@ def initialize_power_parser(args=None):
             Other contributors are: Nick Hand, Man-yat Chu
             The author would like thank Marcel Schmittfull for the explanation on cic, shotnoise, and k==0 plane errors.
          """,
-            args=args
+            **kwargs
          )
 
     # add the positional arguments
@@ -257,4 +257,5 @@ def main():
     # do the work
     compute_power(ns)
 
-main()
+if __name__ == '__main__':
+    main()
