@@ -79,6 +79,7 @@ class DataSource:
         
         klass = kls.plugins[words[0]]
         self = klass(words[1:])
+        self.string = connection
         return self
 
     def __eq__(self, other):
