@@ -79,6 +79,9 @@ def initialize_power_parser(**kwargs):
             help='the edge of the first bin to use; default is 0')
     parser.add_argument('-q', '--quiet', help="silence the logging output",
             action="store_const", dest="log_level", const=logging.ERROR, default=logging.DEBUG)
+    parser.add_argument('--poles', type=lambda s: map(int, s.split()), default=[],
+            help='if specified, compute these multipoles from P(k,mu), saving to `pole_output`')
+    parser.add_argument('--pole_output', type=str, help='the name of the output file for multipoles')
     
     return parser
 
@@ -185,21 +188,38 @@ def compute_power(ns, comm=None):
             'N1':Ntot1, 'N2':Ntot2, 'shot_noise': shotnoise}
     result = measurepower(pm, c1, c2, ns.Nmu, binshift=ns.binshift, 
                             shotnoise=shotnoise, los=ns.los, dk=ns.dk, 
-                            kmin=ns.kmin)
+                            kmin=ns.kmin, poles=ns.poles)
     
     # format the output appropriately
-    if ns.mode == "1d":
+    if len(ns.poles):
+        pole_result, pkmu_result, edges = result
+        result = dict(zip(['k','mu','power','modes','edges'], pkmu_result+(edges,)))
+    elif ns.mode == "1d":
         # this writes out 0 -> mean k, 2 -> mean power, 3 -> number of modes
         meta['edges'] = result[-1][0] # write out kedges as metadata
         result = map(numpy.ravel, (result[i] for i in [0, 2, 3]))
     elif ns.mode == "2d":
         result = dict(zip(['k','mu','power','modes','edges'], result))
         
-    # save the output
     if rank == 0:
-        logger.info('measurement done; saving to %s' %ns.output)
+        # save the power
+        logger.info('measurement done; saving power to %s' %ns.output)
         storage = plugins.PowerSpectrumStorage.new(ns.mode, ns.output)
         storage.write(result, **meta)
+        
+        # save the multipoles
+        if len(ns.poles):
+            if ns.pole_output is None:
+                raise RuntimeError("you specified multipoles to compute, but did not provide an output file name")
+            meta['edges'] = edges[0]
+            
+            # format is k pole_0, pole_1, ...., modes_1d
+            logger.info('saving ell = %s multipoles to %s' %(",".join(map(str,ns.poles)), ns.pole_output))
+            result = [x for x in numpy.vstack(pole_result)]
+            storage = plugins.PowerSpectrumStorage.new('1d', ns.pole_output)
+            storage.write(result, **meta)
+            
+            
  
 def paint(input, pm, ns):
     """

@@ -4,18 +4,21 @@ from pypm.particlemesh import ParticleMesh
 from pypm.transfer import TransferFunction
 from mpi4py import MPI
 
-def measurepower(pm, c1, c2, Nmu, binshift=0.0, shotnoise=0.0, los='z', dk=None, kmin=0):
-    """ Measure power spectrum P(k,mu) from density field painted on pm 
-
-        The power spectrum is measured in bins of k and mu. The k bins extend 
-        from 0 to the smallest 1D Nyquist (Nmesh / 2), with the units consistent with 
-        the units of the BoxSize. The mu range extends from 0 to 1.0. 
-        The mu bins are half-inclusive half-exclusive, except the last bin
-        is inclusive on both ends (to include mu = 1.0).
+def measurepower(pm, c1, c2, Nmu, binshift=0.0, shotnoise=0.0, los='z', dk=None, kmin=0, poles=[]):
+    """ Measure power spectrum P(k,mu) from density field painted on pm, and if 
+        multipole numbers are specified in the ``poles`` argument, compute and
+        return the power multipoles from P(k,mu)
 
         Notes
         -----
-        when Nmu == 1, the case reduces to the isotropic 1D power spectrum.
+        *   the power spectrum is measured in bins of k and mu
+        *   if no k binning is specified via the `dk` and `kmin` keywords, the bins 
+            extend from 0 to the smallest 1D Nyquist (Nmesh / 2), with the units 
+            consistent with the units of the BoxSize
+        *   the mu range extends from 0 to 1.0
+        *   the mu bins are half-inclusive half-exclusive, except the last bin
+            is inclusive on both ends (to include mu = 1.0)
+        *   when Nmu == 1, the case reduces to the isotropic 1D power spectrum.
         
         Parameters
         ----------
@@ -29,8 +32,7 @@ def measurepower(pm, c1, c2, Nmu, binshift=0.0, shotnoise=0.0, los='z', dk=None,
             the complex fourier space field to measure power from.
 
         Nmu : int
-            The number of mu bins to use when binning in the power spectrum, 
-            default is 5
+            the number of mu bins to use when binning in the power spectrum
         
         binshift   : float
             shift the center of bins by this fraction if a bin width
@@ -51,7 +53,12 @@ def measurepower(pm, c1, c2, Nmu, binshift=0.0, shotnoise=0.0, los='z', dk=None,
         kmin : float, optional
             the edge of the first k bin to use; default is 0
             
+        poles : list of int, optional
+            if provided, a list of integers specifying multipole numbers to compute
+            from P(k,mu)  
     """
+    from scipy.special import legendre
+    
     # kedges out to the minimum nyquist frequency (accounting for possibly anisotropic box)
     BoxSize_min = numpy.amin(pm.BoxSize)
     w_to_k = pm.Nmesh / BoxSize_min
@@ -59,21 +66,29 @@ def measurepower(pm, c1, c2, Nmu, binshift=0.0, shotnoise=0.0, los='z', dk=None,
         dk = 2*numpy.pi/BoxSize_min
     kedges = numpy.arange(kmin, numpy.pi*w_to_k + dk/2, dk)
     kedges += binshift * dk
+    Nk = len(kedges) - 1 
         
     # mu bin edges
     muedges = numpy.linspace(0, 1, Nmu+1, endpoint=True)
     
-    # store for convenience
-    Nfreq = len(kedges) - 1 
-    ndims = (Nfreq+2, Nmu+2)
+    # always measure make sure first ell is monopole, which
+    # is just P(k,mu) since legendre of ell=0 is 1
+    do_poles = len(poles) > 0
+    poles_ = [0]+sorted(poles) if 0 not in poles else sorted(poles)
+    ell_idx = [poles_.index(l) for l in poles]
+    Nell = len(poles_)
     
-    # freq bin edges
+    # valid ell values
+    if any(ell < 0 for ell in poles_):
+        raise RuntimeError("multipole numbers must be nonnegative integers")
+
+    # squared k bin edges
     k2edges = kedges ** 2
 
-    musum = numpy.zeros(ndims)
-    ksum = numpy.zeros(ndims)
-    Psum = numpy.zeros(ndims)
-    Nsum = numpy.zeros(ndims)
+    musum = numpy.zeros((Nk+2, Nmu+2))
+    ksum = numpy.zeros((Nk+2, Nmu+2))
+    Psum = numpy.zeros((Nell, Nk+2, Nmu+2)) # extra dimension for multipoles
+    Nsum = numpy.zeros((Nk+2, Nmu+2))
     
     # los index
     los_index = 'xyz'.index(los)
@@ -106,30 +121,33 @@ def measurepower(pm, c1, c2, Nmu, binshift=0.0, shotnoise=0.0, los='z', dk=None,
         dig_mu = numpy.digitize(mu.flat, muedges)
         
         # make the multi-index
-        multi_index = numpy.ravel_multi_index([dig_k, dig_mu], ndims)
+        multi_index = numpy.ravel_multi_index([dig_k, dig_mu], (Nk+2,Nmu+2))
     
         # count modes not in singular plane twice
         scratch[:, nonsingular] *= 2.
-        mu[:, nonsingular] *= 2.
     
         # the k sum
         ksum.flat += numpy.bincount(multi_index, weights=scratch.flat, minlength=ksum.size)
-    
-        # the mu sum
-        musum.flat += numpy.bincount(multi_index, weights=mu.flat, minlength=musum.size)
     
         # take the sum of weights
         scratch[...] = 1.0
         # count modes not in singular plane twice
         scratch[:, nonsingular] = 2.
-
         Nsum.flat += numpy.bincount(multi_index, weights=scratch.flat, minlength=Nsum.size)
 
-        # take the sum of power
+        # the power P(k,mu)
         scratch[...] = c1[row].real * c2[row].real + c1[row].imag * c2[row].imag
         # the singular plane is down weighted by 0.5
         scratch[:, nonsingular] *= 2.
-        Psum.flat += numpy.bincount(multi_index, weights=scratch.flat, minlength=Psum.size)
+        
+        # weight P(k,mu) and sum the weighted values
+        for iell, ell in enumerate(poles_):
+            weighted_pkmu = scratch * (2*ell + 1.) * legendre(ell)(mu)
+            Psum[iell,...].flat += numpy.bincount(multi_index, weights=weighted_pkmu.flat, minlength=Nsum.size)
+        
+        # the mu sum
+        mu[:, nonsingular] *= 2.
+        musum.flat += numpy.bincount(multi_index, weights=mu.flat, minlength=musum.size)
 
     ksum = pm.comm.allreduce(ksum, MPI.SUM)
     musum = pm.comm.allreduce(musum, MPI.SUM)
@@ -138,20 +156,38 @@ def measurepower(pm, c1, c2, Nmu, binshift=0.0, shotnoise=0.0, los='z', dk=None,
 
     # add the last 'internal' mu bin (mu == 1) to the last visible mu bin
     # this makes the last visible mu bin inclusive on both ends.
-    Psum[:, -2] += Psum[:, -1]
+    Psum[..., -2] += Psum[..., -1]
     musum[:, -2] += musum[:, -1]
     ksum[:, -2] += ksum[:, -1]
     Nsum[:, -2] += Nsum[:, -1]
 
     # reshape and slice to remove out of bounds points
+    sl = slice(1, -1)
     with numpy.errstate(invalid='ignore'):
-        power = (Psum / Nsum)[1:-1, 1:-1]
-        kmean = (ksum / Nsum)[1:-1, 1:-1]
-        mumean = (musum / Nsum)[1:-1, 1:-1]
-        N = Nsum[1:-1, 1:-1]
-
+        
+        # 2D P(k,mu) results
+        pkmu = (Psum[0,...] / Nsum)[sl,sl] # ell=0 is first index
+        kmean_2d = (ksum / Nsum)[sl,sl]
+        mumean_2d = (musum / Nsum)[sl, sl]
+        N_2d = Nsum[sl,sl]
+        
+        # 1D multipole results (summing over mu (last) axis)
+        if do_poles:
+            N_1d = Nsum[sl,sl].sum(axis=-1)
+            kmean_1d = ksum[sl,sl].sum(axis=-1) / N_1d
+            poles = Psum[:, sl,sl].sum(axis=-1) / N_1d
+            poles = poles[ell_idx,...]
+                   
     # each complex field has units of L^3, so power is L^6
-    power *= pm.BoxSize.prod() 
-    power -= shotnoise
-    return kmean, mumean, power, N, [kedges, muedges]
-
+    pkmu *= pm.BoxSize.prod() 
+    if do_poles: poles *= pm.BoxSize.prod()
+    pkmu -= shotnoise
+    
+    # return just P(k,mu) or P(k,mu) + multipoles
+    edges = [kedges, muedges]
+    if not do_poles:
+        return kmean_2d, mumean_2d, pkmu, N_2d, edges
+    else:
+        pole_result = (kmean_1d, poles, N_1d)
+        pkmu_result = (kmean_2d, mumean_2d, pkmu, N_2d)
+        return pole_result, pkmu_result, edges
