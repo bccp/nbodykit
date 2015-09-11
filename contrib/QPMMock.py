@@ -3,6 +3,8 @@ from nbodykit.utils.pluginargparse import BoxSizeParser
 import numpy
 import logging
          
+logger = logging.getLogger('QPMMock')
+
 class QPMMockDataSource(DataSource):
     """
     Class to read data from the DR12 BOSS QPM periodic box 
@@ -81,7 +83,7 @@ class QPMMockDataSource(DataSource):
             data = pd.read_csv(self.path, **kwargs)
             nobj = len(data)
             
-            logging.info("total number of objects read is %d" %nobj)
+            logger.info("total number of objects read is %d" %nobj)
             
             # get position 
             pos = data[['x', 'y', 'z']].values.astype('f4')
@@ -100,14 +102,14 @@ class QPMMockDataSource(DataSource):
         # rescale by AP factor
         if self.scaled:
             if comm.rank == 0:
-                logging.info("multiplying by qperp = %.5f" %self.qperp)
+                logger.info("multiplying by qperp = %.5f" %self.qperp)
  
             # rescale positions and volume
             if self.rsd is None:
                 pos *= self.qperp
             else:
                 if comm.rank == 0:
-                    logging.info("multiplying by qpar = %.5f" %self.qpar)
+                    logger.info("multiplying by qpar = %.5f" %self.qpar)
                 for i in [0,1,2]:
                     if i == dir:
                         pos[:,i] *= self.qpar

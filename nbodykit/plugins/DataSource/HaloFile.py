@@ -5,6 +5,8 @@ import numpy
 import logging
 from nbodykit import files 
 from nbodykit.utils import selectionlanguage
+
+logger = logging.getLogger('HaloFile')
   
 class HaloFileDataSource(DataSource):
     field_type = "HaloFile"
@@ -48,7 +50,7 @@ class HaloFileDataSource(DataSource):
             if self.select is not None:
                 mask = self.select.get_mask(P)
                 P = P[mask]
-            logging.info("total number of halos in mass range is %d / %d" % (len(P), nhalo))
+            logger.info("total number of halos in mass range is %d / %d" % (len(P), nhalo))
         else:
             P = numpy.empty(0, dtype=dtype)
 

@@ -2,7 +2,6 @@ from nbodykit.plugins import DataSource
 from nbodykit.utils.pluginargparse import BoxSizeParser
 from nbodykit import files 
 
-#------------------------------------------------------------------------------
 class TPMSnapshotDataSource(DataSource):
     field_type = "TPMSnapshot"
     

@@ -9,11 +9,13 @@ Top Level Executables
 The tools are provide as top level executable scripts. 
 All tools are MPI parallel.  We can deal with very large simulations.
 
-- power.py is a Power Spectrum calculator.
+- ``power.py`` is a Power Spectrum calculator.
 
-- fof.py is a friend of friend feature (halo) identifier.
+- ``fof.py`` is a friend of friend feature (halo) identifier.
 
-- subhalo.py is a FOF6D sub-feature (subhalo) identifier .
+- ``subhalo.py`` is a FOF6D sub-feature (subhalo) identifier .
+
+- ``power-parallel.py`` schedules and runs a set of ``power.py`` jobs, possibly using several independent nodes
 
 Run them with '-h' to see the inline help.
 

@@ -3,6 +3,8 @@ from nbodykit.utils.pluginargparse import BoxSizeParser
 import numpy
 import logging
          
+logger = logging.getLogger('BOSSChallengeMock')
+
 class BOSSChallengeMockDataSource(DataSource):
     """
     Class to read data from the DR12 BOSS periodic box challenge 
@@ -67,7 +69,7 @@ class BOSSChallengeMockDataSource(DataSource):
             kwargs['usecols'] = ['x', 'y', 'z']
             data = pd.read_csv(self.path, **kwargs)
             nobj = len(data)
-            logging.info("total number of objects read is %d" %nobj)
+            logger.info("total number of objects read is %d" %nobj)
             
             # get position 
             pos = data[['x', 'y', 'z']].values.astype('f4')
@@ -78,8 +80,8 @@ class BOSSChallengeMockDataSource(DataSource):
         # units as BoxSize 
         if self.scaled:
             if comm.rank == 0:
-                logging.info("multiplying by qperp = %.5f" %self.qperp)
-                logging.info("multiplying by qpar = %.5f" %self.qpar)
+                logger.info("multiplying by qperp = %.5f" %self.qperp)
+                logger.info("multiplying by qpar = %.5f" %self.qpar)
 
             # scale the coordinates
             pos[:,0:2] *= self.qperp
