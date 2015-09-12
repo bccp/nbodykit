@@ -4,10 +4,27 @@ import numpy
 import logging
 from nbodykit.utils import selectionlanguage
 from scipy.spatial import cKDTree as KDTree
+import mpsort
 
 logger = logging.getLogger('CPB')
-from numpy.lib.recfunctions import append_fields
 
+def append_fields(data, dict):
+    def guessdtype(data):
+        return (data.dtype, data.shape[1:])
+
+    names1 = data.dtype.names
+    names2 = [name for name in dict]
+
+    dtype = [(name, guessdtype(data[name])) for name in data.dtype.names] \
+         +  [(name, guessdtype(dict[name])) for name in dict]
+    newdata = numpy.empty(len(data), dtype=dtype)
+
+    for name in data.dtype.names:
+        newdata[name] = data[name]
+    for name in dict:
+        newdata[name] = dict[name]
+    return newdata
+ 
 def list_str(value):
     return value.split()
          
@@ -46,7 +63,6 @@ class ClosePairBiasing(DataSource):
             help="the size of the isotropic box, or the sizes of the 3 box dimensions.")
         h.add_argument("m0", type=float, help="mass of a particle")
         h.add_argument("massive", type=float, help="log10 of mass of 'massive halo'")
-        h.add_argument("nmost", type=int, help="Number of halos to use at most, ordered by proximity")
         h.add_argument("-rsd", choices="xyz", 
             help="direction to do redshift distortion")
         h.add_argument("-select", default=None, type=selectionlanguage.Query, 
@@ -67,38 +83,51 @@ class ClosePairBiasing(DataSource):
             data['Velocity'] *= self.BoxSize
 
             data = append_fields(data, 
-                ['Mass', 'LogMass', 'Proximity'],
-                [data['Length'] * self.m0,
-                 numpy.log10(data['Length'] * self.m0),
-                 numpy.zeros(len(data)),
-                ]
+                dict(Mass=data['Length'] * self.m0,
+                 LogMass=numpy.log10(data['Length'] * self.m0),
+                 Proximity=numpy.zeros(len(data)))
             )
+
             massive = data[data['LogMass'] > self.massive]
+
             if len(massive) == 0: 
                 raise ValueError("too few massive halos. decrease 'massive'")
-
-            tree = KDTree(massive['Position'])
-            d, i = tree.query(data['Position'])
-            data['Proximity'][:] = d
-
-
-            # select based on input conditions
-            if self.select is not None:
-                mask = self.select.get_mask(data)
-                data = data[mask]
-
-            logger.info("total number of objects selected is %d / %d" % (len(data), nobj))
-            data.sort(order='Proximity')
-            data = data[:self.nmost]
-            logger.info("Using %d objects", self.nmost)
             
-            pos = data['Position']
-            vel = data['Velocity']
-            mass = data['Mass']
+            data = numpy.array_split(data, comm.size)
         else:
-            pos = numpy.empty(0, dtype=('f4', 3))
-            vel = numpy.empty(0, dtype=('f4', 3))
-            mass = numpy.empty(0, dtype='f4')
+            massive = None
+            data = None
+
+        logger.info("load balancing ")
+        data = comm.scatter(data)
+        massive = comm.bcast(massive)
+
+        logger.info("Querying KDTree")
+        tree = KDTree(massive['Position'])
+        d, i = tree.query(data['Position'])
+        data['Proximity'][:] = d
+
+        pbins = numpy.linspace(0, numpy.max(comm.allgather(data['Proximity'].max())), 10)
+        h = comm.allreduce(numpy.histogram(data['Proximity'], bins=pbins)[0])
+
+        if comm.rank == 0:
+            for p1, p2, h in zip([0] + list(pbins), list(pbins) + [numpy.inf], h):
+                logger.info("Proximity: [%g - %g] Halos %d" % (p1, p2, h))
+
+        nobjs = comm.allreduce(len(data))
+        if comm.rank == 0:
+            logger.info("total number of objects is %d" % nobjs)
+        # select based on input conditions
+        if self.select is not None:
+            mask = self.select.get_mask(data)
+            data = data[mask]
+            nobjs = comm.allreduce(len(data))
+            if comm.rank == 0:
+                logger.info("selected number of objects is %d" % nobjs)
+
+
+        pos = data['Position']
+        vel = data['Velocity']
 
         mass = None
 
