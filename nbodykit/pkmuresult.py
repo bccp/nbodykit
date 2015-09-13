@@ -24,7 +24,7 @@ def bin_ndarray(ndarray, new_shape, weights=None, operation=numpy.mean):
     
     Example
     -------
-    >>> m = np.arange(0,100,1).reshape((10,10))
+    >>> m = numpy.arange(0,100,1).reshape((10,10))
     >>> n = bin_ndarray(m, new_shape=(5,5), operation=numpy.sum)
     >>> print(n)
     [[ 22  30  38  46  54]
@@ -355,6 +355,114 @@ class PkmuResult(object):
     #--------------------------------------------------------------------------
     # main functions
     #--------------------------------------------------------------------------
+    def to_multipoles(self, *ells, **kwargs):
+        """
+        Return the requested multipole moments of the 2D power P(k, mu), 
+        which are given by: 
+        
+        :math: P(k, \mu) = \sum_{even \ell} L_\ell(\mu) * P(k, \mu),
+        
+        where :math: L_\ell(\mu) is Legendre polynomial of order `ell`
+        
+        Notes
+        -----
+        *   This function computes the multipoles by finding the maximum likelihood
+            solution to the above summation, and as such, the `error` column
+            must be present for the measured P(k,mu)
+        
+        Parameters
+        ----------
+        ells : tuple
+            the multipole moment numbers to compute, i.e., 0 for monopole, 2
+            for quadrupole, etc
+        N_poles : int, optional (`6`)
+            the number of multipole moments to include in the sum when fitting
+        """
+        from scipy.special import legendre
+        import scipy.linalg as linalg
+        from scipy.sparse import csr_matrix
+        import pkresult
+        N_poles = kwargs.get('N_poles', 6)
+        
+        # need an error column
+        if 'error' not in self.columns:
+            raise ValueError("no error column with name `error`; needed to compute multipoles")
+
+        # the ell values to sum
+        sum_ells = range(0, 2*N_poles-1, 2)
+        if len(ells) > N_poles:
+            raise ValueError("requesting more multipoles than are being computed")
+        if not all(ell in sum_ells for ell in ells):
+            raise ValueError("mismatch between requested and computed multipoles")
+        
+        # get the valid, flattened arrays
+        flat = {}
+        d = self.data.data
+        for name in ['k', 'mu', 'modes', 'power', 'error']:
+            flat[name] = d[name].ravel(order='F')
+
+        # get the valid entries, removing NaN power
+        valid = numpy.isfinite(flat['power'])
+        N1 = valid.sum() # number of data points
+
+        # find out what bin the k values are in
+        kbins = numpy.digitize(flat['k'][valid], self.kedges) - 1
+        Nk = kbins.max()+1
+        N2 = Nk*N_poles # number of parameters in sum model
+
+        # initialize the derivative matrix A (where Y = A*X)
+        col_inds = numpy.array(range(N2)) % Nk
+        xx, yy = numpy.broadcast_arrays(kbins[:,None], col_inds[None,:])
+        A_valid = xx == yy
+
+        # make the derivative matrix
+        A = numpy.zeros((N1, N2))
+        mu_weights = numpy.asarray([legendre(ell)(flat['mu'][valid]) for ell in sum_ells]).T
+        for i, imu in enumerate(flat['mu'][valid]):
+            A[i, A_valid[i,:]] = mu_weights[i,:]
+
+        # the data points (the measured P(k,mu))
+        Y = flat['power'][valid]
+        
+        # do the linear algebra
+        # X = [A.T C^-1 A]^-1 [A.T C^-1 Y]
+        # where we have Y = A X
+        Cinv_A = csr_matrix((1./flat['error'][valid]**2)[:,None] * A)
+        A_T = csr_matrix(A.T)
+        cov = linalg.inv(A_T.dot(Cinv_A).toarray())
+
+        Cinv_Y = numpy.squeeze((1./flat['error'][valid]**2)[None,:] * Y)
+        AT_Cinv_Y = A_T.dot(Cinv_Y)
+        ans = csr_matrix(cov).dot(AT_Cinv_Y)
+        
+        # split into as many multipoles as we are returning
+        split_ans = numpy.split(ans, len(ans)/Nk)
+        split_err = numpy.split(numpy.diag(cov)**0.5, len(cov)/Nk)
+        
+        # mean k and total modes
+        total_modes = numpy.bincount(kbins, weights=flat['modes'][valid])
+        kmean = numpy.bincount(kbins, weights=(flat['k']*flat['modes'])[valid])/total_modes
+        
+        # the meta data
+        meta = {k:getattr(self,k) for k in self._metadata}
+        meta['force_index_match'] = self.force_index_match
+        meta['sum_only'] = self.sum_only
+        
+        toret = []
+        for ell in ells:
+            i = ell/2
+            data = {}
+            data['power'] = split_ans[i]
+            data['error'] = split_err[i]
+            data['k'] = kmean
+            data['modes'] = total_modes
+            
+            pk = pkresult.PkResult(self.kedges, data, **meta)
+            toret.append(pk)
+            
+        return tuple(toret)
+            
+    
     def add_column(self, name, data):
         """
         Add a column with the name ``name`` to the data stored in ``self.data`
@@ -577,9 +685,11 @@ class PkmuResult(object):
         new_data = {}
         for col in self.columns:
             operation = numpy.nanmean
+            weights_ = weights
             if weights is not None or col in self.sum_only:
                 operation = numpy.nansum
-            new_data[col] = bin_ndarray(data[col].data, new_shape, weights=weights, operation=operation)
+                if col in self.sum_only: weights_ = None
+            new_data[col] = bin_ndarray(data[col].data, new_shape, weights=weights_, operation=operation)
             
         meta = {k:getattr(self,k) for k in self._metadata}
         pkmu = PkmuResult(new_kedges, self.muedges, new_data, self.force_index_match, self.sum_only, **meta)
