@@ -65,7 +65,9 @@ class ClosePairBiasing(DataSource):
         h.add_argument("massive", type=float, help="log10 of mass of 'massive halo'")
         h.add_argument("-rsd", choices="xyz", 
             help="direction to do redshift distortion")
-        h.add_argument("-select", default=None, type=selectionlanguage.Query, 
+        h.add_argument("-select1", default=None, type=selectionlanguage.Query, 
+            help='row selection based on conditions specified as string')
+        h.add_argument("-select2", default=None, type=selectionlanguage.Query, 
             help='row selection based on conditions specified as string')
     
     def read(self, columns, comm, bunchsize):
@@ -98,33 +100,54 @@ class ClosePairBiasing(DataSource):
             massive = None
             data = None
 
-        logger.info("load balancing ")
+        if comm.rank == 0:
+            logger.info("load balancing ")
         data = comm.scatter(data)
         massive = comm.bcast(massive)
 
-        logger.info("Querying KDTree")
-        tree = KDTree(massive['Position'])
-        d, i = tree.query(data['Position'])
-        data['Proximity'][:] = d
-
-        pbins = numpy.linspace(0, numpy.max(comm.allgather(data['Proximity'].max())), 10)
-        h = comm.allreduce(numpy.histogram(data['Proximity'], bins=pbins)[0])
-
         if comm.rank == 0:
-            for p1, p2, h in zip([0] + list(pbins), list(pbins) + [numpy.inf], h):
-                logger.info("Proximity: [%g - %g] Halos %d" % (p1, p2, h))
+            logger.info("Querying KDTree")
+        tree = KDTree(massive['Position'])
 
         nobjs = comm.allreduce(len(data))
         if comm.rank == 0:
             logger.info("total number of objects is %d" % nobjs)
-        # select based on input conditions
-        if self.select is not None:
-            mask = self.select.get_mask(data)
-            data = data[mask]
-            nobjs = comm.allreduce(len(data))
-            if comm.rank == 0:
-                logger.info("selected number of objects is %d" % nobjs)
 
+        # select based on input conditions
+        if self.select1 is not None:
+            mask = self.select1.get_mask(data)
+            data = data[mask]
+            nobjs1 = comm.allreduce(len(data))
+            if comm.rank == 0:
+                logger.info("selected (1) number of objects is %d" % (nobjs1 ))
+
+        d, i = tree.query(data['Position'])
+        data['Proximity'][:] = d
+
+        if len(data) > 0:
+            mymax = data['Proximity'].max()
+        else:
+            mymax = 0
+        pbins = numpy.linspace(0, numpy.max(comm.allgather(mymax)), 10)
+        h = comm.allreduce(numpy.histogram(data['Proximity'], bins=pbins)[0])
+
+        if comm.rank == 0:
+            for p1, p2, h in zip(list(pbins), list(pbins[1:]) + [numpy.inf], h):
+                logger.info("Proximity: [%g - %g] Halos %d" % (p1, p2, h))
+
+        if self.select2 is not None:
+            mask = self.select2.get_mask(data)
+            data = data[mask]
+            nobjs2 = comm.allreduce(len(data))
+            if comm.rank == 0:
+                logger.info("selected (2) number of objects is %d (%g %%)" % (nobjs2, 100.0 * nobjs2 / nobjs1))
+
+        meanmass = comm.allreduce(data['Mass'].sum(dtype='f8')) \
+                 / comm.allreduce(len(data))
+
+        if comm.rank == 0:
+            logger.info("mean mass of selected objects is %g (log10 = %g)" 
+                % (meanmass, numpy.log10(meanmass)))
 
         pos = data['Position']
         vel = data['Velocity']
