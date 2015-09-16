@@ -1,19 +1,17 @@
-import logging
 import warnings
-from mpi4py import MPI
 import numpy
 
-rank = MPI.COMM_WORLD.rank
-name = MPI.Get_processor_name()
-logging.basicConfig(level=logging.DEBUG,
-                    format='rank %d on %s: '%(rank,name) + \
-                            '%(asctime)s %(name)-15s %(levelname)-8s %(message)s',
-                    datefmt='%m-%d %H:%M')
-logger = logging.getLogger('power.py')
-              
 import nbodykit
 from nbodykit import plugins
 from nbodykit.utils.pluginargparse import PluginArgumentParser
+import logging
+from nbodykit.utils.mpilogging import MPILoggerAdapter
+
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s %(name)-15s %(levelname)-8s %(message)s',
+                    datefmt='%m-%d %H:%M')
+logger = MPILoggerAdapter(logging.getLogger('power.py'))
+              
 from nbodykit.measurepower import measurepower
 from pypm.particlemesh import ParticleMesh
 from pypm.transfer import TransferFunction
@@ -115,13 +113,11 @@ def compute_power(ns, comm=None):
     comm : MPI.Communicator
         the communicator to pass to the ``ParticleMesh`` object
     """
+    from mpi4py import MPI
+
     rank = comm.rank if comm is not None else MPI.COMM_WORLD.rank
     
-    # set logging level
-    logger.setLevel(ns.log_level)
-    
-    if rank == 0:
-        logger.info('importing done')
+    logger.info('importing done', on=0)
 
     chain = [TransferFunction.NormalizeDC, TransferFunction.RemoveDC]
     if ns.remove_cic == 'anisotropic':
@@ -136,11 +132,9 @@ def compute_power(ns, comm=None):
     Ntot1 = paint(ns.inputs[0], pm, ns)
 
     # painting
-    if rank == 0:
-        logger.info('painting done')
+    logger.info('painting done', on=0)
     pm.r2c()
-    if rank == 0:
-        logger.info('r2c done')
+    logger.info('r2c done', on=0)
 
     # filter the field 
     pm.transfer(chain)
@@ -157,12 +151,10 @@ def compute_power(ns, comm=None):
         c1 = pm.complex.copy()
         Ntot2 = paint(ns.inputs[1], pm, ns)
 
-        if rank == 0:
-            logger.info('painting 2 done')
+        logger.info('painting 2 done', on=0)
 
         pm.r2c()
-        if rank == 0:
-            logger.info('r2c 2 done')
+        logger.info('r2c 2 done', on=0)
 
         # filter the field 
         pm.transfer(chain)
@@ -201,9 +193,9 @@ def compute_power(ns, comm=None):
     elif ns.mode == "2d":
         result = dict(zip(['k','mu','power','modes','edges'], result))
         
+    logger.info('measurement done; saving power to %s' %ns.output, on=0)
     if rank == 0:
         # save the power
-        logger.info('measurement done; saving power to %s' %ns.output)
         storage = plugins.PowerSpectrumStorage.new(ns.mode, ns.output)
         storage.write(result, **meta)
         
@@ -277,6 +269,9 @@ def main():
     """
     # parse
     ns = initialize_power_parser().parse_args()
+
+    # set logging level
+    logger.setLevel(ns.log_level)
         
     # do the work
     compute_power(ns)

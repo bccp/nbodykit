@@ -5,9 +5,10 @@ import numpy
 import logging
 from nbodykit import files 
 from nbodykit.utils import selectionlanguage
+from nbodykit.utils.mpilogging import MPILoggerAdapter
 
-logger = logging.getLogger('HaloFile')
-  
+logger = MPILoggerAdapter(logging.getLogger('HaloFile'))
+ 
 class HaloFileDataSource(DataSource):
     field_type = "HaloFile"
     

@@ -2,7 +2,7 @@ from sys import argv
 from sys import stdout
 from sys import stderr
 import logging
-
+from nbodykit.utils.mpilogging import MPILoggerAdapter
 from nbodykit.utils.pluginargparse import PluginArgumentParser
 from nbodykit import plugins
 import h5py
@@ -37,7 +37,7 @@ parser.add_argument("output", help='write output to this file')
 
 ns = parser.parse_args()
 logging.basicConfig(level=logging.DEBUG)
-
+logger = MPILoggerAdapter(logging.getLogger("subhalo.py"))
 
 import numpy
 import nbodykit
@@ -101,14 +101,16 @@ def main():
 
     PIG2.sort(order=['Label'])
 
-    logging.info('halos = %d', Nhalo)
+    logger.info('halos = %d' % Nhalo, on=0)
     cat = []
     for haloid in numpy.unique(PIG2['Label']):
         hstart = PIG2['Label'].searchsorted(haloid, side='left')
         hend = PIG2['Label'].searchsorted(haloid, side='right')
         if hstart - hend < ns.Nmin: continue
         assert(PIG2['Label'][hstart:hend] == haloid).all()
-        print 'Halo', haloid
+
+        logger.info('Halo %d ' % haloid)
+
         cat.append(
             subfof(
                 PIG2['Position'][hstart:hend], 
