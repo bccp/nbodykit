@@ -4,8 +4,9 @@ from nbodykit import files
 from itertools import izip
 import numpy
 import logging
+from nbodykit.utils.mpilogging import MPILoggerAdapter
 
-logger = logging.getLogger('CollapsedHalo')
+logger = MPILoggerAdapter(logging.getLogger('CollapsedHalo'))
     
 class CollapsedHaloDataSource(DataSource):
     field_type = "CollapsedHaloMatter"
