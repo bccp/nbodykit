@@ -114,7 +114,13 @@ It may take a while to build fftw and pfft.
         module load numpy
         module load mpi4py
     
-    Also prefix the compiler MPICC=cc
+    Also prefix the compiler MPICC=cc, so do this
+    
+    .. code::
+        
+        MPICC=cc ./build.sh
+        
+        
 
 Packages are ready to use after importing the nbodykit namespace.
 
