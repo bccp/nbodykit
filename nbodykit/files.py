@@ -234,6 +234,9 @@ def read(comm, filename, filetype, columns=['Position', 'ID'], bunchsize=None):
         P = {}
         for column in columns:
             P[column] = snapshot.read(column, a, b)
+
+        # FIXME: we need to fix this ugly thing
+        P['__nread__'] = b - a
         #print comm.allreduce(P['Position'].max(), op=MPI.MAX)
         #print comm.allreduce(P['Position'].min(), op=MPI.MIN)
         #print P['ID'].max(), P['ID'].min()

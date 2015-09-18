@@ -69,10 +69,10 @@ class HDF5DataSource(DataSource):
             help="name of the mass column, None for unit mass")
         h.add_argument("-rsd", choices="xyz", 
             help="direction to do redshift distortion")
-        h.add_argument("-posf", default=1., type=float, 
-            help="factor to scale the positions")
-        h.add_argument("-velf", default=1., type=float, 
-            help="factor to scale the velocities")
+        h.add_argument("-posf", default=0., type=float, 
+            help="factor to scale the positions, default is BoxSize")
+        h.add_argument("-velf", default=0., type=float, 
+            help="factor to scale the velocities, default is BoxSize")
         h.add_argument("-select", default=None, type=selectionlanguage.Query, 
             help='row selection based on conditions specified as string')
     
@@ -95,6 +95,8 @@ class HDF5DataSource(DataSource):
             
             # get position and velocity, if we have it
             pos = data[self.poscol].astype('f4')
+            if self.posf == 0.: self.posf = self.BoxSize
+            if self.velf == 0.: self.velf = self.BoxSize
             pos *= self.posf
             if self.velcol is not None:
                 vel = data[self.velcol].astype('f4')
@@ -114,15 +116,15 @@ class HDF5DataSource(DataSource):
         P = {}
         if 'Position' in columns:
             P['Position'] = pos
-        if 'Velocity' in columns or self.rsd is not None:
+        if 'Velocity' in columns:
             P['Velocity'] = vel
         if 'Mass' in columns:
             P['Mass'] = mass
 
         if self.rsd is not None:
             dir = "xyz".index(self.rsd)
-            P['Position'][:, dir] += P['Velocity'][:, dir]
+            P['Position'][:, dir] += vel[:, dir]
             P['Position'][:, dir] %= self.BoxSize[dir]
 
-        yield [P[key] for key in columns]
+        yield [P[key] if key in P else None for key in columns]
 

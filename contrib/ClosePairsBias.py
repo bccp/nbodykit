@@ -167,5 +167,5 @@ class ClosePairBiasing(DataSource):
             P['Position'][:, dir] += P['Velocity'][:, dir]
             P['Position'][:, dir] %= self.BoxSize[dir]
 
-        yield [P[key] for key in columns]
+        yield [P.get(key, None) for key in columns]
 

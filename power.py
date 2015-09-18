@@ -253,7 +253,7 @@ def paint(input, pm, ns):
 
     if pm.comm.rank == 0: 
         logger.info("BoxSize = %s", str(input.BoxSize))
-    for position, weight in input.read(['Position', 'Mass'], pm.comm, ns.bunchsize):
+    for position, weight in input.read(['Position', 'Weight'], pm.comm, ns.bunchsize):
         if len(position) > 0:
             logger.info("position range on rank %d is %s:%s", pm.comm.rank, 
                     position.min(axis=0), position.max(axis=0))

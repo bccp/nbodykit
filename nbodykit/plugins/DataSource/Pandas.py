@@ -142,15 +142,13 @@ class PandasDataSource(DataSource):
         P = {}
         if 'Position' in columns:
             P['Position'] = pos
-        if 'Velocity' in columns or self.rsd is not None:
+        if 'Velocity' in columns:
             P['Velocity'] = vel
-        if 'Mass' in columns:
-            P['Mass'] = None
 
         if self.rsd is not None:
             dir = "xyz".index(self.rsd)
-            P['Position'][:, dir] += P['Velocity'][:, dir]
+            P['Position'][:, dir] += vel[:, dir]
             P['Position'][:, dir] %= self.BoxSize[dir]
 
-        yield [P[key] for key in columns]
+        yield [P[key] if key in P else None for key in columns]
 

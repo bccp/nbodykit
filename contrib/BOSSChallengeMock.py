@@ -91,9 +91,8 @@ class BOSSChallengeMockDataSource(DataSource):
             raise KeyError("Velocity is not supported")
         P = {}
         P['Position'] = pos
-        P['Mass'] = None
 
-        yield [P[key] for key in columns]
+        yield [P.get(key, None) for key in columns]
         
 class BOSSChallengeBoxADataSource(BOSSChallengeMockDataSource):
     field_type = 'BOSSChallengeBoxA'

@@ -83,4 +83,4 @@ class DataSourcePlugin(DataSource):
             data['Position'][:, dir] += data['Velocity'][:, dir]
             data['Position'][:, dir] %= self.BoxSize[dir] # enforce periodic boundary conditions
 
-        yield [data[key] for key in columns]
+        yield [data[key] if key in data else None for key in columns]
