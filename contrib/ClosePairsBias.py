@@ -121,8 +121,10 @@ class ClosePairBiasing(DataSource):
             if comm.rank == 0:
                 logger.info("selected (1) number of objects is %d" % (nobjs1 ))
 
-        d, i = tree.query(data['Position'])
-        data['Proximity'][:] = d
+        d, i = tree.query(data['Position'], k=2)
+
+        d[d == 0] = numpy.inf
+        data['Proximity'][:] = d.min(axis=-1)
 
         if len(data) > 0:
             mymax = data['Proximity'].max()
