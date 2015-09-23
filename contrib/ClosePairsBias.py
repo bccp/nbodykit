@@ -62,7 +62,8 @@ class ClosePairBiasing(DataSource):
         h.add_argument("BoxSize", type=BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions.")
         h.add_argument("m0", type=float, help="mass of a particle")
-        h.add_argument("massive", type=float, help="log10 of mass of 'massive halo'")
+        h.add_argument("massive", default=None, type=selectionlanguage.Query, 
+            help="selection that defines the 'massive halo'; it can also be 'less massive halo' ")
         h.add_argument("-rsd", choices="xyz", 
             help="direction to do redshift distortion")
         h.add_argument("-select1", default=None, type=selectionlanguage.Query, 
@@ -90,10 +91,11 @@ class ClosePairBiasing(DataSource):
                  Proximity=numpy.zeros(len(data)))
             )
 
-            massive = data[data['LogMass'] > self.massive]
+            massive = data[self.massive.get_mask(data)]
 
+            logger.info("Selected %d 'massive halos'" % len(massive))
             if len(massive) == 0: 
-                raise ValueError("too few massive halos. decrease 'massive'")
+                raise ValueError("too few massive halos. Check the 'massive' selection clause.")
             
             data = numpy.array_split(data, comm.size)
         else:
