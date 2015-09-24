@@ -104,8 +104,9 @@ class FOFDataSource(DataSource):
             mask = self.select.get_mask(data2)
             data2 = data2[mask]
 
-        logger.info("total number of objects selected is %d / %d" % (
-            comm.allreduce(len(data2)), comm.allreduce(len(data))))
+        nobj = (comm.allreduce(len(data2)), comm.allreduce(len(data)))
+        if comm.rank == 0:
+            logger.info("total number of objects selected is %d / %d" % nobj)
 
         if self.rsd is not None:
             dir = "xyz".index(self.rsd)
