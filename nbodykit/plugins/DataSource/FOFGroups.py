@@ -75,8 +75,8 @@ class FOFDataSource(DataSource):
                 
             dataset = h5py.File(self.path, mode='r')[self.dataset]
             data = dataset[...]
-            data = numpy.array_split(data, comm.size)
             rank = numpy.array_split(numpy.arange(len(data)), comm.size)
+            data = numpy.array_split(data, comm.size)
         else:
             data = None
             rank = None
@@ -98,7 +98,6 @@ class FOFDataSource(DataSource):
         data2['Position'] = data['Position'] * self.BoxSize
         data2['Velocity'] = data['Velocity'] * self.BoxSize
         data2['Rank'] = rank
-
         # select based on input conditions
         if self.select is not None:
             mask = self.select.get_mask(data2)
