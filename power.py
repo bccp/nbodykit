@@ -254,9 +254,21 @@ def paint(input, pm, ns):
     if pm.comm.rank == 0: 
         logger.info("BoxSize = %s", str(input.BoxSize))
     for position, weight in input.read(['Position', 'Weight'], pm.comm, ns.bunchsize):
-        if len(position) > 0:
-            logger.info("position range on rank %d is %s:%s", pm.comm.rank, 
-                    position.min(axis=0), position.max(axis=0))
+        min = numpy.min(
+            pm.comm.allgather(
+                    [numpy.inf, numpy.inf, numpy.inf] 
+                    if len(position) == 0 else 
+                    position.min(axis=0)),
+            axis=0)
+        max = numpy.max(
+            pm.comm.allgather(
+                    [-numpy.inf, -numpy.inf, -numpy.inf] 
+                    if len(position) == 0 else 
+                    position.max(axis=0)),
+            axis=0)
+        if pm.comm.rank == 0:
+            logger.info("Range of position %s:%s" % (str(min), str(max)))
+
         layout = pm.decompose(position)
         # Ntot shall be calculated before exchange. Issue #55.
         if weight is None:
