@@ -10,6 +10,7 @@ logging.basicConfig(level=logging.DEBUG,
                             '%(asctime)s %(name)-15s %(levelname)-8s %(message)s',
                     datefmt='%m-%d %H:%M')
 logger = logging.getLogger('power.py')
+logger.info('started')     
               
 import nbodykit
 from nbodykit import plugins
@@ -48,9 +49,11 @@ def main():
     The main function to initialize the parser and do the work
     """
     # parse
+
     ns = initialize_parser().parse_args()
     comm = MPI.COMM_WORLD
-     
+
+
     [[pos1]] = ns.inputs[0].read(['Position'], comm, bunchsize=None)
     if len(ns.inputs) > 1:
         [[pos2]] = ns.inputs[1].read('Position', comm, bunchsize=None)
@@ -73,7 +76,12 @@ def main():
     if comm.rank == 0:
         logger.info('Rank 0 correlating %d x %d' % (len(tree1), len(tree2)))
 
+    N2 = comm.allreduce(len(pos2))
+    if comm.rank == 0:
+        logger.info('All correlating %d x %d' % (len(tree1), N2))
+
     bins = correlate.RBinning(ns.rmax, ns.Nbins)
+
     pc = correlate.paircount(tree1, tree2, bins, np=0)
     pc.sum1[:] = comm.allreduce(pc.sum1)
 
@@ -84,7 +92,8 @@ def main():
     
     if comm.rank == 0:
         storage = plugins.PowerSpectrumStorage.new('1d', ns.output)
-        storage.write((pc.centers, xi, pc.sum1))
+        storage.write((pc.centers, xi, RR))
+        logger.info('done')
 
 if __name__ == '__main__':
     main()
