@@ -174,10 +174,21 @@ def compute_power(ns, comm=None):
         c2 = pm.complex
         Ntot2 = Ntot1 
 
+    shotnoise =  pm.BoxSize.prod() / (1.0*Ntot1)
+
+    # reuse the memory in c1.real for the 3d power spectrum
+    p3d = c1.real
+
+    # calculate the 3d power spectrum, row by row to save memory
+    for row in range(len(c1)):
+        # the power P(k,mu)
+        p3d[row, ...] = c1[row].real * c2[row].real + c1[row].imag * c2[row].imag
+
+        # each complex field has units of L^3, so power is L^6
+    p3d[...] *= pm.BoxSize.prod() 
+
     if ns.remove_shotnoise and not do_cross:
-        shotnoise =  pm.BoxSize.prod() / (1.0*Ntot1)
-    else:
-        shotnoise = 0
+        p3d[...] -= shotnoise
  
     # only need one mu bin if 1d case is requested
     if ns.mode == "1d": ns.Nmu = 1 
@@ -186,9 +197,21 @@ def compute_power(ns, comm=None):
     Lx, Ly, Lz = pm.BoxSize
     meta = {'Lx':Lx, 'Ly':Ly, 'Lz':Lz, 'volume':Lx*Ly*Lz, 
             'N1':Ntot1, 'N2':Ntot2, 'shot_noise': shotnoise}
-    result = measurepower(pm, c1, c2, ns.Nmu, binshift=ns.binshift, 
-                            shotnoise=shotnoise, los=ns.los, dk=ns.dk, 
-                            kmin=ns.kmin, poles=ns.poles)
+    
+    # kedges out to the minimum nyquist frequency (accounting for possibly anisotropic box)
+    BoxSize_min = numpy.amin(pm.BoxSize)
+    w_to_k = pm.Nmesh / BoxSize_min
+    if ns.dk is None: 
+        dk = 2*numpy.pi/BoxSize_min
+    else:
+        dk = ns.dk
+    kedges = numpy.arange(ns.kmin, numpy.pi*w_to_k + dk/2, dk)
+    kedges += ns.binshift * dk
+
+    # now project the 3d power spectrum to a desired basis
+
+    result = measurepower(pm.comm, pm.k, p3d, kedges, ns.Nmu, 
+                            los=ns.los, poles=ns.poles)
     
     # format the output appropriately
     if len(ns.poles):
