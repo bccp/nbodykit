@@ -187,8 +187,7 @@ def compute_power(ns, comm=None):
         # the power P(k,mu)
         p3d[row, ...] = c1[row].real * c2[row].real + c1[row].imag * c2[row].imag
 
-    # each complex field has units of L^3, so power is L^6
-    # YF: FIXME: what does this comment mean? 
+    # the complex field is dimensionless; power is L^3
     # ref to http://icc.dur.ac.uk/~tt/Lectures/UA/L4/cosmology.pdf
     p3d[...] *= pm.BoxSize.prod() 
 
@@ -198,7 +197,7 @@ def compute_power(ns, comm=None):
     if ns.correlation:
         pm.complex[:] = p3d.copy()
         # direct transform dimensionless p3d
-        # FIXME: is the normalization correct?
+        # Note that L^3 cancels with dk^3.
         pm.c2r()
         p3d = pm.real
         k = pm.x
