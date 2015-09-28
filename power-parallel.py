@@ -111,7 +111,7 @@ def run_single_task(task, itask, config, param_file, pool_comm, parser):
             possible_kwargs = {config.iter_str : task}
             if config.extras is not None:
                 for k in config.extras:
-                    possible_kwargs[k] = config.extras[task][itask]
+                    possible_kwargs[k] = config.extras[k][itask]
             valid = {k:v for k,v in possible_kwargs.iteritems() if k in kwargs}
             ff.write(param_file.format(**valid))
     temp_name = pool_comm.bcast(temp_name, root=0)
