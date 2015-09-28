@@ -82,6 +82,9 @@ def initialize_power_parser(**kwargs):
     parser.add_argument('--poles', type=lambda s: map(int, s.split()), default=[],
             help='if specified, compute these multipoles from P(k,mu), saving to `pole_output`')
     parser.add_argument('--pole_output', type=str, help='the name of the output file for multipoles')
+
+    parser.add_argument("--correlation", action='store_true', default=False,
+        help='Calculate correaltion function instead of power spectrum.')
     
     return parser
 
@@ -184,12 +187,34 @@ def compute_power(ns, comm=None):
         # the power P(k,mu)
         p3d[row, ...] = c1[row].real * c2[row].real + c1[row].imag * c2[row].imag
 
-        # each complex field has units of L^3, so power is L^6
-    p3d[...] *= pm.BoxSize.prod() 
-
     if ns.remove_shotnoise and not do_cross:
-        p3d[...] -= shotnoise
- 
+        p3d[...] -= shotnoise / pm.BoxSize.prod()
+
+    if ns.correlation:
+        pm.complex[:] = p3d.copy()
+        # direct transform dimensionless p3d
+        pm.c2r()
+        p3d = pm.real
+        k = pm.r
+        dk = pm.BoxSize[0] / pm.Nmesh
+        kedges = numpy.arange(0, pm.BoxSize[0] + dk * 0.5, dk)
+        print pm.r[0].shape, pm.r[1].shape, pm.r[1].shape
+    else: 
+        # each complex field has units of L^3, so power is L^6
+        # YF: FIXME: what does this comment mean? 
+        # ref to http://icc.dur.ac.uk/~tt/Lectures/UA/L4/cosmology.pdf
+        p3d[...] *= pm.BoxSize.prod() 
+        k = pm.k
+        # kedges out to the minimum nyquist frequency (accounting for possibly anisotropic box)
+        BoxSize_min = numpy.amin(pm.BoxSize)
+        w_to_k = pm.Nmesh / BoxSize_min
+        if ns.dk is None: 
+            dk = 2*numpy.pi/BoxSize_min
+        else:
+            dk = ns.dk
+        kedges = numpy.arange(ns.kmin, numpy.pi*w_to_k + dk/2, dk)
+        kedges += ns.binshift * dk
+
     # only need one mu bin if 1d case is requested
     if ns.mode == "1d": ns.Nmu = 1 
 
@@ -198,19 +223,10 @@ def compute_power(ns, comm=None):
     meta = {'Lx':Lx, 'Ly':Ly, 'Lz':Lz, 'volume':Lx*Ly*Lz, 
             'N1':Ntot1, 'N2':Ntot2, 'shot_noise': shotnoise}
     
-    # kedges out to the minimum nyquist frequency (accounting for possibly anisotropic box)
-    BoxSize_min = numpy.amin(pm.BoxSize)
-    w_to_k = pm.Nmesh / BoxSize_min
-    if ns.dk is None: 
-        dk = 2*numpy.pi/BoxSize_min
-    else:
-        dk = ns.dk
-    kedges = numpy.arange(ns.kmin, numpy.pi*w_to_k + dk/2, dk)
-    kedges += ns.binshift * dk
 
     # now project the 3d power spectrum to a desired basis
 
-    result = measurepower(pm.comm, pm.k, p3d, kedges, ns.Nmu, 
+    result = measurepower(pm.comm, k, p3d, kedges, ns.Nmu, 
                             los=ns.los, poles=ns.poles)
     
     # format the output appropriately
