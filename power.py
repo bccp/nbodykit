@@ -187,23 +187,25 @@ def compute_power(ns, comm=None):
         # the power P(k,mu)
         p3d[row, ...] = c1[row].real * c2[row].real + c1[row].imag * c2[row].imag
 
+    # each complex field has units of L^3, so power is L^6
+    # YF: FIXME: what does this comment mean? 
+    # ref to http://icc.dur.ac.uk/~tt/Lectures/UA/L4/cosmology.pdf
+    p3d[...] *= pm.BoxSize.prod() 
+
     if ns.remove_shotnoise and not do_cross:
-        p3d[...] -= shotnoise / pm.BoxSize.prod()
+        p3d[...] -= shotnoise
 
     if ns.correlation:
         pm.complex[:] = p3d.copy()
         # direct transform dimensionless p3d
+        # FIXME: is the normalization correct?
         pm.c2r()
         p3d = pm.real
-        k = pm.r
+        k = pm.x
         dk = pm.BoxSize[0] / pm.Nmesh
         kedges = numpy.arange(0, pm.BoxSize[0] + dk * 0.5, dk)
         print pm.r[0].shape, pm.r[1].shape, pm.r[1].shape
     else: 
-        # each complex field has units of L^3, so power is L^6
-        # YF: FIXME: what does this comment mean? 
-        # ref to http://icc.dur.ac.uk/~tt/Lectures/UA/L4/cosmology.pdf
-        p3d[...] *= pm.BoxSize.prod() 
         k = pm.k
         # kedges out to the minimum nyquist frequency (accounting for possibly anisotropic box)
         BoxSize_min = numpy.amin(pm.BoxSize)
