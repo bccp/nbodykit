@@ -64,7 +64,9 @@ def main():
     Nz = comm.size // Nx // Ny
 
     Nproc = [Nx, Ny, Nz]
-
+    if comm.rank == 0:
+        logger.info('Nproc = %s' % str( Nproc))
+        logger.info('rmax = %g' % ns.rmax)
     domain = GridND([
             numpy.linspace(0, ns.inputs[0].BoxSize[i], Nproc[i] + 1, endpoint=True)
             for i in range(3)])
@@ -77,7 +79,7 @@ def main():
 
     layout = domain.decompose(pos1, smoothing=0)
     pos1 = layout.exchange(pos1)
-    layout = domain.decompose(pos1, smoothing=ns.rmax)
+    layout = domain.decompose(pos2, smoothing=ns.rmax)
     pos2 = layout.exchange(pos2)
 
     tree1 = correlate.points(pos1, boxsize=ns.inputs[0].BoxSize)
@@ -86,9 +88,10 @@ def main():
     if comm.rank == 0:
         logger.info('Rank 0 correlating %d x %d' % (len(tree1), len(tree2)))
 
+    N1 = comm.allreduce(len(pos1))
     N2 = comm.allreduce(len(pos2))
     if comm.rank == 0:
-        logger.info('All correlating %d x %d' % (len(tree1), N2))
+        logger.info('All correlating %d x %d' % (N1, N2))
 
     bins = correlate.RBinning(ns.rmax, ns.Nbins)
 
