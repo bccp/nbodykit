@@ -16,6 +16,7 @@ import nbodykit
 from nbodykit import plugins
 from nbodykit.utils.pluginargparse import PluginArgumentParser
 from kdcount import correlate
+from pypm.domain import GridND
 
 def initialize_parser(**kwargs):
     parser = PluginArgumentParser("Brutal Correlation function Calculator",
@@ -52,7 +53,21 @@ def main():
 
     ns = initialize_parser().parse_args()
     comm = MPI.COMM_WORLD
+    for Nx in range(int(comm.size **0.3333) + 1, 0, -1):
+        if comm.size % Nx == 0: break
+    else:
+        Nx = 1
+    for Ny in range(int(comm.size **0.5) + 1, 0, -1):
+        if (comm.size // Nx) % Ny == 0: break
+    else:
+        Ny = 1
+    Nz = comm.size // Nx // Ny
 
+    Nproc = [Nx, Ny, Nz]
+
+    domain = GridND([
+            numpy.linspace(0, ns.inputs[0].BoxSize[i], Nproc[i] + 1, endpoint=True)
+            for i in range(3)])
 
     [[pos1]] = ns.inputs[0].read(['Position'], comm, bunchsize=None)
     if len(ns.inputs) > 1:
@@ -60,15 +75,10 @@ def main():
     else:
         pos2 = pos1
 
-    pos1 = comm.gather(pos1)
-    pos2 = comm.gather(pos2)
-    if comm.rank == 0:
-        pos1 = numpy.concatenate(pos1, axis=0)
-        pos2 = numpy.concatenate(pos2, axis=0)
-        pos2 = numpy.array_split(pos2, comm.size)
-
-    pos1 = comm.bcast(pos1)
-    pos2 = comm.scatter(pos2)
+    layout = domain.decompose(pos1, smoothing=0)
+    pos1 = layout.exchange(pos1)
+    layout = domain.decompose(pos1, smoothing=ns.rmax)
+    pos2 = layout.exchange(pos2)
 
     tree1 = correlate.points(pos1, boxsize=ns.inputs[0].BoxSize)
     tree2 = correlate.points(pos2, boxsize=ns.inputs[0].BoxSize)
