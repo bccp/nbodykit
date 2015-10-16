@@ -1,0 +1,5 @@
+--correlation
+1d
+256
+../output/test_corr_tpmsnapshot_1d.txt
+TPMSnapshot:../data/snp00100_1.0000.bin:1380
