@@ -82,6 +82,9 @@ def initialize_power_parser(**kwargs):
     parser.add_argument('--poles', type=lambda s: map(int, s.split()), default=[],
             help='if specified, compute these multipoles from P(k,mu), saving to `pole_output`')
     parser.add_argument('--pole_output', type=str, help='the name of the output file for multipoles')
+
+    parser.add_argument("--correlation", action='store_true', default=False,
+        help='Calculate correaltion function instead of power spectrum.')
     
     return parser
 
@@ -174,11 +177,45 @@ def compute_power(ns, comm=None):
         c2 = pm.complex
         Ntot2 = Ntot1 
 
+    shotnoise =  pm.BoxSize.prod() / (1.0*Ntot1)
+
+    # reuse the memory in c1.real for the 3d power spectrum
+    p3d = c1.real
+
+    # calculate the 3d power spectrum, row by row to save memory
+    for row in range(len(c1)):
+        # the power P(k,mu)
+        p3d[row, ...] = c1[row].real * c2[row].real + c1[row].imag * c2[row].imag
+
+    # the complex field is dimensionless; power is L^3
+    # ref to http://icc.dur.ac.uk/~tt/Lectures/UA/L4/cosmology.pdf
+    p3d[...] *= pm.BoxSize.prod() 
+
     if ns.remove_shotnoise and not do_cross:
-        shotnoise =  pm.BoxSize.prod() / (1.0*Ntot1)
-    else:
-        shotnoise = 0
- 
+        p3d[...] -= shotnoise
+
+    if ns.correlation:
+        pm.complex[:] = p3d.copy()
+        # direct transform dimensionless p3d
+        # Note that L^3 cancels with dk^3.
+        pm.c2r()
+        p3d = pm.real
+        k = pm.x
+        dk = pm.BoxSize[0] / pm.Nmesh
+        kedges = numpy.arange(0, pm.BoxSize[0] + dk * 0.5, dk)
+        print pm.r[0].shape, pm.r[1].shape, pm.r[1].shape
+    else: 
+        k = pm.k
+        # kedges out to the minimum nyquist frequency (accounting for possibly anisotropic box)
+        BoxSize_min = numpy.amin(pm.BoxSize)
+        w_to_k = pm.Nmesh / BoxSize_min
+        if ns.dk is None: 
+            dk = 2*numpy.pi/BoxSize_min
+        else:
+            dk = ns.dk
+        kedges = numpy.arange(ns.kmin, numpy.pi*w_to_k + dk/2, dk)
+        kedges += ns.binshift * dk
+
     # only need one mu bin if 1d case is requested
     if ns.mode == "1d": ns.Nmu = 1 
 
@@ -186,9 +223,12 @@ def compute_power(ns, comm=None):
     Lx, Ly, Lz = pm.BoxSize
     meta = {'Lx':Lx, 'Ly':Ly, 'Lz':Lz, 'volume':Lx*Ly*Lz, 
             'N1':Ntot1, 'N2':Ntot2, 'shot_noise': shotnoise}
-    result = measurepower(pm, c1, c2, ns.Nmu, binshift=ns.binshift, 
-                            shotnoise=shotnoise, los=ns.los, dk=ns.dk, 
-                            kmin=ns.kmin, poles=ns.poles)
+    
+
+    # now project the 3d power spectrum to a desired basis
+
+    result = measurepower(pm.comm, k, p3d, kedges, ns.Nmu, 
+                            los=ns.los, poles=ns.poles)
     
     # format the output appropriately
     if len(ns.poles):
