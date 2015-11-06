@@ -10,7 +10,6 @@ logging.basicConfig(level=logging.DEBUG,
                             '%(asctime)s %(name)-15s %(levelname)-8s %(message)s',
                     datefmt='%m-%d %H:%M')
 logger = logging.getLogger('power.py')
-logger.info('started')     
               
 import nbodykit
 from nbodykit import plugins
@@ -43,6 +42,8 @@ def initialize_parser(**kwargs):
     # add the optional arguments
     parser.add_argument("--bunchsize", type=int, default=1024*1024*4,
         help='Number of particles to read per rank. A larger number usually means faster IO, but less memory for the FFT mesh. This is not respected by some data sources.')
+    parser.add_argument("--subsample", type=int, default=1,
+        help='Use 1 out of every N points')
     return parser 
 
 def main():
@@ -72,15 +73,27 @@ def main():
             for i in range(3)])
 
     [[pos1]] = ns.inputs[0].read(['Position'], comm, bunchsize=None)
+    pos1 = pos1[comm.rank * ns.subsample // comm.size ::ns.subsample]
+    N1 = comm.allreduce(len(pos1))
     if len(ns.inputs) > 1:
-        [[pos2]] = ns.inputs[1].read('Position', comm, bunchsize=None)
+        [[pos2]] = ns.inputs[1].read(['Position'], comm, bunchsize=None)
+        pos2 = pos2[comm.rank * ns.subsample // comm.size ::ns.subsample]
     else:
         pos2 = pos1
-
+    N2 = comm.allreduce(len(pos2))
+    if comm.rank == 0:
+        logger.info('Read Positions %d points', len(pos1))
     layout = domain.decompose(pos1, smoothing=0)
     pos1 = layout.exchange(pos1)
-    layout = domain.decompose(pos2, smoothing=ns.rmax)
-    pos2 = layout.exchange(pos2)
+    if comm.rank == 0:
+        logger.info('exchange pos1')
+    if ns.rmax > ns.inputs[0].BoxSize[0] * 0.25:
+        pos2 = numpy.concatenate(comm.allgather(pos2), axis=0)
+    else:
+        layout = domain.decompose(pos2, smoothing=ns.rmax)
+        pos2 = layout.exchange(pos2)
+    if comm.rank == 0:
+        logger.info('exchange pos2')
 
     tree1 = correlate.points(pos1, boxsize=ns.inputs[0].BoxSize)
     tree2 = correlate.points(pos2, boxsize=ns.inputs[0].BoxSize)
@@ -88,17 +101,15 @@ def main():
     if comm.rank == 0:
         logger.info('Rank 0 correlating %d x %d' % (len(tree1), len(tree2)))
 
-    N1 = comm.allreduce(len(pos1))
-    N2 = comm.allreduce(len(pos2))
     if comm.rank == 0:
         logger.info('All correlating %d x %d' % (N1, N2))
 
     bins = correlate.RBinning(ns.rmax, ns.Nbins)
 
-    pc = correlate.paircount(tree1, tree2, bins, np=0)
+    pc = correlate.paircount(tree2, tree1, bins, np=0)
     pc.sum1[:] = comm.allreduce(pc.sum1)
 
-    RR = 1.0 * len(pos1) * comm.allreduce(len(pos2)) 
+    RR = 1.0 * N1 * N2
     RR *= 4. / 3. * numpy.pi * numpy.diff(pc.edges**3/ ns.inputs[0].BoxSize.prod())
 
     xi = 1.0 * pc.sum1 / RR - 1
