@@ -66,7 +66,7 @@ class BOSSChallengeMockDataSource(DataSource):
             kwargs['header'] = None
             kwargs['engine'] = 'c'
             kwargs['delim_whitespace'] = True
-            kwargs['usecols'] = ['x', 'y', 'z']
+            kwargs['usecols'] = ['x', 'y', 'z', 'vx', 'vy', 'vz']
             data = pd.read_csv(self.path, **kwargs)
             nobj = len(data)
             logger.info("total number of objects read is %d" %nobj)
