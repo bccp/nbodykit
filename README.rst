@@ -151,10 +151,7 @@ then load python
 
 .. code::
 
-    module load python
-    module load cython
-    module load numpy
-    module load mpi4py
+    module load python/2.7-anaconda
 
 Also prefix the compiler MPICC=cc, so do this
 
