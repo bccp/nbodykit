@@ -1,5 +1,5 @@
 SOURCE=`dirname $0`/depends
-LOCAL=`dirname $0`/local
+LOCAL=`dirname $0`/install
 LOCAL=`realpath $LOCAL`
 
 function fail {
