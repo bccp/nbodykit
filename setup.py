@@ -9,6 +9,7 @@ setup(name="nbodykit", version="0.1pre",
       zip_safe=False,
       package_dir = {'nbodykit': 'nbodykit'},
       packages = find_packages(),
-      requires=['numpy', 'sharedmem', 'pypm', 'pfft', 'kdcount', 'mpsort'],
+      install_requires=['numpy'],
+      requires=['sharedmem', 'pypm', 'pfft', 'kdcount', 'mpsort']
 )
 
