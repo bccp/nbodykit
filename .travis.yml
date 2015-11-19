@@ -25,12 +25,13 @@ before_install:
 install:
     - conda create --yes -n test python=$TRAVIS_PYTHON_VERSION
     - source activate test
-    - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py
+    - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py h5py pandas
     - if [ $TRAVIS_PYTHON_VERSION == 2.6 ]; then conda install --yes argparse; fi
+    - pip install pfft-python
     - pip install -r requirements.txt .
 
 script:
-    - find examples -name 'run.sh' -exec bash {} \;
+    - bash runtests.sh
 
 #notifications:
 #  email: false
