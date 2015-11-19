@@ -53,35 +53,39 @@ documentations:
 Build
 -----
 
-The software is mostly used in 'developer mode'; and installed at './install' directory
-(relative to the source code root). This is the recommended setup (also easier to build
-a python-mpi-bcast bundle).
+The software is designed to be installed with the ``pip`` utility. The recommended setup is to install 
+the software in 'developer mode' via the ``-e`` option of ``pip``. To install the main ``nbodykit`` package 
+in 'developer mode', as well as the external dependencies listed above, into the default python installation 
+directory use:
 
 .. code:: sh
    
     git clone http://github.com/bccp/nbodykit
     cd nbodykit
 
-    python setup.py develop
+    pip install -r requirements.txt -e .
 
+A different installation directory can be specified via the ``--user`` or ``--root <dir>`` 
+options of the ``pip install`` command.
 
-The dependencies of nbodykit are not fully stable, thus we provide
-tools to build them (install-dependencies.sh), and to add the python path
-(bin/activate.sh)
+The pure-python ``nbodykit`` package (without external dependencies) can be installed by 
+omitting the ``-r requirements.txt`` option, with such an installation only requiring ``numpy``. 
+The caveat being that the functionality of the package is greatly diminished -- package behavior 
+in this instance is not tested and considered undefined. 
+
+Please note that there are slight changes to the above procedure on Mac and Edison, 
+as explictly noted below.
+
+The dependencies of nbodykit are not fully stable, thus we recommend updating
+the external dependencies occassionally via the ``-U`` option of ``pip install``:
 
 .. code:: sh
 
     # It may take a while to build fftw and pfft.
     # Mac and Edison are special, see notes below
 
-    ./install-dependencies.sh
+    pip install -U -r requirements.txt -e .
 
-only need to build once a while, then we can just setup the path by
-calling
-
-.. code:: sh
-
-    source bin/activate.sh
 
 Now we shall be able to use nbodykit, in a interactive python session 
 (please remember to jump to bin/ directory to avoid weird issues about importing in-tree)
@@ -121,7 +125,7 @@ On Mac, the `LDSHARED` environment variable must be explicitly set. In bash, the
 
 .. code::
 
-    export LDSHARED="mpicc -bundle -undefined dynamic_lookup -DOMPI_IMPORTS"; ./install-dependencies.sh
+    export LDSHARED="mpicc -bundle -undefined dynamic_lookup -DOMPI_IMPORTS"; pip install -r requirements.txt -e .
     
 On recent versions of MacPorts, we also need to tell mpicc to use gcc rather than the default clang
 compiler, which doesn't compile fftw correctly due to lack of openmp support.
@@ -129,7 +133,9 @@ compiler, which doesn't compile fftw correctly due to lack of openmp support.
 .. code::
     
     export OMPI_CC=gcc
-   
+ 
+**UPDATE BELOW THIS**  
+
 Edison Notes
 ++++++++++++
 
@@ -157,8 +163,8 @@ Also prefix the compiler MPICC=cc, so do this
 
 .. code::
     
-    MPICC=cc ./install-dependencies.sh
-        
+    MPICC=cc pip install -r requirements.txt -e .
+
 Optionally, build the python-mpi-bcast bundle for massively parallel python jobs
 
 .. code:: bash
