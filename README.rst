@@ -3,6 +3,18 @@ nbodykit
 
 Software kit for cosmological N-body simulations. 
 
+
+Build Status
+------------
+
+The CI tests are run in a miniconda environment.
+
+.. image:: https://api.travis-ci.org/bccp/nbodykit.svg
+    :alt: Build Status
+    :target: https://travis-ci.org/bccp/nbodykit/
+
+
+
 Top Level Executables
 =====================
 
