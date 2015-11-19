@@ -183,7 +183,9 @@ def load(filename, namespace=None):
         namespace = {}
     namespace = dict(namespace)
     try:
-        execfile(filename, namespace)
+        with open(filename) as f:
+            code = compile(f.read(), filename, 'exec')
+            exec(code, namespace)
     except Exception as e:
         raise RuntimeError("Failed to load plugin '%s': %s" % (filename, str(e)))
     references[filename] = namespace

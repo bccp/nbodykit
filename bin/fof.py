@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from sys import argv
 from sys import stdout
 from sys import stderr
@@ -138,17 +140,16 @@ def main():
     # read in all !
     [[Position]] = ns.datasource.read(['Position'], comm, bunchsize=None)
     Position /= ns.datasource.BoxSize
-    print Position.shape
-    print Position.max(axis=0)
+
+    print(Position.shape)
+    print(Position.max(axis=0))
+
     Ntot = sum(comm.allgather(len(Position)))
 
     if comm.rank == 0:
         logging.info('Total number of particles %d, ll %g' % (Ntot, ns.LinkingLength))
     ll = ns.LinkingLength * Ntot ** -0.3333333
 
-    #print pos
-    #print ((pos[0] - pos[1]) ** 2).sum()** 0.5, ll
-  
     layout = domain.decompose(Position, smoothing=ll * 1)
 
     Position = layout.exchange(Position)
