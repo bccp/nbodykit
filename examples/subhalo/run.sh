@@ -1,4 +1,5 @@
+source ../../bin/activate.sh
 for fn in *.params; do
     echo testing $fn ...
-    python ../../subhalo.py @$fn || exit
+    python ../../bin/subhalo.py @$fn || exit
 done

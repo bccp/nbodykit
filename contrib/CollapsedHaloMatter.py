@@ -62,11 +62,10 @@ class CollapsedHaloDataSource(DataSource):
 
             P['Position'] *= self.BoxSize
             P['Velocity'] *= self.BoxSize
-            P['Mass'] = None
 
             if comm.rank == 0:
                 logger.info('round %d, nread %d' % (round, nread))
 
-            yield [P[key] for key in columns]
+            yield [P.get(key, None) for key in columns]
 
 

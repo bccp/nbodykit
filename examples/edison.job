@@ -1,0 +1,27 @@
+#PBS -j eo
+#PBS -l mppwidth=128
+#PBS -q debug
+#PBS -l walltime=00:30:00
+#PBS -N fof.job
+
+set -x
+
+export OMP_NUM_THREADS=1
+
+source /project/projectdirs/m779/python-mpi/activate.sh /dev/shm/local "aprun -n 128 "
+
+
+cd $PBS_O_WORKDIR
+
+bcast -v /project/projectdirs/m779/python-mpi/2.7-anaconda.tar.gz 
+bcast -v ../nbodykit-dependencies.tar.gz
+
+export MPI4PY=/usr/common/usg/python/2.7-anaconda/lib/python2.7/site-packages/mpi4py
+
+aprun -n 128 $MPI4PY/bin/python-mpi \
+/global/project/projectdirs/m779/yfeng1/source/nbodykit/fof.py \
+TPMSnapshot:snp00100_1.0000.bin:2500.0 \
+0.28 \
+fof00100_1.0000_0.280
+
+

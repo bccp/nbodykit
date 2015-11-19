@@ -234,6 +234,9 @@ def read(comm, filename, filetype, columns=['Position', 'ID'], bunchsize=None):
         P = {}
         for column in columns:
             P[column] = snapshot.read(column, a, b)
+
+        # FIXME: we need to fix this ugly thing
+        P['__nread__'] = b - a
         #print comm.allreduce(P['Position'].max(), op=MPI.MAX)
         #print comm.allreduce(P['Position'].min(), op=MPI.MIN)
         #print P['ID'].max(), P['ID'].min()
@@ -308,38 +311,35 @@ def ReadPower2DPlainText(filename):
         
         # read number of k and mu bins are first line
         Nk, Nmu = map(int, ff.readline().split())
+        N = Nk*Nmu
+        
         # names of data columns on second line
         columns = ff.readline().split()
         
-        # read the column data
-        for name in columns: toret[name] = numpy.empty(Nk*Nmu)
-        for i in range(Nk*Nmu):
-            fields = map(float, ff.readline().split())
-            for icol, val in enumerate(fields):
-                toret[columns[icol]][i] = val
-                
+        lines = ff.readlines()
+        data = numpy.array([map(float, line.split()) for line in lines[:N]])
+        data = data.reshape((Nk, Nmu, -1))
+                        
         # reshape properly to (Nk, Nmu)
-        for name in columns:        
-            toret[name] = toret[name].reshape((Nk,Nmu))
+        for i, name in enumerate(columns):        
+            toret[name] = data[...,i]
         
         # read the edges for k and mu bins
         edges = []
-        edges_names = ['kedges', 'muedges']
-        for i, name in enumerate(edges_names):
-            fields = ff.readline().split()
-            N = int(fields[-1])
-            edges.append(numpy.empty(N))
-            for j in range(N):
-                edges[i][j] = float(ff.readline())
+        l1 = int(lines[N].split()[-1]); N = N+1
+        edges.append(numpy.array(map(float, lines[N:N+l1])))
+        l2 = int(lines[N+l1].split()[-1]); N = N+l1+1
+        edges.append(numpy.array(map(float, lines[N:N+l2])))
         toret['edges'] = edges
         
         # read any metadata
         metadata = {}
-        fields = ff.readline().split()
-        if fields[0].strip() == 'metadata':
-            N = int(fields[-1])
-            for i in range(N):
-                fields = ff.readline().split()
+        if len(lines) >= N+l2:
+            N_meta = int(lines[N+l2].split()[-1])
+            N = N + l2 + 1
+            meta = lines[N:N+N_meta]
+            for line in meta:
+                fields = line.split()
                 cast = fields[-1]
                 if cast in __builtins__:
                     metadata[fields[0]] = __builtins__[cast](fields[1])
@@ -369,63 +369,60 @@ def ReadPower1DPlainText(filename):
         any additional metadata to store as part of the 
         P(k) measurement
     """
-    # utility function for removing # char from the start of lines
-    def remove_comment_chars(line):
-        if isinstance(line, basestring):
-            r = line.find('#')
-            if r >= 0:
-                return line[r+1:]
-            else:
-                return line
-        elif isinstance(line, list):
-            return [remove_comment_chars(l) for l in line]
-            
-    # read the data
-    data = numpy.loadtxt(filename, comments='#')
+    # data list
+    data = []
     
     # extract the metadata
     metadata = {}
+    make_float = lambda x: float(x[1:])
     with open(filename, 'r') as ff:
         
-        # loop over each line
-        lines = remove_comment_chars(ff.readlines())
         currline = 0
+        lines = ff.readlines()
         while True:
             
             # break if we are at the EOF
-            if currline == len(lines):
-                break
+            if currline == len(lines): break
             line = lines[currline]
             
-            # read edges
-            if 'edges' in line:
-                fields = line.split()
-                N = int(fields[-1]) # number of edges
-                metadata['edges'] = numpy.array(map(float, lines[currline+1:currline+1+N]))
-                currline += 1+N
+            if not line: 
+                currline += 1
                 continue
-            
-            # read metadata
-            if 'metadata' in line:                
-                # read and cast the metadata properly
-                fields = line.split()
-                N = int(fields[-1]) # number of individual metadata lines
-                for i in range(N):
-                    fields = lines[currline+1+i].split()
-                    cast = fields[-1]
-                    if cast in __builtins__:
-                        metadata[fields[0]] = __builtins__[cast](fields[1])
-                    elif hasattr(numpy, cast):
-                         metadata[fields[0]] = getattr(numpy, cast)(fields[1])
-                    else:
-                        raise TypeError("metadata must have builtin or numpy type")
-                currline += 1+N
-                continue
+                
+            if line[0] != '#':
+                data.append(map(float, line.split()))
+            else:
+                line = line[1:]
+                
+                # read edges
+                if 'edges' in line:
+                    fields = line.split()
+                    N = int(fields[-1]) # number of edges
+                    metadata['edges'] = numpy.array(map(make_float, lines[currline+1:currline+1+N]))
+                    currline += 1+N
+                    continue
+        
+                # read metadata
+                if 'metadata' in line:                
+                    # read and cast the metadata properly
+                    fields = line.split()
+                    N = int(fields[-1]) # number of individual metadata lines
+                    for i in range(N):
+                        fields = lines[currline+1+i][1:].split()
+                        cast = fields[-1]
+                        if cast in __builtins__:
+                            metadata[fields[0]] = __builtins__[cast](fields[1])
+                        elif hasattr(numpy, cast):
+                             metadata[fields[0]] = getattr(numpy, cast)(fields[1])
+                        else:
+                            raise TypeError("metadata must have builtin or numpy type")
+                    currline += 1+N
+                    continue
                 
             # add to the data
             currline += 1
             
-    return data, metadata
+    return numpy.asarray(data), metadata
                 
             
                 

@@ -89,7 +89,6 @@ class MWhiteHaloFileDataSource(DataSource):
             
             P['Position']= numpy.float32(hf.read_pos())
             P['Velocity']= numpy.float32(hf.read_vel())
-            # unweighted!
             P['Mass'] = 1.0
             P['logmass'] = numpy.log10(numpy.float32(hf.read_mass()))
             
@@ -109,4 +108,4 @@ class MWhiteHaloFileDataSource(DataSource):
             P['Position'][:, dir] += P['Velocity'][:, dir]
             P['Position'][:, dir] %= self.BoxSize[dir]
 
-        yield [P[key] for key in columns]
+        yield [P[key] if key in P.dtype.names else None for key in columns]

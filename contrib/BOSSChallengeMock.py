@@ -66,7 +66,7 @@ class BOSSChallengeMockDataSource(DataSource):
             kwargs['header'] = None
             kwargs['engine'] = 'c'
             kwargs['delim_whitespace'] = True
-            kwargs['usecols'] = ['x', 'y', 'z']
+            kwargs['usecols'] = ['x', 'y', 'z', 'vx', 'vy', 'vz']
             data = pd.read_csv(self.path, **kwargs)
             nobj = len(data)
             logger.info("total number of objects read is %d" %nobj)
@@ -91,9 +91,8 @@ class BOSSChallengeMockDataSource(DataSource):
             raise KeyError("Velocity is not supported")
         P = {}
         P['Position'] = pos
-        P['Mass'] = None
 
-        yield [P[key] for key in columns]
+        yield [P.get(key, None) for key in columns]
         
 class BOSSChallengeBoxADataSource(BOSSChallengeMockDataSource):
     field_type = 'BOSSChallengeBoxA'

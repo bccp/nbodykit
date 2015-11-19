@@ -1,6 +1,7 @@
 from nbodykit.plugins import DataSource
 from nbodykit.utils.pluginargparse import BoxSizeParser
 from nbodykit import files 
+import numpy
 
 class TPMSnapshotDataSource(DataSource):
     field_type = "TPMSnapshot"
@@ -28,6 +29,8 @@ class TPMSnapshotDataSource(DataSource):
 
         if 'Mass' in newcolumns:
             newcolumns.remove('Mass')
+        if 'Weight' in newcolumns:
+            newcolumns.remove('Weight')
 
         for round, P in enumerate(
                 files.read(comm, 
@@ -38,15 +41,17 @@ class TPMSnapshotDataSource(DataSource):
 
             if 'Position' in P:
                 P['Position'] *= self.BoxSize
-            P['Mass'] = None
             if 'Velocity' in P:
                 P['Velocity'] *= self.BoxSize
+
+            # uniform mass
+            P['Mass'] = numpy.ones(P['__nread__'], 'i1')
 
             if self.rsd is not None:
                 dir = "xyz".index(self.rsd)
                 P['Position'][:, dir] += P['Velocity'][:, dir]
                 P['Position'][:, dir] %= self.BoxSize[dir]
 
-            yield [P[key] for key in columns]
+            yield [P[key] if key in P else None for key in columns]
 
 #------------------------------------------------------------------------------

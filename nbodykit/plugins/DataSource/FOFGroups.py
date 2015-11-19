@@ -4,14 +4,14 @@ import numpy
 import logging
 from nbodykit.utils import selectionlanguage
 
-logger = logging.getLogger('HDF5')
+logger = logging.getLogger('FOFGroups')
 
 def list_str(value):
     return value.split()
          
-class HDF5DataSource(DataSource):
+class FOFDataSource(DataSource):
     """
-    Class to read field data from a HDF5 data file
+    Class to read field data from a HDF5 FOFGroup data file
 
     Notes
     -----
@@ -49,7 +49,7 @@ class HDF5DataSource(DataSource):
         `type` and `mass`, you could specify 
         select= "type == central and mass > 1e14"
     """
-    field_type = "HDF5"
+    field_type = "FOFGroups"
     
     @classmethod
     def register(kls):
@@ -57,22 +57,12 @@ class HDF5DataSource(DataSource):
         h = kls.add_parser()
         
         h.add_argument("path", help="path to file")
-        h.add_argument("dataset",  help="name of dataset in HDF5 file")
         h.add_argument("BoxSize", type=BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions.")
-                
-        h.add_argument("-poscol", default='Position', 
-            help="name of the position column")
-        h.add_argument("-velcol", default='Velocity',
-            help="name of the velocity column")
-        h.add_argument("-masscol", default=None,
-            help="name of the mass column, None for unit mass")
+        h.add_argument("m0", type=float, help="mass unit")
+        h.add_argument("-dataset",  default="FOFGroups", help="name of dataset in HDF5 file")
         h.add_argument("-rsd", choices="xyz", 
             help="direction to do redshift distortion")
-        h.add_argument("-posf", default=0., type=float, 
-            help="factor to scale the positions, default is BoxSize")
-        h.add_argument("-velf", default=0., type=float, 
-            help="factor to scale the velocities, default is BoxSize")
         h.add_argument("-select", default=None, type=selectionlanguage.Query, 
             help='row selection based on conditions specified as string')
     
@@ -85,46 +75,42 @@ class HDF5DataSource(DataSource):
                 
             dataset = h5py.File(self.path, mode='r')[self.dataset]
             data = dataset[...]
-
-            nobj = len(data)
-            # select based on input conditions
-            if self.select is not None:
-                mask = self.select.get_mask(data)
-                data = data[mask]
-            logger.info("total number of objects selected is %d / %d" % (len(data), nobj))
-            
-            # get position and velocity, if we have it
-            pos = data[self.poscol].astype('f4')
-            if self.posf == 0.: self.posf = self.BoxSize
-            if self.velf == 0.: self.velf = self.BoxSize
-            pos *= self.posf
-            if self.velcol is not None:
-                vel = data[self.velcol].astype('f4')
-                vel *= self.velf
-            else:
-                vel = numpy.zeros(nobj, dtype=('f4', 3))
-            if self.masscol is not None:
-                mass = data[self.masscol]
+            rank = numpy.array_split(numpy.arange(len(data)), comm.size)
+            data = numpy.array_split(data, comm.size)
         else:
-            pos = numpy.empty(0, dtype=('f4', 3))
-            vel = numpy.empty(0, dtype=('f4', 3))
-            mass = numpy.empty(0, dtype='f4')
+            data = None
+            rank = None
+        data = comm.scatter(data)
+        rank = comm.scatter(rank)
 
-        if self.masscol is None:
-            mass = None
+        data2 = numpy.empty(len(data),
+            dtype=[
+                ('Position', ('f4', 3)),
+                ('Velocity', ('f4', 3)),
+                ('Mass', 'f4'),
+                ('Length', 'i4'),
+                ('Rank', 'i4'),
+                ('LogMass', 'f4')])
 
-        P = {}
-        if 'Position' in columns:
-            P['Position'] = pos
-        if 'Velocity' in columns:
-            P['Velocity'] = vel
-        if 'Mass' in columns:
-            P['Mass'] = mass
+        data2['Mass'] = data['Length'] * self.m0
+        data2['LogMass'] = numpy.log10(data2['Mass'])
+        # get position and velocity, if we have it
+        data2['Position'] = data['Position'] * self.BoxSize
+        data2['Velocity'] = data['Velocity'] * self.BoxSize
+        data2['Rank'] = rank
+        # select based on input conditions
+        if self.select is not None:
+            mask = self.select.get_mask(data2)
+            data2 = data2[mask]
+
+        nobj = (comm.allreduce(len(data2)), comm.allreduce(len(data)))
+        if comm.rank == 0:
+            logger.info("total number of objects selected is %d / %d" % nobj)
 
         if self.rsd is not None:
             dir = "xyz".index(self.rsd)
-            P['Position'][:, dir] += vel[:, dir]
-            P['Position'][:, dir] %= self.BoxSize[dir]
+            data2['Position'][:, dir] += data2['Velocity'][:, dir]
+            data2['Position'][:, dir] %= self.BoxSize[dir]
 
-        yield [P[key] if key in P else None for key in columns]
+        yield [data2[key] if key in data2.dtype.names else None for key in columns]
 

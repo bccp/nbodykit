@@ -119,9 +119,8 @@ class QPMMockDataSource(DataSource):
         P = {}
         P['Position'] = pos
         P['Velocity'] = vel
-        P['Mass'] = None
 
-        yield [P[key] for key in columns]
+        yield [P.get(key, None) for key in columns]
 
     
 
