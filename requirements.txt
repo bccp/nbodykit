@@ -1,0 +1,5 @@
+git+git://github.com/rainwoodman/sharedmem.git#egg=sharedmem
+git+git://github.com/rainwoodman/pypm.git#egg=pypm
+git+git://github.com/rainwoodman/pfft-python.git#egg=pfft
+git+git://github.com/rainwoodman/kdcount.git#egg=kdcount
+git+git://github.com/rainwoodman/MP-sort.git#egg=mpsort
