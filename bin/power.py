@@ -15,8 +15,8 @@ import nbodykit
 from nbodykit import plugins
 from nbodykit.utils.pluginargparse import PluginArgumentParser
 from nbodykit.measurepower import measurepower
-from pypm.particlemesh import ParticleMesh
-from pypm.transfer import TransferFunction
+from pmesh.particlemesh import ParticleMesh
+from pmesh.transfer import TransferFunction
 
 #--------------------------------------------------
 # setup the parser
@@ -203,7 +203,6 @@ def compute_power(ns, comm=None):
         k = pm.x
         dk = pm.BoxSize[0] / pm.Nmesh
         kedges = numpy.arange(0, pm.BoxSize[0] + dk * 0.5, dk)
-        print pm.r[0].shape, pm.r[1].shape, pm.r[1].shape
     else: 
         k = pm.k
         # kedges out to the minimum nyquist frequency (accounting for possibly anisotropic box)

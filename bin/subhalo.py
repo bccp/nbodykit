@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from sys import argv
 from sys import stdout
 from sys import stderr
@@ -108,7 +110,7 @@ def main():
         hend = PIG2['Label'].searchsorted(haloid, side='right')
         if hstart - hend < ns.Nmin: continue
         assert(PIG2['Label'][hstart:hend] == haloid).all()
-        print 'Halo', haloid
+        print('Halo', haloid)
         cat.append(
             subfof(
                 PIG2['Position'][hstart:hend], 
@@ -121,7 +123,7 @@ def main():
 
     if comm.rank == 0:
         cat = numpy.concatenate(cat, axis=0)
-        print cat
+        print(cat)
         with h5py.File(ns.output, mode='w') as f:
             dataset = f.create_dataset('Subhalos', data=cat)
             dataset.attrs['LinkingLength'] = ns.linklength

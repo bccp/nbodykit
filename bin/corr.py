@@ -15,7 +15,7 @@ import nbodykit
 from nbodykit import plugins
 from nbodykit.utils.pluginargparse import PluginArgumentParser
 from kdcount import correlate
-from pypm.domain import GridND
+from pmesh.domain import GridND
 
 def initialize_parser(**kwargs):
     parser = PluginArgumentParser("Brutal Correlation function Calculator",

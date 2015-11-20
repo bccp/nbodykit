@@ -183,12 +183,14 @@ def load(filename, namespace=None):
         namespace = {}
     namespace = dict(namespace)
     try:
-        execfile(filename, namespace)
+        with open(filename) as f:
+            code = compile(f.read(), filename, 'exec')
+            exec(code, namespace)
     except Exception as e:
         raise RuntimeError("Failed to load plugin '%s': %s" % (filename, str(e)))
     references[filename] = namespace
 
-builtins = ['DataSource', 'Power1DStorage.py', 'Power2DStorage.py']
+builtins = ['DataSource/', 'Power1DStorage.py', 'Power2DStorage.py']
 for plugin in builtins:
     load(os.path.join(os.path.dirname(__file__), plugin))
  
