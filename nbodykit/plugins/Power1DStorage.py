@@ -39,15 +39,15 @@ class Power1DStorage(PowerSpectrumStorage):
             if edges is not None:
                 header = "# edges %d\n" %len(edges)
                 values = "".join("# %0.7g\n" %e for e in edges)
-                ff.write(header+values)
+                ff.write((header+values).encode())
             
             # lastly, write out metadata, if any
             if len(meta):
-                ff.write("# metadata %d\n" %len(meta))
+                ff.write(("# metadata %d\n" %len(meta)).encode())
                 for k,v in meta.iteritems():
                     if not numpy.isscalar(v):
                         raise NotImplementedError("Power2DStorage cannot write out non-scalar metadata yet")
-                    ff.write("# %s %s %s\n" %(k, str(v), type(v).__name__))
+                    ff.write(("# %s %s %s\n" %(k, str(v), type(v).__name__)).encode)
             ff.flush()
             
             
