@@ -1,10 +1,9 @@
 from nbodykit.plugins import DataSource
 from nbodykit.utils.pluginargparse import BoxSizeParser
-from nbodykit.utils.mpilogging import MPILoggerAdapter
 import numpy
 import logging
          
-logger = MPILoggerAdapter(logging.getLogger('QPMMock'))
+logger = logging.getLogger('QPMMock')
 
 class QPMMockDataSource(DataSource):
     """

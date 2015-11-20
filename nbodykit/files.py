@@ -1,4 +1,5 @@
 import numpy
+import logging
 
 __all__ = ['read', 'TPMSnapshotFile', 'SnapshotFile']
 

@@ -3,9 +3,8 @@ from nbodykit.utils.pluginargparse import BoxSizeParser
 import numpy
 import logging
 from nbodykit.utils import selectionlanguage
-from nbodykit.utils.mpilogging import MPILoggerAdapter
 
-logger = MPILoggerAdapter(logging.getLogger('HDF5'))
+logger = logging.getLogger('HDF5')
 
 def list_str(value):
     return value.split()
