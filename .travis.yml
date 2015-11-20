@@ -23,7 +23,7 @@ before_install:
 install:
     - conda create --yes -n test python=$TRAVIS_PYTHON_VERSION
     - source activate test
-    - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py h5py pandas scipy
+    - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py h5py pandas scipy pytables
     - if [ $TRAVIS_PYTHON_VERSION == 2.6 ]; then conda install --yes argparse; fi
     - if ! [ -f $HOME/build/wheelhouse/fresh ]; then
         pip wheel -w $HOME/build/wheelhouse pfft-python kdcount mpsort pmesh sharedmem --no-deps &&
