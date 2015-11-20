@@ -182,7 +182,7 @@ def BoxSizeParser(value):
         an array of size 3 giving the box size in each dimension
     """
     boxsize = numpy.empty(3, dtype='f8')
-    sizes = map(float, value.split())
+    sizes = [float(i) for i in value.split()]
     if len(sizes) == 1: sizes = sizes[0]
     boxsize[:] = sizes
     return boxsize
