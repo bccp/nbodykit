@@ -10,11 +10,14 @@ comm = MPI.COMM_WORLD
 size = comm.size
 rank = comm.rank
 name = MPI.Get_processor_name()
+
 logging.basicConfig(level=logging.DEBUG,
-                    format='rank %d on %s: '%(rank,name) + \
-                            '%(asctime)s %(name)-15s %(levelname)-8s %(message)s',
+                    format='%(asctime)s %(name)-15s %(levelname)-8s %(message)s',
                     datefmt='%m-%d %H:%M')
-logger = logging.getLogger('power-parallel.py')
+
+from nbodykit.utils.mpilogging import MPILoggerAdapter
+
+logger = MPILoggerAdapter(logging.getLogger('power-parallel.py'))
                     
 #------------------------------------------------------------------------------
 # tools
@@ -119,6 +122,9 @@ def run_single_task(task, itask, config, param_file, pool_comm, parser):
     # parse the file
     ns = parser.parse_args(['@%s' %temp_name])
 
+    # set logging level
+    logger.setLevel(ns.log_level)
+    
     # compute the power using the comm for this worker pool
     compute_power(ns, comm=pool_comm)
 
