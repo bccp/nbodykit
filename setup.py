@@ -15,7 +15,7 @@ setup(name="nbodykit", version="0.1pre",
       package_dir = {'nbodykit': 'nbodykit'},
       packages = find_packages(),
       install_requires=['numpy'],
-      requires=['sharedmem', 'pypm', 'pfft', 'kdcount', 'mpsort'],
+      requires=['sharedmem', 'pmesh', 'pfft', 'kdcount', 'mpsort'],
       cmdclass = {
         "build_py":build_py,
       }
