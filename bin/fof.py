@@ -42,7 +42,7 @@ from nbodykit.ndarray import equiv_class, replacesorted
 from nbodykit import halos
 
 from kdcount import cluster
-from pypm.domain import GridND
+from pmesh.domain import GridND
 
 def assign_halo_label(data, comm, thresh):
     """ 
