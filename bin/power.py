@@ -15,8 +15,8 @@ import nbodykit
 from nbodykit import plugins
 from nbodykit.utils.pluginargparse import PluginArgumentParser
 from nbodykit.measurepower import measurepower
-from pypm.particlemesh import ParticleMesh
-from pypm.transfer import TransferFunction
+from pmesh.particlemesh import ParticleMesh
+from pmesh.transfer import TransferFunction
 
 #--------------------------------------------------
 # setup the parser
