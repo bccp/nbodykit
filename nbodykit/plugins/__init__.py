@@ -158,7 +158,7 @@ class PowerSpectrumStorage:
     @contextlib.contextmanager
     def open(self):
         if self.path and self.path != '-':
-            ff = open(self.path, 'w')
+            ff = open(self.path, 'wb')
         else:
             ff = sys.stdout
             
