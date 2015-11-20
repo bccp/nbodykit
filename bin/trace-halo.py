@@ -3,6 +3,7 @@ from sys import stdout
 from sys import stderr
 import logging
 
+from nbodykit.utils.mpilogging import MPILoggerAdapter
 from nbodykit.utils.pluginargparse import PluginArgumentParser
 from nbodykit import plugins
 import h5py
@@ -29,7 +30,9 @@ parser.add_argument("halolabel",
 parser.add_argument("output", help='write output to this file (hdf5 is appended)')
 
 ns = parser.parse_args()
+
 logging.basicConfig(level=logging.DEBUG)
+logger = MPILoggerAdapter(logging.getLogger("trace-halo.py"))
 
 import numpy
 import nbodykit
@@ -79,9 +82,10 @@ def main():
     N = halos.count(label)
     hpos = halos.centerofmass(label, pos, boxsize=1.0)
     
+    logger.info("Total number of halos: %d" % len(N), on=0)
+    logger.info("N %s" % str(N), on=0)
+
     if comm.rank == 0:
-        logging.info("Total number of halos: %d" % len(N))
-        logging.info("N %s" % str(N))
         LinkingLength = LABEL.get_file(0).linking_length
 
         with h5py.File(ns.output + '.hdf5', 'w') as ff:
@@ -107,7 +111,7 @@ def main():
             dataset.attrs['ti'] = ns.datasource_ti.string
             dataset.attrs['tf'] = ns.datasource_tf.string
 
-        logging.info("Written %s" % ns.output + '.hdf5')
+        logger.info("Written %s" % ns.output + '.hdf5', on=0)
 
 
 main()
