@@ -11,7 +11,7 @@ env:
 
 cache:
     directories:
-        - $HOME/build/rainwoodman/pfft-python/build/depends
+        - $HOME/build/wheelhouse
 
 before_install:
     - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
@@ -23,9 +23,13 @@ before_install:
 install:
     - conda create --yes -n test python=$TRAVIS_PYTHON_VERSION
     - source activate test
-    - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py h5py pandas
+    - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py h5py pandas scipy
     - if [ $TRAVIS_PYTHON_VERSION == 2.6 ]; then conda install --yes argparse; fi
-    - pip install pfft-python
+    - if ! [ -f $HOME/build/wheelhouse/fresh ]; then
+        pip wheel -w $HOME/build/wheelhouse pfft-python kdcount mpsort pmesh sharedmem --no-deps &&
+        touch $HOME/build/wheelhouse/fresh;
+      fi
+    - pip install $HOME/build/wheelhouse/*.whl
     - pip install -r requirements.txt .
 
 script:
