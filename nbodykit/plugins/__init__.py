@@ -2,7 +2,8 @@
     Declare PluginMount and various extention points.
 
     To define a Plugin, set __metaclass__ to PluginMount, and
-    define a .register member.
+    define a .register member. For Python 3 and 2 compatibilibty
+    use add_metaclass decorator.
 
 """
 
@@ -29,6 +30,24 @@ class PluginMount(type):
             if hasattr(cls, 'register'):
                 cls.register()
 
+# copied from six
+def add_metaclass(metaclass):
+    """Class decorator for creating a class with a metaclass."""
+    def wrapper(cls):
+        orig_vars = cls.__dict__.copy()
+        slots = orig_vars.get('__slots__')
+        if slots is not None:
+            if isinstance(slots, str):
+                slots = [slots]
+            for slots_var in slots:
+                orig_vars.pop(slots_var)
+        orig_vars.pop('__dict__', None)
+        orig_vars.pop('__weakref__', None)
+        return metaclass(cls.__name__, cls.__bases__, orig_vars)
+    return wrapper
+
+
+@add_metaclass(PluginMount)
 class DataSource:
     """
     Mount point for plugins which refer to the reading of input files 
@@ -56,7 +75,6 @@ class DataSource:
         same units as position), in chunks as an iterator.
 
     """
-    __metaclass__ = PluginMount
     
     field_type = None
 
@@ -118,8 +136,8 @@ class DataSource:
 import sys
 import contextlib
 
+@add_metaclass(PluginMount)
 class PowerSpectrumStorage:
-    __metaclass__ = PluginMount
 
     field_type = None
     klasses = {}
