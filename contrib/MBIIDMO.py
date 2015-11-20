@@ -2,10 +2,11 @@ import numpy
 from nbodykit.plugins import DataSource
 from nbodykit.utils.pluginargparse import BoxSizeParser
 from nbodykit.utils import selectionlanguage
+from nbodykit.utils.mpilogging import MPILoggerAdapter
 import os.path
 import logging
 
-logger = logging.getLogger('MBIIDMO')
+logger = MPILoggerAdapter(logging.getLogger('MBIIDMO'))
 
 class DataSourcePlugin(DataSource):
     field_type = "MBIIDMO"
