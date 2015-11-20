@@ -3,8 +3,9 @@ from nbodykit.utils.pluginargparse import BoxSizeParser
 import numpy
 import logging
 from nbodykit.utils import selectionlanguage
+from nbodykit.utils.mpilogging import MPILoggerAdapter
 
-logger = logging.getLogger('Pandas')
+logger = MPILoggerAdapter(logging.getLogger('Pandas'))
 
 def list_str(value):
     return value.split()
