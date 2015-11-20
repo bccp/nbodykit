@@ -12,6 +12,7 @@ env:
 cache:
     directories:
         - $HOME/.cache/pip
+        - $TRAVIS_BUILD_DIR/examples/data
 
 before_install:
     - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
@@ -29,6 +30,7 @@ install:
     - pip install -r requirements.txt .
 
 script:
+    - (cd examples; bash get-data.sh)
     - bash runtests.sh
 
 #notifications:
