@@ -41,7 +41,7 @@ class Power2DStorage(PowerSpectrumStorage):
             ff.write(" ".join(names2D) + "\n")
             
             # write out flattened columns
-            numpy.savetxt(ff, zip(*[data[k].flat for k in names2D]), '%0.7g')
+            numpy.savetxt(ff, list(zip(*[data[k].ravel() for k in names2D])), '%0.7g')
             
             # write out edges
             if 'edges' not in data:
