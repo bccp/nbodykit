@@ -11,7 +11,7 @@ env:
 
 cache:
     directories:
-        - $HOME/build/wheelhouse
+        - $HOME/.cache/pip
 
 before_install:
     - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
@@ -25,11 +25,7 @@ install:
     - source activate test
     - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py h5py pandas scipy pytables
     - if [ $TRAVIS_PYTHON_VERSION == 2.6 ]; then conda install --yes argparse; fi
-    - if ! [ -f $HOME/build/wheelhouse/fresh ]; then
-        pip wheel -w $HOME/build/wheelhouse pfft-python kdcount mpsort pmesh sharedmem --no-deps &&
-        touch $HOME/build/wheelhouse/fresh;
-      fi
-    - pip install $HOME/build/wheelhouse/*.whl
+    - pip install pfft-python kdcount mpsort pmesh sharedmem --no-deps
     - pip install -r requirements.txt .
 
 script:
