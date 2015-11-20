@@ -3,9 +3,8 @@ from nbodykit.utils.pluginargparse import BoxSizeParser
 import numpy
 import logging
 from nbodykit.utils import selectionlanguage
-from nbodykit.utils.mpilogging import MPILoggerAdapter
 
-logger = MPILoggerAdapter(logging.getLogger('MWhiteHaloFile'))
+logger = logging.getLogger('MWhiteHaloFile')
 
 class MWhiteHaloFile(object):
     """

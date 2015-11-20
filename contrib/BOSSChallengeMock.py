@@ -1,10 +1,9 @@
 from nbodykit.plugins import DataSource
 from nbodykit.utils.pluginargparse import BoxSizeParser
-from nbodykit.utils.mpilogging import MPILoggerAdapter
 import numpy
 import logging
          
-logger = MPILoggerAdapter(logging.getLogger('BOSSChallengeMock'))
+logger = logging.getLogger('BOSSChallengeMock')
 
 class BOSSChallengeMockDataSource(DataSource):
     """
@@ -80,8 +79,9 @@ class BOSSChallengeMockDataSource(DataSource):
         # assumed the position values are now in same
         # units as BoxSize 
         if self.scaled:
-            logger.info("multiplying by qperp = %.5f" %self.qperp, on=0)
-            logger.info("multiplying by qpar = %.5f" %self.qpar, on=0)
+            if comm.rank == 0:
+                logger.info("multiplying by qperp = %.5f" %self.qperp)
+                logger.info("multiplying by qpar = %.5f" %self.qpar)
 
             # scale the coordinates
             pos[:,0:2] *= self.qperp
