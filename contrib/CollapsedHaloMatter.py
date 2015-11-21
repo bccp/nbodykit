@@ -1,5 +1,4 @@
 from nbodykit.plugins import DataSource
-from nbodykit.utils.pluginargparse import BoxSizeParser
 from nbodykit import files
 from itertools import izip
 import numpy
@@ -15,7 +14,7 @@ class CollapsedHaloDataSource(DataSource):
         h = kls.add_parser()
         
         h.add_argument("pathhalo", help="path to file")
-        h.add_argument("BoxSize", type=BoxSizeParser,
+        h.add_argument("BoxSize", type=kls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
         h.add_argument("logMmin", type=float, help="log10 min mass")
         h.add_argument("logMmax", type=float, help="log10 max mass")

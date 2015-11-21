@@ -91,6 +91,24 @@ class DataSource:
         ns = self.parser.parse_args(args)
         self.__dict__.update(ns.__dict__)
 
+    @staticmethod
+    def BoxSizeParser(value):
+        """
+        Parse a string of either a single float, or 
+        a space-separated string of 3 floats, representing 
+        a box size. Designed to be used by the DataSource plugins
+        
+        Returns
+        -------
+        BoxSize : array_like
+            an array of size 3 giving the box size in each dimension
+        """
+        boxsize = numpy.empty(3, dtype='f8')
+        sizes = [float(i) for i in value.split()]
+        if len(sizes) == 1: sizes = sizes[0]
+        boxsize[:] = sizes
+        return boxsize
+
     @classmethod
     def open(kls, connection): 
         """ opens a file based on the connection string 

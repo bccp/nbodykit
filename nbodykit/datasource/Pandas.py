@@ -1,5 +1,4 @@
 from nbodykit.plugins import DataSource
-from nbodykit.utils.pluginargparse import BoxSizeParser
 import numpy
 import logging
 from nbodykit.utils import selectionlanguage
@@ -69,7 +68,7 @@ class PandasDataSource(DataSource):
         h.add_argument("path", help="path to file")
         h.add_argument("names", type=list_str, 
             help="names of columns in text file or name of the data group in hdf5 file")
-        h.add_argument("BoxSize", type=BoxSizeParser,
+        h.add_argument("BoxSize", type=kls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
                 
         h.add_argument("-usecols", type=list_str, 
