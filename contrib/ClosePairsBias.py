@@ -165,10 +165,12 @@ class ClosePairBiasing(DataSource):
         if 'Mass' in columns:
             P['Mass'] = mass
 
+        P['Weight'] = numpy.ones(len(pos))
+
         if self.rsd is not None:
             dir = "xyz".index(self.rsd)
             P['Position'][:, dir] += P['Velocity'][:, dir]
             P['Position'][:, dir] %= self.BoxSize[dir]
 
-        yield [P.get(key, None) for key in columns]
+        yield [P[key] for key in columns]
 
