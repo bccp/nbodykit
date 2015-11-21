@@ -180,7 +180,7 @@ import sys
 import contextlib
 
 @add_metaclass(PluginMount)
-class PowerSpectrumStorage:
+class MeasurementStorage:
 
     field_type = None
     klasses = {}
@@ -211,7 +211,7 @@ class PowerSpectrumStorage:
             if ff is not sys.stdout:
                 ff.close()
 
-    def write(self, data, **meta):
+    def write(self, cols, data, **meta):
         return NotImplemented
 
 #------------------------------------------------------------------------------          
@@ -250,4 +250,3 @@ def load(filename, namespace=None):
     except Exception as e:
         raise RuntimeError("Failed to load plugin '%s': %s" % (filename, str(e)))
     references[filename] = namespace
-
