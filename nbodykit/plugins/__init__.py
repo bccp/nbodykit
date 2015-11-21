@@ -233,7 +233,3 @@ def load(filename, namespace=None):
         raise RuntimeError("Failed to load plugin '%s': %s" % (filename, str(e)))
     references[filename] = namespace
 
-builtins = ['DataSource/', 'Power1DStorage.py', 'Power2DStorage.py']
-for plugin in builtins:
-    load(os.path.join(os.path.dirname(__file__), plugin))
- 
