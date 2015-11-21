@@ -38,6 +38,8 @@ parser.add_argument("--Nmin", type=int, default=32,
 parser.add_argument("output", help='write output to this file')
 
 ns = parser.parse_args()
+print(ns)
+
 logging.basicConfig(level=logging.DEBUG)
 
 
@@ -108,9 +110,9 @@ def main():
     for haloid in numpy.unique(PIG2['Label']):
         hstart = PIG2['Label'].searchsorted(haloid, side='left')
         hend = PIG2['Label'].searchsorted(haloid, side='right')
-        if hstart - hend < ns.Nmin: continue
+        if hend - hstart < ns.Nmin: continue
         assert(PIG2['Label'][hstart:hend] == haloid).all()
-        print('Halo', haloid)
+        print('Processing', haloid)
         cat.append(
             subfof(
                 PIG2['Position'][hstart:hend], 
