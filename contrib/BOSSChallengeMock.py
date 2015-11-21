@@ -1,5 +1,6 @@
+import pandas as pd
+
 from nbodykit.plugins import DataSource
-from nbodykit.utils.pluginargparse import BoxSizeParser
 import numpy
 import logging
          
@@ -47,41 +48,36 @@ class BOSSChallengeMockDataSource(DataSource):
         h = kls.add_parser()
         
         h.add_argument("path", help="path to file")
-        h.add_argument("BoxSize", type=BoxSizeParser,
+        h.add_argument("BoxSize", type=kls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
         h.add_argument("-scaled", action='store_true', 
             help='rescale the parallel and perp coordinates by the AP factor')
     
-    def read(self, columns, comm, bunchsize):
-        if comm.rank == 0:
-            try:
-                import pandas as pd
-            except:
-                raise ImportError("pandas must be installed to use BOSSChallengeMockDataSource")
+    def readall(self, columns):
+        try:
+        except:
+            raise ImportError("pandas must be installed to use BOSSChallengeMockDataSource")
                 
-            # read in the plain text file using pandas
-            kwargs = {}
-            kwargs['comment'] = '#'
-            kwargs['names'] = ['x', 'y', 'z', 'vx', 'vy', 'vz']
-            kwargs['header'] = None
-            kwargs['engine'] = 'c'
-            kwargs['delim_whitespace'] = True
-            kwargs['usecols'] = ['x', 'y', 'z', 'vx', 'vy', 'vz']
-            data = pd.read_csv(self.path, **kwargs)
-            nobj = len(data)
-            logger.info("total number of objects read is %d" %nobj)
-            
-            # get position 
-            pos = data[['x', 'y', 'z']].values.astype('f4')
-        else:
-            pos = numpy.empty(0, dtype=('f4', 3))
+        # read in the plain text file using pandas
+        kwargs = {}
+        kwargs['comment'] = '#'
+        kwargs['names'] = ['x', 'y', 'z', 'vx', 'vy', 'vz']
+        kwargs['header'] = None
+        kwargs['engine'] = 'c'
+        kwargs['delim_whitespace'] = True
+        kwargs['usecols'] = ['x', 'y', 'z', 'vx', 'vy', 'vz']
+        data = pd.read_csv(self.path, **kwargs)
+        nobj = len(data)
+        logger.info("total number of objects read is %d" %nobj)
+        
+        # get position 
+        pos = data[['x', 'y', 'z']].values.astype('f4')
 
         # assumed the position values are now in same
         # units as BoxSize 
         if self.scaled:
-            if comm.rank == 0:
-                logger.info("multiplying by qperp = %.5f" %self.qperp)
-                logger.info("multiplying by qpar = %.5f" %self.qpar)
+            logger.info("multiplying by qperp = %.5f" %self.qperp)
+            logger.info("multiplying by qpar = %.5f" %self.qpar)
 
             # scale the coordinates
             pos[:,0:2] *= self.qperp
@@ -89,10 +85,14 @@ class BOSSChallengeMockDataSource(DataSource):
 
         if 'Velocity' in columns:
             raise KeyError("Velocity is not supported")
+        if 'Mass' in columns:
+            raise KeyError("Mass is not supported")
+
         P = {}
         P['Position'] = pos
+        P['Weight'] = numpy.ones(len(pos))
 
-        yield [P.get(key, None) for key in columns]
+        return [P[key] for key in columns]
         
 class BOSSChallengeBoxADataSource(BOSSChallengeMockDataSource):
     field_type = 'BOSSChallengeBoxA'

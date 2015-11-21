@@ -1,5 +1,4 @@
 from nbodykit.plugins import DataSource
-from nbodykit.utils.pluginargparse import BoxSizeParser
 import numpy
 import logging
 from nbodykit.utils import selectionlanguage
@@ -59,7 +58,7 @@ class ClosePairBiasing(DataSource):
         
         h.add_argument("path", help="path to file")
         h.add_argument("dataset",  help="name of dataset in HDF5 file")
-        h.add_argument("BoxSize", type=BoxSizeParser,
+        h.add_argument("BoxSize", type=kls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions.")
         h.add_argument("m0", type=float, help="mass of a particle")
         h.add_argument("massive", default=None, type=selectionlanguage.Query, 
@@ -166,10 +165,12 @@ class ClosePairBiasing(DataSource):
         if 'Mass' in columns:
             P['Mass'] = mass
 
+        P['Weight'] = numpy.ones(len(pos))
+
         if self.rsd is not None:
             dir = "xyz".index(self.rsd)
             P['Position'][:, dir] += P['Velocity'][:, dir]
             P['Position'][:, dir] %= self.BoxSize[dir]
 
-        yield [P.get(key, None) for key in columns]
+        yield [P[key] for key in columns]
 

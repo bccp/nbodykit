@@ -1,5 +1,4 @@
 from nbodykit.plugins import DataSource
-from nbodykit.utils.pluginargparse import BoxSizeParser
 import numpy
 import logging
 from nbodykit.utils import selectionlanguage
@@ -67,38 +66,37 @@ class MWhiteHaloFileDataSource(DataSource):
         
         h = kls.add_parser()
         h.add_argument("path", help="path to file")
-        h.add_argument("BoxSize", type=BoxSizeParser,
+        h.add_argument("BoxSize", type=kls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
             
         h.add_argument("-rsd", 
             choices="xyz", help="direction to do redshift distortion")
         h.add_argument("-select", default=None, type=selectionlanguage.Query,
-            help='row selection based on logmass, e.g. logmass > 13 and logmass < 15')
+            help='row selection based on logmass, e.g. LogMass > 13 and LogMass < 15')
     
-    def read(self, columns, comm, bunchsize):
+    def readall(self, columns):
         dtype = numpy.dtype([
             ('Position', ('f4', 3)),
             ('Velocity', ('f4', 3)),
-            ('logmass', 'f4'),
+            ('LogMass', 'f4'),
+            ('Weight', 'f4'),
             ('Mass', 'f4'), ])
             
-        if comm.rank == 0:
-            hf = MWhiteHaloFile(self.path)
-            nhalo = hf.nhalo
-            P = numpy.empty(nhalo, dtype)
-            
-            P['Position']= numpy.float32(hf.read_pos())
-            P['Velocity']= numpy.float32(hf.read_vel())
-            P['Mass'] = 1.0
-            P['logmass'] = numpy.log10(numpy.float32(hf.read_mass()))
-            
-            # select based on selection conditions
-            if self.select is not None:
-                mask = self.select.get_mask(P)
-                P = P[mask]
-            logger.info("total number of halos in mass range is %d / %d" % (len(P), nhalo))
-        else:
-            P = numpy.empty(0, dtype=dtype)
+        hf = MWhiteHaloFile(self.path)
+        nhalo = hf.nhalo
+        P = numpy.empty(nhalo, dtype)
+        
+        P['Position']= numpy.float32(hf.read_pos())
+        P['Velocity']= numpy.float32(hf.read_vel())
+        P['Mass'] = numpy.ones(len(P['Position']))
+        P['Weight'] = P['Mass']
+        P['LogMass'] = numpy.log10(numpy.float32(hf.read_mass()))
+        
+        # select based on selection conditions
+        if self.select is not None:
+            mask = self.select.get_mask(P)
+            P = P[mask]
+        logger.info("total number of halos in mass range is %d / %d" % (len(P), nhalo))
 
         P['Position'][:] *= self.BoxSize
         P['Velocity'][:] *= self.BoxSize
@@ -108,4 +106,4 @@ class MWhiteHaloFileDataSource(DataSource):
             P['Position'][:, dir] += P['Velocity'][:, dir]
             P['Position'][:, dir] %= self.BoxSize[dir]
 
-        yield [P[key] if key in P.dtype.names else None for key in columns]
+        return [P[key] for key in columns]
