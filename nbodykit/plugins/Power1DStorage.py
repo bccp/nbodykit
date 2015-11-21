@@ -33,7 +33,7 @@ class Power1DStorage(PowerSpectrumStorage):
         with self.open() as ff:
             
             # write out the 1D data arrays
-            numpy.savetxt(ff, zip(*data), '%0.7g')
+            numpy.savetxt(ff, list(zip(*data)), '%0.7g')
 
             # write out the kedges, if provided
             if edges is not None:
