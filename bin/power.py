@@ -1,5 +1,4 @@
 import logging
-import warnings
 from mpi4py import MPI
 import numpy
 
@@ -14,7 +13,7 @@ logger = logging.getLogger('power.py')
 import nbodykit
 from nbodykit import plugins
 from nbodykit.utils.pluginargparse import PluginArgumentParser
-from nbodykit.measurepower import measurepower
+from nbodykit import measurestats
 from pmesh.particlemesh import ParticleMesh
 from pmesh.transfer import TransferFunction
 
@@ -88,15 +87,6 @@ def AnisotropicCIC(comm, complex, w):
         tmp = (1 - 2. / 3 * numpy.sin(0.5 * wi) ** 2) ** 0.5
         complex[:] /= tmp
 
-def IsotropicCIC(comm, complex, w):
-    for row in range(complex.shape[0]):
-        scratch = numpy.float64(w[0][row] ** 2)
-        for wi in w[1:]:
-            scratch = scratch + wi[0] ** 2
-
-        tmp = (1.0 - 0.666666667 * numpy.sin(scratch * 0.5) ** 2) ** 0.5
-        complex[row] *= tmp
-
 def compute_power(ns, comm=None):
     """
     Compute the power spectrum. Given a `Namespace`, this is the function,
@@ -115,205 +105,91 @@ def compute_power(ns, comm=None):
     # set logging level
     logger.setLevel(ns.log_level)
     
-    if rank == 0:
-        logger.info('importing done')
+    if rank == 0: logger.info('importing done')
 
-    chain = [TransferFunction.NormalizeDC, TransferFunction.RemoveDC]
-    if ns.remove_cic == 'anisotropic':
-        chain.append(AnisotropicCIC)
-    if ns.remove_cic == 'isotropic':
-        chain.append(IsotropicCIC)
-        
     # setup the particle mesh object, taking BoxSize from the painters
     pm = ParticleMesh(ns.inputs[0].BoxSize, ns.Nmesh, dtype='f4', comm=comm)
 
-    # paint first input
-    Ntot1 = paint(ns.inputs[0], pm, ns)
-
-    # painting
-    if rank == 0:
-        logger.info('painting done')
-    pm.r2c()
-    if rank == 0:
-        logger.info('r2c done')
-
-    # filter the field 
-    pm.transfer(chain)
-
-    # do the cross power
-    do_cross = len(ns.inputs) > 1 and ns.inputs[0] != ns.inputs[1]
-
-    if do_cross:
-        
-        # crash if box size isn't the same
-        if not numpy.all(ns.inputs[0].BoxSize == ns.inputs[1].BoxSize):
-            raise ValueError("mismatch in box sizes for cross power measurement")
-        
-        c1 = pm.complex.copy()
-        Ntot2 = paint(ns.inputs[1], pm, ns)
-
-        if rank == 0:
-            logger.info('painting 2 done')
-
-        pm.r2c()
-        if rank == 0:
-            logger.info('r2c 2 done')
-
-        # filter the field 
-        pm.transfer(chain)
-        c2 = pm.complex
-  
-    # do the auto power
-    else:
-        c1 = pm.complex
-        c2 = pm.complex
-        Ntot2 = Ntot1 
-
-    shotnoise =  pm.BoxSize.prod() / (1.0*Ntot1)
-
-    # reuse the memory in c1.real for the 3d power spectrum
-    p3d = c1.real
-
-    # calculate the 3d power spectrum, row by row to save memory
-    for row in range(len(c1)):
-        # the power P(k,mu)
-        p3d[row, ...] = c1[row].real * c2[row].real + c1[row].imag * c2[row].imag
-
-    # the complex field is dimensionless; power is L^3
-    # ref to http://icc.dur.ac.uk/~tt/Lectures/UA/L4/cosmology.pdf
-    p3d[...] *= pm.BoxSize.prod() 
-
-    if ns.remove_shotnoise and not do_cross:
-        p3d[...] -= shotnoise
-
-    if ns.correlation:
-        pm.complex[:] = p3d.copy()
-        # direct transform dimensionless p3d
-        # Note that L^3 cancels with dk^3.
-        pm.c2r()
-        p3d = pm.real
-        k = pm.x
-        dk = pm.BoxSize[0] / pm.Nmesh
-        kedges = numpy.arange(0, pm.BoxSize[0] + dk * 0.5, dk)
-    else: 
-        k = pm.k
-        # kedges out to the minimum nyquist frequency (accounting for possibly anisotropic box)
-        BoxSize_min = numpy.amin(pm.BoxSize)
-        w_to_k = pm.Nmesh / BoxSize_min
-        if ns.dk is None: 
-            dk = 2*numpy.pi/BoxSize_min
-        else:
-            dk = ns.dk
-        kedges = numpy.arange(ns.kmin, numpy.pi*w_to_k + dk/2, dk)
-        kedges += ns.binshift * dk
-
     # only need one mu bin if 1d case is requested
-    if ns.mode == "1d": ns.Nmu = 1 
+    if ns.mode == "1d": ns.Nmu = 1
 
-    # do the calculation
-    Lx, Ly, Lz = pm.BoxSize
-    meta = {'Lx':Lx, 'Ly':Ly, 'Lz':Lz, 'volume':Lx*Ly*Lz, 
-            'N1':Ntot1, 'N2':Ntot2, 'shot_noise': shotnoise}
+    # transfer chain
+    chain = [TransferFunction.NormalizeDC, TransferFunction.RemoveDC, AnisotropicCIC]
+
+    # measure either 3D power or correlation function
+    measure_kw = {'comm':comm, 'transfer':chain, 'log_level':ns.log_level}
+    binning_kw = {'poles':ns.poles, 'los':ns.los}
     
+    # correlation function
+    if ns.correlation:
 
-    # now project the 3d power spectrum to a desired basis
-
-    result = measurepower(pm.comm, k, p3d, kedges, ns.Nmu, 
-                            los=ns.los, poles=ns.poles)
+        # measure
+        y3d, N1, N2 = measurestats.compute_3d_corr(ns.inputs, pm, **measure_kw)
+        x3d = pm.x
+                
+        # make the bin edges
+        dx = pm.BoxSize[0] / pm.Nmesh
+        xedges = numpy.arange(0, pm.BoxSize[0] + dx * 0.5, dx)
+        
+        # correlation needs all modes
+        binning_kw['symmetric'] = False
+        
+        # col names
+        x_str, y_str = 'r', 'corr'
+                
+    # power spectrum
+    else:
+        
+        # measure
+        y3d, N1, N2 = measurestats.compute_3d_power(ns.inputs, pm, **measure_kw)
+        x3d = pm.k
+        
+        # binning in k out to the minimum nyquist frequency 
+        # (accounting for possibly anisotropic box)
+        dx = 2*numpy.pi/pm.BoxSize.min() if ns.dk is None else ns.dk
+        xedges = numpy.arange(ns.kmin, numpy.pi*pm.Nmesh/pm.BoxSize.min() + dx/2, dx)
+        
+        # power spectrum doesnt need negative z wavenumbers
+        binning_kw['symmetric'] = True
+        
+        # col names
+        x_str, y_str = 'k', 'power'
     
-    # format the output appropriately
-    if len(ns.poles):
-        pole_result, pkmu_result, edges = result
-        result = dict(zip(['k','mu','power','modes','edges'], pkmu_result+(edges,)))
-    elif ns.mode == "1d":
-        # this writes out 0 -> mean k, 2 -> mean power, 3 -> number of modes
-        meta['edges'] = result[-1][0] # write out kedges as metadata
-        result = [numpy.ravel(result[i]) for i in [0, 2, 3]]
-    elif ns.mode == "2d":
-        result = dict(zip(['k','mu','power','modes','edges'], result))
+    # project on to the desired basis
+    muedges = numpy.linspace(0, 1, ns.Nmu+1, endpoint=True)
+    edges = [xedges, muedges]
+    result, pole_result = measurestats.project_to_basis(pm.comm, x3d, y3d, edges, **binning_kw)
+
+    # now output    
+    if ns.mode == "1d":
+        cols = [x_str, y_str, 'modes']
+        result = [numpy.squeeze(result[i]) for i in [0, 2, 3]]
+        edges = edges[0]
+    else:
+        cols = [x_str, 'mu', y_str, 'modes']
         
     if rank == 0:
-        # save the power
-        logger.info('measurement done; saving power to %s' %ns.output)
-        storage = plugins.PowerSpectrumStorage.new(ns.mode, ns.output)
-        storage.write(result, **meta)
         
-        # save the multipoles
-        if len(ns.poles):
+        # metadata
+        Lx, Ly, Lz = pm.BoxSize
+        meta = {'Lx':Lx, 'Ly':Ly, 'Lz':Lz, 'volume':Lx*Ly*Lz, 'N1':N1, 'N2':N2}
+        
+        # write binned statistic
+        logger.info('measurement done; saving result to %s' %ns.output)
+        storage = plugins.MeasurementStorage.new(ns.mode, ns.output)
+        storage.write(edges, cols, result, **meta)
+        
+        # write multipoles
+        if pole_result is not None:
             if ns.pole_output is None:
                 raise RuntimeError("you specified multipoles to compute, but did not provide an output file name")
-            meta['edges'] = edges[0]
             
             # format is k pole_0, pole_1, ...., modes_1d
             logger.info('saving ell = %s multipoles to %s' %(",".join(map(str,ns.poles)), ns.pole_output))
-            result = [x for x in numpy.vstack(pole_result)]
             storage = plugins.PowerSpectrumStorage.new('1d', ns.pole_output)
-            storage.write(result, **meta)
+            storage.write(xedges, [x_str, y_str, 'modes'], pole_result, **meta)
             
             
- 
-def paint(input, pm, ns):
-    """
-    Paint the ``DataSource`` specified by ``input`` onto the 
-    ``ParticleMesh`` specified by ``pm``
-    
-    Parameters
-    ----------
-    input : ``DataSource``
-        the data source object that handles reading of fields
-    pm : ``ParticleMesh``
-        particle mesh object that does the painting
-    ns : argparse.Namespace
-        the namespace holding the command-line options
-        
-    Returns
-    -------
-    Ntot : int
-        the total number of objects, as determined from painting
-    """
-    # compatibility with the older painters. 
-    # We need to get rid of them.
-    if hasattr(input, 'paint'):
-        if pm.comm.rank == 0:
-            warnings.warn('paint method of type %s shall be replaced with a read method'
-                % type(input), DeprecationWarning)
-        return input.paint(pm)
-
-    pm.real[:] = 0
-    Ntot = 0
-
-    if pm.comm.rank == 0: 
-        logger.info("BoxSize = %s", str(input.BoxSize))
-    for position, weight in input.read(['Position', 'Weight'], pm.comm, ns.bunchsize):
-        min = numpy.min(
-            pm.comm.allgather(
-                    [numpy.inf, numpy.inf, numpy.inf] 
-                    if len(position) == 0 else 
-                    position.min(axis=0)),
-            axis=0)
-        max = numpy.max(
-            pm.comm.allgather(
-                    [-numpy.inf, -numpy.inf, -numpy.inf] 
-                    if len(position) == 0 else 
-                    position.max(axis=0)),
-            axis=0)
-        if pm.comm.rank == 0:
-            logger.info("Range of position %s:%s" % (str(min), str(max)))
-
-        layout = pm.decompose(position)
-        # Ntot shall be calculated before exchange. Issue #55.
-        if weight is None:
-            Ntot += len(position)
-            weight = 1
-        else:
-            Ntot += weight.sum()
-            weight = layout.exchange(weight)
-           
-        position = layout.exchange(position)
-
-        pm.paint(position, weight)
-    return pm.comm.allreduce(Ntot)
-
 def main():
     """
     The main function to initialize the parser and do the work
