@@ -61,18 +61,10 @@ def initialize_power_parser(**kwargs):
                         help=h+plugins.DataSource.format_help())
 
     # add the optional arguments
-    parser.add_argument("--bunchsize", type=int, default=1024*1024*4,
-        help='Number of particles to read per rank. A larger number usually means faster IO, but less memory for the FFT mesh. This is not respected by some data sources.')
-    parser.add_argument("--binshift", type=float, default=0.0,
-            help='Shift the bin center by this fraction of the bin width. Default is 0.0. Marcel uses 0.5. this shall rarely be changed.' )
-    parser.add_argument("--remove-cic", default='anisotropic', choices=["anisotropic","isotropic", "none"],
-            help='deconvolve cic, anisotropic is the proper way, see http://www.personal.psu.edu/duj13/dissertation/djeong_diss.pdf')
-    parser.add_argument("--remove-shotnoise", action='store_true', default=False,
-            help='Remove shotnoise')
-    parser.add_argument("--Nmu", type=int, default=5,
-            help='the number of mu bins to use; if `mode = 1d`, then `Nmu` is set to 1' )
     parser.add_argument("--los", choices="xyz", default='z',
             help="the line-of-sight direction, which the angle `mu` is defined with respect to")
+    parser.add_argument("--Nmu", type=int, default=5,
+            help='the number of mu bins to use; if `mode = 1d`, then `Nmu` is set to 1' )
     parser.add_argument("--dk", type=float,
             help='the spacing of k bins to use; if not provided, the fundamental mode of the box is used')
     parser.add_argument("--kmin", type=float, default=0,
