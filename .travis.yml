@@ -3,9 +3,7 @@
 
 language: python
 python:
-    - 2.6
     - 2.7
-    - 3.3
     - 3.4
 
 env:
@@ -13,7 +11,8 @@ env:
 
 cache:
     directories:
-        - $HOME/build/rainwoodman/pfft-python/build/depends
+        - $HOME/.cache/pip
+        - $TRAVIS_BUILD_DIR/examples/data
 
 before_install:
     - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
@@ -25,10 +24,11 @@ before_install:
 install:
     - conda create --yes -n test python=$TRAVIS_PYTHON_VERSION
     - source activate test
-    - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py h5py pandas
+    - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py h5py pandas scipy pytables
     - if [ $TRAVIS_PYTHON_VERSION == 2.6 ]; then conda install --yes argparse; fi
-    - pip install pfft-python
+    - pip install pfft-python kdcount mpsort pmesh sharedmem --no-deps
     - pip install -r requirements.txt .
+    - if ! [ -f examples/data/snp00100_1.0000.bin.00 ]; then (cd examples; bash get-data.sh); fi
 
 script:
     - bash runtests.sh

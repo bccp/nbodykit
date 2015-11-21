@@ -26,18 +26,20 @@ parser.add_argument("datasource", type=plugins.DataSource.open,
 parser.add_argument("halolabel", 
         help='basename of the halo label files, only nbodykit format is supported in this script')
 
-parser.add_argument("linklength", type=float,
+parser.add_argument("--linklength", type=float, default=0.078,
         help='Linking length of subhalos, in units of mean particle seperation')
 
-parser.add_argument("vfactor", type=float, default=0.368,
+parser.add_argument("--vfactor", type=float, default=0.368,
         help='velocity linking length in units of 1d velocity dispersion.')
 
-parser.add_argument("--Nmin", type=int,
+parser.add_argument("--Nmin", type=int, default=32,
         help='minimal length of halo to do FOF6D')
 
 parser.add_argument("output", help='write output to this file')
 
 ns = parser.parse_args()
+print(ns)
+
 logging.basicConfig(level=logging.DEBUG)
 
 
@@ -108,9 +110,9 @@ def main():
     for haloid in numpy.unique(PIG2['Label']):
         hstart = PIG2['Label'].searchsorted(haloid, side='left')
         hend = PIG2['Label'].searchsorted(haloid, side='right')
-        if hstart - hend < ns.Nmin: continue
+        if hend - hstart < ns.Nmin: continue
         assert(PIG2['Label'][hstart:hend] == haloid).all()
-        print('Halo', haloid)
+        print('Processing', haloid)
         cat.append(
             subfof(
                 PIG2['Position'][hstart:hend], 

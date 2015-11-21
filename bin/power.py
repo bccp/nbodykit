@@ -236,7 +236,7 @@ def compute_power(ns, comm=None):
     elif ns.mode == "1d":
         # this writes out 0 -> mean k, 2 -> mean power, 3 -> number of modes
         meta['edges'] = result[-1][0] # write out kedges as metadata
-        result = map(numpy.ravel, (result[i] for i in [0, 2, 3]))
+        result = [numpy.ravel(result[i]) for i in [0, 2, 3]]
     elif ns.mode == "2d":
         result = dict(zip(['k','mu','power','modes','edges'], result))
         

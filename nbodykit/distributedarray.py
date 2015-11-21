@@ -228,38 +228,38 @@ def test():
     local['value'] = d.comm.rank * 10 + local['key']
     local['rank'] = d.comm.rank
 
-    print d.topology.heads()
+    print(d.topology.heads())
 
     a = d.comm.allgather(d.local['key'])
     if d.comm.rank == 0:
-        print 'old', a
+        print('old', a)
 
     d.sort('key')
     a = d.comm.allgather(d.local['key'])
     if d.comm.rank == 0:
-        print 'new', a
+        print('new', a)
 
     u = d['key'].unique_labels()
     a = d.comm.allgather(u.local)
     if d.comm.rank == 0:
-        print 'unique', a
+        print('unique', a)
 
     N = u.bincount()
     a = d.comm.allgather(N.local)
     if d.comm.rank == 0:
-        print 'count', a
+        print('count', a)
 
     N = u.bincount(local=True)
     a = d.comm.allgather(N)
     if d.comm.rank == 0:
-        print 'count local', a
+        print('count local', a)
 
     d['key'].local[:] = u.local
     d.sort('value')
 
     a = d.comm.allgather(d.local['value'])
     if d.comm.rank == 0:
-        print 'back', a
+        print('back', a)
 
 if __name__ == '__main__': 
     test()
