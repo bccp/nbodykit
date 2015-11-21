@@ -47,6 +47,7 @@ def add_metaclass(metaclass):
     return wrapper
 
 
+import numpy
 @add_metaclass(PluginMount)
 class DataSource:
     """
@@ -70,9 +71,17 @@ class DataSource:
             pm : pypm.particlemesh.ParticleMesh
 
     read: method
+        A method that performs the reading of the field. This method
+        reads in the full data set. It shall
+        returns the position (in 0 to BoxSize) and velocity (in the
+        same units as position)
+
+    read_comm: method
         A method that performs the reading of the field. It shall
         returns the position (in 0 to BoxSize) and velocity (in the
-        same units as position), in chunks as an iterator.
+        same units as position), in chunks as an iterator. The
+        default behavior is to use Rank 0 to read in the full data
+        and yield an empty data.
 
     """
     
@@ -106,11 +115,27 @@ class DataSource:
     def __ne__(self, other):
         return self.string != other.string
 
-    def read(self, columns, comm, bunchsize=None):
-        """ Yield the data in the columns by "nchunks" as dictionaries. 
-            
+    def readall(self, columns):
+        return NotImplemented 
+
+    def read(self, columns, comm, bunchsize):
+        """ 
+            Yield the data in the columns.
         """
-        return NotImplemented    
+        if comm.rank == 0:
+            data = self.readall(columns)    
+            shape_and_dtype = [(d.shape, d.dtype) for d in data]
+        else:
+            shape_and_dtype = None
+        shape_and_dtype = comm.bcast(shape_and_dtype)
+
+        if comm.rank != 0:
+            data = [
+                numpy.empty(0, dtype=(dtype, shape[1:]))
+                for shape,dtype in shape_and_dtype
+            ]
+
+        yield data 
 
     @classmethod
     def add_parser(kls):

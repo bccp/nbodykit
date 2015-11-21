@@ -85,44 +85,40 @@ class PlainTextDataSource(DataSource):
         h.add_argument("-select", default=None, type=selectionlanguage.Query, 
             help='row selection based on conditions specified as string')
     
-    def read(self, columns, comm, bunchsize):
-        if comm.rank == 0: 
-            # read in the plain text file as a recarray
-            kwargs = {}
-            kwargs['comments'] = '#'
-            kwargs['names'] = self.names
-            kwargs['usecols'] = self.usecols
-            data = numpy.recfromtxt(self.path, **kwargs)
-            nobj = len(data)
-            
-            # select based on input conditions
-            if self.select is not None:
-                mask = self.select.get_mask(data)
-                data = data[mask]
-            logger.info("total number of objects selected is %d / %d" % (len(data), nobj))
-            
-            # get position and velocity, if we have it
-            pos = numpy.vstack(data[k] for k in self.poscols).T.astype('f4')
-            pos *= self.posf
-            if self.velcols is not None:
-                vel = numpy.vstack(data[k] for k in self.velcols).T.astype('f4')
-                vel *= self.velf
-            else:
-                vel = numpy.empty(0, dtype=('f4', 3))
+    def readall(self, columns):
+        # read in the plain text file as a recarray
+        kwargs = {}
+        kwargs['comments'] = '#'
+        kwargs['names'] = self.names
+        kwargs['usecols'] = self.usecols
+        data = numpy.recfromtxt(self.path, **kwargs)
+        nobj = len(data)
+        
+        # select based on input conditions
+        if self.select is not None:
+            mask = self.select.get_mask(data)
+            data = data[mask]
+        logger.info("total number of objects selected is %d / %d" % (len(data), nobj))
+        
+        # get position and velocity, if we have it
+        pos = numpy.vstack(data[k] for k in self.poscols).T.astype('f4')
+        pos *= self.posf
+        if self.velcols is not None:
+            vel = numpy.vstack(data[k] for k in self.velcols).T.astype('f4')
+            vel *= self.velf
         else:
-            pos = numpy.empty(0, dtype=('f4', 3))
             vel = numpy.empty(0, dtype=('f4', 3))
-
-        P = {}
-        if 'Position' in columns:
-            P['Position'] = pos
-        if 'Velocity' in columns:
-            P['Velocity'] = vel
 
         if self.rsd is not None:
             dir = "xyz".index(self.rsd)
-            P['Position'][:, dir] += vel[:, dir]
-            P['Position'][:, dir] %= self.BoxSize[dir]
+            pos[:, dir] += vel[:, dir]
+            pos[:, dir] %= self.BoxSize[dir]
 
-        yield [P[key] if key in P else None for key in columns]
+        P = {}
+        P['Position'] = pos
+        P['Velocity'] = vel
+        P['Weight'] = numpy.ones(len(pos))
+        P['Mass'] = numpy.ones(len(pos))
+
+        return [P[key] for key in columns]
 
