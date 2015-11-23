@@ -5,5 +5,5 @@ cd $DIR
 
 for fn in *.params; do
     echo testing $fn ...
-    python ../../bin/subhalo.py @$fn || exit
+    mpirun -n 1 python ../../bin/subhalo.py @$fn || exit
 done
