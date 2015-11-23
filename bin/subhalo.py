@@ -151,11 +151,15 @@ def subfof(pos, vel, ll, vfactor, haloid, Ntot, boxsize):
 
     data = cluster.dataset(data)
     Nsub = 0
-    while Nsub == 0:
-        fof = cluster.fof(data, linking_length=ll, np=0)
-        ll *= 2
-        Nsub = (fof.length > 20).sum()
+    thresh = 80
+    fof = cluster.fof(data, linking_length=ll, np=0)
 
+    while Nsub == 0 and thresh > 1:
+        # reducing the threshold till we find something..
+        Nsub = (fof.length > thresh).sum()
+        thresh //= 2
+    # if nothing is found then assume this FOF group is a fluke.
+ 
     output = numpy.empty(Nsub, dtype=[
         ('Position', ('f4', 3)),
         ('Velocity', ('f4', 3)),
