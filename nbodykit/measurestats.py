@@ -4,7 +4,7 @@ import logging
 
 logger = logging.getLogger('measurestats')
 
-def paint(field, pm, bunchsize=1024*1024*4):
+def paint(field, pm):
     """
     Paint the ``DataSource`` specified by ``input`` onto the 
     ``ParticleMesh`` specified by ``pm``
@@ -153,6 +153,82 @@ def compute_3d_power(fields, pm, transfer=[], painter=paint, comm=None, log_leve
                 
     return p3d, N1, N2
 
+
+def compute_brutal_3d_corr(fields, rmax, Nbins, comm=None, subsample=1):
+    
+    from pmesh.domain import GridND
+    from kdcount import correlate
+    
+    # the comm
+    if comm is None: comm = MPI.COMM_WORLD
+    
+    # determine processors for grididng
+    for Nx in range(int(comm.size **0.3333) + 1, 0, -1):
+        if comm.size % Nx == 0: break
+    else:
+        Nx = 1
+    for Ny in range(int(comm.size **0.5) + 1, 0, -1):
+        if (comm.size // Nx) % Ny == 0: break
+    else:
+        Ny = 1
+    Nz = comm.size // Nx // Ny
+    Nproc = [Nx, Ny, Nz]
+    if comm.rank == 0:
+        logger.info('Nproc = %s' %str(Nproc))
+        logger.info('rmax = %g' %rmax)
+    
+    # domain decomposition
+    grid = [numpy.linspace(0, fields[0].BoxSize[i], Nproc[i]+1, endpoint=True) for i in range(3)]
+    domain = GridND(grid, comm=comm)
+
+    # read position for field #1 
+    [[pos1]] = fields[0].read(['Position'], comm, full=False)
+    pos1 = pos1[comm.rank * subsample // comm.size ::subsample]
+    N1 = comm.allreduce(len(pos1))
+    
+    # read position for field #2
+    if len(fields) > 1:
+        [[pos2]] = fields[1].read(['Position'], comm, full=False)
+        pos2 = pos2[comm.rank * subsample // comm.size ::subsample]
+        N2 = comm.allreduce(len(pos2))
+    else:
+        pos2 = pos1
+        N2 = N1
+    
+    # exchange field #1 positions    
+    layout = domain.decompose(pos1, smoothing=0)
+    pos1 = layout.exchange(pos1)
+    if comm.rank == 0:
+        logger.info('exchange pos1')
+        
+    # exchange field #2 positions
+    if rmax > fields[0].BoxSize[0] * 0.25:
+        pos2 = numpy.concatenate(comm.allgather(pos2), axis=0)
+    else:
+        layout = domain.decompose(pos2, smoothing=rmax)
+        pos2 = layout.exchange(pos2)
+    if comm.rank == 0:
+        logger.info('exchange pos2')
+
+    # initialize the points trees
+    tree1 = correlate.points(pos1, boxsize=fields[0].BoxSize)
+    tree2 = correlate.points(pos2, boxsize=fields[0].BoxSize)
+
+    logger.info('rank %d correlating %d x %d' %(comm.rank, len(tree1), len(tree2)))
+    if comm.rank == 0:
+        logger.info('all correlating %d x %d' %(N1, N2))
+
+    # the binning
+    bins = correlate.RBinning(rmax, Nbins)
+
+    # do the pair count
+    pc = correlate.paircount(tree2, tree1, bins, np=0)
+    pc.sum1[:] = comm.allreduce(pc.sum1)
+
+    RR = 1. * N1 * N2
+    RR *= 4. / 3. * numpy.pi * numpy.diff(pc.edges**3/fields[0].BoxSize.prod())
+    xi = 1. * pc.sum1 / RR - 1
+    return pc, xi, RR
 
 def compute_3d_corr(fields, pm, transfer=[], painter=paint, comm=None, log_level=logging.DEBUG):
     """

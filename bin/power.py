@@ -10,10 +10,8 @@ logging.basicConfig(level=logging.DEBUG,
                     datefmt='%m-%d %H:%M')
 logger = logging.getLogger('power.py')
               
-import nbodykit
-from nbodykit import plugins
+from nbodykit import plugins, measurestats
 from nbodykit.utils.pluginargparse import PluginArgumentParser
-from nbodykit import measurestats
 from pmesh.particlemesh import ParticleMesh
 from pmesh.transfer import TransferFunction
 
