@@ -40,8 +40,6 @@ def initialize_parser(**kwargs):
                         help=h+plugins.DataSource.format_help())
 
     # add the optional arguments
-    parser.add_argument("--bunchsize", type=int, default=1024*1024*4,
-        help='Number of particles to read per rank. A larger number usually means faster IO, but less memory for the FFT mesh. This is not respected by some data sources.')
     parser.add_argument("--subsample", type=int, default=1,
         help='Use 1 out of every N points')
     return parser 
@@ -72,11 +70,11 @@ def main():
             numpy.linspace(0, ns.inputs[0].BoxSize[i], Nproc[i] + 1, endpoint=True)
             for i in range(3)])
 
-    [[pos1]] = ns.inputs[0].read(['Position'], comm, bunchsize=None)
+    [[pos1]] = ns.inputs[0].read(['Position'], comm, full=True)
     pos1 = pos1[comm.rank * ns.subsample // comm.size ::ns.subsample]
     N1 = comm.allreduce(len(pos1))
     if len(ns.inputs) > 1:
-        [[pos2]] = ns.inputs[1].read(['Position'], comm, bunchsize=None)
+        [[pos2]] = ns.inputs[1].read(['Position'], comm, full=True)
         pos2 = pos2[comm.rank * ns.subsample // comm.size ::ns.subsample]
     else:
         pos2 = pos1

@@ -34,7 +34,7 @@ def paint(field, pm, bunchsize=1024*1024*4):
 
     if pm.comm.rank == 0: 
         logger.info("BoxSize = %s", str(field.BoxSize))
-    for position, weight in field.read(['Position', 'Weight'], pm.comm, bunchsize):
+    for position, weight in field.read(['Position', 'Weight'], pm.comm, full=False):
         min = numpy.min(
             pm.comm.allgather(
                     [numpy.inf, numpy.inf, numpy.inf] 

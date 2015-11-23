@@ -136,9 +136,10 @@ class DataSource:
     def readall(self, columns):
         return NotImplemented 
 
-    def read(self, columns, comm, bunchsize):
+    def read(self, columns, comm, full=False):
         """ 
-            Yield the data in the columns.
+            Yield the data in the columns. If full is True, read all
+            particles in one run; otherwise try to read in chunks.
         """
         if comm.rank == 0:
             data = self.readall(columns)    

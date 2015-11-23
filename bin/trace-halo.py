@@ -49,7 +49,7 @@ def main():
  
     Ntot = sum(LABEL.npart)
 
-    [[ID]] = ns.datasource_tf.read(['ID'], comm, bunchsize=None)
+    [[ID]] = ns.datasource_tf.read(['ID'], comm, full=True)
 
     start = sum(comm.allgather(len(ID))[:comm.rank])
     end   = sum(comm.allgather(len(ID))[:comm.rank+1])
@@ -69,8 +69,8 @@ def main():
                 ('ID', ('i8')), 
                 ('Position', ('f4', 3)), 
                 ])
-    [[data['Position'][...]]] = ns.datasource_ti.read(['Position'], comm, bunchsize=None)
-    [[data['ID'][...]]] = ns.datasource_ti.read(['ID'], comm, bunchsize=None)
+    [[data['Position'][...]]] = ns.datasource_ti.read(['Position'], comm, full=True)
+    [[data['ID'][...]]] = ns.datasource_ti.read(['ID'], comm, full=True)
     mpsort.sort(data, orderby='ID')
 
     pos = data['Position'] / ns.datasource_ti.BoxSize

@@ -17,7 +17,8 @@ class TPMSnapshotDataSource(DataSource):
         h.add_argument("-bunchsize", type=int, 
                 default=1024*1024*4, help="number of particles to read per rank in a bunch")
 
-    def read(self, columns, comm, bunchsize):
+    def read(self, columns, comm, full=False):
+        """ read data in parallel. if Full is True, neglect bunchsize. """
         Ntot = 0
         # avoid reading Velocity if RSD is not requested.
         # this is only needed for large data like a TPMSnapshot
@@ -34,12 +35,14 @@ class TPMSnapshotDataSource(DataSource):
         if 'Weight' in newcolumns:
             newcolumns.remove('Weight')
 
+        bunchsize = self.bunchsize
+        if full: bunchsize = None
         for round, P in enumerate(
                 files.read(comm, 
                     self.path, 
                     files.TPMSnapshotFile, 
                     columns=newcolumns, 
-                    bunchsize=self.bunchsize)):
+                    bunchsize=bunchsize)):
 
             if 'Position' in P:
                 P['Position'] *= self.BoxSize
