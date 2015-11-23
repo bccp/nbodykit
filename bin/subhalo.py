@@ -157,7 +157,7 @@ def subfof(pos, vel, ll, vfactor, haloid, Ntot, boxsize):
     while Nsub == 0 and thresh > 1:
         # reducing the threshold till we find something..
         Nsub = (fof.length > thresh).sum()
-        thresh //= 2
+        thresh *= 0.9
     # if nothing is found then assume this FOF group is a fluke.
  
     output = numpy.empty(Nsub, dtype=[
