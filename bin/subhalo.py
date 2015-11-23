@@ -115,7 +115,7 @@ def main():
                 PIG2['Position'][hstart:hend], 
                 PIG2['Velocity'][hstart:hend], 
                 ns.linklength * (ns.datasource.BoxSize.prod() / Ntot) ** 0.3333, 
-                ns.vfactor, haloid, Ntot))
+                ns.vfactor, haloid, Ntot, ns.datasource.BoxSize))
 
     cat = numpy.concatenate(cat, axis=0)
     cat = comm.gather(cat)
@@ -130,11 +130,14 @@ def main():
             dataset.attrs['Ntot'] = Ntot
             dataset.attrs['BoxSize'] = ns.datasource.BoxSize
 
-def subfof(pos, vel, ll, vfactor, haloid, Ntot):
+def subfof(pos, vel, ll, vfactor, haloid, Ntot, boxsize):
+    nbar = Ntot / boxsize.prod()
     first = pos[0].copy()
     pos -= first
+    pos /= boxsize
     pos[pos > 0.5]  -= 1.0 
     pos[pos < -0.5] += 1.0 
+    pos *= boxsize
     pos += first
 
     oldvel = vel.copy()
@@ -177,21 +180,21 @@ def subfof(pos, vel, ll, vfactor, haloid, Ntot):
     del fof
     del data
     data = cluster.dataset(pos)
+
     for i in range(Nsub):
         center = output['Position'][i] 
         rmax = (((pos - center) ** 2).sum(axis=-1) ** 0.5).max()
         r1 = rmax
-        output['R200'][i] = so(center, data, r1, Ntot, 200.)
-        output['R500'][i] = so(center, data, r1, Ntot, 500.)
-        output['R1200'][i] = so(center, data, output['R200'][i] * 0.5, Ntot, 1200.)
-        output['R2400'][i] = so(center, data, output['R1200'][i] * 0.5, Ntot, 2400.)
-        output['R6000'][i] = so(center, data, output['R2400'][i] * 0.5, Ntot, 6000.)
+        output['R200'][i] = so(center, data, r1, nbar, 200.)
+        output['R500'][i] = so(center, data, r1, nbar, 500.)
+        output['R1200'][i] = so(center, data, output['R200'][i] * 0.5, nbar, 1200.)
+        output['R2400'][i] = so(center, data, output['R1200'][i] * 0.5, nbar, 2400.)
+        output['R6000'][i] = so(center, data, output['R2400'][i] * 0.5, nbar, 6000.)
     return output
 
-def so(center, data, r1, Ntot, thresh=200):
+def so(center, data, r1, nbar, thresh=200):
     center = numpy.array([center])
     dcenter = cluster.dataset(center)
-    nbar = 1.0 / Ntot
 
     def delta(r):
         if r < 1e-7:
