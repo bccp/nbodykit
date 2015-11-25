@@ -1,0 +1,6 @@
+1d
+../output/test_corr_1d_mwhite_halo.dat
+120
+20
+MWhiteHaloFile:../data/mwhite_halo.fofp:1380.:-rsd=z
+-X=../../contrib/MWhiteHaloFile.py
