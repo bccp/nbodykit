@@ -2,7 +2,8 @@
     Declare PluginMount and various extention points.
 
     To define a Plugin, set __metaclass__ to PluginMount, and
-    define a .register member.
+    define a .register member. For Python 3 and 2 compatibilibty
+    use add_metaclass decorator.
 
 """
 
@@ -29,6 +30,25 @@ class PluginMount(type):
             if hasattr(cls, 'register'):
                 cls.register()
 
+# copied from six
+def add_metaclass(metaclass):
+    """Class decorator for creating a class with a metaclass."""
+    def wrapper(cls):
+        orig_vars = cls.__dict__.copy()
+        slots = orig_vars.get('__slots__')
+        if slots is not None:
+            if isinstance(slots, str):
+                slots = [slots]
+            for slots_var in slots:
+                orig_vars.pop(slots_var)
+        orig_vars.pop('__dict__', None)
+        orig_vars.pop('__weakref__', None)
+        return metaclass(cls.__name__, cls.__bases__, orig_vars)
+    return wrapper
+
+
+import numpy
+@add_metaclass(PluginMount)
 class DataSource:
     """
     Mount point for plugins which refer to the reading of input files 
@@ -51,18 +71,43 @@ class DataSource:
             pm : pypm.particlemesh.ParticleMesh
 
     read: method
+        A method that performs the reading of the field. This method
+        reads in the full data set. It shall
+        returns the position (in 0 to BoxSize) and velocity (in the
+        same units as position)
+
+    read_comm: method
         A method that performs the reading of the field. It shall
         returns the position (in 0 to BoxSize) and velocity (in the
-        same units as position), in chunks as an iterator.
+        same units as position), in chunks as an iterator. The
+        default behavior is to use Rank 0 to read in the full data
+        and yield an empty data.
 
     """
-    __metaclass__ = PluginMount
     
     field_type = None
 
     def __init__(self, args):
         ns = self.parser.parse_args(args)
         self.__dict__.update(ns.__dict__)
+
+    @staticmethod
+    def BoxSizeParser(value):
+        """
+        Parse a string of either a single float, or 
+        a space-separated string of 3 floats, representing 
+        a box size. Designed to be used by the DataSource plugins
+        
+        Returns
+        -------
+        BoxSize : array_like
+            an array of size 3 giving the box size in each dimension
+        """
+        boxsize = numpy.empty(3, dtype='f8')
+        sizes = [float(i) for i in value.split()]
+        if len(sizes) == 1: sizes = sizes[0]
+        boxsize[:] = sizes
+        return boxsize
 
     @classmethod
     def open(kls, connection): 
@@ -88,11 +133,28 @@ class DataSource:
     def __ne__(self, other):
         return self.string != other.string
 
-    def read(self, columns, comm, bunchsize=None):
-        """ Yield the data in the columns by "nchunks" as dictionaries. 
-            
+    def readall(self, columns):
+        return NotImplemented 
+
+    def read(self, columns, comm, full=False):
+        """ 
+            Yield the data in the columns. If full is True, read all
+            particles in one run; otherwise try to read in chunks.
         """
-        return NotImplemented    
+        if comm.rank == 0:
+            data = self.readall(columns)    
+            shape_and_dtype = [(d.shape, d.dtype) for d in data]
+        else:
+            shape_and_dtype = None
+        shape_and_dtype = comm.bcast(shape_and_dtype)
+
+        if comm.rank != 0:
+            data = [
+                numpy.empty(0, dtype=(dtype, shape[1:]))
+                for shape,dtype in shape_and_dtype
+            ]
+
+        yield data 
 
     @classmethod
     def add_parser(kls):
@@ -118,8 +180,8 @@ class DataSource:
 import sys
 import contextlib
 
-class PowerSpectrumStorage:
-    __metaclass__ = PluginMount
+@add_metaclass(PluginMount)
+class MeasurementStorage:
 
     field_type = None
     klasses = {}
@@ -140,7 +202,7 @@ class PowerSpectrumStorage:
     @contextlib.contextmanager
     def open(self):
         if self.path and self.path != '-':
-            ff = open(self.path, 'w')
+            ff = open(self.path, 'wb')
         else:
             ff = sys.stdout
             
@@ -150,7 +212,7 @@ class PowerSpectrumStorage:
             if ff is not sys.stdout:
                 ff.close()
 
-    def write(self, data, **meta):
+    def write(self, cols, data, **meta):
         return NotImplemented
 
 #------------------------------------------------------------------------------          
@@ -189,8 +251,3 @@ def load(filename, namespace=None):
     except Exception as e:
         raise RuntimeError("Failed to load plugin '%s': %s" % (filename, str(e)))
     references[filename] = namespace
-
-builtins = ['DataSource/', 'Power1DStorage.py', 'Power2DStorage.py']
-for plugin in builtins:
-    load(os.path.join(os.path.dirname(__file__), plugin))
- 

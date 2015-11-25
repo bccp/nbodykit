@@ -1,10 +1,8 @@
 from nbodykit.plugins import DataSource
-from nbodykit.utils.pluginargparse import BoxSizeParser
-from nbodykit.utils.mpilogging import MPILoggerAdapter
 import numpy
 import logging
          
-logger = MPILoggerAdapter(logging.getLogger('QPMMock'))
+logger = logging.getLogger('QPMMock')
 
 class QPMMockDataSource(DataSource):
     """
@@ -56,7 +54,7 @@ class QPMMockDataSource(DataSource):
         h = kls.add_parser()
         
         h.add_argument("path", help="path to file")
-        h.add_argument("BoxSize", type=BoxSizeParser,
+        h.add_argument("BoxSize", type=kls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
 
         h.add_argument("-scaled", action='store_true', 
@@ -66,33 +64,29 @@ class QPMMockDataSource(DataSource):
         h.add_argument("-velf", default=1., type=float, 
             help="factor to scale the velocities")
     
-    def read(self, columns, comm, bunchsize):
-        if comm.rank == 0:
-            try:
-                import pandas as pd
-            except:
-                raise ImportError("pandas must be installed to use QPMMockDataSource")
-                
-            # read in the plain text file using pandas
-            kwargs = {}
-            kwargs['comment'] = '#'
-            kwargs['names'] = ['x', 'y', 'z', 'vx', 'vy', 'vz']
-            kwargs['header'] = None
-            kwargs['engine'] = 'c'
-            kwargs['delim_whitespace'] = True
-            kwargs['usecols'] = ['x', 'y', 'z', 'vx', 'vy', 'vz']
-            data = pd.read_csv(self.path, **kwargs)
-            nobj = len(data)
+    def readall(self, columns, comm, bunchsize):
+        try:
+            import pandas as pd
+        except:
+            raise ImportError("pandas must be installed to use QPMMockDataSource")
             
-            logger.info("total number of objects read is %d" %nobj)
-            
-            # get position 
-            pos = data[['x', 'y', 'z']].values.astype('f4')
-            vel = data[['vx', 'vy', 'vz']].values.astype('f4')
-            vel *= self.velf
-        else:
-            pos = numpy.empty(0, dtype=('f4', 3))
-            vel = numpy.empty(0, dtype=('f4', 3))
+        # read in the plain text file using pandas
+        kwargs = {}
+        kwargs['comment'] = '#'
+        kwargs['names'] = ['x', 'y', 'z', 'vx', 'vy', 'vz']
+        kwargs['header'] = None
+        kwargs['engine'] = 'c'
+        kwargs['delim_whitespace'] = True
+        kwargs['usecols'] = ['x', 'y', 'z', 'vx', 'vy', 'vz']
+        data = pd.read_csv(self.path, **kwargs)
+        nobj = len(data)
+        
+        logger.info("total number of objects read is %d" %nobj)
+        
+        # get position 
+        pos = data[['x', 'y', 'z']].values.astype('f4')
+        vel = data[['vx', 'vy', 'vz']].values.astype('f4')
+        vel *= self.velf
 
         # go to redshift-space and wrap periodically
         if self.rsd is not None:
@@ -102,8 +96,7 @@ class QPMMockDataSource(DataSource):
         
         # rescale by AP factor
         if self.scaled:
-            if comm.rank == 0:
-                logger.info("multiplying by qperp = %.5f" %self.qperp)
+            logger.info("multiplying by qperp = %.5f" %self.qperp)
  
             # rescale positions and volume
             if self.rsd is None:
@@ -120,8 +113,9 @@ class QPMMockDataSource(DataSource):
         P = {}
         P['Position'] = pos
         P['Velocity'] = vel
+        P['Weight'] = numpy.ones(len(pos))
 
-        yield [P.get(key, None) for key in columns]
+        yield [P[key] for key in columns]
 
     
 

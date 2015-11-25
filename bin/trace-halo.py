@@ -3,7 +3,6 @@ from sys import stdout
 from sys import stderr
 import logging
 
-from nbodykit.utils.mpilogging import MPILoggerAdapter
 from nbodykit.utils.pluginargparse import PluginArgumentParser
 from nbodykit import plugins
 import h5py
@@ -30,9 +29,7 @@ parser.add_argument("halolabel",
 parser.add_argument("output", help='write output to this file (hdf5 is appended)')
 
 ns = parser.parse_args()
-
 logging.basicConfig(level=logging.DEBUG)
-logger = MPILoggerAdapter(logging.getLogger("trace-halo.py"))
 
 import numpy
 import nbodykit
@@ -52,7 +49,7 @@ def main():
  
     Ntot = sum(LABEL.npart)
 
-    [[ID]] = ns.datasource_tf.read(['ID'], comm, bunchsize=None)
+    [[ID]] = ns.datasource_tf.read(['ID'], comm, full=True)
 
     start = sum(comm.allgather(len(ID))[:comm.rank])
     end   = sum(comm.allgather(len(ID))[:comm.rank+1])
@@ -72,8 +69,8 @@ def main():
                 ('ID', ('i8')), 
                 ('Position', ('f4', 3)), 
                 ])
-    [[data['Position'][...]]] = ns.datasource_ti.read(['Position'], comm, bunchsize=None)
-    [[data['ID'][...]]] = ns.datasource_ti.read(['ID'], comm, bunchsize=None)
+    [[data['Position'][...]]] = ns.datasource_ti.read(['Position'], comm, full=True)
+    [[data['ID'][...]]] = ns.datasource_ti.read(['ID'], comm, full=True)
     mpsort.sort(data, orderby='ID')
 
     pos = data['Position'] / ns.datasource_ti.BoxSize
@@ -82,10 +79,9 @@ def main():
     N = halos.count(label)
     hpos = halos.centerofmass(label, pos, boxsize=1.0)
     
-    logger.info("Total number of halos: %d" % len(N), on=0)
-    logger.info("N %s" % str(N), on=0)
-
     if comm.rank == 0:
+        logging.info("Total number of halos: %d" % len(N))
+        logging.info("N %s" % str(N))
         LinkingLength = LABEL.get_file(0).linking_length
 
         with h5py.File(ns.output + '.hdf5', 'w') as ff:
@@ -111,7 +107,7 @@ def main():
             dataset.attrs['ti'] = ns.datasource_ti.string
             dataset.attrs['tf'] = ns.datasource_tf.string
 
-        logger.info("Written %s" % ns.output + '.hdf5', on=0)
+        logging.info("Written %s" % ns.output + '.hdf5')
 
 
 main()

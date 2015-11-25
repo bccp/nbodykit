@@ -1,5 +1,4 @@
 from nbodykit.plugins import DataSource
-from nbodykit.utils.pluginargparse import BoxSizeParser
 from nbodykit import files 
 import numpy
 
@@ -11,11 +10,15 @@ class TPMSnapshotDataSource(DataSource):
         
         h = kls.add_parser()
         h.add_argument("path", help="path to file")
-        h.add_argument("BoxSize", type=BoxSizeParser,
+        h.add_argument("BoxSize", type=kls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
         h.add_argument("-rsd", 
             choices="xyz", default=None, help="direction to do redshift distortion")
-    def read(self, columns, comm, bunchsize):
+        h.add_argument("-bunchsize", type=int, 
+                default=1024*1024*4, help="number of particles to read per rank in a bunch")
+
+    def read(self, columns, comm, full=False):
+        """ read data in parallel. if Full is True, neglect bunchsize. """
         Ntot = 0
         # avoid reading Velocity if RSD is not requested.
         # this is only needed for large data like a TPMSnapshot
@@ -32,6 +35,8 @@ class TPMSnapshotDataSource(DataSource):
         if 'Weight' in newcolumns:
             newcolumns.remove('Weight')
 
+        bunchsize = self.bunchsize
+        if full: bunchsize = None
         for round, P in enumerate(
                 files.read(comm, 
                     self.path, 
@@ -46,12 +51,13 @@ class TPMSnapshotDataSource(DataSource):
 
             # uniform mass
             P['Mass'] = numpy.ones(P['__nread__'], 'i1')
+            P['Weight'] = P['Mass']
 
             if self.rsd is not None:
                 dir = "xyz".index(self.rsd)
                 P['Position'][:, dir] += P['Velocity'][:, dir]
                 P['Position'][:, dir] %= self.BoxSize[dir]
 
-            yield [P[key] if key in P else None for key in columns]
+            yield [P[key] for key in columns]
 
 #------------------------------------------------------------------------------

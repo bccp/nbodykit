@@ -5,12 +5,8 @@ from sys import stdout
 from sys import stderr
 import logging
 
-import nbodykit
-
 from nbodykit.utils.pluginargparse import PluginArgumentParser
 from nbodykit import plugins
-from nbodykit.utils.mpilogging import MPILoggerAdapter
-
 import numpy
 import h5py
 
@@ -36,9 +32,10 @@ parser.add_argument("--nmin", type=float, default=32, help='minimum number of pa
 
 ns = parser.parse_args()
 logging.basicConfig(level=logging.DEBUG)
-logger = MPILoggerAdapter(logging.getLogger("fof.py"))
 
 from mpi4py import MPI
+
+import nbodykit
 
 from nbodykit.distributedarray import DistributedArray
 from nbodykit.ndarray import equiv_class, replacesorted
@@ -137,11 +134,11 @@ def main():
         numpy.linspace(0, 1.0, np[1] + 1, endpoint=True),
     ]
     domain = GridND(grid)
-
-    logger.info('grid %s' % str(grid), on=0 )
+    if comm.rank == 0:
+        logging.info('grid %s' % str(grid) )
 
     # read in all !
-    [[Position]] = ns.datasource.read(['Position'], comm, bunchsize=None)
+    [[Position]] = ns.datasource.read(['Position'], comm, full=True)
     Position /= ns.datasource.BoxSize
 
     print(Position.shape)
@@ -149,28 +146,30 @@ def main():
 
     Ntot = sum(comm.allgather(len(Position)))
 
-    logger.info('Total number of particles %d, ll %g' % (Ntot, ns.LinkingLength), on=0)
-
+    if comm.rank == 0:
+        logging.info('Total number of particles %d, ll %g' % (Ntot, ns.LinkingLength))
     ll = ns.LinkingLength * Ntot ** -0.3333333
 
     layout = domain.decompose(Position, smoothing=ll * 1)
 
     Position = layout.exchange(Position)
  
-    logger.info('domain %d has %d particles' % (comm.rank, len(Position)))
+    logging.info('domain %d has %d particles' % (comm.rank, len(Position)))
 
     labels = local_fof(Position, ll)
     del Position
 
-    logger.info('local fof done', on=0)
+    if comm.rank == 0:
+        logging.info('local fof done' )
 
-    [[ID]] = ns.datasource.read(['ID'], comm, bunchsize=None)
+    [[ID]] = ns.datasource.read(['ID'], comm, full=True)
     ID = layout.exchange(ID)
     # initialize global labels
     minid = equiv_class(labels, ID, op=numpy.fmin)[labels]
     del ID
 
-    logger.info("equiv class, done", on=0)
+    if comm.rank == 0:
+        logging.info("equiv class, done")
 
     while True:
         # merge, if a particle belongs to several ranks
@@ -184,7 +183,8 @@ def main():
         # gl is the global label (albeit with some holes)
         total = comm.allreduce(merged.sum())
             
-        logger.info('merged %d halos', total, on=0)
+        if comm.rank == 0:
+            logging.info('merged %d halos', total)
 
         if total == 0:
             del minid_new
@@ -199,7 +199,8 @@ def main():
     minid = layout.gather(minid, mode=numpy.fmin)
     del layout
 
-    logger.info("merging, done", on=0)
+    if comm.rank == 0:
+        logging.info("merging, done")
 
     Nitem = len(minid)
 
@@ -217,17 +218,18 @@ def main():
     del data
     N = halos.count(label, comm=comm)
 
-    logger.info('Length of entries %s ', str(N), on=0)
-    logger.info('Length of entries %s ', N.shape[0], on=0)
-    logger.info('Total particles %s ', N.sum(), on=0)
+    if comm.rank == 0:
+        logging.info('Length of entries %s ', str(N))
+        logging.info('Length of entries %s ', N.shape[0])
+        logging.info('Total particles %s ', N.sum())
 
-    [[Position]] = ns.datasource.read(['Position'], comm, bunchsize=None)
+    [[Position]] = ns.datasource.read(['Position'], comm, full=True)
 
     Position /= ns.datasource.BoxSize
     hpos = halos.centerofmass(label, Position, boxsize=1.0, comm=comm)
     del Position
 
-    [[Velocity]] = ns.datasource.read(['Velocity'], comm, bunchsize=None)
+    [[Velocity]] = ns.datasource.read(['Velocity'], comm, full=True)
     Velocity /= ns.datasource.BoxSize
 
     hvel = halos.centerofmass(label, Velocity, boxsize=None, comm=comm)

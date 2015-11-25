@@ -1,7 +1,7 @@
 import numpy
 from mpi4py import MPI
 
-from ndarray import equiv_class
+from .ndarray import equiv_class
 
 def centerofmass(label, pos, boxsize=1.0, comm=MPI.COMM_WORLD):
     """

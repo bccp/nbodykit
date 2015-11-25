@@ -1,5 +1,6 @@
+--linklength=0.18
+--vfactor=100 
+--Nmin=0
 TPMSnapshot:../data/snp00100_1.0000.bin:1380 
 ../output/fof00100_ll0.200_1.0000.grp
-0.18
-100 
 ../output/sub00100_0.180_100_1.0000.hdf5

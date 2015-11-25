@@ -146,16 +146,16 @@ compiler, which doesn't compile fftw correctly due to lack of openmp support.
     
     export OMPI_CC=gcc
  
-**UPDATE BELOW THIS**  
-
-Edison Notes
+Edison/Cori Notes
 ++++++++++++
 
-On Edison, remember to unload darshan
+On Edison and Cori, the recommended python distribution is anaconda. 
+If darshan or altd are loaded by default, be sure to unload them to avoid issues:
 
 .. code::
 
     module unload darshan
+    module unload altd
 
 and preferentially, load PrgEnv-gnu
 
@@ -171,24 +171,23 @@ then load python
 
     module load python/2.7-anaconda
 
-Also prefix the compiler MPICC=cc, so do this
+You can create a new anaconda environment to install ``nbodykit`` and 
+its dependencies by cloning the default anaconda environment:
 
 .. code::
     
+    conda create -n myenv --clone root
+
+To install ``nbodykit`` and its dependencies into 'myenv', use:
+
+.. code::
+    
+    source activate myenv
     MPICC=cc pip install -r requirements.txt -e .
 
-Optionally, build the python-mpi-bcast bundle for massively parallel python jobs
+To speed up calculations, we can tar the anaconda environment via
 
 .. code:: bash
 
-    bash /project/projectdirs/m779/python-mpi/tar-anaconda.sh nbodykit-dependencies.tar.gz install/
-
-We can also build a bundle that includes nbodykit:
-
-.. code:: bash
-
-    # in source code root
-
-    python setup.py install --prefix=install
-    bash /project/projectdirs/m779/python-mpi/tar-anaconda.sh nbodykit.tar.gz install/
+    bash /project/projectdirs/m779/python-mpi/tar-anaconda.sh anaconda.tar.gz /path/to/myenv
 

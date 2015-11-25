@@ -381,7 +381,7 @@ class PkmuResult(object):
         from scipy.special import legendre
         import scipy.linalg as linalg
         from scipy.sparse import csr_matrix
-        import pkresult
+        from . import pkresult
         N_poles = kwargs.get('N_poles', 6)
         
         # need an error column

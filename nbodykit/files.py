@@ -1,4 +1,5 @@
 import numpy
+import logging
 
 __all__ = ['read', 'TPMSnapshotFile', 'SnapshotFile']
 
@@ -333,7 +334,7 @@ def ReadPower2DPlainText(filename):
         
         # read any metadata
         metadata = {}
-        if len(lines) >= N+l2:
+        if len(lines) > N+l2:
             N_meta = int(lines[N+l2].split()[-1])
             N = N + l2 + 1
             meta = lines[N:N+N_meta]
