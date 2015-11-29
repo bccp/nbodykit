@@ -14,7 +14,7 @@ from nbodykit import plugins, measurestats
 from nbodykit.utils.pluginargparse import PluginArgumentParser
 
 def initialize_parser(**kwargs):
-    parser = PluginArgumentParser("Brutal Correlation unction Calculator",
+    parser = PluginArgumentParser("Brutal Correlation Function Calculator",
                                     loader=plugins.load, **kwargs)
 
     # add the positional arguments

@@ -18,7 +18,7 @@ from pmesh.transfer import TransferFunction
 #--------------------------------------------------
 # setup the parser
 #--------------------------------------------------
-def initialize_power_parser(**kwargs):
+def initialize_parser(**kwargs):
     """
     Initialize the command-line parser for ``power.py``, 
     optionally providing``args`` to be passed to the
@@ -93,7 +93,7 @@ def compute_power(ns, comm=None):
     Parameters
     ----------
     ns : argparse.Namespace
-        the parser namespace corresponding to the ``initialize_power_parser``
+        the parser namespace corresponding to the ``initialize_parser``
         functions
     comm : MPI.Communicator
         the communicator to pass to the ``ParticleMesh`` object
@@ -193,7 +193,7 @@ def main():
     The main function to initialize the parser and do the work
     """
     # parse
-    ns = initialize_power_parser().parse_args()
+    ns = initialize_parser().parse_args()
         
     # do the work
     compute_power(ns)
