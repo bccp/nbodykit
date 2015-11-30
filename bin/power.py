@@ -203,7 +203,9 @@ def compute_power(ns, comm=None, transfer=None, painter=None):
             # format is k pole_0, pole_1, ...., modes_1d
             logger.info('saving ell = %s multipoles to %s' %(",".join(map(str,ns.poles)), ns.pole_output))
             storage = plugins.MeasurementStorage.new('1d', ns.pole_output)
-            storage.write(xedges, [x_str, y_str, 'modes'], pole_result, **meta)
+            
+            cols = [x_str] + [y_str+'_%d' %l for l in ns.poles] + [modes]
+            storage.write(xedges, cols, pole_result, **meta)
             
             
 def main():
