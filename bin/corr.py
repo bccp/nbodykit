@@ -36,7 +36,8 @@ def initialize_parser(**kwargs):
                         help="the line-of-sight direction, which the angle `mu` is defined with respect to")
     parser.add_argument("--Nmu", type=int, default=10,
                         help='the number of mu bins to use (from mu=-1 to mu=1) -- only used if `mode == 2d`')
-    parser.add_argument('--poles', type=lambda s: map(int, s.split()), default=[],
+    parser.add_argument('--poles', type=lambda s: [int(i) for i in s.split()], default=[],
+                        metavar="0 2 4",
                         help='if specified, compute the multipoles for these `ell` values from xi(r,mu)')
     return parser 
 
