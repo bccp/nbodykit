@@ -85,7 +85,7 @@ def AnisotropicCIC(comm, complex, w):
         tmp = (1 - 2. / 3 * numpy.sin(0.5 * wi) ** 2) ** 0.5
         complex[:] /= tmp
 
-def compute_power(ns, comm=None, **kwargs):
+def compute_power(ns, comm=None, transfer=None, painter=None):
     """
     Compute the power spectrum. Given a `Namespace`, this is the function,
     that computes and saves the power spectrum. It does all the work.
@@ -97,22 +97,30 @@ def compute_power(ns, comm=None, **kwargs):
         functions
     comm : MPI.Communicator
         the communicator to pass to the ``ParticleMesh`` object
-    kwargs : key/value pairs, optional
-        additional keywords are passed to the ``compute_3d_corr`` 
-        or ``compute_3d_power`` functions, specifically the 
-        ``transfer`` and ``painter`` keywords can be overwritten here
+    transfer : list, optional
+        list of transfer functions to apply that will be
+        passed to ``compute_3d_power``. If `None`, then
+        the default chain ``TransferFunction.NormalizeDC``, 
+        ``TransferFunction.RemoveDC``, and ``AnisotropicCIC``
+        will be applied
+    painter : callable, optional
+        the painter function(s) to pass to ``compute_3d_power``. 
+        Only passed if not `None`
     """    
     rank = comm.rank if comm is not None else MPI.COMM_WORLD.rank
     
     # handle default measurement keywords
     measure_kw = {'comm':comm, 'log_level':ns.log_level}
     
-    # default transfer chain
+    # transfer chain
     default_chain = [TransferFunction.NormalizeDC, TransferFunction.RemoveDC, AnisotropicCIC]
-    measure_kw['transfer'] = kwargs.get('transfer', default_chain)
+    measure_kw.setdefault('transfer', default_chain)
+    if transfer is not None:
+        measure_kw['transfer'] = transfer
     
-    # default painter
-    measure_kw['painter'] = kwargs.get('painter', measurestats.paint)
+    # painter
+    if painter is not None:
+        measure_kw['painter'] = painter
     
     # set logging level
     logger.setLevel(ns.log_level)
