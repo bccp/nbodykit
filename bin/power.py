@@ -68,7 +68,7 @@ def initialize_parser(**kwargs):
             help='the edge of the first bin to use; default is 0')
     parser.add_argument('-q', '--quiet', help="silence the logging output",
             action="store_const", dest="log_level", const=logging.ERROR, default=logging.DEBUG)
-    parser.add_argument('--poles', type=lambda s: map(int, s.split()), default=[],
+    parser.add_argument('--poles', type=lambda s: [int(i) for i in s.split()], default=[],
             help='if specified, compute these multipoles from P(k,mu), saving to `pole_output`')
     parser.add_argument('--pole_output', type=str, help='the name of the output file for multipoles')
 
