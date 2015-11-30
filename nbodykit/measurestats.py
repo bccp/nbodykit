@@ -154,20 +154,63 @@ def compute_3d_power(fields, pm, transfer=[], painter=paint, comm=None, log_leve
     return p3d, N1, N2
 
 
-def compute_brutal_3d_corr(fields, rmax, Nbins, comm=None, subsample=1):
+def compute_brutal_corr(fields, Rmax, Nr, Nmu=0, comm=None, subsample=1, los='z', poles=[]):
+    """
+    Compute the correlation function by direct pair summation, projected
+    into either 1d `R` bins or 2d (`R`, `mu`) bins
     
+    Parameters
+    ----------
+    fields : list of ``DataSource`` objects
+        the list of fields from which the 3D correlation will be computed
+        
+    Rmax : float
+        the maximum R value to compute, in the same units as the input
+        fields
+    
+    Nmu : int, optional
+        the number of desired `mu` bins, where `mu` is the cosine 
+        of the angle from the line-of-sight. Default is 0, in 
+        which case the correlation function is binned as a function of 
+        `R` only
+        
+    comm : MPI.Communicator, optional
+        the communicator to pass to the ``ParticleMesh`` object. If not
+        provided, ``MPI.COMM_WORLD`` is used
+        
+    subsample : int, optional
+        Down-sample the input fields by choosing 1 out of every N points. 
+        Default is `1`
+    
+    los : 'x', 'y', 'z', optional
+        the dimension to treat as the line-of-sight; default is 'z'
+        
+    Returns
+    -------
+    pc : ``correlate.paircount``
+        the ``kdcount`` pair counting instance
+    xi : array_like
+        the correlation function
+    RR : array_like
+        the number of random-random pairs (used as normalization of the data-data pairs)
+    """
     from pmesh.domain import GridND
     from kdcount import correlate
+    
+    if not isinstance(los, basestring) or los not in "xyz":
+        raise ValueError("the `los` must be one of `x`, `y`, or `z`")
+    los = "xyz".index(los)
+    poles = numpy.array(poles)
     
     # the comm
     if comm is None: comm = MPI.COMM_WORLD
     
     # determine processors for grididng
-    for Nx in range(int(comm.size **0.3333) + 1, 0, -1):
+    for Nx in range(int(comm.size**0.3333) + 1, 0, -1):
         if comm.size % Nx == 0: break
     else:
         Nx = 1
-    for Ny in range(int(comm.size **0.5) + 1, 0, -1):
+    for Ny in range(int(comm.size**0.5) + 1, 0, -1):
         if (comm.size // Nx) % Ny == 0: break
     else:
         Ny = 1
@@ -175,7 +218,7 @@ def compute_brutal_3d_corr(fields, rmax, Nbins, comm=None, subsample=1):
     Nproc = [Nx, Ny, Nz]
     if comm.rank == 0:
         logger.info('Nproc = %s' %str(Nproc))
-        logger.info('rmax = %g' %rmax)
+        logger.info('Rmax = %g' %Rmax)
     
     # domain decomposition
     grid = [numpy.linspace(0, fields[0].BoxSize[i], Nproc[i]+1, endpoint=True) for i in range(3)]
@@ -202,10 +245,10 @@ def compute_brutal_3d_corr(fields, rmax, Nbins, comm=None, subsample=1):
         logger.info('exchange pos1')
         
     # exchange field #2 positions
-    if rmax > fields[0].BoxSize[0] * 0.25:
+    if Rmax > fields[0].BoxSize[0] * 0.25:
         pos2 = numpy.concatenate(comm.allgather(pos2), axis=0)
     else:
-        layout = domain.decompose(pos2, smoothing=rmax)
+        layout = domain.decompose(pos2, smoothing=Rmax)
         pos2 = layout.exchange(pos2)
     if comm.rank == 0:
         logger.info('exchange pos2')
@@ -218,16 +261,43 @@ def compute_brutal_3d_corr(fields, rmax, Nbins, comm=None, subsample=1):
     if comm.rank == 0:
         logger.info('all correlating %d x %d' %(N1, N2))
 
-    # the binning
-    bins = correlate.RBinning(rmax, Nbins)
+    # the binning, either r or (r,mu)
+    if len(poles):
+        bins = correlate.FlatSkyMultipoleBinning(Rmax, Nr, poles, los, compute_mean_coords=True)
+    elif Nmu > 0:
+        bins = correlate.FlatSkyBinning(Rmax, Nr, Nmu, los, compute_mean_coords=True)
+    else:
+        bins = correlate.RBinning(Rmax, Nr, compute_mean_coords=True)
 
     # do the pair count
-    pc = correlate.paircount(tree2, tree1, bins, np=0)
+    # have to set usefast = False to get mean centers, or exception thrown
+    pc = correlate.paircount(tree2, tree1, bins, np=0, usefast=False)
     pc.sum1[:] = comm.allreduce(pc.sum1)
+    
+    # get the mean bin values, reducing from all ranks
+    pc.pair_counts[:] = comm.allreduce(pc.pair_counts)
+    with numpy.errstate(invalid='ignore'):
+        if bins.Ndim > 1:
+            for i in range(bins.Ndim):
+                pc.mean_centers[i][:] = comm.allreduce(pc.mean_centers_sum[i]) / pc.pair_counts
+        else:
+            pc.mean_centers[:] = comm.allreduce(pc.mean_centers_sum[0]) / pc.pair_counts
 
-    RR = 1. * N1 * N2
-    RR *= 4. / 3. * numpy.pi * numpy.diff(pc.edges**3/fields[0].BoxSize.prod())
-    xi = 1. * pc.sum1 / RR - 1
+    # compute the random pairs from the fractional volume
+    RR = 1.*N1*N2 / fields[0].BoxSize.prod()
+    if Nmu > 0:
+        dr3 = numpy.diff(pc.edges[0]**3)
+        dmu = numpy.diff(pc.edges[1])
+        RR *= 2. / 3. * numpy.pi * dr3[:,None] * dmu[None,:]
+    else:
+        RR *= 4. / 3. * numpy.pi * numpy.diff(pc.edges**3)
+    
+    # return the correlation and the pair count object
+    xi = (1. * pc.sum1 / RR) - 1.0
+    if len(poles):
+        xi = xi.T # make ell the second axis 
+        xi[:,poles!=0] += 1.0 # only monopole gets minus one
+
     return pc, xi, RR
 
 def compute_3d_corr(fields, pm, transfer=[], painter=paint, comm=None, log_level=logging.DEBUG):
