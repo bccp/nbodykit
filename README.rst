@@ -21,7 +21,10 @@ Top Level Executables
 The tools are provide as top level executable scripts. 
 All tools are MPI parallel.  We can deal with very large simulations.
 
-- ``bin/power.py`` is a Power Spectrum calculator.
+- ``bin/power.py`` is a Power Spectrum calculator, which also calculates correlation functions
+  via a Fast Fourier Transform.
+
+- ``bin/corr.py`` is a point-point pair-counting based Correlation Function calculator.
 
 - ``bin/fof.py`` is a friend of friend feature (halo) identifier.
 
@@ -44,23 +47,39 @@ The supporting data for these scripts can be retrieved from
 
 Check get_data.sh for details.
 
+Dependencies
+------------
+
 .. _`pfft-python`: http://github.com/rainwoodman/pfft-python
 .. _`pfft`: http://github.com/mpip/pfft
-.. _`pypm`: http://github.com/rainwoodman/pypm
+.. _`pmesh`: http://github.com/rainwoodman/pmesh
 .. _`kdcount`: http://github.com/rainwoodman/kdcount
 .. _`sharedmem`: http://github.com/rainwoodman/sharedmem
 .. _`MP-sort`: http://github.com/rainwoodman/MP-sort
-.. _`qrpm`: http://github.com/rainwoodman/qrpm
+.. _`h5py`: http://github.com/h5py/h5py
 
 The software is built on top of existing tools. Please refer to their
 documentations:
 
-- `pfft`_    : massively parallel fast fourier transform, pencil domains
+- `pfft`_    : massively parallel fast fourier transform with pencil domains
 - `pfft-python`_  : python binding of pfft
-- `pypm`_     :  particle mesh framework in Python
+- `pmesh`_     :  particle mesh framework in Python
 - `kdcount`_   : pair-counting and friend-of-friend clustering with KD-Tree
 - `MP-sort`_   : massively parallel sorting 
 - `sharedmem`_ : in-node parallelism with fork and copy-on-write.
+
+Some better established dependencies are
+
+- `h5py`_     : input and output of HDF5 files
+- `mpi4py`_     : MPI for python
+- `scipy`_     
+- `numpy`_     
+
+Optional Dependencies
+---------------------
+
+- pandas and pytables are required to access the PANDAS subset of HDF5 
+  and fast parsing of plain text files.
 
 Build
 -----
