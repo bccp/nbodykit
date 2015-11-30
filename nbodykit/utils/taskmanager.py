@@ -7,34 +7,7 @@ logger = logging.getLogger('taskmanager')
 
 #------------------------------------------------------------------------------
 # tools
-#------------------------------------------------------------------------------
-def iter_values(s):
-    """
-    Parse the counter values, first trying to eval, 
-    and then trying to just split the string by spaces into 
-    a list
-    """
-    casters = [lambda s: eval(s), lambda s: s.split()]
-    for cast in casters:
-        try:
-            return cast(s)
-        except Exception as e:
-            continue
-    else:
-        raise RuntimeError("failure to parse iteration value string `%s`: %s" %(s, str(e)))
-        
-def extra_iter_values(s):
-    """
-    Provided an existing file name, read the file into 
-    a dictionary. The keys are interpreted as the string format name, 
-    and the values are a list of values to iterate over for each job
-    """
-    if not os.path.exists(s):
-        raise RuntimeError("file `%s` does not exist" %s)
-    toret = {}
-    execfile(s, globals(), toret)
-    return toret
-        
+#------------------------------------------------------------------------------        
 def split_ranks(N_ranks, N_chunks):
     """
     Divide the ranks into N chunks, removing the master (0) rank
@@ -103,6 +76,50 @@ class TaskManager(object):
         self.size = comm.size
         self.rank = comm.rank
         
+    
+    @staticmethod
+    def replacements_from_file(value):
+        """
+        Provided an existing file name, read the file into 
+        a dictionary. The keys are interpreted as the string format name, 
+        and the values are a list of values to iterate over for each job
+        """
+        if not os.path.exists(s):
+            raise RuntimeError("for `replacements_from_file`, file `%s` does not exist" %s)
+        toret = {}
+        execfile(s, globals(), toret)
+        return toret
+        
+    @staticmethod
+    def tasks_parser(value):
+        """
+        Given a string of the format ``key tasks``, split the string and then
+        try to parse the ``tasks``, by first trying to evaluate it, and then
+        simply splitting it and interpreting the results as the tasks. 
+        
+        The general use cases are: 
+        
+        1) "box range(2)" -> key = `box`, tasks = `[0, 1]`
+        2) "box A B C" -> key = `box`, tasks = `['A', 'B', 'C']`
+        """
+        fields = value.split(None, 1)
+        if len(fields) != 2:
+            raise ValueError("specify iteration tasks via the format: ``-i key tasks``")
+
+        key, value = fields
+        casters = [lambda s: eval(s), lambda s: s.split()]
+        
+        for cast in casters:
+            try:
+                parsed = cast(value)
+                break
+            except Exception as e:
+                continue
+        else:
+            raise RuntimeError("failure to parse iteration value string `%s`" %(value))
+    
+        return [key, parsed]
+        
     @classmethod
     def parse_args(cls, desc=None):
         """
@@ -115,6 +132,7 @@ class TaskManager(object):
             the description of to use for this parser
         """
         import argparse
+        import itertools
         
         # parse
         parser = argparse.ArgumentParser(description=desc) 
@@ -130,26 +148,48 @@ class TaskManager(object):
                 must be less than nprocs"""
         parser.add_argument('nodes', type=int, help=h)
     
-        h = """replace occurences of this string in template parameter file, using
-                ``string.format`` syntax, with the value taken from `iter_vals`"""
-        parser.add_argument('iter_str', type=str, help=h)
-    
-        h = """the values to iterate over for each of the tasks, which can 
-                be supplied as an evaluate-able string (i.e., 'range(10)') or a 
-                set of values (i.e., 'A' 'B' 'C' 'D')"""
-        parser.add_argument('iter_vals', type=iter_values, help=h)
+        h =  """given a string of the format ``key tasks``, split the string and then
+                try to parse the ``tasks``, by first trying to evaluate it, and then
+                simply splitting it and interpreting the results as the tasks. 
+        
+                The general use cases are: 
+        
+                1) "box range(2)" -> key = `box`, tasks = `[0, 1]`
+                2) "box A B C" -> key = `box`, tasks = `['A', 'B', 'C']`
+                
+                If multiple options passed with `-i` flag, then the total tasks to 
+                perform will be the product of the tasks lists passed"""
+        parser.add_argument('-i', dest='tasks', action='append', type=cls.tasks_parser, required=True, help=h)
     
         h = """file providing extra string replaces, with lines of the form 
                  `tag = ['tag1', 'tag2']`; if the keys match keywords in the 
                  template param file, the file with be updated with
                  the `ith` value for the `ith` task"""
-        parser.add_argument('--extra', dest='extras', type=extra_iter_values, help=h)
+        parser.add_argument('--extra', dest='extras', type=cls.replacements_from_file, help=h)
     
         h = "set the logging output to debug, with lots more info printed"
         parser.add_argument('--debug', help=h, action="store_const", dest="log_level", 
                                 const=logging.DEBUG, default=logging.INFO)
                                 
-        return parser.parse_args()
+        args = parser.parse_args()
+        
+        # format the tasks, taking the product of multiple task lists
+        keys = []; values = []
+        for [key, tasks] in args.tasks:
+            keys.append(key)
+            values.append(tasks)
+
+        # take the product
+        if len(keys) > 1:
+            values = list(itertools.product(*values))
+        else:
+            values = values[0]
+            
+        # save
+        args.task_keys = keys
+        args.tasks = values
+        
+        return args    
     
     def _initialize_pool_comm(self):
         """
@@ -192,7 +232,7 @@ class TaskManager(object):
         self._initialize_pool_comm()
     
         # the tasks provided on the command line
-        tasks = self.config.iter_vals
+        tasks = self.config.tasks
         num_tasks = len(tasks)
     
         # master distributes the tasks
@@ -283,14 +323,25 @@ class TaskManager(object):
         # if you are the pool's root, write out the temporary parameter file
         temp_name = None
         if pool_rank == 0:
-            # generate the parameter file
+            # extract the keywords that we need to format from template file
             kwargs = [kw for _, kw, _, _ in param_file._formatter_parser() if kw]
+            
+            # initialize a temporary file
             with tempfile.NamedTemporaryFile(delete=False) as ff:
                 temp_name = ff.name
-                possible_kwargs = {self.config.iter_str : task}
+                
+                # key/values for this task 
+                if len(self.config.task_keys) == 1:
+                    possible_kwargs = {self.config.task_keys[0] : task}
+                else:
+                    possible_kwargs = dict(zip(self.config.task_keys, task))
+                    
+                # any extra key/value pairs for this tasks
                 if self.config.extras is not None:
                     for k in self.config.extras:
                         possible_kwargs[k] = self.config.extras[k][itask]
+                        
+                # do the string formatting if the key is present in template
                 valid = {k:v for k,v in possible_kwargs.iteritems() if k in kwargs}
                 ff.write(param_file.format(**valid))
         
