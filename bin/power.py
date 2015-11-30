@@ -73,7 +73,7 @@ def initialize_parser(**kwargs):
     parser.add_argument('--pole_output', type=str, help='the name of the output file for multipoles')
 
     parser.add_argument("--correlation", action='store_true', default=False,
-        help='Calculate correaltion function instead of power spectrum.')
+        help='Calculate correlation function instead of power spectrum.')
     
     return parser
 
@@ -85,7 +85,7 @@ def AnisotropicCIC(comm, complex, w):
         tmp = (1 - 2. / 3 * numpy.sin(0.5 * wi) ** 2) ** 0.5
         complex[:] /= tmp
 
-def compute_power(ns, comm=None):
+def compute_power(ns, comm=None, **kwargs):
     """
     Compute the power spectrum. Given a `Namespace`, this is the function,
     that computes and saves the power spectrum. It does all the work.
@@ -97,8 +97,22 @@ def compute_power(ns, comm=None):
         functions
     comm : MPI.Communicator
         the communicator to pass to the ``ParticleMesh`` object
-    """
+    kwargs : key/value pairs, optional
+        additional keywords are passed to the ``compute_3d_corr`` 
+        or ``compute_3d_power`` functions, specifically the 
+        ``transfer`` and ``painter`` keywords can be overwritten here
+    """    
     rank = comm.rank if comm is not None else MPI.COMM_WORLD.rank
+    
+    # handle default measurement keywords
+    measure_kw = {'comm':comm, 'log_level':ns.log_level}
+    
+    # default transfer chain
+    default_chain = [TransferFunction.NormalizeDC, TransferFunction.RemoveDC, AnisotropicCIC]
+    measure_kw['transfer'] = kwargs.get('transfer', default_chain)
+    
+    # default painter
+    measure_kw['painter'] = kwargs.get('painter', measurestats.paint)
     
     # set logging level
     logger.setLevel(ns.log_level)
@@ -111,11 +125,7 @@ def compute_power(ns, comm=None):
     # only need one mu bin if 1d case is requested
     if ns.mode == "1d": ns.Nmu = 1
 
-    # transfer chain
-    chain = [TransferFunction.NormalizeDC, TransferFunction.RemoveDC, AnisotropicCIC]
-
-    # measure either 3D power or correlation function
-    measure_kw = {'comm':comm, 'transfer':chain, 'log_level':ns.log_level}
+    # binning keywords
     binning_kw = {'poles':ns.poles, 'los':ns.los}
     
     # correlation function
@@ -184,7 +194,7 @@ def compute_power(ns, comm=None):
             
             # format is k pole_0, pole_1, ...., modes_1d
             logger.info('saving ell = %s multipoles to %s' %(",".join(map(str,ns.poles)), ns.pole_output))
-            storage = plugins.PowerSpectrumStorage.new('1d', ns.pole_output)
+            storage = plugins.MeasurementStorage.new('1d', ns.pole_output)
             storage.write(xedges, [x_str, y_str, 'modes'], pole_result, **meta)
             
             
