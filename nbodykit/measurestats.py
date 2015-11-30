@@ -115,13 +115,13 @@ def compute_3d_power(fields, pm, transfer=[], painter=paint, comm=None, log_leve
     
     # check that the painter was passed correctly
     if callable(painter):
-        painter = [painter]
+        painter = [painter] * len(fields)
     if len(painter) != len(fields):
         raise ValueError('mismatch between number of fields and number of painter functions')
         
     # check that the chain was passed correctly
     if len(transfer) == 0 or all(callable(t) for t in transfer):
-        transfer = [transfer]
+        transfer = [transfer] * len(fields)
     if len(transfer) != len(fields):
         raise ValueError('mismatch between number of fields and number of transfer lists')
         
