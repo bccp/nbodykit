@@ -95,7 +95,8 @@ class PandasDataSource(DataSource):
         try:
             import pandas as pd
         except:
-            raise ImportError("pandas must be installed to use PandasPlainTextDataSource")
+            name = self.__class__.__name__
+            raise ImportError("pandas must be installed to use %s" %name)
                 
         if self.ftype == 'auto':
             if self.path.endswith('.hdf5'):

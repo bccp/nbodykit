@@ -76,13 +76,18 @@ def compute_3d_power(fields, pm, transfer=[], painter=paint, comm=None, log_leve
     pm : ``ParticleMesh``
         particle mesh object that does the painting
         
-    transfer : list, optional
-        A chain of transfer functions to apply to the complex field.
+    transfer : list, or list of lists, optional
+        A chain of transfer functions to apply to the complex field. If 
+        a list of length 2 is supplied, different chains can be applied 
+        to both the input fields
         
-    painter : callable, optional
+        
+    painter : callable or list of callable, optional
         The function used to 'paint' the fields onto the particle mesh.
         Default is ``measurestats.paint`` -- see documentation for 
-        required API of user-supplied functions
+        required API of user-supplied functions. A list of functions can
+        be passed, in which case the `ith` function will paint the `ith`
+        field
         
     comm : MPI.Communicator, optional
         the communicator to pass to the ``ParticleMesh`` object. If not
@@ -107,17 +112,29 @@ def compute_3d_power(fields, pm, transfer=[], painter=paint, comm=None, log_leve
     # some setup
     rank = comm.rank if comm is not None else MPI.COMM_WORLD.rank
     if log_level is not None: logger.setLevel(log_level)
+    
+    # check that the painter was passed correctly
+    if callable(painter):
+        painter = [painter]
+    if len(painter) != len(fields):
+        raise ValueError('mismatch between number of fields and number of painter functions')
+        
+    # check that the chain was passed correctly
+    if len(transfer) == 0 or all(callable(t) for t in transfer):
+        transfer = [transfer]
+    if len(transfer) != len(fields):
+        raise ValueError('mismatch between number of fields and number of transfer lists')
+        
         
     # paint, FT field and filter field #1
-    N1 = painter(fields[0], pm)
+    N1 = painter[0](fields[0], pm)
     if rank == 0: logger.info('painting done')
     pm.r2c()
     if rank == 0: logger.info('r2c done')
-    pm.transfer(transfer)
+    pm.transfer(transfer[0])
 
-    # do the cross power
-    do_cross = len(fields) > 1 and fields[0] != fields[1]
-    if do_cross:
+    # do the cross power if two fields supplied
+    if len(fields) > 1:
                 
         # crash if box size isn't the same
         if not numpy.all(fields[0].BoxSize == fields[1].BoxSize):
@@ -127,11 +144,11 @@ def compute_3d_power(fields, pm, transfer=[], painter=paint, comm=None, log_leve
         c1 = pm.complex.copy()
         
         # paint, FT, and filter field #2
-        N2 = painter(fields[1], pm)
+        N2 = painter[1](fields[1], pm)
         if rank == 0: logger.info('painting 2 done')
         pm.r2c()
         if rank == 0: logger.info('r2c 2 done')
-        pm.transfer(transfer)
+        pm.transfer(transfer[1])
         c2 = pm.complex
   
     # do the auto power
