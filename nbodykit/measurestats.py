@@ -197,7 +197,7 @@ def compute_brutal_corr(fields, Rmax, Nr, Nmu=0, comm=None, subsample=1, los='z'
     from pmesh.domain import GridND
     from kdcount import correlate
     
-    if not isinstance(los, basestring) or los not in "xyz":
+    if los not in "xyz":
         raise ValueError("the `los` must be one of `x`, `y`, or `z`")
     los = "xyz".index(los)
     poles = numpy.array(poles)
