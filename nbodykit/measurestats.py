@@ -330,6 +330,7 @@ def compute_3d_corr(fields, pm, transfer=[], painter=paint, comm=None, log_level
     # directly transform dimensionless p3d
     # Note that L^3 cancels with dk^3.
     pm.complex[:] = p3d.copy()
+    pm.complex[:] *= 1.0 / pm.BoxSize.prod()
     pm.c2r()
     xi3d = pm.real
     
