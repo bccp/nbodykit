@@ -324,9 +324,9 @@ def ReadPower2DPlainText(filename):
         i = 0
         while i < len(columns):
             name = columns[i]
-            nextname = columns[i+1] if i < len(columns)-1 else None
-            if nextname and name.endswith('_real') and nextname.endswith('_imag'):
-                name = name.split('_real')[0]
+            nextname = columns[i+1] if i < len(columns)-1 else ''
+            if name.endswith('.real') and nextname.endswith('.imag'):
+                name = name.split('.real')[0]
                 toret[name] = data[...,i] + 1j*data[...,i+1]
                 i += 2
             else:
