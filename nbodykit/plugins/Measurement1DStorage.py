@@ -27,7 +27,8 @@ class Measurement1DStorage(MeasurementStorage):
             list of names for the corresponding `data`
         data : list of arrays
             list of 1D arrays specifying the data, which are written 
-            as columns to file
+            as columns to file; complex arrays will be written as two
+            columns (real and imag).
         meta : 
             Any additional metadata to write to file, specified as keyword 
             arguments
@@ -35,22 +36,27 @@ class Measurement1DStorage(MeasurementStorage):
         if len(cols) != len(data):
             raise ValueError("size mismatch between column names and data arrays")
             
-        data = list(data)
         with self.open() as ff:
             
-            # write out column names first
-            ff.write(("# "+" ".join(cols) + "\n").encode())
-            
             # split any complex fields into separate columns
-            for i in range(len(data)-1, -1, -1):
-                if numpy.iscomplexobj(data[i]):
-                    data.insert(i+1, data[i].imag)
-                    cols.insert(i+1, cols[i]+'_imag')
-                    data[i] = data[i].real
-                    cols[i] = cols[i] + '_real'
-                    
+            columns = []
+            names = []
+            for name, column in zip(cols, data):
+                if numpy.iscomplexobj(column):
+                    columns.append(column.real)
+                    columns.append(column.imag)
+                    names.append(name + '.real')
+                    names.append(name + '.imag')
+                else:
+                    columns.append(column)
+                    names.append(name)
+
+            # write out column names first
+            ff.write(("# "+" ".join(names) + "\n").encode())
+            
             # write out the 1D data arrays
-            numpy.savetxt(ff, numpy.vstack(data).T, '%0.7g')
+            columns = numpy.vstack(columns).T
+            numpy.savetxt(ff, columns, '%0.7g')
 
             # write out the bin edges
             header = "# edges %d\n" %len(edges)
