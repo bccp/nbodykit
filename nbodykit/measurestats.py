@@ -160,9 +160,9 @@ def compute_3d_power(fields, pm, transfer=[], painter=paint, comm=None, log_leve
     # reuse the memory in c1.real for the 3d power spectrum
     p3d = c1
     
-    # calculate the 3d power spectrum, row by row to save memory
-    for row in range(len(c1)):
-        p3d[row, ...] = c1[row]*c2[row].conj()
+    # calculate the 3d power spectrum, islab by islab to save memory
+    for islab in range(len(c1)):
+        p3d[islab, ...] = c1[islab]*c2[islab].conj()
 
     # the complex field is dimensionless; power is L^3
     # ref to http://icc.dur.ac.uk/~tt/Lectures/UA/L4/cosmology.pdf
@@ -390,7 +390,7 @@ def project_to_basis(comm, x3d, y3d, edges, los='z', poles=[], symmetric=True):
         while if `y3d` is a correlation function, this should be `False`        
     """
     from scipy.special import legendre
-        
+
     # bin edges
     xedges, muedges = edges
     Nx = len(xedges) - 1 
@@ -400,6 +400,7 @@ def project_to_basis(comm, x3d, y3d, edges, los='z', poles=[], symmetric=True):
     # is just (x, mu) projection since legendre of ell=0 is 1
     do_poles = len(poles) > 0
     poles_ = [0]+sorted(poles) if 0 not in poles else sorted(poles)
+    legpoly = [legendre(l) for l in poles_]
     ell_idx = [poles_.index(l) for l in poles]
     Nell = len(poles_)
     
@@ -421,57 +422,62 @@ def project_to_basis(comm, x3d, y3d, edges, los='z', poles=[], symmetric=True):
     # need to count all modes with positive z frequency twice due to r2c FFTs
     nonsingular = numpy.squeeze(x3d[2] > 0.) # has length of Nz now
 
-    for row in range(len(x3d[0])):
+    for islab in range(len(x3d[0])):
         
-        # now scratch stores x3d ** 2
-        scratch = numpy.float64(x3d[0][row] ** 2)
+        # now xslab stores x3d ** 2
+        xslab = numpy.float64(x3d[0][islab] ** 2)
         for xi in x3d[1:]:
-            scratch = scratch + xi[0] ** 2
+            xslab = xslab + xi[0] ** 2
 
-        if len(scratch.flat) == 0:
+        if len(xslab.flat) == 0:
             # no data
             continue
 
-        dig_x = numpy.digitize(scratch.flat, xedges2)
+        dig_x = numpy.digitize(xslab.flat, xedges2)
     
-        # make scratch just x
-        scratch **= 0.5
+        # make xslab just x
+        xslab **= 0.5
     
         # store mu (keeping track of positive/negative)
         with numpy.errstate(invalid='ignore'):
             if los_index == 0:
-                mu = x3d[los_index][row]/scratch
+                mu = x3d[los_index][islab]/xslab
             else:
-                mu = x3d[los_index][0]/scratch
+                mu = x3d[los_index][0]/xslab
         dig_mu = numpy.digitize(abs(mu).flat, muedges)
         
         # make the multi-index
         multi_index = numpy.ravel_multi_index([dig_x, dig_mu], (Nx+2,Nmu+2))
     
         # count modes not in singular plane twice
-        if symmetric: scratch[:, nonsingular] *= 2.
+        if symmetric: xslab[:, nonsingular] *= 2.
     
         # the x sum
-        xsum.flat += numpy.bincount(multi_index, weights=scratch.flat, minlength=xsum.size)
+        xsum.flat += numpy.bincount(multi_index, weights=xslab.flat, minlength=xsum.size)
     
-        # take the sum of weights
-        scratch[...] = 1.0 
-        if symmetric: scratch[:, nonsingular] = 2. # count modes not in singular plane twice
-        Nsum.flat += numpy.bincount(multi_index, weights=scratch.flat, minlength=Nsum.size)
+        # count number of modes
+        Nslab = numpy.ones_like(xslab)
+        if symmetric: Nslab[:, nonsingular] = 2. # count modes not in singular plane twice
+        Nsum.flat += numpy.bincount(multi_index, weights=Nslab.flat, minlength=Nsum.size)
 
-        # weight P(k,mu) and sum the weighted values
+        # weight P(k,mu) and sum for the poles
         for iell, ell in enumerate(poles_):
             
-            weighted_y3d = legendre(ell)(mu) * y3d[row]
+            weighted_y3d = legpoly[iell](mu) * y3d[islab]
 
             # add conjugate for this kx, ky, kz, corresponding to 
             # the (-kx, -ky, -kz) --> need to make mu negative for conjugate
-            # below is same as legendre(ell)(-mu[:,nonsingular]) * (y3d[row][:,nonsingular]).conj()
+            # Below is identical to the sum of
+            # Leg(ell)(+mu) * y3d[:, nonsingular]    (kx, ky, kz)
+            # Leg(ell)(-mu) * y3d[:, nonsingular].conj()  (-kx, -ky, -kz)
+            # or 
+            # weighted_y3d[:, nonsingular] += (-1)**ell * weighted_y3d[:, nonsingular].conj()
+            # but numerically more accurate.
             if symmetric:
-                if ell % 2:
+                if ell % 2: # odd, real part cancels
                     weighted_y3d.real[:, nonsingular] = 0.
                     weighted_y3d.imag[:, nonsingular] *= 2.
-                else:
+                else:  # even, imag part cancels
                     weighted_y3d.real[:, nonsingular] *= 2.
                     weighted_y3d.imag[:, nonsingular] = 0.
                     
