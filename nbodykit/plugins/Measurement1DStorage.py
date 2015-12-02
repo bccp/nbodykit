@@ -37,11 +37,7 @@ class Measurement1DStorage(MeasurementStorage):
             
         data = list(data)
         with self.open() as ff:
-            
-            # write out column names first
-            if cols is not None:
-                ff.write(("# "+" ".join(cols) + "\n").encode())
-            
+                        
             # split any complex fields into separate columns
             for i in range(len(data)-1, -1, -1):
                 if numpy.iscomplexobj(data[i]):
@@ -51,6 +47,10 @@ class Measurement1DStorage(MeasurementStorage):
                     if cols is not None:
                         cols.insert(i+1, cols[i]+'_imag')
                         cols[i] = cols[i] + '_real'
+                        
+            # write out column names if we have any
+            if cols is not None:
+                ff.write(("# "+" ".join(cols) + "\n").encode())
                     
             # write out the 1D data arrays
             numpy.savetxt(ff, numpy.vstack(data).T, '%0.7g')
