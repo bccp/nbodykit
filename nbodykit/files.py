@@ -366,8 +366,10 @@ def ReadPower1DPlainText(filename):
     
     Notes
     -----
-    If `edges` is present in the file, they will be returned
-    as part of the metadata, with the key `edges`
+    *   If `edges` is present in the file, they will be returned
+        as part of the metadata, with the key `edges`
+    *   If the first line of the file specifies column names, 
+        they will be returned as part of the metadata
     
     Returns
     -------
@@ -388,6 +390,14 @@ def ReadPower1DPlainText(filename):
         
         currline = 0
         lines = ff.readlines()
+        
+        metadata['cols'] = None
+        if lines[0][0] == '#':
+            try:
+                metadata['cols'] = lines[0].split()
+            except:
+                pass
+        
         while True:
             
             # break if we are at the EOF
