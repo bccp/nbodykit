@@ -394,7 +394,7 @@ def ReadPower1DPlainText(filename):
         metadata['cols'] = None
         if lines[0][0] == '#':
             try:
-                metadata['cols'] = lines[0].split()
+                metadata['cols'] = lines[0][1:].split()
             except:
                 pass
         
