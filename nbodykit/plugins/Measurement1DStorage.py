@@ -32,6 +32,9 @@ class Measurement1DStorage(MeasurementStorage):
             Any additional metadata to write to file, specified as keyword 
             arguments
         """
+        if len(cols) != len(data):
+            raise ValueError("size mismatch between column names and data arrays")
+            
         data = list(data)
         with self.open() as ff:
             
@@ -42,7 +45,9 @@ class Measurement1DStorage(MeasurementStorage):
             for i in range(len(data)-1, -1, -1):
                 if numpy.iscomplexobj(data[i]):
                     data.insert(i+1, data[i].imag)
+                    cols.insert(i+1, cols[i]+'_imag')
                     data[i] = data[i].real
+                    cols[i] = cols[i] + '_real'
                     
             # write out the 1D data arrays
             numpy.savetxt(ff, numpy.vstack(data).T, '%0.7g')

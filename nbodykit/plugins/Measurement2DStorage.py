@@ -23,6 +23,9 @@ class Measurement2DStorage(MeasurementStorage):
         meta : dict
             any additional metadata to write out at the end of the file
         """
+        if len(cols) != len(data):
+            raise ValueError("size mismatch between column names and data arrays")
+            
         data = list(data)
         with self.open() as ff:
             
@@ -37,7 +40,9 @@ class Measurement2DStorage(MeasurementStorage):
             for i in range(len(data)-1, -1, -1):
                 if numpy.iscomplexobj(data[i]):
                     data.insert(i+1, data[i].imag)
+                    cols.insert(i+1, cols[i]+'_imag')
                     data[i] = data[i].real
+                    cols[i] = cols[i] + '_real'
             
             # write out flattened columns
             numpy.savetxt(ff, numpy.dstack(data).reshape((-1, len(cols))), '%0.7g')

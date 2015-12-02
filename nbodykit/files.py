@@ -295,7 +295,7 @@ class HaloFile(object):
 def ReadPower2DPlainText(filename):
     """
     Reads the plain text storage of a 2D power spectrum measurement,
-    as output by the `nbodykit.plugins.Power2DStorage` plugin
+    as output by the `nbodykit.plugins.Measurement2DStorage` plugin
     
     Returns
     -------
@@ -318,11 +318,19 @@ def ReadPower2DPlainText(filename):
         
         lines = ff.readlines()
         data = numpy.array([map(float, line.split()) for line in lines[:N]])
-        data = data.reshape((Nk, Nmu, -1))
+        data = data.reshape((Nk, Nmu, -1)) #reshape properly to (Nk, Nmu)
                         
-        # reshape properly to (Nk, Nmu)
-        for i, name in enumerate(columns):        
-            toret[name] = data[...,i]
+        # store as return dict, making complex arrays from real/imag parts
+        i = 0
+        while i < len(columns):
+            name = columns[i]
+            nextname = columns[i+1] if i < len(columns)-1 else None
+            if nextname and not name.endswith('_real') and nextname.endswith('_imag'):
+                toret[name] = data[...,i] + 1j*data[...,i+1]       
+                i += 2
+            else:
+                toret[name] = data[...,i]
+                i += 1
         
         # read the edges for k and mu bins
         edges = []
@@ -353,7 +361,7 @@ def ReadPower2DPlainText(filename):
 def ReadPower1DPlainText(filename):
     """
     Reads the plain text storage of a 1D power spectrum measurement,
-    as output by the `nbodykit.plugins.Power1DStorage` plugin.
+    as output by the `nbodykit.plugins.Measurement1DStorage` plugin.
     
     Notes
     -----
