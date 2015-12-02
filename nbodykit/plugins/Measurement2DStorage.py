@@ -32,10 +32,7 @@ class Measurement2DStorage(MeasurementStorage):
             # write number of mu and k bins first
             N1, N2 = data[0].shape
             ff.write(("%d %d\n" %(N1, N2)).encode())
-            
-            # write out column names
-            ff.write((" ".join(cols) + "\n").encode())
-            
+                        
             # split any complex fields into separate columns
             for i in range(len(data)-1, -1, -1):
                 if numpy.iscomplexobj(data[i]):
@@ -43,7 +40,10 @@ class Measurement2DStorage(MeasurementStorage):
                     cols.insert(i+1, cols[i]+'_imag')
                     data[i] = data[i].real
                     cols[i] = cols[i] + '_real'
-            
+                    
+            # write out column names
+            ff.write((" ".join(cols) + "\n").encode())
+
             # write out flattened columns
             numpy.savetxt(ff, numpy.dstack(data).reshape((-1, len(cols))), '%0.7g')
             
