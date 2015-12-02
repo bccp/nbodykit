@@ -23,7 +23,7 @@ class Measurement2DStorage(MeasurementStorage):
         meta : dict
             any additional metadata to write out at the end of the file
         """
-        # do the writing
+        data = list(data)
         with self.open() as ff:
             
             # write number of mu and k bins first
@@ -32,6 +32,12 @@ class Measurement2DStorage(MeasurementStorage):
             
             # write out column names
             ff.write((" ".join(cols) + "\n").encode())
+            
+            # split any complex fields into separate columns
+            for i in range(len(data)-1, -1, -1):
+                if numpy.iscomplexobj(data[i]):
+                    data.insert(i+1, data[i].imag)
+                    data[i] = data[i].real
             
             # write out flattened columns
             numpy.savetxt(ff, numpy.dstack(data).reshape((-1, len(cols))), '%0.7g')

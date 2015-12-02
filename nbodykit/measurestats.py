@@ -158,11 +158,11 @@ def compute_3d_power(fields, pm, transfer=[], painter=paint, comm=None, log_leve
         N2 = N1
 
     # reuse the memory in c1.real for the 3d power spectrum
-    p3d = c1.real
-
+    p3d = c1
+    
     # calculate the 3d power spectrum, row by row to save memory
     for row in range(len(c1)):
-        p3d[row, ...] = c1[row].real * c2[row].real + c1[row].imag * c2[row].imag
+        p3d[row, ...] = c1[row]*c2[row].conj()
 
     # the complex field is dimensionless; power is L^3
     # ref to http://icc.dur.ac.uk/~tt/Lectures/UA/L4/cosmology.pdf
@@ -387,12 +387,7 @@ def project_to_basis(comm, x3d, y3d, edges, los='z', poles=[], symmetric=True):
     symmetric : bool, optional
         If `True`, the `y3d` area is assumed to be symmetric about the `z = 0`
         plane. If `y3d` is a power spectrum, this should be set to `True`, 
-        while if `y3d` is a correlation function, this should be `False`
-        
-    Returns
-    -------
-    edges : list 
-        a list of [x_edges, ]
+        while if `y3d` is a correlation function, this should be `False`        
     """
     from scipy.special import legendre
         
@@ -417,15 +412,15 @@ def project_to_basis(comm, x3d, y3d, edges, los='z', poles=[], symmetric=True):
 
     musum = numpy.zeros((Nx+2, Nmu+2))
     xsum = numpy.zeros((Nx+2, Nmu+2))
-    ysum = numpy.zeros((Nell, Nx+2, Nmu+2)) # extra dimension for multipoles
+    ysum = numpy.zeros((Nell, Nx+2, Nmu+2), dtype=y3d.dtype) # extra dimension for multipoles
     Nsum = numpy.zeros((Nx+2, Nmu+2))
     
     # los index
     los_index = 'xyz'.index(los)
     
-    # count everything but z = 0 plane twice (r2c transform stores 1/2 modes)
-    nonsingular = numpy.squeeze(x3d[2] != 0) # has length of Nz now
-    
+    # need to count all modes with positive z frequency twice due to r2c FFTs
+    nonsingular = numpy.squeeze(x3d[2] > 0.) # has length of Nz now
+
     for row in range(len(x3d[0])):
         
         # now scratch stores x3d ** 2
@@ -442,13 +437,13 @@ def project_to_basis(comm, x3d, y3d, edges, los='z', poles=[], symmetric=True):
         # make scratch just x
         scratch **= 0.5
     
-        # store mu
+        # store mu (keeping track of positive/negative)
         with numpy.errstate(invalid='ignore'):
             if los_index == 0:
-                mu = abs(x3d[los_index][row]/scratch)
+                mu = x3d[los_index][row]/scratch
             else:
-                mu = abs(x3d[los_index][0]/scratch)
-        dig_mu = numpy.digitize(mu.flat, muedges)
+                mu = x3d[los_index][0]/scratch
+        dig_mu = numpy.digitize(abs(mu).flat, muedges)
         
         # make the multi-index
         multi_index = numpy.ravel_multi_index([dig_x, dig_mu], (Nx+2,Nmu+2))
@@ -460,24 +455,34 @@ def project_to_basis(comm, x3d, y3d, edges, los='z', poles=[], symmetric=True):
         xsum.flat += numpy.bincount(multi_index, weights=scratch.flat, minlength=xsum.size)
     
         # take the sum of weights
-        scratch[...] = 1.0
-        # count modes not in singular plane twice
-        if symmetric: scratch[:, nonsingular] = 2.
+        scratch[...] = 1.0 
+        if symmetric: scratch[:, nonsingular] = 2. # count modes not in singular plane twice
         Nsum.flat += numpy.bincount(multi_index, weights=scratch.flat, minlength=Nsum.size)
 
-        scratch[...] = y3d[row]
-
-        # the singular plane is down weighted by 0.5
-        if symmetric: scratch[:, nonsingular] *= 2.
-        
         # weight P(k,mu) and sum the weighted values
         for iell, ell in enumerate(poles_):
-            weighted_y3d = scratch * (2*ell + 1.) * legendre(ell)(mu)
-            ysum[iell,...].flat += numpy.bincount(multi_index, weights=weighted_y3d.flat, minlength=Nsum.size)
+            
+            weighted_y3d = legendre(ell)(mu) * y3d[row]
+
+            # add conjugate for this kx, ky, kz, corresponding to 
+            # the (-kx, -ky, -kz) --> need to make mu negative for conjugate
+            # below is same as legendre(ell)(-mu[:,nonsingular]) * (y3d[row][:,nonsingular]).conj()
+            if symmetric:
+                if ell % 2:
+                    weighted_y3d.real[:, nonsingular] = 0.
+                    weighted_y3d.imag[:, nonsingular] *= 2.
+                else:
+                    weighted_y3d.real[:, nonsingular] *= 2.
+                    weighted_y3d.imag[:, nonsingular] = 0.
+                    
+            weighted_y3d *= 0.5*(2*ell + 1.)
+            ysum[iell,...].real.flat += numpy.bincount(multi_index, weights=weighted_y3d.real.flat, minlength=Nsum.size)
+            if numpy.iscomplexobj(ysum):
+                ysum[iell,...].imag.flat += numpy.bincount(multi_index, weights=weighted_y3d.imag.flat, minlength=Nsum.size)
         
         # the mu sum
         if symmetric: mu[:, nonsingular] *= 2.
-        musum.flat += numpy.bincount(multi_index, weights=mu.flat, minlength=musum.size)
+        musum.flat += numpy.bincount(multi_index, weights=abs(mu).flat, minlength=musum.size)
 
     xsum  = comm.allreduce(xsum, MPI.SUM)
     musum = comm.allreduce(musum, MPI.SUM)
