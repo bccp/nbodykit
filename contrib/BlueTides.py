@@ -16,8 +16,8 @@ class BlueTidesDataSource(DataSource):
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
         h.add_argument("-ptype", type=int,
             choices=[0, 1, 2, 3, 4, 5], help="type of particle to read")
-        h.add_argument("-HI", action='store_true', default=False, 
-        help='Measure HI, ptype must be 0')
+        h.add_argument("-weight", choices=['SFR', 'HI'], default=None, 
+            help='Weight by sfr or HI, must be with ptype=0')
         h.add_argument("-subsample", action='store_true',
                 default=False, help="this is a subsample file")
         h.add_argument("-bunchsize", type=int, default=4 *1024*1024,
@@ -33,8 +33,10 @@ class BlueTidesDataSource(DataSource):
         for column in columns:
             if column == 'Weight':
                 readcolumns.append('Mass')
-                if self.HI:
+                if self.weight == 'HI':
                     readcolumns.append('NeutralHydrogenFraction')
+                if self.weight == 'SFR':
+                    readcolumns.append('StarFormationRate')
             else:
                 readcolumns.append(column)
 
@@ -43,8 +45,10 @@ class BlueTidesDataSource(DataSource):
                 P = dict(zip(readcolumns, data))
                 if 'Weight' in columns:
                     P['Weight'] = P['Mass']
-                    if self.HI:
+                    if self.weight == 'HI':
                         P['Weight'] *= P['NeutralHydrogenFraction']
+                    if self.weight == 'SFR':
+                        P['Weight'] *= P['StarFormationRate']
 
                 if 'Position' in columns:
                     P['Position'][:] *= self.BoxSize / boxsize
