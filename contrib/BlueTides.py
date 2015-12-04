@@ -16,37 +16,74 @@ class BlueTidesDataSource(DataSource):
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
         h.add_argument("-ptype", type=int,
             choices=[0, 1, 2, 3, 4, 5], help="type of particle to read")
-        h.add_argument("-subsample", type=bool, help="this is a subsample file")
+        h.add_argument("-HI", action='store_true', default=False, 
+        help='Measure HI, ptype must be 0')
+        h.add_argument("-subsample", action='store_true',
+                default=False, help="this is a subsample file")
+        h.add_argument("-bunchsize", type=int, default=4 *1024*1024,
+                help="number of particle to read in a bunch")
     
     def read(self, columns, comm, full=False):
-        
-        ptypes = [self.ptype]
-        for ptype in ptypes:
-            for data in self.read_ptype(ptype, columns, comm, full):
-                yield data
-
-    def read_ptype(self, ptype, columns, comm, full):
-        ret = []
         f = bigfile.BigFile(self.path)
         header = f['header']
         boxsize = header.attrs['BoxSize'][0]
 
+        ptypes = [self.ptype]
+        readcolumns = []
         for column in columns:
-            f = bigfile.BigFile(self.path)
-            read_column = column
-            if column == 'Weight': read_column = 'Mass'
-            if self.subsample:
-                if ptype in (0, 1):
-                    read_column = read_column + '.sample'
-            cdata = f['%d/%s' % (self.ptype, read_column)]
+            if column == 'Weight':
+                readcolumns.append('Mass')
+                if self.HI:
+                    readcolumns.append('NeutralHydrogenFraction')
+            else:
+                readcolumns.append(column)
 
-            Ntot = cdata.size
-            start = comm.rank * Ntot // comm.size
-            end = (comm.rank + 1) * Ntot //comm.size
-            data = cdata[start:end]
-            ret.append(data)
-            if column == 'Position':
-                data *= self.BoxSize / boxsize
-            if column == 'Velocity':
-                raise NotImplementedError
-        yield ret
+        for ptype in ptypes:
+            for data in self.read_ptype(ptype, readcolumns, comm, full):
+                P = dict(zip(readcolumns, data))
+                if 'Weight' in columns:
+                    P['Weight'] = P['Mass']
+                    if self.HI:
+                        P['Weight'] *= P['NeutralHydrogenFraction']
+
+                if 'Position' in columns:
+                    P['Position'][:] *= self.BoxSize / boxsize
+                    P['Position'][:] %= self.BoxSize
+
+                if 'Velocity' in columns:
+                    raise NotImplementedError
+
+                yield [P[column] for column in columns]
+
+    def read_ptype(self, ptype, columns, comm, full):
+        f = bigfile.BigFile(self.path)
+        done = False
+        i = 0
+        while not numpy.all(comm.allgather(done)):
+            ret = []
+            for column in columns:
+                f = bigfile.BigFile(self.path)
+                read_column = column
+                if self.subsample:
+                    if ptype in (0, 1):
+                        read_column = read_column + '.sample'
+
+                cdata = f['%d/%s' % (self.ptype, read_column)]
+
+                Ntot = cdata.size
+                start = comm.rank * Ntot // comm.size
+                end = (comm.rank + 1) * Ntot //comm.size
+                if not full:
+                    bunchstart = start + i * self.bunchsize
+                    bunchend = start + (i + 1) * self.bunchsize
+                    if bunchend > end: bunchend = end
+                    if bunchstart > end: bunchstart = end
+                else:
+                    bunchstart = start
+                    bunchend = end
+                if bunchend == end:
+                    done = True
+                data = cdata[bunchstart:bunchend]
+                ret.append(data)
+            i = i + 1
+            yield ret
