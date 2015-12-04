@@ -205,14 +205,7 @@ its dependencies by cloning the default anaconda environment:
 .. code::
     
     conda create -n myenv --clone root
-
-To install ``nbodykit`` and its dependencies into 'myenv', use:
-
-.. code::
-    
     source activate myenv
-    MPICC=cc pip install -r requirements.txt
-    pip install -e .
 
 To speed up calculations with the fast python-mpi launcher in
 /project/projectdirs/m779/python-mpi, 
@@ -224,11 +217,18 @@ we can tar the anaconda environment via
             /project/projectdirs/{your directory on project}/myenv.tar.gz \
             /project/projectdirs/{your directory on project}/envs/myenv
 
-And also tar the nbodykit source code with
+To install ``nbodykit`` and its dependencies into 'myenv', use:
+
+.. code::
+    
+    MPICC=cc pip install -r requirements.txt
+    pip install -e .
+
+And also tar nbodykit with its requirements for compute-nodes
 
 .. code:: bash
 
-    bash /project/projectdirs/m779/python-mpi/tar-pip.sh nbodykit.tar.gz .
+    bash /project/projectdirs/m779/python-mpi/tar-pip.sh nbodykit.tar.gz -r requirements.txt .
 
 And example job script on Cori is
 
