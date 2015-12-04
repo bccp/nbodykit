@@ -1,4 +1,5 @@
 from nbodykit.extensionpoints import DataSource
+from nbodykit.utils import selectionlanguage
 import numpy
 import logging
 import bigfile
@@ -14,14 +15,16 @@ class BlueTidesDataSource(DataSource):
         h.add_argument("path", help="path to file")
         h.add_argument("BoxSize", type=kls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
-        h.add_argument("-ptype", type=int,
-            choices=[0, 1, 2, 3, 4, 5], help="type of particle to read")
+        h.add_argument("-ptype",
+            choices=["0", "1", "2", "3", "4", "5", "FOFGroups"], help="type of particle to read")
         h.add_argument("-weight", choices=['SFR', 'HI'], default=None, 
             help='Weight by sfr or HI, must be with ptype=0')
         h.add_argument("-subsample", action='store_true',
                 default=False, help="this is a subsample file")
         h.add_argument("-bunchsize", type=int, default=4 *1024*1024,
                 help="number of particle to read in a bunch")
+        h.add_argument("-select", default=None, type=selectionlanguage.Query,
+            help='row selection e.g. Mass > 1e3 and Mass < 1e5')
     
     def read(self, columns, comm, full=False):
         f = bigfile.BigFile(self.path)
@@ -44,11 +47,14 @@ class BlueTidesDataSource(DataSource):
             for data in self.read_ptype(ptype, readcolumns, comm, full):
                 P = dict(zip(readcolumns, data))
                 if 'Weight' in columns:
-                    P['Weight'] = P['Mass']
-                    if self.weight == 'HI':
-                        P['Weight'] *= P['NeutralHydrogenFraction']
-                    if self.weight == 'SFR':
-                        P['Weight'] *= P['StarFormationRate']
+                    if ptype != 'FOFGroups':
+                        P['Weight'] = P['Mass']
+                        if self.weight == 'HI':
+                            P['Weight'] *= P['NeutralHydrogenFraction']
+                        if self.weight == 'SFR':
+                            P['Weight'] *= P['StarFormationRate']
+                    else:
+                       P['Weight'] = numpy.ones(len(P['Mass']))
 
                 if 'Position' in columns:
                     P['Position'][:] *= self.BoxSize / boxsize
@@ -57,7 +63,10 @@ class BlueTidesDataSource(DataSource):
                 if 'Velocity' in columns:
                     raise NotImplementedError
 
-                yield [P[column] for column in columns]
+                if self.select is not None:
+                    mask = self.select.get_mask(P)
+
+                yield [P[column][mask] for column in columns]
 
     def read_ptype(self, ptype, columns, comm, full):
         f = bigfile.BigFile(self.path)
@@ -72,7 +81,13 @@ class BlueTidesDataSource(DataSource):
                     if ptype in (0, 1):
                         read_column = read_column + '.sample'
 
-                cdata = f['%d/%s' % (self.ptype, read_column)]
+                if ptype == 'FOFGroups':
+                    if column == 'Position':
+                        read_column = 'MassCenterPosition'
+                    if column == 'Velocity':
+                        read_column = 'MassCenterVelocity'
+
+                cdata = f['%s/%s' % (self.ptype, read_column)]
 
                 Ntot = cdata.size
                 start = comm.rank * Ntot // comm.size
@@ -91,3 +106,4 @@ class BlueTidesDataSource(DataSource):
                 ret.append(data)
             i = i + 1
             yield ret
+
