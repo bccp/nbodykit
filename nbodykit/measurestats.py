@@ -31,9 +31,11 @@ def paint(field, pm):
 
     pm.real[:] = 0
     Ntot = 0
+    Wsum = 0
 
     if pm.comm.rank == 0: 
         logger.info("BoxSize = %s", str(field.BoxSize))
+
     for position, weight in field.read(['Position', 'Weight'], pm.comm, full=False):
         min = numpy.min(
             pm.comm.allgather(
@@ -47,21 +49,26 @@ def paint(field, pm):
                     if len(position) == 0 else 
                     position.max(axis=0)),
             axis=0)
-        if pm.comm.rank == 0:
-            logger.info("Range of position %s:%s" % (str(min), str(max)))
-
         layout = pm.decompose(position)
+
         # Ntot shall be calculated before exchange. Issue #55.
+        Ntot += len(position)
         if weight is None:
-            Ntot += len(position)
+            Wsum += len(position)
             weight = 1
         else:
-            Ntot += weight.sum()
+            Wsum += weight.sum()
             weight = layout.exchange(weight)
+
         position = layout.exchange(position)
 
+        gNtot = pm.comm.allreduce(Ntot)
+        if pm.comm.rank == 0:
+            logger.info("Range of position %s:%s Nread = %d" % (str(min),
+                str(max), gNtot))
+
         pm.paint(position, weight)
-    return pm.comm.allreduce(Ntot)
+    return pm.comm.allreduce(Wsum)
 
 
 def compute_3d_power(fields, pm, transfer=[], painter=paint, comm=None, log_level=logging.DEBUG):
