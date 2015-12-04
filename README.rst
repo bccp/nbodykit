@@ -115,7 +115,7 @@ the external dependencies occassionally via the ``-U`` option of ``pip install``
     # It may take a while to build fftw and pfft.
     # Mac and Edison are special, see notes below
 
-    pip install -U -r requirements.txt -e .
+    pip install -U -r requirements.txt
 
 
 Now we shall be able to use nbodykit, in a interactive python session 
@@ -129,8 +129,8 @@ Now we shall be able to use nbodykit, in a interactive python session
     import kdcount
     print(kdcount)
 
-    import pypm
-    print(pypm)
+    import pmesh
+    print(pmesh)
 
 Or run the scripts in the bin directory:
 
@@ -190,7 +190,16 @@ then load python
 
     module load python/2.7-anaconda
 
-You can create a new anaconda environment to install ``nbodykit`` and 
+Not absolutely necessary, but it is wise to set up the conda environment in a faster file system.
+Modify .condarc to add a line like this
+
+.. code::
+
+    changeps1: false
+    envs_dirs :
+        - /project/projectdirs/{your directory on project}/envs
+
+Then, you can create a new anaconda environment to install ``nbodykit`` and 
 its dependencies by cloning the default anaconda environment:
 
 .. code::
@@ -202,11 +211,48 @@ To install ``nbodykit`` and its dependencies into 'myenv', use:
 .. code::
     
     source activate myenv
-    MPICC=cc pip install -r requirements.txt -e .
+    MPICC=cc pip install -r requirements.txt
+    pip install -e .
 
-To speed up calculations, we can tar the anaconda environment via
+To speed up calculations with the fast python-mpi launcher in
+/project/projectdirs/m779/python-mpi, 
+we can tar the anaconda environment via
 
 .. code:: bash
 
-    bash /project/projectdirs/m779/python-mpi/tar-anaconda.sh anaconda.tar.gz /path/to/myenv
+    bash /project/projectdirs/m779/python-mpi/tar-anaconda.sh 
+            /project/projectdirs/{your directory on project}/myenv.tar.gz \
+            /project/projectdirs/{your directory on project}/envs/myenv
+
+And also tar the nbodykit source code with
+
+.. code:: bash
+
+    bash /project/projectdirs/m779/python-mpi/tar-pip.sh nbodykit.tar.gz .
+
+And example job script on Cori is
+
+.. code:: bash
+
+    #! /bin/bash
+    #SBATCH -o 40steps-pm-79678.powermh.%j
+    #SBATCH -N 16
+    #SBATCH -p debug
+    #SBATCH -t 00:30:00
+    #SBATCH -J 40steps-pm-79678.powermh
+
+    set -x
+
+    export OMP_NUM_THREADS=1
+    export ATP_ENABLED=0
+    source /project/projectdirs/m779/python-mpi/activate.sh /dev/shm/local "srun -n 512"
+
+    bcast -v {your projectdir}/myenv.tar.gz
+    bcast -v nbodykit.tar.gz
+
+    srun -n 512 python-mpi \
+    {your nbodykit dir}/bin/power.py \
+    2d 2048 power2d_40steps-pm_mh14.00_1.0000.txt \
+    TPMSnapshot:$SCRATCH/crosshalo/40steps-pm/snp00100_1.0000.bin:1380:-rsd=z \
+    FOFGroups:fof00100_0.200_1.0000.hdf5:1380:2.4791e10:"-select=Rank < 79678":-rsd=z
 
