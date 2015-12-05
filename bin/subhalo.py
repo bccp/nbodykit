@@ -5,12 +5,11 @@ from sys import stdout
 from sys import stderr
 import logging
 
-from nbodykit.utils.pluginargparse import PluginArgumentParser
-from nbodykit import plugins
+from nbodykit.plugins import ArgumentParser
+from nbodykit.extensionpoints import DataSource
 import h5py
 
-parser = PluginArgumentParser(None,
-        loader=plugins.load,
+parser = ArgumentParser(None,
         description=
      """ 
         Finding subhalos from FOF groups. This is a variant of FOF6D.
@@ -21,7 +20,7 @@ parser = PluginArgumentParser(None,
      """
         )
 
-parser.add_argument("datasource", type=plugins.DataSource.open,
+parser.add_argument("datasource", type=DataSource.open,
         help='Data source')
 parser.add_argument("halolabel", 
         help='basename of the halo label files, only nbodykit format is supported in this script')

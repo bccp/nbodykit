@@ -10,12 +10,14 @@ logging.basicConfig(level=logging.DEBUG,
                     datefmt='%m-%d %H:%M')
 logger = logging.getLogger('corr.py')
               
-from nbodykit import plugins, measurestats
-from nbodykit.utils.pluginargparse import PluginArgumentParser
+from nbodykit import measurestats
+from nbodykit.plugins import ArgumentParser
+from nbodykit.extensionpoints import DataSource
+from nbodykit.extensionpoints import MeasurementStorage
 
 def initialize_parser(**kwargs):
-    parser = PluginArgumentParser("Brutal Correlation Function Calculator",
-                                    loader=plugins.load, **kwargs)
+    parser = ArgumentParser("Brutal Correlation Function Calculator",
+                                    **kwargs)
 
     # add the positional arguments
     parser.add_argument("mode", choices=["1d", "2d"]) 
@@ -26,8 +28,8 @@ def initialize_parser(**kwargs):
 
     # add the input field types
     h = "one or two input fields, specified as:\n\n"
-    parser.add_argument("inputs", nargs="+", type=plugins.DataSource.open, 
-                        help=h+plugins.DataSource.format_help())
+    parser.add_argument("inputs", nargs="+", type=DataSource.open, 
+                        help=h+DataSource.format_help())
 
     # add the optional arguments
     parser.add_argument("--subsample", type=int, default=1,
@@ -62,7 +64,7 @@ def compute_brutal_corr(ns, comm=None):
 
     # output
     if comm.rank == 0:
-        storage = plugins.MeasurementStorage.new(ns.mode, ns.output)
+        storage = MeasurementStorage.new(ns.mode, ns.output)
         
         if ns.mode == '1d':
             if len(ns.poles):

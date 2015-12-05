@@ -1,4 +1,4 @@
-from nbodykit.plugins import DataSource
+from nbodykit.extensionpoints import DataSource
 from nbodykit import files
 from itertools import izip
 import numpy
