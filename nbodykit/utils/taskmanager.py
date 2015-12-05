@@ -84,10 +84,10 @@ class TaskManager(object):
         a dictionary. The keys are interpreted as the string format name, 
         and the values are a list of values to iterate over for each job
         """
-        if not os.path.exists(s):
-            raise RuntimeError("for `replacements_from_file`, file `%s` does not exist" %s)
+        if not os.path.exists(value):
+            raise RuntimeError("for `replacements_from_file`, file `%s` does not exist" %value)
         toret = {}
-        execfile(s, globals(), toret)
+        execfile(value, globals(), toret)
         return toret
         
     @staticmethod

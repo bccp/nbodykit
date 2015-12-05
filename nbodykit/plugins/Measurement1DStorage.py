@@ -53,7 +53,7 @@ class Measurement1DStorage(MeasurementStorage):
 
             # write out column names first
             ff.write(("# "+" ".join(names) + "\n").encode())
-            
+                     
             # write out the 1D data arrays
             columns = numpy.vstack(columns).T
             numpy.savetxt(ff, columns, '%0.7g')

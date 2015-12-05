@@ -488,7 +488,7 @@ def project_to_basis(comm, x3d, y3d, edges, los='z', poles=[], symmetric=True):
                     weighted_y3d.real[:, nonsingular] *= 2.
                     weighted_y3d.imag[:, nonsingular] = 0.
                     
-            weighted_y3d *= 0.5*(2*ell + 1.)
+            weighted_y3d *= (2.*ell + 1.)
             ysum[iell,...].real.flat += numpy.bincount(multi_index, weights=weighted_y3d.real.flat, minlength=Nsum.size)
             if numpy.iscomplexobj(ysum):
                 ysum[iell,...].imag.flat += numpy.bincount(multi_index, weights=weighted_y3d.imag.flat, minlength=Nsum.size)
