@@ -65,7 +65,8 @@ class BlueTidesDataSource(DataSource):
 
                 if self.select is not None:
                     mask = self.select.get_mask(P)
-
+                else:
+                    mask = Ellipsis
                 yield [P[column][mask] for column in columns]
 
     def read_ptype(self, ptype, columns, comm, full):
@@ -78,7 +79,7 @@ class BlueTidesDataSource(DataSource):
                 f = bigfile.BigFile(self.path)
                 read_column = column
                 if self.subsample:
-                    if ptype in (0, 1):
+                    if ptype in ("0", "1"):
                         read_column = read_column + '.sample'
 
                 if ptype == 'FOFGroups':
