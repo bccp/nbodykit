@@ -48,6 +48,9 @@ def add_metaclass(metaclass):
 
 
 import numpy
+from nbodykit.plugins import HelpFormatterColon
+from argparse import ArgumentParser
+
 @add_metaclass(PluginMount)
 class DataSource:
     """
@@ -158,8 +161,6 @@ class DataSource:
 
     @classmethod
     def add_parser(kls):
-        from ..utils.pluginargparse import HelpFormatterColon
-        from argparse import ArgumentParser
         kls.parser = ArgumentParser(kls.field_type, 
                 usage=None, add_help=False, formatter_class=HelpFormatterColon)
         return kls.parser
