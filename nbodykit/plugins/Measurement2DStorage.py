@@ -50,7 +50,7 @@ class Measurement2DStorage(MeasurementStorage):
             ff.write((" ".join(names) + "\n").encode())
             
             # write out flattened columns
-            columns = numpy.dstack(columns).reshape(-1, len(cols))
+            columns = numpy.dstack(columns).reshape(-1, len(columns))
             numpy.savetxt(ff, columns, '%0.7g')
             
             # write out edges                
