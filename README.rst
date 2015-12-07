@@ -84,20 +84,26 @@ Optional Dependencies
 Build
 -----
 
-The software is designed to be installed with the ``pip`` utility. The recommended setup is to install 
-the software in 'developer mode' via the ``-e`` option of ``pip``. To install the main ``nbodykit`` package 
-in 'developer mode', as well as the external dependencies listed above, into the default python installation 
-directory use:
+The software is designed to be installed with the ``pip`` utility. 
+*Using nbodykit from the source tree is not supported.* See 'Development mode' for
+details.
+
+Installing the main ``nbodykit`` package, as well as the external dependencies 
+listed above, into the default python installation directory use:
 
 .. code:: sh
    
     git clone http://github.com/bccp/nbodykit
     cd nbodykit
 
-    pip install -r requirements.txt -e .
+    # It may take a while to build fftw and pfft.
+    # Mac and Edison are special, see notes below
+
+    pip install -r requirements.txt
+    pip install -U --force --no-deps .
 
 A different installation directory can be specified via the ``--user`` or ``--root <dir>`` 
-options of the ``pip install`` command.
+options of the ``pip install`` command. 
 
 The pure-python ``nbodykit`` package (without external dependencies) can be installed by 
 omitting the ``-r requirements.txt`` option, with such an installation only requiring ``numpy``. 
@@ -108,15 +114,14 @@ Please note that there are slight changes to the above procedure on Mac and Edis
 as explictly noted below.
 
 The dependencies of nbodykit are not fully stable, thus we recommend updating
-the external dependencies occassionally via the ``-U`` option of ``pip install``:
+the external dependencies occassionally via the ``-U`` option of ``pip install``. Since nbodykit is
+not yet stable enough for versioned releases, ``--force`` ensures the current sourced version is 
+installed:
 
 .. code:: sh
 
-    # It may take a while to build fftw and pfft.
-    # Mac and Edison are special, see notes below
-
     pip install -U -r requirements.txt
-
+    pip install -U --force --no-deps .
 
 Now we shall be able to use nbodykit, in a interactive python session 
 (please remember to jump to bin/ directory to avoid weird issues about importing in-tree)
@@ -140,6 +145,27 @@ Or run the scripts in the bin directory:
     mpirun -n 4 python-mpi fof.py -h
 
 
+Development Mode
+++++++++++++++++
+
+nbodykit can be installed with the development mode (``-e``) of pip
+
+.. code::
+
+    pip install -r requirements.txt -e .
+
+In addition to the dependency packages, the 'development' installation
+of nbodykit may require a forced update from time to time:
+
+.. code::
+
+    pip install -U --force --no-deps -e .
+
+It is sometimes required to manually remove the ``nbodykit`` directory in 
+``site-packages``, if the above command does not appear to update the installation
+as expected.
+
+
 Special instructions for Mac and Edison
 ---------------------------------------
 
@@ -156,7 +182,7 @@ On Mac, the `LDSHARED` environment variable must be explicitly set. In bash, the
 
 .. code::
 
-    export LDSHARED="mpicc -bundle -undefined dynamic_lookup -DOMPI_IMPORTS"; pip install -r requirements.txt -e .
+    export LDSHARED="mpicc -bundle -undefined dynamic_lookup -DOMPI_IMPORTS"; pip install -r requirements.txt .
     
 On recent versions of MacPorts, we also need to tell mpicc to use gcc rather than the default clang
 compiler, which doesn't compile fftw correctly due to lack of openmp support.
@@ -222,7 +248,7 @@ To install ``nbodykit`` and its dependencies into 'myenv', use:
 .. code::
     
     MPICC=cc pip install -r requirements.txt
-    pip install -e .
+    pip install -U --force --no-deps .
 
 And also tar nbodykit with its requirements for compute-nodes
 
