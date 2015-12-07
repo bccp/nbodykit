@@ -12,6 +12,7 @@ env:
 cache:
     directories:
         - $HOME/.cache/pip
+        - $HOME/.conda
         - $TRAVIS_BUILD_DIR/examples/data
 
 before_install:
