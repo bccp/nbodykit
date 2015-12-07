@@ -34,10 +34,10 @@ Top Level Executables
 The following tools are provide as top level executable scripts. 
 
 - ``bin/power.py`` is a power spectrum calculator, which also calculates 
-    correlation functions via a Fast Fourier Transform.
+  correlation functions via a Fast Fourier Transform.
 
 - ``bin/corr.py`` is a point-point pair-counting based 
-    correlation function calculator.
+  correlation function calculator.
 
 - ``bin/fof.py`` is a friend of friend feature (halo) identifier.
 
