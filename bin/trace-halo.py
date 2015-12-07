@@ -3,12 +3,11 @@ from sys import stdout
 from sys import stderr
 import logging
 
-from nbodykit.utils.pluginargparse import PluginArgumentParser
-from nbodykit import plugins
+from nbodykit.plugins import ArgumentParser
+from nbodykit.extensionpoints import DataSource
 import h5py
 
-parser = PluginArgumentParser(None,
-        loader=plugins.load,
+parser = ArgumentParser(None,
         description=
      """This script trace particles in halo at datasource_tf by ID
         find their positions datasource_ti, then compute FOF group
@@ -20,10 +19,10 @@ parser = PluginArgumentParser(None,
      """
         )
 
-parser.add_argument("datasource_ti", type=plugins.DataSource.open,
-        help=plugins.DataSource.format_help())
-parser.add_argument("datasource_tf", type=plugins.DataSource.open,
-        help=plugins.DataSource.format_help())
+parser.add_argument("datasource_ti", type=DataSource.open,
+        help=DataSource.format_help())
+parser.add_argument("datasource_tf", type=DataSource.open,
+        help=DataSource.format_help())
 parser.add_argument("halolabel", 
         help='basename of the halo label files, only nbodykit format is supported in this script')
 parser.add_argument("output", help='write output to this file (hdf5 is appended)')

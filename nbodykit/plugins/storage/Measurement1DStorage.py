@@ -1,4 +1,4 @@
-from nbodykit.plugins import MeasurementStorage
+from nbodykit.extensionpoints import MeasurementStorage
 import numpy
 
 class Measurement1DStorage(MeasurementStorage):

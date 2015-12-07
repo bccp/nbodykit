@@ -1,6 +1,6 @@
 import pandas as pd
 
-from nbodykit.plugins import DataSource
+from nbodykit.extensionpoints import DataSource
 import numpy
 import logging
          

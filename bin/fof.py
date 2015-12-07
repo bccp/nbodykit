@@ -5,13 +5,12 @@ from sys import stdout
 from sys import stderr
 import logging
 
-from nbodykit.utils.pluginargparse import PluginArgumentParser
-from nbodykit import plugins
+from nbodykit.plugins import ArgumentParser
+from nbodykit.extensionpoints import DataSource
 import numpy
 import h5py
 
-parser = PluginArgumentParser(None,
-        loader=plugins.load,
+parser = ArgumentParser(None,
         description=
         """
         Find friend of friend groups from a Nbody simulation snapshot
@@ -23,8 +22,8 @@ parser = PluginArgumentParser(None,
         )
 
 h = "Data source to read particle position:\n\n"
-parser.add_argument("datasource", type=plugins.DataSource.open,
-        help=h + plugins.DataSource.format_help())
+parser.add_argument("datasource", type=DataSource.open,
+        help=h + DataSource.format_help())
 parser.add_argument("LinkingLength", type=float, 
         help='LinkingLength in mean separation (0.2)')
 parser.add_argument("output", help='output file; output.grp.N and output.halo are written')

@@ -10,8 +10,10 @@ logging.basicConfig(level=logging.DEBUG,
                     datefmt='%m-%d %H:%M')
 logger = logging.getLogger('power.py')
               
-from nbodykit import plugins, measurestats
-from nbodykit.utils.pluginargparse import PluginArgumentParser
+from nbodykit import measurestats
+from nbodykit.extensionpoints import DataSource
+from nbodykit.extensionpoints import MeasurementStorage
+from nbodykit.plugins import ArgumentParser
 from pmesh.particlemesh import ParticleMesh
 from pmesh.transfer import TransferFunction
 
@@ -28,10 +30,9 @@ def initialize_parser(**kwargs):
     Parameters
     ----------
     kwargs : 
-        keyword arguments to pass to the `PluginArgumentParser` class
+        keyword arguments to pass to the `ArgumentParser` class
     """
-    parser = PluginArgumentParser("Parallel Power Spectrum Calculator",
-            loader=plugins.load,
+    parser = ArgumentParser("Parallel Power Spectrum Calculator",
             description=
          """Calculating matter power spectrum from RunPB input files. 
             Output is written to stdout, in Mpc/h units. 
@@ -54,8 +55,8 @@ def initialize_parser(**kwargs):
 
     # add the input field types
     h = "one or two input fields, specified as:\n\n"
-    parser.add_argument("inputs", nargs="+", type=plugins.DataSource.open, 
-                        help=h+plugins.DataSource.format_help())
+    parser.add_argument("inputs", nargs="+", type=DataSource.open, 
+                        help=h+DataSource.format_help())
 
     # add the optional arguments
     parser.add_argument("--los", choices="xyz", default='z',
@@ -192,7 +193,7 @@ def compute_power(ns, comm=None, transfer=None, painter=None):
         
         # write binned statistic
         logger.info('measurement done; saving result to %s' %ns.output)
-        storage = plugins.MeasurementStorage.new(ns.mode, ns.output)
+        storage = MeasurementStorage.new(ns.mode, ns.output)
         storage.write(edges, cols, result, **meta)
         
         # write multipoles
@@ -202,7 +203,7 @@ def compute_power(ns, comm=None, transfer=None, painter=None):
             
             # format is k pole_0, pole_1, ...., modes_1d
             logger.info('saving ell = %s multipoles to %s' %(",".join(map(str,ns.poles)), ns.pole_output))
-            storage = plugins.MeasurementStorage.new('1d', ns.pole_output)
+            storage = MeasurementStorage.new('1d', ns.pole_output)
             
             x, poles, N = pole_result
             cols = [x_str] + [y_str+'_%d' %l for l in ns.poles] + ['modes']
