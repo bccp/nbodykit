@@ -10,13 +10,12 @@ the development of nbodykit
 distinguishes itself from other similar software packages
 ([nbodyshop]_, [pynbody]_, [yt]_, [xi]_) by focusing on :
 
-- a *unified* treatment of simulation and observational data sets;
+- a **unified** treatment of simulation and observational data sets; 
+  insulating algorithms from data containers;
 
-- reducing wall-clock time by *scaling* to thousands of cores;
+- reducing wall-clock time by **scaling** to thousands of cores;
 
-- insulating *algorithms* from data *containers*;
-
-- *deployment* to super computing facilities;
+- **deployment** and availability on large super computing facilities.
 
 Build Status
 ------------
@@ -32,9 +31,7 @@ miniconda environment for Python 2.7 and Python 3.4.
 Top Level Executables
 ---------------------
 
-The tools are provide as top level executable scripts. 
-All tools are parallel, and run with Message Passing Interface (MPI).
-We can deal with very large simulations
+The following tools are provide as top level executable scripts. 
 
 - ``bin/power.py`` is a power spectrum calculator, which also calculates 
     correlation functions via a Fast Fourier Transform.
@@ -52,6 +49,8 @@ Run them with '-h' to see the inline help.
 
 Each takes a few 'datasource' strings that specify the format of the inputs; most are documented in '-h' as well.
 Additional datasource plugins can be added with '-X' commandline arguments. Some examples are in contrib/ directory.
+
+All tools are parallel, and run with Message Passing Interface (MPI).
 
 Examples
 --------
@@ -340,5 +339,9 @@ References
 .. [rocks-clusters] http://rocksclusters.org
 
 .. [xi] http://github.com/bareid/xi
+
+.. [edison] https://www.nersc.gov/users/computational-systems/edison/
+
+.. [cori] https://www.nersc.gov/users/computational-systems/cori/
 
 
