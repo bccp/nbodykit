@@ -1,6 +1,5 @@
 from setuptools import setup, find_packages
 from glob import glob
-print {'nbodykit': list(glob('nbodykit/plugins/*/*.py'))}
 setup(name="nbodykit", version="0.1pre",
       author="Yu Feng, Nick Hand, et al",
       maintainer="Yu Feng",
