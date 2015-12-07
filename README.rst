@@ -97,7 +97,7 @@ Using nbodykit from the source tree is not supported. See 'Development mode' for
 details.
 
 The steps listed here is intended for a commodity Linux based cluster 
-(e.g. a Rocks Cluster[rocksclusters]_) or a Linux based workstation / laptop.
+(e.g. a Rocks Cluster [rocksclusters]_) or a Linux based workstation / laptop.
 Please note that there are slight changes to the procedure on systems running
 a Mac OS X operating system and 
 Cray super-computers 
@@ -210,7 +210,7 @@ Edison/Cori Notes
 To use nbodykit on a Cray system (e.g. [Edison]_, [Cori]_), we need to ensure the python environment
 is set-up to working efficiently on the computing nodes.
 
-If darshan or altd are loaded by default, be sure to unload them since they tend to interfere
+If darshan [darshan]_ or altd are loaded by default, be sure to unload them since they tend to interfere
 with Python:
 
 .. code::
@@ -226,7 +226,7 @@ and preferentially, use GNU compilers from PrgEnv-gnu
     module unload PrgEnv-cray
     module load PrgEnv-gnu
 
-then load the Anaconda python distribution,
+then load the Anaconda [anaconda]_ python distribution,
 
 .. code::
 
@@ -272,7 +272,8 @@ dependency is updated.
 
 After these steps we can use nbodykit with a job script similar to the example below.
 Notice that there is no need to install nbodykit to the newly created python
-environment, as long as we deploy both bundles (myenv.tar.gz and nbodykit.tar.gz) in the job script.
+environment, the computing nodes will use the software in the bundle file ``nbodykit.tar.gz`` we created
+in step 4.
 
 .. code:: bash
 
@@ -336,7 +337,7 @@ References
 
 .. [bigfile] https://github.com/rainwoodman/bigfile
 
-.. [rocks-clusters] http://rocksclusters.org
+.. [rocksclusters] http://rocksclusters.org
 
 .. [xi] http://github.com/bareid/xi
 
@@ -344,4 +345,7 @@ References
 
 .. [cori] https://www.nersc.gov/users/computational-systems/cori/
 
+.. [darshan] http://www.mcs.anl.gov/research/projects/darshan/
+
+.. [anaconda] http://docs.continuum.io/anaconda/index
 
