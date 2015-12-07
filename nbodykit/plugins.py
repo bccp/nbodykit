@@ -1,11 +1,47 @@
-from argparse import ArgumentParser
+import os.path
+import glob
+
+references = {}
+
+def load(filename, namespace=None):
+    """ load a plugin from filename.
+        
+        Parameters
+        ----------
+        filename : string
+            path to the .py file
+        namespace : dict
+            global namespace, if None, an empty space will be created
+        
+        Returns
+        -------
+        namespace : dict
+            modified global namespace of the plugin script.
+    """
+    if os.path.isdir(filename):
+        l = glob.glob(os.path.join(filename, "*.py"))
+        for f in l:
+            load(f, namespace)
+        return
+    if namespace is None:
+        namespace = {}
+    namespace = dict(namespace)
+    try:
+        with open(filename) as f:
+            code = compile(f.read(), filename, 'exec')
+            exec(code, namespace)
+    except Exception as e:
+        raise RuntimeError("Failed to load plugin '%s': %s" % (filename, str(e)))
+    references[filename] = namespace
+
+from argparse import ArgumentParser as BaseArgumentParser
 from argparse import RawTextHelpFormatter
 
 import re
 import sys
 
     
-class PluginArgumentParser(ArgumentParser):
+class ArgumentParser(BaseArgumentParser):
     """ An argument parser that loads plugins before dropping to
         the second stage parsing.
         
@@ -16,29 +52,29 @@ class PluginArgumentParser(ArgumentParser):
             a function to load the plugin
 
     """
-    def __init__(self, name, loader, *largs, **kwargs):
+    def __init__(self, name, *largs, **kwargs):
         kwargs['formatter_class'] = RawTextHelpFormatter
         kwargs['fromfile_prefix_chars']="@"
         args = kwargs.pop('args', None)
             
-        preparser = ArgumentParser(add_help=False, 
+        preparser = BaseArgumentParser(add_help=False, 
                 fromfile_prefix_chars=kwargs['fromfile_prefix_chars'])
-        preparser.add_argument("-X", type=loader, action="append")
+        preparser.add_argument("-X", type=load, action="append")
         # Process the plugins
         preparser.exit = lambda a, b: None
 #        preparser.convert_arg_line_to_args = self.convert_arg_line_to_args
-        preparser._read_args_from_files = PluginArgumentParser._read_args_from_files.__get__(preparser)         
-        preparser._yield_args_from_files = PluginArgumentParser._yield_args_from_files.__get__(preparser)         
-        preparser.convert_args_file_to_args = PluginArgumentParser.convert_args_file_to_args.__get__(preparser)         
+        preparser._read_args_from_files = ArgumentParser._read_args_from_files.__get__(preparser)         
+        preparser._yield_args_from_files = ArgumentParser._yield_args_from_files.__get__(preparser)         
+        preparser.convert_args_file_to_args = ArgumentParser.convert_args_file_to_args.__get__(preparser)         
 
         self.ns, unknown = preparser.parse_known_args(args) 
 
-        ArgumentParser.__init__(self, name, *largs, **kwargs)
+        BaseArgumentParser.__init__(self, name, *largs, **kwargs)
 
         self.add_argument("-X", action='append', help='path of additional plugins to be loaded' )
  
     def parse_args(self, args=None):
-        return ArgumentParser.parse_args(self, args)
+        return BaseArgumentParser.parse_args(self, args)
 
     # override file reading option to treat each line as 
     # an argument and ignore comments. Can put option + value on same line

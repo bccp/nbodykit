@@ -12,6 +12,7 @@ env:
 cache:
     directories:
         - $HOME/.cache/pip
+        - $HOME/.conda
         - $TRAVIS_BUILD_DIR/examples/data
 
 before_install:
@@ -26,8 +27,8 @@ install:
     - source activate test
     - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py h5py pandas scipy pytables
     - if [ $TRAVIS_PYTHON_VERSION == 2.6 ]; then conda install --yes argparse; fi
-    - pip install pfft-python kdcount mpsort pmesh sharedmem --no-deps
-    - pip install -r requirements.txt .
+    - pip install --pre pfft-python kdcount mpsort pmesh sharedmem --no-deps
+    - pip install --pre -r requirements.txt .
     - if ! [ -f examples/data/snp00100_1.0000.bin.00 ]; then (cd examples; bash get-data.sh); fi
 
 script:

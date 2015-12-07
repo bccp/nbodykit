@@ -1,4 +1,4 @@
-from nbodykit.plugins import MeasurementStorage
+from nbodykit.extensionpoints import MeasurementStorage
 import numpy
 
 class Measurement2DStorage(MeasurementStorage):
@@ -19,22 +19,39 @@ class Measurement2DStorage(MeasurementStorage):
         cols : list
             list of names for the corresponding `data`
         data : list
-            list of 2D arrays holding the data
+            list of 2D arrays holding the data; complex arrays will be
+            treated as two arrays (real and imag).
         meta : dict
             any additional metadata to write out at the end of the file
         """
-        # do the writing
+        if len(cols) != len(data):
+            raise ValueError("size mismatch between column names and data arrays")
+            
         with self.open() as ff:
             
             # write number of mu and k bins first
             N1, N2 = data[0].shape
             ff.write(("%d %d\n" %(N1, N2)).encode())
             
+            # split any complex fields into separate columns
+            columns = []
+            names = []
+            for name, column in zip(cols, data):
+                if numpy.iscomplexobj(column):
+                    columns.append(column.real)
+                    columns.append(column.imag)
+                    names.append(name + '.real')
+                    names.append(name + '.imag')
+                else:
+                    columns.append(column)
+                    names.append(name)
+
             # write out column names
-            ff.write((" ".join(cols) + "\n").encode())
+            ff.write((" ".join(names) + "\n").encode())
             
             # write out flattened columns
-            numpy.savetxt(ff, numpy.dstack(data).reshape((-1, len(cols))), '%0.7g')
+            columns = numpy.dstack(columns).reshape(-1, len(columns))
+            numpy.savetxt(ff, columns, '%0.7g')
             
             # write out edges                
             for name, e in zip(['kedges', 'muedges'], edges):

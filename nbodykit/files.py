@@ -295,7 +295,7 @@ class HaloFile(object):
 def ReadPower2DPlainText(filename):
     """
     Reads the plain text storage of a 2D power spectrum measurement,
-    as output by the `nbodykit.plugins.Power2DStorage` plugin
+    as output by the `nbodykit.plugins.Measurement2DStorage` plugin
     
     Returns
     -------
@@ -318,11 +318,20 @@ def ReadPower2DPlainText(filename):
         
         lines = ff.readlines()
         data = numpy.array([map(float, line.split()) for line in lines[:N]])
-        data = data.reshape((Nk, Nmu, -1))
+        data = data.reshape((Nk, Nmu, -1)) #reshape properly to (Nk, Nmu)
                         
-        # reshape properly to (Nk, Nmu)
-        for i, name in enumerate(columns):        
-            toret[name] = data[...,i]
+        # store as return dict, making complex arrays from real/imag parts
+        i = 0
+        while i < len(columns):
+            name = columns[i]
+            nextname = columns[i+1] if i < len(columns)-1 else ''
+            if name.endswith('.real') and nextname.endswith('.imag'):
+                name = name.split('.real')[0]
+                toret[name] = data[...,i] + 1j*data[...,i+1]
+                i += 2
+            else:
+                toret[name] = data[...,i]
+                i += 1
         
         # read the edges for k and mu bins
         edges = []
@@ -353,12 +362,14 @@ def ReadPower2DPlainText(filename):
 def ReadPower1DPlainText(filename):
     """
     Reads the plain text storage of a 1D power spectrum measurement,
-    as output by the `nbodykit.plugins.Power1DStorage` plugin.
+    as output by the `nbodykit.plugins.Measurement1DStorage` plugin.
     
     Notes
     -----
-    If `edges` is present in the file, they will be returned
-    as part of the metadata, with the key `edges`
+    *   If `edges` is present in the file, they will be returned
+        as part of the metadata, with the key `edges`
+    *   If the first line of the file specifies column names, 
+        they will be returned as part of the metadata
     
     Returns
     -------
@@ -379,6 +390,14 @@ def ReadPower1DPlainText(filename):
         
         currline = 0
         lines = ff.readlines()
+        
+        metadata['cols'] = None
+        if lines[0][0] == '#':
+            try:
+                metadata['cols'] = lines[0][1:].split()
+            except:
+                pass
+        
         while True:
             
             # break if we are at the EOF

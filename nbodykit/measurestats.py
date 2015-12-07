@@ -31,9 +31,11 @@ def paint(field, pm):
 
     pm.real[:] = 0
     Ntot = 0
+    Wsum = 0
 
     if pm.comm.rank == 0: 
         logger.info("BoxSize = %s", str(field.BoxSize))
+
     for position, weight in field.read(['Position', 'Weight'], pm.comm, full=False):
         min = numpy.min(
             pm.comm.allgather(
@@ -47,21 +49,26 @@ def paint(field, pm):
                     if len(position) == 0 else 
                     position.max(axis=0)),
             axis=0)
-        if pm.comm.rank == 0:
-            logger.info("Range of position %s:%s" % (str(min), str(max)))
-
         layout = pm.decompose(position)
+
         # Ntot shall be calculated before exchange. Issue #55.
+        Ntot += len(position)
         if weight is None:
-            Ntot += len(position)
+            Wsum += len(position)
             weight = 1
         else:
-            Ntot += weight.sum()
+            Wsum += weight.sum()
             weight = layout.exchange(weight)
+
         position = layout.exchange(position)
 
+        gNtot = pm.comm.allreduce(Ntot)
+        if pm.comm.rank == 0:
+            logger.info("Range of position %s:%s Nread = %d" % (str(min),
+                str(max), gNtot))
+
         pm.paint(position, weight)
-    return pm.comm.allreduce(Ntot)
+    return pm.comm.allreduce(Wsum)
 
 
 def compute_3d_power(fields, pm, transfer=[], painter=paint, comm=None, log_level=logging.DEBUG):
@@ -76,13 +83,18 @@ def compute_3d_power(fields, pm, transfer=[], painter=paint, comm=None, log_leve
     pm : ``ParticleMesh``
         particle mesh object that does the painting
         
-    transfer : list, optional
-        A chain of transfer functions to apply to the complex field.
+    transfer : list, or list of lists, optional
+        A chain of transfer functions to apply to the complex field. If 
+        a list of length 2 is supplied, different chains can be applied 
+        to both the input fields
         
-    painter : callable, optional
+        
+    painter : callable or list of callable, optional
         The function used to 'paint' the fields onto the particle mesh.
         Default is ``measurestats.paint`` -- see documentation for 
-        required API of user-supplied functions
+        required API of user-supplied functions. A list of functions can
+        be passed, in which case the `ith` function will paint the `ith`
+        field
         
     comm : MPI.Communicator, optional
         the communicator to pass to the ``ParticleMesh`` object. If not
@@ -107,17 +119,29 @@ def compute_3d_power(fields, pm, transfer=[], painter=paint, comm=None, log_leve
     # some setup
     rank = comm.rank if comm is not None else MPI.COMM_WORLD.rank
     if log_level is not None: logger.setLevel(log_level)
+    
+    # check that the painter was passed correctly
+    if callable(painter):
+        painter = [painter] * len(fields)
+    if len(painter) != len(fields):
+        raise ValueError('mismatch between number of fields and number of painter functions')
+        
+    # check that the chain was passed correctly
+    if len(transfer) == 0 or all(callable(t) for t in transfer):
+        transfer = [transfer] * len(fields)
+    if len(transfer) != len(fields):
+        raise ValueError('mismatch between number of fields and number of transfer lists')
+        
         
     # paint, FT field and filter field #1
-    N1 = painter(fields[0], pm)
+    N1 = painter[0](fields[0], pm)
     if rank == 0: logger.info('painting done')
     pm.r2c()
     if rank == 0: logger.info('r2c done')
-    pm.transfer(transfer)
+    pm.transfer(transfer[0])
 
-    # do the cross power
-    do_cross = len(fields) > 1 and fields[0] != fields[1]
-    if do_cross:
+    # do the cross power if two fields supplied
+    if len(fields) > 1:
                 
         # crash if box size isn't the same
         if not numpy.all(fields[0].BoxSize == fields[1].BoxSize):
@@ -127,11 +151,11 @@ def compute_3d_power(fields, pm, transfer=[], painter=paint, comm=None, log_leve
         c1 = pm.complex.copy()
         
         # paint, FT, and filter field #2
-        N2 = painter(fields[1], pm)
+        N2 = painter[1](fields[1], pm)
         if rank == 0: logger.info('painting 2 done')
         pm.r2c()
         if rank == 0: logger.info('r2c 2 done')
-        pm.transfer(transfer)
+        pm.transfer(transfer[1])
         c2 = pm.complex
   
     # do the auto power
@@ -141,11 +165,11 @@ def compute_3d_power(fields, pm, transfer=[], painter=paint, comm=None, log_leve
         N2 = N1
 
     # reuse the memory in c1.real for the 3d power spectrum
-    p3d = c1.real
-
-    # calculate the 3d power spectrum, row by row to save memory
-    for row in range(len(c1)):
-        p3d[row, ...] = c1[row].real * c2[row].real + c1[row].imag * c2[row].imag
+    p3d = c1
+    
+    # calculate the 3d power spectrum, islab by islab to save memory
+    for islab in range(len(c1)):
+        p3d[islab, ...] = c1[islab]*c2[islab].conj()
 
     # the complex field is dimensionless; power is L^3
     # ref to http://icc.dur.ac.uk/~tt/Lectures/UA/L4/cosmology.pdf
@@ -197,7 +221,7 @@ def compute_brutal_corr(fields, Rmax, Nr, Nmu=0, comm=None, subsample=1, los='z'
     from pmesh.domain import GridND
     from kdcount import correlate
     
-    if not isinstance(los, basestring) or los not in "xyz":
+    if los not in "xyz":
         raise ValueError("the `los` must be one of `x`, `y`, or `z`")
     los = "xyz".index(los)
     poles = numpy.array(poles)
@@ -313,6 +337,7 @@ def compute_3d_corr(fields, pm, transfer=[], painter=paint, comm=None, log_level
     # directly transform dimensionless p3d
     # Note that L^3 cancels with dk^3.
     pm.complex[:] = p3d.copy()
+    pm.complex[:] *= 1.0 / pm.BoxSize.prod()
     pm.c2r()
     xi3d = pm.real
     
@@ -369,15 +394,10 @@ def project_to_basis(comm, x3d, y3d, edges, los='z', poles=[], symmetric=True):
     symmetric : bool, optional
         If `True`, the `y3d` area is assumed to be symmetric about the `z = 0`
         plane. If `y3d` is a power spectrum, this should be set to `True`, 
-        while if `y3d` is a correlation function, this should be `False`
-        
-    Returns
-    -------
-    edges : list 
-        a list of [x_edges, ]
+        while if `y3d` is a correlation function, this should be `False`        
     """
     from scipy.special import legendre
-        
+
     # bin edges
     xedges, muedges = edges
     Nx = len(xedges) - 1 
@@ -387,6 +407,7 @@ def project_to_basis(comm, x3d, y3d, edges, los='z', poles=[], symmetric=True):
     # is just (x, mu) projection since legendre of ell=0 is 1
     do_poles = len(poles) > 0
     poles_ = [0]+sorted(poles) if 0 not in poles else sorted(poles)
+    legpoly = [legendre(l) for l in poles_]
     ell_idx = [poles_.index(l) for l in poles]
     Nell = len(poles_)
     
@@ -399,67 +420,82 @@ def project_to_basis(comm, x3d, y3d, edges, los='z', poles=[], symmetric=True):
 
     musum = numpy.zeros((Nx+2, Nmu+2))
     xsum = numpy.zeros((Nx+2, Nmu+2))
-    ysum = numpy.zeros((Nell, Nx+2, Nmu+2)) # extra dimension for multipoles
+    ysum = numpy.zeros((Nell, Nx+2, Nmu+2), dtype=y3d.dtype) # extra dimension for multipoles
     Nsum = numpy.zeros((Nx+2, Nmu+2))
     
     # los index
     los_index = 'xyz'.index(los)
     
-    # count everything but z = 0 plane twice (r2c transform stores 1/2 modes)
-    nonsingular = numpy.squeeze(x3d[2] != 0) # has length of Nz now
-    
-    for row in range(len(x3d[0])):
-        
-        # now scratch stores x3d ** 2
-        scratch = numpy.float64(x3d[0][row] ** 2)
-        for xi in x3d[1:]:
-            scratch = scratch + xi[0] ** 2
+    # need to count all modes with positive z frequency twice due to r2c FFTs
+    nonsingular = numpy.squeeze(x3d[2] > 0.) # has length of Nz now
 
-        if len(scratch.flat) == 0:
+    for islab in range(len(x3d[0])):
+        
+        # now xslab stores x3d ** 2
+        xslab = numpy.float64(x3d[0][islab] ** 2)
+        for xi in x3d[1:]:
+            xslab = xslab + xi[0] ** 2
+
+        if len(xslab.flat) == 0:
             # no data
             continue
 
-        dig_x = numpy.digitize(scratch.flat, xedges2)
+        dig_x = numpy.digitize(xslab.flat, xedges2)
     
-        # make scratch just x
-        scratch **= 0.5
+        # make xslab just x
+        xslab **= 0.5
     
-        # store mu
+        # store mu (keeping track of positive/negative)
         with numpy.errstate(invalid='ignore'):
             if los_index == 0:
-                mu = abs(x3d[los_index][row]/scratch)
+                mu = x3d[los_index][islab]/xslab
             else:
-                mu = abs(x3d[los_index][0]/scratch)
-        dig_mu = numpy.digitize(mu.flat, muedges)
+                mu = x3d[los_index][0]/xslab
+        dig_mu = numpy.digitize(abs(mu).flat, muedges)
         
         # make the multi-index
         multi_index = numpy.ravel_multi_index([dig_x, dig_mu], (Nx+2,Nmu+2))
     
         # count modes not in singular plane twice
-        if symmetric: scratch[:, nonsingular] *= 2.
+        if symmetric: xslab[:, nonsingular] *= 2.
     
         # the x sum
-        xsum.flat += numpy.bincount(multi_index, weights=scratch.flat, minlength=xsum.size)
+        xsum.flat += numpy.bincount(multi_index, weights=xslab.flat, minlength=xsum.size)
     
-        # take the sum of weights
-        scratch[...] = 1.0
-        # count modes not in singular plane twice
-        if symmetric: scratch[:, nonsingular] = 2.
-        Nsum.flat += numpy.bincount(multi_index, weights=scratch.flat, minlength=Nsum.size)
+        # count number of modes
+        Nslab = numpy.ones_like(xslab)
+        if symmetric: Nslab[:, nonsingular] = 2. # count modes not in singular plane twice
+        Nsum.flat += numpy.bincount(multi_index, weights=Nslab.flat, minlength=Nsum.size)
 
-        scratch[...] = y3d[row]
-
-        # the singular plane is down weighted by 0.5
-        if symmetric: scratch[:, nonsingular] *= 2.
-        
-        # weight P(k,mu) and sum the weighted values
+        # weight P(k,mu) and sum for the poles
         for iell, ell in enumerate(poles_):
-            weighted_y3d = scratch * (2*ell + 1.) * legendre(ell)(mu)
-            ysum[iell,...].flat += numpy.bincount(multi_index, weights=weighted_y3d.flat, minlength=Nsum.size)
+            
+            weighted_y3d = legpoly[iell](mu) * y3d[islab]
+
+            # add conjugate for this kx, ky, kz, corresponding to 
+            # the (-kx, -ky, -kz) --> need to make mu negative for conjugate
+            # Below is identical to the sum of
+            # Leg(ell)(+mu) * y3d[:, nonsingular]    (kx, ky, kz)
+            # Leg(ell)(-mu) * y3d[:, nonsingular].conj()  (-kx, -ky, -kz)
+            # or 
+            # weighted_y3d[:, nonsingular] += (-1)**ell * weighted_y3d[:, nonsingular].conj()
+            # but numerically more accurate.
+            if symmetric:
+                if ell % 2: # odd, real part cancels
+                    weighted_y3d.real[:, nonsingular] = 0.
+                    weighted_y3d.imag[:, nonsingular] *= 2.
+                else:  # even, imag part cancels
+                    weighted_y3d.real[:, nonsingular] *= 2.
+                    weighted_y3d.imag[:, nonsingular] = 0.
+                    
+            weighted_y3d *= (2.*ell + 1.)
+            ysum[iell,...].real.flat += numpy.bincount(multi_index, weights=weighted_y3d.real.flat, minlength=Nsum.size)
+            if numpy.iscomplexobj(ysum):
+                ysum[iell,...].imag.flat += numpy.bincount(multi_index, weights=weighted_y3d.imag.flat, minlength=Nsum.size)
         
         # the mu sum
         if symmetric: mu[:, nonsingular] *= 2.
-        musum.flat += numpy.bincount(multi_index, weights=mu.flat, minlength=musum.size)
+        musum.flat += numpy.bincount(multi_index, weights=abs(mu).flat, minlength=musum.size)
 
     xsum  = comm.allreduce(xsum, MPI.SUM)
     musum = comm.allreduce(musum, MPI.SUM)

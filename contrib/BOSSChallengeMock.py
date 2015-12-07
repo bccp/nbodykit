@@ -1,6 +1,6 @@
 import pandas as pd
 
-from nbodykit.plugins import DataSource
+from nbodykit.extensionpoints import DataSource
 import numpy
 import logging
          
@@ -54,9 +54,6 @@ class BOSSChallengeMockDataSource(DataSource):
             help='rescale the parallel and perp coordinates by the AP factor')
     
     def readall(self, columns):
-        try:
-        except:
-            raise ImportError("pandas must be installed to use BOSSChallengeMockDataSource")
                 
         # read in the plain text file using pandas
         kwargs = {}

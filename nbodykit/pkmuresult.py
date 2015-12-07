@@ -1,5 +1,18 @@
 import numpy
 
+# python 3 basestring fix
+# c.f.
+# http://stackoverflow.com/questions/11301138/how-to-check-if-variable-is-string-with-python-2-and-3-compatibility
+
+try:
+    unicode = unicode
+except NameError:
+    # 'unicode' is undefined, must be Python 3
+    basestring = str
+else:
+    # 'unicode' exists, must be Python 2
+    pass
+
 def bin_ndarray(ndarray, new_shape, weights=None, operation=numpy.mean):
     """
     Bins an ndarray in all axes based on the target shape, by summing 

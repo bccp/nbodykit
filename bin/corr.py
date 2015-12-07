@@ -10,12 +10,14 @@ logging.basicConfig(level=logging.DEBUG,
                     datefmt='%m-%d %H:%M')
 logger = logging.getLogger('corr.py')
               
-from nbodykit import plugins, measurestats
-from nbodykit.utils.pluginargparse import PluginArgumentParser
+from nbodykit import measurestats
+from nbodykit.plugins import ArgumentParser
+from nbodykit.extensionpoints import DataSource
+from nbodykit.extensionpoints import MeasurementStorage
 
 def initialize_parser(**kwargs):
-    parser = PluginArgumentParser("Brutal Correlation Function Calculator",
-                                    loader=plugins.load, **kwargs)
+    parser = ArgumentParser("Brutal Correlation Function Calculator",
+                                    **kwargs)
 
     # add the positional arguments
     parser.add_argument("mode", choices=["1d", "2d"]) 
@@ -26,8 +28,8 @@ def initialize_parser(**kwargs):
 
     # add the input field types
     h = "one or two input fields, specified as:\n\n"
-    parser.add_argument("inputs", nargs="+", type=plugins.DataSource.open, 
-                        help=h+plugins.DataSource.format_help())
+    parser.add_argument("inputs", nargs="+", type=DataSource.open, 
+                        help=h+DataSource.format_help())
 
     # add the optional arguments
     parser.add_argument("--subsample", type=int, default=1,
@@ -36,7 +38,8 @@ def initialize_parser(**kwargs):
                         help="the line-of-sight direction, which the angle `mu` is defined with respect to")
     parser.add_argument("--Nmu", type=int, default=10,
                         help='the number of mu bins to use (from mu=-1 to mu=1) -- only used if `mode == 2d`')
-    parser.add_argument('--poles', type=lambda s: map(int, s.split()), default=[],
+    parser.add_argument('--poles', type=lambda s: [int(i) for i in s.split()], default=[],
+                        metavar="0 2 4",
                         help='if specified, compute the multipoles for these `ell` values from xi(r,mu)')
     return parser 
 
@@ -61,7 +64,7 @@ def compute_brutal_corr(ns, comm=None):
 
     # output
     if comm.rank == 0:
-        storage = plugins.MeasurementStorage.new(ns.mode, ns.output)
+        storage = MeasurementStorage.new(ns.mode, ns.output)
         
         if ns.mode == '1d':
             if len(ns.poles):

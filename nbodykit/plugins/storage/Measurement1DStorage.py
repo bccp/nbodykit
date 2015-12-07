@@ -1,4 +1,4 @@
-from nbodykit.plugins import MeasurementStorage
+from nbodykit.extensionpoints import MeasurementStorage
 import numpy
 
 class Measurement1DStorage(MeasurementStorage):
@@ -27,18 +27,36 @@ class Measurement1DStorage(MeasurementStorage):
             list of names for the corresponding `data`
         data : list of arrays
             list of 1D arrays specifying the data, which are written 
-            as columns to file
+            as columns to file; complex arrays will be written as two
+            columns (real and imag).
         meta : 
             Any additional metadata to write to file, specified as keyword 
             arguments
         """
+        if len(cols) != len(data):
+            raise ValueError("size mismatch between column names and data arrays")
+            
         with self.open() as ff:
             
+            # split any complex fields into separate columns
+            columns = []
+            names = []
+            for name, column in zip(cols, data):
+                if numpy.iscomplexobj(column):
+                    columns.append(column.real)
+                    columns.append(column.imag)
+                    names.append(name + '.real')
+                    names.append(name + '.imag')
+                else:
+                    columns.append(column)
+                    names.append(name)
+
             # write out column names first
-            ff.write(("# "+" ".join(cols) + "\n").encode())
-            
+            ff.write(("# "+" ".join(names) + "\n").encode())
+                     
             # write out the 1D data arrays
-            numpy.savetxt(ff, numpy.vstack(data).T, '%0.7g')
+            columns = numpy.vstack(columns).T
+            numpy.savetxt(ff, columns, '%0.7g')
 
             # write out the bin edges
             header = "# edges %d\n" %len(edges)

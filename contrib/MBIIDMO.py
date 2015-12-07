@@ -1,5 +1,5 @@
 import numpy
-from nbodykit.plugins import DataSource
+from nbodykit.extensionpoints import DataSource
 from nbodykit.utils import selectionlanguage
 import os.path
 import logging
