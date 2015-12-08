@@ -16,7 +16,7 @@
 class PluginInterface(object):
     """ The basic interface of a plugin 
     """
-    def __init__(self, args):
+    def initialize(self, args):
         ns = self.parser.parse_args(args)
         self.__dict__.update(ns.__dict__)
 
@@ -86,8 +86,9 @@ class PluginMount(type):
         words = string.split(':')
         
         klass = kls.plugins[words[0]]
-
-        self = klass(words[1:])
+        
+        self = klass()
+        self.initialize(words[1:])
         self.string = string
         return self
 
