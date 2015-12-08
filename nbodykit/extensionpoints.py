@@ -41,10 +41,6 @@ class PluginMount(type):
         plugins attached to the extension point.
     """
     def __new__(cls, name, bases, attrs):
-        if len(bases) == 0:
-            # base class of an extension point.
-            bases = (PluginInterface, )
-        # PluginInterface is added 
         return type.__new__(cls, name, bases, attrs)
 
     def __init__(cls, name, bases, attrs):
@@ -127,7 +123,7 @@ from nbodykit.plugins import HelpFormatterColon
 from argparse import ArgumentParser
 
 @ExtensionPoint
-class DataSource:
+class DataSource(PluginInterface):
     """
     Mount point for plugins which refer to the reading of input files 
     and the subsequent painting of those fields.
@@ -212,7 +208,7 @@ from nbodykit.plugins import HelpFormatterColon
 from argparse import ArgumentParser
 
 @ExtensionPoint
-class Painter:
+class Painter(PluginInterface):
     """
     Mount point for plugins which refer to the painting of input files.
 
