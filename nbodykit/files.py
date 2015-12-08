@@ -61,7 +61,7 @@ class TPMSnapshotFile(SnapshotFile):
     def __init__(self, basename, fid):
         self.filename = basename + ".%02d" % fid
 
-        with open(self.filename, 'r') as ff:
+        with open(self.filename, 'rb') as ff:
             header = numpy.fromfile(ff, dtype='i4', count=7)
         self.header = header
         self.npart = int(header[2])
@@ -78,7 +78,7 @@ class TPMSnapshotFile(SnapshotFile):
         header[2] = npart
         header[0] = 1
         
-        with open(filename, 'w') as ff:
+        with open(filename, 'wb') as ff:
             header.tofile(ff)
         self = kls(basename, fid)
         return self
@@ -89,7 +89,7 @@ class TPMSnapshotFile(SnapshotFile):
         if myend == -1:
             myend = self.npart
 
-        with open(self.filename, 'r') as ff:
+        with open(self.filename, 'rb') as ff:
             # skip header
             ff.seek(offset, 0)
             # jump to mystart of positions
@@ -99,7 +99,7 @@ class TPMSnapshotFile(SnapshotFile):
     def write(self, column, mystart, data):
         dtype, offset = self.offset_table[column]
         dtype = numpy.dtype(dtype)
-        with open(self.filename, 'r+') as ff:
+        with open(self.filename, 'rb+') as ff:
             # skip header
             ff.seek(offset, 0)
             # jump to mystart of positions
@@ -257,7 +257,7 @@ class HaloLabelFile(SnapshotFile):
     """
     def __init__(self, filename, fid):
         self.filename = filename + ".%02d" % fid
-        with open(self.filename, 'r') as ff:
+        with open(self.filename, 'rb') as ff:
             self.npart = numpy.fromfile(ff, 'i4', 1)
             self.linking_length = numpy.fromfile(ff, 'f4', 1)
         self.offset_table = {
@@ -278,7 +278,7 @@ class HaloFile(object):
     """
     def __init__(self, filename):
         self.filename = filename
-        with open(self.filename, 'r') as ff:
+        with open(self.filename, 'rb') as ff:
             self.nhalo = int(numpy.fromfile(ff, 'i4', 1)[0])
             self.npart = self.nhalo
             self.linking_length = float(numpy.fromfile(ff, 'f4', 1)[0])
