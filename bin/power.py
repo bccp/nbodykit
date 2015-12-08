@@ -12,11 +12,36 @@ logger = logging.getLogger('power.py')
               
 from nbodykit import measurestats
 from nbodykit.extensionpoints import DataSource
+from nbodykit.extensionpoints import Painter
 from nbodykit.extensionpoints import MeasurementStorage
-from nbodykit.plugins import ArgumentParser
+from nbodykit.plugins import ArgumentParser, ListPluginsAction
+from argparse import Action
+
 from pmesh.particlemesh import ParticleMesh
 from pmesh.transfer import TransferFunction
 
+class InputAction(Action):
+    def __init__(self, option_strings, dest, 
+        nargs=None, const=None, default=None, type=None, 
+        choices=None, required=False, help=None, metavar=None):
+        Action.__init__(self, option_strings, dest,
+                nargs, const, default, type, choices, required, help, metavar)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        fields = []
+        default_painter = Painter.create("WeightPainter")
+        for string in values:
+            try:
+                datasource = DataSource.create(string)
+                fields.append((datasource, default_painter))
+            except KeyError: # FIXME: define a proper way to test if the string
+                             # is a datasource or redo this entire mechanism
+                painter = Painter.create(string)
+                datasource, painter = fields.pop()
+                fields.append((datasource, painter))
+        namespace.fields = fields
+        
+        
 #--------------------------------------------------
 # setup the parser
 #--------------------------------------------------
@@ -55,8 +80,13 @@ def initialize_parser(**kwargs):
 
     # add the input field types
     h = "one or two input fields, specified as:\n\n"
-    parser.add_argument("inputs", nargs="+", type=DataSource.create, 
-                        help=h+DataSource.format_help())
+    parser.add_argument("fields", nargs="+", 
+            action=InputAction,
+            help="Input data sources and painters. Use --list-painter and --list-datasource to see a list of painters and data sources.", 
+            metavar="DataSource [Painter] [DataSource [Painter]]")
+
+    parser.add_argument("--list-painter", action=ListPluginsAction(Painter))
+    parser.add_argument("--list-datasource", action=ListPluginsAction(DataSource))
 
     # add the optional arguments
     parser.add_argument("--los", choices="xyz", default='z',
@@ -86,7 +116,7 @@ def AnisotropicCIC(comm, complex, w):
         tmp = (1 - 2. / 3 * numpy.sin(0.5 * wi) ** 2) ** 0.5
         complex[:] /= tmp
 
-def compute_power(ns, comm=None, transfer=None, painter=None):
+def compute_power(ns, comm=None, transfer=None):
     """
     Compute the power spectrum. Given a `Namespace`, this is the function,
     that computes and saves the power spectrum. It does all the work.
@@ -104,9 +134,6 @@ def compute_power(ns, comm=None, transfer=None, painter=None):
         the default chain ``TransferFunction.NormalizeDC``, 
         ``TransferFunction.RemoveDC``, and ``AnisotropicCIC``
         will be applied
-    painter : callable, optional
-        the painter function(s) to pass to ``compute_3d_power``. 
-        Only passed if not `None`
     """    
     rank = comm.rank if comm is not None else MPI.COMM_WORLD.rank
     
@@ -119,17 +146,13 @@ def compute_power(ns, comm=None, transfer=None, painter=None):
     if transfer is not None:
         measure_kw['transfer'] = transfer
     
-    # painter
-    if painter is not None:
-        measure_kw['painter'] = painter
-    
     # set logging level
     logger.setLevel(ns.log_level)
     
     if rank == 0: logger.info('importing done')
 
     # setup the particle mesh object, taking BoxSize from the painters
-    pm = ParticleMesh(ns.inputs[0].BoxSize, ns.Nmesh, dtype='f4', comm=comm)
+    pm = ParticleMesh(ns.fields[0][0].BoxSize, ns.Nmesh, dtype='f4', comm=comm)
 
     # only need one mu bin if 1d case is requested
     if ns.mode == "1d": ns.Nmu = 1
@@ -141,7 +164,7 @@ def compute_power(ns, comm=None, transfer=None, painter=None):
     if ns.correlation:
 
         # measure
-        y3d, N1, N2 = measurestats.compute_3d_corr(ns.inputs, pm, **measure_kw)
+        y3d, N1, N2 = measurestats.compute_3d_corr(ns.fields, pm, **measure_kw)
         x3d = pm.x
                 
         # make the bin edges
@@ -158,7 +181,7 @@ def compute_power(ns, comm=None, transfer=None, painter=None):
     else:
         
         # measure
-        y3d, N1, N2 = measurestats.compute_3d_power(ns.inputs, pm, **measure_kw)
+        y3d, N1, N2 = measurestats.compute_3d_power(ns.fields, pm, **measure_kw)
         x3d = pm.k
         
         # binning in k out to the minimum nyquist frequency 

@@ -36,6 +36,7 @@ def load(filename, namespace=None):
 
 from argparse import ArgumentParser as BaseArgumentParser
 from argparse import RawTextHelpFormatter
+from argparse import Action, SUPPRESS
 
 import re
 import sys
@@ -205,3 +206,20 @@ class HelpFormatterColon(RawTextHelpFormatter):
         # return the text
         return text
 
+def ListPluginsAction(extensionpoint):
+    class ListPluginsAction(Action):
+        def __init__(self,
+                     option_strings,
+                     dest=SUPPRESS,
+                     default=SUPPRESS,
+                     help=None):
+            Action.__init__(self, 
+                option_strings=option_strings,
+                dest=dest,
+                default=default,
+                nargs=0,
+                help=help)
+        
+        def __call__(self, parser, namespace, values, option_string=None):
+            parser.exit(0, extensionpoint.format_help())
+    return ListPluginsAction

@@ -4,70 +4,14 @@ import logging
 
 logger = logging.getLogger('measurestats')
 
-def paint(field, pm):
-    """
-    Paint the ``DataSource`` specified by ``input`` onto the 
-    ``ParticleMesh`` specified by ``pm``
-    
-    Parameters
-    ----------
-    field : ``DataSource``
-        the data source object representing the field to paint onto the mesh
-    pm : ``ParticleMesh``
-        particle mesh object that does the painting
-        
-    Returns
-    -------
-    Ntot : int
-        the total number of objects, as determined by painting
-    """
-    # compatibility with the older painters. 
-    # We need to get rid of them.
-    if hasattr(field, 'paint'):
-        if pm.comm.rank == 0:
-            warnings.warn('paint method of type %s shall be replaced with a read method'
-                % type(field), DeprecationWarning)
-        return field.paint(pm)
-
-    pm.real[:] = 0
-
-    if pm.comm.rank == 0: 
-        logger.info("BoxSize = %s", str(field.BoxSize))
-
-    stats = {}
-    for position, weight in field.read(['Position', 'Weight'], pm.comm, stats, full=False):
-        min = numpy.min(
-            pm.comm.allgather(
-                    [numpy.inf, numpy.inf, numpy.inf] 
-                    if len(position) == 0 else 
-                    position.min(axis=0)),
-            axis=0)
-        max = numpy.max(
-            pm.comm.allgather(
-                    [-numpy.inf, -numpy.inf, -numpy.inf] 
-                    if len(position) == 0 else 
-                    position.max(axis=0)),
-            axis=0)
-        layout = pm.decompose(position)
-
-        position = layout.exchange(position)
-
-        if pm.comm.rank == 0:
-            logger.info("Range of position %s:%s Nread = %d" % (str(min),
-                str(max), stats['Ntot']))
-
-        pm.paint(position, weight)
-    return stats['Ntot']
-
-
-def compute_3d_power(fields, pm, transfer=[], painter=paint, comm=None, log_level=logging.DEBUG):
+def compute_3d_power(fields, pm, transfer=[], comm=None, log_level=logging.DEBUG):
     """
     Compute and return the 3D power from two input fields
     
     Parameters
     ----------
-    fields : list of ``DataSource`` objects
-        the list of fields from which the 3D power will be computed
+    fields : list of ``DataSource``, ``Painter`` objects
+        the list of fields which the 3D power will be computed
         
     pm : ``ParticleMesh``
         particle mesh object that does the painting
@@ -77,13 +21,6 @@ def compute_3d_power(fields, pm, transfer=[], painter=paint, comm=None, log_leve
         a list of length 2 is supplied, different chains can be applied 
         to both the input fields
         
-        
-    painter : callable or list of callable, optional
-        The function used to 'paint' the fields onto the particle mesh.
-        Default is ``measurestats.paint`` -- see documentation for 
-        required API of user-supplied functions. A list of functions can
-        be passed, in which case the `ith` function will paint the `ith`
-        field
         
     comm : MPI.Communicator, optional
         the communicator to pass to the ``ParticleMesh`` object. If not
@@ -110,12 +47,15 @@ def compute_3d_power(fields, pm, transfer=[], painter=paint, comm=None, log_leve
     if log_level is not None: logger.setLevel(log_level)
     
     # check that the painter was passed correctly
-    if callable(painter):
-        painter = [painter] * len(fields)
-    if len(painter) != len(fields):
-        raise ValueError('mismatch between number of fields and number of painter functions')
+    painters  =    [p for d, p in fields]
+    datasources =  [d for d, p in fields]
         
     # check that the chain was passed correctly
+
+    #
+    # eventually transfer shall go to fields as well.
+    # and as Plugins?
+
     if len(transfer) == 0 or all(callable(t) for t in transfer):
         transfer = [transfer] * len(fields)
     if len(transfer) != len(fields):
@@ -123,7 +63,7 @@ def compute_3d_power(fields, pm, transfer=[], painter=paint, comm=None, log_leve
         
         
     # paint, FT field and filter field #1
-    N1 = painter[0](fields[0], pm)
+    N1 = painters[0].paint(pm, datasources[0])
     if rank == 0: logger.info('painting done')
     pm.r2c()
     if rank == 0: logger.info('r2c done')
@@ -133,14 +73,14 @@ def compute_3d_power(fields, pm, transfer=[], painter=paint, comm=None, log_leve
     if len(fields) > 1:
                 
         # crash if box size isn't the same
-        if not numpy.all(fields[0].BoxSize == fields[1].BoxSize):
+        if not numpy.all(datasources[0].BoxSize == datasources[1].BoxSize):
             raise ValueError("mismatch in box sizes for cross power measurement")
         
         # copy and store field #1's complex
         c1 = pm.complex.copy()
         
         # paint, FT, and filter field #2
-        N2 = painter[1](fields[1], pm)
+        N2 = painters[1].paint(pm, datasources[1])
         if rank == 0: logger.info('painting 2 done')
         pm.r2c()
         if rank == 0: logger.info('r2c 2 done')
@@ -167,19 +107,19 @@ def compute_3d_power(fields, pm, transfer=[], painter=paint, comm=None, log_leve
     return p3d, N1, N2
 
 
-def compute_brutal_corr(fields, Rmax, Nr, Nmu=0, comm=None, subsample=1, los='z', poles=[]):
+def compute_brutal_corr(datasources, Rmax, Nr, Nmu=0, comm=None, subsample=1, los='z', poles=[]):
     """
     Compute the correlation function by direct pair summation, projected
     into either 1d `R` bins or 2d (`R`, `mu`) bins
     
     Parameters
     ----------
-    fields : list of ``DataSource`` objects
-        the list of fields from which the 3D correlation will be computed
+    datasources : list of ``DataSource`` objects
+        the list of datasources from which the 3D correlation will be computed
         
     Rmax : float
         the maximum R value to compute, in the same units as the input
-        fields
+        datasources
     
     Nmu : int, optional
         the number of desired `mu` bins, where `mu` is the cosine 
@@ -192,7 +132,7 @@ def compute_brutal_corr(fields, Rmax, Nr, Nmu=0, comm=None, subsample=1, los='z'
         provided, ``MPI.COMM_WORLD`` is used
         
     subsample : int, optional
-        Down-sample the input fields by choosing 1 out of every N points. 
+        Down-sample the input datasources by choosing 1 out of every N points. 
         Default is `1`
     
     los : 'x', 'y', 'z', optional
@@ -234,18 +174,18 @@ def compute_brutal_corr(fields, Rmax, Nr, Nmu=0, comm=None, subsample=1, los='z'
         logger.info('Rmax = %g' %Rmax)
     
     # domain decomposition
-    grid = [numpy.linspace(0, fields[0].BoxSize[i], Nproc[i]+1, endpoint=True) for i in range(3)]
+    grid = [numpy.linspace(0, datasources[0].BoxSize[i], Nproc[i]+1, endpoint=True) for i in range(3)]
     domain = GridND(grid, comm=comm)
 
     stats = {}
     # read position for field #1 
-    [[pos1]] = fields[0].read(['Position'], comm, stats, full=False)
+    [[pos1]] = datasources[0].read(['Position'], comm, stats, full=False)
     pos1 = pos1[comm.rank * subsample // comm.size ::subsample]
     N1 = comm.allreduce(len(pos1))
     
     # read position for field #2
-    if len(fields) > 1:
-        [[pos2]] = fields[1].read(['Position'], comm, stats, full=False)
+    if len(datasources) > 1:
+        [[pos2]] = datasources[1].read(['Position'], comm, stats, full=False)
         pos2 = pos2[comm.rank * subsample // comm.size ::subsample]
         N2 = comm.allreduce(len(pos2))
     else:
@@ -259,7 +199,7 @@ def compute_brutal_corr(fields, Rmax, Nr, Nmu=0, comm=None, subsample=1, los='z'
         logger.info('exchange pos1')
         
     # exchange field #2 positions
-    if Rmax > fields[0].BoxSize[0] * 0.25:
+    if Rmax > datasources[0].BoxSize[0] * 0.25:
         pos2 = numpy.concatenate(comm.allgather(pos2), axis=0)
     else:
         layout = domain.decompose(pos2, smoothing=Rmax)
@@ -268,8 +208,8 @@ def compute_brutal_corr(fields, Rmax, Nr, Nmu=0, comm=None, subsample=1, los='z'
         logger.info('exchange pos2')
 
     # initialize the points trees
-    tree1 = correlate.points(pos1, boxsize=fields[0].BoxSize)
-    tree2 = correlate.points(pos2, boxsize=fields[0].BoxSize)
+    tree1 = correlate.points(pos1, boxsize=datasources[0].BoxSize)
+    tree2 = correlate.points(pos2, boxsize=datasources[0].BoxSize)
 
     logger.info('rank %d correlating %d x %d' %(comm.rank, len(tree1), len(tree2)))
     if comm.rank == 0:
@@ -298,7 +238,7 @@ def compute_brutal_corr(fields, Rmax, Nr, Nmu=0, comm=None, subsample=1, los='z'
             pc.mean_centers[:] = comm.allreduce(pc.mean_centers_sum[0]) / pc.pair_counts
 
     # compute the random pairs from the fractional volume
-    RR = 1.*N1*N2 / fields[0].BoxSize.prod()
+    RR = 1.*N1*N2 / datasources[0].BoxSize.prod()
     if Nmu > 0:
         dr3 = numpy.diff(pc.edges[0]**3)
         dmu = numpy.diff(pc.edges[1])
@@ -314,15 +254,15 @@ def compute_brutal_corr(fields, Rmax, Nr, Nmu=0, comm=None, subsample=1, los='z'
 
     return pc, xi, RR
 
-def compute_3d_corr(fields, pm, transfer=[], painter=paint, comm=None, log_level=logging.DEBUG):
+def compute_3d_corr(fields, pm, transfer=[], comm=None, log_level=logging.DEBUG):
     """
     Compute the 3d correlation function by Fourier transforming 
     the 3d power spectrum
     
     See documentation of `measurestats.compute_3d_power`
     """
-    kwargs = {'transfer':transfer, 'painter':painter, 'comm':comm, 'log_level':log_level}
-    p3d, N1, N2 = compute_3d_power(fields, pm, **kwargs)
+
+    p3d, N1, N2 = compute_3d_power(fields, pm, transfer=transfer, comm=comm, log_level=log_level)
     
     # directly transform dimensionless p3d
     # Note that L^3 cancels with dk^3.

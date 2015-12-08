@@ -86,6 +86,7 @@ class PluginMount(type):
         words = string.split(':')
         
         klass = kls.plugins[words[0]]
+
         self = klass(words[1:])
         self.string = string
         return self
@@ -234,11 +235,11 @@ class Painter:
         """
         raise NotImplementedError
 
-    def read(self, pm, datasource, columns, stat):
+    def read(self, pm, datasource, columns, stats):
 
-        assert 'Positin' in columns
+        assert 'Position' in columns
 
-        for data in field.read(columns, pm.comm, stat, full=False):
+        for data in datasource.read(columns, pm.comm, stats, full=False):
             data = dict(zip(columns, data))
             position = data['Position']
 
