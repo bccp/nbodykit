@@ -36,12 +36,11 @@ class InputAction(Action):
                 fields.append((datasource, default_painter))
             except KeyError: # FIXME: define a proper way to test if the string
                              # is a datasource or redo this entire mechanism
-                painter = Painter.create(string)
                 datasource, painter = fields.pop()
+                painter = Painter.create(string)
                 fields.append((datasource, painter))
         namespace.fields = fields
-        
-        
+
 #--------------------------------------------------
 # setup the parser
 #--------------------------------------------------
