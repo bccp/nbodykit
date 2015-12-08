@@ -13,7 +13,7 @@ cache:
     directories:
         - $HOME/.cache/pip
         - $HOME/.conda
-        - $TRAVIS_BUILD_DIR/examples/data
+#        - $TRAVIS_BUILD_DIR/examples/data
 
 before_install:
     - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
