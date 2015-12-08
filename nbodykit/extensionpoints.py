@@ -23,6 +23,12 @@ class PluginMount(type):
                 raise RuntimeError("Plugin class %s already registered with %s"
                     % (cls.field_type, str(type(cls))))
 
+            # add a commandline argument parser that parsers the ':' seperated
+            # commandlines.
+            cls.parser = ArgumentParser(cls.field_type, 
+                    usage=None, add_help=False, 
+                    formatter_class=HelpFormatterColon)
+
             # track names of classes
             cls.plugins[cls.field_type] = cls
             
@@ -158,12 +164,6 @@ class DataSource:
             ]
 
         yield data 
-
-    @classmethod
-    def add_parser(kls):
-        kls.parser = ArgumentParser(kls.field_type, 
-                usage=None, add_help=False, formatter_class=HelpFormatterColon)
-        return kls.parser
 
     @classmethod
     def format_help(kls):
