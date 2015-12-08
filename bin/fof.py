@@ -271,7 +271,7 @@ def main():
 
     if comm.rank == 0:
         for i in range(len(npart)):
-            with open(ns.output + '.grp.%02d' % i, 'w') as ff:
+            with open(ns.output + '.grp.%02d' % i, 'wb') as ff:
                 numpy.int32(npart[i]).tofile(ff)
                 numpy.float32(ns.LinkingLength).tofile(ff)
                 pass
@@ -289,7 +289,7 @@ def main():
         if mystart >= npart[i] : continue
         if myend > npart[i]: myend = npart[i]
         if mystart < 0: mystart = 0
-        with open(ns.output + '.grp.%02d' % i, 'r+') as ff:
+        with open(ns.output + '.grp.%02d' % i, 'rb+') as ff:
             ff.seek(8, 0)
             ff.seek(mystart * 4, 1)
             label[written:written + myend - mystart].tofile(ff)
