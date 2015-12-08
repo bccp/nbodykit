@@ -30,13 +30,12 @@ def paint(field, pm):
         return field.paint(pm)
 
     pm.real[:] = 0
-    Ntot = 0
-    Wsum = 0
 
     if pm.comm.rank == 0: 
         logger.info("BoxSize = %s", str(field.BoxSize))
 
-    for position, weight in field.read(['Position', 'Weight'], pm.comm, full=False):
+    stats = {}
+    for position, weight in field.read(['Position', 'Weight'], pm.comm, stats, full=False):
         min = numpy.min(
             pm.comm.allgather(
                     [numpy.inf, numpy.inf, numpy.inf] 
@@ -51,24 +50,14 @@ def paint(field, pm):
             axis=0)
         layout = pm.decompose(position)
 
-        # Ntot shall be calculated before exchange. Issue #55.
-        Ntot += len(position)
-        if weight is None:
-            Wsum += len(position)
-            weight = 1
-        else:
-            Wsum += weight.sum()
-            weight = layout.exchange(weight)
-
         position = layout.exchange(position)
 
-        gNtot = pm.comm.allreduce(Ntot)
         if pm.comm.rank == 0:
             logger.info("Range of position %s:%s Nread = %d" % (str(min),
-                str(max), gNtot))
+                str(max), stats['Ntot']))
 
         pm.paint(position, weight)
-    return pm.comm.allreduce(Wsum)
+    return stats['Ntot']
 
 
 def compute_3d_power(fields, pm, transfer=[], painter=paint, comm=None, log_level=logging.DEBUG):
@@ -248,14 +237,15 @@ def compute_brutal_corr(fields, Rmax, Nr, Nmu=0, comm=None, subsample=1, los='z'
     grid = [numpy.linspace(0, fields[0].BoxSize[i], Nproc[i]+1, endpoint=True) for i in range(3)]
     domain = GridND(grid, comm=comm)
 
+    stats = {}
     # read position for field #1 
-    [[pos1]] = fields[0].read(['Position'], comm, full=False)
+    [[pos1]] = fields[0].read(['Position'], comm, stats, full=False)
     pos1 = pos1[comm.rank * subsample // comm.size ::subsample]
     N1 = comm.allreduce(len(pos1))
     
     # read position for field #2
     if len(fields) > 1:
-        [[pos2]] = fields[1].read(['Position'], comm, full=False)
+        [[pos2]] = fields[1].read(['Position'], comm, stats, full=False)
         pos2 = pos2[comm.rank * subsample // comm.size ::subsample]
         N2 = comm.allreduce(len(pos2))
     else:

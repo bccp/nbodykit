@@ -22,7 +22,7 @@ parser = ArgumentParser(None,
         )
 
 h = "Data source to read particle position:\n\n"
-parser.add_argument("datasource", type=DataSource.open,
+parser.add_argument("datasource", type=DataSource.create,
         help=h + DataSource.format_help())
 parser.add_argument("LinkingLength", type=float, 
         help='LinkingLength in mean separation (0.2)')
@@ -137,13 +137,15 @@ def main():
         logging.info('grid %s' % str(grid) )
 
     # read in all !
-    [[Position]] = ns.datasource.read(['Position'], comm, full=True)
+    stats = {}
+    [[Position]] = ns.datasource.read(['Position'], comm, stats, full=True)
     Position /= ns.datasource.BoxSize
 
     print(Position.shape)
     print(Position.max(axis=0))
 
-    Ntot = sum(comm.allgather(len(Position)))
+    Ntot = stats['Ntot']
+    assert Ntot == sum(comm.allgather(len(Position)))
 
     if comm.rank == 0:
         logging.info('Total number of particles %d, ll %g' % (Ntot, ns.LinkingLength))
@@ -161,7 +163,7 @@ def main():
     if comm.rank == 0:
         logging.info('local fof done' )
 
-    [[ID]] = ns.datasource.read(['ID'], comm, full=True)
+    [[ID]] = ns.datasource.read(['ID'], comm, stats, full=True)
     ID = layout.exchange(ID)
     # initialize global labels
     minid = equiv_class(labels, ID, op=numpy.fmin)[labels]
@@ -222,13 +224,13 @@ def main():
         logging.info('Length of entries %s ', N.shape[0])
         logging.info('Total particles %s ', N.sum())
 
-    [[Position]] = ns.datasource.read(['Position'], comm, full=True)
+    [[Position]] = ns.datasource.read(['Position'], comm, stats, full=True)
 
     Position /= ns.datasource.BoxSize
     hpos = halos.centerofmass(label, Position, boxsize=1.0, comm=comm)
     del Position
 
-    [[Velocity]] = ns.datasource.read(['Velocity'], comm, full=True)
+    [[Velocity]] = ns.datasource.read(['Velocity'], comm, stats, full=True)
     Velocity /= ns.datasource.BoxSize
 
     hvel = halos.centerofmass(label, Velocity, boxsize=None, comm=comm)

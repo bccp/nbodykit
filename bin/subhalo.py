@@ -20,7 +20,7 @@ parser = ArgumentParser(None,
      """
         )
 
-parser.add_argument("datasource", type=DataSource.open,
+parser.add_argument("datasource", type=DataSource.create,
         help='Data source')
 parser.add_argument("halolabel", 
         help='basename of the halo label files, only nbodykit format is supported in this script')
@@ -72,10 +72,11 @@ def main():
             ])
     PIG['Label'] = Label[mask]
     del Label
-    [[Position]] = ns.datasource.read(['Position'], comm, full=True)
+    stats = {}
+    [[Position]] = ns.datasource.read(['Position'], comm, stats, full=True)
     PIG['Position'] = Position[mask]
     del Position
-    [[Velocity]] = ns.datasource.read(['Velocity'], comm, full=True)
+    [[Velocity]] = ns.datasource.read(['Velocity'], comm, stats, full=True)
     PIG['Velocity'] = Velocity[mask]
     del Velocity
  
