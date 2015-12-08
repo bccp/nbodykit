@@ -266,31 +266,6 @@ class HaloLabelFile(SnapshotFile):
         self.read = TPMSnapshotFile.read.__get__(self)
         self.write = TPMSnapshotFile.write.__get__(self)
 
-class HaloFile(object):
-    """
-    nbodykit halo catalogue file
-
-    Attributes
-    ----------
-    nhalo : int
-        Number of halos in the file
-    
-    """
-    def __init__(self, filename):
-        self.filename = filename
-        with open(self.filename, 'rb') as ff:
-            self.nhalo = int(numpy.fromfile(ff, 'i4', 1)[0])
-            self.npart = self.nhalo
-            self.linking_length = float(numpy.fromfile(ff, 'f4', 1)[0])
-
-        self.offset_table = {
-            'Mass': ('i4', 8),
-            'Position': (('f4', 3), 8 + 4 * self.nhalo),
-            'Velocity': (('f4', 3), 8 + 4 * self.nhalo + 12 * self.nhalo),
-        }
-
-        self.read = TPMSnapshotFile.read.__get__(self)
-        self.write = TPMSnapshotFile.write.__get__(self)
 
 def ReadPower2DPlainText(filename):
     """
