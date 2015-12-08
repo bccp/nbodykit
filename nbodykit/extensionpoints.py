@@ -43,7 +43,7 @@ class PluginMount(type):
     def __new__(cls, name, bases, attrs):
         # Only add PluginInterface to the ExtensionPoint,
         # such that Plugins will inherit from this.
-        if len(bases) == 0:
+        if len(bases) == 0 or (len(bases) == 1 and bases[0] is object):
             bases = (PluginInterface,)
         return type.__new__(cls, name, bases, attrs)
 
@@ -206,7 +206,7 @@ class DataSource:
 
         yield data 
 
-
+print(DataSource.initialize)
 import numpy
 from nbodykit.plugins import HelpFormatterColon
 from argparse import ArgumentParser
