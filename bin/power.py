@@ -29,7 +29,7 @@ class InputAction(Action):
 
     def __call__(self, parser, namespace, values, option_string=None):
         fields = []
-        default_painter = Painter.create("WeightPainter")
+        default_painter = Painter.create("DefaultPainter")
         for string in values:
             try:
                 datasource = DataSource.create(string)

@@ -41,7 +41,11 @@ class PluginMount(type):
         plugins attached to the extension point.
     """
     def __new__(cls, name, bases, attrs):
-        return type.__new__(cls, name, (PluginInterface, ) + bases, attrs)
+        # Only add PluginInterface to the ExtensionPoint,
+        # such that Plugins will inherit from this.
+        if len(bases) == 0:
+            bases = (PluginInterface,)
+        return type.__new__(cls, name, bases, attrs)
 
     def __init__(cls, name, bases, attrs):
 
@@ -230,12 +234,12 @@ class Painter:
     
     def paint(self, pm, datasource):
         """ 
-            Paint from a data source. It shall loop over self.read(...)
+            Paint from a data source. It shall loop over self.read_and_decompose(...)
             and paint the data in chunks.
         """
         raise NotImplementedError
 
-    def read(self, pm, datasource, columns, stats):
+    def read_and_decompose(self, pm, datasource, columns, stats):
 
         assert 'Position' in columns
 

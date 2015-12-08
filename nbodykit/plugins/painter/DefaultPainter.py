@@ -2,10 +2,10 @@ from nbodykit.extensionpoints import Painter
 import numpy
 import logging
 
-logger = logging.getLogger('WeightPainter')
+logger = logging.getLogger('DefaultPainter')
 
-class WeightPainter(Painter):
-    field_type = "WeightPainter"
+class DefaultPainter(Painter):
+    field_type = "DefaultPainter"
 
     @classmethod
     def register(kls):
@@ -34,10 +34,10 @@ class WeightPainter(Painter):
         stats = {}
 
         if self.weight is None:
-            for [position] in self.read(pm, datasource, ['Position'], stats):
+            for [position] in self.read_and_decompose(pm, datasource, ['Position'], stats):
                 pm.paint(position)
         else:
-            for position, weight in self.read(pm, datasource, ['Position', self.weight], stats):
+            for position, weight in self.read_and_decompose(pm, datasource, ['Position', self.weight], stats):
                 pm.paint(position, weight)
 
         return stats['Ntot']
