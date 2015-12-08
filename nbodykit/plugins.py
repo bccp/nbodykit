@@ -1,6 +1,6 @@
 import os.path
 import glob
-
+import traceback
 references = {}
 
 def load(filename, namespace=None):
@@ -31,7 +31,7 @@ def load(filename, namespace=None):
             code = compile(f.read(), filename, 'exec')
             exec(code, namespace)
     except Exception as e:
-        raise RuntimeError("Failed to load plugin '%s': %s" % (filename, str(e)))
+        raise RuntimeError("Failed to load plugin '%s': %s : %s" % (filename, str(e), traceback.format_exc()))
     references[filename] = namespace
 
 from argparse import ArgumentParser as BaseArgumentParser
