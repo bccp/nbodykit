@@ -41,8 +41,11 @@ class PluginMount(type):
         plugins attached to the extension point.
     """
     def __new__(cls, name, bases, attrs):
+        if len(bases) == 0:
+            # base class of an extension point.
+            bases = (PluginInterface, )
         # PluginInterface is added 
-        return type.__new__(cls, name, bases + (PluginInterface,), attrs)
+        return type.__new__(cls, name, bases, attrs)
 
     def __init__(cls, name, bases, attrs):
 
