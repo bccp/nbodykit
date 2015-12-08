@@ -13,7 +13,7 @@ cache:
     directories:
         - $HOME/.cache/pip
         - $HOME/.conda
-#        - $TRAVIS_BUILD_DIR/examples/data
+        - $TRAVIS_BUILD_DIR/examples/data
 
 before_install:
     - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
@@ -29,8 +29,7 @@ install:
     - if [ $TRAVIS_PYTHON_VERSION == 2.6 ]; then conda install --yes argparse; fi
     - pip install --pre pfft-python kdcount mpsort pmesh sharedmem --no-deps
     - pip install --pre -r requirements.txt .
-    - (cd examples; bash get-data.sh)
-    - tree examples
+    - if ! [ -f examples/data/snp00100_1.0000.bin.00 ]; then (cd examples; bash get-data.sh); fi
 
 script:
     - bash runtests.sh
