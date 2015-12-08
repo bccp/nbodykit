@@ -1,67 +1,14 @@
 import numpy
 import logging
+from .stripedfile import StripeFile, DataStorage
 
-__all__ = ['read', 'TPMSnapshotFile', 'SnapshotFile']
+__all__ = ['TPMSnapshotFile', 'SnapshotFile']
 
-class SnapshotFile:
-    @classmethod
-    def enum(filetype, basename):
-        """
-        Iterate over all files of the type
-        """
-        i = 0
-        while True:
-            try:
-                yield filetype(basename, i)
-            except IOError as e:
-                # if file does not open properly, we are done
-                break
-            i = i + 1
-    
-    column_names = set([
-       'Position', 
-       'Mass', 
-       'ID',
-       'Velocity',
-       'Label',
-    ])
-    def read(self, column, mystart, myend):
-        """
-        Read a property column of particles
-
-        Parameters
-        ----------
-        mystart   : int
-            offset to start reading within this file. (inclusive)
-        myend     : int
-            offset to end reading within this file. (exclusive)
-
-        Returns
-        -------
-        data : array_like (myend - mystart)
-            data in unspecified units.
-
-        """
-        return NotImplementedError
-
-    def write(self, column, mystart, data):
-        return NotImplementedError
-
-    def readat(self, offset, nitem, dtype):
-        with open(self.filename, 'r') as ff:
-            ff.seek(offset, 0)
-            return numpy.fromfile(ff, count=nitem, dtype=dtype)
-
-    def writeat(self, offset, data):
-        with open(self.filename, 'r+') as ff:
-            ff.seek(offset, 0)
-            return ff.tofile(ff)
-
-class TPMSnapshotFile(SnapshotFile):
+class TPMSnapshotFile(StripeFile):
     def __init__(self, basename, fid):
         self.filename = basename + ".%02d" % fid
 
-        with open(self.filename, 'r') as ff:
+        with open(self.filename, 'rb') as ff:
             header = numpy.fromfile(ff, dtype='i4', count=7)
         self.header = header
         self.npart = int(header[2])
@@ -78,7 +25,7 @@ class TPMSnapshotFile(SnapshotFile):
         header[2] = npart
         header[0] = 1
         
-        with open(filename, 'w') as ff:
+        with open(filename, 'wb') as ff:
             header.tofile(ff)
         self = kls(basename, fid)
         return self
@@ -89,7 +36,7 @@ class TPMSnapshotFile(SnapshotFile):
         if myend == -1:
             myend = self.npart
 
-        with open(self.filename, 'r') as ff:
+        with open(self.filename, 'rb') as ff:
             # skip header
             ff.seek(offset, 0)
             # jump to mystart of positions
@@ -99,7 +46,7 @@ class TPMSnapshotFile(SnapshotFile):
     def write(self, column, mystart, data):
         dtype, offset = self.offset_table[column]
         dtype = numpy.dtype(dtype)
-        with open(self.filename, 'r+') as ff:
+        with open(self.filename, 'rb+') as ff:
             # skip header
             ff.seek(offset, 0)
             # jump to mystart of positions
@@ -174,76 +121,7 @@ class Snapshot(object):
     
         return 
 
-def read(comm, filename, filetype, columns=['Position', 'ID'], bunchsize=None):
-    """
-    Parallel reading. This is a generator function.
-
-    Use a for loop. For example
-    .. code:: python
-        
-        for i, P in enumerate(read(comm, 'snapshot', TPMSnapshotFile)):
-            ....
-            # process P
-
-    Parameters
-    ----------
-    comm  : :py:class:`MPI.Comm`
-        Communicator
-    filename : string
-        base name of the snapshot file
-    bunchsize : int
-        Number of particles to read per rank in each iteration.
-        if None, all particles are read in one iteration
-
-    filetype : subclass of :py:class:`SnapshotFile`
-        type of file
-
-    Yields
-    ------
-    P   : dict
-        P['Position'] is the position of particles, normalized to (0, 1)
-        P['ID']       is the ID of particles
-
-    """
-    snapshot = None
-    if comm.rank == 0:
-        snapshot = Snapshot(filename, filetype)
-    snapshot = comm.bcast(snapshot)
-
-    Ntot = snapshot.npart.sum()
-
-    mystart = comm.rank * Ntot // comm.size
-    myend = (comm.rank + 1) * Ntot // comm.size
-
-    if bunchsize is None:
-        bunchsize = int(Ntot)
-        # set to a sufficiently large number.
-
-    Nchunk = 0
-    for i in range(mystart, myend, bunchsize):
-        Nchunk += 1
-    
-    # ensure every rank yields the same number of times
-    # for decompose is a collective operation.
-
-    Nchunk = max(comm.allgather(Nchunk))
-    for i in range(Nchunk):
-        a, b, c = slice(mystart + i * bunchsize, 
-                        mystart + (i +1)* bunchsize)\
-                    .indices(myend) 
-        P = {}
-        for column in columns:
-            P[column] = snapshot.read(column, a, b)
-
-        # FIXME: we need to fix this ugly thing
-        P['__nread__'] = b - a
-        #print comm.allreduce(P['Position'].max(), op=MPI.MAX)
-        #print comm.allreduce(P['Position'].min(), op=MPI.MIN)
-        #print P['ID'].max(), P['ID'].min()
-        yield P
-        i = i + bunchsize
-
-class HaloLabelFile(SnapshotFile):
+class HaloLabelFile(StripeFile):
     """
     nbodykit halo label file
 
@@ -257,7 +135,7 @@ class HaloLabelFile(SnapshotFile):
     """
     def __init__(self, filename, fid):
         self.filename = filename + ".%02d" % fid
-        with open(self.filename, 'r') as ff:
+        with open(self.filename, 'rb') as ff:
             self.npart = numpy.fromfile(ff, 'i4', 1)
             self.linking_length = numpy.fromfile(ff, 'f4', 1)
         self.offset_table = {
@@ -266,31 +144,6 @@ class HaloLabelFile(SnapshotFile):
         self.read = TPMSnapshotFile.read.__get__(self)
         self.write = TPMSnapshotFile.write.__get__(self)
 
-class HaloFile(object):
-    """
-    nbodykit halo catalogue file
-
-    Attributes
-    ----------
-    nhalo : int
-        Number of halos in the file
-    
-    """
-    def __init__(self, filename):
-        self.filename = filename
-        with open(self.filename, 'r') as ff:
-            self.nhalo = int(numpy.fromfile(ff, 'i4', 1)[0])
-            self.npart = self.nhalo
-            self.linking_length = float(numpy.fromfile(ff, 'f4', 1)[0])
-
-        self.offset_table = {
-            'Mass': ('i4', 8),
-            'Position': (('f4', 3), 8 + 4 * self.nhalo),
-            'Velocity': (('f4', 3), 8 + 4 * self.nhalo + 12 * self.nhalo),
-        }
-
-        self.read = TPMSnapshotFile.read.__get__(self)
-        self.write = TPMSnapshotFile.write.__get__(self)
 
 def ReadPower2DPlainText(filename):
     """

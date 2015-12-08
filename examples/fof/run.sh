@@ -3,5 +3,5 @@ cd $DIR
 [ -d ../output ] || mkdir ../output
 for fn in *.params; do
     echo testing $fn ...
-    python ../../bin/fof.py @$fn || exit
+    mpirun -n 2 python ../../bin/fof.py @$fn || exit
 done

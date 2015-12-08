@@ -19,9 +19,9 @@ parser = ArgumentParser(None,
      """
         )
 
-parser.add_argument("datasource_ti", type=DataSource.open,
+parser.add_argument("datasource_ti", type=DataSource.create,
         help=DataSource.format_help())
-parser.add_argument("datasource_tf", type=DataSource.open,
+parser.add_argument("datasource_tf", type=DataSource.create,
         help=DataSource.format_help())
 parser.add_argument("halolabel", 
         help='basename of the halo label files, only nbodykit format is supported in this script')
@@ -48,7 +48,8 @@ def main():
  
     Ntot = sum(LABEL.npart)
 
-    [[ID]] = ns.datasource_tf.read(['ID'], comm, full=True)
+    stats = {}
+    [[ID]] = ns.datasource_tf.read(['ID'], comm, stats, full=True)
 
     start = sum(comm.allgather(len(ID))[:comm.rank])
     end   = sum(comm.allgather(len(ID))[:comm.rank+1])
@@ -68,8 +69,8 @@ def main():
                 ('ID', ('i8')), 
                 ('Position', ('f4', 3)), 
                 ])
-    [[data['Position'][...]]] = ns.datasource_ti.read(['Position'], comm, full=True)
-    [[data['ID'][...]]] = ns.datasource_ti.read(['ID'], comm, full=True)
+    [[data['Position'][...]]] = ns.datasource_ti.read(['Position'], comm, stats, full=True)
+    [[data['ID'][...]]] = ns.datasource_ti.read(['ID'], comm, stats, full=True)
     mpsort.sort(data, orderby='ID')
 
     pos = data['Position'] / ns.datasource_ti.BoxSize
