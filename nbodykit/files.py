@@ -1,63 +1,10 @@
 import numpy
 import logging
+from .stripedfile import StripeFile, DataStorage
 
-__all__ = ['read', 'TPMSnapshotFile', 'SnapshotFile']
+__all__ = ['TPMSnapshotFile', 'SnapshotFile']
 
-class SnapshotFile:
-    @classmethod
-    def enum(filetype, basename):
-        """
-        Iterate over all files of the type
-        """
-        i = 0
-        while True:
-            try:
-                yield filetype(basename, i)
-            except IOError as e:
-                # if file does not open properly, we are done
-                break
-            i = i + 1
-    
-    column_names = set([
-       'Position', 
-       'Mass', 
-       'ID',
-       'Velocity',
-       'Label',
-    ])
-    def read(self, column, mystart, myend):
-        """
-        Read a property column of particles
-
-        Parameters
-        ----------
-        mystart   : int
-            offset to start reading within this file. (inclusive)
-        myend     : int
-            offset to end reading within this file. (exclusive)
-
-        Returns
-        -------
-        data : array_like (myend - mystart)
-            data in unspecified units.
-
-        """
-        return NotImplementedError
-
-    def write(self, column, mystart, data):
-        return NotImplementedError
-
-    def readat(self, offset, nitem, dtype):
-        with open(self.filename, 'r') as ff:
-            ff.seek(offset, 0)
-            return numpy.fromfile(ff, count=nitem, dtype=dtype)
-
-    def writeat(self, offset, data):
-        with open(self.filename, 'r+') as ff:
-            ff.seek(offset, 0)
-            return ff.tofile(ff)
-
-class TPMSnapshotFile(SnapshotFile):
+class TPMSnapshotFile(StripeFile):
     def __init__(self, basename, fid):
         self.filename = basename + ".%02d" % fid
 
@@ -174,76 +121,7 @@ class Snapshot(object):
     
         return 
 
-def read(comm, filename, filetype, columns=['Position', 'ID'], bunchsize=None):
-    """
-    Parallel reading. This is a generator function.
-
-    Use a for loop. For example
-    .. code:: python
-        
-        for i, P in enumerate(read(comm, 'snapshot', TPMSnapshotFile)):
-            ....
-            # process P
-
-    Parameters
-    ----------
-    comm  : :py:class:`MPI.Comm`
-        Communicator
-    filename : string
-        base name of the snapshot file
-    bunchsize : int
-        Number of particles to read per rank in each iteration.
-        if None, all particles are read in one iteration
-
-    filetype : subclass of :py:class:`SnapshotFile`
-        type of file
-
-    Yields
-    ------
-    P   : dict
-        P['Position'] is the position of particles, normalized to (0, 1)
-        P['ID']       is the ID of particles
-
-    """
-    snapshot = None
-    if comm.rank == 0:
-        snapshot = Snapshot(filename, filetype)
-    snapshot = comm.bcast(snapshot)
-
-    Ntot = snapshot.npart.sum()
-
-    mystart = comm.rank * Ntot // comm.size
-    myend = (comm.rank + 1) * Ntot // comm.size
-
-    if bunchsize is None:
-        bunchsize = int(Ntot)
-        # set to a sufficiently large number.
-
-    Nchunk = 0
-    for i in range(mystart, myend, bunchsize):
-        Nchunk += 1
-    
-    # ensure every rank yields the same number of times
-    # for decompose is a collective operation.
-
-    Nchunk = max(comm.allgather(Nchunk))
-    for i in range(Nchunk):
-        a, b, c = slice(mystart + i * bunchsize, 
-                        mystart + (i +1)* bunchsize)\
-                    .indices(myend) 
-        P = {}
-        for column in columns:
-            P[column] = snapshot.read(column, a, b)
-
-        # FIXME: we need to fix this ugly thing
-        P['__nread__'] = b - a
-        #print comm.allreduce(P['Position'].max(), op=MPI.MAX)
-        #print comm.allreduce(P['Position'].min(), op=MPI.MIN)
-        #print P['ID'].max(), P['ID'].min()
-        yield P
-        i = i + bunchsize
-
-class HaloLabelFile(SnapshotFile):
+class HaloLabelFile(StripeFile):
     """
     nbodykit halo label file
 

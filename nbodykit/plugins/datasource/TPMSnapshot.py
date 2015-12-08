@@ -36,27 +36,25 @@ class TPMSnapshotDataSource(DataSource):
             newcolumns.remove('Weight')
 
         bunchsize = self.bunchsize
-        if full: bunchsize = None
+        if full: bunchsize = -1
+
         stats['Ntot'] = 0
+        if comm.rank == 0:
+            datastorage = files.DataStorage(self.path, files.TPMSnapshotFile)
+        else:
+            datastorage = None
+        datastorage = comm.bcast(datastorage)
 
         for round, P in enumerate(
-                files.read(comm, 
-                    self.path, 
-                    files.TPMSnapshotFile, 
-                    columns=newcolumns, 
-                    bunchsize=bunchsize)):
-
+                datastorage.iter(stats=stats, comm=comm, 
+                    columns=newcolumns, bunchsize=bunchsize)):
+            P = dict(zip(newcolumns, P))
             if 'Position' in P:
                 P['Position'] *= self.BoxSize
             if 'Velocity' in P:
                 P['Velocity'] *= self.BoxSize
 
-            # uniform mass
-            P['Mass'] = numpy.ones(P['__nread__'], 'i1')
-            P['Weight'] = P['Mass']
-
-            stats['Ntot'] += comm.allreduce(P['__nread__'])
-
+            P['Mass'] = numpy.ones(stats['Ncurrent'], dtype='u1')
             if self.rsd is not None:
                 dir = "xyz".index(self.rsd)
                 P['Position'][:, dir] += P['Velocity'][:, dir]

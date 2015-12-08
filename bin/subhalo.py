@@ -22,8 +22,8 @@ parser = ArgumentParser(None,
 
 parser.add_argument("datasource", type=DataSource.create,
         help='Data source')
-parser.add_argument("halolabel", 
-        help='basename of the halo label files, only nbodykit format is supported in this script')
+parser.add_argument("halolabel", type=DataSource.create,
+        help='data source for the halo label files; column name is Label.')
 
 parser.add_argument("--linklength", type=float, default=0.078,
         help='Linking length of subhalos, in units of mean particle seperation')
@@ -53,16 +53,10 @@ from kdcount import cluster
 
 def main():
     comm = MPI.COMM_WORLD
-    LABEL = None
-    if comm.rank == 0:
-        LABEL = files.Snapshot(ns.halolabel, files.HaloLabelFile)
-
-    LABEL = comm.bcast(LABEL)
- 
     offset = 0
     
-    [Label] = files.read(comm, ns.halolabel, files.HaloLabelFile, columns=['Label'], bunchsize=None)
-    Label = Label['Label']
+    stats = {}
+    [[Label]] = ns.halolabel.read(['Label'], comm, stats, full=True)
     mask = Label != 0
     PIG = numpy.empty(mask.sum(), dtype=[
             ('Position', ('f4', 3)), 
@@ -72,7 +66,6 @@ def main():
             ])
     PIG['Label'] = Label[mask]
     del Label
-    stats = {}
     [[Position]] = ns.datasource.read(['Position'], comm, stats, full=True)
     PIG['Position'] = Position[mask]
     del Position
