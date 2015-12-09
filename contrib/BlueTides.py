@@ -16,8 +16,10 @@ class BlueTidesDataSource(DataSource):
         h.add_argument("path", help="path to file")
         h.add_argument("BoxSize", type=kls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
-        h.add_argument("-ptype",
+        h.add_argument("-ptype", dest='ptypes', action='append', 
             choices=["0", "1", "2", "3", "4", "5", "FOFGroups"], help="type of particle to read")
+        h.add_argument("-load", dest='load', action='append', default=[],
+                         help="extra columns to load")
         h.add_argument("-subsample", action='store_true',
                 default=False, help="this is a subsample file")
         h.add_argument("-bunchsize", type=int, default=4 *1024*1024,
@@ -30,7 +32,7 @@ class BlueTidesDataSource(DataSource):
         header = f['header']
         boxsize = header.attrs['BoxSize'][0]
 
-        ptypes = [self.ptype]
+        ptypes = self.ptypes
         readcolumns = []
         for column in columns:
             if column == 'HI':
@@ -42,6 +44,7 @@ class BlueTidesDataSource(DataSource):
                 readcolumns.append(column)
         stats['Ntot'] = 0
 
+        readcolumns = readcolumns + self.load
         for ptype in ptypes:
             for data in self.read_ptype(ptype, readcolumns, comm, stats, full):
                 P = dict(zip(readcolumns, data))
@@ -80,7 +83,7 @@ class BlueTidesDataSource(DataSource):
                     if column == 'Velocity':
                         read_column = 'MassCenterVelocity'
 
-                cdata = f['%s/%s' % (self.ptype, read_column)]
+                cdata = f['%s/%s' % (ptype, read_column)]
 
                 Ntot = cdata.size
                 start = comm.rank * Ntot // comm.size
