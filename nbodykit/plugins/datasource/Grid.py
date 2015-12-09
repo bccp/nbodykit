@@ -1,8 +1,5 @@
 from nbodykit.extensionpoints import DataSource
-
-import numpy
 import logging
-from nbodykit.utils import selectionlanguage
 
 logger = logging.getLogger('Grid')
 
