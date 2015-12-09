@@ -4,5 +4,5 @@ cd $DIR
 [ -d ../output ] || mkdir ../output
 for fn in *.params; do
     echo testing $fn ...
-    python ../../bin/trace-halo.py @$fn || exit
+    mpirun -n 2 python ../../bin/trace-halo.py @$fn || exit
 done
