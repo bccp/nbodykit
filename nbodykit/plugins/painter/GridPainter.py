@@ -1,5 +1,4 @@
 from nbodykit.extensionpoints import Painter
-from nbodykit.extensionpoints import GridDataSource
 import numpy
 import logging
 
@@ -13,6 +12,10 @@ class GridPainter(Painter):
     """
     field_type = "GridPainter"
 
+    @classmethod
+    def register(kls):
+        h = kls.parser
+        
     def paint(self, pm, datasource):
         """
         Read the datasource (which specifies the binary file) and
@@ -30,10 +33,7 @@ class GridPainter(Painter):
         Ntot : None
             returns ``None`` for the moment, since we don't have info
             on the total number of particles
-        """
-        if not isinstance(datasource, GridDataSource):
-            raise TypeError("`GridPainter` can only be used with a `GridDataSource`")
-            
+        """            
         pm.real[:] = 0
         shape = (pm.Nmesh,)*pm.partition.Ndim
         try:
