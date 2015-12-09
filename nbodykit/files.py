@@ -5,7 +5,7 @@ from .stripedfile import StripeFile, DataStorage
 __all__ = ['TPMSnapshotFile', 'SnapshotFile']
 
 class TPMSnapshotFile(StripeFile):
-    def __init__(self, basename, fid):
+    def __init__(self, basename, fid, args={}):
         self.filename = basename + ".%02d" % fid
 
         with open(self.filename, 'rb') as ff:
@@ -52,6 +52,72 @@ class TPMSnapshotFile(StripeFile):
             # jump to mystart of positions
             ff.seek(mystart * dtype.itemsize, 1)
             return data.astype(dtype.base).tofile(ff)
+
+class GadgetSnapshotFile(StripeFile):
+    def __init__(self, basename, fid, args=dict(ptype=1,
+        posdtype='f8', veldtype='f4', massdtype='f4', iddtype='u8')):
+
+        self.ptype = args['ptype']
+        self.filename = basename + ".%d" % fid
+        posdtype = numpy.dtype(args['posdtype'])
+        veldtype = numpy.dtype(args['veldtype'])
+        massdtype = numpy.dtype(args['massdtype'])
+        iddtype = numpy.dtype(args['iddtype'])
+        
+        with open(self.filename, 'rb') as ff:
+            header = numpy.fromfile(ff, dtype='u1', count=256+8)
+
+        headerdtype = [
+          ('N', ('u4', 6)), ('mass', ('f8', 6)),
+          ('time', 'f8'), ('redshift', 'f8'),
+          ('flag_sfr', 'i4'), ('flag_feedback', 'i4'),
+          ('Ntot_low', ('u4', 6)), ('flag_cool', 'i4'),
+          ('Nfiles', 'i4'), ('boxsize', 'f8'),
+          ('OmegaM', 'f8'), ('OmegaL', 'f8'),
+          ('h', 'f8'), ('flag_sft', 'i4'),
+          ('flag_met', 'i4'), ('Ntot_high', ('u4', 6)),
+          ('flag_entropy', 'i4'), ('flag_double', 'i4'),
+          ('flag_ic_info', 'i4'), ('flag_lpt_scalingfactor', 'i4'),
+          ('flag_pressure_entropy', 'i1'), ('Ndims', 'i1'),
+          ('densitykerneltype', 'i1'), ('unused', ('u1', 45)),
+        ]
+        header = header[4:-4].view(dtype=headerdtype)[0]
+        self.header = header
+        self.npart = int(header['N'][self.ptype])
+
+        nall = int(header['N'].sum())
+        nmass = int((header['N'] * (header['mass'] == 0)).sum())
+        nallc = int(header['N'][:self.ptype].sum())
+        nmassc = int((header['N'][:self.ptype] * 
+                        (header['mass'][:self.ptype] == 0)).sum())
+        o = {}
+        offset = 256 + 8
+        o['Position'] = ((posdtype, 3), offset + 4 + nallc *
+                posdtype.itemsize * 3) 
+        offset += posdtype.itemsize * 3 * nall + 8
+        o['Velocity'] = ((veldtype, 3), offset + 4 + nallc *
+                veldtype.itemsize * 3) 
+        offset += veldtype.itemsize * 3* nall + 8
+        o['ID'] = (iddtype, offset + 4 + nallc * 8)
+        offset += iddtype.itemsize * 3 * nall
+        o['Mass'] = (massdtype, offset + 4 + nmassc * massdtype.itemsize),
+        self.offset_table = o
+
+    def read(self, column, mystart=0, myend=-1):
+        dtype, offset = self.offset_table[column]
+        dtype = numpy.dtype(dtype)
+        if myend == -1:
+            myend = self.npart
+
+        if column == 'Mass' and self.header['mass'][self.ptype] != 0:
+            return numpy.ones(myend - mystart, dtype=dtype) * self.header['mass'][self.ptype]
+
+        with open(self.filename, 'rb') as ff:
+            # skip header
+            ff.seek(offset, 0)
+            # jump to mystart of positions
+            ff.seek(mystart * dtype.itemsize, 1)
+            return numpy.fromfile(ff, count=myend - mystart, dtype=dtype)
 
 class Snapshot(object):
     def __init__(self, filename, filetype):
