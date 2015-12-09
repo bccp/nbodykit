@@ -119,6 +119,54 @@ class GadgetSnapshotFile(StripeFile):
             ff.seek(mystart * dtype.itemsize, 1)
             return numpy.fromfile(ff, count=myend - mystart, dtype=dtype)
 
+class GadgetGroupTabFile(StripeFile):
+    def __init__(self, basename, fid, args=dict(
+        posdtype='f8', veldtype='f4', massdtype='f4')):
+
+        self.filename = basename + ".%d" % fid
+        posdtype = numpy.dtype(args['posdtype'])
+        veldtype = numpy.dtype(args['veldtype'])
+        massdtype = numpy.dtype(args['massdtype'])
+
+        headerdtype = [('N', ('i4', (1,))),
+                ('Ntot', ('i4', (1,))),
+                ('Nids',  'i4'),
+                ('TotNids', 'u8'),
+                ('Nfiles', 'i4')
+        ]
+        with open(self.filename, 'rb') as ff:
+            header = numpy.fromfile(ff, dtype=headerdtype, count=1)[0]
+
+        self.header = header
+        self.npart = int(header['N'])
+
+        o = {}
+        offset = header.itemsize
+        o['Length'] = ('i4', offset)
+        offset += 4 * self.npart
+        o['Offset'] = ('i4', offset)
+        offset += 4 * self.npart
+        o['Mass'] =  (massdtype, offset)
+        offset += massdtype.itemsize * self.npart
+        o['Position'] = ((posdtype, 3), offset)
+        offset += posdtype.itemsize * 3 * self.npart
+        o['Velocity'] = ((veldtype, 3), offset)
+        offset += veldtype.itemsize * 3 * self.npart
+        self.offset_table = o
+
+    def read(self, column, mystart=0, myend=-1):
+        dtype, offset = self.offset_table[column]
+        dtype = numpy.dtype(dtype)
+        if myend == -1:
+            myend = self.npart
+
+        with open(self.filename, 'rb') as ff:
+            # skip header
+            ff.seek(offset, 0)
+            # jump to mystart of positions
+            ff.seek(mystart * dtype.itemsize, 1)
+            return numpy.fromfile(ff, count=myend - mystart, dtype=dtype)
+
 class Snapshot(object):
     def __init__(self, filename, filetype):
         self.npart = numpy.array(
