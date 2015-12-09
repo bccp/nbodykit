@@ -30,8 +30,8 @@ class GridPainter(Painter):
             
         Returns
         -------
-        Ntot : None
-            returns ``None`` for the moment, since we don't have info
+        Ntot : int
+            returns ``0`` for the moment, since we don't have info
             on the total number of particles
         """            
         pm.real[:] = 0
@@ -47,10 +47,10 @@ class GridPainter(Painter):
         
         with open(datasource.path, 'rb') as ff:
         
-            for i in range(*slices[0]):
-                for j in range(*slices[1]):
-                    start = numpy.ravel_multi_index([i, j, slices[2][0]], shape)
-                    stop = numpy.ravel_multi_index([i, j, slices[2][1]-1], shape)
+            for i, a in enumerate(range(*slices[0])):
+                for j, b in enumerate(range(*slices[1])):
+                    start = numpy.ravel_multi_index([a, b, slices[2][0]], shape)
+                    stop = numpy.ravel_multi_index([a, b, slices[2][1]-1], shape)
                     
                     # crash on error - likely Nmesh problem
                     try:
@@ -59,4 +59,6 @@ class GridPainter(Painter):
                     except Exception as e:
                         args = (pm.Nmesh, str(e))
                         raise ValueError("cannot read binary file using `Nmesh = %d`; original message: %s" %args)
+                        
+        return 0
             
