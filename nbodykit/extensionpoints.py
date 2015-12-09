@@ -196,11 +196,13 @@ class DataSource:
         if comm.rank == 0:
             data = self.readall(columns)    
             shape_and_dtype = [(d.shape, d.dtype) for d in data]
+            Ntot = len(data)
         else:
             shape_and_dtype = None
+            Ntot = None
         shape_and_dtype = comm.bcast(shape_and_dtype)
 
-        stat['Ntot'] = comm.bcast(len(data))
+        stat['Ntot'] = comm.bcast(Ntot)
 
         if comm.rank != 0:
             data = [
