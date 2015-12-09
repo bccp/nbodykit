@@ -199,7 +199,7 @@ class HaloLabelFile(StripeFile):
         linking length. For example, 0.2 or 0.168
         
     """
-    def __init__(self, filename, fid):
+    def __init__(self, filename, fid, args):
         self.filename = filename + ".%02d" % fid
         with open(self.filename, 'rb') as ff:
             self.npart = numpy.fromfile(ff, 'i4', 1)
