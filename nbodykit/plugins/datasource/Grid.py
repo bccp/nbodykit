@@ -3,7 +3,6 @@ import logging
 
 logger = logging.getLogger('Grid')
 
-
 class GridDataSource(DataSource):
     """
     Class to read field gridded data from a binary file.
