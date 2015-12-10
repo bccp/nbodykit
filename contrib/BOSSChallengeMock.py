@@ -127,6 +127,11 @@ class BOSSChallengeBoxGDataSource(BOSSChallengeMockDataSource):
     qpar = 0.9975277944
 
 
+class BOSSChallengeNSeriesDataSource(BOSSChallengeMockDataSource):
+    field_type = 'BOSSChallengeNSeries'
+    qperp = 0.99169902
+    qpar = 0.98345263
+
     
 
 
