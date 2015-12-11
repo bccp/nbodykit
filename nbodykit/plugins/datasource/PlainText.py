@@ -53,7 +53,7 @@ class PlainTextDataSource(DataSource):
         `type` and `mass`, you could specify 
         select= "type == central and mass > 1e14"
     """
-    field_type = "PlainText"
+    plugin_name = "PlainText"
     
     @classmethod
     def register(kls):

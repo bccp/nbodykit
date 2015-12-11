@@ -3,7 +3,7 @@ from nbodykit import files
 import numpy
 
 class TPMSnapshotDataSource(DataSource):
-    field_type = "TPMSnapshot"
+    plugin_name = "TPMSnapshot"
     
     @classmethod
     def register(kls):

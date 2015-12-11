@@ -31,7 +31,7 @@ class BOSSChallengeMockDataSource(DataSource):
     scaled : bool, optional
         rescale the parallel and perp coordinates by the AP factor
     """
-    field_type = 'BOSSChallengeMock'
+    plugin_name = 'BOSSChallengeMock'
     qpar = 1.0
     qperp = 1.0
     
@@ -92,37 +92,37 @@ class BOSSChallengeMockDataSource(DataSource):
         return [P[key] for key in columns]
         
 class BOSSChallengeBoxADataSource(BOSSChallengeMockDataSource):
-    field_type = 'BOSSChallengeBoxA'
+    plugin_name = 'BOSSChallengeBoxA'
     qperp = 0.998753592
     qpar = 0.9975277944
     
 class BOSSChallengeBoxBDataSource(BOSSChallengeMockDataSource):
-    field_type = 'BOSSChallengeBoxB'
+    plugin_name = 'BOSSChallengeBoxB'
     qperp = 0.998753592
     qpar = 0.9975277944
     
 class BOSSChallengeBoxCDataSource(BOSSChallengeMockDataSource):
-    field_type = 'BOSSChallengeBoxC'
+    plugin_name = 'BOSSChallengeBoxC'
     qperp = 0.9875682111
     qpar = 0.9751013789
     
 class BOSSChallengeBoxDDataSource(BOSSChallengeMockDataSource):
-    field_type = 'BOSSChallengeBoxD'
+    plugin_name = 'BOSSChallengeBoxD'
     qperp = 0.9916978595
     qpar = 0.9834483344
     
 class BOSSChallengeBoxEDataSource(BOSSChallengeMockDataSource):
-    field_type = 'BOSSChallengeBoxE'
+    plugin_name = 'BOSSChallengeBoxE'
     qperp = 0.9916978595
     qpar = 0.9834483344
     
 class BOSSChallengeBoxFDataSource(BOSSChallengeMockDataSource):
-    field_type = 'BOSSChallengeBoxF'
+    plugin_name = 'BOSSChallengeBoxF'
     qperp = 0.998753592
     qpar = 0.9975277944
     
 class BOSSChallengeBoxGDataSource(BOSSChallengeMockDataSource):
-    field_type = 'BOSSChallengeBoxG'
+    plugin_name = 'BOSSChallengeBoxG'
     qperp = 0.998753592
     qpar = 0.9975277944
 
@@ -131,7 +131,7 @@ class BOSSChallengeNSeriesDataSource(DataSource):
     """
     N-series BOSS challenge mock
     """
-    field_type = 'BOSSChallengeNSeries'
+    plugin_name = 'BOSSChallengeNSeries'
     qperp = 0.99169902
     qpar = 0.98345263
     

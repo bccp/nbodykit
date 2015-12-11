@@ -7,7 +7,7 @@ import logging
 logger = logging.getLogger('CollapsedHalo')
     
 class CollapsedHaloDataSource(DataSource):
-    field_type = "CollapsedHaloMatter"
+    plugin_name = "CollapsedHaloMatter"
     
     @classmethod
     def register(kls):

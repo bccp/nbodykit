@@ -7,7 +7,7 @@ import logging
 logger = logging.getLogger('MBIIDMO')
 
 class DataSourcePlugin(DataSource):
-    field_type = "MBIIDMO"
+    plugin_name = "MBIIDMO"
     
     @classmethod
     def register(kls):

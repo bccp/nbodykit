@@ -3,7 +3,7 @@ from nbodykit import files
 import numpy
 
 class HaloLabel(DataSource):
-    field_type = "HaloLabel"
+    plugin_name = "HaloLabel"
     
     @classmethod
     def register(kls):

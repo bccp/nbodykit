@@ -6,7 +6,7 @@
     1. subclass from the extension point class
     2. define a class method `register`, that calls add_argument
        to kls.parser.
-    3. define a field_type member.
+    3. define a plugin_name member.
 
     To define an ExtensionPoint,
 
@@ -58,21 +58,21 @@ class PluginMount(type):
             cls.plugins = {}
         # called for each plugin, which already has 'plugins' list
         else:
-            if not hasattr(cls, 'field_type'):
-                raise RuntimeError("Plugin class must carry a field_type.")
+            if not hasattr(cls, 'plugin_name'):
+                raise RuntimeError("Plugin class must carry a plugin_name.")
 
-            if cls.field_type in cls.plugins:
+            if cls.plugin_name in cls.plugins:
                 raise RuntimeError("Plugin class %s already registered with %s"
-                    % (cls.field_type, str(type(cls))))
+                    % (cls.plugin_name, str(type(cls))))
 
             # add a commandline argument parser that parsers the ':' seperated
             # commandlines.
-            cls.parser = ArgumentParser(cls.field_type, 
+            cls.parser = ArgumentParser(cls.plugin_name, 
                     usage=None, add_help=False, 
                     formatter_class=HelpFormatterColon)
 
             # track names of classes
-            cls.plugins[cls.field_type] = cls
+            cls.plugins[cls.plugin_name] = cls
             
             # try to call register class method
             if hasattr(cls, 'register'):
@@ -139,7 +139,7 @@ class DataSource:
     Plugins implementing this reference should provide the following 
     attributes:
 
-    field_type : str
+    plugin_name : str
         class attribute giving the name of the subparser which 
         defines the necessary command line arguments for the plugin
     
@@ -224,7 +224,7 @@ class Painter:
     Plugins implementing this reference should provide the following 
     attributes:
 
-    field_type : str
+    plugin_name : str
         class attribute giving the name of the subparser which 
         defines the necessary command line arguments for the plugin
     
@@ -259,14 +259,13 @@ class Painter:
                 
             yield [data[c] for c in columns]
 
-#------------------------------------------------------------------------------
 import sys
 import contextlib
 
-@add_metaclass(PluginMount)
+@ExtensionPoint
 class MeasurementStorage:
 
-    field_type = None
+    plugin_name = None
     klasses = {}
 
     def __init__(self, path):
@@ -274,7 +273,7 @@ class MeasurementStorage:
 
     @classmethod
     def add_storage_klass(kls, klass):
-        kls.klasses[klass.field_type] = klass
+        kls.klasses[klass.plugin_name] = klass
 
     @classmethod
     def new(kls, dim, path):
