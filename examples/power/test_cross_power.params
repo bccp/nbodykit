@@ -1,5 +1,8 @@
-1d
-256
-../output/test_cross_power.txt
-TPMSnapshot:../data/snp00100_1.0000.bin:1380
-FOFGroups:../output/fof00100_ll0.200_1.0000.hdf5:1380:10.0
+mode: 1d
+Nmesh: 256
+output: ../output/test_cross_power.txt
+fields:
+    - TPMSnapshot:../data/snp00100_1.0000.bin:1380
+    - [NormalizeDC, RemoveDC, AnisotropicCIC]
+    - FOFGroups:../output/fof00100_ll0.200_1.0000.hdf5:1380:10.0
+    - [NormalizeDC, RemoveDC, AnisotropicCIC]
