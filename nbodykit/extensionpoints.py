@@ -131,6 +131,40 @@ from nbodykit.plugins import HelpFormatterColon
 from argparse import ArgumentParser
 
 @ExtensionPoint
+class Transfer:
+    """
+    Mount point for plugins which apply a k-space transfer function
+    to the Fourier transfrom of a datasource field
+    
+    Plugins implementing this reference should provide the following 
+    attributes:
+
+    plugin_name : str
+        class attribute giving the name of the subparser which 
+        defines the necessary command line arguments for the plugin
+    
+    register : classmethod
+        A class method taking no arguments that adds a subparser
+        and the necessary command line arguments for the plugin
+    
+    __call__ : method
+        function that will apply the transfer function to the complex array
+    """
+    def __call__(self, pm, complex):
+        """ 
+        Apply the transfer function to the complex field
+        
+        Parameters
+        ----------
+        pm : ParticleMesh
+            the particle mesh object which holds possibly useful
+            information, i.e, `w` or `k` arrays
+        complex : array_like
+            the complex array to apply the transfer to
+        """
+        raise NotImplementedError
+
+@ExtensionPoint
 class DataSource:
     """
     Mount point for plugins which refer to the reading of input files 
@@ -295,3 +329,18 @@ class MeasurementStorage:
 
     def write(self, cols, data, **meta):
         return NotImplemented
+        
+__all__ = ['DataSource', 'Painter', 'Transfer', 'MeasurementStorage']
+
+def plugin_isinstance(string, extensionpt):
+    """
+    Return `True` if the string representation of an extension point
+    is an instance of the extension point class `extensionpt`
+    """
+    if not hasattr(extensionpt, 'plugins'):
+        raise TypeError("please specify a valid extension point as the second argument")
+        
+    if not isinstance(string, str):
+        return False
+    return string.split(":")[0] in extensionpt.plugins.keys()
+    
