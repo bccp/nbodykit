@@ -5,7 +5,7 @@ import logging
 logger = logging.getLogger('DefaultPainter')
 
 class DefaultPainter(Painter):
-    field_type = "DefaultPainter"
+    plugin_name = "DefaultPainter"
 
     @classmethod
     def register(kls):

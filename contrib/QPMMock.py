@@ -28,7 +28,7 @@ class QPMMockDataSource(DataSource):
     velf   : float, optional
         multiply the velocity data by this factor
     """
-    field_type = 'QPMMock'
+    plugin_name = 'QPMMock'
     qpar = 0.9851209643
     qperp = 0.9925056798
     

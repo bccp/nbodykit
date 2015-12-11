@@ -20,7 +20,7 @@ class GridDataSource(DataSource):
     BoxSize : float
         the box size
     """
-    field_type = "Grid"
+    plugin_name = "Grid"
     
     @classmethod
     def register(kls):

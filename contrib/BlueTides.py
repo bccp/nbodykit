@@ -7,7 +7,8 @@ import bigfile
 logger = logging.getLogger('BlueTides')
 
 class BlueTidesDataSource(DataSource):
-    field_type = "BlueTides"
+    plugin_name = "BlueTides"
+    
     @classmethod
     def register(kls):
         
