@@ -64,7 +64,35 @@ class RemoveDC(Transfer):
             ind.append((wi == 0).nonzero()[0][0])
         ind = tuple(ind)
         complex[ind] = 0.
+        
+
+class VelocityDivergence(Transfer):
+    """
+    Apply the k-space kernel which transforms
+    v_par(k) into vel_divergence(k)
+    """
+    plugin_name = "VelocityDivergence"
+
+    @classmethod
+    def register(kls):
+        h = kls.parser
+        h.add_argument("velocity_comp", type=str, help="which velocity component to grid, either 'x', 'y', 'z'")
+        
+    def __call__(self, pm, complex):
+        
+        comp = "xyz".index(self.velocity_comp)
+        for row in range(len(pm.k[0])):
             
+            k2 = numpy.float64(pm.k[0][row]**2)
+            for ki in pm.k[1:]:
+                k2 = k2 + ki[0]**2
+            
+            if comp == 0:
+                kpar = pm.k[0][row]
+            else:
+                kpar = pm.k[comp]
+            with numpy.errstate(invalid='ignore'):
+                complex[row] *= -1j * numpy.nan_to_num(k2 / kpar)
 
 
         
