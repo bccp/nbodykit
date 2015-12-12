@@ -90,7 +90,7 @@ class VelocityDivergence(Transfer):
             if comp == 0:
                 kpar = pm.k[0][row]
             else:
-                kpar = pm.k[comp]
+                kpar = pm.k[comp][0]
             with numpy.errstate(invalid='ignore'):
                 complex[row] *= -1j * numpy.nan_to_num(k2 / kpar)
 
