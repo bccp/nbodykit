@@ -35,12 +35,13 @@ class VelocityPainter(Painter):
         
         complex_sum = numpy.zeros_like(pm.complex)
         
-        for position, velocity in self.read_and_decompose(pm, datasource, ['Position', 'Velocity'], stats):
+        for i, (position, velocity) in enumerate(self.read_and_decompose(pm, datasource, ['Position', 'Velocity'], stats)):
             
             # paint density first
             pm.paint(position)
             norm = pm.real.copy()
             nonzero = norm != 0.
+            print nonzero.sum()
             
             for i in range(3):
             
