@@ -33,24 +33,33 @@ class VelocityPainter(Painter):
         stats = {}
         comp = "xyz".index(self.velocity_comp)
         
-        complex_sum = numpy.zeros_like(pm.complex)
+        density = numpy.zeros_like(pm.real)
+        momentum = numpy.zeros((3,)+pm.real.shape)
         
         for i, (position, velocity) in enumerate(self.read_and_decompose(pm, datasource, ['Position', 'Velocity'], stats)):
             
             # paint density first
+            pm.real[:] = 0.
             pm.paint(position)
-            norm = pm.real.copy()
-            nonzero = norm != 0.
-            print nonzero.sum()
+            density[:] += pm.real[:]
             
+            # paint momentum
             for i in range(3):
-            
+                pm.real[:] = 0.
                 pm.paint(position, velocity[:,i])
-                pm.real[nonzero] = pm.real[nonzero] / norm[nonzero]
-                pm.r2c()
-                pm.complex *= -1j * pm.k[i]
-                complex_sum[:] += pm.complex[:]
+                momentum[i,...] += pm.real[:]
+            
+            
+        nonzero = density != 0.
+        complex_sum = numpy.zeros_like(pm.complex)
+        momentum[:,nonzero] = momentum[:,nonzero] / density[nonzero]
+        for i in range(3):
+            pm.real[:] = momentum[i,...]
+            pm.r2c()
+            pm.complex *= -1j * pm.k[i]
+            complex_sum[:] += pm.complex[:]
                 
+        
         pm.complex[:] = complex_sum[:]
         pm.c2r()
     
