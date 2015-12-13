@@ -49,7 +49,6 @@ class VelocityPainter(Painter):
                 pm.paint(position, velocity[:,i])
                 momentum[i,...] += pm.real[:]
             
-            
         nonzero = density != 0.
         complex_sum = numpy.zeros_like(pm.complex)
         momentum[:,nonzero] = momentum[:,nonzero] / density[nonzero]
@@ -59,7 +58,6 @@ class VelocityPainter(Painter):
             pm.complex *= -1j * pm.k[i]
             complex_sum[:] += pm.complex[:]
                 
-        
         pm.complex[:] = complex_sum[:]
         pm.c2r()
     
