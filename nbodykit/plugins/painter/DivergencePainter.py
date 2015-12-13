@@ -2,15 +2,14 @@ from nbodykit.extensionpoints import Painter
 import numpy
 import logging
 
-logger = logging.getLogger('VelocityPainter')
+logger = logging.getLogger('DivergencePainter')
 
-class VelocityPainter(Painter):
-    plugin_name = "VelocityPainter"
+class DivergencePainter(Painter):
+    plugin_name = "DivergencePainter"
 
     @classmethod
     def register(kls):
-        h = kls.parser
-        h.add_argument("velocity_comp", type=str, help="which velocity component to grid, either 'x', 'y', 'z'")
+        pass
 
     def paint(self, pm, datasource):
         """
@@ -30,13 +29,12 @@ class VelocityPainter(Painter):
             the total number of objects, as determined by painting
         """
         pm.real[:] = 0
-        stats = {}
-        comp = "xyz".index(self.velocity_comp)
-        
+        stats = {}        
         density = numpy.zeros_like(pm.real)
         momentum = numpy.zeros((3,)+pm.real.shape)
         
-        for i, (position, velocity) in enumerate(self.read_and_decompose(pm, datasource, ['Position', 'Velocity'], stats)):
+        columns = ['Position', 'Velocity']
+        for i, (position, velocity) in enumerate(self.read_and_decompose(pm, datasource, columns, stats)):
             
             # paint density first
             pm.real[:] = 0.
