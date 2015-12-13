@@ -37,6 +37,7 @@ class DeltaVparPainter(Painter):
         nonzero = density != 0.
         momentum[nonzero] = momentum[nonzero] / density[nonzero]
         
+        print "mean of momentum = ", momentum.mean()
         density /= density.mean()
         density -= 1.0
         print "mean of density = ", density.mean()
