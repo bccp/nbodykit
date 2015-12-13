@@ -349,7 +349,7 @@ class TaskManager(object):
         temp_name = self.pool_comm.bcast(temp_name, root=0)
 
         # parse the file with updated parameters
-        ns = self.task_parser.parse_args(['@%s' %temp_name])
+        ns = self.task_parser.parse_args(['%s' %temp_name])
 
         # run the task function using the comm for this worker pool
         self.task_function(ns, comm=self.pool_comm)
