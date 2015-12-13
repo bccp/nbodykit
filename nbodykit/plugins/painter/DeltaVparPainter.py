@@ -38,7 +38,10 @@ class DeltaVparPainter(Painter):
         momentum[nonzero] = momentum[nonzero] / density[nonzero]
         
         norm = 1.*stats['Ntot']/datasource.BoxSize.prod()
-        momentum *= density/norm - 1.0
+        density /= norm
+        density -= 1
+        print "mean of density = ", density.mean()
+        momentum *= density
         pm.real[:] = momentum[:]
     
         return stats['Ntot']
