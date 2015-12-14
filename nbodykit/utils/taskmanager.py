@@ -219,13 +219,13 @@ class TaskManager(object):
                 else:
                     color = None
             
-            worker_count += len(ranks)
+            rank_count += len(ranks)
             if len(ranks) >= nranks_min:
                 self.num_groups += 1
         
-        if worker_count != self.size-1:
-            args = (worker_count, self.size-1)
-            raise RuntimeError("mismatch between worker count (%d) and spawned worker processes (%d)" %args)
+        if rank_count != self.size-1:
+            args = (rank_count, self.size-1)
+            raise RuntimeError("mismatch between rank count (%d) and spawned worker processes (%d)" %args)
         if color is not None:
             self.worker_comm = self.comm.Split(color, 0)
         
