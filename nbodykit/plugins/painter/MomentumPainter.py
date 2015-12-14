@@ -11,7 +11,7 @@ class MomentumPainter(Painter):
     def register(kls):
         h = kls.parser
         h.add_argument("velocity_comp", type=str, help="which velocity component to grid, either 'x', 'y', 'z'")
-        h.add_argument("-moment", default=1, help="raise velocity to this power")
+        h.add_argument("-moment", default=1, type=int, help="raise velocity to this power")
 
     def paint(self, pm, datasource):
         """
