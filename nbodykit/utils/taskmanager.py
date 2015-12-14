@@ -283,7 +283,9 @@ class TaskManager(object):
                     logger.debug("worker %d has exited, closed workers = %d" %(source, closed_groups))
     
         # worker processes wait and execute single jobs
-        else:
+        # but leftover processes dont do anything here
+        elif self.worker_comm is not None:
+            
             if self.worker_comm.rank == 0:
                 args = (self.rank, MPI.Get_processor_name(), self.worker_comm.size)
                 logger.info("pool master rank is %d on %s with %d processes available" %args)
