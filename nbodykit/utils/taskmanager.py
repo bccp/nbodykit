@@ -8,30 +8,30 @@ logger = logging.getLogger('taskmanager')
 #------------------------------------------------------------------------------
 # tools
 #------------------------------------------------------------------------------        
-def split_ranks(N_ranks, avg):
+def split_ranks(N_ranks, N_chunks):
     """
-    Divide the ranks into chunks, trying to specify `avg` ranks per chunk,
-    plus any remainder. This first removes the master (0) rank
+    Divide the ranks into N chunks, removing the master (0) rank
     
     Parameters
     ----------
     N_ranks : int
         the total number of ranks available
-    avg : int
-        the desired number of ranks per chunk
+    N_chunks : int
+        the number of chunks to split the ranks into
     """
     seq = range(1, N_ranks)
-    N = len(seq)
+    avg = int((N_ranks-1) // N_chunks)
+    remainder = (N_ranks-1) % N_chunks
 
     start = 0
     end = avg
-    i = 0
-    while start < N:
-        if end > N: end = N
+    for i in range(N_chunks):
+        if remainder:
+            end += 1
+            remainder -= 1
         yield i, seq[start:end]
         start = end
         end += avg
-        i += 1
         
 def enum(*sequential, **named):
     enums = dict(zip(sequential, range(len(sequential))), **named)
@@ -150,8 +150,9 @@ class TaskManager(object):
                 'output/pkmu_output_box{box}.dat'"""
         parser.add_argument('param_file', type=str, help=h)
     
-        h = "the desired number of workers for each task force"
-        parser.add_argument('workers_per', type=int, help=h)
+        h = """the number of independent nodes that will run jobs in parallel; 
+                must be less than nprocs"""
+        parser.add_argument('nodes', type=int, help=h)
     
         h =  """given a string of the format ``key tasks``, split the string and then
                 try to parse the ``tasks``, by first trying to evaluate it, and then
@@ -159,8 +160,8 @@ class TaskManager(object):
         
                 The general use cases are: 
         
-                1) "-i box: range(2)" -> key = `box`, tasks = `[0, 1]`
-                2) "-i box: [A, B, C,]" -> key = `box`, tasks = `['A', 'B', 'C']`
+                1) "box: range(2)" -> key = `box`, tasks = `[0, 1]`
+                2) "box: [A, B, C]" -> key = `box`, tasks = `['A', 'B', 'C']`
                 
                 If multiple options passed with `-i` flag, then the total tasks to 
                 perform will be the product of the tasks lists passed"""
@@ -196,38 +197,26 @@ class TaskManager(object):
         
         return args    
     
-    def _initialize_worker_comm(self):
+    def _initialize_pool_comm(self):
         """
-        Internal function that initializes the `MPI.Intracomm` used by each
-        group of workers. This will be passed to the task function and used 
+        Internal function that initializes the `MPI.Intracomm` used by the 
+        pool of workers. This will be passed to the task function and used 
         in task computation
         """
-        self.worker_comm = None
-        self.num_groups = 0
-        
-        nranks_min = int(0.5*self.config.workers_per)
+        # split the ranks
+        self.pool_comm = None
+        chain_ranks = []
         color = 0
-        rank_count = 0
-        for i, ranks in split_ranks(self.size, self.config.workers_per):
-            
-            if self.rank in ranks:
-                
-                # only used this group of workers if it has at least 1/2 the 
-                # desired amount
-                if len(ranks) >= nranks_min:
-                    color = i+1
-                else:
-                    color = None
-            
-            rank_count += len(ranks)
-            if len(ranks) >= nranks_min:
-                self.num_groups += 1
+        worker_count = 0
+        for i, ranks in split_ranks(self.size, self.config.nodes):
+            chain_ranks.append(ranks[0])
+            if self.rank in ranks: color = i+1
+            worker_count += len(ranks)
         
-        if rank_count != self.size-1:
-            args = (rank_count, self.size-1)
-            raise RuntimeError("mismatch between rank count (%d) and spawned worker processes (%d)" %args)
-        if color is not None:
-            self.worker_comm = self.comm.Split(color, 0)
+        if worker_count != self.size-1:
+            args = (worker_count, self.size-1)
+            raise RuntimeError("mismatch between worker count (%d) and spawned worker processes (%d)" %args)
+        self.pool_comm = self.comm.Split(color, 0)
         
     def run_all(self):
         """
@@ -240,13 +229,13 @@ class TaskManager(object):
         tags = enum('READY', 'DONE', 'EXIT', 'START')
         status = MPI.Status()
     
-        # crash if we don't have enough cpus
-        if self.size <= self.config.workers_per:
-            args = (self.size, self.config.workers_per+1)
-            raise ValueError("only have %d ranks; need at least %d" %args)    
+        # crash if we only have one process or one node
+        if self.size <= self.config.nodes:
+            args = (self.size, self.config.nodes+1, self.config.nodes)
+            raise ValueError("only have %d ranks; need at least %d to use the desired %d nodes" %args)    
       
         # make the pool comm
-        self._initialize_worker_comm()
+        self._initialize_pool_comm()
     
         # the tasks provided on the command line
         tasks = self.config.tasks
@@ -257,12 +246,12 @@ class TaskManager(object):
         
             # initialize
             task_index = 0
-            num_groups = self.num_groups
-            closed_groups = 0
+            num_workers = self.config.nodes
+            closed_workers = 0
         
             # loop until all workers have finished with no more tasks
-            logger.info("master starting with %d worker groups with %d total tasks" %(num_groups, num_tasks))
-            while closed_groups < num_groups:
+            logger.info("master starting with %d node workers with %d total tasks" %(num_workers, num_tasks))
+            while closed_workers < num_workers:
                 data = self.comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status)
                 source = status.Get_source()
                 tag = status.Get_tag()
@@ -279,39 +268,37 @@ class TaskManager(object):
                     results = data
                     logger.debug("received result from worker %d" %source)
                 elif tag == tags.EXIT:
-                    closed_groups += 1
-                    logger.debug("worker %d has exited, closed workers = %d" %(source, closed_groups))
+                    closed_workers += 1
+                    logger.debug("worker %d has exited, closed workers = %d" %(source, closed_workers))
     
         # worker processes wait and execute single jobs
-        # but leftover processes dont do anything here
-        elif self.worker_comm is not None:
-            
-            if self.worker_comm.rank == 0:
-                args = (self.rank, MPI.Get_processor_name(), self.worker_comm.size)
+        else:
+            if self.pool_comm.rank == 0:
+                args = (self.rank, MPI.Get_processor_name(), self.pool_comm.size)
                 logger.info("pool master rank is %d on %s with %d processes available" %args)
             while True:
                 task = -1
                 tag = -1
         
                 # have the master rank of the pool ask for task and then broadcast
-                if self.worker_comm.rank == 0:
+                if self.pool_comm.rank == 0:
                     self.comm.send(None, dest=0, tag=tags.READY)
                     task = self.comm.recv(source=0, tag=MPI.ANY_TAG, status=status)
                     tag = status.Get_tag()
-                task = self.worker_comm.bcast(task)
-                tag = self.worker_comm.bcast(tag)
+                task = self.pool_comm.bcast(task)
+                tag = self.pool_comm.bcast(tag)
         
                 # do the work here
                 if tag == tags.START:
                     result = self.run_single_task(task, tasks.index(task), param_file)
-                    self.worker_comm.Barrier() # wait for everyone
-                    if self.worker_comm.rank == 0:
+                    self.pool_comm.Barrier() # wait for everyone
+                    if self.pool_comm.rank == 0:
                         self.comm.send(result, dest=0, tag=tags.DONE) # done this task
                 elif tag == tags.EXIT:
                     break
 
-            self.worker_comm.Barrier()
-            if self.worker_comm.rank == 0:
+            self.pool_comm.Barrier()
+            if self.pool_comm.rank == 0:
                 self.comm.send(None, dest=0, tag=tags.EXIT) # exiting
     
         # free and exit
@@ -319,7 +306,7 @@ class TaskManager(object):
         self.comm.Barrier()
         if self.rank == 0:
             logger.info("master is finished; terminating")
-            self.worker_comm.Free()
+            self.pool_comm.Free()
             
             
     def run_single_task(self, task, itask, param_file):
@@ -337,7 +324,7 @@ class TaskManager(object):
             the parameter file for the task function, read as a string, 
             which will be string formatted
         """
-        pool_rank = self.worker_comm.rank
+        pool_rank = self.pool_comm.rank
 
         # if you are the pool's root, write out the temporary parameter file
         temp_name = None
@@ -365,13 +352,13 @@ class TaskManager(object):
                 ff.write(param_file.format(**valid))
         
         # bcast the file name to all in the worker pool
-        temp_name = self.worker_comm.bcast(temp_name, root=0)
+        temp_name = self.pool_comm.bcast(temp_name, root=0)
 
         # parse the file with updated parameters
         ns = self.task_parser.parse_args(['%s' %temp_name])
 
         # run the task function using the comm for this worker pool
-        self.task_function(ns, comm=self.worker_comm)
+        self.task_function(ns, comm=self.pool_comm)
 
         # remove temporary files
         if pool_rank == 0:
