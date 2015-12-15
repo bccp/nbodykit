@@ -60,23 +60,21 @@ class PluginMount(type):
         else:
             if not hasattr(cls, 'plugin_name'):
                 raise RuntimeError("Plugin class must carry a plugin_name.")
-
-            if cls.plugin_name in cls.plugins:
-                raise RuntimeError("Plugin class %s already registered with %s"
-                    % (cls.plugin_name, str(type(cls))))
-
-            # add a commandline argument parser that parsers the ':' seperated
-            # commandlines.
-            cls.parser = ArgumentParser(cls.plugin_name, 
-                    usage=None, add_help=False, 
-                    formatter_class=HelpFormatterColon)
-
-            # track names of classes
-            cls.plugins[cls.plugin_name] = cls
             
-            # try to call register class method
-            if hasattr(cls, 'register'):
-                cls.register()
+            # register, if this plugin isn't yet
+            if cls.plugin_name not in cls.plugins:
+                # add a commandline argument parser that parsers the ':' seperated
+                # commandlines.
+                cls.parser = ArgumentParser(cls.plugin_name, 
+                        usage=None, add_help=False, 
+                        formatter_class=HelpFormatterColon)
+
+                # track names of classes
+                cls.plugins[cls.plugin_name] = cls
+            
+                # try to call register class method
+                if hasattr(cls, 'register'):
+                    cls.register()
 
     def create(kls, string): 
         """ Instantiate a plugin from this extension point,
