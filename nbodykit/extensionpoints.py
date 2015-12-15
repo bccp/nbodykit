@@ -226,9 +226,18 @@ class DataSource:
             
         """
         if comm.rank == 0:
+            
+            # make sure we have at least one column to read
+            if not len(columns):
+                raise RuntimeError("DataSource::read received no columns to read")
+            
             data = self.readall(columns)    
             shape_and_dtype = [(d.shape, d.dtype) for d in data]
-            Ntot = len(data[0])
+            Ntot = len(data[0]) # columns has to have length >= 1, or we crashed already
+            
+            # make sure the number of rows in each column read is equal
+            if not all(len(d) == Ntot for d in data):
+                raise RuntimeError("column length mismatch in DataSource::read")
         else:
             shape_and_dtype = None
             Ntot = None
