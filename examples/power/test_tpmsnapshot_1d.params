@@ -1,4 +1,6 @@
-1d
-256
-../output/test_power_tpmsnapshot_1d.txt
-TPMSnapshot:../data/snp00100_1.0000.bin:1380
+mode: 1d
+Nmesh: 256
+output: ../output/test_power_tpmsnapshot_1d.txt
+fields:
+    - TPMSnapshot:../data/snp00100_1.0000.bin:1380
+    - [NormalizeDC, RemoveDC, AnisotropicCIC]

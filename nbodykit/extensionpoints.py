@@ -60,23 +60,21 @@ class PluginMount(type):
         else:
             if not hasattr(cls, 'plugin_name'):
                 raise RuntimeError("Plugin class must carry a plugin_name.")
-
-            if cls.plugin_name in cls.plugins:
-                raise RuntimeError("Plugin class %s already registered with %s"
-                    % (cls.plugin_name, str(type(cls))))
-
-            # add a commandline argument parser that parsers the ':' seperated
-            # commandlines.
-            cls.parser = ArgumentParser(cls.plugin_name, 
-                    usage=None, add_help=False, 
-                    formatter_class=HelpFormatterColon)
-
-            # track names of classes
-            cls.plugins[cls.plugin_name] = cls
             
-            # try to call register class method
-            if hasattr(cls, 'register'):
-                cls.register()
+            # register, if this plugin isn't yet
+            if cls.plugin_name not in cls.plugins:
+                # add a commandline argument parser that parsers the ':' seperated
+                # commandlines.
+                cls.parser = ArgumentParser(cls.plugin_name, 
+                        usage=None, add_help=False, 
+                        formatter_class=HelpFormatterColon)
+
+                # track names of classes
+                cls.plugins[cls.plugin_name] = cls
+            
+                # try to call register class method
+                if hasattr(cls, 'register'):
+                    cls.register()
 
     def create(kls, string): 
         """ Instantiate a plugin from this extension point,
@@ -129,6 +127,40 @@ def add_metaclass(metaclass):
 import numpy
 from nbodykit.plugins import HelpFormatterColon
 from argparse import ArgumentParser
+
+@ExtensionPoint
+class Transfer:
+    """
+    Mount point for plugins which apply a k-space transfer function
+    to the Fourier transfrom of a datasource field
+    
+    Plugins implementing this reference should provide the following 
+    attributes:
+
+    plugin_name : str
+        class attribute giving the name of the subparser which 
+        defines the necessary command line arguments for the plugin
+    
+    register : classmethod
+        A class method taking no arguments that adds a subparser
+        and the necessary command line arguments for the plugin
+    
+    __call__ : method
+        function that will apply the transfer function to the complex array
+    """
+    def __call__(self, pm, complex):
+        """ 
+        Apply the transfer function to the complex field
+        
+        Parameters
+        ----------
+        pm : ParticleMesh
+            the particle mesh object which holds possibly useful
+            information, i.e, `w` or `k` arrays
+        complex : array_like
+            the complex array to apply the transfer to
+        """
+        raise NotImplementedError
 
 @ExtensionPoint
 class DataSource:
@@ -295,3 +327,18 @@ class MeasurementStorage:
 
     def write(self, cols, data, **meta):
         return NotImplemented
+        
+__all__ = ['DataSource', 'Painter', 'Transfer', 'MeasurementStorage']
+
+def plugin_isinstance(string, extensionpt):
+    """
+    Return `True` if the string representation of an extension point
+    is an instance of the extension point class `extensionpt`
+    """
+    if not hasattr(extensionpt, 'plugins'):
+        raise TypeError("please specify a valid extension point as the second argument")
+        
+    if not isinstance(string, str):
+        return False
+    return string.split(":")[0] in extensionpt.plugins.keys()
+    

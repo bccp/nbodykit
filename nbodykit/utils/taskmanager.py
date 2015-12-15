@@ -102,21 +102,27 @@ class TaskManager(object):
         1) "box range(2)" -> key = `box`, tasks = `[0, 1]`
         2) "box A B C" -> key = `box`, tasks = `['A', 'B', 'C']`
         """
-        fields = value.split(None, 1)
-        if len(fields) != 2:
-            raise ValueError("specify iteration tasks via the format: ``-i key tasks``")
-
-        key, value = fields
-        casters = [lambda s: eval(s), lambda s: s.split()]
+        import yaml
         
-        for cast in casters:
-            try:
-                parsed = cast(value)
-                break
-            except Exception as e:
-                continue
+        try:
+            fields = yaml.load(value)
+            keys = list(fields.keys())
+            if len(fields) != 1:
+                raise Exception
+        except:
+            raise ValueError("specify iteration tasks via the format: ``-i key: [task1, task2]``")
+        
+        key = keys[0]
+        if isinstance(fields[key], list):
+            parsed = fields[key]
         else:
-            raise RuntimeError("failure to parse iteration value string `%s`" %(value))
+            # try to eval into a list
+            try:
+                parsed = eval(fields[key])
+                if not isinstance(parser, list):
+                    raise ValueError("result of `eval` on iteration string should be list" %(fields[key]))
+            except:
+                raise ValueError("tried but failed to `eval` iteration string `%s`" %(fields[key]))
     
         return [key, parsed]
         
@@ -154,8 +160,8 @@ class TaskManager(object):
         
                 The general use cases are: 
         
-                1) "box range(2)" -> key = `box`, tasks = `[0, 1]`
-                2) "box A B C" -> key = `box`, tasks = `['A', 'B', 'C']`
+                1) "box: range(2)" -> key = `box`, tasks = `[0, 1]`
+                2) "box: [A, B, C]" -> key = `box`, tasks = `['A', 'B', 'C']`
                 
                 If multiple options passed with `-i` flag, then the total tasks to 
                 perform will be the product of the tasks lists passed"""
@@ -349,7 +355,7 @@ class TaskManager(object):
         temp_name = self.pool_comm.bcast(temp_name, root=0)
 
         # parse the file with updated parameters
-        ns = self.task_parser.parse_args(['@%s' %temp_name])
+        ns = self.task_parser.parse_args(['%s' %temp_name])
 
         # run the task function using the comm for this worker pool
         self.task_function(ns, comm=self.pool_comm)
