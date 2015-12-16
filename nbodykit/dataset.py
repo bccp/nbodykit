@@ -119,8 +119,8 @@ class DataSet(object):
         from nbodykit.extensionpoints.MeasurementStorage
     
         >>> from nbodykit import files
-        >>> corr = Corr2DDataSet(*files.Read2DPlaintext(filename), force_index_match=True)
-        >>> pk = Power1DDataSet(*files.Read1DPlaintext(filename), force_index_match=True)
+        >>> corr = Corr2dDataSet(*files.Read2DPlaintext(filename), force_index_match=True)
+        >>> pk = Power1dDataSet(*files.Read1DPlaintext(filename), force_index_match=True)
         
     *   data variables and coordinate arrays can be accessed in a dict-like
         fashion:
@@ -692,7 +692,7 @@ def from_2d_measurement(dims, d, meta, **kwargs):
     return DataSet.from_nbkit(d, meta)
 
 
-class Power1DDataSet(DataSet):
+class Power1dDataSet(DataSet):
     """
     A `DataSet` that holds a 1D power spectrum in bins of `k`
     """
@@ -703,12 +703,12 @@ class Power1DDataSet(DataSet):
         edges = [edges]
         kwargs['force_index_match'] = force_index_match
         kwargs['sum_only'] = sum_only
-        super(Power1DDataSet, self).__init__(dims, edges, variables, **kwargs)
+        super(Power1dDataSet, self).__init__(dims, edges, variables, **kwargs)
         
     @classmethod
     def from_nbkit(cls, d, meta, columns=None, **kwargs):
         """
-        Return a `Power1DDataSet` instance taking the return values
+        Return a `Power1dDataSet` instance taking the return values
         of `files.Read1DPlaintext` as input
                
         Parameters
@@ -726,13 +726,13 @@ class Power1DDataSet(DataSet):
         Examples
         --------
         >>> from nbodykit import files
-        >>> power = Power1DDataSet(*files.Read1DPlaintext(filename),force_index_match=True)
+        >>> power = Power1dDataSet(*files.Read1DPlaintext(filename),force_index_match=True)
         """
         toret = from_1d_measurement(['k'], d, meta, columns=columns, **kwargs)
         toret.__class__ = cls
         return toret
         
-class Power2DDataSet(DataSet):
+class Power2dDataSet(DataSet):
     """
     A `DataSet` that holds a 2D power spectrum in bins of `k` and `mu`
     """
@@ -742,12 +742,12 @@ class Power2DDataSet(DataSet):
         dims = ['k', 'mu']
         kwargs['force_index_match'] = force_index_match
         kwargs['sum_only'] = sum_only
-        super(Power2DDataSet, self).__init__(dims, edges, variables, **kwargs)
+        super(Power2dDataSet, self).__init__(dims, edges, variables, **kwargs)
         
     @classmethod
     def from_nbkit(cls, d, meta, **kwargs):
         """
-        Return a `Power2DDataSet` instance taking the return values
+        Return a `Power2dDataSet` instance taking the return values
         of `files.Read2DPlaintext` as input
                
         Parameters
@@ -762,13 +762,13 @@ class Power2DDataSet(DataSet):
         Examples
         --------
         >>> from nbodykit import files
-        >>> power = Power2DDataSet(*files.Read2DPlaintext(filename),force_index_match=True)
+        >>> power = Power2dDataSet(*files.Read2DPlaintext(filename),force_index_match=True)
         """
         toret = from_2d_measurement(['k', 'mu'], d, meta, **kwargs)
         toret.__class__ = cls
         return toret
         
-class Corr1DDataSet(DataSet):
+class Corr1dDataSet(DataSet):
     """
     A `DataSet` that holds a 1D correlation function in bins of `r`
     """
@@ -779,12 +779,12 @@ class Corr1DDataSet(DataSet):
         edges = [edges]
         kwargs['force_index_match'] = force_index_match
         kwargs['sum_only'] = sum_only
-        super(Corr1DDataSet, self).__init__(dims, edges, variables, **kwargs)
+        super(Corr1dDataSet, self).__init__(dims, edges, variables, **kwargs)
         
     @classmethod
     def from_nbkit(cls, d, meta, columns=None, **kwargs):
         """
-        Return a `Corr1DDataSet` instance taking the return values
+        Return a `Corr1dDataSet` instance taking the return values
         of `files.Read1DPlaintext` as input
                
         Parameters
@@ -802,13 +802,13 @@ class Corr1DDataSet(DataSet):
         Examples
         --------
         >>> from nbodykit import files
-        >>> corr = Power1DDataSet(*files.Read1DPlaintext(filename), force_index_match=True)
+        >>> corr = Power1dDataSet(*files.Read1DPlaintext(filename), force_index_match=True)
         """
         toret = from_1d_measurement(['r'], d, meta, columns=columns, **kwargs)
         toret.__class__ = cls
         return toret
         
-class Corr2DDataSet(DataSet):
+class Corr2dDataSet(DataSet):
     """
     A `DataSet` that holds a 2D correlation in bins of `k` and `mu`
     """
@@ -818,12 +818,12 @@ class Corr2DDataSet(DataSet):
         dims = ['r', 'mu']
         kwargs['force_index_match'] = force_index_match
         kwargs['sum_only'] = sum_only
-        super(Corr2DDataSet, self).__init__(dims, edges, variables, **kwargs)
+        super(Corr2dDataSet, self).__init__(dims, edges, variables, **kwargs)
         
     @classmethod
     def from_nbkit(cls, d, meta, columns=None, **kwargs):
         """
-        Return a `Corr2DDataSet` instance taking the return values
+        Return a `Corr2dDataSet` instance taking the return values
         of `files.Read2DPlaintext` as input
                
         Parameters
@@ -838,7 +838,7 @@ class Corr2DDataSet(DataSet):
         Examples
         --------
         >>> from nbodykit import files
-        >>> corr = Corr2DDataSet(*files.Read2DPlaintext(filename), force_index_match=True)
+        >>> corr = Corr2dDataSet(*files.Read2DPlaintext(filename), force_index_match=True)
         """
         toret = from_2d_measurement(['r', 'mu'], d, meta, **kwargs)
         toret.__class__ = cls
