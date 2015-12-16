@@ -1,5 +1,3 @@
-
-
 import numpy
 from collections import OrderedDict
 import pickle
@@ -69,24 +67,30 @@ class DataSet(object):
     It is modeled after the syntax of ``xray.DataSet``, and is designed 
     to hold correlation function or power spectrum results (in 1D or 2D)
     
+    Notes
+    -----
+    *   note that the suffix `_cen` will be appended to the dimensions
+        passed to the constructor, since the ``coords`` arrray holds
+        the bin centers, as constructed from the bin edges
+    
     
     Attributes
     ----------
-    data    : array_like
+    data : array_like
         a structured array holding the data variables on the coordinate grid
         
-    mask    : array_like
+    mask : array_like
         a boolean array where `True` elements indicate that that coordinate
         grid point has a data variable that is `inf` or `NaN`
         
-    attrs   : collections.OrderedDict
+    attrs : collections.OrderedDict
         an ordered dictionary holding any meta data that has been attached
         to the instance
         
-    dims    : list
+    dims : list
         a list of strings specifying the names of each axis of the input data
     
-    edges   : dict
+    edges : dict
          a dict holding the bin edges for each dimension in `dims`
         
     coords : dict
@@ -111,12 +115,55 @@ class DataSet(object):
         
     Examples
     --------
-    The following example shows how to read a power.py 2d output into
-    a PkmuResult object.
+    *   The following example shows how to read a 1d or 2d output 
+        from nbodykit.extensionpoints.MeasurementStorage
     
-    >>> from nbodykit import files
-    >>> d, meta = files.ReadPower2DPlainText('some2dfile.txt')
-    >>> pkmuobj = PkmuResult.from_dict(d, **meta)
+        >>> from nbodykit import files
+        >>> corr = Corr2DDataSet(*files.Read2DPlaintext(filename), force_index_match=True)
+        >>> pk = Power1DDataSet(*files.Read1DPlaintext(filename), force_index_match=True)
+        
+    *   data variables and coordinate arrays can be accessed in a dict-like
+        fashion:
+        
+        >>> power = pkmu['power'] # returns power data variable
+        >>> k_cen = pkmu['k_cen'] # returns k_cen coordinate array
+        
+    *   array-like indexing of a `DataSet` returns a new `DataSet`
+        holding the sliced data:
+        
+        >>> pkmu
+        <DataSet: dims: (k_cen: 200, mu_cen: 5), variables: ('mu', 'k', 'power')>
+        >>> pkmu[:,0] # select first mu column
+        <DataSet: dims: (k_cen: 200, mu_cen: 1), variables: ('mu', 'k', 'power')>
+    
+    *   additional data variables can be added to the `DataSet` via:
+    
+        >>> modes = numpy.ones((200, 5))
+        >>> pkmu['modes'] = modes
+    
+    *   coordinate-based indexing is possible through the ``sel`` function:
+    
+        >>> pkmu
+        <DataSet: dims: (k_cen: 200, mu_cen: 5), variables: ('mu', 'k', 'power')>
+        >>> sliced = pkmu.sel(k_cen=slice(0.1, 0.4), mu_cen=0.5)
+        >>> sliced
+        <DataSet: dims: (k_cen: 30, mu_cen: 1), variables: ('mu', 'k', 'power')>
+    
+    *   the ``squeeze`` function will select the specified bin along a given 
+        axis and squeeze that dimension such that the resulting instance
+        has one less dimension:
+        
+        >>> pkmu
+        <DataSet: dims: (k_cen: 200, mu_cen: 5), variables: ('mu', 'k', 'power')>
+        >>> pkmu.squeeze('k_cen', 0.4) # data at k_cen = 0.4
+        <DataSet: dims: (mu_cen: 5), variables: ('mu', 'k', 'power')>
+    
+    *   the ``average`` function returns a new `DataSet` holding the data
+        averaged over one dimension
+    
+    *   the ``reindex`` function will re-bin the coordinate arrays along
+        the specified dimension
+        
     """
     def __init__(self, dims, edges, variables, 
                     force_index_match=False, sum_only=[], **kwargs):
