@@ -69,8 +69,8 @@ class DataSet(object):
     
     Notes
     -----
-    *   note that the suffix `_cen` will be appended to the dimensions
-        passed to the constructor, since the ``coords`` arrray holds
+    *   note that the suffix `_cen` will be appended to the names of the 
+        dimensions passed to the constructor, since the ``coords`` array holds
         the bin centers, as constructed from the bin edges
     
     
@@ -119,8 +119,8 @@ class DataSet(object):
         from nbodykit.extensionpoints.MeasurementStorage
     
         >>> from nbodykit import files
-        >>> corr = Corr2dDataSet(*files.Read2DPlaintext(filename), force_index_match=True)
-        >>> pk = Power1dDataSet(*files.Read1DPlaintext(filename), force_index_match=True)
+        >>> corr = Corr2dDataSet.from_nbkit(*files.Read2DPlaintext(filename), force_index_match=True)
+        >>> pk = Power1dDataSet.from_nbkit(*files.Read1DPlaintext(filename), force_index_match=True)
         
     *   data variables and coordinate arrays can be accessed in a dict-like
         fashion:
@@ -726,7 +726,7 @@ class Power1dDataSet(DataSet):
         Examples
         --------
         >>> from nbodykit import files
-        >>> power = Power1dDataSet(*files.Read1DPlaintext(filename),force_index_match=True)
+        >>> power = Power1dDataSet.from_nbkit(*files.Read1DPlaintext(filename),force_index_match=True)
         """
         toret = from_1d_measurement(['k'], d, meta, columns=columns, **kwargs)
         toret.__class__ = cls
@@ -762,7 +762,7 @@ class Power2dDataSet(DataSet):
         Examples
         --------
         >>> from nbodykit import files
-        >>> power = Power2dDataSet(*files.Read2DPlaintext(filename),force_index_match=True)
+        >>> power = Power2dDataSet.from_nbkit(*files.Read2DPlaintext(filename),force_index_match=True)
         """
         toret = from_2d_measurement(['k', 'mu'], d, meta, **kwargs)
         toret.__class__ = cls
@@ -802,7 +802,7 @@ class Corr1dDataSet(DataSet):
         Examples
         --------
         >>> from nbodykit import files
-        >>> corr = Power1dDataSet(*files.Read1DPlaintext(filename), force_index_match=True)
+        >>> corr = Power1dDataSet.from_nbkit(*files.Read1DPlaintext(filename), force_index_match=True)
         """
         toret = from_1d_measurement(['r'], d, meta, columns=columns, **kwargs)
         toret.__class__ = cls
@@ -838,7 +838,7 @@ class Corr2dDataSet(DataSet):
         Examples
         --------
         >>> from nbodykit import files
-        >>> corr = Corr2dDataSet(*files.Read2DPlaintext(filename), force_index_match=True)
+        >>> corr = Corr2dDataSet.from_nbkit(*files.Read2DPlaintext(filename), force_index_match=True)
         """
         toret = from_2d_measurement(['r', 'mu'], d, meta, **kwargs)
         toret.__class__ = cls
