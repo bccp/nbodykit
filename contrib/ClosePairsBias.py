@@ -49,12 +49,12 @@ class ClosePairBiasing(DataSource):
         the box size, either provided as a single float (isotropic)
         or an array of the sizes of the three dimensions
     """
-    field_type = "ClosePairBias"
+    plugin_name = "ClosePairBias"
     
     @classmethod
     def register(kls):
         
-        h = kls.add_parser()
+        h = kls.parser
         
         h.add_argument("path", help="path to file")
         h.add_argument("dataset",  help="name of dataset in HDF5 file")

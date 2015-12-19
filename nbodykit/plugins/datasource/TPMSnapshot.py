@@ -3,12 +3,12 @@ from nbodykit import files
 import numpy
 
 class TPMSnapshotDataSource(DataSource):
-    field_type = "TPMSnapshot"
+    plugin_name = "TPMSnapshot"
     
     @classmethod
     def register(kls):
         
-        h = kls.add_parser()
+        h = kls.parser
         h.add_argument("path", help="path to file")
         h.add_argument("BoxSize", type=kls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
@@ -17,7 +17,7 @@ class TPMSnapshotDataSource(DataSource):
         h.add_argument("-bunchsize", type=int, 
                 default=1024*1024*4, help="number of particles to read per rank in a bunch")
 
-    def read(self, columns, comm, full=False):
+    def read(self, columns, comm, stats, full=False):
         """ read data in parallel. if Full is True, neglect bunchsize. """
         Ntot = 0
         # avoid reading Velocity if RSD is not requested.
@@ -36,23 +36,25 @@ class TPMSnapshotDataSource(DataSource):
             newcolumns.remove('Weight')
 
         bunchsize = self.bunchsize
-        if full: bunchsize = None
-        for round, P in enumerate(
-                files.read(comm, 
-                    self.path, 
-                    files.TPMSnapshotFile, 
-                    columns=newcolumns, 
-                    bunchsize=bunchsize)):
+        if full: bunchsize = -1
 
+        stats['Ntot'] = 0
+        if comm.rank == 0:
+            datastorage = files.DataStorage(self.path, files.TPMSnapshotFile)
+        else:
+            datastorage = None
+        datastorage = comm.bcast(datastorage)
+
+        for round, P in enumerate(
+                datastorage.iter(stats=stats, comm=comm, 
+                    columns=newcolumns, bunchsize=bunchsize)):
+            P = dict(zip(newcolumns, P))
             if 'Position' in P:
                 P['Position'] *= self.BoxSize
             if 'Velocity' in P:
                 P['Velocity'] *= self.BoxSize
 
-            # uniform mass
-            P['Mass'] = numpy.ones(P['__nread__'], 'i1')
-            P['Weight'] = P['Mass']
-
+            P['Mass'] = numpy.ones(stats['Ncurrent'], dtype='u1')
             if self.rsd is not None:
                 dir = "xyz".index(self.rsd)
                 P['Position'][:, dir] += P['Velocity'][:, dir]

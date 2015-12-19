@@ -5,9 +5,6 @@ from nbodykit.utils import selectionlanguage
 
 logger = logging.getLogger('FOFGroups')
 
-def list_str(value):
-    return value.split()
-         
 class FOFDataSource(DataSource):
     """
     Class to read field data from a HDF5 FOFGroup data file
@@ -48,13 +45,12 @@ class FOFDataSource(DataSource):
         `type` and `mass`, you could specify 
         select= "type == central and mass > 1e14"
     """
-    field_type = "FOFGroups"
+    plugin_name = "FOFGroups"
     
     @classmethod
     def register(kls):
-        
-        h = kls.add_parser()
-        
+        h = kls.parser 
+
         h.add_argument("path", help="path to file")
         h.add_argument("BoxSize", type=kls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions.")

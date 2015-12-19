@@ -28,7 +28,7 @@ class QPMMockDataSource(DataSource):
     velf   : float, optional
         multiply the velocity data by this factor
     """
-    field_type = 'QPMMock'
+    plugin_name = 'QPMMock'
     qpar = 0.9851209643
     qperp = 0.9925056798
     
@@ -51,7 +51,7 @@ class QPMMockDataSource(DataSource):
     
     @classmethod
     def register(kls):
-        h = kls.add_parser()
+        h = kls.parser
         
         h.add_argument("path", help="path to file")
         h.add_argument("BoxSize", type=kls.BoxSizeParser,

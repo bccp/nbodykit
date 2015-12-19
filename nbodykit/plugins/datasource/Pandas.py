@@ -58,12 +58,12 @@ class PandasDataSource(DataSource):
         `type` and `mass`, you could specify 
         select= "type == central and mass > 1e14"
     """
-    field_type = "Pandas"
+    plugin_name = "Pandas"
     
     @classmethod
     def register(kls):
         
-        h = kls.add_parser()
+        h = kls.parser
         
         h.add_argument("path", help="path to file")
         h.add_argument("names", type=list_str, 

@@ -7,11 +7,11 @@ import logging
 logger = logging.getLogger('MBIIDMO')
 
 class DataSourcePlugin(DataSource):
-    field_type = "MBIIDMO"
+    plugin_name = "MBIIDMO"
     
     @classmethod
     def register(kls):
-        h = kls.add_parser()
+        h = kls.parser
         
         h.add_argument("path", help="path to file")
         h.add_argument("simulation", help="name of simulation", choices=["dmo", "mb2"])

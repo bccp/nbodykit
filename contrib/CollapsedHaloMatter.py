@@ -7,11 +7,11 @@ import logging
 logger = logging.getLogger('CollapsedHalo')
     
 class CollapsedHaloDataSource(DataSource):
-    field_type = "CollapsedHaloMatter"
+    plugin_name = "CollapsedHaloMatter"
     
     @classmethod
     def register(kls):
-        h = kls.add_parser()
+        h = kls.parser
         
         h.add_argument("pathhalo", help="path to file")
         h.add_argument("BoxSize", type=kls.BoxSizeParser,
