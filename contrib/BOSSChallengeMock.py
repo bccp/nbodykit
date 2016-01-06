@@ -35,7 +35,10 @@ class BOSSChallengeMockDataSource(DataSource):
     qpar = 1.0
     qperp = 1.0
     
-    def __init__(self):
+    def initialize(self, args):
+        
+        # call the base initialize first
+        super(BOSSChallengeMockDataSource, self).initialize(args)
 
         # rescale the box size, if scaled = True
         if self.scaled:
@@ -134,7 +137,11 @@ class BOSSChallengeNSeriesDataSource(DataSource):
     qperp = 0.99169902
     qpar = 0.98345263
     
-    def __init__(self):
+    def initialize(self, args):
+        
+        # call the base initialize first
+        super(BOSSChallengeNSeriesDataSource, self).initialize(args)
+        
         # create a copy of the original, before scaling
         self._BoxSize0 = self.BoxSize.copy()
         
