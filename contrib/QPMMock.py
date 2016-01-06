@@ -115,7 +115,7 @@ class QPMMockDataSource(DataSource):
         P['Velocity'] = vel
         P['Weight'] = numpy.ones(len(pos))
 
-        yield [P[key] for key in columns]
+        return [P[key] for key in columns]
 
     
 
