@@ -32,8 +32,8 @@ class QPMMockDataSource(DataSource):
     qpar = 0.9851209643
     qperp = 0.9925056798
     
-    def __init__(self, d):
-        super(QPMMockDataSource, self).__init__(d)
+    def __init__(self):
+        # create a copy of the original box size
         self._BoxSize0 = self.BoxSize.copy()
         
         # rescale the box size, if scaled = True
