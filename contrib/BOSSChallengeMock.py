@@ -171,7 +171,7 @@ class BOSSChallengeNSeriesDataSource(DataSource):
         h.add_argument("-rsd", choices="xyz",
             help="direction to do redshift distortion")
     
-    def readall(self, columns, comm, bunchsize):
+    def readall(self, columns):
             
         # read in the plain text file using pandas
         kwargs = {}
@@ -204,8 +204,7 @@ class BOSSChallengeNSeriesDataSource(DataSource):
             if self.rsd is None:
                 pos *= self.qperp
             else:
-                if comm.rank == 0:
-                    logger.info("multiplying by qpar = %.5f" %self.qpar)
+                logger.info("multiplying by qpar = %.5f" %self.qpar)
                 for i in [0,1,2]:
                     if i == dir:
                         pos[:,i] *= self.qpar
