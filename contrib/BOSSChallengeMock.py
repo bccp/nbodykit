@@ -170,6 +170,8 @@ class BOSSChallengeNSeriesDataSource(DataSource):
             help='rescale the parallel and perp coordinates by the AP factor')
         h.add_argument("-rsd", choices="xyz",
             help="direction to do redshift distortion")
+        h.add_argument("-velf", default=1., type=float, 
+            help="factor to scale the velocities")
     
     def readall(self, columns):
             
@@ -189,7 +191,8 @@ class BOSSChallengeNSeriesDataSource(DataSource):
         # get position 
         pos = data[['x', 'y', 'z']].values.astype('f4')
         vel = data[['vx', 'vy', 'vz']].values.astype('f4')
-
+        vel *= self.velf
+        
         # go to redshift-space and wrap periodically
         if self.rsd is not None:
             dir = 'xyz'.index(self.rsd)
