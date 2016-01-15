@@ -652,10 +652,10 @@ class DataSet(object):
             raise ValueError("cannot re-bin because they are %d extra bins, using spacing = %.2e" %args)
         if leftover:
             sl = [slice(None, None)]*len(self.dims)
-            sl[i] = slice(None, -1)
+            sl[i] = slice(None, -leftover)
             data = data[sl]
             if weights is not None: weights = weights[sl]
-            edges = edges[:-1]
+            edges = edges[:-leftover]
             
         # new edges
         new_shape = list(self.shape)
