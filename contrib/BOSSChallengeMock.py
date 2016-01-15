@@ -35,9 +35,11 @@ class BOSSChallengeMockDataSource(DataSource):
     qpar = 1.0
     qperp = 1.0
     
-    def __init__(self, d):
-        super(BOSSChallengeMockDataSource, self).__init__(d)
+    def initialize(self, args):
         
+        # call the base initialize first
+        super(BOSSChallengeMockDataSource, self).initialize(args)
+
         # rescale the box size, if scaled = True
         if self.scaled:
             self.BoxSize[-1] *= self.qpar
@@ -135,8 +137,12 @@ class BOSSChallengeNSeriesDataSource(DataSource):
     qperp = 0.99169902
     qpar = 0.98345263
     
-    def __init__(self, d):
-        super(BOSSChallengeNSeriesDataSource, self).__init__(d)
+    def initialize(self, args):
+        
+        # call the base initialize first
+        super(BOSSChallengeNSeriesDataSource, self).initialize(args)
+        
+        # create a copy of the original, before scaling
         self._BoxSize0 = self.BoxSize.copy()
         
         # rescale the box size, if scaled = True
@@ -164,8 +170,10 @@ class BOSSChallengeNSeriesDataSource(DataSource):
             help='rescale the parallel and perp coordinates by the AP factor')
         h.add_argument("-rsd", choices="xyz",
             help="direction to do redshift distortion")
+        h.add_argument("-velf", default=1., type=float, 
+            help="factor to scale the velocities")
     
-    def readall(self, columns, comm, bunchsize):
+    def readall(self, columns):
             
         # read in the plain text file using pandas
         kwargs = {}
@@ -183,7 +191,8 @@ class BOSSChallengeNSeriesDataSource(DataSource):
         # get position 
         pos = data[['x', 'y', 'z']].values.astype('f4')
         vel = data[['vx', 'vy', 'vz']].values.astype('f4')
-
+        vel *= self.velf
+        
         # go to redshift-space and wrap periodically
         if self.rsd is not None:
             dir = 'xyz'.index(self.rsd)
@@ -198,8 +207,7 @@ class BOSSChallengeNSeriesDataSource(DataSource):
             if self.rsd is None:
                 pos *= self.qperp
             else:
-                if comm.rank == 0:
-                    logger.info("multiplying by qpar = %.5f" %self.qpar)
+                logger.info("multiplying by qpar = %.5f" %self.qpar)
                 for i in [0,1,2]:
                     if i == dir:
                         pos[:,i] *= self.qpar
@@ -211,7 +219,7 @@ class BOSSChallengeNSeriesDataSource(DataSource):
         P['Velocity'] = vel
         P['Weight'] = numpy.ones(len(pos))
 
-        yield [P[key] for key in columns]
+        return [P[key] for key in columns]
 
     
 

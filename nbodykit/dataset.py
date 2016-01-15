@@ -104,9 +104,6 @@ class DataSet(object):
         a list of strings specifying fields in `data` that will 
         only be summed when combining bins.
         
-    ndim : int
-        the number of dimensions
-    
     shape : tuple
         a tuple holding the shape of the data variables
     
@@ -236,13 +233,6 @@ class DataSet(object):
             self.attrs[k] = kwargs[k]
             
     @property
-    def ndim(self):
-        """
-        The number of coordinate dimensions
-        """
-        return len(self.dims)
-        
-    @property
     def shape(self):
         """
         The shape of the coordinate grid
@@ -271,7 +261,6 @@ class DataSet(object):
             setattr(obj, k, d)
             if obj.shape != d.shape:
                 setattr(obj, k, d.reshape(obj.shape))
-
         return obj
 
     def __finalize__(self, data, mask, indices):
@@ -282,7 +271,8 @@ class DataSet(object):
         edges, coords = self.__slice_edges__(indices)
         
         kw = {'dims':list(self.dims), 'edges':edges, 'coords':coords, 'attrs':self.attrs.copy()}
-        kw['sum_only'] = list(self.sum_only)
+        
+        kw['sum_only']          = list(self.sum_only)
         kw['force_index_match'] = self.force_index_match
         
         return self.__class__.__construct_direct__(data, mask, **kw)
@@ -349,13 +339,24 @@ class DataSet(object):
             return self.data[key]
         elif key in self.coords.keys():
             return self.coords[key]
-        
+            
+        # indices to slice the data with
+        indices = [range(0, self.shape[i]) for i in range(len(self.dims))]
+            
+        # check for list/tuple of variable names
+        if all(isinstance(x, str) for x in key):
+            return self.__finalize__(self.data[key], self.mask.copy(), indices)
+            
         key_ = key
+        
+        # key is a single integer or list/tuple of integer to slice rows
         if isinstance(key, int) or all(isinstance(x, int) for x in key):
             key_ = [key]
 
-        indices = [range(0, self.shape[i]) for i in range(self.ndim)]
         for i, subkey in enumerate(key_):
+            if i >= len(self.dims):
+                raise IndexError("too many indices for DataSet; note that ndim = %d" %len(self.dims))
+                
             if isinstance(subkey, int):
                 indices[i] = [subkey]
             elif isinstance(subkey, list):
@@ -386,6 +387,34 @@ class DataSet(object):
     #--------------------------------------------------------------------------
     # user-called functions
     #--------------------------------------------------------------------------
+    def copy(self):
+        """
+        Return a copy of the `DataSet`
+        """
+        kw = {}
+        kw['dims'] = list(self.dims)
+        kw['edges'] = self.edges.copy()
+        kw['coords'] = self.coords.copy()
+        kw['attrs'] = self.attrs.copy()
+        kw['sum_only'] = self.sum_only
+        kw['force_index_match'] = self.force_index_match
+
+        return self.__class__.__construct_direct__(self.data.copy(), self.mask.copy(), **kw)
+        
+    def rename_variable(self, old_name, new_name):
+        """
+        Rename a variable in `data`
+        """
+        import copy
+        if old_name not in self.variables:
+            raise ValueError("`%s` is not an existing variable name" %old_name)
+        new_dtype = copy.deepcopy(self.data.dtype)
+         
+        names = list(new_dtype.names)
+        names[names.index(old_name)] = new_name
+        new_dtype.names = names
+        self.data.dtype = new_dtype
+        
     def sel(self, **kwargs):
         """
         Label-based indexing by coordinate name. Indexing should be supplied
@@ -409,7 +438,7 @@ class DataSet(object):
         >>> sliced_2
         <DataSet: dims: (k_cen: 30, mu_cen: 1), variables: ('mu', 'k', 'power')>
         """
-        indices = [range(0, self.shape[i]) for i in range(self.ndim)]
+        indices = [range(0, self.shape[i]) for i in range(len(self.dims))]
         for dim in kwargs:
             key = kwargs[dim]
             i = self.dims.index(dim)
@@ -520,7 +549,7 @@ class DataSet(object):
         <DataSet: dims: (mu_cen: 5), variables: ('mu', 'k', 'power')>
         """
         i = self._get_index(dim, value)
-        idx = [slice(None, None)]*self.ndim
+        idx = [slice(None, None)]*len(self.dims)
         idx[self.dims.index(dim)] = i
         
         toret = self[idx]        
@@ -622,11 +651,11 @@ class DataSet(object):
             args = (leftover, old_spacing*factor)
             raise ValueError("cannot re-bin because they are %d extra bins, using spacing = %.2e" %args)
         if leftover:
-            sl = [slice(None, None)]*self.ndim
-            sl[i] = slice(None, -1)
+            sl = [slice(None, None)]*len(self.dims)
+            sl[i] = slice(None, -leftover)
             data = data[sl]
             if weights is not None: weights = weights[sl]
-            edges = edges[:-1]
+            edges = edges[:-leftover]
             
         # new edges
         new_shape = list(self.shape)
@@ -664,8 +693,9 @@ def from_1d_measurement(dims, d, meta, columns=None, **kwargs):
     Return a DataSet object from columns of data and
     any additional meta data
     """
+    meta = meta.copy() # make a copy
     if columns is None: 
-        columns = meta.get('columns', None)
+        columns = meta.pop('columns', None)
     
     if 'edges' not in meta:
         raise ValueError("must supply `edges` value in `meta` input")
@@ -686,7 +716,6 @@ def from_2d_measurement(dims, d, meta, **kwargs):
     if 'edges' not in d:
         raise ValueError("must supply `edges` value in `d` input" %name)
 
-    d['edges'] = d.pop('edges')
     d['dims'] = dims
     meta.update(kwargs)
     return DataSet.from_nbkit(d, meta)
@@ -821,7 +850,7 @@ class Corr2dDataSet(DataSet):
         super(Corr2dDataSet, self).__init__(dims, edges, variables, **kwargs)
         
     @classmethod
-    def from_nbkit(cls, d, meta, columns=None, **kwargs):
+    def from_nbkit(cls, d, meta, **kwargs):
         """
         Return a `Corr2dDataSet` instance taking the return values
         of `files.Read2DPlaintext` as input

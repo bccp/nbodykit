@@ -1,6 +1,7 @@
 from nbodykit.extensionpoints import DataSource
 import numpy
 import logging
+import pandas as pd
          
 logger = logging.getLogger('QPMMock')
 
@@ -32,10 +33,14 @@ class QPMMockDataSource(DataSource):
     qpar = 0.9851209643
     qperp = 0.9925056798
     
-    def __init__(self, d):
-        super(QPMMockDataSource, self).__init__(d)
-        self._BoxSize0 = self.BoxSize.copy()
+    def initialize(self, args):
         
+        # call the base initialize first
+        super(QPMMockDataSource, self).initialize(args)
+        
+        # create a copy of the original box size
+        self._BoxSize0 = self.BoxSize.copy()
+
         # rescale the box size, if scaled = True
         if self.scaled:
             if self.rsd is None:
@@ -64,12 +69,8 @@ class QPMMockDataSource(DataSource):
         h.add_argument("-velf", default=1., type=float, 
             help="factor to scale the velocities")
     
-    def readall(self, columns, comm, bunchsize):
-        try:
-            import pandas as pd
-        except:
-            raise ImportError("pandas must be installed to use QPMMockDataSource")
-            
+    def readall(self, columns):
+
         # read in the plain text file using pandas
         kwargs = {}
         kwargs['comment'] = '#'
@@ -102,8 +103,7 @@ class QPMMockDataSource(DataSource):
             if self.rsd is None:
                 pos *= self.qperp
             else:
-                if comm.rank == 0:
-                    logger.info("multiplying by qpar = %.5f" %self.qpar)
+                logger.info("multiplying by qpar = %.5f" %self.qpar)
                 for i in [0,1,2]:
                     if i == dir:
                         pos[:,i] *= self.qpar
@@ -115,7 +115,7 @@ class QPMMockDataSource(DataSource):
         P['Velocity'] = vel
         P['Weight'] = numpy.ones(len(pos))
 
-        yield [P[key] for key in columns]
+        return [P[key] for key in columns]
 
     
 
