@@ -6,7 +6,7 @@
     1. subclass from the extension point class
     2. define a class method `register`, that calls add_argument
        to kls.parser.
-    3. define a field_type member.
+    3. define a plugin_name member.
 
     To define an ExtensionPoint,
 
@@ -58,25 +58,23 @@ class PluginMount(type):
             cls.plugins = {}
         # called for each plugin, which already has 'plugins' list
         else:
-            if not hasattr(cls, 'field_type'):
-                raise RuntimeError("Plugin class must carry a field_type.")
-
-            if cls.field_type in cls.plugins:
-                raise RuntimeError("Plugin class %s already registered with %s"
-                    % (cls.field_type, str(type(cls))))
-
-            # add a commandline argument parser that parsers the ':' seperated
-            # commandlines.
-            cls.parser = ArgumentParser(cls.field_type, 
-                    usage=None, add_help=False, 
-                    formatter_class=HelpFormatterColon)
-
-            # track names of classes
-            cls.plugins[cls.field_type] = cls
+            if not hasattr(cls, 'plugin_name'):
+                raise RuntimeError("Plugin class must carry a plugin_name.")
             
-            # try to call register class method
-            if hasattr(cls, 'register'):
-                cls.register()
+            # register, if this plugin isn't yet
+            if cls.plugin_name not in cls.plugins:
+                # add a commandline argument parser that parsers the ':' seperated
+                # commandlines.
+                cls.parser = ArgumentParser(cls.plugin_name, 
+                        usage=None, add_help=False, 
+                        formatter_class=HelpFormatterColon)
+
+                # track names of classes
+                cls.plugins[cls.plugin_name] = cls
+            
+                # try to call register class method
+                if hasattr(cls, 'register'):
+                    cls.register()
 
     def create(kls, string): 
         """ Instantiate a plugin from this extension point,
@@ -131,6 +129,40 @@ from nbodykit.plugins import HelpFormatterColon
 from argparse import ArgumentParser
 
 @ExtensionPoint
+class Transfer:
+    """
+    Mount point for plugins which apply a k-space transfer function
+    to the Fourier transfrom of a datasource field
+    
+    Plugins implementing this reference should provide the following 
+    attributes:
+
+    plugin_name : str
+        class attribute giving the name of the subparser which 
+        defines the necessary command line arguments for the plugin
+    
+    register : classmethod
+        A class method taking no arguments that adds a subparser
+        and the necessary command line arguments for the plugin
+    
+    __call__ : method
+        function that will apply the transfer function to the complex array
+    """
+    def __call__(self, pm, complex):
+        """ 
+        Apply the transfer function to the complex field
+        
+        Parameters
+        ----------
+        pm : ParticleMesh
+            the particle mesh object which holds possibly useful
+            information, i.e, `w` or `k` arrays
+        complex : array_like
+            the complex array to apply the transfer to
+        """
+        raise NotImplementedError
+
+@ExtensionPoint
 class DataSource:
     """
     Mount point for plugins which refer to the reading of input files 
@@ -139,7 +171,7 @@ class DataSource:
     Plugins implementing this reference should provide the following 
     attributes:
 
-    field_type : str
+    plugin_name : str
         class attribute giving the name of the subparser which 
         defines the necessary command line arguments for the plugin
     
@@ -194,14 +226,22 @@ class DataSource:
             
         """
         if comm.rank == 0:
+            
+            # make sure we have at least one column to read
+            if not len(columns):
+                raise RuntimeError("DataSource::read received no columns to read")
+            
             data = self.readall(columns)    
             shape_and_dtype = [(d.shape, d.dtype) for d in data]
-            Ntot = len(data)
+            Ntot = len(data[0]) # columns has to have length >= 1, or we crashed already
+            
+            # make sure the number of rows in each column read is equal
+            if not all(len(d) == Ntot for d in data):
+                raise RuntimeError("column length mismatch in DataSource::read")
         else:
             shape_and_dtype = None
             Ntot = None
         shape_and_dtype = comm.bcast(shape_and_dtype)
-
         stat['Ntot'] = comm.bcast(Ntot)
 
         if comm.rank != 0:
@@ -224,7 +264,7 @@ class Painter:
     Plugins implementing this reference should provide the following 
     attributes:
 
-    field_type : str
+    plugin_name : str
         class attribute giving the name of the subparser which 
         defines the necessary command line arguments for the plugin
     
@@ -259,14 +299,13 @@ class Painter:
                 
             yield [data[c] for c in columns]
 
-#------------------------------------------------------------------------------
 import sys
 import contextlib
 
-@add_metaclass(PluginMount)
+@ExtensionPoint
 class MeasurementStorage:
 
-    field_type = None
+    plugin_name = None
     klasses = {}
 
     def __init__(self, path):
@@ -274,7 +313,7 @@ class MeasurementStorage:
 
     @classmethod
     def add_storage_klass(kls, klass):
-        kls.klasses[klass.field_type] = klass
+        kls.klasses[klass.plugin_name] = klass
 
     @classmethod
     def new(kls, dim, path):
@@ -297,3 +336,18 @@ class MeasurementStorage:
 
     def write(self, cols, data, **meta):
         return NotImplemented
+        
+__all__ = ['DataSource', 'Painter', 'Transfer', 'MeasurementStorage']
+
+def plugin_isinstance(string, extensionpt):
+    """
+    Return `True` if the string representation of an extension point
+    is an instance of the extension point class `extensionpt`
+    """
+    if not hasattr(extensionpt, 'plugins'):
+        raise TypeError("please specify a valid extension point as the second argument")
+        
+    if not isinstance(string, str):
+        return False
+    return string.split(":")[0] in extensionpt.plugins.keys()
+    

@@ -4,24 +4,18 @@ import logging
 
 logger = logging.getLogger('measurestats')
 
-def compute_3d_power(fields, pm, transfer=[], comm=None, log_level=logging.DEBUG):
+def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
     """
     Compute and return the 3D power from two input fields
     
     Parameters
     ----------
-    fields : list of ``DataSource``, ``Painter`` objects
+    fields : list of (``DataSource``, ``Painter``, ``Transfer``) tuples
         the list of fields which the 3D power will be computed
         
     pm : ``ParticleMesh``
         particle mesh object that does the painting
-        
-    transfer : list, or list of lists, optional
-        A chain of transfer functions to apply to the complex field. If 
-        a list of length 2 is supplied, different chains can be applied 
-        to both the input fields
-        
-        
+                
     comm : MPI.Communicator, optional
         the communicator to pass to the ``ParticleMesh`` object. If not
         provided, ``MPI.COMM_WORLD`` is used
@@ -47,27 +41,16 @@ def compute_3d_power(fields, pm, transfer=[], comm=None, log_level=logging.DEBUG
     if log_level is not None: logger.setLevel(log_level)
     
     # check that the painter was passed correctly
-    painters  =    [p for d, p in fields]
-    datasources =  [d for d, p in fields]
-        
-    # check that the chain was passed correctly
-
-    #
-    # eventually transfer shall go to fields as well.
-    # and as Plugins?
-
-    if len(transfer) == 0 or all(callable(t) for t in transfer):
-        transfer = [transfer] * len(fields)
-    if len(transfer) != len(fields):
-        raise ValueError('mismatch between number of fields and number of transfer lists')
-        
+    datasources = [d for d, p, t in fields]
+    painters    = [p for d, p, t in fields]
+    transfers   = [t for d, p, t in fields]
         
     # paint, FT field and filter field #1
     N1 = painters[0].paint(pm, datasources[0])
     if rank == 0: logger.info('painting done')
     pm.r2c()
     if rank == 0: logger.info('r2c done')
-    pm.transfer(transfer[0])
+    pm.transfer(transfers[0])
 
     # do the cross power if two fields supplied
     if len(fields) > 1:
@@ -84,7 +67,7 @@ def compute_3d_power(fields, pm, transfer=[], comm=None, log_level=logging.DEBUG
         if rank == 0: logger.info('painting 2 done')
         pm.r2c()
         if rank == 0: logger.info('r2c 2 done')
-        pm.transfer(transfer[1])
+        pm.transfer(transfers[1])
         c2 = pm.complex
   
     # do the auto power
@@ -254,7 +237,7 @@ def compute_brutal_corr(datasources, Rmax, Nr, Nmu=0, comm=None, subsample=1, lo
 
     return pc, xi, RR
 
-def compute_3d_corr(fields, pm, transfer=[], comm=None, log_level=logging.DEBUG):
+def compute_3d_corr(fields, pm, comm=None, log_level=logging.DEBUG):
     """
     Compute the 3d correlation function by Fourier transforming 
     the 3d power spectrum
@@ -262,7 +245,7 @@ def compute_3d_corr(fields, pm, transfer=[], comm=None, log_level=logging.DEBUG)
     See documentation of `measurestats.compute_3d_power`
     """
 
-    p3d, N1, N2 = compute_3d_power(fields, pm, transfer=transfer, comm=comm, log_level=log_level)
+    p3d, N1, N2 = compute_3d_power(fields, pm, comm=comm, log_level=log_level)
     
     # directly transform dimensionless p3d
     # Note that L^3 cancels with dk^3.

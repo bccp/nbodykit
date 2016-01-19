@@ -2,7 +2,7 @@ from nbodykit.extensionpoints import MeasurementStorage
 import numpy
 
 class Measurement2DStorage(MeasurementStorage):
-    field_type = "2d"
+    plugin_name = "2d"
 
     @classmethod
     def register(kls):

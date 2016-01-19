@@ -10,7 +10,7 @@ class GridPainter(Painter):
     which corresponds to gridded field values on a (Nmesh, Nmesh, Nmesh)
     mesh
     """
-    field_type = "GridPainter"
+    plugin_name = "GridPainter"
 
     @classmethod
     def register(kls):

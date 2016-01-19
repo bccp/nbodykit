@@ -49,7 +49,7 @@ class ClosePairBiasing(DataSource):
         the box size, either provided as a single float (isotropic)
         or an array of the sizes of the three dimensions
     """
-    field_type = "ClosePairBias"
+    plugin_name = "ClosePairBias"
     
     @classmethod
     def register(kls):

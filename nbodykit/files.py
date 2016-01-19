@@ -259,9 +259,9 @@ class HaloLabelFile(StripeFile):
         self.write = TPMSnapshotFile.write.__get__(self)
 
 
-def ReadPower2DPlainText(filename):
+def Read2DPlainText(filename):
     """
-    Reads the plain text storage of a 2D power spectrum measurement,
+    Reads the plain text storage of a 2D measurement,
     as output by the `nbodykit.plugins.Measurement2DStorage` plugin
     
     Returns
@@ -326,9 +326,9 @@ def ReadPower2DPlainText(filename):
 
     return toret, metadata
     
-def ReadPower1DPlainText(filename):
+def Read1DPlainText(filename):
     """
-    Reads the plain text storage of a 1D power spectrum measurement,
+    Reads the plain text storage of a 1D measurement,
     as output by the `nbodykit.plugins.Measurement1DStorage` plugin.
     
     Notes
@@ -336,16 +336,17 @@ def ReadPower1DPlainText(filename):
     *   If `edges` is present in the file, they will be returned
         as part of the metadata, with the key `edges`
     *   If the first line of the file specifies column names, 
-        they will be returned as part of the metadata
+        they will be returned as part of the metadata with the
+        `columns` key
     
     Returns
     -------
-    data : dict
-        dictionary holding the `edges` data, as well as the
-        data columns for the P(k) measurement
+    data : array_like
+        the 1D data stacked vertically, such that each columns
+        represents a separate data variable
     metadata : dict
         any additional metadata to store as part of the 
-        P(k) measurement
+        P(k) measurement 
     """
     # data list
     data = []
@@ -358,10 +359,10 @@ def ReadPower1DPlainText(filename):
         currline = 0
         lines = ff.readlines()
         
-        metadata['cols'] = None
+        metadata['columns'] = None
         if lines[0][0] == '#':
             try:
-                metadata['cols'] = lines[0][1:].split()
+                metadata['columns'] = lines[0][1:].split()
             except:
                 pass
         

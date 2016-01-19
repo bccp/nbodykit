@@ -59,7 +59,7 @@ class MWhiteHaloFile(object):
             
 #------------------------------------------------------------------------------          
 class MWhiteHaloFileDataSource(DataSource):
-    field_type = "MWhiteHaloFile"
+    plugin_name = "MWhiteHaloFile"
     
     @classmethod
     def register(kls):

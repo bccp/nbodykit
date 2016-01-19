@@ -1,5 +1,7 @@
-2d
-256
-../output/test_power_2d_mwhite_halo_test.dat
-MWhiteHaloFile:../data/mwhite_halo.fofp:1380.:-rsd=z
--X=../../contrib/MWhiteHaloFile.py
+mode: 2d
+Nmesh: 256
+output: ../output/test_power_2d_mwhite_halo_test.dat
+fields:
+    - MWhiteHaloFile:../data/mwhite_halo.fofp:1380.:-rsd=z
+    - [NormalizeDC, RemoveDC, AnisotropicCIC]
+X: ../../contrib/MWhiteHaloFile.py
