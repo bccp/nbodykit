@@ -5,14 +5,14 @@ __all__ = ['read', 'TPMSnapshotFile', 'SnapshotFile']
 
 class StripeFile:
     @classmethod
-    def enum(filetype, basename):
+    def enum(filetype, basename, args):
         """
         Iterate over all files of the type
         """
         i = 0
         while True:
             try:
-                yield filetype(basename, i)
+                yield filetype(basename, i, args)
             except IOError as e:
                 # if file does not open properly, we are done
                 break
@@ -61,30 +61,31 @@ class DataStorage(object):
     """ DataStorage provides a continuous view of 
         across several files.
     """
-    def __init__(self, path, filetype):
+    def __init__(self, path, filetype, filetype_args={}):
         """ filetype must be of a subclass of StripeFile """
         self.npart = numpy.array(
-            [ff.npart for ff in filetype.enum(path)],
+            [ff.npart for ff in filetype.enum(path, filetype_args)],
             dtype='i8')
 
         self.path = path
         self.filetype = filetype
+        self.filetype_args = filetype_args
         if len(self.npart) == 0:
             raise IOError("No files were found under `%s`" % path)
 
     @classmethod
-    def create(kls, path, filetype, npart):
+    def create(kls, path, filetype, npart, filetype_args={}):
         """ create a striped file. 
             npart is a list of npart for each file 
         """
         for fid, npart1 in enumerate(npart):
-            filetype.create(path, fid, npart1)
+            filetype.create(path, fid, npart1, filetype_args)
 
-        self = kls(path, filetype)
+        self = kls(path, filetype, filetype_args)
         return self
 
     def get_file(self, i):
-        return self.filetype(self.path, i)
+        return self.filetype(self.path, i, self.filetype_args)
 
     def read(self, column, start, end):
 
@@ -92,7 +93,7 @@ class DataStorage(object):
         NpartCumFile = numpy.concatenate([[0], numpy.cumsum(self.npart)])
         data = []
         # add an empty item
-        ff = self.filetype(self.path, 0)
+        ff = self.filetype(self.path, 0, self.filetype_args)
         data.append(ff.read(column, 0, 0))
 
         for i in range(len(NpartPerFile)):
@@ -102,7 +103,7 @@ class DataStorage(object):
             mystart = max(start - NpartCumFile[i], 0)
             myend = min(end - NpartCumFile[i], NpartPerFile[i])
 
-            ff = self.filetype(self.path, i)
+            ff = self.filetype(self.path, i, self.filetype_args)
             data.append(ff.read(column, mystart, myend))
     
         return numpy.concatenate(data, axis=0)
@@ -112,7 +113,7 @@ class DataStorage(object):
 
         NpartPerFile = self.npart
         NpartCumFile = numpy.concatenate([[0], numpy.cumsum(self.npart)])
-        ff = self.filetype(self.path, 0)
+        ff = self.filetype(self.path, 0, self.filetype_args)
         end = start + len(data)
         offset = 0
         for i in range(len(NpartPerFile)):
@@ -122,7 +123,7 @@ class DataStorage(object):
             mystart = max(start - NpartCumFile[i], 0)
             myend = min(end - NpartCumFile[i], NpartPerFile[i])
 
-            ff = self.filetype(self.path, i)
+            ff = self.filetype(self.path, i, self.filetype_args)
             ff.write(column, mystart, data[offset:offset + myend - mystart])
             offset += myend - mystart
     

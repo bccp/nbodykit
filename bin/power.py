@@ -213,6 +213,61 @@ def initialize_parser(**kwargs):
 
     return parser
 
+def initialize_compatible_parser():
+    # add the arguments, compatible for old power.py syntax
+    class InputAction(Action):
+        def __init__(self, option_strings, dest, 
+            nargs=None, const=None, default=None, type=None, 
+            choices=None, required=False, help=None, metavar=None):
+            Action.__init__(self, option_strings, dest,
+                    nargs, const, default, type, choices, required, help, metavar)
+
+        def __call__(self, parser, namespace, values, option_string=None):
+            fields = []
+            default_painter = Painter.create("DefaultPainter")
+            for string in values:
+                try:
+                    datasource = DataSource.create(string)
+                    fields.append((datasource, default_painter, []))
+                except KeyError: # FIXME: define a proper way to test if the string
+                                 # is a datasource or redo this entire mechanism
+                    datasource, painter = fields.pop()
+                    painter = Painter.create(string)
+                    fields.append((datasource, painter, []))
+            namespace.fields = fields
+    parser = ArgumentParser("Parallel Power Spectrum Calculator")
+
+    parser.add_argument("mode", choices=["2d", "1d"]) 
+    parser.add_argument("Nmesh", type=int, help='size of calculation mesh, recommend 2 * Ngrid')
+    parser.add_argument("output", help='write power to this file. set as `-` for stdout') 
+
+    # add the input field types
+    h = "one or two input fields, specified as:\n\n"
+    parser.add_argument("fields", nargs="+", 
+            action=InputAction,
+            help="Input data sources and painters. Use --list-painter and --list-datasource to see a list of painters and data sources.", 
+            metavar="DataSource [Painter] [DataSource [Painter]]")
+    parser.add_argument("--los", choices="xyz", default='z',
+            help="the line-of-sight direction, which the angle `mu` is defined with respect to")
+    parser.add_argument("--Nmu", type=int, default=5,
+            help='the number of mu bins to use; if `mode = 1d`, then `Nmu` is set to 1' )
+    parser.add_argument("--dk", type=float,
+            help='the spacing of k bins to use; if not provided, the fundamental mode of the box is used')
+    parser.add_argument("--kmin", type=float, default=0,
+            help='the edge of the first bin to use; default is 0')
+    parser.add_argument('-q', '--quiet', help="silence the logging output",
+            action="store_const", dest="log_level", const=logging.ERROR, default=logging.DEBUG)
+    parser.add_argument('--poles', type=lambda s: [int(i) for i in s.split()], default=[],
+            help='if specified, compute these multipoles from P(k,mu), saving to `pole_output`')
+    parser.add_argument('--pole_output', type=str, help='the name of the output file for multipoles')
+
+    parser.add_argument("--correlation", action='store_true', default=False,
+        help='Calculate correlation function instead of power spectrum.')
+
+    def error(message): 
+        raise ValueError(x)
+    parser.error = error
+    return parser
 
 def compute_power(ns, comm=None):
     """
@@ -315,7 +370,13 @@ def compute_power(ns, comm=None):
             
 def main():
     # parse
-    ns = initialize_parser().parse_args()
+    parser = initialize_parser()
+    oldparser = initialize_compatible_parser()
+
+    try:
+        ns = oldparser.parse_args()
+    except:
+        ns = parser.parse_args()
         
     # do the work
     compute_power(ns)
