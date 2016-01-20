@@ -3,7 +3,7 @@ from nbodykit import files
 import numpy
 
 class GadgetDataSource(DataSource):
-    field_type = "Gadget"
+    plugin_name = "Gadget"
     
     @classmethod
     def register(kls):
@@ -79,7 +79,7 @@ class GadgetDataSource(DataSource):
 #------------------------------------------------------------------------------
 
 class GadgetGroupTabDataSource(DataSource):
-    field_type = "GadgetGroupTab"
+    plugin_name = "GadgetGroupTab"
     
     @classmethod
     def register(kls):
