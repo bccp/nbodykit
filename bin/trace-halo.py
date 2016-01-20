@@ -23,8 +23,8 @@ parser.add_argument("datasource_ti", type=DataSource.create,
         help=DataSource.format_help())
 parser.add_argument("datasource_tf", type=DataSource.create,
         help=DataSource.format_help())
-parser.add_argument("halolabel", 
-        help='basename of the halo label files, only nbodykit format is supported in this script')
+parser.add_argument("halolabel", type=DataSource.create,
+        help='datasource of the halo label files, the Label column is used.')
 parser.add_argument("output", help='write output to this file (hdf5 is appended)')
 
 ns = parser.parse_args()
@@ -40,13 +40,7 @@ from mpi4py import MPI
 
 def main():
     comm = MPI.COMM_WORLD
-    IC, SNAP, LABEL = None, None, None
-    if comm.rank == 0:
-        LABEL = files.Snapshot(ns.halolabel, files.HaloLabelFile)
 
-    LABEL = comm.bcast(LABEL)
- 
-    Ntot = sum(LABEL.npart)
 
     stats = {}
     [[ID]] = ns.datasource_tf.read(['ID'], comm, stats, full=True)
@@ -59,7 +53,8 @@ def main():
                 ])
     data['ID'] = ID
     del ID
-    data['Label'] = LABEL.read("Label", start, end)
+    Ntot = stats['Ntot']
+    [[data['Label'][...]]] = ns.halolabel.read(['Label'], comm, stats, full=True)
 
     mpsort.sort(data, orderby='ID')
 
@@ -82,7 +77,6 @@ def main():
     if comm.rank == 0:
         logging.info("Total number of halos: %d" % len(N))
         logging.info("N %s" % str(N))
-        LinkingLength = LABEL.get_file(0).linking_length
 
         with h5py.File(ns.output + '.hdf5', 'w') as ff:
             N[0] = 0
