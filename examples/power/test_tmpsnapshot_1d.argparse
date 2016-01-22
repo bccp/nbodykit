@@ -1,4 +1,4 @@
 1d
 256
-../output/test_power_tpmsnapshot_1d.txt
+../output/test_power_tpmsnapshot_1d_argparse.txt
 TPMSnapshot:../data/snp00100_1.0000.bin:1380
