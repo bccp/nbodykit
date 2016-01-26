@@ -30,9 +30,14 @@ parser.add_argument("output", help='output file; output.grp.N and output.halo ar
 parser.add_argument("--nmin", type=float, default=32, help='minimum number of particles in a halo')
 
 ns = parser.parse_args()
-logging.basicConfig(level=logging.DEBUG)
-
 from mpi4py import MPI
+rank = MPI.COMM_WORLD.rank
+name = MPI.Get_processor_name()
+logging.basicConfig(level=logging.DEBUG,
+                    format='rank %d on %s: '%(rank,name) + \
+                            '%(asctime)s %(name)-15s %(levelname)-8s %(message)s',
+                    datefmt='%m-%d %H:%M')
+
 
 import nbodykit
 
@@ -120,7 +125,7 @@ def assign_halo_label(data, comm, thresh):
 
 def local_fof(pos, ll):
     data = cluster.dataset(pos, boxsize=1.0)
-    fof = cluster.fof(data, linking_length=ll, np=0, verbose=True)
+    fof = cluster.fof(data, linking_length=ll, np=0)
     labels = fof.labels
     return labels
 
