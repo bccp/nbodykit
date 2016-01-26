@@ -156,8 +156,9 @@ def main():
         logging.info('Total number of particles %d, ll %g' % (Ntot, ns.LinkingLength))
     ll = ns.LinkingLength * Ntot ** -0.3333333
 
-    layout = domain.decompose(Position, smoothing=ll * 1)
+    Nread = len(Position)
 
+    layout = domain.decompose(Position, smoothing=ll * 1)
     Position = layout.exchange(Position)
  
     logging.info('domain %d has %d particles' % (comm.rank, len(Position)))
@@ -168,7 +169,9 @@ def main():
     if comm.rank == 0:
         logging.info('local fof done' )
 
-    [[ID]] = ns.datasource.read(['ID'], comm, stats, full=True)
+    ID = numpy.arange(Nread, dtype='intp')
+    ID += sum(comm.allgather(Nread)[:comm.rank])
+
     ID = layout.exchange(ID)
     # initialize global labels
     minid = equiv_class(labels, ID, op=numpy.fmin)[labels]
