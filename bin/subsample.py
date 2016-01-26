@@ -32,6 +32,8 @@ parser.add_argument("--seed", type=int, default=12345,
         help='seed')
 parser.add_argument("--ratio", type=float, default=0.01,
         help='fraction of particles to keep')
+parser.add_argument("--format", choices=['hdf5', 'mwhite'], default='hdf5', 
+        help='format of the output')
 parser.add_argument("--smoothing", type=float, default=None,
         help='Smoothing Length in distance units. '
               'It has to be greater than the mesh resolution. '
@@ -62,8 +64,28 @@ def main():
         for ki in k:
             ki2 = ki ** 2
             complex *= numpy.exp(-0.5 * ki2 * ns.smoothing ** 2)
+
+    def NormalizeDC(pm, complex):
+        """ removes the DC amplitude. This effectively
+            divides by the mean
+        """
+        w = pm.w
+        comm = pm.comm
+        ind = []
+        value = 0.0
+        found = True
+        for wi in w:
+            if (wi != 0).all():
+                found = False
+                break
+            ind.append((wi == 0).nonzero()[0][0])
+        if found:
+            ind = tuple(ind)
+            value = numpy.abs(complex[ind])
+        value = comm.allreduce(value, MPI.SUM)
+        complex[:] /= value
         
-    pm.transfer([Smoothing])
+    pm.transfer([Smoothing, NormalizeDC])
     pm.c2r()
     columns = ['Position', 'ID', 'Velocity']
     rng = numpy.random.RandomState(ns.Nmesh)
@@ -102,16 +124,43 @@ def main():
     if comm.rank == 0:
         subsample = numpy.concatenate(subsample)
         subsample.sort(order='ID')
+        if ns.format == 'mwhite':
+            write_mwhite_subsample(subsample, ns.output)
+        else:
+            write_hdf5(subsample, ns, comm.size)
+
+def write_hdf5(subsample, ns, commsize):
         with h5py.File(ns.output, 'w') as ff:
             dataset = ff.create_dataset(
                 name='Subsample', data=subsample
                 )
             dataset.attrs['Ratio'] = ns.ratio
-            dataset.attrs['CommSize'] = comm.size
+            dataset.attrs['CommSize'] = commsize
             dataset.attrs['Seed'] = ns.seed
             dataset.attrs['Smoothing'] = ns.smoothing
             dataset.attrs['Nmesh'] = ns.Nmesh
             dataset.attrs['Original'] = ns.datasource.string
+
+
+def write_mwhite_subsample(subsample, filename):
+    with file(filename, 'wb') as ff:
+        dtype = numpy.dtype([
+                ('eflag', 'int32'),
+                ('hsize', 'int32'),
+                ('npart', 'int32'),
+                 ('nsph', 'int32'),
+                 ('nstar', 'int32'),
+                 ('aa', 'float'),
+                 ('gravsmooth', 'float')])
+        header = numpy.zeros((), dtype=dtype)
+        header['eflag'] = 1
+        header['hsize'] = 20
+        header['npart'] = len(subsample)
+        header.tofile(ff)
+        numpy.float32(subsample['Position']).tofile(ff)
+        numpy.float32(subsample['Velocity']).tofile(ff)
+        numpy.float32(subsample['Density']).tofile(ff)
+        numpy.float32(subsample['ID']).tofile(ff)
 
 if __name__ == '__main__':
     main()
