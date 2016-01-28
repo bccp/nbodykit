@@ -225,15 +225,17 @@ def initialize_compatible_parser():
         def __call__(self, parser, namespace, values, option_string=None):
             fields = []
             default_painter = Painter.create("DefaultPainter")
+            transfer = [Transfer.create(x) for x in ['NormalizeDC', 'RemoveDC', 'AnisotropicCIC']]
             for string in values:
                 try:
                     datasource = DataSource.create(string)
-                    fields.append((datasource, default_painter, []))
+                    fields.append((datasource, default_painter, transfer))
                 except KeyError: # FIXME: define a proper way to test if the string
                                  # is a datasource or redo this entire mechanism
                     datasource, painter = fields.pop()
                     painter = Painter.create(string)
-                    fields.append((datasource, painter, []))
+                    fields.append((datasource, painter, transfer
+                        ))
             namespace.fields = fields
     parser = ArgumentParser("Parallel Power Spectrum Calculator")
 
