@@ -313,16 +313,24 @@ class DataSet(object):
         if numpy.shape(data) != self.data.shape:
             raise ValueError("data to be added must have shape %s" %str(self.data.shape))
             
-        dtype = self.data.dtype.descr
-        if key not in self.data.dtype.names:
-            dtype += [(key, data.dtype.type)]
-            
+        # add the new (key, type) to the dtype, or if the key is present, overwrite
+        dtype = list(self.data.dtype.descr) # make copy
+        names = list(self.data.dtype.names) # make copy
+        if key in names:
+            i = names.index(key)
+            dtype.pop(i); names.pop(i)
+        dtype += [(key, data.dtype.type)]
+        
+        # add old variables
         new = numpy.zeros(self.data.shape, dtype=dtype)
-        for col in self.variables:
+        for col in names:
             new[col] = self.data[col]
-            
+   
+        # the new data to add
         new[key] = data
         mask = numpy.logical_or(self.mask, ~numpy.isfinite(new[key]))
+        
+        # save
         self.data = new
         self.mask = mask
         
