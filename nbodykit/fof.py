@@ -131,11 +131,12 @@ def fof(datasource, linking_length, nmin, comm=MPI.COMM_WORLD, return_labels=Fal
             A 1-d array of type 'Position', 'Velocity', 'Length'. 
             The center mass position and velocity of the FOF halo, and
             Length is the number of particles in a halo. The catalogue is
-            sorted such that the most massive halo is first.
+            sorted such that the most massive halo is first. catalogue[0]
+            does not correspond to any halo.
 
         label: array_like
             The halo label of each particle, as the sequence they were
-            in the data source.
+            in the data source. A label of 0 standands for not in any halo.
  
     """
     if log_level is not None: logger.setLevel(log_level)
@@ -256,14 +257,15 @@ def fof(datasource, linking_length, nmin, comm=MPI.COMM_WORLD, return_labels=Fal
         catalogue['Position'] = hpos
         catalogue['Velocity'] = hvel
         catalogue['Length'] = N
+        catalogue['Length'][0] = 0
     else:
         catalogue = numpy.empty(shape=0, dtype=dtype)
         
     if return_labels:
-        label = numpy.int32(label) - 1
-        return catalogue[1:], label
+        label = numpy.int32(label)
+        return catalogue, label
     else:
-        return catalogue[1:]
+        return catalogue
 
 def split_size_2d(s):
     """ Split `s` into two integers, 
