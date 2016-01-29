@@ -92,14 +92,12 @@ def compute_brutal_corr(ns, comm=None):
             else:
                 cols = ['r', 'corr', 'RR', 'N']
                 result = [pc.mean_centers, xi, RR, pc.pair_counts]
-            edges = pc.edges[0]
         else:
             cols = ['r', 'mu', 'corr', 'RR', 'N']
             r, mu = pc.mean_centers
             result = [r, mu, xi, RR, pc.pair_counts]
-            edges = pc.edges
 
-        storage.write(edges, cols, result)
+        storage.write(pc.edges, cols, result)
         logger.info('brutal corr done')
 
 def main():

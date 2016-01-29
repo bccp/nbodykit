@@ -223,12 +223,12 @@ def compute_brutal_corr(datasources, rbins, Nmu=0, comm=None, subsample=1, los='
 
     # compute the random pairs from the fractional volume
     RR = 1.*N1*N2 / datasources[0].BoxSize.prod()
-    dr3 = numpy.diff(pc.edges[0]**3)
     if Nmu > 0:
+        dr3 = numpy.diff(pc.edges[0]**3)
         dmu = numpy.diff(pc.edges[1])
         RR *= 2. / 3. * numpy.pi * dr3[:,None] * dmu[None,:]
     else:
-        RR *= 4. / 3. * numpy.pi * dr3
+        RR *= 4. / 3. * numpy.pi * numpy.diff(pc.edges**3)
     
     # return the correlation and the pair count object
     xi = (1. * pc.sum1 / RR) - 1.0
