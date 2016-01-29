@@ -25,9 +25,9 @@ before_install:
 install:
     - conda create --yes -n test python=$TRAVIS_PYTHON_VERSION
     - source activate test
-    - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py h5py pandas scipy pytables pyyaml bigfile
+    - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py h5py pandas scipy pytables pyyaml
     - if [ $TRAVIS_PYTHON_VERSION == 2.6 ]; then conda install --yes argparse; fi
-    - pip install --pre pfft-python kdcount mpsort pmesh sharedmem --no-deps
+    - pip install --pre pfft-python kdcount mpsort pmesh sharedmem bigfile --no-deps
     - pip install --pre -r requirements.txt .
     - if ! [ -f examples/data/tpm_1.0000.bin.00 ]; then (cd examples; bash get-data.sh); fi
 
