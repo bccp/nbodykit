@@ -1,4 +1,4 @@
-TPMSnapshot:../data/snp00100_1.0000.bin:1380
-TPMSnapshot:../data/snp00100_1.0000.bin:1380
-HaloLabel:../output/fof00100_ll0.200_1.0000.grp
-../output/fof00100_ll0.200_1.0000_ichalo
+TPMSnapshot:../data/tpm_1.0000.bin:384
+TPMSnapshot:../data/tpm_1.0000.bin:384
+HaloLabel:../output/fof_ll0.200_1.0000.grp
+../output/fof_ll0.200_1.0000_ichalo

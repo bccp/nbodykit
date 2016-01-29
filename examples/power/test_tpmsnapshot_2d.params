@@ -2,4 +2,4 @@ mode: 2d
 Nmesh: 256
 output: ../output/test_power_tpmsnapshot_2d.txt
 fields:
-    - TPMSnapshot:../data/snp00100_1.0000.bin:1380
+    - TPMSnapshot:../data/tpm_1.0000.bin:384

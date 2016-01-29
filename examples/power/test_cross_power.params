@@ -2,7 +2,7 @@ mode: 1d
 Nmesh: 256
 output: ../output/test_cross_power.txt
 fields:
-    - TPMSnapshot:../data/snp00100_1.0000.bin:1380
+    - FastPM:../data/fastpm_1.0000:384
     - [NormalizeDC, RemoveDC, AnisotropicCIC]
-    - FOFGroups:../output/fof00100_ll0.200_1.0000.hdf5:1380:10.0
+    - FOFGroups:../output/fof_ll0.200_1.0000.hdf5:384:10.0
     - [NormalizeDC, RemoveDC, AnisotropicCIC]
