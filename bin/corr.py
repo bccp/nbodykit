@@ -1,6 +1,7 @@
 import numpy
 import logging
 from mpi4py import MPI
+import os
 
 rank = MPI.COMM_WORLD.rank
 name = MPI.Get_processor_name()
@@ -15,15 +16,33 @@ from nbodykit.plugins import ArgumentParser
 from nbodykit.extensionpoints import DataSource
 from nbodykit.extensionpoints import MeasurementStorage
 
+def binning_type(s):
+    if os.path.isfile(s):
+        return numpy.loadtxt(s)
+    else:
+        supported = ["`linspace: min max Nbins`", "`logspace: logmin logmax Nbins`"]
+        try:
+            f, params = s.split(':')
+            params = list(map(float, params.split()))
+            params[-1] = int(params[-1]) + 1
+            
+            if not hasattr(numpy, f): raise Exception
+            if len(params) != 3: raise Exception
+               
+            return getattr(numpy, f)(*params)
+        except:
+            raise TypeError("supported binning format: [ %s ]" %", ".join(supported))
+        
+        
+    
+
 def initialize_parser(**kwargs):
-    parser = ArgumentParser("Brutal Correlation Function Calculator",
-                                    **kwargs)
+    parser = ArgumentParser("Brutal Correlation Function Calculator",**kwargs)
 
     # add the positional arguments
     parser.add_argument("mode", choices=["1d", "2d"]) 
     parser.add_argument("output", help='write correlation function to this file. set as `-` for stdout') 
-    parser.add_argument("Rmax", type=float, help='the maximum radial distance') 
-    parser.add_argument("Nr", type=int, help='the number of radial bins to use') 
+    parser.add_argument("rbins", type=binning_type, help='the string specifying the binning to use') 
 
 
     # add the input field types
@@ -60,7 +79,7 @@ def compute_brutal_corr(ns, comm=None):
     
     # call the function
     kw = {'comm':comm, 'subsample':ns.subsample, 'Nmu':ns.Nmu, 'los':ns.los, 'poles':ns.poles}
-    pc, xi, RR = measurestats.compute_brutal_corr(ns.inputs, ns.Rmax, ns.Nr, **kw)
+    pc, xi, RR = measurestats.compute_brutal_corr(ns.inputs, ns.rbins, **kw)
 
     # output
     if comm.rank == 0:

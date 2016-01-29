@@ -90,7 +90,7 @@ def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
     return p3d, N1, N2
 
 
-def compute_brutal_corr(datasources, Rmax, Nr, Nmu=0, comm=None, subsample=1, los='z', poles=[]):
+def compute_brutal_corr(datasources, rbins, Nmu=0, comm=None, subsample=1, los='z', poles=[]):
     """
     Compute the correlation function by direct pair summation, projected
     into either 1d `R` bins or 2d (`R`, `mu`) bins
@@ -137,6 +137,7 @@ def compute_brutal_corr(datasources, Rmax, Nr, Nmu=0, comm=None, subsample=1, lo
         raise ValueError("the `los` must be one of `x`, `y`, or `z`")
     los = "xyz".index(los)
     poles = numpy.array(poles)
+    Rmax = rbins[-1]
     
     # the comm
     if comm is None: comm = MPI.COMM_WORLD
@@ -200,11 +201,11 @@ def compute_brutal_corr(datasources, Rmax, Nr, Nmu=0, comm=None, subsample=1, lo
 
     # the binning, either r or (r,mu)
     if len(poles):
-        bins = correlate.FlatSkyMultipoleBinning(Rmax, Nr, poles, los, compute_mean_coords=True)
+        bins = correlate.FlatSkyMultipoleBinning(rbins, poles, los, compute_mean_coords=True)
     elif Nmu > 0:
-        bins = correlate.FlatSkyBinning(Rmax, Nr, Nmu, los, compute_mean_coords=True)
+        bins = correlate.FlatSkyBinning(rbins, Nmu, los, compute_mean_coords=True)
     else:
-        bins = correlate.RBinning(Rmax, Nr, compute_mean_coords=True)
+        bins = correlate.RBinning(rbins, compute_mean_coords=True)
 
     # do the pair count
     # have to set usefast = False to get mean centers, or exception thrown
