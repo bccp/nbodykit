@@ -1,6 +1,6 @@
 --linklength=0.18
 --vfactor=100 
 --Nmin=0
-TPMSnapshot:../data/snp00100_1.0000.bin:1380 
-HaloLabel:../output/fof00100_ll0.200_1.0000.grp
-../output/sub00100_0.180_100_1.0000.hdf5
+TPMSnapshot:../data/tpm_1.0000.bin:384 
+HaloLabel:../output/fof_ll0.200_1.0000.grp
+../output/sub_0.180_100_1.0000.hdf5

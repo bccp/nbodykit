@@ -63,9 +63,9 @@ def equiv_class(labels, values, op, dense_labels=False, identity=None, minlength
     result[:len(N)] = op.reduceat(values[arg], offsets)
 
     if (N == 0).any():
-        result[N == 0] = identity
+        result[:len(N)][N == 0] = identity
 
-    if minlength is not None and len(N) < minlength:
+    if len(N) < minlength:
         result[len(N):] = identity
 
     return result

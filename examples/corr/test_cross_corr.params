@@ -1,6 +1,6 @@
 1d
-../output/test_corr_1d_mwhite_halo.dat
+../output/test_corr_1d.dat
 120
 20
-TPMSnapshot:../data/snp00100_1.0000.bin:1380
-FOFGroups:../output/fof00100_ll0.200_1.0000.hdf5:1380:10.0
+TPMSnapshot:../data/tpm_1.0000.bin:384
+FOFGroups:../output/fof_ll0.200_1.0000.hdf5:384:10.0

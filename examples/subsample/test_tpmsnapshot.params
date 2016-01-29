@@ -1,6 +1,6 @@
 --seed=12345
 --smoothing=20.0
 --ratio=0.01
-TPMSnapshot:../data/snp00100_1.0000.bin:1380 
+TPMSnapshot:../data/tpm_1.0000.bin:384
 256
-../output/subsample00100_1.0000.hdf5
+../output/subsample_1.0000.hdf5
