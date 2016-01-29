@@ -57,7 +57,18 @@ def bin_ndarray(ndarray, new_shape, weights=None, operation=numpy.mean):
         else:
             ndarray = operation(ndarray, axis=-1*(i+1))
     return ndarray
+
+def __unpickle__(cls, d): 
+    """
+    Internal 'unpickling' function to create a new `cls` instance 
+    from the dictionary `d`, which stores all the necessary information. 
     
+    Notes
+    -----
+    *   Designed to be used with `DataSet.__reduce__`
+    """
+    data, mask = d.pop('data'), d.pop('mask')
+    return cls.__construct_direct__(data, mask, **d)    
     
 class DataSet(object):
     """
@@ -95,15 +106,7 @@ class DataSet(object):
         
     coords : dict
         a dict holding the bin centers for each dimension in `dims`
-    
-    force_index_match : bool
-        if `True`, when indexing using coordinate values, return
-        results for the nearest bin to the value specified
-        
-    sum_only : list of str
-        a list of strings specifying fields in `data` that will 
-        only be summed when combining bins.
-        
+            
     shape : tuple
         a tuple holding the shape of the data variables
     
@@ -116,8 +119,8 @@ class DataSet(object):
         from nbodykit.extensionpoints.MeasurementStorage
     
         >>> from nbodykit import files
-        >>> corr = Corr2dDataSet.from_nbkit(*files.Read2DPlaintext(filename), force_index_match=True)
-        >>> pk = Power1dDataSet.from_nbkit(*files.Read1DPlaintext(filename), force_index_match=True)
+        >>> corr = Corr2dDataSet.from_nbkit(*files.Read2DPlaintext(filename))
+        >>> pk = Power1dDataSet.from_nbkit(*files.Read1DPlaintext(filename))
         
     *   data variables and coordinate arrays can be accessed in a dict-like
         fashion:
@@ -131,7 +134,7 @@ class DataSet(object):
         >>> pkmu
         <DataSet: dims: (k_cen: 200, mu_cen: 5), variables: ('mu', 'k', 'power')>
         >>> pkmu[:,0] # select first mu column
-        <DataSet: dims: (k_cen: 200, mu_cen: 1), variables: ('mu', 'k', 'power')>
+        <DataSet: dims: (k_cen: 200), variables: ('mu', 'k', 'power')>
     
     *   additional data variables can be added to the `DataSet` via:
     
@@ -142,18 +145,16 @@ class DataSet(object):
     
         >>> pkmu
         <DataSet: dims: (k_cen: 200, mu_cen: 5), variables: ('mu', 'k', 'power')>
-        >>> sliced = pkmu.sel(k_cen=slice(0.1, 0.4), mu_cen=0.5)
-        >>> sliced
-        <DataSet: dims: (k_cen: 30, mu_cen: 1), variables: ('mu', 'k', 'power')>
+        >>> pkmu.sel(k_cen=slice(0.1, 0.4), mu_cen=0.5)
+        >>> <DataSet: dims: (k_cen: 30), variables: ('mu', 'k', 'power')>
     
-    *   the ``squeeze`` function will select the specified bin along a given 
-        axis and squeeze that dimension such that the resulting instance
-        has one less dimension:
+    *   the ``squeeze`` function will explicitly squeeze the specified dimension 
+        (of length one) such that the resulting instance has one less dimension:
         
         >>> pkmu
-        <DataSet: dims: (k_cen: 200, mu_cen: 5), variables: ('mu', 'k', 'power')>
-        >>> pkmu.squeeze('k_cen', 0.4) # data at k_cen = 0.4
-        <DataSet: dims: (mu_cen: 5), variables: ('mu', 'k', 'power')>
+        <DataSet: dims: (k_cen: 200, mu_cen: 1), variables: ('mu', 'k', 'power')>
+        >>> pkmu.squeeze('mu_cen') # can also just call pkmu.squeeze()
+        <DataSet: dims: (k_cen: 200), variables: ('mu', 'k', 'power')>
     
     *   the ``average`` function returns a new `DataSet` holding the data
         averaged over one dimension
@@ -162,8 +163,9 @@ class DataSet(object):
         the specified dimension
         
     """
-    def __init__(self, dims, edges, variables, 
-                    force_index_match=False, sum_only=[], **kwargs):
+    _fields_to_sum = []
+    
+    def __init__(self, dims, edges, variables, **kwargs):
         """
         Parameters
         ----------
@@ -178,15 +180,6 @@ class DataSet(object):
         variables : dict
             a dictionary holding the data variables, where the keys
             are interpreted as the variable names
-            
-        force_index_match : bool, optional
-             if `True`, when indexing using coordinate values, 
-             automatically return the results for the closest coordinate
-             to the input values
-             
-        sum_only : list
-            a list of strings specifying variables that will 
-            only be summed (not averaged) when combining bins
             
         **kwargs :
             any additional keywords are saved as metadata in the ``attrs``
@@ -221,17 +214,10 @@ class DataSet(object):
         for name in variables:
             self.mask = numpy.logical_or(self.mask, ~numpy.isfinite(self.data[name]))
              
-        # If `True`: always returns nearest bin value
-        self.force_index_match = force_index_match
-        
-        # variables which are not averaged
-        self.sum_only = sum_only
-        
-        # save track metadata
+        # save and track metadata
         self.attrs = OrderedDict()
-        for k in kwargs:
-            self.attrs[k] = kwargs[k]
-            
+        for k in kwargs: self.attrs[k] = kwargs[k]
+        
     @property
     def shape(self):
         """
@@ -245,23 +231,49 @@ class DataSet(object):
         Alias to return the names of the variables stored in `data`
         """
         return list(self.data.dtype.names)
-        
+                
     @classmethod
     def __construct_direct__(cls, data, mask, **kwargs):
         """
         Shortcut around __init__ for internal use to construct and
-        return a new class instance
+        return a new class instance. The returned object should be 
+        identical to that returned by __init__.
+        
+        Notes
+        -----
+        *   Useful for returning new instances with sliced data/mask 
+        *   The keyword arguments required to create a full, unbroken
+            instance are `dims`, `coords`, `edges`, and `attrs`
+                    
+        Parameters
+        ----------
+        data : 
         """
         obj = object.__new__(cls)
-        for k in kwargs:
-            v = kwargs[k] if not hasattr(kwargs[k], 'copy') else kwargs[k].copy()
-            setattr(obj, k, v)
+        for k in kwargs: setattr(obj, k, kwargs[k])
             
         for k, d in zip(['data', 'mask'], [data, mask]):
             setattr(obj, k, d)
             if obj.shape != d.shape:
-                setattr(obj, k, d.reshape(obj.shape))
+                try:
+                    setattr(obj, k, d.reshape(obj.shape))
+                except:
+                    raise ValueError("shape mismatch between data and coordinates")
         return obj
+    
+    def __copy_attrs__(self):
+        """
+        Return a copy of all necessary attributes associated with
+        the `DataSet`. This dictionary + `data` and `mask` are all
+        that's required to reconstruct a new class
+        """
+        kw = {}
+        kw['dims'] = list(self.dims)
+        kw['edges'] = self.edges.copy()
+        kw['coords'] = self.coords.copy()
+        kw['attrs'] = self.attrs.copy()
+        kw['_fields_to_sum'] = list(self._fields_to_sum)
+        return kw
 
     def __finalize__(self, data, mask, indices):
         """
@@ -269,12 +281,8 @@ class DataSet(object):
         current object (returns a copy)
         """
         edges, coords = self.__slice_edges__(indices)
-        
-        kw = {'dims':list(self.dims), 'edges':edges, 'coords':coords, 'attrs':self.attrs.copy()}
-        
-        kw['sum_only']          = list(self.sum_only)
-        kw['force_index_match'] = self.force_index_match
-        
+        kw = {'dims':list(self.dims), 'edges':edges, 'coords':coords, 
+                'attrs':self.attrs.copy(), '_fields_to_sum':self._fields_to_sum}
         return self.__class__.__construct_direct__(data, mask, **kw)
 
     def __slice_edges__(self, indices):
@@ -336,82 +344,119 @@ class DataSet(object):
         
     def __getitem__(self, key):
         """
-        If a string key is supplied, return the associated
-        `variable` or `coord` value with that dimension name
+        Index- or string- based indexing
         
-        Otherwise, if array indexing is supplied, slice the 
-        `data` attribute, returning a new class instance that 
-        holds the sliced coordinate grid
+        Notes
+        -----
+        *   If a single string is passed, the key is intrepreted
+            as a `variable` or `coordinate`, and the corresponding
+            array is returned
+        *   If a list of strings is passed, then a new `DataSet`
+            holding only the `variable` names in `key` is returned
+        *   Integer-based indexing or slices similar to numpy 
+            indexing will slice `data`, returning a new 
+            `DataSet` holding the newly sliced data and coordinate grid
+        *   Scalar indexes (i.e., integers) used to index a certain
+            dimension will "squeeze" that dimension, removing it
+            from the coordinate grid
         """
-        if key in self.variables:
-            return self.data[key]
-        elif key in self.coords.keys():
-            return self.coords[key]
+        # if single string passed, return a coordinate or variable
+        if isinstance(key, str):
+            if key in self.variables:
+                return self.data[key]
+            elif key in self.coords.keys():
+                return self.coords[key]
+            else:
+                raise KeyError("`%s` is not a valid variable or coordinate name" %key)
             
         # indices to slice the data with
         indices = [range(0, self.shape[i]) for i in range(len(self.dims))]
             
         # check for list/tuple of variable names
-        if all(isinstance(x, str) for x in key):
-            return self.__finalize__(self.data[key], self.mask.copy(), indices)
+        # if so, return a DataSet with slice of columns
+        if isinstance(key, (list, tuple)) and all(isinstance(x, str) for x in key):
+            if all(k in self.variables for k in key):
+                return self.__finalize__(self.data[key], self.mask.copy(), indices)
+            else:
+                invalid = ', '.join("'%s'" %k for k in key if k not in self.variables)
+                raise KeyError("cannot slice variables -- invalid names: (%s)" %invalid)
             
         key_ = key
         
-        # key is a single integer or list/tuple of integer to slice rows
-        if isinstance(key, int) or all(isinstance(x, int) for x in key):
+        # if key is a single integer or single slice, make it a list
+        make_iterable = isinstance(key, slice) or isinstance(key, int)
+        if make_iterable or isinstance(key, list) and all(isinstance(x, int) for x in key):
             key_ = [key]
 
+        squeezed_dims = []
         for i, subkey in enumerate(key_):
             if i >= len(self.dims):
                 raise IndexError("too many indices for DataSet; note that ndim = %d" %len(self.dims))
                 
             if isinstance(subkey, int):
                 indices[i] = [subkey]
+                squeezed_dims.append(self.dims[i])
             elif isinstance(subkey, list):
                 indices[i] = subkey
             elif isinstance(subkey, slice):
                 indices[i] = range(*subkey.indices(self.shape[i]))
                 
-        return self.__finalize__(self.data[key], self.mask[key], indices)
+        # can't squeeze all dimensions!!
+        if len(squeezed_dims) == len(self.dims):
+            raise IndexError("cannot return object with all remaining dimensions squeezed")
+            
+        # fail nicely if we fail at all
+        try:
+            toret = self.__finalize__(self.data[key], self.mask[key], indices)
+            for dim in squeezed_dims:
+                toret = toret.squeeze(dim)
+            return toret
+        except ValueError:
+            raise IndexError("this type of slicing not implemented")
         
-    def _get_index(self, dim, val):
+    def _get_index(self, dim, val, method=None):
         """
         Internal function to compute the bin index of the nearest 
         coordinate value to the input value
         """
         index = self.coords[dim]
-        if self.force_index_match:
+        if method == 'nearest':
             i = (numpy.abs(index-val)).argmin()
         else:
             try:
                 i = list(index).index(val)
             except Exception as e:
                 args = (dim, str(e))
-                msg = "error converting '%s' index; try setting `force_index_match=True`: %s"
+                msg = "error converting '%s' index; try setting `method = 'nearest'`: %s"
                 raise IndexError(msg %args)
                 
         return i
+        
+    def __reduce__(self):
+        """
+        The standard method for python pickle serialization
+        """
+        necessary = ['data', 'mask', 'dims', 'edges', 'coords', 'attrs']
+        d = {k:getattr(self,k) for k in necessary}
+        cls = self.__class__
+        return (__unpickle__, (self.__class__, d, ))
         
     #--------------------------------------------------------------------------
     # user-called functions
     #--------------------------------------------------------------------------
     def copy(self):
         """
-        Return a copy of the `DataSet`
+        Returns a copy of the `DataSet`
         """
-        kw = {}
-        kw['dims'] = list(self.dims)
-        kw['edges'] = self.edges.copy()
-        kw['coords'] = self.coords.copy()
-        kw['attrs'] = self.attrs.copy()
-        kw['sum_only'] = self.sum_only
-        kw['force_index_match'] = self.force_index_match
-
-        return self.__class__.__construct_direct__(self.data.copy(), self.mask.copy(), **kw)
+        attrs = self.__copy_attrs__()
+        cls = self.__class__
+        return cls.__construct_direct__(self.data.copy(), self.mask.copy(), **attrs)
         
     def rename_variable(self, old_name, new_name):
         """
-        Rename a variable in `data`
+        Rename a variable in `data` from `old_name` to `new_name`.
+        
+        Note that this procedure is performed in-place
         """
         import copy
         if old_name not in self.variables:
@@ -423,43 +468,67 @@ class DataSet(object):
         new_dtype.names = names
         self.data.dtype = new_dtype
         
-    def sel(self, **kwargs):
+    def sel(self, method=None, **indexers):
         """
-        Label-based indexing by coordinate name. Indexing should be supplied
-        using the dimension name as the key and the desired coordinate values as
-        the keyword value.
+        Returns a new `DataSet` indexed by coordinate values along the 
+        specified dimension(s). 
         
+        Notes
+        -----
+        Scalar values used to index a specific dimension will result in 
+        that dimension being squeezed. To keep a dimension of unit length,
+        use a list to index (see examples below).
+        
+        Parameters
+        ----------
+        method : {None, 'nearest'}
+            the method to use for inexact matches; if set to `None`, require
+            an exact coordinate match, otherwise match the nearest coordinate
+        indexers : keyword pairs
+            the pairs of dimension name and coordinate value used to index
+            the `DataSet`
+            
         Returns
         -------
         sliced : DataSet
             a new ``DataSet`` holding the sliced data and coordinate grid
         
-        
         Examples
         --------
         >>> pkmu
         <DataSet: dims: (k_cen: 200, mu_cen: 5), variables: ('mu', 'k', 'power')>
-        >>> sliced_1 = pkmu.sel(k_cen=0.4)
-        >>> sliced_1
-        <DataSet: dims: (k_cen: 1, mu_cen: 5), variables: ('mu', 'k', 'power')>
-        >>> sliced_2 = pkmu.sel(k_cen=slice(0.1, 0.4), mu_cen=0.5)
-        >>> sliced_2
-        <DataSet: dims: (k_cen: 30, mu_cen: 1), variables: ('mu', 'k', 'power')>
+        
+        >>> pkmu.sel(k_cen=0.4)
+        >>> <DataSet: dims: (mu_cen: 5), variables: ('mu', 'k', 'power')>
+        
+        >>> pkmu.sel(k_cen=[0.4])
+        >>> <DataSet: dims: (k_cen: 1, mu_cen: 5), variables: ('mu', 'k', 'power')>
+        
+        >>> pkmu.sel(k_cen=slice(0.1, 0.4), mu_cen=0.5)
+        >>> <DataSet: dims: (k_cen: 30), variables: ('mu', 'k', 'power')>
         """
         indices = [range(0, self.shape[i]) for i in range(len(self.dims))]
-        for dim in kwargs:
-            key = kwargs[dim]
+        squeezed_dims = []
+        for dim in indexers:
+            key = indexers[dim]
             i = self.dims.index(dim)
             
             if isinstance(key, list):
-                indices[i] = [self._get_index(dim, k) for k in key]
+                indices[i] = [self._get_index(dim, k, method=method) for k in key]
             elif isinstance(key, slice):
                 new_slice = []
                 for name in ['start', 'stop']:
-                    new_slice.append(self._get_index(dim, getattr(key, name)))
+                    new_slice.append(self._get_index(dim, getattr(key, name), method=method))
                 indices[i] = range(*slice(*new_slice).indices(self.shape[i]))
+            elif not numpy.isscalar(key):
+                raise IndexError("please index using a list, slice, or scalar value")
             else:
-                indices[i] = [self._get_index(dim, key)]
+                indices[i] = [self._get_index(dim, key, method=method)]
+                squeezed_dims.append(dim)
+        
+        # can't squeeze all dimensions!!
+        if len(squeezed_dims) == len(self.dims):
+            raise IndexError("cannot return object with all remaining dimensions squeezed")
         
         # check for empty slices
         for i, idx in enumerate(indices):
@@ -472,37 +541,11 @@ class DataSet(object):
             data = numpy.take(data, idx, axis=i)
             mask = numpy.take(mask, idx, axis=i)
         
-        return self.__finalize__(data, mask, indices)
-        
-    def to_pickle(self, filename):
-        """
-        Dump the object to the specified file as a pickle
-        
-        Parameters
-        ----------
-        filename : str
-            the name of the file holding the pickle
-        """
-        necessary = ['data', 'mask', 'dims', 'edges', 'coords', 
-                    'attrs', 'force_index_match', 'sum_only']
-        d = {k:getattr(self,k) for k in necessary}
-        pickle.dump(d, open(filename, 'w'))
-        
-    @classmethod
-    def from_pickle(cls, filename):
-        """
-        Read a `DataSet` from a pickle, assuming the pickle was 
-        created with `DataSet.to_pickle`
-        
-        Parameters
-        ----------
-        filename : str
-            the name of the pickle file to read from
-        """
-        d = pickle.load(open(filename, 'r'))
-        data, mask = d.pop('data'), d.pop('mask')
-        return cls.__construct_direct__(data, mask, **d)
-        
+        toret = self.__finalize__(data, mask, indices)
+        for dim in squeezed_dims:
+            toret = toret.squeeze(dim)
+        return toret
+                  
     @classmethod
     def from_nbkit(cls, d, meta):
         """
@@ -531,18 +574,17 @@ class DataSet(object):
         dims = d.pop('dims')
         return cls(dims, edges, d, **meta)
                 
-    def squeeze(self, dim, value):
+    def squeeze(self, dim=None):
         """
-        Select the data along the specified dimension with input coordinate
-        value, returning a squeezed `DataSet`, which has the dimension that
-        we selected along removed
+        Squeeze the `DataSet` along the specified dimension, which
+        removes that dimension from the `DataSet`. 
         
         Parameters
         ----------
-        dim : str
-            the name of the dimension to squeeze
-        value : int, float
-            the coordinate value to select along the `dim` axis
+        dim : str, optional
+            the name of the dimension to squeeze. If no dimension
+            is provided, then the one dimension with unit length will 
+            be squeeze
         
         Returns
         -------
@@ -553,53 +595,77 @@ class DataSet(object):
         --------
         >>> pkmu
         <DataSet: dims: (k_cen: 200, mu_cen: 5), variables: ('mu', 'k', 'power')>
-        >>> pkmu.squeeze('k_cen', 0.4)
-        <DataSet: dims: (mu_cen: 5), variables: ('mu', 'k', 'power')>
+        >>> pkmu[:,0].squeeze() # select first mu bin and squeeze
+        <DataSet: dims: (k_cen: 200), variables: ('mu', 'k', 'power')>
         """
-        i = self._get_index(dim, value)
-        idx = [slice(None, None)]*len(self.dims)
-        idx[self.dims.index(dim)] = i
+        # infer the right dimension to squeeze
+        if dim is None:
+            dim = [k for k in self.dims if len(self.coords[k]) == 1]
+            if not len(dim):
+                raise ValueError("no available dimensions with length one to squeeze")
+            if len(dim) > 1:
+                raise ValueError("multiple dimensions available to squeeze -- please specify")
+            dim = dim[0]
+        else:
+            if dim not in self.dims:
+                raise ValueError("`%s` is not a valid dimension name" %dim)
+            if len(self.coords[dim]) != 1:
+                raise ValueError("the `%s` dimension must have length one to squeeze" %dim)
+    
+        # remove the dimension from the grid
+        i = self.dims.index(dim)
+        toret = self.copy()
+        toret.dims.pop(i); toret.edges.pop(dim); toret.coords.pop(dim)
+        if not len(toret.dims):
+            raise ValueError("cannot squeeze the only remaining axis")
         
-        toret = self[idx]        
-        toret.dims.pop(self.dims.index(dim))
-        toret.edges.pop(dim)
-        toret.coords.pop(dim)
-        kw = {'dims':toret.dims, 'edges':toret.edges, 'coords':toret.coords, 'attrs':toret.attrs}
-        kw['sum_only'] = self.sum_only
-        kw['force_index_match'] = self.force_index_match
-
-        return self.__construct_direct__(toret.data.squeeze(), toret.mask.squeeze(), **kw)
+        # construct new object with squeezed data/mask
+        attrs = toret.__copy_attrs__()
+        d = toret.data.squeeze(axis=i)
+        m = toret.mask.squeeze(axis=i)
+        return self.__construct_direct__(d, m, **attrs)
         
-    def average(self, dim, weights=None):
+    def average(self, dim, **kwargs):
         """
-        Compute the average of each variable over the specified dimension, 
-        optionally using `weights`
+        Compute the average of each variable over the specified dimension
         
         Parameters
         ----------
         dim : str
             the name of the dimension to average over
+        kwargs : key/value pairs
+            additional keywords to pass to ``DataSet.reindex``. See documentation
+            for ``DataSet.reindex`` for valid keywords
         
         Returns
         -------
         averaged : DataSet
-            a new `DataSet` instance, averaged along one dimension, such
-            that there is one less dimension now
+            a new `DataSet` instance, averaged along one dimension, 
+            such that there is one less dimension now
         """
         spacing = (self.edges[dim][-1] - self.edges[dim][0])
-        toret = self.reindex(dim, spacing, weights=weights)
-        return toret.squeeze(dim, toret.coords[dim][0])
+        toret = self.reindex(dim, spacing, **kwargs)
+        toret = toret.sel(**{dim:toret.coords[dim][0]})
+        return toret.squeeze(dim)
         
-    def reindex(self, dim, spacing, weights=None, force=True, return_spacing=False):
+    def reindex(self, 
+                    dim, 
+                    spacing, 
+                    weights=None, 
+                    force=True, 
+                    return_spacing=False):
         """
-        Reindex the dimension `dim` and return a new `DataSet` holding
-        the re-binned data, optionally weighted by `weights`. 
+        Reindex the dimension `dim` by averaging over multiple coordinate bins, 
+        optionally weighting by `weights`. Return a new `DataSet` holding the 
+        re-binned data
         
         Notes
         -----
-        We can only re-bin to an integral factor of the current 
-        dimension size in order to inaccuracies when re-binning to 
-        overlapping bins
+        *   We can only re-bin to an integral factor of the current 
+            dimension size in order to inaccuracies when re-binning to 
+            overlapping bins
+        *   For variables specified in `self._fields_to_sum`, those
+            variables will be summed when re-indexing, instead of averaging
         
         
         Parameters
@@ -675,9 +741,9 @@ class DataSet(object):
         for name in self.variables:
             operation = numpy.nanmean
             weights_ = weights
-            if weights is not None or name in self.sum_only:
+            if weights is not None or name in self._fields_to_sum:
                 operation = numpy.nansum
-                if name in self.sum_only: weights_ = None
+                if name in self._fields_to_sum: weights_ = None
             new_data[name] = bin_ndarray(data[name], new_shape, weights=weights_, operation=operation)
         
         # the new mask
@@ -686,8 +752,7 @@ class DataSet(object):
             new_mask = numpy.logical_or(new_mask, ~numpy.isfinite(new_data[name]))
         
         # construct new object
-        kw = {'dims':list(self.dims), 'edges':self.edges.copy(), 'coords':self.coords.copy(), 
-                'attrs':self.attrs, 'sum_only':self.sum_only, 'force_index_match':self.force_index_match}
+        kw = self.__copy_attrs__()
         kw['edges'][dim] = new_edges
         kw['coords'][dim] = 0.5*(new_edges[1:] + new_edges[:-1])
         toret = self.__construct_direct__(new_data, new_mask, **kw)
@@ -733,14 +798,12 @@ class Power1dDataSet(DataSet):
     """
     A `DataSet` that holds a 1D power spectrum in bins of `k`
     """
-    def __init__(self, edges, variables, 
-                    force_index_match=False, sum_only=[], **kwargs):
-            
-        dims = ['k']
-        edges = [edges]
-        kwargs['force_index_match'] = force_index_match
-        kwargs['sum_only'] = sum_only
-        super(Power1dDataSet, self).__init__(dims, edges, variables, **kwargs)
+    _fields_to_sum = ['modes']
+    
+    def __init__(self, edges, variables, **kwargs):
+        super(Power1dDataSet, self).__init__(['k'], [edges], variables, **kwargs)
+        for field in ['modes']:
+            if field in self: self._fields_to_sum.append(field)
         
     @classmethod
     def from_nbkit(cls, d, meta, columns=None, **kwargs):
@@ -763,7 +826,7 @@ class Power1dDataSet(DataSet):
         Examples
         --------
         >>> from nbodykit import files
-        >>> power = Power1dDataSet.from_nbkit(*files.Read1DPlaintext(filename),force_index_match=True)
+        >>> power = Power1dDataSet.from_nbkit(*files.Read1DPlaintext(filename))
         """
         toret = from_1d_measurement(['k'], d, meta, columns=columns, **kwargs)
         toret.__class__ = cls
@@ -773,13 +836,10 @@ class Power2dDataSet(DataSet):
     """
     A `DataSet` that holds a 2D power spectrum in bins of `k` and `mu`
     """
-    def __init__(self, edges, variables, 
-                    force_index_match=False, sum_only=[], **kwargs):
-            
-        dims = ['k', 'mu']
-        kwargs['force_index_match'] = force_index_match
-        kwargs['sum_only'] = sum_only
-        super(Power2dDataSet, self).__init__(dims, edges, variables, **kwargs)
+    _fields_to_sum = ['modes']
+    
+    def __init__(self, edges, variables, **kwargs):
+        super(Power2dDataSet, self).__init__(['k','mu'], edges, variables, **kwargs)
         
     @classmethod
     def from_nbkit(cls, d, meta, **kwargs):
@@ -799,7 +859,7 @@ class Power2dDataSet(DataSet):
         Examples
         --------
         >>> from nbodykit import files
-        >>> power = Power2dDataSet.from_nbkit(*files.Read2DPlaintext(filename),force_index_match=True)
+        >>> power = Power2dDataSet.from_nbkit(*files.Read2DPlaintext(filename))
         """
         toret = from_2d_measurement(['k', 'mu'], d, meta, **kwargs)
         toret.__class__ = cls
@@ -809,15 +869,14 @@ class Corr1dDataSet(DataSet):
     """
     A `DataSet` that holds a 1D correlation function in bins of `r`
     """
-    def __init__(self, edges, variables, 
-                    force_index_match=False, sum_only=[], **kwargs):
-                    
-        dims = ['r']
-        edges = [edges]
-        kwargs['force_index_match'] = force_index_match
-        kwargs['sum_only'] = sum_only
-        super(Corr1dDataSet, self).__init__(dims, edges, variables, **kwargs)
+    _fields_to_sum = ['N', 'RR']
+    
+    def __init__(self, edges, variables, **kwargs):
         
+        super(Corr1dDataSet, self).__init__(['r'], [edges], variables, **kwargs)
+        for field in ['N', 'RR']:
+            if field in self: self._fields_to_sum.append(field)
+            
     @classmethod
     def from_nbkit(cls, d, meta, columns=None, **kwargs):
         """
@@ -839,7 +898,7 @@ class Corr1dDataSet(DataSet):
         Examples
         --------
         >>> from nbodykit import files
-        >>> corr = Power1dDataSet.from_nbkit(*files.Read1DPlaintext(filename), force_index_match=True)
+        >>> corr = Power1dDataSet.from_nbkit(*files.Read1DPlaintext(filename))
         """
         toret = from_1d_measurement(['r'], d, meta, columns=columns, **kwargs)
         toret.__class__ = cls
@@ -849,13 +908,10 @@ class Corr2dDataSet(DataSet):
     """
     A `DataSet` that holds a 2D correlation in bins of `k` and `mu`
     """
-    def __init__(self, edges, variables, 
-                    force_index_match=False, sum_only=[], **kwargs):
-            
-        dims = ['r', 'mu']
-        kwargs['force_index_match'] = force_index_match
-        kwargs['sum_only'] = sum_only
-        super(Corr2dDataSet, self).__init__(dims, edges, variables, **kwargs)
+    _fields_to_sum = ['N', 'RR']
+    
+    def __init__(self, edges, variables, **kwargs):
+        super(Corr2dDataSet, self).__init__(['r','mu'], edges, variables, **kwargs)
         
     @classmethod
     def from_nbkit(cls, d, meta, **kwargs):
@@ -875,7 +931,7 @@ class Corr2dDataSet(DataSet):
         Examples
         --------
         >>> from nbodykit import files
-        >>> corr = Corr2dDataSet.from_nbkit(*files.Read2DPlaintext(filename), force_index_match=True)
+        >>> corr = Corr2dDataSet.from_nbkit(*files.Read2DPlaintext(filename))
         """
         toret = from_2d_measurement(['r', 'mu'], d, meta, **kwargs)
         toret.__class__ = cls
