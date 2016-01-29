@@ -77,9 +77,8 @@ def main():
     if comm.rank == 0:
         logging.info("Total number of halos: %d" % len(N))
         logging.info("N %s" % str(N))
-
+        N[0] = 0
         with h5py.File(ns.output + '.hdf5', 'w') as ff:
-            N[0] = 0
             data = numpy.empty(shape=(len(N),), 
                 dtype=[
                 ('Position', ('f4', 3)),

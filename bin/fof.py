@@ -31,243 +31,35 @@ parser.add_argument("--nmin", type=float, default=32, help='minimum number of pa
 
 ns = parser.parse_args()
 from mpi4py import MPI
+
 rank = MPI.COMM_WORLD.rank
-name = MPI.Get_processor_name()
+name = MPI.Get_processor_name().split('.')[0]
 logging.basicConfig(level=logging.DEBUG,
                     format='rank %d on %s: '%(rank,name) + \
                             '%(asctime)s %(name)-15s %(levelname)-8s %(message)s',
-                    datefmt='%m-%d %H:%M')
+                    datefmt='%m-%d %H:%M:%S')
 
 
-import nbodykit
-
-from nbodykit.distributedarray import DistributedArray
-from nbodykit.ndarray import equiv_class, replacesorted
-from nbodykit import halos
-
-from kdcount import cluster
-from pmesh.domain import GridND
-
-def assign_halo_label(data, comm, thresh):
-    """ 
-    Convert minid to sequential labels starting from 0.
-
-    This routine is used to assign halo label to particles with
-    the same minid.
-    Halos with less than thresh particles are reclassified to 0.
-
-    Parameters
-    ----------
-    minid : array_like, ('i8')
-        The minimum particle id of the halo. All particles of a halo 
-        have the same minid
-    thresh : int
-        halo with less than thresh particles are merged into halo 0
-    comm : py:class:`MPI.Comm`
-        communicator. since this is a collective operation
-
-    Returns
-    -------
-    labels : array_like ('i8')
-        The new labels of particles. Note that this is ordered
-        by the size of halo, with the exception 0 represents all
-        particles that are in halos that contain less than thresh particles.
-    
-    """
-    data['origind'] = numpy.arange(len(data), dtype='i4')
-    data['origind'] += sum(comm.allgather(len(data))[:comm.rank]) \
- 
-    data = DistributedArray(data, comm)
-
-
-    # first attempt is to assign fofid for each group
-    data.sort('fofid')
-    label = data['fofid'].unique_labels()
-    
-    N = label.bincount()
-    
-    # now eliminate those with less than thresh particles
-    small = N.local <= 32
-
-    Nlocal = label.bincount(local=True)
-    # mask == True for particles in small halos
-    mask = numpy.repeat(small, Nlocal)
- 
-    # globally shift halo id by one
-    label.local += 1
-    label.local[mask] = 0
-
-    data['fofid'].local[:] = label.local[:]
-    del label
-
-    data.sort('fofid')
-
-    label = data['fofid'].unique_labels() 
-
-    data['fofid'].local[:] = label.local[:]
-
-    data.sort('origind')
-    
-    label = data['fofid'].local.view('i8')
-
-    Nhalo0 = max(comm.allgather(label.max())) + 1
-
-    Nlocal = numpy.bincount(label, minlength=Nhalo0)
-    comm.Allreduce(MPI.IN_PLACE, Nlocal, op=MPI.SUM)
-
-    # sort the labels by halo size
-    arg = Nlocal[1:].argsort()[::-1] + 1
-    P = numpy.arange(Nhalo0)
-    P[arg] = numpy.arange(len(arg)) + 1
-    label = P[label]
-        
-    return label
-
-def local_fof(pos, ll):
-    data = cluster.dataset(pos, boxsize=1.0)
-    fof = cluster.fof(data, linking_length=ll, np=0)
-    labels = fof.labels
-    return labels
+from nbodykit.fof import fof
 
 def main():
     comm = MPI.COMM_WORLD
-    np = split_size_2d(comm.size)
 
-    grid = [
-        numpy.linspace(0, 1.0, np[0] + 1, endpoint=True),
-        numpy.linspace(0, 1.0, np[1] + 1, endpoint=True),
-    ]
-    domain = GridND(grid)
-    if comm.rank == 0:
-        logging.info('grid %s' % str(grid) )
-
-    # read in all !
-    stats = {}
-    [[Position]] = ns.datasource.read(['Position'], comm, stats, full=True)
-    Position /= ns.datasource.BoxSize
-
-    print(Position.shape)
-    print(Position.max(axis=0))
-
-    Ntot = stats['Ntot']
-    assert Ntot == sum(comm.allgather(len(Position)))
-
-    if comm.rank == 0:
-        logging.info('Total number of particles %d, ll %g' % (Ntot, ns.LinkingLength))
-    ll = ns.LinkingLength * Ntot ** -0.3333333
-
-    layout = domain.decompose(Position, smoothing=ll * 1)
-
-    Position = layout.exchange(Position)
- 
-    logging.info('domain %d has %d particles' % (comm.rank, len(Position)))
-
-    labels = local_fof(Position, ll)
-    del Position
-
-    if comm.rank == 0:
-        logging.info('local fof done' )
-
-    [[ID]] = ns.datasource.read(['ID'], comm, stats, full=True)
-    ID = layout.exchange(ID)
-    # initialize global labels
-    minid = equiv_class(labels, ID, op=numpy.fmin)[labels]
-    del ID
-
-    if comm.rank == 0:
-        logging.info("equiv class, done")
-
-    while True:
-        # merge, if a particle belongs to several ranks
-        # use the global label of the minimal
-        minid_new = layout.gather(minid, mode=numpy.fmin)
-        minid_new = layout.exchange(minid_new)
-
-        # on my rank, these particles have been merged
-        merged = minid_new != minid
-        # if no rank has merged any, we are done
-        # gl is the global label (albeit with some holes)
-        total = comm.allreduce(merged.sum())
-            
-        if comm.rank == 0:
-            logging.info('merged %d halos', total)
-
-        if total == 0:
-            del minid_new
-            break
-        old = minid[merged]
-        new = minid_new[merged]
-        arg = old.argsort()
-        new = new[arg]
-        old = old[arg]
-        replacesorted(minid, old, new, out=minid)
-
-    minid = layout.gather(minid, mode=numpy.fmin)
-    del layout
-
-    if comm.rank == 0:
-        logging.info("merging, done")
-
-    Nitem = len(minid)
-
-    data = numpy.empty(Nitem, dtype=[
-            ('origind', 'u8'), 
-            ('fofid', 'u8'),
-            ])
-    # assign origind for recovery of ordering, since
-    # we need to work in sorted fofid 
-    data['fofid'] = minid
-    del minid
-
-    label = assign_halo_label(data, comm, thresh=ns.nmin)
-    label = label.copy()
-    del data
-    N = halos.count(label, comm=comm)
-
-    if comm.rank == 0:
-        logging.info('Length of entries %s ', str(N))
-        logging.info('Length of entries %s ', N.shape[0])
-        logging.info('Total particles %s ', N.sum())
-
-    [[Position]] = ns.datasource.read(['Position'], comm, stats, full=True)
-
-    Position /= ns.datasource.BoxSize
-    hpos = halos.centerofmass(label, Position, boxsize=1.0, comm=comm)
-    del Position
-
-    [[Velocity]] = ns.datasource.read(['Velocity'], comm, stats, full=True)
-    Velocity /= ns.datasource.BoxSize
-
-    hvel = halos.centerofmass(label, Velocity, boxsize=None, comm=comm)
-    del Velocity
+    catalogue, labels = fof(ns.datasource, ns.LinkingLength, ns.nmin, comm, return_labels=True)
+    Ntot = comm.allreduce(len(labels))
 
     if comm.rank == 0:
         with h5py.File(ns.output + '.hdf5', 'w') as ff:
-            N[0] = 0
-            data = numpy.empty(shape=(len(N),), 
-                dtype=[
-                ('Position', ('f4', 3)),
-                ('Velocity', ('f4', 3)),
-                ('Length', 'i4')])
-            
-            data['Position'] = hpos
-            data['Velocity'] = hvel
-            data['Length'] = N
-            
             # do not create dataset then fill because of
             # https://github.com/h5py/h5py/pull/606
 
             dataset = ff.create_dataset(
-                name='FOFGroups', data=data
+                name='FOFGroups', data=catalogue
                 )
             dataset.attrs['Ntot'] = Ntot
             dataset.attrs['LinkLength'] = ns.LinkingLength
             dataset.attrs['BoxSize'] = ns.datasource.BoxSize
 
-    del N
-    del hpos
-
-    Ntot = comm.allreduce(len(label))
     nfile = (Ntot + 512 ** 3 - 1) // (512 ** 3 )
     
     npart = [ 
@@ -281,9 +73,9 @@ def main():
                 numpy.float32(ns.LinkingLength).tofile(ff)
                 pass
 
-    start = sum(comm.allgather(len(label))[:comm.rank])
-    end = sum(comm.allgather(len(label))[:comm.rank+1])
-    label = numpy.int32(label)
+    start = sum(comm.allgather(len(labels))[:comm.rank])
+    end = sum(comm.allgather(len(labels))[:comm.rank+1])
+    labels = numpy.int32(labels)
     written = 0
     for i in range(len(npart)):
         filestart = sum(npart[:i])
@@ -297,24 +89,10 @@ def main():
         with open(ns.output + '.grp.%02d' % i, 'rb+') as ff:
             ff.seek(8, 0)
             ff.seek(mystart * 4, 1)
-            label[written:written + myend - mystart].tofile(ff)
+            labels[written:written + myend - mystart].tofile(ff)
         written += myend - mystart
 
     return
 
-def split_size_2d(s):
-    """ Split `s` into two integers, 
-        a and d, such that a * d == s and a <= d
-
-        returns:  a, d
-    """
-    a = int(s** 0.5) + 1
-    d = s
-    while a > 1:
-        if s % a == 0:
-            d = s // a
-            break
-        a = a - 1 
-    return a, d
-
-main()
+if __name__ == '__main__':
+    main()
