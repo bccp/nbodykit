@@ -1,6 +1,6 @@
 2d
-../output/test_corr_2d_mwhite_halo.dat
 linspace: 0 120 20
 MWhiteHaloFile:../data/mwhite_halo.fofp:1380.:-rsd=z
 -X=../../contrib/MWhiteHaloFile.py
 --Nmu=10
+-o=../output/test_corr_2d_mwhite_halo.dat

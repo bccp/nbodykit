@@ -14,7 +14,8 @@
     
 """
 class PluginInterface(object):
-    """ The basic interface of a plugin 
+    """ 
+    The basic interface of a plugin 
     """
     def initialize(self, args):
         ns = self.parser.parse_args(args)
@@ -126,7 +127,7 @@ def add_metaclass(metaclass):
 
 import numpy
 from nbodykit.plugins import HelpFormatterColon
-from argparse import ArgumentParser
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter, Namespace
 
 @ExtensionPoint
 class Transfer:
@@ -336,8 +337,192 @@ class MeasurementStorage:
 
     def write(self, cols, data, **meta):
         return NotImplemented
+
+
+#------------------------------------------------------------------------------
+# plugin classes implementing `Algorithm`        
+#------------------------------------------------------------------------------
+import inspect
+from nbodykit.plugins import ArgumentParser as PluginArgumentParser
+
+class AlgorithmPluginInterface(object):
+    """ 
+    The basic interface for the `Algorithm` plugin 
+    """ 
+    @classmethod
+    def _set_parser_defaults(cls):
+        """
+        Set the default values of the parser using any default
+        values for keywords in the class `__init__` signature
+        """
+        # inspect the __init__ function
+        args, varargs, varkw, defaults = inspect.getargspec(cls.__init__)
         
-__all__ = ['DataSource', 'Painter', 'Transfer', 'MeasurementStorage']
+        if defaults:
+            default_names = args[-len(defaults):]
+            for action in cls.parser._actions:
+                if action.dest in default_names:
+                    i = default_names.index(action.dest)
+                    action.default = defaults[i]
+    
+    @classmethod
+    def _namespace_to_args(cls, ns_dict):
+        """
+        Convert the input namespace to the necessary args and kwargs
+        needed to initialize the class
+        """
+        # inspect the __init__ function
+        args, varargs, varkw, defaults = inspect.getargspec(cls.__init__)
+        
+        # only named arguments/keywords at the moment
+        if varargs is not None or varkw is not None:
+            name = cls.__name__
+            raise ValueError("class `%s` requires named arguments and keywords only" %name)
+        
+        # determine the required arguments
+        args = args[1:] # remove 'self'
+        if defaults:
+            required = args[:-len(defaults)]
+        else:
+            required = args
+            
+        # crash if we are missing any
+        if not all(p in ns_dict for p in required):
+            name = cls.__name__
+            missing = set(required).difference(ns_dict)
+            missing = "(%s)" % ", ".join("'%s'" %k for k in missing)
+            raise ValueError("missing parameters needed to initialize class `%s`: %s" %(name, missing))
+            
+        # get the args, kwargs to pass to __init__
+        fargs = tuple(ns_dict[p] for p in required)
+        fkwargs = {}
+        if defaults:
+            for i, p in enumerate(defaults):
+                name = args[-len(defaults)+i]
+                fkwargs[name] = ns_dict.get(name, defaults[i])
+            
+        return fargs, fkwargs
+    
+    @classmethod
+    def register(cls):
+        raise NotImplementedError
+        
+    @classmethod 
+    def print_help(cls):
+        return cls.parser.print_help()
+    
+algorithms = Namespace()
+
+class AlgorithmPluginMount(type):
+    """ Metaclass for an extension point that provides
+        the methods to manage
+        plugins attached to the extension point.
+    """
+    def __new__(cls, name, bases, attrs):
+        # for python 2, ensure extension points are objects
+        # this is important for python 3 compatibility.
+        if len(bases) == 0:
+            bases = (object,)
+        # Only add PluginInterface to the ExtensionPoint,
+        # such that Plugins will inherit from this.
+        if len(bases) == 1 and bases[0] is object:
+            bases = (AlgorithmPluginInterface,)
+        return type.__new__(cls, name, bases, attrs)
+
+    def __init__(cls, name, bases, attrs):
+
+        # only executes when processing the mount point itself.
+        if not hasattr(cls, 'plugins'):
+            cls.plugins = {}
+        # called for each plugin, which already has 'plugins' list
+        else:
+            if not hasattr(cls, 'plugin_name'):
+                raise RuntimeError("Plugin class must carry a plugin_name.")
+            
+            # register, if this plugin isn't yet
+            if cls.plugin_name not in cls.plugins:
+                # add a commandline argument parser that will parse
+                # the parameters needed to run the algorithm
+                cls.parser = PluginArgumentParser(cls.plugin_name, usage=None,
+                                            formatter_class=ArgumentDefaultsHelpFormatter)
+
+                # track names of classes
+                cls.plugins[cls.plugin_name] = cls
+                
+                # store as part of the algorithms namespace
+                setattr(algorithms, cls.plugin_name, cls)
+                
+                # try to call register class method
+                if hasattr(cls, 'register'): cls.register()
+                
+                # try to set the defaults of the argument parser from 
+                # the __init__ signature
+                cls._set_parser_defaults()
+                
+                # set the class documentation automatically
+                doc = cls.__doc__
+                if doc is not None:
+                    cls.__doc__ += "\n\n"+cls.parser.format_help()
+                else:
+                    cls.__doc__ = cls.parser.format_help()
+
+    def create(kls, plugin_name, ns, comm): 
+        """ 
+        Instantiate an `algorithm` plugin from 
+        this extension point, based on the Namespace
+        returned by a command-line parser
+
+        Parameters
+        ----------
+        plugin_name : str
+            the name of the Algorithm plugin to load
+        ns: Namespace
+            the `argparse.Namespace` instance holding the 
+            arguments/keywords necessary to initialize
+        comm : MPI Communicator
+            the mpi4py communicator
+        """
+        klass = kls.plugins[plugin_name]
+        ns_dict = vars(ns)
+        ns_dict['comm'] = comm
+        
+        args, kwargs = klass._namespace_to_args(ns_dict)
+        return klass(*args, **kwargs)
+       
+                    
+def AlgorithmExtensionPoint(cls):
+    """ Declares a class as an extension point """
+    return add_metaclass(AlgorithmPluginMount)(cls)
+    
+@AlgorithmExtensionPoint
+class Algorithm:
+    """
+    Mount point for plugins which provide an interface for running
+    one of the high-level algorithms, i.e, power spectrum calculation
+    or FOF halo finder
+    
+    Plugins implementing this reference should provide the following 
+    attributes:
+
+    plugin_name : str
+        class attribute giving the name of the subparser which 
+        defines the necessary command line arguments for the plugin
+    
+    register : classmethod
+        A class method taking no arguments that adds a subparser
+        and the necessary command line arguments for the plugin
+    
+    __call__ : method
+        function that will apply the transfer function to the complex array
+    """
+    def run(self, comm=None):
+        raise NotImplementedError
+    
+    def save(self, *args, **kwargs):
+        raise NotImplementedError
+        
+
+__all__ = ['DataSource', 'Painter', 'Transfer', 'MeasurementStorage', 'Algorithm']
 
 def plugin_isinstance(string, extensionpt):
     """
