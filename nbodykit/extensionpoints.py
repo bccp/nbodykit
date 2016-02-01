@@ -459,12 +459,12 @@ class AlgorithmPluginMount(type):
                 # the __init__ signature
                 cls._set_parser_defaults()
                 
-                # set the __init__ documentation automatically
-                doc = cls.__init__.__func__.__doc__
+                # set the class documentation automatically
+                doc = cls.__doc__
                 if doc is not None:
-                    cls.__init__.__func__.__doc__ += "\n\n"+cls.parser.format_help()
+                    cls.__doc__ += "\n\n"+cls.parser.format_help()
                 else:
-                    cls.__init__.__func__.__doc__ = cls.parser.format_help()
+                    cls.__doc__ = cls.parser.format_help()
 
     def create(kls, plugin_name, ns, comm): 
         """ 
