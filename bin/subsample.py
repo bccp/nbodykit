@@ -117,10 +117,13 @@ def main():
         density = layout.gather(density1)
 
         data['Density'][:] = density
+        data = comm.gather(data)
+        if comm.rank == 0:
+            data = numpy.concatenate(data, axis=0)
+        else:
+            data = None
         subsample.append(data)
 
-    subsample = numpy.concatenate(subsample)
-    subsample = comm.gather(subsample)
     if comm.rank == 0:
         subsample = numpy.concatenate(subsample)
         subsample.sort(order='ID')
