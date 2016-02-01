@@ -364,10 +364,9 @@ class AlgorithmPluginInterface(object):
                 if action.dest in default_names:
                     i = default_names.index(action.dest)
                     action.default = defaults[i]
-        
-           
+    
     @classmethod
-    def _namespace_to_args(cls, ns):
+    def _namespace_to_args(cls, ns_dict):
         """
         Convert the input namespace to the necessary args and kwargs
         needed to initialize the class
@@ -388,19 +387,19 @@ class AlgorithmPluginInterface(object):
             required = args
             
         # crash if we are missing any
-        if not all(p in ns for p in required):
+        if not all(p in ns_dict for p in required):
             name = cls.__name__
-            missing = set(required).difference(vars(ns))
+            missing = set(required).difference(ns_dict)
             missing = "(%s)" % ", ".join("'%s'" %k for k in missing)
             raise ValueError("missing parameters needed to initialize class `%s`: %s" %(name, missing))
             
         # get the args, kwargs to pass to __init__
-        fargs = tuple(getattr(ns, p) for p in required)
+        fargs = tuple(ns_dict[p] for p in required)
         fkwargs = {}
         if defaults:
             for i, p in enumerate(defaults):
                 name = args[-len(defaults)+i]
-                fkwargs[name] = getattr(ns, name, defaults[i])
+                fkwargs[name] = ns_dict.get(name, defaults[i])
             
         return fargs, fkwargs
     
@@ -459,8 +458,15 @@ class AlgorithmPluginMount(type):
                 # try to set the defaults of the argument parser from 
                 # the __init__ signature
                 cls._set_parser_defaults()
+                
+                # set the __init__ documentation automatically
+                doc = cls.__init__.__func__.__doc__
+                if doc is not None:
+                    cls.__init__.__func__.__doc__ += "\n\n"+cls.parser.format_help()
+                else:
+                    cls.__init__.__func__.__doc__ = cls.parser.format_help()
 
-    def create(kls, plugin_name, ns): 
+    def create(kls, plugin_name, ns, comm): 
         """ 
         Instantiate an `algorithm` plugin from 
         this extension point, based on the Namespace
@@ -468,13 +474,19 @@ class AlgorithmPluginMount(type):
 
         Parameters
         ----------
+        plugin_name : str
+            the name of the Algorithm plugin to load
         ns: Namespace
             the `argparse.Namespace` instance holding the 
             arguments/keywords necessary to initialize
+        comm : MPI Communicator
+            the mpi4py communicator
         """
         klass = kls.plugins[plugin_name]
+        ns_dict = vars(ns)
+        ns_dict['comm'] = comm
         
-        args, kwargs = klass._namespace_to_args(ns)
+        args, kwargs = klass._namespace_to_args(ns_dict)
         return klass(*args, **kwargs)
        
                     

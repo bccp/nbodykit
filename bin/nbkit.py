@@ -47,7 +47,7 @@ def main():
     ns = parser.parse_args()
         
     # initialize the algorithm and run
-    alg = Algorithm.create(ns.algorithm_name, ns)
+    alg = Algorithm.create(ns.algorithm_name, ns, MPI.COMM_WORLD)
     result = alg.run()
     
     # save the output

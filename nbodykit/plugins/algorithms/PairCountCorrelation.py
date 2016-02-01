@@ -1,5 +1,6 @@
 from nbodykit.extensionpoints import Algorithm
 from nbodykit.plugins import ListPluginsAction
+
 import numpy
 import os
 
@@ -31,10 +32,12 @@ class PairCountCorrelationAlgorithm(Algorithm):
     """
     plugin_name = "PairCountCorrelation"
 
-    def __init__(self, mode, rbins, inputs, subsample=1, los='z', Nmu=10, poles=[]):
+    def __init__(self, comm, mode, rbins, inputs, subsample=1, los='z', Nmu=10, poles=[]):
         """
-        See `print_help()` for documentation on parameters
+        The MPI communicator must be the first argument, followed by the parameters
+        specified by the command-line parser
         """
+        self.comm      = comm
         self.mode      = mode
         self.rbins     = rbins
         self.inputs    = inputs
@@ -73,7 +76,7 @@ class PairCountCorrelationAlgorithm(Algorithm):
         p.add_argument("--list-datasource", action=ListPluginsAction(DataSource),
                         help='list the help for each available `DataSource`')
 
-    def run(self, comm=None):
+    def run(self):
         """
         Run the pair-count correlation function and return the result
         
@@ -85,11 +88,8 @@ class PairCountCorrelationAlgorithm(Algorithm):
             dictionary holding the data results (with associated names as keys) --
             this results `corr`, `RR`, `N` + the mean bin values
         """
-        from mpi4py import MPI
         from nbodykit import measurestats
-        
-        if comm is None: comm = MPI.COMM_WORLD
-
+    
         # check multipoles parameters
         if len(self.poles) and self.mode == '2d':
             raise ValueError("you specified multipole numbers but `mode` is `2d` -- perhaps you meant `1d`")
@@ -98,7 +98,7 @@ class PairCountCorrelationAlgorithm(Algorithm):
         if self.mode == "1d": self.Nmu = 0
 
         # do the work
-        kw = {'comm':comm, 'subsample':self.subsample, 'Nmu':self.Nmu, 'los':self.los, 'poles':self.poles}
+        kw = {'comm':self.comm, 'subsample':self.subsample, 'Nmu':self.Nmu, 'los':self.los, 'poles':self.poles}
         pc, xi, RR = measurestats.compute_brutal_corr(self.inputs, self.rbins, **kw)
 
         # format the results
@@ -130,12 +130,15 @@ class PairCountCorrelationAlgorithm(Algorithm):
         """
         from nbodykit.extensionpoints import MeasurementStorage
         
-        edges, result = result
-        storage = MeasurementStorage.new(self.mode, output)
+        # only master writes
+        if self.comm.rank == 0:
+            
+            edges, result = result
+            storage = MeasurementStorage.new(self.mode, output)
         
-        cols = list(result.keys())
-        values = list(result.values())
-        storage.write(edges, cols, values)
+            cols = list(result.keys())
+            values = list(result.values())
+            storage.write(edges, cols, values)
 
             
 
