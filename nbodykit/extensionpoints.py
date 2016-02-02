@@ -17,13 +17,13 @@ class PluginInterface(object):
     """ 
     The basic interface of a plugin 
     """
-    def initialize(self, args):
-        ns = self.parser.parse_args(args)
-        self.__dict__.update(ns.__dict__)
-
     @classmethod
     def register(kls):
         raise NotImplementedError
+
+    def finalize_attributes(self):
+        # override to finalize the attributes based on parsed attributes.
+        pass
 
     def __eq__(self, other):
         return self.string == other.string
@@ -94,7 +94,10 @@ class PluginMount(type):
         klass = kls.plugins[words[0]]
         
         self = klass()
-        self.initialize(words[1:])
+        ns = self.parser.parse_args(words[1:])
+        self.__dict__.update(ns.__dict__)
+
+        self.finalize_attributes()
         self.string = string
         return self
 
