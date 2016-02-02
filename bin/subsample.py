@@ -107,8 +107,10 @@ def main():
         Nkeep = keep.sum()
         if Nkeep == 0: continue 
         data = numpy.empty(Nkeep, dtype=dtype)
-        data['Position'][:] = Position[keep]       
+        data['Position'][:] = Position[keep]
         data['Velocity'][:] = Velocity[keep]       
+        data['Position'][:] /= ns.datasource.BoxSize
+        data['Velocity'][:] /= ns.datasource.BoxSize
         data['ID'][:] = ID[keep] 
 
         layout = pm.decompose(data['Position'])
@@ -143,6 +145,7 @@ def write_hdf5(subsample, ns, commsize):
             dataset.attrs['Smoothing'] = ns.smoothing
             dataset.attrs['Nmesh'] = ns.Nmesh
             dataset.attrs['Original'] = ns.datasource.string
+            dataset.attrs['BoxSize'] = ns.datasource.BoxSize
 
 
 def write_mwhite_subsample(subsample, filename):
