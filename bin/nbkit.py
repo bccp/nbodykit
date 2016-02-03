@@ -3,6 +3,7 @@ import logging
 
 from mpi4py import MPI
 from nbodykit.extensionpoints import Algorithm, algorithms
+from nbodykit.plugins import ArgumentParser
 
 # configure the logging
 rank = MPI.COMM_WORLD.rank
@@ -12,6 +13,34 @@ logging.basicConfig(level=logging.DEBUG,
                             '%(asctime)s %(name)-15s %(levelname)-8s %(message)s',
                     datefmt='%m-%d %H:%M')
 
+
+class HelpAction(argparse.Action):
+    """
+    Help action that replicates the behavior of subcommands, 
+    i.e., `python prog.py subcommand -h` prints the
+    help for the subcommand
+    """
+    def __init__(self,
+                 option_strings,
+                 dest=argparse.SUPPRESS,
+                 default=argparse.SUPPRESS,
+                 help=None):
+        super(HelpAction, self).__init__(
+            option_strings=option_strings,
+            dest=dest,
+            default=default,
+            nargs=0,
+            help=help)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        name = getattr(namespace, 'algorithm_name')
+        if name is not None:
+            alg = getattr(algorithms, name)
+            alg.parser.print_help()
+        else:
+            parser.print_help()
+        parser.exit()
+        
 def main():
     
     # the names of the valid algorithms -- each will be a subcommand
@@ -28,35 +57,27 @@ def main():
     kwargs = {}
     kwargs['usage'] = usage
     kwargs['description'] = desc
+    kwargs['fromfile_prefix_chars'] = '@'
     kwargs['formatter_class'] = argparse.ArgumentDefaultsHelpFormatter
-    parser = argparse.ArgumentParser(**kwargs)
-        
-    # add the subparsers for each `Algorithm` plugin
-    subparsers = parser.add_subparsers(dest='algorithm_name')
-    for s in valid_algorithms:
-        
-        # make a subparser for this sub-command
-        subparser = subparsers.add_parser(s)
-        
-        # make the subparser the same as the algorithm parser
-        p = getattr(algorithms, s).parser
-        subparser.__dict__ = p.__dict__
-        subparser.__class__ = p.__class__
-        
-        # add an output string
-        subparser.add_argument('-o', '--output', required=True, type=str, 
-                                help='the string specifying the output')
+    kwargs['preparse_from_config'] = ['output']
+    parser = ArgumentParser("nbkit", add_help=False, **kwargs)
 
+        
+    parser.add_argument('-o', '--output', help='the string specifying the output')
+    parser.add_argument(dest='algorithm_name', choices=valid_algorithms)
+    parser.add_argument('-h', '--help', action=HelpAction)
+    
     # parse
-    ns = parser.parse_args()
-
+    ns, args = parser.parse_known_args()
+    if 'output' not in ns:
+        raise ValueError("argument -o/--output is required")
+    
     # initialize the algorithm and run
-    alg = Algorithm.create(ns.algorithm_name, ns, MPI.COMM_WORLD)
+    alg = Algorithm.create([ns.algorithm_name] + args, MPI.COMM_WORLD)
     result = alg.run()
     
     # save the output
     alg.save(ns.output, result) 
-    
-    
+       
 if __name__ == '__main__':
     main()

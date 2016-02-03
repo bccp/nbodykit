@@ -76,6 +76,7 @@ def ReadConfigFile(**types):
             config = yaml.load(open(values, 'r'))
             
             # set defaults, check required and choices
+            argnames = set([a.dest for a in parser._actions])
             missing = []
             for a in parser._actions:
                 
@@ -103,39 +104,48 @@ def ReadConfigFile(**types):
                         
             # set the values, casting if available
             for k in config:
-                v = config[k]
-                if k in types: v = types[k](v)
-                setattr(ns, k, v)
+                if k in argnames:
+                    v = config[k]
+                    if k in types: v = types[k](v)
+                    setattr(ns, k, v)
             
             # config attr of main namespace is new namespace
             setattr(namespace, self.dest, ns)
-                                        
+                                                    
     return ConfigFileAction
     
-class LoadPluginsFromYAML(Action):
-    """
-    Open a config file, read parameters assuming a YAML format, and
-    load any plugins specified via the `X` key
-    """
-    def __call__(self, parser, namespace, values, option_string=None):
-        import yaml
+def ConfigPreparser(*keys):
+    class PreparseConfigAction(Action):
+        """
+        Open a config file, read parameters assuming a YAML format, and
+        load any plugins specified via the `X` key
+        """
+        def __call__(self, parser, namespace, values, option_string=None):
+            import yaml
             
-        # read the yaml config file
-        config = yaml.load(open(values, 'r'))
-             
-        # search for plugins
-        plugins = []
-        if 'X' in config:
-            plugins = config['X']
-            if isinstance(plugins, str):
-                plugins = [plugins]
-            for plugin in plugins: load(plugin)
+            # read the yaml config file
+            config = yaml.load(open(values, 'r'))
+            
+            # search for plugins
+            plugins = []
+            if 'X' in config:
+                plugins = config['X']
+                if isinstance(plugins, str):
+                    plugins = [plugins]
+                for plugin in plugins: load(plugin)
         
-        # save for debugging purposes   
-        if namespace.X is not None: 
-            namespace.X += plugins
-        else:
-            namespace.X = plugins
+            # save for debugging purposes   
+            if namespace.X is not None: 
+                namespace.X += plugins
+            else:
+                namespace.X = plugins
+            
+            # also grab any other specified keys
+            for key in keys:
+                if key in config:
+                    setattr(namespace, key, config[key])
+                    
+    return PreparseConfigAction
 
 class ArgumentParser(BaseArgumentParser):
     """ 
@@ -146,8 +156,8 @@ class ArgumentParser(BaseArgumentParser):
     option or set from a YAML config file, which is
     passed via `-c` or `--config`. 
     """
-    def __init__(self, name, *largs, **kwargs):
-        
+    def __init__(self, name, preparse_from_config=[], *largs, **kwargs):
+
         # initialize the preparser
         kwargs['formatter_class'] = RawTextHelpFormatter
         kwargs['fromfile_prefix_chars']="@"
@@ -157,21 +167,27 @@ class ArgumentParser(BaseArgumentParser):
                     
         # parse -X on cmdline or search config file for -X options
         preparser.add_argument("-X", type=load, action="append")
-        preparser.add_argument('-c', '--config', action=LoadPluginsFromYAML)
-        
+        preparser.add_argument('-c', '--config', action=ConfigPreparser(*preparse_from_config))
+
         # process the plugins
         preparser.exit = lambda a, b: None
         preparser._read_args_from_files     = ArgumentParser._read_args_from_files.__get__(preparser)         
         preparser._yield_args_from_files    = ArgumentParser._yield_args_from_files.__get__(preparser)         
         preparser.convert_args_file_to_args = ArgumentParser.convert_args_file_to_args.__get__(preparser)         
-        self.ns, unknown = preparser.parse_known_args(args)
-
+        ns, unknown = preparser.parse_known_args(args)
+        
+        # only keep the preparsed values
+        ns = vars(ns)
+        self.ns = Namespace()
+        for k in preparse_from_config:
+            if k in ns: setattr(self.ns, k, ns[k])
+    
         # do the base initialization
         BaseArgumentParser.__init__(self, name, *largs, **kwargs)
 
         # for clarity add this automatically
-        self.add_argument("-X", action='append', help='path of additional plugins to be loaded' )
-        
+        self.add_argument("-X", action='append', help='path of additional plugins to be loaded')
+
         # track error messages
         self.error_messages = []
         
@@ -187,13 +203,19 @@ class ArgumentParser(BaseArgumentParser):
         If `config` is a option, return the namespace created from reading
         the YAML file -- otherwise, use the default behavior
         """
-        ns, args = BaseArgumentParser.parse_known_args(self, args, namespace)
+        result = BaseArgumentParser.parse_known_args(self, args, self.ns)
+        
+        # if parsing failed, result is None
+        if result is None:
+            if len(self.error_messages):
+                BaseArgumentParser.error(self, self.error_messages[0])
+        
+        ns, args = result
         no_config = 'config' not in ns or ns.config is None
         
         # if no config file, check errors
-        if no_config:
-            if len(self.error_messages):
-                BaseArgumentParser.error(self, self.error_messages[0])
+        if no_config and len(self.error_messages):
+            BaseArgumentParser.error(self, self.error_messages[0])
         
         # okay, no errors -- return either config or cmd-line namespace
         if no_config:

@@ -22,7 +22,7 @@ parser = ArgumentParser(None,
         )
 
 h = "Data source to read particle position:\n\n"
-parser.add_argument("datasource", type=DataSource.create,
+parser.add_argument("datasource", type=DataSource.fromstring,
         help=h + DataSource.format_help())
 parser.add_argument("LinkingLength", type=float, 
         help='LinkingLength in mean separation (0.2)')

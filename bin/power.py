@@ -37,13 +37,13 @@ def construct_fields(input_fields, X=None):
     while i < N:
         
         # start with a default option for (DataSource, Painter, Transfer)
-        field = [None, Painter.create("DefaultPainter"), []]
+        field = [None, Painter.fromstring("DefaultPainter"), []]
         
         # should be a DataSource here, or break
         if plugin_isinstance(input_fields[i], DataSource):
             
             # set data source
-            field[0] = DataSource.create(input_fields[i])
+            field[0] = DataSource.fromstring(input_fields[i])
             
             # loop until out of values or another DataSource found
             i += 1
@@ -52,13 +52,13 @@ def construct_fields(input_fields, X=None):
                 
                 # set Painter
                 if plugin_isinstance(s, Painter):
-                    field[1] = Painter.create(s)
+                    field[1] = Painter.fromstring(s)
                 # add one Transfer
                 elif plugin_isinstance(s, Transfer):
-                    field[2].append(Transfer.create(s))
+                    field[2].append(Transfer.fromstring(s))
                 # add list of Transfers
                 elif isinstance(s, list):
-                    field[2] += [Transfer.create(x) for x in s]
+                    field[2] += [Transfer.fromstring(x) for x in s]
                 else:
                     raise ValueError("failure to parse line `%s` for `fields` key" %str(s))                    
                 i += 1
@@ -224,16 +224,16 @@ def initialize_compatible_parser():
 
         def __call__(self, parser, namespace, values, option_string=None):
             fields = []
-            default_painter = Painter.create("DefaultPainter")
-            transfer = [Transfer.create(x) for x in ['NormalizeDC', 'RemoveDC', 'AnisotropicCIC']]
+            default_painter = Painter.fromstring("DefaultPainter")
+            transfer = [Transfer.fromstring(x) for x in ['NormalizeDC', 'RemoveDC', 'AnisotropicCIC']]
             for string in values:
                 try:
-                    datasource = DataSource.create(string)
+                    datasource = DataSource.fromstring(string)
                     fields.append((datasource, default_painter, transfer))
                 except KeyError: # FIXME: define a proper way to test if the string
                                  # is a datasource or redo this entire mechanism
                     datasource, painter = fields.pop()
-                    painter = Painter.create(string)
+                    painter = Painter.fromstring(string)
                     fields.append((datasource, painter, transfer
                         ))
             namespace.fields = fields
