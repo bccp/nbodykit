@@ -124,6 +124,7 @@ class LoadPluginsFromYAML(Action):
         config = yaml.load(open(values, 'r'))
              
         # search for plugins
+        plugins = []
         if 'X' in config:
             plugins = config['X']
             if isinstance(plugins, str):
