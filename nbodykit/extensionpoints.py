@@ -19,8 +19,11 @@ import numpy
 # a plugin instance will be created for a MPI communicator.
 from mpi4py import MPI
 
-from nbodykit.plugins import HelpFormatterColon
-from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter, Namespace
+from nbodykit.plugins import HelpFormatterColon, ArgumentParser
+from argparse import Namespace
+
+import sys
+import contextlib
 
 algorithms = Namespace()
 datasources = Namespace()
@@ -56,6 +59,7 @@ class PluginInterface(object):
         argnames = set([action.dest for action in self.parser._actions])
         missing = []
         d = {}
+
         for argname in list(argnames):
             if argname not in kwargs:
                 if not action.required:
@@ -107,11 +111,14 @@ class PluginMount(type):
             
             # register, if this plugin isn't yet
             if cls.plugin_name not in cls.plugins:
-                # add a commandline argument parser that parsers the ':' seperated
-                # commandlines.
+                # add a commandline argument parser for each plugin
+                # NOTE: we don't want every plugin to preparse sys.argv
+                # so set args = ()
                 cls.parser = ArgumentParser(cls.plugin_name, 
-                        usage=None, add_help=False, 
-                        formatter_class=HelpFormatterColon)
+                                            usage=None, 
+                                            add_help=False, 
+                                            args=(),
+                                            formatter_class=HelpFormatterColon)
 
                 # track names of classes
                 cls.plugins[cls.plugin_name] = cls
@@ -160,7 +167,6 @@ class PluginMount(type):
         klass = kls.plugins[argv[0]]
         
         ns = klass.parser.parse_args(argv[1:])
-        
         if comm is None:
             comm = MPI.COMM_WORLD
 
@@ -347,9 +353,7 @@ class DataSource:
         argv = string.split(':')
         return kls.create(argv, comm)
 
-import numpy
-from nbodykit.plugins import HelpFormatterColon
-from argparse import ArgumentParser
+
 
 @ExtensionPoint(painters)
 class Painter:
@@ -400,8 +404,7 @@ class Painter:
         argv = string.split(':')
         return kls.create(argv, comm)
 
-import sys
-import contextlib
+
 
 @ExtensionPoint(mstorages)
 class MeasurementStorage:
