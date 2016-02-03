@@ -76,6 +76,7 @@ def ReadConfigFile(**types):
             config = yaml.load(open(values, 'r'))
             
             # set defaults, check required and choices
+            argnames = set([a.dest for a in parser._actions])
             missing = []
             for a in parser._actions:
                 
@@ -103,9 +104,10 @@ def ReadConfigFile(**types):
                         
             # set the values, casting if available
             for k in config:
-                v = config[k]
-                if k in types: v = types[k](v)
-                setattr(ns, k, v)
+                if k in argnames:
+                    v = config[k]
+                    if k in types: v = types[k](v)
+                    setattr(ns, k, v)
             
             # config attr of main namespace is new namespace
             setattr(namespace, self.dest, ns)
