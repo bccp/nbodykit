@@ -430,6 +430,10 @@ class AlgorithmPluginInterface(object):
             required = args[:-len(defaults)]
         else:
             required = args
+        
+        # check for the comm!
+        if required[0] != 'comm':
+            raise ValueError("first positional argument for any algorithm must be `comm` to hold MPI communicator")
             
         # crash if we are missing any
         if not all(p in ns_dict for p in required):
@@ -563,7 +567,7 @@ class Algorithm:
     __call__ : method
         function that will apply the transfer function to the complex array
     """
-    def run(self, comm=None):
+    def run(self):
         raise NotImplementedError
     
     def save(self, *args, **kwargs):

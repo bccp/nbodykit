@@ -1,7 +1,0 @@
-correlation: True
-mode: 1d
-Nmesh: 256
-output: ../output/test_corr_tpmsnapshot_1d.txt
-fields:
-    - TPMSnapshot:../data/tpm_1.0000.bin:384
-    - [NormalizeDC, RemoveDC, AnisotropicCIC]

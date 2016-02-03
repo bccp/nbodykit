@@ -35,9 +35,13 @@ def main():
     subparsers = parser.add_subparsers(dest='algorithm_name')
     for s in valid_algorithms:
         
-        # copy the parser for each Algorithm
+        # make a subparser for this sub-command
         subparser = subparsers.add_parser(s)
-        subparser.__dict__ = getattr(algorithms, s).parser.__dict__
+        
+        # make the subparser the same as the algorithm parser
+        p = getattr(algorithms, s).parser
+        subparser.__dict__ = p.__dict__
+        subparser.__class__ = p.__class__
         
         # add an output string
         subparser.add_argument('-o', '--output', required=True, type=str, 
@@ -45,7 +49,7 @@ def main():
 
     # parse
     ns = parser.parse_args()
-        
+
     # initialize the algorithm and run
     alg = Algorithm.create(ns.algorithm_name, ns, MPI.COMM_WORLD)
     result = alg.run()
