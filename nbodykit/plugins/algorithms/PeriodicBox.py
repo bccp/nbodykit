@@ -19,13 +19,13 @@ def FieldsFromYAML(input_fields):
     while i < N:
         
         # start with a default option for (DataSource, Painter, Transfer)
-        field = [None, Painter.create("DefaultPainter"), []]
+        field = [None, Painter.fromstring("DefaultPainter"), []]
         
         # should be a DataSource here, or break
         if plugin_isinstance(input_fields[i], DataSource):
             
             # set data source
-            field[0] = DataSource.create(input_fields[i])
+            field[0] = DataSource.fromstring(input_fields[i])
             
             # loop until out of values or another DataSource found
             i += 1
@@ -34,13 +34,13 @@ def FieldsFromYAML(input_fields):
                 
                 # set Painter
                 if plugin_isinstance(s, Painter):
-                    field[1] = Painter.create(s)
+                    field[1] = Painter.fromstring(s)
                 # add one Transfer
                 elif plugin_isinstance(s, Transfer):
-                    field[2].append(Transfer.create(s))
+                    field[2].append(Transfer.fromstring(s))
                 # add list of Transfers
                 elif isinstance(s, list):
-                    field[2] += [Transfer.create(x) for x in s]
+                    field[2] += [Transfer.fromstring(x) for x in s]
                 else:
                     raise ValueError("failure to parse line `%s` for `fields` key" %str(s))                    
                 i += 1
@@ -59,8 +59,8 @@ class FieldsFromCmdLine(Action):
     def __call__(self, parser, namespace, values, option_string=None):
         
         fields = []
-        default_painter = Painter.create("DefaultPainter")
-        default_transfer = [Transfer.create(x) for x in ['NormalizeDC', 'RemoveDC', 'AnisotropicCIC']]
+        default_painter = Painter.fromstring("DefaultPainter")
+        default_transfer = [Transfer.fromstring(x) for x in ['NormalizeDC', 'RemoveDC', 'AnisotropicCIC']]
         
         fields = []
         i = 0
@@ -74,7 +74,7 @@ class FieldsFromCmdLine(Action):
             if plugin_isinstance(values[i], DataSource):
             
                 # set data source
-                field[0] = DataSource.create(values[i])
+                field[0] = DataSource.fromstring(values[i])
             
                 # loop until out of values or another DataSource found
                 i += 1
@@ -83,10 +83,10 @@ class FieldsFromCmdLine(Action):
                 
                     # set Painter
                     if plugin_isinstance(s, Painter):
-                        field[1] = Painter.create(s)
+                        field[1] = Painter.fromstring(s)
                     # add one Transfer
                     elif plugin_isinstance(s, Transfer):
-                        field[2].append(Transfer.create(s))
+                        field[2].append(Transfer.fromstring(s))
                     else:
                         raise ValueError("failure to parse line `%s` for `fields` key" %str(s))                    
                     i += 1
@@ -105,23 +105,6 @@ class PeriodicPowerAlgorithm(Algorithm):
     """
     plugin_name = "PeriodicPower"
     
-    def __init__(self, comm, mode, Nmesh, fields, los='z', Nmu=5, dk=None, 
-                    kmin=0., log_level=logging.DEBUG, poles=[]):
-        """
-        The MPI communicator must be the first argument, followed by the parameters
-        specified by the command-line parser
-        """  
-        self.comm      = comm       
-        self.mode      = mode
-        self.Nmesh     = Nmesh
-        self.fields    = fields
-        self.los       = los
-        self.Nmu       = Nmu
-        self.dk        = dk
-        self.kmin      = kmin
-        self.log_level = log_level
-        self.poles     = poles
-
     @classmethod
     def register(kls):
         p = kls.parser
@@ -141,18 +124,17 @@ class PeriodicPowerAlgorithm(Algorithm):
             metavar="DataSource [Painter] [Transfer] [DataSource [Painter] [Transfer]]")
         
         # the optional arguments
-        p.add_argument("--los", choices="xyz",
+        p.add_argument("--los", choices="xyz", default='z',
             help="the line-of-sight direction -- the angle `mu` is defined with respect to")
-        p.add_argument("--Nmu", type=int,
+        p.add_argument("--Nmu", type=int, default=5, 
             help='the number of mu bins to use from mu=[0,1]; if `mode = 1d`, then `Nmu` is set to 1' )
         p.add_argument("--dk", type=float,
             help='the spacing of k bins to use; if not provided, the fundamental mode of the box is used')
-        p.add_argument("--kmin", type=float,
+        p.add_argument("--kmin", type=float, default=0.,
             help='the edge of the first `k` bin to use; default is 0')
-        p.add_argument('-q', '--quiet', action="store_const", dest="log_level", 
-            help="silence the logging output",
-            const=logging.ERROR, default=logging.DEBUG)
-        p.add_argument('--poles', type=lambda s: [int(i) for i in s.split()],
+        p.add_argument('-q', '--quiet', action="store_const", dest="log_level", default=logging.DEBUG,
+            help="silence the logging output", const=logging.ERROR)
+        p.add_argument('--poles', type=lambda s: [int(i) for i in s.split()], default=[],
             help='if specified, also compute these multipoles from P(k,mu)')
         
     def run(self):
@@ -244,41 +226,27 @@ class PeriodicPowerAlgorithm(Algorithm):
 class FFTCorrelationAlgorithm(Algorithm):
     """
     Algorithm to compute the 1d or 2d correlation function and multipoles
-    in a periodic box, using an FFT
+    in a periodic box. This FFTs the measured power spectrum to compute
+    the correlation function
     """
     plugin_name = "FFTCorrelation"
-    
-    def __init__(self, comm, mode, Nmesh, fields, los='z', Nmu=5, dk=None, 
-                    kmin=0., log_level=logging.DEBUG, poles=[]):
-        """
-        The MPI communicator must be the first argument, followed by the parameters
-        specified by the command-line parser
-        """  
-        self.comm      = comm       
-        self.mode      = mode
-        self.Nmesh     = Nmesh
-        self.fields    = fields
-        self.los       = los
-        self.Nmu       = Nmu
-        self.dk        = dk
-        self.kmin      = kmin
-        self.log_level = log_level
-        self.poles     = poles
 
     @classmethod
     def register(kls):
-
-        kls.parser = PeriodicPowerAlgorithm.parser
+        import copy
+        
+        # copy the PeriodicPower parser
+        kls.parser = copy.copy(PeriodicPowerAlgorithm.parser)
         kls.parser.description = "correlation spectrum calculator via FFT in a periodic box"
         kls.parser.prog = 'FFTCorrelation'
-        
+
     def run(self):
         """
         Run the algorithm, which computes and returns the correlation function
         """
         from nbodykit import measurestats
         from pmesh.particlemesh import ParticleMesh
-        
+
         logger.setLevel(self.log_level)
         if self.comm.rank == 0: logger.info('importing done')
 
@@ -287,34 +255,34 @@ class FFTCorrelationAlgorithm(Algorithm):
 
         # only need one mu bin if 1d case is requested
         if self.mode == "1d": self.Nmu = 1
-    
+
         # measure
         y3d, N1, N2 = measurestats.compute_3d_corr(self.fields, pm, comm=self.comm, log_level=self.log_level)
         x3d = pm.x
-                
+
         # make the bin edges
         dr = pm.BoxSize[0] / pm.Nmesh
         redges = numpy.arange(0, pm.BoxSize[0] + dr * 0.5, dr)
-            
+
         # project on to the desired basis
         muedges = numpy.linspace(0, 1, self.Nmu+1, endpoint=True)
         edges = [redges, muedges]
-        result, pole_result = measurestats.project_to_basis(pm.comm, x3d, y3d, edges, 
-                                                            poles=self.poles, 
-                                                            los=self.los, 
+        result, pole_result = measurestats.project_to_basis(pm.comm, x3d, y3d, edges,
+                                                            poles=self.poles,
+                                                            los=self.los,
                                                             symmetric=False)
-                                                            
+
         # compute the metadata to return
         Lx, Ly, Lz = pm.BoxSize
-        meta = {'Lx':Lx, 'Ly':Ly, 'Lz':Lz, 'volume':Lx*Ly*Lz, 'N1':N1, 'N2':N2}                                                    
-        
+        meta = {'Lx':Lx, 'Ly':Ly, 'Lz':Lz, 'volume':Lx*Ly*Lz, 'N1':N1, 'N2':N2}
+
         # return all the necessary results
         return edges, result, pole_result, meta
 
     def save(self, output, result):
         """
         Save the correlation function results to the specified output file
-        
+
         Parameters
         ----------
         output : str
@@ -324,10 +292,10 @@ class FFTCorrelationAlgorithm(Algorithm):
             edges and the second is a dictionary holding the data results
         """
         from nbodykit.extensionpoints import MeasurementStorage
-        
-        # only the master rank writes        
+
+        # only the master rank writes
         if self.comm.rank == 0:
-            
+
             edges, result, pole_result, meta = result
             if self.mode == "1d":
                 cols = ['r', 'corr', 'modes']
@@ -336,21 +304,21 @@ class FFTCorrelationAlgorithm(Algorithm):
             else:
                 edges_ = edges
                 cols = ['r', 'mu', 'corr', 'modes']
-                
+
             # write binned statistic
             logger.info('measurement done; saving result to %s' %output)
             storage = MeasurementStorage.new(self.mode, output)
             storage.write(edges_, cols, result, **meta)
-        
+
             # write multipoles
             if len(self.poles):
                 filename, ext = os.path.splitext(output)
                 pole_output = filename + '_poles' + ext
-            
+
                 # format is k pole_0, pole_1, ...., modes_1d
                 logger.info('saving ell = %s multipoles to %s' %(",".join(map(str,self.poles)), pole_output))
                 storage = MeasurementStorage.new('1d', pole_output)
-            
+
                 k, poles, N = pole_result
                 cols = ['k'] + ['power_%d' %l for l in self.poles] + ['modes']
                 pole_result = [k] + [pole for pole in poles] + [N]
