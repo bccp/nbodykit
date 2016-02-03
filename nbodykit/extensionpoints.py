@@ -13,6 +13,11 @@
     1. add a class decorator @ExtensionPoint
     
 """
+
+# MPI will be required because
+# a plugin instance will be created for a MPI communicator.
+from mpi4py import MPI
+
 class PluginInterface(object):
     """ 
     The basic interface of a plugin 
@@ -77,9 +82,11 @@ class PluginMount(type):
                 if hasattr(cls, 'register'):
                     cls.register()
 
-    def create(kls, string): 
+    def create(kls, string, comm=None): 
         """ Instantiate a plugin from this extension point,
-            based on the cmdline string
+            based on the cmdline string. The arguments in string
+            will be parsed and the attributes of the instance will
+            be populated.
 
             Parameters
             ----------
@@ -88,6 +95,20 @@ class PluginMount(type):
                 The first field specifies the type of the plugin
                 to create.
                 The reset depends on the type of the plugin.
+
+            comm: MPI.Comm or None
+                The communicator this plugin is instantialized for.
+                if None, MPI.COMM_WORLD is assumed.
+
+            Notes
+            -----
+            2nd stage parsing: A plugin can override 
+            `finalize_attribute` to finalize the
+            attribute values based on currently parsed attribute values.
+
+            The `comm` attribute stores the communicator for which 
+            this plugin is instantialized.
+
         """
         words = string.split(':')
         
@@ -97,6 +118,10 @@ class PluginMount(type):
         ns = self.parser.parse_args(words[1:])
         self.__dict__.update(ns.__dict__)
 
+        if comm is None:
+            comm = MPI.COMM_WORLD
+
+        self.comm = comm
         self.finalize_attributes()
         self.string = string
         return self
@@ -218,18 +243,34 @@ class DataSource:
         return boxsize
 
     def readall(self, columns):
+        """ Override to provide a method to read in all data at once,
+            uncollectively. 
+
+            Notes
+            -----
+
+            This function will be called by the default 'read' function
+            on the root rank to read in the data set.
+            The intention is to reduce the complexity of implementing a
+            simple and small data source.
+            
+        """
         raise NotImplementedError
 
-    def read(self, columns, comm, stat, full=False):
+    def read(self, columns, stat, full=False):
         """ 
             Yield the data in the columns. If full is True, read all
             particles in one run; otherwise try to read in chunks.
 
-            On every iteration stat is updated with the global 
-            statistics. Current keys are min, max, Ntot.
+            Override this function for complex, large data sets. The read
+            operation shall be collective, each yield generates different
+            sections of the datasource.
+
+            On every iteration `stat` shall be updated with the global 
+            statistics. Current keys are `Ntot`.
             
         """
-        if comm.rank == 0:
+        if self.comm.rank == 0:
             
             # make sure we have at least one column to read
             if not len(columns):
@@ -245,10 +286,10 @@ class DataSource:
         else:
             shape_and_dtype = None
             Ntot = None
-        shape_and_dtype = comm.bcast(shape_and_dtype)
-        stat['Ntot'] = comm.bcast(Ntot)
+        shape_and_dtype = self.comm.bcast(shape_and_dtype)
+        stat['Ntot'] = self.comm.bcast(Ntot)
 
-        if comm.rank != 0:
+        if self.comm.rank != 0:
             data = [
                 numpy.empty(0, dtype=(dtype, shape[1:]))
                 for shape,dtype in shape_and_dtype
@@ -291,8 +332,9 @@ class Painter:
     def read_and_decompose(self, pm, datasource, columns, stats):
 
         assert 'Position' in columns
+        assert pm.comm == self.comm # pm must be from the same communicator!
 
-        for data in datasource.read(columns, pm.comm, stats, full=False):
+        for data in datasource.read(columns, stats, full=False):
             data = dict(zip(columns, data))
             position = data['Position']
 
@@ -469,7 +511,7 @@ class AlgorithmPluginMount(type):
                 else:
                     cls.__doc__ = cls.parser.format_help()
 
-    def create(kls, plugin_name, ns, comm): 
+    def create(kls, plugin_name, ns, comm=None): 
         """ 
         Instantiate an `algorithm` plugin from 
         this extension point, based on the Namespace
@@ -487,6 +529,9 @@ class AlgorithmPluginMount(type):
         """
         klass = kls.plugins[plugin_name]
         ns_dict = vars(ns)
+        if comm is None:
+            comm = MPI.COMM_WORLD
+
         ns_dict['comm'] = comm
         
         args, kwargs = klass._namespace_to_args(ns_dict)

@@ -56,7 +56,7 @@ def main():
     offset = 0
     
     stats = {}
-    [[Label]] = ns.halolabel.read(['Label'], comm, stats, full=True)
+    [[Label]] = ns.halolabel.read(['Label'], stats, full=True)
     mask = Label != 0
     PIG = numpy.empty(mask.sum(), dtype=[
             ('Position', ('f4', 3)), 
@@ -66,10 +66,10 @@ def main():
             ])
     PIG['Label'] = Label[mask]
     del Label
-    [[Position]] = ns.datasource.read(['Position'], comm, stats, full=True)
+    [[Position]] = ns.datasource.read(['Position'], stats, full=True)
     PIG['Position'] = Position[mask]
     del Position
-    [[Velocity]] = ns.datasource.read(['Velocity'], comm, stats, full=True)
+    [[Velocity]] = ns.datasource.read(['Velocity'], stats, full=True)
     PIG['Velocity'] = Velocity[mask]
     del Velocity
  

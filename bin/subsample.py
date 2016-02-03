@@ -101,7 +101,7 @@ def main():
 
     subsample = []
     stat = {}
-    for Position, ID, Velocity in ns.datasource.read(columns, comm, stat):
+    for Position, ID, Velocity in ns.datasource.read(columns, stat):
         u = rngtable[comm.rank].uniform(size=len(ID))
         keep = u < ns.ratio
         Nkeep = keep.sum()
