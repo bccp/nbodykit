@@ -203,7 +203,10 @@ class ArgumentParser(BaseArgumentParser):
         If `config` is a option, return the namespace created from reading
         the YAML file -- otherwise, use the default behavior
         """
-        result = BaseArgumentParser.parse_known_args(self, args, self.ns)
+        if args is None:
+            import sys
+            args = sys.argv[1:]
+        result = BaseArgumentParser.parse_known_args(self, args)
         
         # if parsing failed, result is None
         if result is None:
