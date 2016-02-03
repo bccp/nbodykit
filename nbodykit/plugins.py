@@ -172,8 +172,14 @@ class ArgumentParser(BaseArgumentParser):
         preparser._read_args_from_files     = ArgumentParser._read_args_from_files.__get__(preparser)         
         preparser._yield_args_from_files    = ArgumentParser._yield_args_from_files.__get__(preparser)         
         preparser.convert_args_file_to_args = ArgumentParser.convert_args_file_to_args.__get__(preparser)         
-        self.ns, unknown = preparser.parse_known_args(args)
-
+        ns, unknown = preparser.parse_known_args(args)
+        
+        # only keep the preparsed values
+        ns = vars(ns)
+        self.ns = Namespace()
+        for k in preparse_from_config:
+            if k in ns: setattr(self.ns, k, ns[k])
+    
         # do the base initialization
         BaseArgumentParser.__init__(self, name, *largs, **kwargs)
 

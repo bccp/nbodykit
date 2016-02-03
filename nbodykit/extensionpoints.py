@@ -20,7 +20,7 @@ import numpy
 from mpi4py import MPI
 
 from nbodykit.plugins import HelpFormatterColon, ArgumentParser
-from argparse import Namespace
+from argparse import Namespace, SUPPRESS
 
 import sys
 import contextlib
@@ -56,11 +56,14 @@ class PluginInterface(object):
         # directly created object does not have a string!
         self.string = str(id(self)) 
 
-        argnames = set([action.dest for action in self.parser._actions])
         missing = []
         d = {}
-
-        for argname in list(argnames):
+       
+        for action in self.parser._actions:
+            argname = action.dest
+            if action.default == SUPPRESS:
+                continue
+                    
             if argname not in kwargs:
                 if not action.required:
                     d[argname] = action.default
@@ -68,14 +71,14 @@ class PluginInterface(object):
                     missing += argname 
             else:
                 d[argname] = kwargs[argname]
-            argnames.remove(argname)
-
+                kwargs.pop(argname)
+                
         if len(missing):
             raise ValueError("Missing arguments : %s " % str(missing))
-        if len(argnames):
-            raise ValueError("Extra arguments : %s " % str(argnames))
-
-        self.__dict__.update(kwargs)
+        if len(kwargs):
+            raise ValueError("Extra arguments : %s " % str(list(kwargs.keys())))
+        
+        self.__dict__.update(d)
 
 def ExtensionPoint(registry):
     """ Declares a class as an extension point, registering to registry """
