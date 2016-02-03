@@ -6,7 +6,7 @@ import numpy
 from argparse import Action
 import logging
 
-logger = logging.getLogger('PeriodicPower')
+logger = logging.getLogger('PeriodicBox')
 
 def FieldsFromYAML(input_fields):
     """
