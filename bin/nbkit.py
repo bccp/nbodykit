@@ -42,7 +42,7 @@ def main():
     
     # parse
     ns, args = parser.parse_known_args()
-    print(args)
+
     # initialize the algorithm and run
     alg = Algorithm.create([ns.algorithm_name] + args, MPI.COMM_WORLD)
     result = alg.run()
