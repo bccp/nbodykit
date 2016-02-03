@@ -187,14 +187,15 @@ class ArgumentParser(BaseArgumentParser):
         the YAML file -- otherwise, use the default behavior
         """
         ns, args = BaseArgumentParser.parse_known_args(self, args, namespace)
+        no_config = 'config' not in ns or ns.config is None
         
         # if no config file, check errors
-        if 'config' not in ns or not ns.config:
+        if no_config:
             if len(self.error_messages):
                 BaseArgumentParser.error(self, self.error_messages[0])
         
         # okay, no errors -- return either config or cmd-line namespace
-        if 'config' not in ns:
+        if no_config:
             return ns, args
         else:
             return ns.config, args
