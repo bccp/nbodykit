@@ -101,14 +101,16 @@ def main():
 
     subsample = []
     stat = {}
-    for Position, ID, Velocity in ns.datasource.read(columns, comm, stat):
+    for Position, ID, Velocity in ns.datasource.read(columns, stat):
         u = rngtable[comm.rank].uniform(size=len(ID))
         keep = u < ns.ratio
         Nkeep = keep.sum()
         if Nkeep == 0: continue 
         data = numpy.empty(Nkeep, dtype=dtype)
-        data['Position'][:] = Position[keep]       
+        data['Position'][:] = Position[keep]
         data['Velocity'][:] = Velocity[keep]       
+        data['Position'][:] /= ns.datasource.BoxSize
+        data['Velocity'][:] /= ns.datasource.BoxSize
         data['ID'][:] = ID[keep] 
 
         layout = pm.decompose(data['Position'])
@@ -117,10 +119,13 @@ def main():
         density = layout.gather(density1)
 
         data['Density'][:] = density
+        data = comm.gather(data)
+        if comm.rank == 0:
+            data = numpy.concatenate(data, axis=0)
+        else:
+            data = None
         subsample.append(data)
 
-    subsample = numpy.concatenate(subsample)
-    subsample = comm.gather(subsample)
     if comm.rank == 0:
         subsample = numpy.concatenate(subsample)
         subsample.sort(order='ID')
@@ -140,6 +145,7 @@ def write_hdf5(subsample, ns, commsize):
             dataset.attrs['Smoothing'] = ns.smoothing
             dataset.attrs['Nmesh'] = ns.Nmesh
             dataset.attrs['Original'] = ns.datasource.string
+            dataset.attrs['BoxSize'] = ns.datasource.BoxSize
 
 
 def write_mwhite_subsample(subsample, filename):

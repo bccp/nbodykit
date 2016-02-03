@@ -25,20 +25,8 @@ class FOFDataSource(DataSource):
     BoxSize : float or array_like (3,)
         the box size, either provided as a single float (isotropic)
         or an array of the sizes of the three dimensions
-    usecols : list of str, optional
-         if not None, only these columns will be read from file
-    poscols : list of str, optional
-        Full path to the column of the position vector
-    velcols : list of str, optional
-        Full path to the column of the velocity vector
-    masscols : list of str, optional
-        Full path to the column of the mass
     rsd     : [x|y|z], optional
         direction to do the redshift space distortion
-    posf    : float, optional
-        multiply the position data by this factor
-    velf    : float, optional
-        multiply the velocity data by this factor
     select  : str, optional
         string specifying how to select a subset of data, based
         on the column names. For example, if there are columns
@@ -46,27 +34,44 @@ class FOFDataSource(DataSource):
         select= "type == central and mass > 1e14"
     """
     plugin_name = "FOFGroups"
-    
     @classmethod
     def register(kls):
         h = kls.parser 
 
         h.add_argument("path", help="path to file")
-        h.add_argument("BoxSize", type=kls.BoxSizeParser,
-            help="the size of the isotropic box, or the sizes of the 3 box dimensions.")
         h.add_argument("m0", type=float, help="mass unit")
         h.add_argument("-dataset",  default="FOFGroups", help="name of dataset in HDF5 file")
+        h.add_argument("-BoxSize", type=kls.BoxSizeParser,
+            default=None,
+            help="Overide the size of the box can be a scalar or a vector of length 3")
         h.add_argument("-rsd", choices="xyz", 
             help="direction to do redshift distortion")
         h.add_argument("-select", default=None, type=selectionlanguage.Query, 
             help='row selection based on conditions specified as string')
     
-    def readall(self, columns):
+    def finalize_attributes(self):
         try:
             import h5py
         except:
             raise ImportError("h5py must be installed to use HDF5 reader")
-                
+
+        BoxSize = numpy.empty(3, dtype='f8')
+        if self.comm.rank == 0:
+            dataset = h5py.File(self.path, mode='r')[self.dataset]
+            BoxSize[:] = dataset.attrs['BoxSize']
+            logger.info("Boxsize from file is %s" % str(BoxSize))
+
+        BoxSize = self.comm.bcast(BoxSize)
+
+        if self.BoxSize is None:
+            self.BoxSize = BoxSize
+        else:
+            if self.comm.rank == 0:
+                logger.info("Overriding BoxSize as %s" % str(self.BoxSize))
+
+    def readall(self, columns):
+        import h5py
+
         dataset = h5py.File(self.path, mode='r')[self.dataset]
         data = dataset[...]
 

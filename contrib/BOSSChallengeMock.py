@@ -35,10 +35,10 @@ class BOSSChallengeMockDataSource(DataSource):
     qpar = 1.0
     qperp = 1.0
     
-    def initialize(self, args):
+    def finalize_attributes(self):
         
         # call the base initialize first
-        super(BOSSChallengeMockDataSource, self).initialize(args)
+        super(BOSSChallengeMockDataSource, self).finalize_attributes()
 
         # rescale the box size, if scaled = True
         if self.scaled:
@@ -137,10 +137,10 @@ class BOSSChallengeNSeriesDataSource(DataSource):
     qperp = 0.99169902
     qpar = 0.98345263
     
-    def initialize(self, args):
+    def finalize_attributes(self):
         
         # call the base initialize first
-        super(BOSSChallengeNSeriesDataSource, self).initialize(args)
+        super(BOSSChallengeNSeriesDataSource, self).finalize_attributes()
         
         # create a copy of the original, before scaling
         self._BoxSize0 = self.BoxSize.copy()

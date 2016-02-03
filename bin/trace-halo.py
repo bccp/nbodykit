@@ -43,7 +43,7 @@ def main():
 
 
     stats = {}
-    [[ID]] = ns.datasource_tf.read(['ID'], comm, stats, full=True)
+    [[ID]] = ns.datasource_tf.read(['ID'], stats, full=True)
 
     start = sum(comm.allgather(len(ID))[:comm.rank])
     end   = sum(comm.allgather(len(ID))[:comm.rank+1])
@@ -54,7 +54,7 @@ def main():
     data['ID'] = ID
     del ID
     Ntot = stats['Ntot']
-    [[data['Label'][...]]] = ns.halolabel.read(['Label'], comm, stats, full=True)
+    [[data['Label'][...]]] = ns.halolabel.read(['Label'], stats, full=True)
 
     mpsort.sort(data, orderby='ID')
 
@@ -64,8 +64,8 @@ def main():
                 ('ID', ('i8')), 
                 ('Position', ('f4', 3)), 
                 ])
-    [[data['Position'][...]]] = ns.datasource_ti.read(['Position'], comm, stats, full=True)
-    [[data['ID'][...]]] = ns.datasource_ti.read(['ID'], comm, stats, full=True)
+    [[data['Position'][...]]] = ns.datasource_ti.read(['Position'], stats, full=True)
+    [[data['ID'][...]]] = ns.datasource_ti.read(['ID'], stats, full=True)
     mpsort.sort(data, orderby='ID')
 
     pos = data['Position'] / ns.datasource_ti.BoxSize

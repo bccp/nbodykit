@@ -33,10 +33,7 @@ class QPMMockDataSource(DataSource):
     qpar = 0.9851209643
     qperp = 0.9925056798
     
-    def initialize(self, args):
-        
-        # call the base initialize first
-        super(QPMMockDataSource, self).initialize(args)
+    def finalize_attributes(self):
         
         # create a copy of the original box size
         self._BoxSize0 = self.BoxSize.copy()

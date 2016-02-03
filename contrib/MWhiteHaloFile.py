@@ -49,12 +49,14 @@ class MWhiteHaloFile(object):
     def read_pos(self):
         with open(self.filename, 'r') as ff:
             ff.seek(4 + 5*self._nhalo * 4, 0)
-            return numpy.fromfile(ff, count=self._nhalo, dtype=('f4', 3))[1:]
+            dtype = numpy.dtype(('f4', 3))
+            return numpy.fromfile(ff, count=self._nhalo, dtype=dtype)[1:]
 
     def read_vel(self):
         with open(self.filename, 'r') as ff:
             ff.seek(4 + 10*self._nhalo * 4, 0)
-            return numpy.fromfile(ff, count=self._nhalo, dtype=('f4', 3))[1:]
+            dtype = numpy.dtype(('f4', 3))
+            return numpy.fromfile(ff, count=self._nhalo, dtype=dtype)[1:]
             
             
 #------------------------------------------------------------------------------          
