@@ -37,6 +37,7 @@ def main():
     parser.add_argument('-o', '--output', required=True, 
                             help='the string specifying the output')
 
+
     # add the subparsers for each `Algorithm` plugin
     parser.add_argument(dest='algorithm_name', choices=valid_algorithms)
     
