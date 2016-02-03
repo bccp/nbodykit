@@ -19,8 +19,8 @@ import numpy
 # a plugin instance will be created for a MPI communicator.
 from mpi4py import MPI
 
-from nbodykit.plugins import HelpFormatterColon, ArgumentParser
-from argparse import Namespace, SUPPRESS
+from nbodykit.plugins import HelpFormatterColon
+from argparse import Namespace, SUPPRESS, ArgumentParser
 
 import sys
 import contextlib
@@ -120,7 +120,6 @@ class PluginMount(type):
                 cls.parser = ArgumentParser(cls.plugin_name, 
                                             usage=None, 
                                             add_help=False, 
-                                            args=(),
                                             formatter_class=HelpFormatterColon)
 
                 # track names of classes

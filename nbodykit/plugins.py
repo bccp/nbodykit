@@ -161,32 +161,13 @@ class ArgumentParser(BaseArgumentParser):
         # initialize the preparser
         kwargs['formatter_class'] = RawTextHelpFormatter
         kwargs['fromfile_prefix_chars']="@"
-        args = kwargs.pop('args', None)    
-        preparser = BaseArgumentParser(add_help=False, 
-                    fromfile_prefix_chars=kwargs['fromfile_prefix_chars'])
-                    
-        # parse -X on cmdline or search config file for -X options
-        preparser.add_argument("-X", type=load, action="append")
-        preparser.add_argument('-c', '--config', action=ConfigPreparser(*preparse_from_config))
 
-        # process the plugins
-        preparser.exit = lambda a, b: None
-        preparser._read_args_from_files     = ArgumentParser._read_args_from_files.__get__(preparser)         
-        preparser._yield_args_from_files    = ArgumentParser._yield_args_from_files.__get__(preparser)         
-        preparser.convert_args_file_to_args = ArgumentParser.convert_args_file_to_args.__get__(preparser)         
-        ns, unknown = preparser.parse_known_args(args)
-        
-        # only keep the preparsed values
-        ns = vars(ns)
-        self.ns = Namespace()
-        for k in preparse_from_config:
-            if k in ns: setattr(self.ns, k, ns[k])
-    
         # do the base initialization
         BaseArgumentParser.__init__(self, name, *largs, **kwargs)
 
-        # for clarity add this automatically
-        self.add_argument("-X", action='append', help='path of additional plugins to be loaded')
+        # parse -X on cmdline or search config file for -X options
+        self.add_argument("-X", type=load, action="append")
+        self.add_argument('-c', '--config', action=ConfigPreparser(*preparse_from_config))
 
         # track error messages
         self.error_messages = []
@@ -203,7 +184,10 @@ class ArgumentParser(BaseArgumentParser):
         If `config` is a option, return the namespace created from reading
         the YAML file -- otherwise, use the default behavior
         """
-        result = BaseArgumentParser.parse_known_args(self, args, self.ns)
+        if args is None:
+            import sys
+            args = sys.argv[1:]
+        result = BaseArgumentParser.parse_known_args(self, args)
         
         # if parsing failed, result is None
         if result is None:

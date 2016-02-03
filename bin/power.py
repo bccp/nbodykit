@@ -241,7 +241,7 @@ def initialize_compatible_parser():
 
     parser.add_argument("mode", choices=["2d", "1d"]) 
     parser.add_argument("Nmesh", type=int, help='size of calculation mesh, recommend 2 * Ngrid')
-    parser.add_argument("output", help='write power to this file. set as `-` for stdout') 
+    parser.add_argument("-o", dest='output', required=True, help='write power to this file. set as `-` for stdout') 
 
     # add the input field types
     h = "one or two input fields, specified as:\n\n"
@@ -267,7 +267,7 @@ def initialize_compatible_parser():
         help='Calculate correlation function instead of power spectrum.')
 
     def error(message): 
-        raise ValueError(x)
+        raise ValueError(message)
     parser.error = error
     return parser
 
