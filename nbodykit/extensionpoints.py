@@ -442,7 +442,6 @@ class MeasurementStorage:
 #------------------------------------------------------------------------------
 # plugin classes implementing `Algorithm`        
 #------------------------------------------------------------------------------
-    
 @ExtensionPoint(algorithms)
 class Algorithm:
     """
@@ -464,7 +463,7 @@ class Algorithm:
     __call__ : method
         function that will apply the transfer function to the complex array
     """
-    def run(self, comm=None):
+    def run(self):
         raise NotImplementedError
     
     def save(self, *args, **kwargs):
