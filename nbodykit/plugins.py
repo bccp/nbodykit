@@ -155,7 +155,7 @@ class ArgumentParser(BaseArgumentParser):
     passed via `-c` or `--config`. 
     """
     def __init__(self, name, preparse_from_config=[], *largs, **kwargs):
-        
+
         # initialize the preparser
         kwargs['formatter_class'] = RawTextHelpFormatter
         kwargs['fromfile_prefix_chars']="@"
@@ -166,13 +166,12 @@ class ArgumentParser(BaseArgumentParser):
         # parse -X on cmdline or search config file for -X options
         preparser.add_argument("-X", type=load, action="append")
         preparser.add_argument('-c', '--config', action=ConfigPreparser(*preparse_from_config))
-        
+
         # process the plugins
         preparser.exit = lambda a, b: None
         preparser._read_args_from_files     = ArgumentParser._read_args_from_files.__get__(preparser)         
         preparser._yield_args_from_files    = ArgumentParser._yield_args_from_files.__get__(preparser)         
         preparser.convert_args_file_to_args = ArgumentParser.convert_args_file_to_args.__get__(preparser)         
-
         self.ns, unknown = preparser.parse_known_args(args)
 
         # do the base initialization
@@ -180,7 +179,7 @@ class ArgumentParser(BaseArgumentParser):
 
         # for clarity add this automatically
         self.add_argument("-X", action='append', help='path of additional plugins to be loaded')
-        
+
         # track error messages
         self.error_messages = []
         

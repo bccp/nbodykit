@@ -445,6 +445,7 @@ class MeasurementStorage:
 #------------------------------------------------------------------------------
 # plugin classes implementing `Algorithm`        
 #------------------------------------------------------------------------------
+
 @ExtensionPoint(algorithms)
 class Algorithm:
     """

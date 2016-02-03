@@ -61,6 +61,7 @@ def main():
     kwargs['formatter_class'] = argparse.ArgumentDefaultsHelpFormatter
     kwargs['preparse_from_config'] = ['output']
     parser = ArgumentParser("nbkit", add_help=False, **kwargs)
+
         
     parser.add_argument('-o', '--output', help='the string specifying the output')
     parser.add_argument(dest='algorithm_name', choices=valid_algorithms)
@@ -77,7 +78,6 @@ def main():
     
     # save the output
     alg.save(ns.output, result) 
-    
-    
+       
 if __name__ == '__main__':
     main()
