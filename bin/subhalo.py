@@ -20,9 +20,9 @@ parser = ArgumentParser(None,
      """
         )
 
-parser.add_argument("datasource", type=DataSource.create,
+parser.add_argument("datasource", type=DataSource.fromstring,
         help='Data source')
-parser.add_argument("halolabel", type=DataSource.create,
+parser.add_argument("halolabel", type=DataSource.fromstring,
         help='data source for the halo label files; column name is Label.')
 
 parser.add_argument("--linklength", type=float, default=0.078,

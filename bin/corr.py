@@ -47,7 +47,7 @@ def initialize_parser(**kwargs):
 
     # add the input field types
     h = "one or two input fields, specified as:\n\n"
-    parser.add_argument("inputs", nargs="+", type=DataSource.create, 
+    parser.add_argument("inputs", nargs="+", type=DataSource.fromstring, 
                         help=h+DataSource.format_help())
 
     # add the optional arguments

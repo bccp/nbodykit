@@ -32,20 +32,6 @@ class PairCountCorrelationAlgorithm(Algorithm):
     """
     plugin_name = "PairCountCorrelation"
 
-    def __init__(self, comm, mode, rbins, inputs, subsample=1, los='z', Nmu=10, poles=[]):
-        """
-        The MPI communicator must be the first argument, followed by the parameters
-        specified by the command-line parser
-        """
-        self.comm      = comm
-        self.mode      = mode
-        self.rbins     = rbins
-        self.inputs    = inputs
-        self.subsample = subsample
-        self.los       = los
-        self.Nmu       = Nmu
-        self.poles     = poles
-
     @classmethod
     def register(kls):
         """
@@ -61,17 +47,17 @@ class PairCountCorrelationAlgorithm(Algorithm):
                         help='measure the correlation function in `1d` or `2d`') 
         p.add_argument("rbins", type=binning_type, 
                         help='the string specifying the binning to use') 
-        p.add_argument("inputs", nargs="+", type=DataSource.create, 
+        p.add_argument("inputs", nargs="+", type=DataSource.fromstring, 
                         help='1 or 2 input `DataSource` objects to correlate; run --list-datasource for specifics')
 
         # add the optional arguments
-        p.add_argument("--subsample", type=int,
+        p.add_argument("--subsample", type=int, default=1,
                         help='use 1 out of every N points')
-        p.add_argument("--los", choices="xyz",
+        p.add_argument("--los", choices="xyz", default='z', 
                         help="the line-of-sight: the angle `mu` is defined with respect to")
-        p.add_argument("--Nmu", type=int,
+        p.add_argument("--Nmu", type=int, default=10,
                         help='if `mode == 2d`, the number of mu bins covering mu=[-1,1]')
-        p.add_argument('--poles', type=lambda s: [int(i) for i in s.split()], metavar="0 2 4",
+        p.add_argument('--poles', type=lambda s: [int(i) for i in s.split()], metavar="0 2 4", default=[],
                         help='compute the multipoles for these `ell` values from xi(r,mu)')
         p.add_argument("--list-datasource", action=ListPluginsAction(DataSource),
                         help='list the help for each available `DataSource`')

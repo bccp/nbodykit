@@ -3,6 +3,7 @@ import logging
 
 from mpi4py import MPI
 from nbodykit.extensionpoints import Algorithm, algorithms
+from nbodykit.plugins import ArgumentParser
 
 # configure the logging
 rank = MPI.COMM_WORLD.rank
@@ -28,26 +29,22 @@ def main():
     kwargs = {}
     kwargs['usage'] = usage
     kwargs['description'] = desc
+    kwargs['fromfile_prefix_chars'] = '@'
     kwargs['formatter_class'] = argparse.ArgumentDefaultsHelpFormatter
-    parser = argparse.ArgumentParser(**kwargs)
+    parser = ArgumentParser("nbkit", **kwargs)
         
-    # add the subparsers for each `Algorithm` plugin
-    subparsers = parser.add_subparsers(dest='algorithm_name')
-    for s in valid_algorithms:
-        
-        # copy the parser for each Algorithm
-        subparser = subparsers.add_parser(s)
-        subparser.__dict__ = getattr(algorithms, s).parser.__dict__
-        
-        # add an output string
-        subparser.add_argument('-o', '--output', required=True, type=str, 
-                                help='the string specifying the output')
+    # add an output string
+    parser.add_argument('-o', '--output', required=True, 
+                            help='the string specifying the output')
 
+    # add the subparsers for each `Algorithm` plugin
+    parser.add_argument(dest='algorithm_name', choices=valid_algorithms)
+    
     # parse
-    ns = parser.parse_args()
-        
+    ns, args = parser.parse_known_args()
+    print(args)
     # initialize the algorithm and run
-    alg = Algorithm.create(ns.algorithm_name, ns, MPI.COMM_WORLD)
+    alg = Algorithm.create([ns.algorithm_name] + args, MPI.COMM_WORLD)
     result = alg.run()
     
     # save the output

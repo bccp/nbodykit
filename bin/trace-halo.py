@@ -19,11 +19,11 @@ parser = ArgumentParser(None,
      """
         )
 
-parser.add_argument("datasource_ti", type=DataSource.create,
+parser.add_argument("datasource_ti", type=DataSource.fromstring,
         help=DataSource.format_help())
-parser.add_argument("datasource_tf", type=DataSource.create,
+parser.add_argument("datasource_tf", type=DataSource.fromstring,
         help=DataSource.format_help())
-parser.add_argument("halolabel", type=DataSource.create,
+parser.add_argument("halolabel", type=DataSource.fromstring,
         help='datasource of the halo label files, the Label column is used.')
 parser.add_argument("output", help='write output to this file (hdf5 is appended)')
 

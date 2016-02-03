@@ -22,7 +22,7 @@ parser = ArgumentParser(None,
         )
 
 h = "Data source to read particle position:\n\n"
-parser.add_argument("datasource", type=DataSource.create,
+parser.add_argument("datasource", type=DataSource.fromstring,
         help=h + DataSource.format_help())
 parser.add_argument("Nmesh", type=int,
         help='Size of FFT mesh for painting')
@@ -55,7 +55,7 @@ def main():
     elif (ns.datasource.BoxSize / ns.Nmesh > ns.smoothing).any():
         raise ValueError("smoothing is too small")
  
-    painter = Painter.create("DefaultPainter")
+    painter = Painter.fromstring("DefaultPainter")
     painter.paint(pm, ns.datasource)
     pm.r2c()
     def Smoothing(pm, complex):
