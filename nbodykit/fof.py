@@ -153,7 +153,7 @@ def fof(datasource, linking_length, nmin, comm=MPI.COMM_WORLD, return_labels=Fal
 
     # read in all !
     stats = {}
-    [[Position]] = datasource.read(['Position'], comm, stats, full=True)
+    [[Position]] = datasource.read(['Position'], stats, full=True)
     Position /= datasource.BoxSize
 
     Ntot = stats['Ntot']
@@ -230,13 +230,13 @@ def fof(datasource, linking_length, nmin, comm=MPI.COMM_WORLD, return_labels=Fal
     del data
     N = halos.count(label, comm=comm)
 
-    [[Position]] = datasource.read(['Position'], comm, stats, full=True)
+    [[Position]] = datasource.read(['Position'], stats, full=True)
 
     Position /= datasource.BoxSize
     hpos = halos.centerofmass(label, Position, boxsize=1.0, comm=comm)
     del Position
 
-    [[Velocity]] = datasource.read(['Velocity'], comm, stats, full=True)
+    [[Velocity]] = datasource.read(['Velocity'], stats, full=True)
     Velocity /= datasource.BoxSize
 
     hvel = halos.centerofmass(label, Velocity, boxsize=None, comm=comm)

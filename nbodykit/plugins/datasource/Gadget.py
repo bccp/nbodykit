@@ -23,7 +23,7 @@ class GadgetDataSource(DataSource):
         h.add_argument("-bunchsize", type=int, 
                 default=1024*1024*4, help="number of particles to read per rank in a bunch")
 
-    def read(self, columns, comm, stats, full=False):
+    def read(self, columns, stats, full=False):
         """ read data in parallel. if Full is True, neglect bunchsize. """
         Ntot = 0
         # avoid reading Velocity if RSD is not requested.
@@ -48,7 +48,7 @@ class GadgetDataSource(DataSource):
                  massdtype=self.massdtype,
                  iddtype=self.iddtype)
 
-            if comm.rank == 0:
+            if self.comm.rank == 0:
                 datastorage = files.DataStorage(self.path,
                         files.GadgetSnapshotFile, args)
                 f0 = files.GadgetSnapshotFile(self.path, 0, args)
@@ -56,11 +56,11 @@ class GadgetDataSource(DataSource):
             else:
                 datastorage = None
                 boxsize = None
-            boxsize = comm.bcast(boxsize)
-            datastorage = comm.bcast(datastorage)
+            boxsize = self.comm.bcast(boxsize)
+            datastorage = self.comm.bcast(datastorage)
 
             for round, P in enumerate(
-                    datastorage.iter(stats=stats, comm=comm, 
+                    datastorage.iter(stats=stats, comm=self.comm, 
                         columns=newcolumns, bunchsize=bunchsize)):
                 P = dict(zip(newcolumns, P))
                 if 'Position' in P:
@@ -98,7 +98,7 @@ class GadgetGroupTabDataSource(DataSource):
         h.add_argument("-bunchsize", type=int, 
                 default=1024*1024*4, help="number of particles to read per rank in a bunch")
 
-    def read(self, columns, comm, stats, full=False):
+    def read(self, columns, stats, full=False):
         """ read data in parallel. if Full is True, neglect bunchsize. """
         Ntot = 0
         # avoid reading Velocity if RSD is not requested.
@@ -120,15 +120,15 @@ class GadgetGroupTabDataSource(DataSource):
              massdtype=self.massdtype,
              iddtype=self.iddtype)
 
-        if comm.rank == 0:
+        if self.comm.rank == 0:
             datastorage = files.DataStorage(self.path,
                     files.GadgetGroupTabFile, args)
         else:
             datastorage = None
-        datastorage = comm.bcast(datastorage)
+        datastorage = self.comm.bcast(datastorage)
 
         for round, P in enumerate(
-                datastorage.iter(stats=stats, comm=comm, 
+                datastorage.iter(stats=stats, comm=self.comm, 
                     columns=newcolumns, bunchsize=bunchsize)):
             P = dict(zip(newcolumns, P))
             if 'Position' in P:

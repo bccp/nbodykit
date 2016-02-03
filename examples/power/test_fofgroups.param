@@ -4,5 +4,5 @@ output: ../output/power_2d_fofgroups.dat  # output
 
 # here are the input files
 fields:
-    - FOFGroups:../output/fof00100_ll0.200_1.0000.hdf5:1380:10.0:-rsd=z:-select= Rank < 1000
+    - FOFGroups:../output/fof00100_ll0.200_1.0000.hdf5:10.0:-rsd=z:-select= Rank < 1000
     - [NormalizeDC, RemoveDC, AnisotropicCIC]

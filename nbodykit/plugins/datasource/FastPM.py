@@ -13,14 +13,28 @@ class FastPMDataSource(DataSource):
         h = kls.parser
 
         h.add_argument("path", help="path to file")
-        h.add_argument("BoxSize", type=kls.BoxSizeParser,
-            help="the size of the isotropic box, or the sizes of the 3 box dimensions")
+        h.add_argument("-BoxSize", type=kls.BoxSizeParser, default=None,
+            help="Override the size of the box, can be a scalar or a three vector")
         h.add_argument("-bunchsize", type=int, default=4 *1024*1024,
                 help="number of particle to read in a bunch")
         h.add_argument("-rsd", 
             choices="xyz", default=None, help="direction to do redshift distortion")
     
-    def read(self, columns, comm, stats, full=False):
+    def finalize_attributes(self):
+        BoxSize = numpy.empty(3, dtype='f8')
+        if self.comm.rank == 0:
+            f = bigfile.BigFile(self.path)
+            header = f['header']
+            BoxSize[:] = header.attrs['BoxSize'][0]
+            logger.info("File has boxsize of %s" % str(BoxSize))
+        BoxSize = self.comm.bcast(BoxSize)
+        if self.BoxSize is None:
+            self.BoxSize = BoxSize
+        else:
+            if self.comm.rank == 0:
+                logger.info("Overriding boxsize as %s" % str(self.BoxSize))
+    
+    def read(self, columns, stats, full=False):
         f = bigfile.BigFile(self.path)
         header = f['header']
         boxsize = header.attrs['BoxSize'][0]
@@ -35,13 +49,13 @@ class FastPMDataSource(DataSource):
         stats['Ntot'] = 0
         done = False
         i = 0
-        while not numpy.all(comm.allgather(done)):
+        while not numpy.all(self.comm.allgather(done)):
             ret = []
             dataset = bigfile.BigData(f, readcolumns)
 
             Ntot = dataset.size
-            start = comm.rank * Ntot // comm.size
-            end = (comm.rank + 1) * Ntot //comm.size
+            start = self.comm.rank * Ntot // self.comm.size
+            end = (self.comm.rank + 1) * Ntot // self.comm.size
 
             if not full:
                 bunchstart = start + i * self.bunchsize
@@ -72,6 +86,6 @@ class FastPMDataSource(DataSource):
                 P['Position'][:, dir] += P['Velocity'][:, dir]
                 P['Position'][:, dir] %= self.BoxSize[dir]
 
-            stats['Ntot'] += comm.allreduce(bunchend - bunchstart)
+            stats['Ntot'] += self.comm.allreduce(bunchend - bunchstart)
             i = i + 1
             yield [P[column] for column in columns]
