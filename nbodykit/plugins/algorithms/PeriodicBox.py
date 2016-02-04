@@ -1,25 +1,42 @@
 from nbodykit.extensionpoints import Algorithm
 from nbodykit.extensionpoints import DataSource, Transfer, Painter, plugin_isinstance
-from nbodykit.plugins import ReadConfigFile
 
 import numpy
 from argparse import Action
 import logging
 
-logger = logging.getLogger('PeriodicBox')
-
-def FieldsFromYAML(input_fields):
+def FieldsType(input_fields):
     """
-    Construct a list holding 1 or 2 tuples of (DataSource, Painter, Transfer).
-    """    
+    Construct a list of `Fields`, which are tuples of 
+    (`DataSource`, `Painter`, `Transfer`)
+    
+    Parameters
+    ----------
+    input_fields : str, list
+        either a single string representation or a list of string 
+        representations of (DataSource, Painter, Transfer) plugins 
+        
+    Returns
+    -------
+    fields : list
+        list of instantiated (DataSource, Painter, Transfer) tuples
+    """ 
+    # when called via the command-line, simply return the string
+    # until all arguments have been aggregrated by argparse into list   
+    if isinstance(input_fields, str):
+        return input_fields
+    
     fields = []
     i = 0
     N = len(input_fields)
     
+    default_painter = Painter.fromstring("DefaultPainter")
+    default_transfer = [Transfer.fromstring(x) for x in ['NormalizeDC', 'RemoveDC', 'AnisotropicCIC']]
+    
     while i < N:
         
         # start with a default option for (DataSource, Painter, Transfer)
-        field = [None, Painter.fromstring("DefaultPainter"), []]
+        field = [None, default_painter, []]
         
         # should be a DataSource here, or break
         if plugin_isinstance(input_fields[i], DataSource):
@@ -44,81 +61,43 @@ def FieldsFromYAML(input_fields):
                 else:
                     raise ValueError("failure to parse line `%s` for `fields` key" %str(s))                    
                 i += 1
+            if not len(field[2]): field[2] = default_transfer
             fields.append(tuple(field))
         else: # failure
-            raise ValueError("failure to parse `fields`")
+            raise ValueError("parsing error constructing input `fields` -- see documentation for proper syntax")
 
     return fields
     
-
-class FieldsFromCmdLine(Action):
+class FieldsAction(Action):
     """
-    The action to take when reading input an `Field`,
+    The action to take when reading a `Field` from the command-line,
     composed of a tuple of (`DataSource`, `Painter`, `Transfer`)
     """
     def __call__(self, parser, namespace, values, option_string=None):
         
-        fields = []
-        default_painter = Painter.fromstring("DefaultPainter")
-        default_transfer = [Transfer.fromstring(x) for x in ['NormalizeDC', 'RemoveDC', 'AnisotropicCIC']]
-        
-        fields = []
-        i = 0
-        N = len(values)
-        
-        while i < N:
-            # start with a default option for (DataSource, Painter, Transfer)
-            field = [None, default_painter, []]
-            
-            # should be a DataSource here, or break
-            if plugin_isinstance(values[i], DataSource):
-            
-                # set data source
-                field[0] = DataSource.fromstring(values[i])
-            
-                # loop until out of values or another DataSource found
-                i += 1
-                while i < N and not plugin_isinstance(values[i], DataSource):
-                    s = values[i]
-                
-                    # set Painter
-                    if plugin_isinstance(s, Painter):
-                        field[1] = Painter.fromstring(s)
-                    # add one Transfer
-                    elif plugin_isinstance(s, Transfer):
-                        field[2].append(Transfer.fromstring(s))
-                    else:
-                        raise ValueError("failure to parse line `%s` for `fields` key" %str(s))                    
-                    i += 1
-                
-                # if empty transfer -- use the default
-                if not len(field[2]): field[2] = default_transfer
-                fields.append(tuple(field))
-            else: # failure
-                raise ValueError("parsing error constructing input `fields` -- see documentation for proper syntax")                
-        namespace.fields = fields
+        # values should be a list of strings already, since nargs='+'
+        # call the type() on the total list, not individual elements
+        namespace.fields = self.type(values)
 
-class PeriodicPowerAlgorithm(Algorithm):
+class FFTPowerAlgorithm(Algorithm):
     """
     Algorithm to compute the 1d or 2d power spectrum and multipoles
     in a periodic box, using an FFT
     """
-    plugin_name = "PeriodicPower"
+    plugin_name = "FFTPower"
+    logger = logging.getLogger(plugin_name)
     
     @classmethod
     def register(kls):
         p = kls.parser
         p.description = "periodic power spectrum calculator via FFT"
-        
-        p.add_argument('-c', '--config', type=str, action=ReadConfigFile(fields=FieldsFromYAML),
-            help='the name of the file to read parameters from, using YAML syntax')
-        
+
         # the required arguments
         p.add_argument("mode", choices=["2d", "1d"], 
             help='compute the power as a function of `k` or `k` and `mu`') 
         p.add_argument("Nmesh", type=int, 
             help='the number of cells in the gridded mesh')
-        p.add_argument("fields", nargs="+", action=FieldsFromCmdLine,
+        p.add_argument("fields", nargs="+", type=FieldsType, action=FieldsAction,
             help="strings specifying the input data sources, painters, and transfers, in that order, respectively -- "+
                 "use --list-datasource and --list-painters for further documentation",
             metavar="DataSource [Painter] [Transfer] [DataSource [Painter] [Transfer]]")
@@ -144,8 +123,8 @@ class PeriodicPowerAlgorithm(Algorithm):
         from nbodykit import measurestats
         from pmesh.particlemesh import ParticleMesh
         
-        logger.setLevel(self.log_level)
-        if self.comm.rank == 0: logger.info('importing done')
+        self.logger.setLevel(self.log_level)
+        if self.comm.rank == 0: self.logger.info('importing done')
 
         # setup the particle mesh object, taking BoxSize from the painters
         pm = ParticleMesh(self.fields[0][0].BoxSize, self.Nmesh, dtype='f4', comm=self.comm)
@@ -204,7 +183,7 @@ class PeriodicPowerAlgorithm(Algorithm):
                 cols = ['k', 'mu', 'power', 'modes']
                 
             # write binned statistic
-            logger.info('measurement done; saving result to %s' %output)
+            self.logger.info('measurement done; saving result to %s' %output)
             storage = MeasurementStorage.new(self.mode, output)
             storage.write(edges_, cols, result, **meta)
         
@@ -214,7 +193,7 @@ class PeriodicPowerAlgorithm(Algorithm):
                 pole_output = filename + '_poles' + ext
             
                 # format is k pole_0, pole_1, ...., modes_1d
-                logger.info('saving ell = %s multipoles to %s' %(",".join(map(str,self.poles)), pole_output))
+                self.logger.info('saving ell = %s multipoles to %s' %(",".join(map(str,self.poles)), pole_output))
                 storage = MeasurementStorage.new('1d', pole_output)
             
                 k, poles, N = pole_result
@@ -230,13 +209,14 @@ class FFTCorrelationAlgorithm(Algorithm):
     the correlation function
     """
     plugin_name = "FFTCorrelation"
+    logger = logging.getLogger(plugin_name)
 
     @classmethod
     def register(kls):
         import copy
         
-        # copy the PeriodicPower parser
-        kls.parser = copy.copy(PeriodicPowerAlgorithm.parser)
+        # copy the FFTPower parser
+        kls.parser = copy.copy(FFTPowerAlgorithm.parser)
         kls.parser.description = "correlation spectrum calculator via FFT in a periodic box"
         kls.parser.prog = 'FFTCorrelation'
 
@@ -247,8 +227,8 @@ class FFTCorrelationAlgorithm(Algorithm):
         from nbodykit import measurestats
         from pmesh.particlemesh import ParticleMesh
 
-        logger.setLevel(self.log_level)
-        if self.comm.rank == 0: logger.info('importing done')
+        self.logger.setLevel(self.log_level)
+        if self.comm.rank == 0: self.logger.info('importing done')
 
         # setup the particle mesh object, taking BoxSize from the painters
         pm = ParticleMesh(self.fields[0][0].BoxSize, self.Nmesh, dtype='f4', comm=self.comm)
@@ -306,7 +286,7 @@ class FFTCorrelationAlgorithm(Algorithm):
                 cols = ['r', 'mu', 'corr', 'modes']
 
             # write binned statistic
-            logger.info('measurement done; saving result to %s' %output)
+            self.logger.info('measurement done; saving result to %s' %output)
             storage = MeasurementStorage.new(self.mode, output)
             storage.write(edges_, cols, result, **meta)
 
@@ -316,7 +296,7 @@ class FFTCorrelationAlgorithm(Algorithm):
                 pole_output = filename + '_poles' + ext
 
                 # format is k pole_0, pole_1, ...., modes_1d
-                logger.info('saving ell = %s multipoles to %s' %(",".join(map(str,self.poles)), pole_output))
+                self.logger.info('saving ell = %s multipoles to %s' %(",".join(map(str,self.poles)), pole_output))
                 storage = MeasurementStorage.new('1d', pole_output)
 
                 k, poles, N = pole_result

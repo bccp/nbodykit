@@ -59,25 +59,35 @@ def main():
     kwargs['description'] = desc
     kwargs['fromfile_prefix_chars'] = '@'
     kwargs['formatter_class'] = argparse.ArgumentDefaultsHelpFormatter
-    kwargs['preparse_from_config'] = ['output']
     parser = ArgumentParser("nbkit", add_help=False, **kwargs)
 
-        
     parser.add_argument('-o', '--output', help='the string specifying the output')
     parser.add_argument(dest='algorithm_name', choices=valid_algorithms)
     parser.add_argument('-h', '--help', action=HelpAction)
     
-    # parse
+    # parse the command-line
     ns, args = parser.parse_known_args()
-    if 'output' not in ns:
+    alg_name = ns.algorithm_name; output = ns.output
+
+    # configuration file passed via -c
+    if ns.config is not None:
+        params, extra = Algorithm.parse_known_yaml(alg_name, ns.config)
+        output = getattr(extra, 'output', None)
+    
+    # output is required
+    if output is None:
         raise ValueError("argument -o/--output is required")
-    
+            
     # initialize the algorithm and run
-    alg = Algorithm.create([ns.algorithm_name] + args, MPI.COMM_WORLD)
-    result = alg.run()
+    if ns.config is not None:
+        alg_class = getattr(algorithms, alg_name)
+        alg = alg_class(MPI.COMM_WORLD, **vars(params))
+    else:
+        alg = Algorithm.create([alg_name]+args, comm=MPI.COMM_WORLD)
     
-    # save the output
-    alg.save(ns.output, result) 
+    # run and save
+    result = alg.run()
+    alg.save(output, result) 
        
 if __name__ == '__main__':
     main()
