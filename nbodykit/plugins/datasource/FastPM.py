@@ -22,12 +22,12 @@ class FastPMDataSource(DataSource):
     
     def finalize_attributes(self):
         BoxSize = numpy.empty(3, dtype='f8')
+        f = bigfile.BigFileMPI(self.comm, self.path)
+        header = f['header']
+        BoxSize[:] = header.attrs['BoxSize'][0]
         if self.comm.rank == 0:
-            f = bigfile.BigFile(self.path)
-            header = f['header']
-            BoxSize[:] = header.attrs['BoxSize'][0]
             logger.info("File has boxsize of %s" % str(BoxSize))
-        BoxSize = self.comm.bcast(BoxSize)
+
         if self.BoxSize is None:
             self.BoxSize = BoxSize
         else:
@@ -35,7 +35,7 @@ class FastPMDataSource(DataSource):
                 logger.info("Overriding boxsize as %s" % str(self.BoxSize))
     
     def read(self, columns, stats, full=False):
-        f = bigfile.BigFile(self.path)
+        f = bigfile.BigFileMPI(self.comm, self.path)
         header = f['header']
         boxsize = header.attrs['BoxSize'][0]
         RSD = header.attrs['RSDFactor'][0]

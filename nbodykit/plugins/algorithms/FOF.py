@@ -4,6 +4,7 @@ import numpy
 
 # for output
 import h5py
+import bigfile
 
 class FOFAlgorithm(Algorithm):
 
@@ -37,7 +38,7 @@ class FOFAlgorithm(Algorithm):
             catalog, labels, Ntot = data
 
         if self.comm.rank == 0:
-            with h5py.File(output + '.hdf5', 'w') as ff:
+            with h5py.File(output, 'w') as ff:
                 # do not create dataset then fill because of
                 # https://github.com/h5py/h5py/pull/606
 
@@ -49,40 +50,12 @@ class FOFAlgorithm(Algorithm):
                 dataset.attrs['BoxSize'] = self.datasource.BoxSize
 
         if not self.without_labels:
-            # todo: switch to bigfile. This is ugly.
-
-            nfile = (Ntot + 512 ** 3 - 1) // (512 ** 3 )
-            
-            npart = [ 
-                (i+1) * Ntot // nfile - i * Ntot // nfile \
-                    for i in range(nfile) ]
-
-            if self.comm.rank == 0:
-                for i in range(len(npart)):
-                    with open(output + '.grp.%02d' % i, 'wb') as ff:
-                        numpy.int32(npart[i]).tofile(ff)
-                        numpy.float32(self.linklength).tofile(ff)
-                        pass
-
-            start = sum(self.comm.allgather(len(labels))[:self.comm.rank])
-            end = sum(self.comm.allgather(len(labels))[:self.comm.rank+1])
-            labels = numpy.int32(labels)
-            written = 0
-            for i in range(len(npart)):
-                filestart = sum(npart[:i])
-                fileend = sum(npart[:i+1])
-                mystart = start - filestart
-                myend = end - filestart
-                if myend <= 0 : continue
-                if mystart >= npart[i] : continue
-                if myend > npart[i]: myend = npart[i]
-                if mystart < 0: mystart = 0
-                with open(output + '.grp.%02d' % i, 'rb+') as ff:
-                    ff.seek(8, 0)
-                    ff.seek(mystart * 4, 1)
-                    labels[written:written + myend - mystart].tofile(ff)
-                written += myend - mystart
-
+            output = output.replace('.hdf5', '.labels')
+            bf = bigfile.BigFileMPI(self.comm, output, create=True)
+            with bf.create_from_array("Label", labels, Nfile=comm.size // 8) as bb:
+                bb.attrs['LinkLength'] = self.linklength
+                bb.attrs['Ntot'] = Ntot
+                bb.attrs['BoxSize'] = self.datasource.BoxSize
         return
 
 

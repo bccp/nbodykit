@@ -2,5 +2,5 @@
 --vfactor=100 
 --nmin=0
 TPMSnapshot:../data/tpm_1.0000.bin:384 
-HaloLabel:../output/fof_ll0.200_1.0000.grp
+HaloLabel:../output/fof_ll0.200_1.0000.labels
 -o=../output/sub_0.180_100_1.0000.hdf5
