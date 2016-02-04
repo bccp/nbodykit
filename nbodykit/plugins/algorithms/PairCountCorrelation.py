@@ -1,5 +1,5 @@
 from nbodykit.extensionpoints import Algorithm
-from nbodykit.plugins import ListPluginsAction
+from nbodykit.plugins import ListPluginsAction, add_plugin_list_argument
 
 import numpy
 import os
@@ -25,6 +25,7 @@ def binning_type(s):
         except:
             raise TypeError("supported binning format: [ %s ]" %", ".join(supported))
 
+
 class PairCountCorrelationAlgorithm(Algorithm):
     """
     Algorithm to compute the 1d or 2d correlation function and multipoles
@@ -47,7 +48,7 @@ class PairCountCorrelationAlgorithm(Algorithm):
                         help='measure the correlation function in `1d` or `2d`') 
         p.add_argument("rbins", type=binning_type, 
                         help='the string specifying the binning to use') 
-        p.add_argument("inputs", nargs="+", type=DataSource.fromstring, 
+        add_plugin_list_argument(p, "inputs", type=lambda l: [DataSource.fromstring(s) for s in l],
                         help='1 or 2 input `DataSource` objects to correlate; run --list-datasource for specifics')
 
         # add the optional arguments
@@ -62,6 +63,14 @@ class PairCountCorrelationAlgorithm(Algorithm):
         p.add_argument("--list-datasource", action=ListPluginsAction(DataSource),
                         help='list the help for each available `DataSource`')
 
+    def finalize_attributes(self):
+        """
+        Set the communicator object of all `DataSource` plugins in `inputs`
+        to the one stored in `self.comm`
+        """
+        for d in self.inputs:
+            d.comm = self.comm
+            
     def run(self):
         """
         Run the pair-count correlation function and return the result
