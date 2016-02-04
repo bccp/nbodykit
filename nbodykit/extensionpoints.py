@@ -19,8 +19,8 @@ import numpy
 # a plugin instance will be created for a MPI communicator.
 from mpi4py import MPI
 
-from nbodykit.plugins import HelpFormatterColon, ArgumentParser
-from argparse import Namespace, SUPPRESS
+from nbodykit.plugins import HelpFormatterColon, load
+from argparse import Namespace, SUPPRESS, ArgumentParser
 
 import sys
 import contextlib
@@ -120,7 +120,6 @@ class PluginMount(type):
                 cls.parser = ArgumentParser(cls.plugin_name, 
                                             usage=None, 
                                             add_help=False, 
-                                            args=(),
                                             formatter_class=HelpFormatterColon)
 
                 # track names of classes
@@ -448,7 +447,86 @@ class MeasurementStorage:
 #------------------------------------------------------------------------------
 # plugin classes implementing `Algorithm`        
 #------------------------------------------------------------------------------
+def ReadConfigFile(parser, config_file):
+    """
+    Return an `argparse.Action` subclass that reads parameters from a file
+    using YAML syntax
+    
+    This is designed to be used with `plugins.ArgumentParser` and be
+    called via the command-line with a `-c` or `--config` option
+    
+    The action uses the underlying ArgumentParser to:
+        * infer default values
+        * check if parameter values are consistent with `choices`
+        * infer the `type` of each parameter
+        * check if any required parameters are missing
+        
+    Parameters
+    ----------
+    types : keywords
+        the keys should be names of parameters and the values are functions
+        that cast the parameter values appropriately. the function should
+        take one argument, which is the value read from file
+    """
+    import yaml
+    
+    # make a new namespace
+    ns, unknown = Namespace(), Namespace()
 
+    # read the yaml config file
+    config = yaml.load(open(config_file, 'r'))
+    
+    # first search for plugins
+    plugins = []
+    if 'X' in config:
+        plugins = config['X']
+        if isinstance(plugins, str):
+            plugins = [plugins]
+        for plugin in plugins: load(plugin)
+        unknown.X = plugins 
+        config.pop('X')
+
+    
+    # set defaults, check required and choices
+    argnames = set([a.dest for a in parser._actions])
+    missing = []
+    types = {}
+    for a in parser._actions:
+        
+        # set the default, if not suppressed
+        if a.default != SUPPRESS:
+            setattr(ns, a.dest, a.default)
+            
+        # check for choices
+        if a.dest in config: 
+            if a.choices is not None:
+                if config[a.dest] not in a.choices:
+                    args = (a.dest, config[a.dest], ", ".join(["'%s'" %x for x in a.choices]))
+                    raise ValueError("argument %s: invalid choice '%s' (choose from %s)" %args)
+            if a.dest not in types and a.type is not None:
+                types[a.dest] = a.type
+        else:        
+            # track missing        
+            if a.required: missing.append(a.dest)
+                
+    # raise error if missing
+    if len(missing):
+        missing = "(%s)" % ", ".join("'%s'" %k for k in missing)
+        args = (parser.format_usage(), parser.prog, missing)
+        raise ValueError("%s\n\n%s: too few arguments, missing: %s" %args)
+                
+    # set the values, casting if available
+    for k in config:
+        v = config[k]
+        if k in argnames:
+            if k in types: v = types[k](v)
+            setattr(ns, k, v)
+        else:
+            setattr(unknown, k, v)
+    
+    return ns, unknown
+    
+    
 @ExtensionPoint(algorithms)
 class Algorithm:
     """
@@ -469,12 +547,24 @@ class Algorithm:
     
     __call__ : method
         function that will apply the transfer function to the complex array
-    """
+    """        
     def run(self):
         raise NotImplementedError
     
     def save(self, *args, **kwargs):
         raise NotImplementedError
+    
+    @classmethod
+    def parse_known_yaml(kls, name, config_file):
+        """
+        Parse the known (and unknown) attributes from a YAML, where `known`
+        arguments must be part of the Algorithm.parser instance
+        """
+        # get the class for this algorithm name
+        klass = kls.plugins[name]
+        
+        # get the namespace from the config file
+        return ReadConfigFile(klass.parser, config_file)
         
 
 __all__ = ['DataSource', 'Painter', 'Transfer', 'MeasurementStorage', 'Algorithm']
