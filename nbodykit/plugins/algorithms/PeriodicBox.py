@@ -1,8 +1,8 @@
-from nbodykit.extensionpoints import Algorithm
-from nbodykit.extensionpoints import DataSource, Transfer, Painter, plugin_isinstance
+from nbodykit.extensionpoints import Algorithm, plugin_isinstance
+from nbodykit.extensionpoints import DataSource, Transfer, Painter
+from nbodykit.plugins import add_plugin_list_argument
 
 import numpy
-from argparse import Action
 import logging
 
 def FieldsType(input_fields):
@@ -12,20 +12,15 @@ def FieldsType(input_fields):
     
     Parameters
     ----------
-    input_fields : str, list
-        either a single string representation or a list of string 
-        representations of (DataSource, Painter, Transfer) plugins 
+    input_fields : list
+        a list of string representations of 
+        (DataSource, Painter, Transfer) plugins 
         
     Returns
     -------
     fields : list
         list of instantiated (DataSource, Painter, Transfer) tuples
-    """ 
-    # when called via the command-line, simply return the string
-    # until all arguments have been aggregrated by argparse into list   
-    if isinstance(input_fields, str):
-        return input_fields
-    
+    """     
     fields = []
     i = 0
     N = len(input_fields)
@@ -68,17 +63,6 @@ def FieldsType(input_fields):
 
     return fields
     
-class FieldsAction(Action):
-    """
-    The action to take when reading a `Field` from the command-line,
-    composed of a tuple of (`DataSource`, `Painter`, `Transfer`)
-    """
-    def __call__(self, parser, namespace, values, option_string=None):
-        
-        # values should be a list of strings already, since nargs='+'
-        # call the type() on the total list, not individual elements
-        namespace.fields = self.type(values)
-
 class FFTPowerAlgorithm(Algorithm):
     """
     Algorithm to compute the 1d or 2d power spectrum and multipoles
@@ -97,7 +81,7 @@ class FFTPowerAlgorithm(Algorithm):
             help='compute the power as a function of `k` or `k` and `mu`') 
         p.add_argument("Nmesh", type=int, 
             help='the number of cells in the gridded mesh')
-        p.add_argument("fields", nargs="+", type=FieldsType, action=FieldsAction,
+        add_plugin_list_argument(p, "fields", type=FieldsType,
             help="strings specifying the input data sources, painters, and transfers, in that order, respectively -- "+
                 "use --list-datasource and --list-painters for further documentation",
             metavar="DataSource [Painter] [Transfer] [DataSource [Painter] [Transfer]]")
@@ -116,6 +100,16 @@ class FFTPowerAlgorithm(Algorithm):
         p.add_argument('--poles', type=lambda s: [int(i) for i in s.split()], default=[],
             help='if specified, also compute these multipoles from P(k,mu)')
         
+    def finalize_attributes(self):
+        """
+        Set the communicator object of all plugin components of `fields`
+        to the one stored in `self.comm`
+        """
+        for [d, p, t] in self.fields:
+            d.comm = self.comm
+            p.comm = self.comm
+            for tt in t: tt.comm = self.comm
+    
     def run(self):
         """
         Run the algorithm, which computes and returns the power spectrum
@@ -125,7 +119,7 @@ class FFTPowerAlgorithm(Algorithm):
         
         self.logger.setLevel(self.log_level)
         if self.comm.rank == 0: self.logger.info('importing done')
-
+        
         # setup the particle mesh object, taking BoxSize from the painters
         pm = ParticleMesh(self.fields[0][0].BoxSize, self.Nmesh, dtype='f4', comm=self.comm)
 
@@ -220,6 +214,16 @@ class FFTCorrelationAlgorithm(Algorithm):
         kls.parser.description = "correlation spectrum calculator via FFT in a periodic box"
         kls.parser.prog = 'FFTCorrelation'
 
+    def finalize_attributes(self):
+        """
+        Set the communicator object of all plugin components of `fields`
+        to the one stored in `self.comm`
+        """
+        for [d, p, t] in self.fields:
+            d.comm = self.comm
+            p.comm = self.comm
+            for tt in t: tt.comm = self.comm
+            
     def run(self):
         """
         Run the algorithm, which computes and returns the correlation function

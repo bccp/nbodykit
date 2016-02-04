@@ -79,6 +79,7 @@ class PluginInterface(object):
             raise ValueError("Extra arguments : %s " % str(list(kwargs.keys())))
         
         self.__dict__.update(d)
+        self.finalize_attributes()
 
 def ExtensionPoint(registry):
     """ Declares a class as an extension point, registering to registry """
@@ -159,7 +160,7 @@ class PluginMount(type):
             Notes
             -----
             2nd stage parsing: A plugin can override 
-            `finalize_attribute` to finalize the
+            `finalize_attributes` to finalize the
             attribute values based on currently parsed attribute values.
 
             The `comm` attribute stores the communicator for which 
@@ -174,7 +175,6 @@ class PluginMount(type):
 
         self = klass(comm, **vars(ns))
         self.string = str(argv)
-        self.finalize_attributes()
         return self
 
     def format_help(kls):
@@ -449,24 +449,13 @@ class MeasurementStorage:
 #------------------------------------------------------------------------------
 def ReadConfigFile(parser, config_file):
     """
-    Return an `argparse.Action` subclass that reads parameters from a file
-    using YAML syntax
+    Read parameters from a file using YAML syntax
     
-    This is designed to be used with `plugins.ArgumentParser` and be
-    called via the command-line with a `-c` or `--config` option
-    
-    The action uses the underlying ArgumentParser to:
+    The function uses the specified ArgumentParser to:
         * infer default values
         * check if parameter values are consistent with `choices`
         * infer the `type` of each parameter
         * check if any required parameters are missing
-        
-    Parameters
-    ----------
-    types : keywords
-        the keys should be names of parameters and the values are functions
-        that cast the parameter values appropriately. the function should
-        take one argument, which is the value read from file
     """
     import yaml
     
@@ -580,4 +569,3 @@ def plugin_isinstance(string, extensionpt):
     if not isinstance(string, str):
         return False
     return string.split(":")[0] in extensionpt.plugins.keys()
-    

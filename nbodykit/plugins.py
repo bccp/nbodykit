@@ -210,3 +210,31 @@ def ListPluginsAction(extensionpoint):
         def __call__(self, parser, namespace, values, option_string=None):
             parser.exit(0, extensionpoint.format_help())
     return ListPluginsAction
+    
+def add_plugin_list_argument(parser, *args, **kwargs):
+    """
+    This adds arguments that contain plugins in a manner which is consistent
+    with both YAML and command-line syntax. It is designed to add arguments
+    that are a series of string representations of plugins
+    
+    This function performs two steps (necessary because `argparse` is terrible):
+        1. use a new `type` function that simply returns the string when
+           given a string, but run the original `type` function when given 
+           the combined list of strings
+        2. set the action such that the `type` function will also be called on 
+           the total list of the input strings (and not just on the individual strings)
+    """
+    class _Action(Action):
+        def __call__(self, parser, namespace, values, option_string=None):
+            setattr(namespace, self.dest, self.type(values))
+            
+    original_type = kwargs.pop('type')
+    def _Type(s):
+        if isinstance(s, str):
+            return s
+        else:
+            return original_type(s)
+    kwargs['type']   = _Type
+    kwargs['action'] = _Action
+    kwargs['nargs']  = '+'
+    return parser.add_argument(*args, **kwargs)

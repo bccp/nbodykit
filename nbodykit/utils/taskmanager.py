@@ -2,6 +2,7 @@ import logging
 import os
 import tempfile
 from mpi4py import MPI
+from nbodykit.extensionpoints import Algorithm, algorithms
 
 logger = logging.getLogger('taskmanager')
 
@@ -36,16 +37,65 @@ def split_ranks(N_ranks, N_chunks):
 def enum(*sequential, **named):
     enums = dict(zip(sequential, range(len(sequential))), **named)
     return type('Enum', (), enums)
+    
+                    
+def replacements_from_file(value):
+    """
+    Provided an existing file name, read the file into 
+    a dictionary. The keys are interpreted as the string format name, 
+    and the values are a list of values to iterate over for each job
+    """
+    if not os.path.exists(value):
+        raise RuntimeError("for `replacements_from_file`, file `%s` does not exist" %value)
+    toret = {}
+    execfile(value, globals(), toret)
+    return toret
+        
+def tasks_parser(value):
+    """
+    Given a string of the format ``key tasks``, split the string and then
+    try to parse the ``tasks``, by first trying to evaluate it, and then
+    simply splitting it and interpreting the results as the tasks. 
+    
+    The general use cases are: 
+    
+    1) "box: range(2)" -> key = `box`, tasks = `[0, 1]`
+    2) "box: ['A', 'B' 'C']" -> key = `box`, tasks = `['A', 'B', 'C']`
+    """
+    import yaml
+    
+    try:
+        fields = yaml.load(value)
+        keys = list(fields.keys())
+        if len(fields) != 1:
+            raise Exception
+    except:
+        raise ValueError("specify iteration tasks via the format: ``-i key: [task1, task2]``")
+    
+    key = keys[0]
+    if isinstance(fields[key], list):
+        parsed = fields[key]
+    else:
+        # try to eval into a list
+        try:
+            parsed = eval(fields[key])
+            if not isinstance(parser, list):
+                raise ValueError("result of `eval` on iteration string should be list" %(fields[key]))
+        except:
+            raise ValueError("tried but failed to `eval` iteration string `%s`" %(fields[key]))
+
+    return [key, parsed]
 
 #------------------------------------------------------------------------------
 # task manager
 #------------------------------------------------------------------------------
 class TaskManager(object):
     """
-    Task manager for running multiple power/correlation computations, 
+    Task manager for running a set of `Algorithm` computations,
     possibly in parallel using MPI
     """
-    def __init__(self, task_function, config, task_parser, comm=None):
+    def __init__(self, comm, algorithm_name, config, workers, task_dims, 
+                    task_values, log_level=logging.INFO, extras={}):
         """
         Parameters
         ----------
@@ -67,64 +117,55 @@ class TaskManager(object):
             and to use multiple comms across several nodes. If `None`,
             ``MPI.COMM_WORLD`` is used
         """
-        self.task_function = task_function
-        self.config        = config
-        self.task_parser   = task_parser
+        logger.setLevel(log_level)
         
-        if comm is None: comm = MPI.COMM_WORLD
+        self.algorithm_name  = algorithm_name
+        self.algorithm_class = getattr(algorithms, algorithm_name) 
+        self.template        = open(config, 'r').read()
+        self.workers         = workers
+        self.task_dims       = task_dims
+        self.task_values     = task_values
+        self.extras           = extras
+        
         self.comm = comm
         self.size = comm.size
         self.rank = comm.rank
         
-    
-    @staticmethod
-    def replacements_from_file(value):
+        # crash if we only have one process or one worker
+        if self.size <= self.workers:
+            args = (self.size, self.workers+1, self.workers)
+            raise ValueError("only have %d ranks; need at least %d to use the desired %d workers" %args)
+        
+    @classmethod
+    def create(cls, comm=None, desc=None):
         """
-        Provided an existing file name, read the file into 
-        a dictionary. The keys are interpreted as the string format name, 
-        and the values are a list of values to iterate over for each job
+        Parse the task manager and return the ``TaskManager`` instance
         """
-        if not os.path.exists(value):
-            raise RuntimeError("for `replacements_from_file`, file `%s` does not exist" %value)
-        toret = {}
-        execfile(value, globals(), toret)
-        return toret
+        import inspect 
         
-    @staticmethod
-    def tasks_parser(value):
-        """
-        Given a string of the format ``key tasks``, split the string and then
-        try to parse the ``tasks``, by first trying to evaluate it, and then
-        simply splitting it and interpreting the results as the tasks. 
+        if comm is None: comm = MPI.COMM_WORLD
+        args_dict = cls.parse_args(desc)
+        args_dict['comm'] = comm
         
-        The general use cases are: 
+        # inspect the __init__ function
+        args, varargs, varkw, defaults = inspect.getargspec(cls.__init__)
         
-        1) "box range(2)" -> key = `box`, tasks = `[0, 1]`
-        2) "box A B C" -> key = `box`, tasks = `['A', 'B', 'C']`
-        """
-        import yaml
-        
-        try:
-            fields = yaml.load(value)
-            keys = list(fields.keys())
-            if len(fields) != 1:
-                raise Exception
-        except:
-            raise ValueError("specify iteration tasks via the format: ``-i key: [task1, task2]``")
-        
-        key = keys[0]
-        if isinstance(fields[key], list):
-            parsed = fields[key]
+        # determine the required arguments
+        args = args[1:] # remove 'self'
+        if defaults:
+            required = args[:-len(defaults)]
         else:
-            # try to eval into a list
-            try:
-                parsed = eval(fields[key])
-                if not isinstance(parser, list):
-                    raise ValueError("result of `eval` on iteration string should be list" %(fields[key]))
-            except:
-                raise ValueError("tried but failed to `eval` iteration string `%s`" %(fields[key]))
-    
-        return [key, parsed]
+            required = args
+            
+        # get the args, kwargs to pass to __init__
+        fargs = tuple(args_dict[p] for p in required)
+        fkwargs = {}
+        if defaults:
+            for i, p in enumerate(defaults):
+                name = args[-len(defaults)+i]
+                fkwargs[name] = args_dict.get(name, defaults[i])
+        
+        return cls(*fargs, **fkwargs)
         
     @classmethod
     def parse_args(cls, desc=None):
@@ -142,19 +183,21 @@ class TaskManager(object):
         
         # parse
         parser = argparse.ArgumentParser(description=desc) 
-          
-        h = """the name of the template file holding parameters needed to run the 
-                desired task; the file should use ``string.format`` syntax to 
-                indicate which variables will be updated for each task, i.e., the
-                output file could be specified in the file as 
-                'output/pkmu_output_box{box}.dat'"""
-        parser.add_argument('param_file', type=str, help=h)
+        
+        # first argument is the algorithm name
+        h = 'the name of the `Algorithm` to run in batch mode'
+        valid_algorithms = list(vars(algorithms).keys())  
+        parser.add_argument(dest='algorithm_name', choices=valid_algorithms, help=h)  
+        
+        # the number of independent workers
+        h = "the number of independent works that will run tasks in parallel"        
+        parser.add_argument('workers', type=int, help=h)
     
-        h = """the number of independent nodes that will run jobs in parallel; 
-                must be less than nprocs"""
-        parser.add_argument('nodes', type=int, help=h)
-    
-        h =  """given a string of the format ``key tasks``, split the string and then
+        # now do the required named arguments
+        required_named = parser.add_argument_group('required named arguments')
+        
+        # specify the tasks along one dimension 
+        h =  """given a string of the format ``key: tasks``, split the string and then
                 try to parse the ``tasks``, by first trying to evaluate it, and then
                 simply splitting it and interpreting the results as the tasks. 
         
@@ -165,17 +208,28 @@ class TaskManager(object):
                 
                 If multiple options passed with `-i` flag, then the total tasks to 
                 perform will be the product of the tasks lists passed"""
-        parser.add_argument('-i', dest='tasks', action='append', type=cls.tasks_parser, required=True, help=h)
+        required_named.add_argument('-i', dest='tasks', action='append', 
+                type=tasks_parser, required=True, help=h)
     
+        # the template config file
+        h = """the name of the template config file (using YAML synatx) that 
+                provides the `Algorithm` parameters; the file should use 
+                ``string.format`` syntax to indicate which variables will be 
+                updated for each task, i.e., an input file could be specified 
+                as 'input/DataSource_box{box}.dat', if `box` were one of the task 
+                dimensions"""
+        required_named.add_argument('-c', '--config', type=str, help=h)
+    
+        # read any extra string replacements from file
         h = """file providing extra string replaces, with lines of the form 
                  `tag = ['tag1', 'tag2']`; if the keys match keywords in the 
                  template param file, the file with be updated with
                  the `ith` value for the `ith` task"""
-        parser.add_argument('--extra', dest='extras', type=cls.replacements_from_file, help=h)
+        parser.add_argument('--extra', dest='extras', default={}, type=replacements_from_file, help=h)
     
         h = "set the logging output to debug, with lots more info printed"
         parser.add_argument('--debug', help=h, action="store_const", dest="log_level", 
-                                const=logging.DEBUG, default=logging.INFO)
+                            const=logging.DEBUG, default=logging.INFO)
                                 
         args = parser.parse_args()
         
@@ -192,10 +246,10 @@ class TaskManager(object):
             values = values[0]
             
         # save
-        args.task_keys = keys
-        args.tasks = values
+        args.task_dims = keys
+        args.task_values = values
         
-        return args    
+        return vars(args)
     
     def _initialize_pool_comm(self):
         """
@@ -208,7 +262,7 @@ class TaskManager(object):
         chain_ranks = []
         color = 0
         worker_count = 0
-        for i, ranks in split_ranks(self.size, self.config.nodes):
+        for i, ranks in split_ranks(self.size, self.workers):
             chain_ranks.append(ranks[0])
             if self.rank in ranks: color = i+1
             worker_count += len(ranks)
@@ -220,38 +274,28 @@ class TaskManager(object):
         
     def run_all(self):
         """
-        Run all the tasks
-        """
-        # read the parameter file
-        param_file = open(self.config.param_file, 'r').read()
-    
+        Run all of the tasks
+        """    
         # define MPI message tags
         tags = enum('READY', 'DONE', 'EXIT', 'START')
         status = MPI.Status()
-    
-        # crash if we only have one process or one node
-        if self.size <= self.config.nodes:
-            args = (self.size, self.config.nodes+1, self.config.nodes)
-            raise ValueError("only have %d ranks; need at least %d to use the desired %d nodes" %args)    
-      
+         
         # make the pool comm
         self._initialize_pool_comm()
     
-        # the tasks provided on the command line
-        tasks = self.config.tasks
-        num_tasks = len(tasks)
+        # the total numbe rof tasks
+        num_tasks = len(self.task_values)
     
         # master distributes the tasks
         if self.rank == 0:
         
             # initialize
             task_index = 0
-            num_workers = self.config.nodes
             closed_workers = 0
         
             # loop until all workers have finished with no more tasks
-            logger.info("master starting with %d node workers with %d total tasks" %(num_workers, num_tasks))
-            while closed_workers < num_workers:
+            logger.info("master starting with %d worker(s) with %d total tasks" %(self.workers, num_tasks))
+            while closed_workers < self.workers:
                 data = self.comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status)
                 source = status.Get_source()
                 tag = status.Get_tag()
@@ -259,8 +303,8 @@ class TaskManager(object):
                 # worker is ready, so send it a task
                 if tag == tags.READY:
                     if task_index < num_tasks:
-                        self.comm.send(tasks[task_index], dest=source, tag=tags.START)
-                        logger.debug("sending task `%s` to worker %d" %(str(tasks[task_index]), source))
+                        self.comm.send(task_index, dest=source, tag=tags.START)
+                        logger.debug("sending task `%s` to worker %d" %(str(self.task_values[task_index]), source))
                         task_index += 1
                     else:
                         self.comm.send(None, dest=source, tag=tags.EXIT)
@@ -277,20 +321,20 @@ class TaskManager(object):
                 args = (self.rank, MPI.Get_processor_name(), self.pool_comm.size)
                 logger.info("pool master rank is %d on %s with %d processes available" %args)
             while True:
-                task = -1
+                itask = -1
                 tag = -1
         
                 # have the master rank of the pool ask for task and then broadcast
                 if self.pool_comm.rank == 0:
                     self.comm.send(None, dest=0, tag=tags.READY)
-                    task = self.comm.recv(source=0, tag=MPI.ANY_TAG, status=status)
+                    itask = self.comm.recv(source=0, tag=MPI.ANY_TAG, status=status)
                     tag = status.Get_tag()
-                task = self.pool_comm.bcast(task)
+                itask = self.pool_comm.bcast(itask)
                 tag = self.pool_comm.bcast(tag)
         
                 # do the work here
                 if tag == tags.START:
-                    result = self.run_single_task(task, tasks.index(task), param_file)
+                    result = self._run_algorithm(itask)
                     self.pool_comm.Barrier() # wait for everyone
                     if self.pool_comm.rank == 0:
                         self.comm.send(result, dest=0, tag=tags.DONE) # done this task
@@ -309,61 +353,66 @@ class TaskManager(object):
             self.pool_comm.Free()
             
             
-    def run_single_task(self, task, itask, param_file):
+    def _run_algorithm(self, itask):
         """
-        Run a single job, calling the task function with the parameters
-        specified for this job iteration
+        Run the algorithm once, using the parameters specified for this task
+        iteration specified by `itask`
     
         Parameters
         ----------
-        task :  
-            the value of the counter that specifies this iteration
         itask : int
             the integer index of this task
-        param_file : str
-            the parameter file for the task function, read as a string, 
-            which will be string formatted
         """
-        pool_rank = self.pool_comm.rank
+        task = self.task_values[itask]
 
         # if you are the pool's root, write out the temporary parameter file
-        temp_name = None
-        if pool_rank == 0:
+        this_config = None
+        if self.pool_comm.rank == 0:
             # extract the keywords that we need to format from template file
-            kwargs = [kw for _, kw, _, _ in param_file._formatter_parser() if kw]
+            kwargs = [kw for _, kw, _, _ in self.template._formatter_parser() if kw]
             
             # initialize a temporary file
             with tempfile.NamedTemporaryFile(delete=False) as ff:
-                temp_name = ff.name
+                
+                this_config = ff.name
+                logger.debug("creating temporary file: %s" %this_config)
                 
                 # key/values for this task 
-                if len(self.config.task_keys) == 1:
-                    possible_kwargs = {self.config.task_keys[0] : task}
+                if len(self.task_dims) == 1:
+                    possible_kwargs = {self.task_dims[0] : task}
                 else:
-                    possible_kwargs = dict(zip(self.config.task_keys, task))
+                    possible_kwargs = dict(zip(self.task_dims, task))
                     
                 # any extra key/value pairs for this tasks
-                if self.config.extras is not None:
-                    for k in self.config.extras:
-                        possible_kwargs[k] = self.config.extras[k][itask]
+                if self.extras is not None:
+                    for k in self.extras:
+                        possible_kwargs[k] = self.extras[k][itask]
                         
                 # do the string formatting if the key is present in template
                 valid = {k:v for k,v in possible_kwargs.iteritems() if k in kwargs}
-                ff.write(param_file.format(**valid))
+                ff.write(self.template.format(**valid))
         
         # bcast the file name to all in the worker pool
-        temp_name = self.pool_comm.bcast(temp_name, root=0)
+        this_config = self.pool_comm.bcast(this_config, root=0)
 
-        # parse the file with updated parameters
-        ns = self.task_parser.parse_args(['%s' %temp_name])
-
-        # run the task function using the comm for this worker pool
-        self.task_function(ns, comm=self.pool_comm)
+        # configuration file passed via -c
+        params, extra = Algorithm.parse_known_yaml(self.algorithm_name, this_config)
+        
+        # output is required
+        output = getattr(extra, 'output', None)
+        if output is None:
+            raise ValueError("argument `output` is required in config file")
+            
+        # initialize the algorithm and run
+        alg = self.algorithm_class(self.pool_comm, **vars(params))
+        result = alg.run()
+        alg.save(output, result)
 
         # remove temporary files
-        if pool_rank == 0:
-            if os.path.exists(temp_name): 
-                os.remove(temp_name)
+        if self.pool_comm.rank == 0:
+            if os.path.exists(this_config): 
+                logger.debug("removing temporary file: %s" %this_config)
+                os.remove(this_config)
     
         
         
