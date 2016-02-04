@@ -1,6 +1,6 @@
 --linklength=0.18
 --vfactor=100 
---Nmin=0
+--nmin=0
 TPMSnapshot:../data/tpm_1.0000.bin:384 
 HaloLabel:../output/fof_ll0.200_1.0000.grp
-../output/sub_0.180_100_1.0000.hdf5
+-o=../output/sub_0.180_100_1.0000.hdf5
