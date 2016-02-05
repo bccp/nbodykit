@@ -1,3 +1,5 @@
+#! python
+
 import logging
 from mpi4py import MPI
 from nbodykit.utils.taskmanager import TaskManager

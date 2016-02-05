@@ -1,3 +1,5 @@
+#! python
+
 import argparse
 import logging
 
