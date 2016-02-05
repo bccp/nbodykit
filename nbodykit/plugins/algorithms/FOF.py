@@ -52,7 +52,7 @@ class FOFAlgorithm(Algorithm):
         if not self.without_labels:
             output = output.replace('.hdf5', '.labels')
             bf = bigfile.BigFileMPI(self.comm, output, create=True)
-            with bf.create_from_array("Label", labels, Nfile=comm.size // 8) as bb:
+            with bf.create_from_array("Label", labels, Nfile=(comm.size + 7)// 8) as bb:
                 bb.attrs['LinkLength'] = self.linklength
                 bb.attrs['Ntot'] = Ntot
                 bb.attrs['BoxSize'] = self.datasource.BoxSize
