@@ -81,9 +81,9 @@ def main():
     # initialize the algorithm and run
     if ns.config is not None:
         alg_class = getattr(algorithms, alg_name)
-        alg = alg_class(MPI.COMM_WORLD, **vars(params))
+        alg = alg_class(**vars(params))
     else:
-        alg = Algorithm.create([alg_name]+args, comm=MPI.COMM_WORLD)
+        alg = Algorithm.create([alg_name]+args)
     
     # run and save
     result = alg.run()
