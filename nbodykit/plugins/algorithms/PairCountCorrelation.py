@@ -62,14 +62,6 @@ class PairCountCorrelationAlgorithm(Algorithm):
                         help='compute the multipoles for these `ell` values from xi(r,mu)')
         p.add_argument("--list-datasource", action=ListPluginsAction(DataSource),
                         help='list the help for each available `DataSource`')
-
-    def finalize_attributes(self):
-        """
-        Set the communicator object of all `DataSource` plugins in `inputs`
-        to the one stored in `self.comm`
-        """
-        for d in self.inputs:
-            d.comm = self.comm
             
     def run(self):
         """

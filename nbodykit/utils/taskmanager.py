@@ -3,6 +3,7 @@ import os
 import tempfile
 from mpi4py import MPI
 from nbodykit.extensionpoints import Algorithm, algorithms
+from nbodykit.extensionpoints import set_plugin_comm
 
 logger = logging.getLogger('taskmanager')
 
@@ -272,6 +273,9 @@ class TaskManager(object):
             raise RuntimeError("mismatch between worker count (%d) and spawned worker processes (%d)" %args)
         self.pool_comm = self.comm.Split(color, 0)
         
+        # set the global extension point comm
+        set_plugin_comm(self.pool_comm)
+        
     def run_all(self):
         """
         Run all of the tasks
@@ -404,7 +408,7 @@ class TaskManager(object):
             raise ValueError("argument `output` is required in config file")
             
         # initialize the algorithm and run
-        alg = self.algorithm_class(self.pool_comm, **vars(params))
+        alg = self.algorithm_class(**vars(params))
         result = alg.run()
         alg.save(output, result)
 
@@ -413,8 +417,3 @@ class TaskManager(object):
             if os.path.exists(this_config): 
                 logger.debug("removing temporary file: %s" %this_config)
                 os.remove(this_config)
-    
-        
-        
-        
-        
