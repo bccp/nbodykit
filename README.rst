@@ -225,7 +225,7 @@ Edison/Cori Notes
 +++++++++++++++++
 
 To use nbodykit on a Cray system (e.g. [Edison]_, [Cori]_), we need to ensure the python environment
-is set-up to working efficiently on the computing nodes.
+is setup to working efficiently on the computing nodes.
 
 If darshan [darshan]_ or altd are loaded by default, be sure to unload them since they tend to interfere
 with Python:
@@ -250,42 +250,45 @@ then load the Anaconda [anaconda]_ python distribution,
     module load python/2.7-anaconda
 
 We will need to set up the fast python start-up on a Cray computer, since
-the default start-up scales badly with the number of processes. We lay out
-the procedures below:
+the default start-up scales badly with the number of processes. Our
+preferred method is to use [fast-python]_ . 
 
-1. modify .condarc to add a line like this, to move the default
-a python environment from /home to /project, a faster file system
+1. Modify the shell profile, and set PYTHONUSERBASE to a unique location.
+   (e.g. a path you have access on /project) for each machine.
 
-.. code::
-
-    changeps1: false
-    envs_dirs :
-        - /project/projectdirs/{your directory on project}/envs
-
-2. Create a new anaconda environment (to receive updates). 
-
-.. code::
-    
-    conda create -n myenv --clone root
-    source activate myenv
-    # optionally update to a more recent version of the packages.
-    conda update
-    
-3.  Create a bundle (tarball) of the environment for the fast python-mpi launcher [fast-python]_ in
-`/project/projectdirs/m779/python-mpi`, 
+   For example, this is excertion from the profile of 
+   a typical user on NERSC (``.bash_profile.ext``),
+   that has access to ``/project/projectdirs/m779/yfeng1``.
 
 .. code:: bash
 
-    bash /project/projectdirs/m779/python-mpi/tar-anaconda.sh 
-            /project/projectdirs/{your directory on project}/myenv.tar.gz \
-            /project/projectdirs/{your directory on project}/envs/myenv
+    if [ "$NERSC_HOST" == "edison" ]; then
+        export PYTHONUSERBASE=/project/projectdirs/m779/yfeng1/local-edison
+    fi
 
-4.  Create a bundle (tarball) of nbodykit, as well. Repeat this step if nbodykit or any
-dependency is updated.
+    if [ "$NERSC_HOST" == "cori" ]; then
+        export PYTHONUSERBASE=/project/projectdirs/m779/yfeng1/local-cori
+    fi
+
+    export PATH=$PYTHONUSERBASE/bin:$PATH
+    export LIBRARY_PATH=$PYTHONUSERBASE/lib
+    export CPATH=$PYTHONUSERBASE/include
+
+2. Install nbodykit to your user base with ``pip install --user``. 
+   Also, create a bundle (tarball) of nbodykit. 
+   Repeat this step if nbodykit (or any dependency) is updated.
 
 .. code:: bash
 
-    MPICC=cc bash /project/projectdirs/m779/python-mpi/tar-pip.sh nbodykit.tar.gz -r requirements.txt .
+    cd nbodykit;
+
+    MPICC=cc pip install --user -r requirements .
+
+    # enable python-mpi-bcast (On NERSC)
+    source /project/projectdirs/m779/python-mpi/activate.sh
+
+    # create the bundle
+    MPICC=cc bundle-pip nbodykit.tar.gz -r requirements.txt .
 
 After these steps we can use nbodykit with a job script similar to the example below.
 Notice that there is no need to install nbodykit to the newly created python
@@ -305,13 +308,12 @@ in step 4.
 
     export OMP_NUM_THREADS=1
     export ATP_ENABLED=0
-    source /project/projectdirs/m779/python-mpi/activate.sh /dev/shm/local "srun -n 512"
+    source /project/projectdirs/m779/python-mpi/nersc/activate.sh 
 
-    bcast -v {your projectdir}/myenv.tar.gz
     bcast -v nbodykit.tar.gz
 
     srun -n 512 python-mpi \
-    {your nbodykit dir}/bin/power.py \
+    /dev/shm/local/bin/nbkit.py FFTPower \
     2d 2048 power2d_40steps-pm_mh14.00_1.0000.txt \
     TPMSnapshot:$SCRATCH/crosshalo/40steps-pm/snp00100_1.0000.bin:1380:-rsd=z \
     FOFGroups:fof00100_0.200_1.0000.hdf5:1380:2.4791e10:"-select=Rank < 79678":-rsd=z
