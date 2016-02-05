@@ -17,6 +17,8 @@ distinguishes itself from other similar software packages
 
 - **deployment** and availability on large super computing facilities.
 
+All algorithms are parallel, and run with Message Passing Interface (MPI).
+
 Build Status
 ------------
 
@@ -31,26 +33,41 @@ miniconda environment for Python 2.7 and Python 3.4.
 Top Level Executables
 ---------------------
 
-The following tools are provide as top level executable scripts. 
+The algorithms implemented in nbodykit can be invoked by
 
-- ``bin/power.py`` is a power spectrum calculator, which also calculates 
-  correlation functions via a Fast Fourier Transform.
+- ``bin/nbkit.py`` 
 
-- ``bin/corr.py`` is a point-point pair-counting based 
-  correlation function calculator.
-
-- ``bin/fof.py`` is a friend of friend feature (halo) identifier.
-
-- ``bin/subhalo.py`` is a FOF6D sub-feature (subhalo) identifier .
-
-- ``bin/power-parallel.py`` schedules and runs a set of ``power.py`` jobs, possibly using several independent nodes
+- ``bin/nbkit-batch.py`` 
 
 Run them with '-h' to see the inline help.
 
-Each takes a few 'datasource' strings that specify the format of the inputs; most are documented in '-h' as well.
-Additional datasource plugins can be added with '-X' commandline arguments. Some examples are in contrib/ directory.
+.. code:: bash
 
-All tools are parallel, and run with Message Passing Interface (MPI).
+    mpirun -n 4 python bin/nbkit.py Algorithm -o output_location [ .... ]
+
+
+Algorithms
+----------
+
+Algorithms are implemented as Plugins.
+
+- FFTPower : Power spectrum (Isotropic, Anisotropic, and multipoles) via Fast Fourier Transforms
+
+- FFTCorrelation: Correlation function (Isotropic, Anisotropic, and multipoles) via Fast Fourier Transforms
+
+- PairCountCorrelation: Correlation function (Isotropic, Anisotropic, and multipoles) via simple pair-counting
+
+- FOF : Friend of Friend halos (usually called groups)
+
+- FOF6D : 6D Friend of Friend halos (usually called subhalos or galaxies)
+
+- Describe : Describes the max and min of a column from any DataSource
+
+- Subsample : Create a subsample from a DataSource, and evaluate density (:math:`1 + \delta`) smoothed 
+  at the given scale
+
+- TraceHalo : Trace the center of mass and velocity of particles between two different DataSource, joining
+  by ID.
 
 Examples
 --------
@@ -72,6 +89,7 @@ documentations:
 - [pfft-python]_  : python binding of pfft
 - [pmesh]_     :  particle mesh framework in Python
 - [kdcount]_   : pair-counting and friend-of-friend clustering with KD-Tree
+- [bigfile]_   :  A reproducible massively parallel IO library for hierarchical data
 - [MP-sort]_   : massively parallel sorting 
 - [sharedmem]_ : in-node parallelism with fork and copy-on-write.
 
@@ -85,7 +103,6 @@ Optional Dependencies
 ---------------------
 
 - [pandas]_, [pytables]_ are required to access the PANDAS subset of HDF5 and fast parsing of plain text files.
-- [bigfile]_  : Files for BlueTides simulation.
 
 Build
 -----
