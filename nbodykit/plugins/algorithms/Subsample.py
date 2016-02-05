@@ -152,7 +152,7 @@ class Subsample(Algorithm):
         offset = sum(self.comm.allgather(len(subsample))[:self.comm.rank])
 
         if self.comm.rank == 0:
-            with file(output, 'wb') as ff:
+            with open(output, 'wb') as ff:
                 dtype = numpy.dtype([
                         ('eflag', 'int32'),
                         ('hsize', 'int32'),
@@ -169,7 +169,7 @@ class Subsample(Algorithm):
 
         self.comm.barrier()
 
-        with file(output, 'r+b') as ff:
+        with open(output, 'r+b') as ff:
             ff.seek(28 + offset * 12)
             numpy.float32(subsample['Position']).tofile(ff)
             ff.seek(28 + offset * 12 + size * 12)
