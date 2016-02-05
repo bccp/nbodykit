@@ -1,5 +1,5 @@
 """
-    Declare PluginMount and various extention points.
+    Declare PluginMount and various extension points.
 
     To define a Plugin, 
 
@@ -31,6 +31,25 @@ painters = Namespace()
 transfers = Namespace()
 mstorages = Namespace()
 
+# private variable to store global MPI communicator 
+# that all plugins are initialized with
+_comm = MPI.COMM_WORLD
+
+def get_plugin_comm():
+    """
+    Return the global MPI communicator that all plugins 
+    will be instantiated with (stored in `comm` attribute of plugin)
+    """
+    return _comm
+    
+def set_plugin_comm(comm):
+    """
+    Set the global MPI communicator that all plugins 
+    will be instantiated with (stored in `comm` attribute of plugin)
+    """
+    global _comm
+    _comm = comm
+
 class PluginInterface(object):
     """ 
     The basic interface of a plugin 
@@ -49,8 +68,11 @@ class PluginInterface(object):
     def __ne__(self, other):
         return self.string != other.string
 
-    def __init__(self, comm, **kwargs):
-        self.comm = comm
+    def __init__(self, **kwargs):
+    
+        # automatically set the communicator for each plugin
+        # to the global communicator, stored in _comm
+        self.comm = _comm 
 
         # FIXME: set unique string by default
         # directly created object does not have a string!
@@ -79,8 +101,7 @@ class PluginInterface(object):
             raise ValueError("Extra arguments : %s " % str(list(kwargs.keys())))
         
         self.__dict__.update(d)
-        self.finalize_attributes()
-
+        
 def ExtensionPoint(registry):
     """ Declares a class as an extension point, registering to registry """
     def wrapped(cls):
@@ -140,7 +161,7 @@ class PluginMount(type):
                 else:
                     cls.__doc__ = cls.parser.format_help()
 
-    def create(kls, argv, comm=None): 
+    def create(kls, argv): 
         """ Instantiate a plugin from this extension point,
             based on the cmdline string. The arguments in string
             will be parsed and the attributes of the instance will
@@ -153,28 +174,19 @@ class PluginMount(type):
                 to create.
                 The reset depends on the type of the plugin.
 
-            comm: MPI.Comm or None
-                The communicator this plugin is instantialized for.
-                if None, MPI.COMM_WORLD is assumed.
-
             Notes
             -----
             2nd stage parsing: A plugin can override 
             `finalize_attributes` to finalize the
             attribute values based on currently parsed attribute values.
-
-            The `comm` attribute stores the communicator for which 
-            this plugin is instantialized.
-
         """
         klass = kls.plugins[argv[0]]
-        
         ns = klass.parser.parse_args(argv[1:])
-        if comm is None:
-            comm = MPI.COMM_WORLD
-
-        self = klass(comm, **vars(ns))
+        
+        self = klass(**vars(ns))
         self.string = str(argv)
+        self.finalize_attributes()
+        
         return self
 
     def format_help(kls):
@@ -240,9 +252,8 @@ class Transfer:
         raise NotImplementedError
 
     @classmethod
-    def fromstring(kls, string, comm=None): 
-        argv = string.split(':')
-        return kls.create(argv, comm)
+    def fromstring(kls, string): 
+        return kls.create(string.split(':'))
 
 @ExtensionPoint(datasources)
 class DataSource:
@@ -351,9 +362,8 @@ class DataSource:
         yield data 
 
     @classmethod
-    def fromstring(kls, string, comm=None): 
-        argv = string.split(':')
-        return kls.create(argv, comm)
+    def fromstring(kls, string): 
+        return kls.create(string.split(':'))
 
 
 
@@ -402,11 +412,8 @@ class Painter:
             yield [data[c] for c in columns]
 
     @classmethod
-    def fromstring(kls, string, comm=None): 
-        argv = string.split(':')
-        return kls.create(argv, comm)
-
-
+    def fromstring(kls, string): 
+        return kls.create(string.split(':'))
 
 @ExtensionPoint(mstorages)
 class MeasurementStorage:
