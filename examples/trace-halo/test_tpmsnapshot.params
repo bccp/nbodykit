@@ -1,4 +1,4 @@
 TPMSnapshot:../data/tpm_1.0000.bin:384
 TPMSnapshot:../data/tpm_1.0000.bin:384
-HaloLabel:../output/fof_ll0.200_1.0000.grp
-../output/fof_ll0.200_1.0000_ichalo
+HaloLabel:../output/fof_ll0.200_1.0000.labels
+-o../output/fof_ll0.200_1.0000_ichalo.hdf5

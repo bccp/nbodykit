@@ -1,0 +1,7 @@
+--seed=12345
+--smoothing=20.0
+--ratio=0.01
+--format=mwhite
+TPMSnapshot:../data/tpm_1.0000.bin:384
+256
+-o=../output/subsample_1.0000.mwhite
