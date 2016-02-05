@@ -1,0 +1,6 @@
+mode: 2d
+Nmesh: 256
+output: ../output/test_power_fastpm_2d.txt
+fields:
+    - FastPM:../data/fastpm_1.0000:-rsd=z
+    - [NormalizeDC, RemoveDC, AnisotropicCIC]
