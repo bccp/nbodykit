@@ -99,17 +99,7 @@ class FFTPowerAlgorithm(Algorithm):
             help="silence the logging output", const=logging.ERROR)
         p.add_argument('--poles', type=lambda s: [int(i) for i in s.split()], default=[],
             help='if specified, also compute these multipoles from P(k,mu)')
-        
-    def finalize_attributes(self):
-        """
-        Set the communicator object of all plugin components of `fields`
-        to the one stored in `self.comm`
-        """
-        for [d, p, t] in self.fields:
-            d.comm = self.comm
-            p.comm = self.comm
-            for tt in t: tt.comm = self.comm
-    
+            
     def run(self):
         """
         Run the algorithm, which computes and returns the power spectrum
@@ -213,16 +203,6 @@ class FFTCorrelationAlgorithm(Algorithm):
         kls.parser = copy.copy(FFTPowerAlgorithm.parser)
         kls.parser.description = "correlation spectrum calculator via FFT in a periodic box"
         kls.parser.prog = 'FFTCorrelation'
-
-    def finalize_attributes(self):
-        """
-        Set the communicator object of all plugin components of `fields`
-        to the one stored in `self.comm`
-        """
-        for [d, p, t] in self.fields:
-            d.comm = self.comm
-            p.comm = self.comm
-            for tt in t: tt.comm = self.comm
             
     def run(self):
         """
