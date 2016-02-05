@@ -3,4 +3,4 @@
 --ratio=0.01
 TPMSnapshot:../data/tpm_1.0000.bin:384
 256
-../output/subsample_1.0000.hdf5
+-o=../output/subsample_1.0000.hdf5
