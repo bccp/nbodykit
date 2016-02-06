@@ -291,9 +291,6 @@ preferred method is to use [fast-python]_ .
     MPICC=cc bundle-pip nbodykit.tar.gz -r requirements.txt .
 
 After these steps we can use nbodykit with a job script similar to the example below.
-Notice that there is no need to install nbodykit to the newly created python
-environment, the computing nodes will use the software in the bundle file ``nbodykit.tar.gz`` we created
-in step 4.
 
 .. code:: bash
 
