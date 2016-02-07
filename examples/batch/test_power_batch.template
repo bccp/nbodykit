@@ -1,0 +1,7 @@
+mode: 1d
+Nmesh: 256
+output: ../output/test_batch_power_fastpm_1d_{los}los_{tag}.txt
+fields:
+    - FastPM:../data/fastpm_1.0000:-rsd={los}
+    - [NormalizeDC, RemoveDC, AnisotropicCIC]
+los: {los}
