@@ -432,7 +432,7 @@ class TaskManager(object):
                         possible_kwargs[k] = self.extras[k][itask]
                         
                 # do the string formatting if the key is present in template
-                valid = {k:v for k,v in possible_kwargs.iteritems() if k in kwargs}
+                valid = {k:possible_kwargs[k] for k in possible_kwargs if k in kwargs}
                 ff.write(self.template.format(**valid))
         
         # bcast the file name to all in the worker pool
