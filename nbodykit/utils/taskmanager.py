@@ -146,9 +146,10 @@ class TaskManager(object):
         self.task_values     = task_values
         self.extras          = extras
         
-        self.comm = comm
-        self.size = comm.size
-        self.rank = comm.rank
+        self.comm      = comm
+        self.size      = comm.size
+        self.rank      = comm.rank
+        self.pool_comm = None
                 
     @classmethod
     def create(cls, comm=None, desc=None):
@@ -310,77 +311,87 @@ class TaskManager(object):
         tags = enum('READY', 'DONE', 'EXIT', 'START')
         status = MPI.Status()
          
-        # make the pool comm
-        self._initialize_pool_comm()
+        try:
+            # make the pool comm
+            self._initialize_pool_comm()
     
-        # the total numbe rof tasks
-        num_tasks = len(self.task_values)
+            # the total numbe rof tasks
+            num_tasks = len(self.task_values)
     
-        # master distributes the tasks
-        if self.rank == 0:
+            # master distributes the tasks
+            if self.rank == 0:
         
-            # initialize
-            task_index = 0
-            closed_workers = 0
+                # initialize
+                task_index = 0
+                closed_workers = 0
         
-            # loop until all workers have finished with no more tasks
-            logger.info("master starting with %d worker(s) with %d total tasks" %(self.workers, num_tasks))
-            while closed_workers < self.workers:
-                data = self.comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status)
-                source = status.Get_source()
-                tag = status.Get_tag()
-            
-                # worker is ready, so send it a task
-                if tag == tags.READY:
-                    if task_index < num_tasks:
-                        self.comm.send(task_index, dest=source, tag=tags.START)
-                        logger.info("sending task `%s` to worker %d" %(str(self.task_values[task_index]), source))
-                        task_index += 1
-                    else:
-                        self.comm.send(None, dest=source, tag=tags.EXIT)
-                elif tag == tags.DONE:
-                    results = data
-                    logger.debug("received result from worker %d" %source)
-                elif tag == tags.EXIT:
-                    closed_workers += 1
-                    logger.debug("worker %d has exited, closed workers = %d" %(source, closed_workers))
-    
-        # worker processes wait and execute single jobs
-        elif self._valid_worker:
-            if self.pool_comm.rank == 0:
-                args = (self.rank, MPI.Get_processor_name(), self.pool_comm.size)
-                logger.info("pool master rank is %d on %s with %d processes available" %args)
-            while True:
-                itask = -1
-                tag = -1
-        
-                # have the master rank of the pool ask for task and then broadcast
-                if self.pool_comm.rank == 0:
-                    self.comm.send(None, dest=0, tag=tags.READY)
-                    itask = self.comm.recv(source=0, tag=MPI.ANY_TAG, status=status)
+                # loop until all workers have finished with no more tasks
+                logger.info("master starting with %d worker(s) with %d total tasks" %(self.workers, num_tasks))
+                while closed_workers < self.workers:
+                    data = self.comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status)
+                    source = status.Get_source()
                     tag = status.Get_tag()
-                itask = self.pool_comm.bcast(itask)
-                tag = self.pool_comm.bcast(tag)
-        
-                # do the work here
-                if tag == tags.START:
-                    result = self._run_algorithm(itask)
-                    self.pool_comm.Barrier() # wait for everyone
-                    if self.pool_comm.rank == 0:
-                        self.comm.send(result, dest=0, tag=tags.DONE) # done this task
-                elif tag == tags.EXIT:
-                    break
-
-            self.pool_comm.Barrier()
-            if self.pool_comm.rank == 0:
-                self.comm.send(None, dest=0, tag=tags.EXIT) # exiting
             
-        # free and exit
-        logger.debug("rank %d process finished" %self.rank)
-        self.comm.Barrier()
-        if self.rank == 0:
-            logger.info("master is finished; terminating")
-            self.pool_comm.Free()
+                    # worker is ready, so send it a task
+                    if tag == tags.READY:
+                        if task_index < num_tasks:
+                            self.comm.send(task_index, dest=source, tag=tags.START)
+                            logger.info("sending task `%s` to worker %d" %(str(self.task_values[task_index]), source))
+                            task_index += 1
+                        else:
+                            self.comm.send(None, dest=source, tag=tags.EXIT)
+                    elif tag == tags.DONE:
+                        results = data
+                        logger.debug("received result from worker %d" %source)
+                    elif tag == tags.EXIT:
+                        closed_workers += 1
+                        logger.debug("worker %d has exited, closed workers = %d" %(source, closed_workers))
+    
+            # worker processes wait and execute single jobs
+            elif self._valid_worker:
+                if self.pool_comm.rank == 0:
+                    args = (self.rank, MPI.Get_processor_name(), self.pool_comm.size)
+                    logger.info("pool master rank is %d on %s with %d processes available" %args)
+                while True:
+                    itask = -1
+                    tag = -1
+        
+                    # have the master rank of the pool ask for task and then broadcast
+                    if self.pool_comm.rank == 0:
+                        self.comm.send(None, dest=0, tag=tags.READY)
+                        itask = self.comm.recv(source=0, tag=MPI.ANY_TAG, status=status)
+                        tag = status.Get_tag()
+                    itask = self.pool_comm.bcast(itask)
+                    tag = self.pool_comm.bcast(tag)
+        
+                    # do the work here
+                    if tag == tags.START:
+                        result = self._run_algorithm(itask)
+                        self.pool_comm.Barrier() # wait for everyone
+                        if self.pool_comm.rank == 0:
+                            self.comm.send(result, dest=0, tag=tags.DONE) # done this task
+                    elif tag == tags.EXIT:
+                        break
+
+                self.pool_comm.Barrier()
+                if self.pool_comm.rank == 0:
+                    self.comm.send(None, dest=0, tag=tags.EXIT) # exiting
+        except:
+            logger.error("an exception has occurred on one of the ranks...all ranks exiting")
+            
+            # bit of hack that forces mpi4py to exit all ranks
+            # see https://groups.google.com/forum/embed/#!topic/mpi4py/RovYzJ8qkbc
+            os._exit(1)
+        
+        finally:
+            # free and exit
+            logger.debug("rank %d process finished" %self.rank)
+            self.comm.Barrier()
+            
+            if self.rank == 0:
+                logger.info("master is finished; terminating")
+                if self.pool_comm is not None:
+                    self.pool_comm.Free()
             
             
     def _run_algorithm(self, itask):
@@ -402,7 +413,7 @@ class TaskManager(object):
             # extract the keywords that we need to format from template file
             formatter = Formatter()
             kwargs = [kw for _, kw, _, _ in formatter.parse(self.template) if kw]
-            
+                
             # initialize a temporary file
             with tempfile.NamedTemporaryFile(delete=False) as ff:
                 
