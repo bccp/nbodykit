@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+import traceback
 import tempfile
 from string import Formatter
 
@@ -376,8 +377,9 @@ class TaskManager(object):
                 self.pool_comm.Barrier()
                 if self.pool_comm.rank == 0:
                     self.comm.send(None, dest=0, tag=tags.EXIT) # exiting
-        except:
+        except Exception as e:
             logger.error("an exception has occurred on one of the ranks...all ranks exiting")
+            logger.error(traceback.format_exc())
             
             # bit of hack that forces mpi4py to exit all ranks
             # see https://groups.google.com/forum/embed/#!topic/mpi4py/RovYzJ8qkbc
