@@ -1,4 +1,5 @@
 cd examples
+bash batch/run.sh || exit 1
 bash fof/run.sh || exit 1
 bash power/run.sh || exit 1
 bash corr/run.sh || exit 1
