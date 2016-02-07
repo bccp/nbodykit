@@ -50,8 +50,12 @@ def replacements_from_file(value):
     """
     if not os.path.exists(value):
         raise RuntimeError("for `replacements_from_file`, file `%s` does not exist" %value)
+    
     toret = {}
-    execfile(value, globals(), toret)
+    with open(value) as f:
+        code = compile(f.read(), value, 'exec')
+        exec(code, globals(), toret)
+
     return toret
         
 def tasks_parser(value):
