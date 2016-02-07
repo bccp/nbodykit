@@ -435,7 +435,7 @@ class TaskManager(object):
                         
                 # do the string formatting if the key is present in template
                 valid = {k:possible_kwargs[k] for k in possible_kwargs if k in kwargs}
-                ff.write(self.template.format(**valid))
+                ff.write(self.template.format(**valid).encode())
         
         # bcast the file name to all in the worker pool
         this_config = self.pool_comm.bcast(this_config, root=0)
