@@ -1,5 +1,5 @@
 import logging
-import os
+import os, sys
 import tempfile
 from mpi4py import MPI
 from nbodykit.extensionpoints import Algorithm, algorithms
@@ -10,30 +10,32 @@ logger = logging.getLogger('taskmanager')
 #------------------------------------------------------------------------------
 # tools
 #------------------------------------------------------------------------------        
-def split_ranks(N_ranks, N_chunks):
+def split_ranks(N_ranks, N):
     """
-    Divide the ranks into N chunks, removing the master (0) rank
+    Divide the ranks into chunks, attempting to have `N` ranks
+    in each chunk. This removes the master (0) rank, such 
+    that `N_ranks - 1` ranks are available to be grouped
     
     Parameters
     ----------
     N_ranks : int
         the total number of ranks available
-    N_chunks : int
-        the number of chunks to split the ranks into
+    N : int
+        the desired number of ranks per worker
     """
-    seq = range(1, N_ranks)
-    avg = int((N_ranks-1) // N_chunks)
-    remainder = (N_ranks-1) % N_chunks
-
-    start = 0
-    end = avg
-    for i in range(N_chunks):
-        if remainder:
-            end += 1
-            remainder -= 1
-        yield i, seq[start:end]
-        start = end
-        end += avg
+    available = list(range(1, N_ranks)) # available ranks to do work
+    total = len(available)
+    extra_ranks = total % N
+  
+    for i in range(total//N):
+        yield i, available[i*N:(i+1)*N]
+    
+    if extra_ranks and extra_ranks >= N//2:
+        remove = extra_ranks % 2 # make it an even number
+        ranks = available[-extra_ranks:]
+        if remove: ranks = ranks[:-remove]
+        if len(ranks):
+            yield i+1, ranks
         
 def enum(*sequential, **named):
     enums = dict(zip(sequential, range(len(sequential))), **named)
@@ -95,48 +97,52 @@ class TaskManager(object):
     Task manager for running a set of `Algorithm` computations,
     possibly in parallel using MPI
     """
-    def __init__(self, comm, algorithm_name, config, workers, task_dims, 
+    def __init__(self, comm, algorithm_name, config, cpus_per_worker, task_dims, 
                     task_values, log_level=logging.INFO, extras={}):
         """
         Parameters
         ----------
-        task_function : callable
-            the function to call for each task; arguments should be 
-            an :py:class: `argparse.Namespace` and optionally
-            a :py:class: `mpi4py.MPI.Intracomm` as the ``comm`` 
-            keyword
-        config : argparse.Namespace
-            the namespace specifying the `TaskManager` configuration.
-            see source code for ``TaskManager.parse_args`` for
-            details on attributes
-        task_parser : argparse.ArgumentParser
-            the argument parser for the ``task_function`` that will 
-            return the parameters to be passed to ``task_function``
-            for each task
-        comm : mpi4py.MPI.Intracomm, optional
-            the global communicator, which will possibly be split
-            and to use multiple comms across several nodes. If `None`,
-            ``MPI.COMM_WORLD`` is used
+        comm : MPI communicator
+            the global communicator that will be split and divided
+            amongs the independent workers
+        algorithm_name : str
+            the string name of the `Algorithm` we are running
+        config : str
+            the name of the file holding the template config file, which
+            will be updated for each task that is performed
+        cpus_per_worker : int
+            the desired number of ranks assigned to each independent
+            worker, when iterating over the tasks in parallel
+        task_dims : list
+            a list of strings specifying the names of the task dimensions -- 
+            these specify the string formatting key when updating the config
+            template file for each task value
+        task_value : list
+            a list of tuples specifying the task values which will be iterated 
+            over -- each tuple should be the length of `task_dims`
+        log_level : int, optional
+            an integer specifying the logging level to use -- default
+            is the `INFO` level
+        extras : dict, optional
+            a dictionary where the values are lists of string replacements, with
+            length equal to the total number of tasks -- if the keys are present
+            in the config file, the string formatting will update the config
+            file with the `ith` element of the list for the `ith` iteration
         """
         logger.setLevel(log_level)
         
         self.algorithm_name  = algorithm_name
         self.algorithm_class = getattr(algorithms, algorithm_name) 
         self.template        = open(config, 'r').read()
-        self.workers         = workers
+        self.cpus_per_worker = cpus_per_worker
         self.task_dims       = task_dims
         self.task_values     = task_values
-        self.extras           = extras
+        self.extras          = extras
         
         self.comm = comm
         self.size = comm.size
         self.rank = comm.rank
-        
-        # crash if we only have one process or one worker
-        if self.size <= self.workers:
-            args = (self.size, self.workers+1, self.workers)
-            raise ValueError("only have %d ranks; need at least %d to use the desired %d workers" %args)
-        
+                
     @classmethod
     def create(cls, comm=None, desc=None):
         """
@@ -191,8 +197,9 @@ class TaskManager(object):
         parser.add_argument(dest='algorithm_name', choices=valid_algorithms, help=h)  
         
         # the number of independent workers
-        h = "the number of independent works that will run tasks in parallel"        
-        parser.add_argument('workers', type=int, help=h)
+        h = """the desired number of ranks assigned to each independent
+                worker, when iterating over the tasks in parallel""" 
+        parser.add_argument('cpus_per_worker', type=int, help=h)
     
         # now do the required named arguments
         required_named = parser.add_argument_group('required named arguments')
@@ -226,7 +233,7 @@ class TaskManager(object):
                  `tag = ['tag1', 'tag2']`; if the keys match keywords in the 
                  template param file, the file with be updated with
                  the `ith` value for the `ith` task"""
-        parser.add_argument('--extra', dest='extras', default={}, type=replacements_from_file, help=h)
+        parser.add_argument('--extras', dest='extras', default={}, type=replacements_from_file, help=h)
     
         h = "set the logging output to debug, with lots more info printed"
         parser.add_argument('--debug', help=h, action="store_const", dest="log_level", 
@@ -262,15 +269,27 @@ class TaskManager(object):
         self.pool_comm = None
         chain_ranks = []
         color = 0
-        worker_count = 0
-        for i, ranks in split_ranks(self.size, self.workers):
+        total_ranks = 0
+        for i, ranks in split_ranks(self.size, self.cpus_per_worker):
             chain_ranks.append(ranks[0])
             if self.rank in ranks: color = i+1
-            worker_count += len(ranks)
+            total_ranks += len(ranks)
         
-        if worker_count != self.size-1:
-            args = (worker_count, self.size-1)
-            raise RuntimeError("mismatch between worker count (%d) and spawned worker processes (%d)" %args)
+        self.workers = i+1 # store the total number of workers
+        leftover= (self.size - 1) - total_ranks
+        if leftover and self.rank == 0:
+            args = (self.cpus_per_worker, self.size-1, leftover)
+            logger.warning("with `cpus_per_worker` = %d and %d available ranks, %d ranks will do no work" %args)
+            
+        # crash if we only have one process or one worker
+        if self.size <= self.workers:
+            args = (self.size, self.workers+1, self.workers)
+            raise ValueError("only have %d ranks; need at least %d to use the desired %d workers" %args)
+            
+        # ranks that will do work have a nonzero color now
+        self._valid_worker = color > 0
+        
+        # split the comm between the workers
         self.pool_comm = self.comm.Split(color, 0)
         
         # set the global extension point comm
@@ -308,7 +327,7 @@ class TaskManager(object):
                 if tag == tags.READY:
                     if task_index < num_tasks:
                         self.comm.send(task_index, dest=source, tag=tags.START)
-                        logger.debug("sending task `%s` to worker %d" %(str(self.task_values[task_index]), source))
+                        logger.info("sending task `%s` to worker %d" %(str(self.task_values[task_index]), source))
                         task_index += 1
                     else:
                         self.comm.send(None, dest=source, tag=tags.EXIT)
@@ -320,7 +339,7 @@ class TaskManager(object):
                     logger.debug("worker %d has exited, closed workers = %d" %(source, closed_workers))
     
         # worker processes wait and execute single jobs
-        else:
+        elif self._valid_worker:
             if self.pool_comm.rank == 0:
                 args = (self.rank, MPI.Get_processor_name(), self.pool_comm.size)
                 logger.info("pool master rank is %d on %s with %d processes available" %args)
@@ -348,7 +367,7 @@ class TaskManager(object):
             self.pool_comm.Barrier()
             if self.pool_comm.rank == 0:
                 self.comm.send(None, dest=0, tag=tags.EXIT) # exiting
-    
+            
         # free and exit
         logger.debug("rank %d process finished" %self.rank)
         self.comm.Barrier()
