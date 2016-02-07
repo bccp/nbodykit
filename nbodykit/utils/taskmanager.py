@@ -1,6 +1,9 @@
 import logging
-import os, sys
+import os
+import sys
 import tempfile
+from string import Formatter
+
 from mpi4py import MPI
 from nbodykit.extensionpoints import Algorithm, algorithms
 from nbodykit.extensionpoints import set_plugin_comm
@@ -395,8 +398,10 @@ class TaskManager(object):
         # if you are the pool's root, write out the temporary parameter file
         this_config = None
         if self.pool_comm.rank == 0:
+            
             # extract the keywords that we need to format from template file
-            kwargs = [kw for _, kw, _, _ in self.template._formatter_parser() if kw]
+            formatter = Formatter()
+            kwargs = [kw for _, kw, _, _ in formatter.parse(self.template) if kw]
             
             # initialize a temporary file
             with tempfile.NamedTemporaryFile(delete=False) as ff:
