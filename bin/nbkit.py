@@ -5,7 +5,8 @@ import logging
 
 from mpi4py import MPI
 from nbodykit.extensionpoints import Algorithm, algorithms
-from nbodykit.plugins import ArgumentParser
+from nbodykit.extensionpoints import Algorithm, DataSource, Transfer, Painter
+from nbodykit.plugins import ArgumentParser, ListPluginsAction
 
 # configure the logging
 rank = MPI.COMM_WORLD.rank
@@ -45,27 +46,29 @@ class HelpAction(argparse.Action):
         
 def main():
     
-    # the names of the valid algorithms -- each will be a subcommand
     valid_algorithms = list(vars(algorithms).keys())
-    
-    # the main parser usage
-    usage = "%(prog)s [-h] " + "{%s}" %(','.join(valid_algorithms)) + " ... \n" 
-    usage += "\nFrom more help on each of the subcommands, type:\n\n"
-    usage += "\n".join("%(prog)s " + k + " -h" for k in valid_algorithms)
-    usage += "\n\n"
-    
+
     # initialize the main parser
-    desc = "the main `nbodykit` executable, designed to run a number of analysis algorithms"
+    desc = "Invoke an `nbodykit` algorithm with the given parameters. \n\n"
+    desc += "MPI usage: mpirun -n [n] python nbkit.py ... \n\n"
+    desc += "Because MPI standard requires the python interpreter in mpirun commandline. \n"
     kwargs = {}
-    kwargs['usage'] = usage
     kwargs['description'] = desc
     kwargs['fromfile_prefix_chars'] = '@'
     kwargs['formatter_class'] = argparse.ArgumentDefaultsHelpFormatter
-    parser = ArgumentParser("nbkit", add_help=False, **kwargs)
+
+    parser = ArgumentParser("nbkit.py", add_help=False, **kwargs)
 
     parser.add_argument('-o', '--output', help='the string specifying the output')
-    parser.add_argument(dest='algorithm_name', choices=valid_algorithms)
-    parser.add_argument('-h', '--help', action=HelpAction)
+    parser.add_argument('algorithm_name', choices=valid_algorithms)
+    parser.add_argument('-h', '--help', action=HelpAction, help='Help on an algorithm')
+    
+    parser.add_argument('--list-datasources', action=ListPluginsAction(DataSource), help='List DataSource')
+    parser.add_argument('--list-algorithms', action=ListPluginsAction(Algorithm), help='List Algorithms')
+    parser.add_argument('--list-painters', action=ListPluginsAction(Painter), help='List Painters')
+    parser.add_argument('--list-transfers', action=ListPluginsAction(Transfer), help='List Transfer Functions')
+
+    parser.usage = parser.format_usage()[6:-1] + " ... \n"
     
     # parse the command-line
     ns, args = parser.parse_known_args()
