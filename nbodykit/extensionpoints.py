@@ -196,6 +196,9 @@ class PluginMount(type):
         
         rt = []
         for k in kls.plugins:
+            header = "Plugin : %s  ExtensionPoint : %s" % (k, kls.__name__)
+            rt.append(header)
+            rt.append("=" * (len(header)))
             rt.append(kls.plugins[k].parser.format_help())
 
         if not len(rt):
