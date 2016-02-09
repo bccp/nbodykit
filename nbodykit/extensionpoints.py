@@ -108,6 +108,7 @@ def ExtensionPoint(registry, help_formatter=HelpFormatter):
         cls = add_metaclass(PluginMount)(cls)
         cls.registry = registry
         cls.help_formatter = help_formatter
+        cls.plugins = {}
         return cls
     return wrapped
 
@@ -117,48 +118,51 @@ class PluginMount(type):
         plugins attached to the extension point.
     """
     def __new__(cls, name, bases, attrs):
-        # Only add PluginInterface to the ExtensionPoint,
-        # such that Plugins will inherit from this.
+        # Add PluginInterface to the ExtensionPoint,
+        # Plugins at an extensioni point will inherit from PluginInterface
+        # This is more twisted than it could have been!
+
         if len(bases) == 0 or (len(bases) == 1 and bases[0] is object):
             bases = (PluginInterface,)
         return type.__new__(cls, name, bases, attrs)
 
     def __init__(cls, name, bases, attrs):
-
         # only executes when processing the mount point itself.
-        if not hasattr(cls, 'plugins'):
-            cls.plugins = {}
-        # called for each plugin, which already has 'plugins' list
-        else:
-            if not hasattr(cls, 'plugin_name'):
-                raise RuntimeError("Plugin class must carry a plugin_name.")
-            
-            # register, if this plugin isn't yet
-            if cls.plugin_name not in cls.plugins:
-                # add a commandline argument parser for each plugin
-                # NOTE: we don't want every plugin to preparse sys.argv
-                # so set args = ()
-                cls.parser = ArgumentParser(cls.plugin_name, 
-                                            usage=None, 
-                                            add_help=False, 
-                                            formatter_class=cls.help_formatter)
+        # the extension mount point only declares a PluginInterface
+        # the plugins at an extension point will always be its subclass
+        
+        if cls.__bases__ == (PluginInterface, ):
+            return
 
-                # track names of classes
-                cls.plugins[cls.plugin_name] = cls
-            
-                # store as part of the algorithms namespace
-                setattr(cls.registry, cls.plugin_name, cls)
+        if not hasattr(cls, 'plugin_name'):
+            raise RuntimeError("Plugin class must carry a plugin_name.")
+        
+        # register, if this plugin isn't yet
+        if cls.plugin_name not in cls.plugins:
+            # add a commandline argument parser for each plugin
+            # NOTE: we don't want every plugin to preparse sys.argv
+            # so set args = ()
+            cls.parser = ArgumentParser(cls.plugin_name, 
+                                        usage=None, 
+                                        add_help=False, 
+                                        formatter_class=cls.help_formatter)
 
-                # try to call register class method
-                if hasattr(cls, 'register'):
-                    cls.register()
+            # track names of classes
+            cls.plugins[cls.plugin_name] = cls
+        
+            # store as part of the algorithms namespace
+            setattr(cls.registry, cls.plugin_name, cls)
 
-                # set the class documentation automatically
-                doc = cls.__doc__
-                if doc is not None:
-                    cls.__doc__ += "\n\n"+cls.parser.format_help()
-                else:
-                    cls.__doc__ = cls.parser.format_help()
+            # try to call register class method
+            if hasattr(cls, 'register'):
+                cls.register()
+
+            # set the class documentation automatically
+            doc = cls.__doc__
+            if doc is not None:
+                cls.__doc__ += "\n\n"+cls.parser.format_help()
+            else:
+                cls.__doc__ = cls.parser.format_help()
 
     def create(kls, argv): 
         """ Instantiate a plugin from this extension point,
