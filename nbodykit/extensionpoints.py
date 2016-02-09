@@ -20,7 +20,7 @@ import numpy
 from mpi4py import MPI
 
 from nbodykit.plugins import HelpFormatterColon, load
-from argparse import Namespace, SUPPRESS, ArgumentParser
+from argparse import Namespace, SUPPRESS, ArgumentParser, HelpFormatter
 
 import sys
 import contextlib
@@ -102,10 +102,13 @@ class PluginInterface(object):
         
         self.__dict__.update(d)
         
-def ExtensionPoint(registry):
+def ExtensionPoint(registry, help_formatter=HelpFormatter):
     """ Declares a class as an extension point, registering to registry """
     def wrapped(cls):
-        return add_metaclass(PluginMount, registry)(cls)
+        cls = add_metaclass(PluginMount)(cls)
+        cls.registry = registry
+        cls.help_formatter = help_formatter
+        return cls
     return wrapped
 
 class PluginMount(type):
@@ -142,7 +145,7 @@ class PluginMount(type):
                 cls.parser = ArgumentParser(cls.plugin_name, 
                                             usage=None, 
                                             add_help=False, 
-                                            formatter_class=HelpFormatterColon)
+                                            formatter_class=cls.help_formatter)
 
                 # track names of classes
                 cls.plugins[cls.plugin_name] = cls
@@ -201,7 +204,7 @@ class PluginMount(type):
             return '\n'.join(rt)
 
 # copied from six
-def add_metaclass(metaclass, registry):
+def add_metaclass(metaclass):
     """Class decorator for creating a class with a metaclass."""
     def wrapper(cls):
         orig_vars = cls.__dict__.copy()
@@ -213,11 +216,10 @@ def add_metaclass(metaclass, registry):
                 orig_vars.pop(slots_var)
         orig_vars.pop('__dict__', None)
         orig_vars.pop('__weakref__', None)
-        orig_vars['registry'] = registry
         return metaclass(cls.__name__, cls.__bases__, orig_vars)
     return wrapper
 
-@ExtensionPoint(transfers)
+@ExtensionPoint(transfers, HelpFormatterColon)
 class Transfer:
     """
     Mount point for plugins which apply a k-space transfer function
@@ -255,7 +257,7 @@ class Transfer:
     def fromstring(kls, string): 
         return kls.create(string.split(':'))
 
-@ExtensionPoint(datasources)
+@ExtensionPoint(datasources, HelpFormatterColon)
 class DataSource:
     """
     Mount point for plugins which refer to the reading of input files 
@@ -367,7 +369,7 @@ class DataSource:
 
 
 
-@ExtensionPoint(painters)
+@ExtensionPoint(painters, HelpFormatterColon)
 class Painter:
     """
     Mount point for plugins which refer to the painting of input files.
@@ -415,7 +417,7 @@ class Painter:
     def fromstring(kls, string): 
         return kls.create(string.split(':'))
 
-@ExtensionPoint(mstorages)
+@ExtensionPoint(mstorages, HelpFormatterColon)
 class MeasurementStorage:
 
     plugin_name = None
