@@ -12,6 +12,7 @@ setup(name="nbodykit", version="0.1pre",
       include_package_data=True,
       packages = find_packages(),
       install_requires=['numpy'],
-      requires=['sharedmem', 'pmesh', 'pfft', 'kdcount', 'mpsort', 'scipy'],
+      requires=['sharedmem', 'pmesh', 'pfft', 'kdcount', 'mpsort', 'scipy', 'bigfile'],
+      scripts=['bin/nbkit.py', 'bin/nbkit-batch.py'],
 )
 

@@ -43,13 +43,33 @@ Run them with '-h' to see the inline help.
 
 .. code:: bash
 
-    mpirun -n 4 python bin/nbkit.py Algorithm -o output_location [ .... ]
+    nbkit.py --help
+
+For mpirun / mpiexec, it is import to launch nbkit.py via Python:
+
+.. code:: bash
+
+    mpirun -n 4 python `which nbkit.py` AlgorithmName -o output_location [ .... ]
 
 
 Algorithms
 ----------
 
-Algorithms are implemented as Plugins.
+Algorithms are implemented as Plugins. 
+
+To obtain a list of algorithms, use
+
+.. code:: bash
+
+    nbkit.py --list-algorithms
+
+To see help of a particular algorithm, use
+
+.. code:: bash
+
+    nbkit.py AlgorithmName --help
+
+where AlgorithmName can be one of the following:
 
 - FFTPower : Power spectrum (Isotropic, Anisotropic, and multipoles) via Fast Fourier Transforms
 
