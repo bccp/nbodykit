@@ -117,13 +117,9 @@ class PluginMount(type):
         plugins attached to the extension point.
     """
     def __new__(cls, name, bases, attrs):
-        # for python 2, ensure extension points are objects
-        # this is important for python 3 compatibility.
-        if len(bases) == 0:
-            bases = (object,)
         # Only add PluginInterface to the ExtensionPoint,
         # such that Plugins will inherit from this.
-        if len(bases) == 1 and bases[0] is object:
+        if len(bases) == 0 or (len(bases) == 1 and bases[0] is object):
             bases = (PluginInterface,)
         return type.__new__(cls, name, bases, attrs)
 
