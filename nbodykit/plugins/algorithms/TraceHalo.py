@@ -21,11 +21,11 @@ class TraceHaloAlgorithm(Algorithm):
         p.description = " Calculate the halo property based on a different set of halo labels."
 
         p.add_argument("dest", type=DataSource.fromstring,
-                help=DataSource.format_help())
+                help="type: DataSource")
         p.add_argument("source", type=DataSource.fromstring,
-                help=DataSource.format_help())
+                help="type: DataSource")
         p.add_argument("sourcelabel", type=DataSource.fromstring,
-                help='datasource of the halo label files, the Label column is used.')
+                help='DataSource of the source halo label files, the Label column is used.')
 
     def run(self):
         comm = self.comm

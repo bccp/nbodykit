@@ -20,7 +20,7 @@ import numpy
 from mpi4py import MPI
 
 from nbodykit.plugins import HelpFormatterColon, load
-from argparse import Namespace, SUPPRESS, ArgumentParser
+from argparse import Namespace, SUPPRESS, ArgumentParser, HelpFormatter
 
 import sys
 import contextlib
@@ -102,10 +102,14 @@ class PluginInterface(object):
         
         self.__dict__.update(d)
         
-def ExtensionPoint(registry):
+def ExtensionPoint(registry, help_formatter=HelpFormatter):
     """ Declares a class as an extension point, registering to registry """
     def wrapped(cls):
-        return add_metaclass(PluginMount, registry)(cls)
+        cls = add_metaclass(PluginMount)(cls)
+        cls.registry = registry
+        cls.help_formatter = help_formatter
+        cls.plugins = {}
+        return cls
     return wrapped
 
 class PluginMount(type):
@@ -114,52 +118,51 @@ class PluginMount(type):
         plugins attached to the extension point.
     """
     def __new__(cls, name, bases, attrs):
-        # for python 2, ensure extension points are objects
-        # this is important for python 3 compatibility.
-        if len(bases) == 0:
-            bases = (object,)
-        # Only add PluginInterface to the ExtensionPoint,
-        # such that Plugins will inherit from this.
-        if len(bases) == 1 and bases[0] is object:
+        # Add PluginInterface to the ExtensionPoint,
+        # Plugins at an extensioni point will inherit from PluginInterface
+        # This is more twisted than it could have been!
+
+        if len(bases) == 0 or (len(bases) == 1 and bases[0] is object):
             bases = (PluginInterface,)
         return type.__new__(cls, name, bases, attrs)
 
     def __init__(cls, name, bases, attrs):
-
         # only executes when processing the mount point itself.
-        if not hasattr(cls, 'plugins'):
-            cls.plugins = {}
-        # called for each plugin, which already has 'plugins' list
-        else:
-            if not hasattr(cls, 'plugin_name'):
-                raise RuntimeError("Plugin class must carry a plugin_name.")
-            
-            # register, if this plugin isn't yet
-            if cls.plugin_name not in cls.plugins:
-                # add a commandline argument parser for each plugin
-                # NOTE: we don't want every plugin to preparse sys.argv
-                # so set args = ()
-                cls.parser = ArgumentParser(cls.plugin_name, 
-                                            usage=None, 
-                                            add_help=False, 
-                                            formatter_class=HelpFormatterColon)
+        # the extension mount point only declares a PluginInterface
+        # the plugins at an extension point will always be its subclass
+        
+        if cls.__bases__ == (PluginInterface, ):
+            return
 
-                # track names of classes
-                cls.plugins[cls.plugin_name] = cls
-            
-                # store as part of the algorithms namespace
-                setattr(cls.registry, cls.plugin_name, cls)
+        if not hasattr(cls, 'plugin_name'):
+            raise RuntimeError("Plugin class must carry a plugin_name.")
+        
+        # register, if this plugin isn't yet
+        if cls.plugin_name not in cls.plugins:
+            # add a commandline argument parser for each plugin
+            # NOTE: we don't want every plugin to preparse sys.argv
+            # so set args = ()
+            cls.parser = ArgumentParser(cls.plugin_name, 
+                                        usage=None, 
+                                        add_help=False, 
+                                        formatter_class=cls.help_formatter)
 
-                # try to call register class method
-                if hasattr(cls, 'register'):
-                    cls.register()
+            # track names of classes
+            cls.plugins[cls.plugin_name] = cls
+        
+            # store as part of the algorithms namespace
+            setattr(cls.registry, cls.plugin_name, cls)
 
-                # set the class documentation automatically
-                doc = cls.__doc__
-                if doc is not None:
-                    cls.__doc__ += "\n\n"+cls.parser.format_help()
-                else:
-                    cls.__doc__ = cls.parser.format_help()
+            # try to call register class method
+            if hasattr(cls, 'register'):
+                cls.register()
+
+            # set the class documentation automatically
+            doc = cls.__doc__
+            if doc is not None:
+                cls.__doc__ += "\n\n"+cls.parser.format_help()
+            else:
+                cls.__doc__ = cls.parser.format_help()
 
     def create(kls, argv): 
         """ Instantiate a plugin from this extension point,
@@ -193,6 +196,9 @@ class PluginMount(type):
         
         rt = []
         for k in kls.plugins:
+            header = "Plugin : %s  ExtensionPoint : %s" % (k, kls.__name__)
+            rt.append(header)
+            rt.append("=" * (len(header)))
             rt.append(kls.plugins[k].parser.format_help())
 
         if not len(rt):
@@ -201,7 +207,7 @@ class PluginMount(type):
             return '\n'.join(rt)
 
 # copied from six
-def add_metaclass(metaclass, registry):
+def add_metaclass(metaclass):
     """Class decorator for creating a class with a metaclass."""
     def wrapper(cls):
         orig_vars = cls.__dict__.copy()
@@ -213,11 +219,10 @@ def add_metaclass(metaclass, registry):
                 orig_vars.pop(slots_var)
         orig_vars.pop('__dict__', None)
         orig_vars.pop('__weakref__', None)
-        orig_vars['registry'] = registry
         return metaclass(cls.__name__, cls.__bases__, orig_vars)
     return wrapper
 
-@ExtensionPoint(transfers)
+@ExtensionPoint(transfers, HelpFormatterColon)
 class Transfer:
     """
     Mount point for plugins which apply a k-space transfer function
@@ -255,7 +260,7 @@ class Transfer:
     def fromstring(kls, string): 
         return kls.create(string.split(':'))
 
-@ExtensionPoint(datasources)
+@ExtensionPoint(datasources, HelpFormatterColon)
 class DataSource:
     """
     Mount point for plugins which refer to the reading of input files 
@@ -367,7 +372,7 @@ class DataSource:
 
 
 
-@ExtensionPoint(painters)
+@ExtensionPoint(painters, HelpFormatterColon)
 class Painter:
     """
     Mount point for plugins which refer to the painting of input files.
@@ -415,7 +420,7 @@ class Painter:
     def fromstring(kls, string): 
         return kls.create(string.split(':'))
 
-@ExtensionPoint(mstorages)
+@ExtensionPoint(mstorages, HelpFormatterColon)
 class MeasurementStorage:
 
     plugin_name = None
