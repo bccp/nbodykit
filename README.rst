@@ -302,13 +302,13 @@ preferred method is to use [fast-python]_ .
 
     cd nbodykit;
 
-    MPICC=cc pip install --user -r requirements .
+    MPICC=cc pip install --user -r requirements $PWD
 
     # enable python-mpi-bcast (On NERSC)
     source /project/projectdirs/m779/python-mpi/activate.sh
 
     # create the bundle
-    MPICC=cc bundle-pip nbodykit.tar.gz -r requirements.txt .
+    MPICC=cc bundle-pip nbodykit.tar.gz -r requirements.txt $PWD
 
 After these steps we can use nbodykit with a job script similar to the example below.
 
