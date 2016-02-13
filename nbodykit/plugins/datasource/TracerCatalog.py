@@ -1,0 +1,227 @@
+from nbodykit.extensionpoints import DataSource, Cosmology
+from nbodykit.extensionpoints import datasources
+
+import numpy
+import logging
+from scipy.interpolate import InterpolatedUnivariateSpline as spline
+
+logger = logging.getLogger('SurveyCatalog')
+
+def nbar_fromfile(filename):
+    """
+    Read the number density from file, returning a spline of (z, nbar)
+    """
+    import os
+    if not os.path.exists(filename):
+        raise ValueError("'%s' file for reading nbar does not exist")
+    
+    # assumes two columns: (z, nbar)
+    d = numpy.loadtxt(filename)
+    return InterpolatedUnivariateSpline(d[:,0], d[:,1])
+ 
+class TracerCatalogDataSource(DataSource):
+    """
+    A `DataSource` to represent a catalog of tracer objects, measured
+    in an observational survey, with a non-trivial selection function. 
+    
+    The key aspects of a `TracerCatalog` are:
+    
+        * data: 
+            a `RaDecRedshift` DataSource that reads the (ra, dec, z)
+            of the true tracer objects, whose intrinsic clustering 
+            is non-zero
+        * randoms: 
+            a `RaDecRedshift` DataSource that reads the (ra, dec, z)
+            of a catalog of objects generated randomly to match the
+            survey geometry and whose instrinsic clustering is zero   
+    """
+    plugin_name = "TracerCatalog"
+            
+    @classmethod
+    def register(kls):
+        
+        h = kls.parser
+        
+        # required arguments
+        h.add_argument("data", type=datasources.RaDecRedshift.fromstring, 
+            help="DataSource representing the `data` catalog")
+        h.add_argument("randoms", type=datasources.RaDecRedshift.fromstring, 
+            help="DataSource representing the `randoms` catalog")
+        h.add_argument("cosmo", type=Cosmology.fromstring, 
+            help='the cosmology used to convert (ra,dec,z) to cartesian coordinates')
+            
+        # optional arguments
+        h.add_argument("-BoxSize", type=kls.BoxSizeParser,
+            help="the size of the isotropic box, or the sizes of the 3 box dimensions")
+        h.add_argument('-boxpad', type=float, default=0.02, 
+            help='when setting the box size automatically, apply this additional buffer')
+        h.add_argument('-compute_fkp_weights', action='store_true', 
+            help='if set, use FKP weights, computed from `P0_fkp` and the provided `nbar`') 
+        h.add_argument('-P0_fkp', type=float,
+            help='the fiducial power value `P0` used to compute FKP weights')
+        h.add_argument('-nbar', type=nbar_fromfile,
+            help='read `nbar(z)` from this file, which provides two columns (z, nbar)')
+        h.add_argument('-fsky', type=float, 
+            help='the sky area fraction of the tracer catalog, used in the volume calculation of `nbar`')
+        
+      
+    def finalize_attributes(self):
+        """
+        Finalize the attributes by computing the necessary box translations, 
+        and if needed, automatically setting the `BoxSize`
+        """
+        # sample the cosmology's comoving distance
+        self.cosmo.sample('comoving_distance', numpy.logspace(-5, 1, 1024))
+        
+        # get (ra, dec, z) and any weights from randoms
+        [coords_r] = self.randoms.readall(['Position'])
+        [coords_d] = self.data.readall(['Position'])
+        
+        # setup the box, using randoms to define it
+        self._define_box(coords_r)
+        
+        # compute the number density from the randoms
+        self._set_nbar(coords_r[:,-1], alpha=1.*len(coords_d)/len(coords_r))
+        
+        # source is None by default
+        self._source = None
+        
+    def _define_box(self, coords):
+        """
+        Define the Cartesian box to hold the tracers by:
+        
+            * computing the Cartesian coordinates for all objects
+            * centering the data into the first Cartesian quadrant
+            * setting the `BoxSize` attribute, if not provided
+        """
+        # cartesian coordinates (with no translation)
+        pos = self._to_cartesian(coords)
+        
+        # center the data in the first cartesian quadrant
+        self.translate = numpy.zeros(3)
+        delta = numpy.zeros(3)
+        for i, coord in enumerate(pos.T):
+            minval = coord.min()
+            delta[i] = abs(coord.max() - minval)
+            self.translate[i] = abs(minval) + 0.5*self.boxpad*delta[i]
+        
+        # set the box size automatically
+        if self.BoxSize is None:
+            delta *= 1.0 + self.boxpad
+            self.BoxSize = delta.astype(int)
+        else:
+            # print warnings if provided box size misses particles
+            for i, L in enumerate(self.BoxSize):
+                out_of_range = ((pos[:,i] < 0.)|(pos[:,i] > L)).sum()
+                if out_of_range:
+                    args = (L, i, out_of_range)
+                    logger.warning("with L = %.4f in dimension %d, %d objects are out of range" %args)
+                    
+        
+    def _to_cartesian(self, coords, translate=[0.,0.,0.]):
+        """
+        Convert the (ra, dec, z) coordinates to cartesian coordinates
+         
+            * uses `self.cosmo` to compute comoving distances
+            * optionally, translate the cartesian grid by the vector `translate`
+        """
+        ra, dec, redshift = coords.T
+        r = self.cosmo.comoving_distance(redshift)
+        x = r*numpy.cos(ra)*numpy.cos(dec)
+        y = r*numpy.sin(ra)*numpy.cos(dec)
+        z = r*numpy.sin(dec)
+        return numpy.vstack([x,y,z]).T + translate
+        
+    def _set_nbar(self, redshift, alpha=1.0):
+        """
+        Determine the spline used to compute `nbar`
+        """
+        # if spline already exists, do nothing
+        if self.nbar is not None:
+            return 
+            
+        if self.fsky is None:
+            raise ValueError("please specify `fsky` to compute volume needed for `nbar`")
+        
+        def scotts_bin_width(data):
+            """
+            Return the optimal histogram bin width using Scott's rule
+            """
+            n = data.size
+            sigma = numpy.std(data)
+            dx = 3.5 * sigma * 1. / (n ** (1. / 3))
+            
+            Nbins = numpy.ceil((data.max() - data.min()) * 1. / dx)
+            Nbins = max(1, Nbins)
+            bins = data.min() + dx * numpy.arange(Nbins + 1)
+            return dx, bins
+        
+        # do the histogram of N(z)
+        dz, zbins = scotts_bin_width(redshift)
+        dig = numpy.searchsorted(zbins, redshift, "right")
+        N = numpy.bincount(dig, minlength=len(zbins)+1)[1:-1]
+        
+        # compute the volume
+        R_hi = self.cosmo.comoving_distance(zbins[1:])
+        R_lo = self.cosmo.comoving_distance(zbins[:-1])
+        volume = (4./3.)*numpy.pi*(R_hi**3 - R_lo**3) * self.fsky
+        
+        # store the nbar 
+        z_cen = 0.5*(zbins[:-1] + zbins[1:])
+        self.nbar = spline(z_cen, alpha*N/volume)
+            
+    def set_source(self, which):
+        """
+        Set the `source` point to either `data` or `randoms`, such
+        that when `readall` is called, the results for that
+        source are returned
+        
+        Set to `None` by default to remind the user to set it
+        """
+        if which == 'data':
+            self._source = self.data
+        elif which == 'randoms':
+            self._source = self.randoms
+        else:
+            raise NotImplementedError("'source' must be set to either `data` or `randoms`")
+        
+    def readall(self, columns):
+        """
+        Read data from `source` by calling the `readall` function
+        """
+        # need to know which source to return from
+        if self._source is None:
+            raise ValueError("set `source` attribute to `data` or `randoms` by calling `set_source`")
+            
+        # check valid columns
+        valid = ['Position', 'Weight', 'Nbar']
+        if any(col not in valid for col in columns):
+            args = (self.__class__.__name__, str(valid))
+            raise ValueError("valid `columns` to read from %s: %s" %args)
+            
+        # read (ra,dec,z) and weights and convert to cartesian
+        [coords, weight] = self._source.readall(['Position', 'Weight'])
+        pos = self._to_cartesian(coords, translate=self.translate)
+        
+        # number density from redshift
+        nbar = self.nbar(coords[:,-1])
+        
+        # update the weights with new FKP
+        if self.compute_fkp_weights:
+            if self.P0_fkp is None:
+                raise ValueError("if 'compute_fkp_weights' is set, please specify a value for 'P0_fkp'")
+            weight = 1. / (1. + nbar*self.P0_fkp)
+            
+        P = {}
+        
+        P['Position'] = pos
+        P['Weight']   = weight
+        P['Nbar']     = nbar
+        return [P[key] for key in columns]
+            
+    @classmethod
+    def fromstring(cls, string):
+        args = string.split("::")
+        return cls.create([cls.plugin_name] + args)
+
+

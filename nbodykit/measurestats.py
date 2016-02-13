@@ -1,6 +1,7 @@
 import numpy
 from mpi4py import MPI
 import logging
+from nbodykit.extensionpoints import Painter, Transfer
 
 logger = logging.getLogger('measurestats')
 
@@ -88,6 +89,145 @@ def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
     p3d[...] *= pm.BoxSize.prod() 
                 
     return p3d, stats_1, stats_2
+    
+def compute_bianchi_poles(datasource, pm, comm=None, log_level=logging.DEBUG):
+    """
+    Compute and return the 3D power from two input fields
+    
+    Parameters
+    ----------
+    fields : list of (``DataSource``, ``Painter``, ``Transfer``) tuples
+        the list of fields which the 3D power will be computed
+        
+    pm : ``ParticleMesh``
+        particle mesh object that does the painting
+                
+    comm : MPI.Communicator, optional
+        the communicator to pass to the ``ParticleMesh`` object. If not
+        provided, ``MPI.COMM_WORLD`` is used
+        
+    log_level : int, optional
+        logging level to use while computing. Default is ``logging.DEBUG``
+        which has numeric value of `10`
+    
+    Returns
+    -------
+    p3d : array_like (real)
+        the 3D power spectrum, corresponding to the gridded input fields
+        
+    N1 : int
+        the total number of objects in the 1st field
+        
+    N2 : int
+        the total number of objects in the 2nd field (equal to N1 if 
+        only one input field specified)
+    """
+    def bianchi_transfer(data, x, i, j, k=None):
+        """
+        Transfer functions necessary to compute the power spectrum  
+        multipoles via FFTs
+        
+        See equations 10 (for quadrupole) and 12 (for hexadecapole)
+        of Bianchi et al 2015.
+        """
+        # do the calculations on y-z planes to save memory
+        for islab in range(len(x[0])):
+        
+            # compute x**2
+            norm = numpy.float64(x[0][islab] ** 2)
+            for xi in x[1:]:
+                norm = norm + xi[0] ** 2
+            
+            # get x_i, x_j
+            # if i == 'x' direction, it's just one value
+            xi = x[i][islab] if i == 0 else x[i]
+            xj = x[j][islab] if j == 0 else x[j]
+        
+            # multiply the kernel
+            with numpy.errstate(invalid='ignore'):
+                if k is not None:
+                    xk = x[k][islab] if k == 0 else x[k]
+                    data[islab] = data[islab] * xi**2 * xj * xk
+                    idx = norm != 0.
+                    data[islab][idx] /= norm[idx]**2
+            
+                else:
+                    data[islab] = data[islab] * xi * xj
+                    idx = norm != 0.
+                    data[islab][idx] /= norm[idx]
+                    
+    # some setup
+    rank = comm.rank if comm is not None else MPI.COMM_WORLD.rank
+    if log_level is not None: logger.setLevel(log_level)
+    
+    # get the datasource, painter, and transfer
+    painter = Painter.fromstring('FKPPainter')
+    transfer = [Transfer.fromstring('AnisotropicCIC')]
+
+    # quadrupole kernels
+    A2_kernels = [(0, 0) , (1, 1), (2, 2), (0, 1), (0, 2), (1, 2)]
+    A2_amps = [1.]*3 + [2.]*3
+    
+    # hexadecapole kernels
+    A4_kernels = [(0, 0, 0), (1, 1, 1), (2, 2, 2), (0, 0, 1), (0, 0, 2),
+                  (1, 1, 0), (1, 1, 2), (2, 2, 0), (2, 2, 1), (0, 1, 1),
+                  (0, 2, 2), (1, 2, 2), (0, 1, 2), (1, 0, 2), (2, 0, 1)]
+    A4_amps = [1.]*3 + [4.]*6 + [6.]*3 + [12.]*3
+    
+    amps = [A2_amps, A4_amps]
+    kernels = [A2_kernels, A4_kernels]
+
+    # paint once and save the density
+    stats = painter.paint(pm, datasource)
+    density = pm.real.copy()
+    if rank == 0: logger.info('painting done')
+    
+    # compute the monopole, A0(k)
+    A0 = numpy.zeros_like(pm.complex)
+    pm.r2c()
+    pm.transfer(transfer)
+    A0[:] += pm.complex[:]
+    if rank == 0: logger.info('monopole done; 1 r2c completed')
+    
+    # compute the quadrupole and hexadeca A2(k)
+    A2 = numpy.zeros_like(pm.complex)
+    A4 = numpy.zeros_like(pm.complex)
+    
+    for i, (d, name) in enumerate(zip([A2, A4], ['quadrupole', 'hexadecapole'])):
+        
+        for j, (amp, integers) in enumerate(zip(amps[i], kernels[i])):
+        
+            # reset the 'real' array to the original painted density
+            if i > 0 or j > 0: pm.real[:] = density[:]
+        
+            # apply the real-space transfer
+            bianchi_transfer(pm.real, pm.x, *integers)
+        
+            # do the FT and apply the k-space kernel
+            pm.r2c()
+            bianchi_transfer(pm.complex, pm.k, *integers)
+            pm.transfer(transfer)
+        
+            # and save
+            d[:] += amp*pm.complex[:]
+        if rank == 0: logger.info('%s done; %s r2c completed' %(name, j))
+    
+    # reuse the memory in A* for the output multipoles
+    P0 = A0
+    P2 = A2
+    P4 = A4
+    
+    # proper normalization: A_ran from equation 
+    norm = pm.BoxSize.prod()**2 / stats['A_ran']
+    
+    # calculate the multipoles, islab by islab to save memory
+    # see equations 6-8 of Bianchi et al. 2015
+    for islab in range(len(A0)):
+        P4[islab, ...] = norm * 9./8 * A0[islab] * (35.*A4[islab].conj() - 30.*A2[islab].conj() + 3.*A0[islab].conj())
+        P2[islab, ...] = norm * 5./2 * A0[islab] * (3.*A2[islab].conj() - A0[islab].conj())
+        P0[islab, ...] = norm * A0[islab] * A0[islab].conj()
+                        
+    return [P0, P2, P4], stats
 
 
 def compute_brutal_corr(datasources, rbins, Nmu=0, comm=None, subsample=1, los='z', poles=[]):
