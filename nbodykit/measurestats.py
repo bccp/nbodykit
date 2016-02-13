@@ -46,7 +46,7 @@ def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
     transfers   = [t for d, p, t in fields]
         
     # paint, FT field and filter field #1
-    N1 = painters[0].paint(pm, datasources[0])
+    stats_1 = painters[0].paint(pm, datasources[0])
     if rank == 0: logger.info('painting done')
     pm.r2c()
     if rank == 0: logger.info('r2c done')
@@ -63,7 +63,7 @@ def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
         c1 = pm.complex.copy()
         
         # paint, FT, and filter field #2
-        N2 = painters[1].paint(pm, datasources[1])
+        stats_2 = painters[1].paint(pm, datasources[1])
         if rank == 0: logger.info('painting 2 done')
         pm.r2c()
         if rank == 0: logger.info('r2c 2 done')
@@ -74,7 +74,7 @@ def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
     else:
         c1 = pm.complex
         c2 = pm.complex
-        N2 = N1
+        stats_2 = stats_1
 
     # reuse the memory in c1.real for the 3d power spectrum
     p3d = c1
@@ -87,7 +87,7 @@ def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
     # ref to http://icc.dur.ac.uk/~tt/Lectures/UA/L4/cosmology.pdf
     p3d[...] *= pm.BoxSize.prod() 
                 
-    return p3d, N1, N2
+    return p3d, stats_1, stats_2
 
 
 def compute_brutal_corr(datasources, rbins, Nmu=0, comm=None, subsample=1, los='z', poles=[]):
