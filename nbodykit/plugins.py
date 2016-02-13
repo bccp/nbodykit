@@ -61,7 +61,7 @@ class ArgumentParser(BaseArgumentParser):
         BaseArgumentParser.__init__(self, name, *largs, **kwargs)
 
         # parse -X on cmdline or search config file for -X options
-        self.add_argument("-X", type=load, action="append")
+        self.add_argument("-X", type=load, action="append", help="Add a directory or file for looking up plugins.")
         self.add_argument('-c', '--config', type=str, 
                             help='the name of the file to read parameters from, using YAML syntax')
 
