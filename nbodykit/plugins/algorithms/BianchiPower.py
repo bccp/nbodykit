@@ -46,11 +46,7 @@ class BianchiPowerAlgorithm(Algorithm):
         """
         from nbodykit import measurestats
         from pmesh.particlemesh import ParticleMesh
-        import pickle
-        
-        self.mode = '1d'
-        self.Nmu = 1
-        
+                
         self.logger.setLevel(self.log_level)
         if self.comm.rank == 0: self.logger.info('importing done')
 
