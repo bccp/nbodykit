@@ -14,22 +14,24 @@ class FKPPainter(Painter):
     def paint(self, pm, datasource):
 
         # setup
+        pm.clear()
         columns = ['Position', 'Weight', 'Nbar']
         stats = {}
+        stats['A_ran'] = 0.; stats['A_data'] = 0.
+        stats['S_ran'] = 0.; stats['S_data'] = 0.
         
         # paint the randoms
-        randoms_density = numpy.zeros_like(pm.real)
-        
         datasource.set_source('randoms')
         for [position, weight, nbar] in self.read_and_decompose(pm, datasource, columns, stats):
             pm.paint(position, weight)
-            randoms_density[:] += pm.real[:]
-            
-            # see equations 13-15 of Beutler et al 2013
-            stats['A_ran'] = (nbar*weight**2).sum()
-            stats['S_ran'] = (weight**2).sum()
-            
-        Nran = stats.pop('Ntot')
+        
+        # copy and store the randoms
+        randoms_density = pm.real.copy()
+        
+        # get the random stats (see equations 13-15 of Beutler et al 2013)
+        N_ran = stats.pop('Ntot') # total number 
+        A_ran = stats.pop('A') # normalization
+        S_ran = stats.pop('S') # shot noise parameter 
         
         # paint the data
         pm.clear()
@@ -37,22 +39,23 @@ class FKPPainter(Painter):
         for [position, weight, nbar] in self.read_and_decompose(pm, datasource, columns, stats):
             pm.paint(position, weight)
             
-            # see equations 13-15 of Beutler et al 2013
-            stats['A_data'] = (nbar*weight**2).sum()
-            stats['S_data'] = (weight**2).sum()
-            
-        Ndata = stats.pop('Ntot')
+        # data stats
+        N_data = stats.pop('Ntot') # total number
+        A_data = stats.pop('A') # normalization
+        S_data = stats.pop('S') # shot noise parameter
         
         # FKP weighted density is n_data - alpha*n_ran
-        alpha = 1. * Ndata / Nran
+        alpha = 1. * N_data / N_ran
         pm.real[:] -= alpha*randoms_density[:]
         
-        # store some more metadata
+        # store the metadata
+        stats['N_data'] = N_data; stats['N_ran'] = N_ran
+        stats['A_data'] = A_data; stats['A_ran'] = A_ran
+        stats['S_data'] = S_data; stats['S_ran'] = S_ran
+        stats['alpha'] = alpha
+        
         stats['A_ran'] *= alpha
         stats['S_ran'] *= alpha**2
-        stats['N_data'] = Ndata
-        stats['N_ran'] = Nran
-        stats['alpha'] = alpha
         
         return stats
             

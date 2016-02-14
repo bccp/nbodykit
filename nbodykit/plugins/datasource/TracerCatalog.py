@@ -228,6 +228,10 @@ class TracerCatalogDataSource(DataSource):
             args = (self.__class__.__name__, str(valid))
             raise ValueError("valid `columns` to read from %s: %s" %args)
             
+        # compute normalization A and shot noise S
+        stats['A'] = 0.
+        stats['S'] = 0.
+        
         # read (ra,dec,z) and weights and convert to cartesian
         for [coords, weight] in self._source.read(['Position', 'Weight'], stats, full=full):
             
@@ -248,13 +252,20 @@ class TracerCatalogDataSource(DataSource):
                 P['Position'] = pos
                 P['Weight']   = weight
                 P['Nbar']     = nbar
-                data = [P[key] for key in columns]
-                shape_and_dtype = [(d.shape, d.dtype) for d in data]
                 
+                data = [P[key] for key in columns]        
+                shape_and_dtype = [(d.shape, d.dtype) for d in data]
+        
+                # see equations 13-15 of Beutler et al 2013
+                A = (nbar*weight**2).sum()
+                S = (weight**2).sum()
             else:
                 shape_and_dtype = None
+                A = None; S = None
                 
             shape_and_dtype = self.comm.bcast(shape_and_dtype)
+            stats['A'] += self.comm.bcast(A)
+            stats['S'] += self.comm.bcast(S)
 
             if self.comm.rank != 0:
                 data = [
