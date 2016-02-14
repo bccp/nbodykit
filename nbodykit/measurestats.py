@@ -130,30 +130,25 @@ def compute_bianchi_poles(datasource, pm, comm=None, log_level=logging.DEBUG):
         See equations 10 (for quadrupole) and 12 (for hexadecapole)
         of Bianchi et al 2015.
         """
-        # do the calculations on y-z planes to save memory
-        for islab in range(len(x[0])):
+        # compute x**2
+        norm = sum(xi ** 2 for xi in x)
         
-            # compute x**2
-            norm = numpy.float64(x[0][islab] ** 2)
-            for xi in x[1:]:
-                norm = norm + xi[0] ** 2
-            
-            # get x_i, x_j
-            # if i == 'x' direction, it's just one value
-            xi = x[i][islab] if i == 0 else x[i][0]
-            xj = x[j][islab] if j == 0 else x[j][0]
+        # get x_i, x_j
+        # if i == 'x' direction, it's just one value
+        xi = x[i]
+        xj = x[j]
 
-            # multiply the kernel
-            if k is not None:
-                xk = x[k][islab] if k == 0 else x[k][0]
-                data[islab] = data[islab] * xi**2 * xj * xk
-                idx = norm != 0.
-                data[islab, idx] /= norm[idx]**2
-                
-            else:
-                data[islab] = data[islab] * xi * xj
-                idx = norm != 0.
-                data[islab, idx] /= norm[idx]
+        # multiply the kernel
+        if k is not None:
+            xk = x[k]
+            data[:] *= xi**2 * xj * xk
+            idx = norm != 0.
+            data[idx] /= norm[idx]**2
+            
+        else:
+            data[:] *= xi * xj
+            idx = norm != 0.
+            data[idx] /= norm[idx]
                     
     # some setup
     rank = comm.rank if comm is not None else MPI.COMM_WORLD.rank
@@ -201,7 +196,7 @@ def compute_bianchi_poles(datasource, pm, comm=None, log_level=logging.DEBUG):
         
             # apply the real-space transfer
             bianchi_transfer(pm.real, pm.x, *integers)
-        
+                        
             # do the FT and apply the k-space kernel
             pm.r2c()
             bianchi_transfer(pm.complex, pm.k, *integers)
@@ -210,9 +205,7 @@ def compute_bianchi_poles(datasource, pm, comm=None, log_level=logging.DEBUG):
             # and save
             d[:] += amp*pm.complex[:]
         if rank == 0: logger.info('%s done; %s r2c completed' %(name, j))
-    
-    print A2, A4
-    
+        
     # reuse the memory in A* for the output multipoles
     P0 = A0
     P2 = A2
@@ -228,6 +221,7 @@ def compute_bianchi_poles(datasource, pm, comm=None, log_level=logging.DEBUG):
         P2[islab, ...] = norm * 5./2 * A0[islab] * (3.*A2[islab].conj() - A0[islab].conj())
         P0[islab, ...] = norm * A0[islab] * A0[islab].conj()
                         
+    print P2
     return [P0, P2, P4], stats
 
 
