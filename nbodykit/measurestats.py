@@ -195,11 +195,11 @@ def compute_bianchi_poles(datasource, pm, comm=None, log_level=logging.DEBUG):
             pm.real[:] = density[:]
         
             # apply the real-space transfer
-            bianchi_transfer(pm.real, pm.r, *integers)
+            bianchi_transfer(pm.real, pm.x, *integers)
                         
             # do the FT and apply the k-space kernel
             pm.r2c()
-            bianchi_transfer(pm.complex, pm.w, *integers)
+            bianchi_transfer(pm.complex, pm.k, *integers)
             pm.transfer(transfer)
         
             # and save
