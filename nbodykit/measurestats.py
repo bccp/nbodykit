@@ -142,19 +142,19 @@ def compute_bianchi_poles(datasource, pm, comm=None, log_level=logging.DEBUG):
             # if i == 'x' direction, it's just one value
             xi = x[i][islab] if i == 0 else x[i]
             xj = x[j][islab] if j == 0 else x[j]
-        
+
             # multiply the kernel
-            with numpy.errstate(invalid='ignore'):
-                if k is not None:
-                    xk = x[k][islab] if k == 0 else x[k]
-                    data[islab] = data[islab] * xi**2 * xj * xk
-                    idx = norm != 0.
-                    data[islab][idx] /= norm[idx]**2
-            
-                else:
-                    data[islab] = data[islab] * xi * xj
-                    idx = norm != 0.
-                    data[islab][idx] /= norm[idx]
+            if k is not None:
+                xk = x[k][islab] if k == 0 else x[k]
+                data[islab] = data[islab] * xi**2 * xj * xk
+                
+                idx = norm != 0.
+                data[islab, idx] /= norm[idx]**2 # remove with 
+                
+            else:
+                data[islab] = data[islab] * xi * xj
+                idx = norm != 0.
+                data[islab, idx] /= norm[idx]
                     
     # some setup
     rank = comm.rank if comm is not None else MPI.COMM_WORLD.rank
@@ -198,7 +198,7 @@ def compute_bianchi_poles(datasource, pm, comm=None, log_level=logging.DEBUG):
         for j, (amp, integers) in enumerate(zip(amps[i], kernels[i])):
         
             # reset the 'real' array to the original painted density
-            if i > 0 or j > 0: pm.real[:] = density[:]
+            pm.real[:] = density[:]
         
             # apply the real-space transfer
             bianchi_transfer(pm.real, pm.x, *integers)
