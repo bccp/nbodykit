@@ -195,11 +195,11 @@ def compute_bianchi_poles(datasource, pm, comm=None, log_level=logging.DEBUG):
             pm.real[:] = density[:]
         
             # apply the real-space transfer
-            bianchi_transfer(pm.real, pm.x, *integers)
+            bianchi_transfer(pm.real, pm.r, *integers)
                         
             # do the FT and apply the k-space kernel
             pm.r2c()
-            bianchi_transfer(pm.complex, pm.k, *integers)
+            bianchi_transfer(pm.complex, pm.w, *integers)
             pm.transfer(transfer)
         
             # and save
@@ -220,8 +220,7 @@ def compute_bianchi_poles(datasource, pm, comm=None, log_level=logging.DEBUG):
         P4[islab, ...] = norm * 9./8 * A0[islab] * (35.*A4[islab].conj() - 30.*A2[islab].conj() + 3.*A0[islab].conj())
         P2[islab, ...] = norm * 5./2 * A0[islab] * (3.*A2[islab].conj() - A0[islab].conj())
         P0[islab, ...] = norm * A0[islab] * A0[islab].conj()
-                        
-    print P2
+
     return [P0, P2, P4], stats
 
 

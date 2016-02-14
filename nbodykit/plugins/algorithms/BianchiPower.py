@@ -54,14 +54,13 @@ class BianchiPowerAlgorithm(Algorithm):
         pm = ParticleMesh(self.input.BoxSize, self.Nmesh, dtype='f4', comm=self.comm)
 
         # measure
-        fields = [(self.input, Painter.fromstring('FKPPainter'), [Transfer.fromstring('AnisotropicCIC')])]
-        poles, meta  = measurestats.compute_bianchi_poles(self.input, pm, comm=self.comm, log_level=self.log_level)
+        poles, meta = measurestats.compute_bianchi_poles(self.input, pm, comm=self.comm, log_level=self.log_level)
         k3d = pm.k
 
         # binning in k out to the minimum nyquist frequency
         # (accounting for possibly anisotropic box)
         dk = 2*numpy.pi/pm.BoxSize.min() if self.dk is None else self.dk
-        kedges = numpy.arange(self.kmin, numpy.pi*pm.Nmesh/pm.BoxSize.min() + dk/2, dk)
+        kedges = numpy.arange(self.kmin, numpy.pi*pm.Nmesh/pm.BoxSize.max() + dk/2, dk)
 
         # project on to 1d k basis
         muedges = numpy.linspace(0, 1, 2, endpoint=True)
