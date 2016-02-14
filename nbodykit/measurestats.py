@@ -140,16 +140,15 @@ def compute_bianchi_poles(datasource, pm, comm=None, log_level=logging.DEBUG):
             
             # get x_i, x_j
             # if i == 'x' direction, it's just one value
-            xi = x[i][islab] if i == 0 else x[i]
-            xj = x[j][islab] if j == 0 else x[j]
+            xi = x[i][islab] if i == 0 else x[i][0]
+            xj = x[j][islab] if j == 0 else x[j][0]
 
             # multiply the kernel
             if k is not None:
-                xk = x[k][islab] if k == 0 else x[k]
+                xk = x[k][islab] if k == 0 else x[k][0]
                 data[islab] = data[islab] * xi**2 * xj * xk
-                
                 idx = norm != 0.
-                data[islab, idx] /= norm[idx]**2 # remove with 
+                data[islab, idx] /= norm[idx]**2
                 
             else:
                 data[islab] = data[islab] * xi * xj
@@ -211,6 +210,8 @@ def compute_bianchi_poles(datasource, pm, comm=None, log_level=logging.DEBUG):
             # and save
             d[:] += amp*pm.complex[:]
         if rank == 0: logger.info('%s done; %s r2c completed' %(name, j))
+    
+    print A2, A4
     
     # reuse the memory in A* for the output multipoles
     P0 = A0
