@@ -1,6 +1,7 @@
 from nbodykit.extensionpoints import DataSource, Cosmology
 from nbodykit.extensionpoints import datasources
 
+from mpi4py import MPI
 import numpy
 import logging
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
@@ -70,40 +71,68 @@ class TracerCatalogDataSource(DataSource):
         Finalize the attributes by computing the necessary box translations, 
         and if needed, automatically setting the `BoxSize`
         """
-        # sample the cosmology's comoving distance
-        self.cosmo.sample('comoving_distance', numpy.logspace(-5, 1, 1024))
-        
-        # get (ra, dec, z) and any weights from randoms
-        [coords_r] = self.randoms.readall(['Position'])
-        [coords_d] = self.data.readall(['Position'])
-        
-        # setup the box, using randoms to define it
-        self._define_box(coords_r)
-        
-        # compute the number density from the randoms
-        self._set_nbar(coords_r[:,-1], alpha=1.*len(coords_d)/len(coords_r))
-        
         # source is None by default
         self._source = None
+
+        # sample the cosmology's comoving distance
+        self.cosmo.sample('comoving_distance', numpy.logspace(-5, 1, 1024))
+    
+        # read the data to find total number
+        data_stats = {}
+        for result in self.data.read(['Position'], data_stats, full=False):
+            continue
+        N_data = data_stats['Ntot']
         
-    def _define_box(self, coords):
+        redshifts = []
+        randoms_stats = {}
+        self.translate = None
+        
+        # need to compute cartesian min/max
+        coords_min = numpy.array([numpy.inf]*3)
+        coords_max = numpy.array([-numpy.inf]*3)
+        
+        # now loop over the randoms
+        for [coords] in self.data.read(['Position'], randoms_stats, full=False):
+            
+            if self.comm.rank == 0:
+                # get the global min/max of cartesian
+                cartesian = self._to_cartesian(coords)
+                coords_min = numpy.minimum(coords_min, cartesian.min(axis=0))
+                coords_max = numpy.maximum(coords_max, cartesian.max(axis=0))
+                
+                # store the redshifts
+                redshifts += list(coords[:,-1])
+        N_ran = randoms_stats['Ntot']
+        
+        if self.comm.rank == 0:
+            
+            # setup the box, using randoms to define it
+            self._define_box(coords_min, coords_max)
+    
+            # compute the number density from the randoms
+            self._set_nbar(numpy.array(redshifts), alpha=1.*N_data/N_ran)
+            
+        # broadcast the results that rank 0 computed
+        self.BoxSize   = self.comm.bcast(self.BoxSize)
+        self.translate = self.comm.bcast(self.translate)
+        self.nbar      = self.comm.bcast(self.nbar)
+        
+        if self.comm.rank == 0:
+            logger.info("cartesian BoxSize = %s" %str(self.BoxSize))
+            logger.info("cartesian coordinate translation = %s" %str(self.translate))
+        
+    def _define_box(self, coords_min, coords_max):
         """
         Define the Cartesian box to hold the tracers by:
         
             * computing the Cartesian coordinates for all objects
             * centering the data into the first Cartesian quadrant
             * setting the `BoxSize` attribute, if not provided
-        """
-        # cartesian coordinates (with no translation)
-        pos = self._to_cartesian(coords)
-        
+        """        
         # center the data in the first cartesian quadrant
         self.translate = numpy.zeros(3)
-        delta = numpy.zeros(3)
-        for i, coord in enumerate(pos.T):
-            minval = coord.min()
-            delta[i] = abs(coord.max() - minval)
-            self.translate[i] = abs(minval) + 0.5*self.boxpad*delta[i]
+        delta = abs(coords_max - coords_min)
+        self.translate = abs(coords_min) + 0.5*self.boxpad*delta
         
         # set the box size automatically
         if self.BoxSize is None:
@@ -185,7 +214,7 @@ class TracerCatalogDataSource(DataSource):
         else:
             raise NotImplementedError("'source' must be set to either `data` or `randoms`")
         
-    def readall(self, columns):
+    def read(self, columns, stats, full=False):
         """
         Read data from `source` by calling the `readall` function
         """
@@ -200,24 +229,40 @@ class TracerCatalogDataSource(DataSource):
             raise ValueError("valid `columns` to read from %s: %s" %args)
             
         # read (ra,dec,z) and weights and convert to cartesian
-        [coords, weight] = self._source.readall(['Position', 'Weight'])
-        pos = self._to_cartesian(coords, translate=self.translate)
-        
-        # number density from redshift
-        nbar = self.nbar(coords[:,-1])
-        
-        # update the weights with new FKP
-        if self.compute_fkp_weights:
-            if self.P0_fkp is None:
-                raise ValueError("if 'compute_fkp_weights' is set, please specify a value for 'P0_fkp'")
-            weight = 1. / (1. + nbar*self.P0_fkp)
+        for [coords, weight] in self._source.read(['Position', 'Weight'], stats, full=full):
             
-        P = {}
+            if self.comm.rank == 0:
+                # cartesian
+                pos = self._to_cartesian(coords, translate=self.translate)
         
-        P['Position'] = pos
-        P['Weight']   = weight
-        P['Nbar']     = nbar
-        return [P[key] for key in columns]
+                # number density from redshift
+                nbar = self.nbar(coords[:,-1])
+        
+                # update the weights with new FKP
+                if self.compute_fkp_weights:
+                    if self.P0_fkp is None:
+                        raise ValueError("if 'compute_fkp_weights' is set, please specify a value for 'P0_fkp'")
+                    weight = 1. / (1. + nbar*self.P0_fkp)
+                    
+                P = {}
+                P['Position'] = pos
+                P['Weight']   = weight
+                P['Nbar']     = nbar
+                data = [P[key] for key in columns]
+                shape_and_dtype = [(d.shape, d.dtype) for d in data]
+                
+            else:
+                shape_and_dtype = None
+                
+            shape_and_dtype = self.comm.bcast(shape_and_dtype)
+
+            if self.comm.rank != 0:
+                data = [
+                    numpy.empty(0, dtype=(dtype, shape[1:]))
+                    for shape,dtype in shape_and_dtype
+                ]
+            yield data
+
             
     @classmethod
     def fromstring(cls, string):
