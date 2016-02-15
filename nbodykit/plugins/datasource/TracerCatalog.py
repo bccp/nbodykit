@@ -25,7 +25,7 @@ class TracerCatalogDataSource(DataSource):
     A `DataSource` to represent a catalog of tracer objects, measured
     in an observational survey, with a non-trivial selection function. 
     
-    The key aspects of a `TracerCatalog` are:
+    The key attributes of a `TracerCatalog` are:
     
         * data: 
             a `RaDecRedshift` DataSource that reads the (ra, dec, z)
@@ -34,7 +34,9 @@ class TracerCatalogDataSource(DataSource):
         * randoms: 
             a `RaDecRedshift` DataSource that reads the (ra, dec, z)
             of a catalog of objects generated randomly to match the
-            survey geometry and whose instrinsic clustering is zero   
+            survey geometry and whose instrinsic clustering is zero
+        * BoxSize:
+            
     """
     plugin_name = "TracerCatalog"
             
@@ -68,8 +70,16 @@ class TracerCatalogDataSource(DataSource):
       
     def finalize_attributes(self):
         """
-        Finalize the attributes by computing the necessary box translations, 
-        and if needed, automatically setting the `BoxSize`
+        Finalize the attributes by performing several steps:
+        
+            1. if `BoxSize` not provided on the command-line, 
+               infer the value from the Cartesian coordinates of
+               the `randoms` catalog
+            2. compute the mean coordinate offset for each 
+               Cartesian dimension -- used to re-center the 
+               coordinates to the [-BoxSize/2, BoxSize/2] domain
+            3. compute the number density as a function of redshift
+               from the `randoms` and store a spline
         """
         # source is None by default
         self._source = None
@@ -91,11 +101,11 @@ class TracerCatalogDataSource(DataSource):
         coords_min = numpy.array([numpy.inf]*3)
         coords_max = numpy.array([-numpy.inf]*3)
         
-        # now loop over the randoms
+        # now loop over the randoms and determine min/max and get the redshifts
         for [coords] in self.data.read(['Position'], randoms_stats, full=False):
             
+            # get the global min/max of cartesian
             if self.comm.rank == 0:
-                # get the global min/max of cartesian
                 cartesian = self._to_cartesian(coords)
                 coords_min = numpy.minimum(coords_min, cartesian.min(axis=0))
                 coords_max = numpy.maximum(coords_max, cartesian.max(axis=0))
@@ -104,6 +114,7 @@ class TracerCatalogDataSource(DataSource):
                 redshifts += list(coords[:,-1])
         N_ran = randoms_stats['Ntot']
         
+        # only rank zero does the work, then broadcast
         if self.comm.rank == 0:
             
             # setup the box, using randoms to define it
@@ -118,25 +129,33 @@ class TracerCatalogDataSource(DataSource):
         self.nbar      = self.comm.bcast(self.nbar)
         
         if self.comm.rank == 0:
-            logger.info("cartesian BoxSize = %s" %str(self.BoxSize))
-            logger.info("cartesian box offset = %s" %str(self.offset))
+            logger.info("BoxSize = %s" %str(self.BoxSize))
+            logger.info("cartesian coordinate range: %s : %s" %(str(coords_min), str(coords_max)))
+            logger.info("mean coordinate offset = %s" %str(self.offset))
         
     def _define_box(self, coords_min, coords_max):
         """
         Define the Cartesian box to hold the tracers by:
         
             * computing the Cartesian coordinates for all objects
-            * centering the data into the first Cartesian quadrant
             * setting the `BoxSize` attribute, if not provided
+            * computing the coorindate offset needed to center the
+              data onto the [-BoxSize/2, BoxSize/2] domain
         """   
         # center the data in the first cartesian quadrant
         delta = abs(coords_max - coords_min)
-        self.offset = 0.5 * (coords_min + coords_max)#abs(coords_min) + 0.5*self.boxpad*delta
+        self.offset = 0.5 * (coords_min + coords_max)
         
         # set the box size automatically
         if self.BoxSize is None:
             delta *= 1.0 + self.boxpad
             self.BoxSize = delta.astype(int)
+        else:
+            # check the input size
+            for i, L in enumerate(delta):
+                if self.BoxSize[i] < L:
+                    args = (self.BoxSize[i], i, L)
+                    logger.warning("input BoxSize of %.2f in dimension %d smaller than coordinate range of data (%.2f)" %args)
                             
     def _to_cartesian(self, coords, translate=[0.,0.,0.]):
         """
@@ -227,7 +246,7 @@ class TracerCatalogDataSource(DataSource):
         for [coords, weight] in self._source.read(['Position', 'Weight'], stats, full=full):
             
             if self.comm.rank == 0:
-                # cartesian
+                # cartesian coordinates, removing the mean offset in each dimension
                 pos = self._to_cartesian(coords, translate=-self.offset)
         
                 # number density from redshift

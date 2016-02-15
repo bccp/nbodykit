@@ -29,8 +29,8 @@ class BianchiPowerAlgorithm(Algorithm):
             help='the `DataSource` specifiying the data + randoms catalog to read')
         p.add_argument("Nmesh", type=int,
             help='the number of cells in the gridded mesh')
-        add_plugin_list_argument(p, 'poles', type=lambda l: [int(s) for s in l],
-            help='the multipoles to compute; values must be in [0,2,4]')
+        p.add_argument('max_ell', type=int, choices=[0,2,4],
+            help='compute multipoles up to and including this ell value')
 
         # the optional arguments
         p.add_argument("--dk", type=float,
@@ -54,7 +54,7 @@ class BianchiPowerAlgorithm(Algorithm):
         pm = ParticleMesh(self.input.BoxSize, self.Nmesh, dtype='f4', comm=self.comm)
 
         # measure
-        poles, meta = measurestats.compute_bianchi_poles(self.input, pm, comm=self.comm, log_level=self.log_level)
+        poles, meta = measurestats.compute_bianchi_poles(self.max_ell, self.input, pm, comm=self.comm, log_level=self.log_level)
         k3d = pm.k
 
         # binning in k out to the minimum nyquist frequency
@@ -104,10 +104,12 @@ class BianchiPowerAlgorithm(Algorithm):
             
             kedges, result, meta = result
             k, poles, N = result
+            ells = range(0, self.max_ell+1, 2)
             
             # write binned statistic
-            self.logger.info('measurement done; saving result to %s' %output)
-            cols = ['k'] + ['power_%d' %l for l in [0, 2, 4]] + ['modes']
+            args = (",".join(map(str, ells)), output)
+            self.logger.info('measurment done; saving ell = %s multipole(s) to %s' %args)
+            cols = ['k'] + ['power_%d' %l for l in ells] + ['modes']
             pole_result = [k] + [pole for pole in poles] + [N]
             
             storage = MeasurementStorage.new('1d', output)
