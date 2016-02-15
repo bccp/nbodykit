@@ -36,7 +36,13 @@ class TracerCatalogDataSource(DataSource):
             of a catalog of objects generated randomly to match the
             survey geometry and whose instrinsic clustering is zero
         * BoxSize:
-            
+            the size of the cartesian box -- the Cartesian coordinates
+            of the input objects are computed using the input cosmology,
+            and then placed into the box
+        * offset: 
+            the average coordinate value in each dimension -- this offset
+            is used to return cartesian coordinates translated into the
+            domain of [-BoxSize/2, BoxSize/2]
     """
     plugin_name = "TracerCatalog"
             
@@ -56,7 +62,7 @@ class TracerCatalogDataSource(DataSource):
         # optional arguments
         h.add_argument("-BoxSize", type=kls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
-        h.add_argument('-boxpad', type=float, default=0.02, 
+        h.add_argument('-BoxPad', type=float, default=0.02, 
             help='when setting the box size automatically, apply this additional buffer')
         h.add_argument('-compute_fkp_weights', action='store_true', 
             help='if set, use FKP weights, computed from `P0_fkp` and the provided `nbar`') 
@@ -148,7 +154,7 @@ class TracerCatalogDataSource(DataSource):
         
         # set the box size automatically
         if self.BoxSize is None:
-            delta *= 1.0 + self.boxpad
+            delta *= 1.0 + self.BoxPad
             self.BoxSize = delta.astype(int)
         else:
             # check the input size

@@ -163,12 +163,12 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
             # compute x**2
             norm = numpy.float64((x[0][islab] + offset[0])**2)
             for ii, xi in enumerate(x[1:]):
-                norm = norm + (xi[0]+offset[ii])**2
+                norm = norm + (xi[0]+offset[ii+1])**2
             
             # get x_i, x_j
             # if i == 'x' direction, it's just one value
-            xi = x[i][islab] if i == 0 else x[i]
-            xj = x[j][islab] if j == 0 else x[j]
+            xi = x[i][islab] if i == 0 else x[i][0]
+            xj = x[j][islab] if j == 0 else x[j][0]
             
             # add the coordinate offsets
             xi += offset[i]
@@ -177,7 +177,7 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
             # multiply the kernel
             if k is not None:
                 
-                xk = x[k][islab] if k == 0 else x[k]
+                xk = x[k][islab] if k == 0 else x[k][0]
                 xk += offset[k]
                 data[islab] = data[islab] * xi**2 * xj * xk
                 idx = norm != 0.
