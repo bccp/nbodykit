@@ -600,7 +600,7 @@ class Cosmology:
             
     def sample(self, methodname, x, *args, **kwargs):
         if not hasattr(self, methodname):
-            raise ValueError, methodname
+            raise ValueError("no such method '%s' to sample" %methodname)
 
         # unsample first
         if self.is_sampled(methodname):
