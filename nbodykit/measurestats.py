@@ -136,11 +136,11 @@ def compute_bianchi_poles(datasource, pm, comm=None, log_level=logging.DEBUG):
         # get x_i, x_j
         # if i == 'x' direction, it's just one value
         xi = x[i] + offset[i]
-        xj = x[j] + offset[i]
+        xj = x[j] + offset[j]
 
         # multiply the kernel
         if k is not None:
-            xk = x[k] + offset[i]
+            xk = x[k] + offset[k]
             data[:] *= xi**2 * xj * xk
             idx = norm != 0.
             data[idx] /= norm[idx]**2
