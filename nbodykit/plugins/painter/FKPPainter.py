@@ -56,6 +56,7 @@ class FKPPainter(Painter):
         
         stats['A_ran'] *= alpha
         stats['S_ran'] *= alpha**2
+        stats['shot_noise'] = (S_ran + S_data)/A_ran # the final shot noise estimate for monopole
         
         return stats
             
