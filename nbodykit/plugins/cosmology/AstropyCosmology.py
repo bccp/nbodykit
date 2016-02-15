@@ -4,9 +4,7 @@ def neutrino_mass(value):
     """
     Function to cast an input string or list to a `astropy.units.Quantity`,
     with units of `eV` to represent neutrino mass
-    """
-    from astropy import units
-    
+    """    
     if isinstance(value, str):
         value = [float(i) for i in value.split()]
     
@@ -15,7 +13,7 @@ def neutrino_mass(value):
             value = value[0]
         elif len(value) != 3:
             raise ValueError("either a single neutrino mass, or a mass for each of the 3 species must be provided")
-    return units.Quantity(value, 'eV')
+    return value
     
 class AstropyCosmology(Cosmology):
     plugin_name = 'AstropyCosmology'
@@ -37,7 +35,7 @@ class AstropyCosmology(Cosmology):
         p.add_argument('-Neff', type=float, default=3.04,
             help='effective number of neutrino species; default 3.04')
         p.add_argument('-m_nu', nargs='+', type=neutrino_mass, 
-            default=neutrino_mass(0.),
+            default=0.,
             help='mass of neutrino species in eV; default: 0.')
         p.add_argument('-flat', action='store_true', default=False,
             help='if `True`, automatically sets `Ode0` such that `Ok0` is zero')
@@ -47,7 +45,10 @@ class AstropyCosmology(Cosmology):
         Finalize the attributes by initialize the cosmology instance based
         on the input parameters
         """
-        from astropy import cosmology
+        from astropy import cosmology, units
+        
+        # convert neutrino mass to a astropy `Quantity`
+        self.m_nu = units.Quantity(self.mu_nu, 'eV')
         
         # initialize the cosmology object
         kw = {k:getattr(self,k) for k in ['w0', 'Tcmb0', 'Neff', 'm_nu']}
