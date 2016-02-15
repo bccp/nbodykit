@@ -48,7 +48,7 @@ class AstropyCosmology(Cosmology):
         from astropy import cosmology, units
         
         # convert neutrino mass to a astropy `Quantity`
-        self.m_nu = units.Quantity(self.mu_nu, 'eV')
+        self.m_nu = units.Quantity(self.m_nu, 'eV')
         
         # initialize the cosmology object
         kw = {k:getattr(self,k) for k in ['w0', 'Tcmb0', 'Neff', 'm_nu']}
