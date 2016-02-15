@@ -53,15 +53,15 @@ class TracerCatalogDataSource(DataSource):
         
         # required arguments
         h.add_argument("data", type=datasources.RaDecRedshift.fromstring, 
-            help="DataSource representing the `data` catalog")
+            help="`RaDecRedshift` DataSource representing the `data` catalog")
         h.add_argument("randoms", type=datasources.RaDecRedshift.fromstring, 
-            help="DataSource representing the `randoms` catalog")
+            help="`RaDecRedshift` DataSource representing the `randoms` catalog")
         h.add_argument("cosmo", type=Cosmology.fromstring, 
             help='the cosmology used to convert (ra,dec,z) to cartesian coordinates')
             
         # optional arguments
         h.add_argument("-BoxSize", type=kls.BoxSizeParser,
-            help="the size of the isotropic box, or the sizes of the 3 box dimensions")
+            help="the size of the box; if not provided, automatically computed from the `randoms` catalog")
         h.add_argument('-BoxPad', type=float, default=0.02, 
             help='when setting the box size automatically, apply this additional buffer')
         h.add_argument('-compute_fkp_weights', action='store_true', 
