@@ -128,10 +128,10 @@ class TracerCatalogDataSource(DataSource):
             * computing the Cartesian coordinates for all objects
             * centering the data into the first Cartesian quadrant
             * setting the `BoxSize` attribute, if not provided
-        """        
+        """   
         # center the data in the first cartesian quadrant
         delta = abs(coords_max - coords_min)
-        self.offset = abs(coords_min) + 0.5*self.boxpad*delta
+        self.offset = 0.5 * (coords_min + coords_max)#abs(coords_min) + 0.5*self.boxpad*delta
         
         # set the box size automatically
         if self.BoxSize is None:
@@ -228,7 +228,7 @@ class TracerCatalogDataSource(DataSource):
             
             if self.comm.rank == 0:
                 # cartesian
-                pos = self._to_cartesian(coords, translate=self.offset)
+                pos = self._to_cartesian(coords, translate=-self.offset)
         
                 # number density from redshift
                 nbar = self.nbar(coords[:,-1])
