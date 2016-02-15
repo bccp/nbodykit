@@ -6,7 +6,7 @@ import numpy
 import logging
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 
-logger = logging.getLogger('SurveyCatalog')
+logger = logging.getLogger('TracerCatalog')
 
 def nbar_fromfile(filename):
     """
