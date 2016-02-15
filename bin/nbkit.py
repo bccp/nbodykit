@@ -37,11 +37,12 @@ class HelpAction(argparse.Action):
 
     def __call__(self, parser, namespace, values, option_string=None):
         name = getattr(namespace, 'algorithm_name')
-        if name is not None:
-            alg = getattr(algorithms, name)
-            alg.parser.print_help()
-        else:
-            parser.print_help()
+        if rank == 0:
+            if name is not None:
+                alg = getattr(algorithms, name)
+                alg.parser.print_help()
+            else:
+                parser.print_help()
         parser.exit()
         
 def main():
