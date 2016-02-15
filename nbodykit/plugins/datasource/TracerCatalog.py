@@ -85,7 +85,7 @@ class TracerCatalogDataSource(DataSource):
         
         redshifts = []
         randoms_stats = {}
-        self.translate = None
+        self.offset = None
         
         # need to compute cartesian min/max
         coords_min = numpy.array([numpy.inf]*3)
@@ -114,12 +114,12 @@ class TracerCatalogDataSource(DataSource):
             
         # broadcast the results that rank 0 computed
         self.BoxSize   = self.comm.bcast(self.BoxSize)
-        self.translate = self.comm.bcast(self.translate)
+        self.offset    = self.comm.bcast(self.offset)
         self.nbar      = self.comm.bcast(self.nbar)
         
         if self.comm.rank == 0:
             logger.info("cartesian BoxSize = %s" %str(self.BoxSize))
-            logger.info("cartesian coordinate translation = %s" %str(self.translate))
+            logger.info("cartesian box offset = %s" %str(self.offset))
         
     def _define_box(self, coords_min, coords_max):
         """
@@ -130,23 +130,14 @@ class TracerCatalogDataSource(DataSource):
             * setting the `BoxSize` attribute, if not provided
         """        
         # center the data in the first cartesian quadrant
-        self.translate = numpy.zeros(3)
         delta = abs(coords_max - coords_min)
-        self.translate = abs(coords_min) + 0.5*self.boxpad*delta
+        self.offset = abs(coords_min) + 0.5*self.boxpad*delta
         
         # set the box size automatically
         if self.BoxSize is None:
             delta *= 1.0 + self.boxpad
             self.BoxSize = delta.astype(int)
-        else:
-            # print warnings if provided box size misses particles
-            for i, L in enumerate(self.BoxSize):
-                out_of_range = ((pos[:,i] < 0.)|(pos[:,i] > L)).sum()
-                if out_of_range:
-                    args = (L, i, out_of_range)
-                    logger.warning("with L = %.4f in dimension %d, %d objects are out of range" %args)
-                    
-        
+                            
     def _to_cartesian(self, coords, translate=[0.,0.,0.]):
         """
         Convert the (ra, dec, z) coordinates to cartesian coordinates
@@ -237,7 +228,7 @@ class TracerCatalogDataSource(DataSource):
             
             if self.comm.rank == 0:
                 # cartesian
-                pos = self._to_cartesian(coords, translate=self.translate)
+                pos = self._to_cartesian(coords, translate=self.offset)
         
                 # number density from redshift
                 nbar = self.nbar(coords[:,-1])

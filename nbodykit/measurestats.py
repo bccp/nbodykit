@@ -122,7 +122,7 @@ def compute_bianchi_poles(datasource, pm, comm=None, log_level=logging.DEBUG):
         the total number of objects in the 2nd field (equal to N1 if 
         only one input field specified)
     """
-    def bianchi_transfer(data, x, i, j, k=None):
+    def bianchi_transfer(data, x, i, j, k=None, offset=[0., 0., 0.]):
         """
         Transfer functions necessary to compute the power spectrum  
         multipoles via FFTs
@@ -131,16 +131,16 @@ def compute_bianchi_poles(datasource, pm, comm=None, log_level=logging.DEBUG):
         of Bianchi et al 2015.
         """
         # compute x**2
-        norm = sum(xi ** 2 for xi in x)
+        norm = sum((xi + offset[ii])**2 for ii, xi in enumerate(x))
         
         # get x_i, x_j
         # if i == 'x' direction, it's just one value
-        xi = x[i]
-        xj = x[j]
+        xi = x[i] + offset[i]
+        xj = x[j] + offset[i]
 
         # multiply the kernel
         if k is not None:
-            xk = x[k]
+            xk = x[k] + offset[i]
             data[:] *= xi**2 * xj * xk
             idx = norm != 0.
             data[idx] /= norm[idx]**2
@@ -153,6 +153,9 @@ def compute_bianchi_poles(datasource, pm, comm=None, log_level=logging.DEBUG):
     # some setup
     rank = comm.rank if comm is not None else MPI.COMM_WORLD.rank
     if log_level is not None: logger.setLevel(log_level)
+    
+    # box offset
+    offset = getattr(datasource, 'offset', [0., 0., 0.])
     
     # get the datasource, painter, and transfer
     painter = Painter.fromstring('FKPPainter')
@@ -195,7 +198,7 @@ def compute_bianchi_poles(datasource, pm, comm=None, log_level=logging.DEBUG):
             pm.real[:] = density[:]
         
             # apply the real-space transfer
-            bianchi_transfer(pm.real, pm.x, *integers)
+            bianchi_transfer(pm.real, pm.x, *integers, offset=offset)
                         
             # do the FT and apply the k-space kernel
             pm.r2c()
