@@ -102,6 +102,7 @@ class PluginInterface(object):
             raise ValueError("Extra arguments : %s " % str(list(kwargs.keys())))
         
         self.__dict__.update(d)
+        self.finalize_attributes()
         
 def ExtensionPoint(registry, help_formatter=HelpFormatter):
     """ Declares a class as an extension point, registering to registry """
@@ -191,9 +192,7 @@ class PluginMount(type):
         ns = klass.parser.parse_args(argv[1:])
         
         self = klass(**vars(ns))
-        self.string = str(argv)
-        self.finalize_attributes()
-        
+        self.string = str(argv)        
         return self
 
     def format_help(kls):

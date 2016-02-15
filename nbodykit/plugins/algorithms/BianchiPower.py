@@ -1,15 +1,8 @@
-from nbodykit.extensionpoints import Algorithm, plugin_isinstance
-from nbodykit.extensionpoints import DataSource, Transfer, Painter, datasources
-from nbodykit.plugins import add_plugin_list_argument
+from nbodykit.extensionpoints import Algorithm, datasources
 
 import numpy
 import logging
 import os
-
-def TracerCatalog(s):
-    if isinstance(s, list):
-        s = "::".join(map(str, s))
-    return datasources.TracerCatalog.fromstring(s)
 
 class BianchiPowerAlgorithm(Algorithm):
     """
@@ -21,15 +14,15 @@ class BianchiPowerAlgorithm(Algorithm):
 
     @classmethod
     def register(kls):
+        from argparse import _HelpAction
+        
         p = kls.parser
         p.description = "galaxy survey power spectrum multipole calculator via FFT"
 
         # the required arguments
-        p.add_argument("input", type=TracerCatalog,
-            help='the `DataSource` specifiying the data + randoms catalog to read')
         p.add_argument("Nmesh", type=int,
             help='the number of cells in the gridded mesh')
-        p.add_argument('max_ell', type=int, choices=[0,2,4],
+        p.add_argument('max_ell', type=int, choices=[0,2,4], metavar='max_ell {0,2,4}',
             help='compute multipoles up to and including this ell value')
 
         # the optional arguments
@@ -39,6 +32,26 @@ class BianchiPowerAlgorithm(Algorithm):
             help='the edge of the first `k` bin to use; default is 0')
         p.add_argument('-q', '--quiet', action="store_const", dest="log_level",
             default=logging.DEBUG, help="silence the logging output", const=logging.ERROR)
+            
+        # promote the TracerCatalog attributes to this parser (in their own argument group)
+        source = p.add_argument_group(title="TracerCatalog DataSource parameters")
+        source_parser = datasources.TracerCatalog.parser
+        for group in source_parser._action_groups:
+            for a in group._group_actions:
+                if not isinstance(a, _HelpAction):
+                    source._add_action(a)
+        
+    def finalize_attributes(self):
+        """
+        Gather the parameters belonging to the `TracerCatalog` DataSource, 
+        create an instance, and store it as the `input` attribute
+        """
+        params = {}
+        source_parser = self.parser._action_groups[-1]
+        for a in source_parser._group_actions:
+            name = a.dest
+            params[name] = getattr(self, name) 
+        self.input = datasources.TracerCatalog(**params)
         
     def run(self):
         """

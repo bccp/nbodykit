@@ -289,11 +289,3 @@ class TracerCatalogDataSource(DataSource):
                     for shape,dtype in shape_and_dtype
                 ]
             yield data
-
-            
-    @classmethod
-    def fromstring(cls, string):
-        args = string.split("::")
-        return cls.create([cls.plugin_name] + args)
-
-
