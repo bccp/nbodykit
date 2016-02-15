@@ -157,36 +157,25 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
             needed if the simulation box has an average offset 
             from the grid box in configuration-space
         """
-        # do the calculations on y-z slabs to save memory
-        for islab in range(len(x[0])):
+        # compute x**2
+        norm = sum((xi + offset[ii])**2 for ii, xi in enumerate(x))
         
-            # compute x**2
-            norm = numpy.float64((x[0][islab] + offset[0])**2)
-            for ii, xi in enumerate(x[1:]):
-                norm = norm + (xi[0]+offset[ii+1])**2
-            
-            # get x_i, x_j
-            # if i == 'x' direction, it's just one value
-            xi = x[i][islab] if i == 0 else x[i][0]
-            xj = x[j][islab] if j == 0 else x[j][0]
-            
-            # add the coordinate offsets
-            xi += offset[i]
-            xj += offset[j]
+        # get x_i, x_j
+        # if i == 'x' direction, it's just one value
+        xi = x[i] + offset[i]
+        xj = x[j] + offset[j]
 
-            # multiply the kernel
-            if k is not None:
-                
-                xk = x[k][islab] if k == 0 else x[k][0]
-                xk += offset[k]
-                data[islab] = data[islab] * xi**2 * xj * xk
-                idx = norm != 0.
-                data[islab, idx] /= norm[idx]**2 
-                
-            else:
-                data[islab] = data[islab] * xi * xj
-                idx = norm != 0.
-                data[islab, idx] /= norm[idx]
+        # multiply the kernel
+        if k is not None:
+            xk = x[k] + offset[k]
+            data[:] *= xi**2 * xj * xk
+            idx = norm != 0.
+            data[idx] /= norm[idx]**2
+            
+        else:
+            data[:] *= xi * xj
+            idx = norm != 0.
+            data[idx] /= norm[idx]
                                     
     # some setup
     rank = comm.rank if comm is not None else MPI.COMM_WORLD.rank
