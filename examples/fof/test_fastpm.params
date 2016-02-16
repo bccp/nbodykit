@@ -1,3 +1,4 @@
+--nmin=10
 FastPM:../data/fastpm_1.0000
 0.2 
 -o=../output/fof_ll0.200_1.0000.hdf5

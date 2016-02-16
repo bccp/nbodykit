@@ -52,7 +52,7 @@ def assign_halo_label(data, comm, thresh):
     N = label.bincount()
     
     # now eliminate those with less than thresh particles
-    small = N.local <= 32
+    small = N.local <= thresh
 
     Nlocal = label.bincount(local=True)
     # mask == True for particles in small halos
