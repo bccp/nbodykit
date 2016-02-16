@@ -74,7 +74,7 @@ class RaDecRedshiftDataSource(DataSource):
             if self.comm.rank == 0:
                 
                 try:
-                    data = data_iter.next()
+                    data = next(data_iter)
                     
                     # select based on input conditions
                     if self.select is not None:
