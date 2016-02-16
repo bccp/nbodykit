@@ -51,6 +51,14 @@ def set_plugin_comm(comm):
     global _comm
     _comm = comm
 
+def _parser_print_message(message, file=None):
+    if file is None:
+        import sys
+        file = sys.stderr
+    if _comm is not None and _comm.rank == 0:
+        if message:
+            file.write(message)
+
 class PluginInterface(object):
     """ 
     The basic interface of a plugin 
@@ -149,6 +157,7 @@ class PluginMount(type):
                                         add_help=False, 
                                         formatter_class=cls.help_formatter)
 
+            cls.parser._print_message = _parser_print_message
             # track names of classes
             cls.plugins[cls.plugin_name] = cls
         

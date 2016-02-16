@@ -39,8 +39,7 @@ class Subsample(Algorithm):
 
 
     def run(self):
-        comm = MPI.COMM_WORLD
-        pm = ParticleMesh(self.datasource.BoxSize, self.Nmesh, dtype='f4', comm=None)
+        pm = ParticleMesh(self.datasource.BoxSize, self.Nmesh, dtype='f4', comm=self.comm)
         if self.smoothing is None:
             self.smoothing = self.datasource.BoxSize[0] / self.Nmesh
         elif (self.datasource.BoxSize / self.Nmesh > self.smoothing).any():
@@ -80,7 +79,7 @@ class Subsample(Algorithm):
         pm.c2r()
         columns = ['Position', 'ID', 'Velocity']
         rng = numpy.random.RandomState(self.Nmesh)
-        seedtable = rng.randint(1024*1024*1024, size=comm.size)
+        seedtable = rng.randint(1024*1024*1024, size=self.comm.size)
         rngtable = [numpy.random.RandomState(seed) for seed in seedtable]
 
         dtype = numpy.dtype([
@@ -93,7 +92,7 @@ class Subsample(Algorithm):
         subsample = [numpy.empty(0, dtype=dtype)]
         stat = {}
         for Position, ID, Velocity in self.datasource.read(columns, stat):
-            u = rngtable[comm.rank].uniform(size=len(ID))
+            u = rngtable[self.comm.rank].uniform(size=len(ID))
             keep = u < self.ratio
             Nkeep = keep.sum()
             if Nkeep == 0: continue 

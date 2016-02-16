@@ -70,7 +70,10 @@ def main():
     parser.add_argument('--list-transfers', action=ListPluginsAction(Transfer), help='List Transfer Functions')
 
     parser.usage = parser.format_usage()[6:-1] + " ... \n"
-    
+
+    if MPI.COMM_WORLD.rank != 0:
+        parser._print_message = lambda x, file=None: None
+
     # parse the command-line
     ns, args = parser.parse_known_args()
     alg_name = ns.algorithm_name; output = ns.output
