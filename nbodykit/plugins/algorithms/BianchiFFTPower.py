@@ -90,7 +90,7 @@ class BianchiPowerAlgorithm(Algorithm):
             poles_final.append(numpy.squeeze(result[2]))
             
         # return (k, poles, modes)
-        poles_final = numpy.stack(poles_final)
+        poles_final = numpy.vstack(poles_final)
         k = numpy.squeeze(result[0])
         modes = numpy.squeeze(result[-1])
         result = k, poles_final, modes
