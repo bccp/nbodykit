@@ -25,8 +25,12 @@ class FastPMDataSource(DataSource):
         f = bigfile.BigFileMPI(self.comm, self.path)
         header = f['header']
         BoxSize[:] = header.attrs['BoxSize'][0]
+        OmegaM = header.attrs['OmegaM'][0]
+        self.M0 = 27.75e10 * OmegaM * BoxSize[0] ** 3 / f['Position'].size
+
         if self.comm.rank == 0:
-            logger.info("File has boxsize of %s" % str(BoxSize))
+            logger.info("File has boxsize of %s Mpc/h" % str(BoxSize))
+            logger.info("Mass of a particle is %g Msun/h" % self.M0)
 
         if self.BoxSize is None:
             self.BoxSize = BoxSize
@@ -42,9 +46,12 @@ class FastPMDataSource(DataSource):
         if boxsize != self.BoxSize[0]:
             raise ValueError("Box size mismatch, expecting %g" % boxsize)
 
-        readcolumns = columns
+        readcolumns = set(columns)
         if self.rsd is not None:
             readcolumns = set(columns + ['Velocity'])
+
+        if 'Mass' in readcolumns: 
+            readcolumns.remove('Mass')
 
         stats['Ntot'] = 0
         done = False
@@ -78,8 +85,8 @@ class FastPMDataSource(DataSource):
             if 'Velocity' in P:
                 P['Velocity'] *= RSD
 
-            if 'Mass' in readcolumns:
-                P['Mass'] = numpy.ones(stats['Ncurrent'], dtype='u1')
+            if 'Mass' in columns:
+                P['Mass'] = numpy.ones(bunchend - bunchstart, dtype='u1') * self.M0
 
             if self.rsd is not None:
                 dir = "xyz".index(self.rsd)
