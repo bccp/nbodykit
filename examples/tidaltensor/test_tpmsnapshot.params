@@ -1,0 +1,5 @@
+--smoothing=20.0
+FastPM:../data/fastpm_1.0000
+FOFGroups:../output/fof_ll0.200_1.0000.hdf5:1.0
+256
+-o=../output/tidaltensor_1.0000.hdf5
