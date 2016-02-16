@@ -117,13 +117,17 @@ class FFTPowerAlgorithm(Algorithm):
         if self.mode == "1d": self.Nmu = 1
     
         # measure
-        y3d, N1, N2 = measurestats.compute_3d_power(self.fields, pm, comm=self.comm, log_level=self.log_level)
+        y3d, stats1, stats2 = measurestats.compute_3d_power(self.fields, pm, comm=self.comm, log_level=self.log_level)
         x3d = pm.k
     
+        # get the number of objects (in a safe manner)
+        N1 = stats1.get('Ntot', -1)
+        N2 = stats2.get('Ntot', -1)
+        
         # binning in k out to the minimum nyquist frequency 
         # (accounting for possibly anisotropic box)
         dk = 2*numpy.pi/pm.BoxSize.min() if self.dk is None else self.dk
-        kedges = numpy.arange(self.kmin, numpy.pi*pm.Nmesh/pm.BoxSize.min() + dk/2, dk)
+        kedges = numpy.arange(self.kmin, numpy.pi*pm.Nmesh/pm.BoxSize.max() + dk/2, dk)
     
         # project on to the desired basis
         muedges = numpy.linspace(0, 1, self.Nmu+1, endpoint=True)
@@ -221,8 +225,12 @@ class FFTCorrelationAlgorithm(Algorithm):
         if self.mode == "1d": self.Nmu = 1
 
         # measure
-        y3d, N1, N2 = measurestats.compute_3d_corr(self.fields, pm, comm=self.comm, log_level=self.log_level)
+        y3d, stats1, stats2 = measurestats.compute_3d_corr(self.fields, pm, comm=self.comm, log_level=self.log_level)
         x3d = pm.x
+        
+        # get the number of objects (in a safe manner)
+        N1 = stats1.get('Ntot', -1)
+        N2 = stats2.get('Ntot', -1)
 
         # make the bin edges
         dr = pm.BoxSize[0] / pm.Nmesh

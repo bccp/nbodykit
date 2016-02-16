@@ -40,5 +40,5 @@ class DefaultPainter(Painter):
             for position, weight in self.read_and_decompose(pm, datasource, ['Position', self.weight], stats):
                 pm.paint(position, weight)
 
-        return stats['Ntot']
+        return stats
             

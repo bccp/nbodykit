@@ -5,8 +5,11 @@ cd $DIR
 for fn in *.params; do
     echo testing $fn ...
     if [[ $fn == *"corr"* ]]
-    then
+    then 
         mpirun -n 2 python ../../bin/nbkit.py FFTCorrelation -c $fn || exit
+    elif [[ $fn == *"bianchi"* ]]
+    then
+        mpirun -n 2 python ../../bin/nbkit.py BianchiFFTPower -c $fn || exit
     else
         mpirun -n 2 python ../../bin/nbkit.py FFTPower -c $fn || exit
     fi

@@ -60,5 +60,5 @@ class GridPainter(Painter):
                         args = (pm.Nmesh, str(e))
                         raise ValueError("cannot read binary file using `Nmesh = %d`; original message: %s" %args)
                         
-        return 0
+        return {}
             

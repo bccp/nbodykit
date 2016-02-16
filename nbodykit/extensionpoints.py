@@ -25,11 +25,12 @@ from argparse import Namespace, SUPPRESS, ArgumentParser, HelpFormatter
 import sys
 import contextlib
 
-algorithms = Namespace()
+algorithms  = Namespace()
 datasources = Namespace()
-painters = Namespace()
-transfers = Namespace()
-mstorages = Namespace()
+painters    = Namespace()
+transfers   = Namespace()
+mstorages   = Namespace()
+cosmologies = Namespace()
 
 # private variable to store global MPI communicator 
 # that all plugins are initialized with
@@ -109,6 +110,7 @@ class PluginInterface(object):
             raise ValueError("Extra arguments : %s " % str(list(kwargs.keys())))
         
         self.__dict__.update(d)
+        self.finalize_attributes()
         
 def ExtensionPoint(registry, help_formatter=HelpFormatter):
     """ Declares a class as an extension point, registering to registry """
@@ -192,13 +194,14 @@ class PluginMount(type):
             `finalize_attributes` to finalize the
             attribute values based on currently parsed attribute values.
         """
+        if argv[0] not in kls.plugins:
+            raise ValueError("'%s' is not match the names of any loaded plugins" %argv[0])
+            
         klass = kls.plugins[argv[0]]
         ns = klass.parser.parse_args(argv[1:])
         
         self = klass(**vars(ns))
-        self.string = str(argv)
-        self.finalize_attributes()
-        
+        self.string = str(argv)        
         return self
 
     def format_help(kls):
@@ -576,8 +579,68 @@ class Algorithm:
         # get the namespace from the config file
         return ReadConfigFile(klass.parser, config_file)
         
+@ExtensionPoint(cosmologies, HelpFormatterColon)
+class Cosmology:
+    """
+    Mount point for plugins which return cosmology-dependent
+    quantities
+    """
+    class sampled_function:
+        """
+        Class to represent a "sampled" version of a function
+        """
+        def __init__(self, func, x, *args, **kwargs):
+            from scipy import interpolate
+            self.func = func
+            self.x = x
 
-__all__ = ['DataSource', 'Painter', 'Transfer', 'MeasurementStorage', 'Algorithm']
+            # assign function name and docs
+            self.__name__ = None
+            self.__doc__  = None
+            if func.__name__ != None:
+                self.__name__ = self.func.__name__ + " [Sampled to %i pts]" %len(x)
+            if func.__doc__ != None:
+                self.__doc__ = "sampled function : \n\n" + self.func.__doc__
+
+            self.spline = interpolate.InterpolatedUnivariateSpline(x, func(x,*args,**kwargs))
+
+        def __call__(self, y):
+            return self.spline(y)
+            
+    def sample(self, methodname, x, *args, **kwargs):
+        if not hasattr(self, methodname):
+            raise ValueError("no such method '%s' to sample" %methodname)
+
+        # unsample first
+        if self.is_sampled(methodname):
+            self.unsample(methodname)
+        
+        # set the sampled function
+        tmp = getattr(self, methodname)
+        setattr(self, methodname, self.sampled_function(tmp, x, *args, **kwargs))
+
+    def unsample(self,methodname):
+        if self.is_sampled(methodname):
+            tmp = getattr(self, methodname).func
+            setattr(self, methodname, tmp)
+        else:
+            raise ValueError("cannot unsample %s" %methodname)
+        
+    def is_sampled(self,methodname):
+        return getattr(self,methodname).__class__ == self.sampled_function
+        
+    def comoving_distance(self, z):
+        """ 
+        Return the comoving distance at redshift z
+        """
+        raise NotImplementedError
+        
+    @classmethod
+    def fromstring(kls, string): 
+        return kls.create(string.split(':'))
+        
+
+__all__ = ['DataSource', 'Painter', 'Transfer', 'MeasurementStorage', 'Algorithm' , 'Cosmology']
 
 def plugin_isinstance(string, extensionpt):
     """

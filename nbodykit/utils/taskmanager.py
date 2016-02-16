@@ -90,7 +90,7 @@ def tasks_parser(value):
         # try to eval into a list
         try:
             parsed = eval(fields[key])
-            if not isinstance(parser, list):
+            if not isinstance(parsed, list):
                 raise ValueError("result of `eval` on iteration string should be list" %(fields[key]))
         except:
             raise ValueError("tried but failed to `eval` iteration string `%s`" %(fields[key]))
