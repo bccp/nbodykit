@@ -8,8 +8,11 @@ class BianchiPowerAlgorithm(Algorithm):
     """
     Algorithm to compute the power spectrum multipoles using FFTs
     for a data survey with non-trivial geometry
+    
+    The algorithm used to compute the multipoles is detailed
+    in Bianchi et al. 2015 (http://adsabs.harvard.edu/abs/2015MNRAS.453L..11B)
     """
-    plugin_name = "BianchiPower"
+    plugin_name = "BianchiFFTPower"
     logger = logging.getLogger(plugin_name)
 
     @classmethod
@@ -17,11 +20,12 @@ class BianchiPowerAlgorithm(Algorithm):
         from argparse import _HelpAction
         
         p = kls.parser
-        p.description = "galaxy survey power spectrum multipole calculator via FFT"
+        p.description = """power spectrum multipoles using FFTs for a data survey with 
+                           non-trivial geometry, as detailed in Bianchi et al. 2015"""
 
         # the required arguments
         p.add_argument("Nmesh", type=int,
-            help='the number of cells in the gridded mesh')
+            help='the number of cells in the gridded mesh (per axis)')
         p.add_argument('max_ell', type=int, choices=[0,2,4], metavar='max_ell {0,2,4}',
             help='compute multipoles up to and including this ell value')
 
@@ -34,7 +38,7 @@ class BianchiPowerAlgorithm(Algorithm):
             default=logging.DEBUG, help="silence the logging output", const=logging.ERROR)
             
         # promote the TracerCatalog attributes to this parser (in their own argument group)
-        source = p.add_argument_group(title="TracerCatalog DataSource parameters")
+        source = p.add_argument_group(title="`TracerCatalog` DataSource parameters")
         source_parser = datasources.TracerCatalog.parser
         for group in source_parser._action_groups:
             for a in group._group_actions:

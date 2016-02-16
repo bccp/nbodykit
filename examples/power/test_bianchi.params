@@ -1,0 +1,12 @@
+data: RaDecRedshift:../data/test_bianchi_data.dat:ra dec z:-usecols=ra dec z:-degrees
+randoms: RaDecRedshift:../data/test_bianchi_randoms.dat:ra dec z:-usecols=ra dec z:-degrees
+cosmo: AstropyCosmology:-H0=70:-Om0=0.286:-flat
+
+compute_fkp_weights: True
+P0_fkp: 2e4
+fsky: 0.16608
+    
+Nmesh: 128
+max_ell: 4
+dk: 0.005
+output: ../output/test_bianchi_poles.dat
