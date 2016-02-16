@@ -1,5 +1,5 @@
 DIR=`dirname $0`
-
+echo 'Testing TidalTensor'
 cd $DIR
 [ -d ../output ] || mkdir ../output
 
