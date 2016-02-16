@@ -12,7 +12,7 @@ from mpi4py import MPI
 
 import nbodykit
 from pmesh.particlemesh import ParticleMesh
-from nbodykit.extensionpoints import DataSource, Painter
+from nbodykit.extensionpoints import DataSource, painters
 
 
 class TidalTensor(Algorithm):
@@ -83,7 +83,7 @@ class TidalTensor(Algorithm):
         elif (self.field.BoxSize / self.Nmesh > self.smoothing).any():
             raise ValueError("smoothing is too small")
      
-        painter = Painter.fromstring("DefaultPainter")
+        painter = painters.DefaultPainter(weight="Mass")
         painter.paint(pm, self.field)
         pm.r2c()
 
