@@ -80,54 +80,47 @@ class TracerCatalogDataSource(DataSource):
         
             1. if `BoxSize` not provided on the command-line, 
                infer the value from the Cartesian coordinates of
-               the `randoms` catalog
+               the `data` catalog
             2. compute the mean coordinate offset for each 
                Cartesian dimension -- used to re-center the 
                coordinates to the [-BoxSize/2, BoxSize/2] domain
             3. compute the number density as a function of redshift
-               from the `randoms` and store a spline
+               from the `data` and store a spline
         """
         # source is None by default
         self._source = None
+        self.offset  = None
 
         # sample the cosmology's comoving distance
         self.cosmo.sample('comoving_distance', numpy.logspace(-5, 1, 1024))
     
-        # read the data to find total number
-        data_stats = {}
-        for result in self.data.read(['Position'], data_stats, full=False):
-            continue
-        N_data = data_stats['Ntot']
-        
-        redshifts = []
-        randoms_stats = {}
-        self.offset = None
-        
         # need to compute cartesian min/max
         coords_min = numpy.array([numpy.inf]*3)
         coords_max = numpy.array([-numpy.inf]*3)
         
-        # now loop over the randoms and determine min/max and get the redshifts
-        for [coords] in self.data.read(['Position'], randoms_stats, full=False):
+        # read the data to find total number
+        data_stats = {}
+        redshifts = []
+        for [coords] in self.data.read(['Position'], data_stats, full=False):
             
-            # get the global min/max of cartesian
             if self.comm.rank == 0:
+                
+                # global min/max of cartesian
                 cartesian = self._to_cartesian(coords)
                 coords_min = numpy.minimum(coords_min, cartesian.min(axis=0))
                 coords_max = numpy.maximum(coords_max, cartesian.max(axis=0))
                 
-                # store the redshifts
+                # store redshifts
                 redshifts += list(coords[:,-1])
-        N_ran = randoms_stats['Ntot']
-        
+                
         # only rank zero does the work, then broadcast
         if self.comm.rank == 0:
             
             # setup the box, using randoms to define it
             self._define_box(coords_min, coords_max)
     
-            # compute the number density from the randoms
-            self._set_nbar(numpy.array(redshifts), alpha=1.*N_data/N_ran)
+            # compute the number density from the data
+            self._set_nbar(numpy.array(redshifts), alpha=1.0)
             
         # broadcast the results that rank 0 computed
         self.BoxSize   = self.comm.bcast(self.BoxSize)

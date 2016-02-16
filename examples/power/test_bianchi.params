@@ -1,6 +1,7 @@
 data: RaDecRedshift:../data/test_bianchi_data.dat:ra dec z:-usecols=ra dec z:-degrees
 randoms: RaDecRedshift:../data/test_bianchi_randoms.dat:ra dec z:-usecols=ra dec z:-degrees
 cosmo: AstropyCosmology:-H0=70:-Om0=0.286:-flat
+BoxSize: 1689 3238 1788
 
 compute_fkp_weights: True
 P0_fkp: 2e4
