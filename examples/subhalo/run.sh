@@ -1,5 +1,5 @@
 DIR=`dirname $0`
-
+echo Testinb FOF6D
 cd $DIR
 [ -d ../output ] || mkdir ../output
 

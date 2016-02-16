@@ -1,4 +1,5 @@
 DIR=`dirname $0`
+echo Testing FFTPower
 cd $DIR
 [ -d ../output ] || mkdir ../output
 for fn in *.params; do
