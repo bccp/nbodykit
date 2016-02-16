@@ -420,7 +420,7 @@ class Painter:
 
             layout = pm.decompose(position)
 
-            for c in list(data.keys()):
+            for c in columns:
                 data[c] = layout.exchange(data[c])
                 
             yield [data[c] for c in columns]
