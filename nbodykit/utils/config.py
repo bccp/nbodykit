@@ -104,17 +104,21 @@ def Configure(init):
                 setattr(self, attr, val)
         return init(self, *args, **kwargs)
     return wrapper
-
+    
 def cast(schema, attr, val):
     """
     Convenience function to cast values based
-    on the `type` stored in `schema`
+    on the `type` stored in `schema`, and check `choices`
     """
     if attr in schema:
-        cast = schema[attr].type
-        if cast is not None: val = cast(val)
+        arg = schema[attr]
+        if arg.type is not None: 
+            val = arg.type(val)
+        if arg.choices is not None:
+            if val not in arg.choices:
+                raise ValueError("valid choices for '%s' are: '%s'" %(arg.name, str(arg.choices)))
     return val
-    
+
 def update_schema(func, attrs, defaults):
     """
     Update the schema, which is attached to `func`,
@@ -128,8 +132,10 @@ def update_schema(func, attrs, defaults):
     consistency check on the developer
     """
     args = attrs[1:]
-    required = args[:-len(defaults)] # required positional arguments
-    default_names = args[-len(defaults):] # args with default values
+    required = args; default_names = []
+    if len(defaults):
+        required = args[:-len(defaults)]  
+        default_names = args[-len(defaults):]
     
     # loop over the schema arguments
     extra = []; missing = default_names + required
@@ -152,7 +158,7 @@ def update_schema(func, attrs, defaults):
     if len(missing):
         raise ValueError("missing arguments in schema : %s " %str(missing))
     if len(extra):
-        raise ValueErrro("extra arguments in schema : %s" %str(extra))
+        raise ValueError("extra arguments in schema : %s" %str(extra))
 
     # reorder the schema list to match the function signature
     order = [args.index(a.name) for a in func.schema]
