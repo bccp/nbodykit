@@ -40,6 +40,7 @@ class FOFDataSource(DataSource):
     @classmethod
     def register(cls):
         s = cls.schema
+        s.description = "read data from a HDF5 FOFGroup file"
 
         s.add_argument("path", type=str, help="the file path to load the data from")
         s.add_argument("m0", type=float, help="the mass unit")

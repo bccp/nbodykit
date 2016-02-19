@@ -37,6 +37,7 @@ class FastPMDataSource(DataSource):
         Fill the attribute schema associated with this class
         """
         s = cls.schema
+        s.description = "read snapshot files of the FastPM simulation"
         
         s.add_argument("path", type=str,
             help="the file path to load the data from")

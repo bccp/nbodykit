@@ -19,6 +19,7 @@ class HaloLabel(DataSource):
     def register(cls):
         
         s = cls.schema
+        s.description = "read a file of halo labels (halo id per particle), as generated the FOF algorithm"
         s.add_argument("path", type=str, help="the file path to load the data from")
         s.add_argument("bunchsize", type=int, help="number of particle to read in a bunch")
     

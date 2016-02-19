@@ -22,6 +22,8 @@ class RaDecRedshiftDataSource(DataSource):
     def register(cls):
         
         s = cls.schema
+        s.description = "read (ra, dec, z) from a plaintext file, using Pandas"
+        
         s.add_argument("path", type=str, help="the file path to load the data from")
         s.add_argument("names", type=list, help="the names of columns in text file")
         s.add_argument("usecols", type=list, help="only read these columns from file")

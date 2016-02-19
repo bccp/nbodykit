@@ -72,8 +72,8 @@ def main():
     parser.add_argument('--list-painters',  nargs='*', action=ListPluginsAction(Painter), help='List Painters')
     parser.add_argument('--list-transfers',  nargs='*', action=ListPluginsAction(Transfer), help='List Transfer Functions')
 
+    # configure printing
     parser.usage = parser.format_usage()[6:-1] + " ... \n"
-
     if MPI.COMM_WORLD.rank != 0:
         parser._print_message = lambda x, file=None: None
 

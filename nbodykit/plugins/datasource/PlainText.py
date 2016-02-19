@@ -29,6 +29,8 @@ class PlainTextDataSource(DataSource):
     def register(cls):
         
         s = cls.schema
+        s.description = "read data from a plaintext file using numpy"
+        
         s.add_argument("path", type=str,
             help="the file path to load the data from")
         s.add_argument("names", type=list, 

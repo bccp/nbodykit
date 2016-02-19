@@ -36,6 +36,7 @@ class PandasDataSource(DataSource):
         Fill the attribute schema associated with this class
         """
         s = cls.schema
+        s.description = "read data from a plaintext or HDF5 file using Pandas"
         
         s.add_argument("path", type=str,
             help="the file path to load the data from")

@@ -16,6 +16,8 @@ class GadgetDataSource(DataSource):
     def register(cls):
         
         s = cls.schema
+        s.description = "read a flavor of Gadget 2 files (experimental)"
+        
         s.add_argument("path", type=str, help="the file path to load the data from")
         s.add_argument("BoxSize", type=cls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
@@ -95,6 +97,8 @@ class GadgetGroupTabDataSource(DataSource):
     def register(cls):
         
         s = cls.schema
+        s.description = "read a flavor of Gadget 2 FOF catalogs (experimental)"
+        
         s.add_argument("path", type=str, help="the file path to load the data from")
         s.add_argument("BoxSize", type=cls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")

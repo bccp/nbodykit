@@ -111,6 +111,9 @@ class TracerCatalogDataSource(DataSource):
     def register(cls):
         
         s = cls.schema
+        s.description = ("representing a catalog of tracer objects, measured in an "
+                         "observational survey, with a non-trivial selection function")
+        
         s.add_argument("data", 
             help="`RaDecRedshift` DataSource representing the `data` catalog")
         s.add_argument("randoms",
