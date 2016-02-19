@@ -14,18 +14,12 @@
     1. add a class decorator @ExtensionPoint
 """
 import numpy
+from nbodykit.utils.config import autoassign, ConstructorSchema, ReadConfigFile
+from argparse import Namespace
+
 # MPI will be required because
 # a plugin instance will be created for a MPI communicator.
 from mpi4py import MPI
-
-from nbodykit.plugins import HelpFormatterColon, load
-from nbodykit.utils.config import autoassign, ConstructorSchema, ReadConfigFile
-
-import functools
-from argparse import Namespace
-
-import sys
-import contextlib
 
 algorithms  = Namespace()
 datasources = Namespace()
@@ -173,6 +167,8 @@ class PluginMount(type):
             
         s = []
         for k in plugins:
+            if not isplugin(k):
+                raise ValueError("'%s' is not a valid Plugin name" %k)
             header = "Plugin : %s  ExtensionPoint : %s" % (k, cls.__name__)
             s.append(header)
             s.append("=" * (len(header)))
@@ -181,7 +177,7 @@ class PluginMount(type):
         if not len(s):
             return "No available Plugins registered at %s" %cls.__name__
         else:
-            return '\n'.join(s)
+            return '\n'.join(s) + '\n'
 
 # copied from six
 def add_metaclass(metaclass):
