@@ -1,6 +1,8 @@
 mode: 1d
 Nmesh: 256
 output: ../output/test_power_fastpm_1d.txt
-fields:
-    - FastPM:../data/fastpm_1.0000
-    - [NormalizeDC, RemoveDC, AnisotropicCIC]
+
+field:
+    FastPM:
+       path: ../data/fastpm_1.0000
+    Transfer: [NormalizeDC, RemoveDC, AnisotropicCIC]

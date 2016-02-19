@@ -1,7 +1,13 @@
 mode: 2d
 Nmesh: 256
-fields:
-    - Pandas:../data/plaintext.txt:x y z z_redshift is_sat N_sat collided resolved:1380:-poscols=x y z_redshift:-ftype=text
-    - [NormalizeDC, RemoveDC, AnisotropicCIC]
+
+field:
+    Pandas:
+      path: ../data/plaintext.txt
+      names: [x, y, z, z_redshift, is_sat, N_sat, collided, resolved]
+      BoxSize: 1380
+      poscols: [x, y, z_redshift]
+      ftype: text
+    Transfer: [NormalizeDC, RemoveDC, AnisotropicCIC]
     
 output: ../output/power_2d_pandas_plaintext_test.dat
