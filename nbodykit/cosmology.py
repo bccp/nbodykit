@@ -1,4 +1,4 @@
-from nbodykit.utils.config import Configure, Argument
+from nbodykit.utils.config import autoassign, attribute
 from astropy import cosmology, units
 
 class CosmologyBase(object):
@@ -80,15 +80,15 @@ class Cosmology(CosmologyBase):
     *   the underlying astropy class is stored as the `engine` attribute
     """  
     
-    @Configure
-    @Argument('flat', type=bool, help="if `True`, automatically set `Ode0` such that `Ok0` is zero")
-    @Argument('m_nu', type=neutrino_mass, help="mass of neutrino species in eV")
-    @Argument('Neff', type=float, help="effective number of neutrino species")
-    @Argument('Tcmb0', type=float, help="temperature of the CMB in K at z=0")
-    @Argument('w0', type=float, help="dark energy equation of state")
-    @Argument('Ode0', type=float, help="dark energy density/critical density at z=0")
-    @Argument('Om0', type=float, help="matter density/critical density at z=0")
-    @Argument('H0', type=float, help="the Hubble constant at z=0, in km/s/Mpc")
+    @autoassign
+    @attribute('flat', type=bool, help="if `True`, automatically set `Ode0` such that `Ok0` is zero")
+    @attribute('m_nu', type=neutrino_mass, help="mass of neutrino species in eV")
+    @attribute('Neff', type=float, help="effective number of neutrino species")
+    @attribute('Tcmb0', type=float, help="temperature of the CMB in K at z=0")
+    @attribute('w0', type=float, help="dark energy equation of state")
+    @attribute('Ode0', type=float, help="dark energy density/critical density at z=0")
+    @attribute('Om0', type=float, help="matter density/critical density at z=0")
+    @attribute('H0', type=float, help="the Hubble constant at z=0, in km/s/Mpc")
     def __init__(self, H0=67.6, Om0=0.31, Ode0=0.69, w0=-1., Tcmb0=2.7255, 
                     Neff=3.04, m_nu=0., flat=False):
 
