@@ -16,6 +16,13 @@ class TPMSnapshotDataSource(DataSource):
             choices="xyz", default=None, help="direction to do redshift distortion")
         h.add_argument("-bunchsize", type=int, 
                 default=1024*1024*4, help="number of particles to read per rank in a bunch")
+    def finalize_attributes(self):
+        if self.comm.rank == 0:
+            datastorage = files.DataStorage(self.path, files.TPMSnapshotFile)
+            self.TotalLength = sum(datastorage.npart)
+        else:
+            self.TotalLength = None
+        self.TotalLength = self.comm.bcast(self.TotalLength)
 
     def read(self, columns, stats, full=False):
         """ read data in parallel. if Full is True, neglect bunchsize. """

@@ -15,7 +15,11 @@ class HaloLabel(DataSource):
         h.add_argument("path", help="path to file")
         h.add_argument("-bunchsize", type=int, default=4 *1024*1024,
                 help="number of particle to read in a bunch")
-    
+
+    def finalize_attributes(self):
+        f = bigfile.BigFileMPI(self.comm, self.path)
+        self.TotalLength = f['Label'].size
+
     def read(self, columns, stats, full=False):
         f = bigfile.BigFileMPI(self.comm, self.path)
         readcolumns = columns
