@@ -23,10 +23,7 @@ def append_fields(data, dict):
     for name in dict:
         newdata[name] = dict[name]
     return newdata
- 
-def list_str(value):
-    return value.split()
-         
+          
 class ClosePairBiasing(DataSource):
     """
     Reading in nbodykit hdf5 halo catalogue, and filter the
@@ -51,23 +48,26 @@ class ClosePairBiasing(DataSource):
     """
     plugin_name = "ClosePairBias"
     
+    def __init__(self, path, dataset, BoxSize, m0, massive, rsd=None,
+                    select1=None, select2=None):
+        pass
+    
     @classmethod
-    def register(kls):
+    def register(cls):
         
-        h = kls.parser
+        s = cls.schema
         
-        h.add_argument("path", help="path to file")
-        h.add_argument("dataset",  help="name of dataset in HDF5 file")
-        h.add_argument("BoxSize", type=kls.BoxSizeParser,
+        s.add_argument("path", help="path to file")
+        s.add_argument("dataset",  help="name of dataset in HDF5 file")
+        s.add_argument("BoxSize", type=cls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions.")
-        h.add_argument("m0", type=float, help="mass of a particle")
-        h.add_argument("massive", default=None, type=selectionlanguage.Query, 
+        s.add_argument("m0", type=float, help="mass of a particle")
+        s.add_argument("massive", type=selectionlanguage.Query, 
             help="selection that defines the 'massive halo'; it can also be 'less massive halo' ")
-        h.add_argument("-rsd", choices="xyz", 
-            help="direction to do redshift distortion")
-        h.add_argument("-select1", default=None, type=selectionlanguage.Query, 
+        s.add_argument("sd", choices="xyz", help="direction to do redshift distortion")
+        s.add_argument("-select1", type=selectionlanguage.Query, 
             help='row selection based on conditions specified as string')
-        h.add_argument("-select2", default=None, type=selectionlanguage.Query, 
+        s.add_argument("-select2", type=selectionlanguage.Query, 
             help='row selection based on conditions specified as string')
     
     def read(self, columns, comm, bunchsize):

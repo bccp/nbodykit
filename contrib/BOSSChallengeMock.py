@@ -35,24 +35,22 @@ class BOSSChallengeMockDataSource(DataSource):
     qpar = 1.0
     qperp = 1.0
     
-    def finalize_attributes(self):
+    def __init__(self, path, BoxSize, scaled=False):
         
-        # call the base initialize first
-        super(BOSSChallengeMockDataSource, self).finalize_attributes()
-
         # rescale the box size, if scaled = True
         if self.scaled:
             self.BoxSize[-1] *= self.qpar
             self.BoxSize[0:2] *= self.qperp
     
     @classmethod
-    def register(kls):
-        h = kls.parser
+    def register(cls):
+        s = cls.schema
+        s.description = "read from BOSS DR12 challenge mocks"
         
-        h.add_argument("path", help="path to file")
-        h.add_argument("BoxSize", type=kls.BoxSizeParser,
+        s.add_argument("path", help="path to file")
+        s.add_argument("BoxSize", type=cls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
-        h.add_argument("-scaled", action='store_true', 
+        s.add_argument("scaled", type=bool,
             help='rescale the parallel and perp coordinates by the AP factor')
     
     def readall(self, columns):
@@ -137,10 +135,7 @@ class BOSSChallengeNSeriesDataSource(DataSource):
     qperp = 0.99169902
     qpar = 0.98345263
     
-    def finalize_attributes(self):
-        
-        # call the base initialize first
-        super(BOSSChallengeNSeriesDataSource, self).finalize_attributes()
+    def __init__(self, path, BoxSize, scaled=False, rsd=None, velf=1.):
         
         # create a copy of the original, before scaling
         self._BoxSize0 = self.BoxSize.copy()
@@ -156,22 +151,19 @@ class BOSSChallengeNSeriesDataSource(DataSource):
                         self.BoxSize[i] *= self.qpar
                     else:
                         self.BoxSize[i] *= self.qperp
-        
     
     @classmethod
-    def register(kls):
-        h = kls.parser
+    def register(cls):
+        s = cls.schema
+        s.description = 'read the BOSS DR12 N-series cutsky mocks'
         
-        h.add_argument("path", help="path to file")
-        h.add_argument("BoxSize", type=kls.BoxSizeParser,
+        s.add_argument("path", help="path to file")
+        s.add_argument("BoxSize", type=cls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
-
-        h.add_argument("-scaled", action='store_true', 
+        s.add_argument("scaled", type=bool,
             help='rescale the parallel and perp coordinates by the AP factor')
-        h.add_argument("-rsd", choices="xyz",
-            help="direction to do redshift distortion")
-        h.add_argument("-velf", default=1., type=float, 
-            help="factor to scale the velocities")
+        s.add_argument("rsd", choices="xyz", help="direction to do redshift distortion")
+        s.add_argument("velf", type=float, help="factor to scale the velocities")
     
     def readall(self, columns):
             
