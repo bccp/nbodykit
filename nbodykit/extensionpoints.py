@@ -19,7 +19,7 @@ import numpy
 from mpi4py import MPI
 
 from nbodykit.plugins import HelpFormatterColon, load
-from nbodykit.utils.config import autoassign, ConstructorSchema
+from nbodykit.utils.config import autoassign, ConstructorSchema, ReadConfigFile
 
 import functools
 from argparse import Namespace
@@ -31,7 +31,6 @@ algorithms  = Namespace()
 datasources = Namespace()
 painters    = Namespace()
 transfers   = Namespace()
-mstorages   = Namespace()
 
 # private variable to store global MPI communicator 
 # that all plugins are initialized with
@@ -376,45 +375,6 @@ class Painter:
                 
             yield [data[c] for c in columns]
 
-@ExtensionPoint(mstorages)
-class MeasurementStorage:
-    """
-    Measurement storage
-    """
-
-    plugin_name = None
-    klasses = {}
-
-    def __init__(self, path):
-        self.path = path
-
-    @classmethod
-    def add_storage_klass(kls, klass):
-        kls.klasses[klass.plugin_name] = klass
-
-    @classmethod
-    def new(kls, dim, path):
-        klass = kls.klasses[dim]
-        obj = klass(path)
-        return obj
-        
-    @contextlib.contextmanager
-    def open(self):
-        if self.path and self.path != '-':
-            ff = open(self.path, 'wb')
-        else:
-            ff = sys.stdout
-            
-        try:
-            yield ff
-        finally:
-            if ff is not sys.stdout:
-                ff.close()
-
-    def write(self, cols, data, **meta):
-        return NotImplemented
-
-
 @ExtensionPoint(algorithms)
 class Algorithm:
     """
@@ -452,16 +412,16 @@ class Algorithm:
         klass = getattr(kls.registry, name)
         
         # get the namespace from the config file
-        return ReadConfigFile(klass.parser, config_file)
+        return ReadConfigFile(config_file, klass.schema)
 
 
-__valid__ = [DataSource, Painter, Transfer, MeasurementStorage, Algorithm]
+__valid__ = [DataSource, Painter, Transfer, Algorithm]
 __all__ = list(map(str, __valid__))
 
 
 def create_plugin(plugin_name, **kwargs):
     """
-    Instatiate and return a plugin, without knowing the extension 
+    Instatiate and return a plugin, without having to know the extension 
     point class beforehand
     """
     if not isplugin(plugin_name):
