@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+import os
 from mpi4py import MPI
 
 from nbodykit.extensionpoints import Algorithm, algorithms
@@ -17,6 +18,12 @@ logging.basicConfig(level=logging.DEBUG,
                     datefmt='%m-%d %H:%M')
 
 
+def config_stream(value):
+    if os.path.exists(value):
+        return open(value, 'r').read()
+    else:
+        return value
+    
 class HelpAction(argparse.Action):
     """
     Help action that replicates the behavior of subcommands, 
@@ -63,7 +70,7 @@ def main():
     parser.add_argument('algorithm_name', choices=valid_algorithms)
     parser.add_argument('-h', '--help', action=HelpAction, help='Help on an algorithm')
     parser.add_argument("-X", type=load, action="append", help="Add a directory or file for looking up plugins.")
-    parser.add_argument('-c', '--config', type=str, required=True,
+    parser.add_argument('-c', '--config', type=config_stream, required=True,
                         help='the name of the file to read parameters from, using YAML syntax')
     
     # help arguments

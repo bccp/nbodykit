@@ -1,6 +1,8 @@
 import inspect
 import functools
 from collections import namedtuple 
+import yaml
+from collections import OrderedDict
 
 def create_plugin(cls, plugin_name, cosmo, **kwargs):
     """
@@ -13,7 +15,8 @@ def create_plugin(cls, plugin_name, cosmo, **kwargs):
     if cls.__name__ == 'DataSource':
         kwargs.update(cosmo=cosmo)
             
-    return cls.create(plugin_name, **kwargs)
+    # make sure we cast the kwargs for all plugins
+    return cls.create(plugin_name, use_schema=True, **kwargs)
             
 def initialize_plugins(d, cosmo=None):
     """
@@ -74,9 +77,6 @@ def initialize_plugins(d, cosmo=None):
         
     return d
 
-import yaml
-from collections import OrderedDict
-
 def ordered_load(stream, Loader=yaml.SafeLoader, object_pairs_hook=OrderedDict):
     """
     Load from yaml into OrderedDict to preserve the ordering used 
@@ -95,7 +95,7 @@ def ordered_load(stream, Loader=yaml.SafeLoader, object_pairs_hook=OrderedDict):
     return yaml.load(stream, OrderedLoader)
 
 
-def ReadConfigFile(config_file, schema):
+def ReadConfigFile(config_stream, schema):
     """
     Read parameters from a file using YAML syntax
     
@@ -107,12 +107,13 @@ def ReadConfigFile(config_file, schema):
     """
     from argparse import Namespace
     from nbodykit.cosmology import Cosmology
+    from nbodykit.plugins import load
     
     # make a new namespace
     ns, unknown = Namespace(), Namespace()
 
     # read the yaml config file
-    config = ordered_load(open(config_file, 'r'))
+    config = ordered_load(config_stream)
     
     # first search for plugins
     plugins = []
@@ -230,21 +231,38 @@ def attribute(name, **kwargs):
         return func
     return _argument
     
-def autoassign(init, allowed=[]):
+def autoassign(init, allowed=[], attach_comm=True):
     """
     Verify the schema attached to the input `init` function,
     automatically set the input arguments, and then finally
     call `init`
+    
+    Parameters
+    ----------
+    init : callable
+        the function we are decorating
+    allowed : list, optional
+        list of names of additional attributes that are allowed to be 
+        auto-assigned if passed to the function -- useful for when
+        we are automatically setting the cosmology
+    attach_comm : bool, optional
+        if `True`, set the `comm` attribute to the return value
+        of `get_plugin_comm`; default: True
     """
     # inspect the function
     attrs, varargs, varkw, defaults = inspect.getargspec(init)
     if defaults is None: defaults = []
     
     # verify the schema
-    update_schema(init, attrs, defaults, ignore=allowed)
+    update_schema(init, attrs, defaults, allowed=allowed)
     
     @functools.wraps(init)
     def wrapper(self, *args, **kwargs):
+        
+        # attach the global communicator
+        if attach_comm:
+            from nbodykit.extensionpoints import get_plugin_comm
+            self.comm = get_plugin_comm()
         
         # handle extra allowed keywords (that aren't in signature)
         for k in allowed:
@@ -306,7 +324,7 @@ def cast(schema, attr, val):
                 raise ValueError("valid choices for '%s' are: '%s'" %(arg.name, str(arg.choices)))
     return val
 
-def update_schema(func, attrs, defaults, ignore=[]):
+def update_schema(func, attrs, defaults, allowed=[]):
     """
     Update the schema, which is attached to `func`,
     using information gather from the function's signature, 
@@ -338,7 +356,7 @@ def update_schema(func, attrs, defaults, ignore=[]):
         func.schema[i] = func.schema.Argument(**d)
         
         # check for extra and missing
-        if a.name not in args and a.name not in ignore:
+        if a.name not in args and a.name not in allowed:
             extra.append(a.name)
         elif a.name in missing:
             missing.remove(a.name)
@@ -351,10 +369,10 @@ def update_schema(func, attrs, defaults, ignore=[]):
 
     # reorder the schema list to match the function signature
     order = [args.index(a.name) for a in func.schema if a.name in args]
-    N = len(func.schema)-len(ignore)
+    N = len(func.schema) - len(allowed)
     if not all(i == order[i] for i in range(N)):
         new_schema = [func.schema[order.index(i)] for i in range(N)]
-        for p in ignore: new_schema.append(func.schema[p])
+        for p in allowed: new_schema.append(func.schema[p])
         func.schema = ConstructorSchema(new_schema, description=func.schema.description)
         
         

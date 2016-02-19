@@ -12,26 +12,29 @@ from mpi4py import MPI
 
 import nbodykit
 from pmesh.particlemesh import ParticleMesh
-from nbodykit.extensionpoints import DataSource, painters
+from nbodykit.extensionpoints import painters
 
 
 class TidalTensor(Algorithm):
     plugin_name = "TidalTensor"
+    
+    def __init__(self, field, points, Nmesh, smoothing=None):
+        pass
 
     @classmethod
-    def register(kls):
-        from nbodykit.extensionpoints import DataSource
-        p = kls.parser
-        p.add_argument("field", type=DataSource.fromstring, 
+    def register(cls):
+        s = cls.schema
+        s.add_argument("field",
                 help="--list-datasource for help")
-        p.add_argument("points", type=DataSource.fromstring, 
+        s.add_argument("points", 
                 help="A small set of points to calculate tidal force on; --list-datasource for help")
-        p.add_argument("Nmesh", type=int,
+        s.add_argument("Nmesh", type=int,
                 help='Size of FFT mesh for painting')
-        p.add_argument("--smoothing", type=float, default=None,
+        s.add_argument("smoothing", type=float,
                 help='Smoothing Length in distance units. '
                       'It has to be greater than the mesh resolution. '
                       'Otherwise the code will die. Default is the mesh resolution.')
+                      
     def Smoothing(self, pm, complex):
         k = pm.k
         k2 = 0

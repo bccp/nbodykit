@@ -441,7 +441,7 @@ class TaskManager(object):
         this_config = self.pool_comm.bcast(this_config, root=0)
 
         # configuration file passed via -c
-        params, extra = Algorithm.parse_known_yaml(self.algorithm_name, this_config)
+        params, extra = Algorithm.parse_known_yaml(self.algorithm_name, open(this_config, 'r').read())
         
         # output is required
         output = getattr(extra, 'output', None)

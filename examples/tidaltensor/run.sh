@@ -5,5 +5,5 @@ cd $DIR
 
 for fn in *.params; do
     echo testing $fn ...
-    mpirun -n 2 python ../../bin/nbkit.py TidalTensor @$fn || exit
+    mpirun -n 2 python ../../bin/nbkit.py TidalTensor -c $fn || exit
 done

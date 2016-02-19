@@ -104,9 +104,6 @@ class PluginMount(type):
 
             # register the class
             cls.register()
-
-            # attach the global communincator
-            cls.comm = get_plugin_comm()
             
             # if a `DataSource`, inject the 'cosmo' keyword
             extra = []
@@ -116,7 +113,7 @@ class PluginMount(type):
                     cls.schema.add_argument("cosmo", default=None, help=h)
                     extra.append('cosmo')               
                 
-            # configure the class __init__
+            # configure the class __init__, attaching the comm
             cls.__init__ = autoassign(cls.__init__.__func__, allowed=extra)
             
     def create(cls, plugin_name, use_schema=False, **kwargs): 
@@ -155,7 +152,12 @@ class PluginMount(type):
                     cast = klass.schema[k].type
                     if cast is not None: 
                         kwargs[k] = cast(kwargs[k])
-        return klass(**kwargs)
+                        
+        toret = klass(**kwargs)
+        
+        ### FIXME: not always using create!!
+        toret.string = id(toret)
+        return toret
 
     def format_help(cls, *plugins):
         """
@@ -413,7 +415,7 @@ class Algorithm:
         raise NotImplementedError
     
     @classmethod
-    def parse_known_yaml(kls, name, config_file):
+    def parse_known_yaml(kls, name, stream):
         """
         Parse the known (and unknown) attributes from a YAML, where `known`
         arguments must be part of the Algorithm.parser instance
@@ -422,7 +424,7 @@ class Algorithm:
         klass = getattr(kls.registry, name)
         
         # get the namespace from the config file
-        return ReadConfigFile(config_file, klass.schema)
+        return ReadConfigFile(stream, klass.schema)
 
 
 __valid__ = [DataSource, Painter, Transfer, Algorithm]

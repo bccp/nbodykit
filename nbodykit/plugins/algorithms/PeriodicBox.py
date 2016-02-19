@@ -202,7 +202,7 @@ class FFTCorrelationAlgorithm(Algorithm):
     plugin_name = "FFTCorrelation"
     logger = logging.getLogger(plugin_name)
     
-    def __init__(self, mode, Nmesh, field, other=None, los=None, Nmu=5, 
+    def __init__(self, mode, Nmesh, field, other=None, los='z', Nmu=5, 
                     dk=None, kmin=0., quiet=False, poles=[]):
           
         # properly set the logging level          

@@ -14,8 +14,3 @@ for fn in *.params; do
         mpirun -n 2 python ../../bin/nbkit.py FFTPower -c $fn || exit
     fi
 done
-
-for fn in *.argparse; do
-    echo testing $fn ...
-    mpirun -n 2 python ../../bin/nbkit.py FFTPower @$fn || exit
-done

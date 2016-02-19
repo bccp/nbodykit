@@ -3,8 +3,8 @@ Nmesh: 256     # size of mesh
 
 field:
     Pandas:
-        path: ../data/pandas_data.hdf5:
-        names: data
+        path: ../data/pandas_data.hdf5
+        names: [data]
         BoxSize: 1380.
         poscols: [x, y, z]
         velcols: [vx, vy, vz]

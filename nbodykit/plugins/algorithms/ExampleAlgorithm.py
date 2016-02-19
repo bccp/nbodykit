@@ -1,4 +1,4 @@
-from nbodykit.extensionpoints import Algorithm, DataSource
+from nbodykit.extensionpoints import Algorithm
 
 import numpy
 import logging
@@ -7,12 +7,15 @@ class Describe(Algorithm):
     plugin_name = "Describe"
     logger = logging.getLogger(plugin_name)
 
+    def __init__(self, datasource, column='Position'):
+        pass
+
     @classmethod
-    def register(kls):
-        p = kls.parser
-        p.description = "Describe the data source"
-        p.add_argument("datasource", type=DataSource.fromstring)
-        p.add_argument("--column", default='Position')
+    def register(cls):
+        s = cls.schema
+        s.description = "describe a specific column of the data source"
+        s.add_argument("datasource", help='the DataSource plugin')
+        s.add_argument("column", type=str, help='the column to describe')
      
     def finalize_attributes(self):
         pass

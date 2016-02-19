@@ -3,7 +3,7 @@ Nmesh: 256
 
 field:
     TPMSnapshot:
-        path: ../data/tpm_1.0000.bin:
+        path: ../data/tpm_1.0000.bin
         BoxSize: 384
     Transfer: [NormalizeDC, RemoveDC, AnisotropicCIC]
 

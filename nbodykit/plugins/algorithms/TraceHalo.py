@@ -11,21 +11,20 @@ from mpi4py import MPI
 from nbodykit.extensionpoints import Algorithm
 
 class TraceHaloAlgorithm(Algorithm):
-
     plugin_name = "TraceHalo"
     
+    def __init__(self, dest, source, sourcelabel):
+        pass
+    
     @classmethod
-    def register(kls):
-        from nbodykit.extensionpoints import DataSource
-        p = kls.parser
-        p.description = " Calculate the halo property based on a different set of halo labels."
+    def register(cls):
+        s = cls.schema
+        s.description = " Calculate the halo property based on a different set of halo labels."
 
-        p.add_argument("dest", type=DataSource.fromstring,
-                help="type: DataSource")
-        p.add_argument("source", type=DataSource.fromstring,
-                help="type: DataSource")
-        p.add_argument("sourcelabel", type=DataSource.fromstring,
-                help='DataSource of the source halo label files, the Label column is used.')
+        s.add_argument("dest", help="type: DataSource")
+        s.add_argument("source", help="type: DataSource")
+        s.add_argument("sourcelabel",
+            help='DataSource of the source halo label files, the Label column is used.')
 
     def run(self):
         comm = self.comm

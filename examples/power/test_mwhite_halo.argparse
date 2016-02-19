@@ -1,5 +1,0 @@
--X=../../contrib/MWhiteHaloFile.py
-1d
-256
-MWhiteHaloFile:../data/mwhite_halo.fofp:1380
--o=../output/test_power_mwhite_1d_argparse.txt
