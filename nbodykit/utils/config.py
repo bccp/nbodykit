@@ -2,6 +2,120 @@ import inspect
 import functools
 from collections import namedtuple 
 
+def initialize_plugins(d, cosmo=None):
+    """
+    Recursively search a parsed YAML output, replacing
+    plugin names and arguments with the initialized instances
+    """
+    from nbodykit.extensionpoints import isplugin, create_plugin
+    from nbodykit.extensionpoints import isextensionpoint, DataSource
+    
+    # if not a dict/list, we don't need to do anything
+    if not isinstance(d, (dict, list)):
+        return
+        
+    # loop over the iterable        
+    for i, k in enumerate(d):
+        
+        # check for plugins
+        if isinstance(k, str):
+            if isplugin(k):
+                
+                # grab any arguments
+                if isinstance(d, dict):
+                    if d[k] is not None:
+                        kwargs = d[k].copy()
+                    else:
+                        kwargs = {}
+                    if isextensionpoint(k, DataSource):
+                        kwargs.update(cosmo=cosmo)
+                    d[k] = create_plugin(k, **kwargs)
+                # no arguments provided
+                else:
+                    kwargs = {}
+                    if isextensionpoint(k, DataSource):
+                        kwargs.update(cosmo=cosmo)
+                    d[i] = create_plugin(k, **kwargs)
+         
+        # call recursively   
+        if isinstance(d, dict):
+            initialize_plugins(d[k], cosmo)
+        else:
+            initialize_plugins(d[i], cosmo)
+        
+    return 
+
+import yaml
+from collections import OrderedDict
+
+def ordered_load(stream, Loader=yaml.SafeLoader, object_pairs_hook=OrderedDict):
+    """
+    Load from yaml into OrderedDict to preserve the ordering used 
+    by the user
+    
+    see: http://stackoverflow.com/questions/5121931/
+    """
+    class OrderedLoader(Loader):
+        pass
+    def construct_mapping(loader, node):
+        loader.flatten_mapping(node)
+        return object_pairs_hook(loader.construct_pairs(node))
+    OrderedLoader.add_constructor(
+        yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+        construct_mapping)
+    return yaml.load(stream, OrderedLoader)
+
+
+def ReadConfigFile(config_file, schema):
+    """
+    Read parameters from a file using YAML syntax
+    
+    The function uses the specified `schema` to:
+        * infer default values
+        * check if parameter values are consistent with `choices`
+        * infer the `type` of each parameter
+        * check if any required parameters are missing
+    """
+    from argparse import Namespace
+    from nbodykit.cosmology import Cosmology
+    
+    # make a new namespace
+    ns, unknown = Namespace(), Namespace()
+
+    # read the yaml config file
+    config = ordered_load(open(config_file, 'r'))
+    
+    # first search for plugins
+    plugins = []
+    if 'X' in config:
+        plugins = config['X']
+        if isinstance(plugins, str):
+            plugins = [plugins]
+        for plugin in plugins: load(plugin)
+        unknown.X = plugins 
+        config.pop('X')
+    
+    # now load cosmology
+    cosmo = None
+    if 'cosmo' in config:
+        cosmo = Cosmology(**config['cosmo'])
+        config.pop('cosmo')
+
+    # initialize plugins
+    initialize_plugins(config, cosmo)
+                
+    # set the values, casting if available
+    for k in config:
+        v = config[k]
+        if k in schema:
+            cast = schema[k].type
+            if cast is not None: v = cast(v)
+            setattr(ns, k, v)
+        else:
+            setattr(unknown, k, v)
+    
+    return ns, unknown
+
 class ConstructorSchema(list):
     """
     A list of named tuples, which store the relevant argument
@@ -42,24 +156,29 @@ class ConstructorSchema(list):
         
     def format_help(self):
         """
-        Return a string of help 
-        """     
-        toret = "Parameters:\n%s\n" %('-'*10)
-        s = []
+        Return a string giving the help 
+        """
+        optional = []; required = []
         for p in self:
             h = p.help if p.help is not None else ""
             info = "  %-20s %s" %(p.name, h)
             if p.default is not None:
                 info += " (default: %s)" %p.default
-            s.append(info)
+            if p.required:
+                required.append(info)
+            else:
+                optional.append(info)
             
-        toret += "\n".join(s)
+        toret = "required arguments:\n%s\n" %('-'*18)
+        toret += "\n".join(required)
+        toret += "\n\noptional arguments:\n%s\n" %('-'*18)
+        toret += "\n".join(optional)
         return toret
         
-def Argument(name, **kwargs):
+def attribute(name, **kwargs):
     """
-    Add a named argument to the schema attached to the function
-    we are decorating
+    Declare a class attribute, adding it to the schema attached to 
+    the function we are decorating
     """
     def _argument(func):
         if not hasattr(func, 'schema'):
@@ -68,7 +187,7 @@ def Argument(name, **kwargs):
         return func
     return _argument
     
-def Configure(init):
+def autoassign(init, allowed=[]):
     """
     Verify the schema attached to the input `init` function,
     automatically set the input arguments, and then finally
@@ -76,12 +195,19 @@ def Configure(init):
     """
     # inspect the function
     attrs, varargs, varkw, defaults = inspect.getargspec(init)
+    if defaults is None: defaults = []
     
     # verify the schema
-    update_schema(init, attrs, defaults)
+    update_schema(init, attrs, defaults, ignore=allowed)
     
     @functools.wraps(init)
     def wrapper(self, *args, **kwargs):
+        
+        # handle extra allowed keywords (that aren't in signature)
+        for k in allowed:
+            val = kwargs.pop(k, init.schema[k].default)
+            setattr(self, k, val)
+        
         # handle default values
         for attr, val in zip(reversed(attrs), reversed(defaults)):
             setattr(self, attr, val)
@@ -89,7 +215,7 @@ def Configure(init):
         # handle positional arguments
         positional_attrs = attrs[1:]            
         for attr, val in zip(positional_attrs, args):
-            val = cast(init.schema, attr, val)
+            check_choices(init.schema, attr, val)
             setattr(self, attr, val)
     
         # handle varargs
@@ -100,11 +226,22 @@ def Configure(init):
         # handle varkw
         if kwargs:
             for attr,val in kwargs.items():
-                val = cast(init.schema, attr, val)
+                check_choices(init.schema, attr, val)
                 setattr(self, attr, val)
         return init(self, *args, **kwargs)
     return wrapper
     
+def check_choices(schema, attr, val):
+    """
+    Verify that the input values are consistent
+    with the `choices`, using the schema
+    """
+    if attr in schema:
+        arg = schema[attr]
+        if arg.choices is not None:
+            if val not in arg.choices:
+                raise ValueError("valid choices for '%s' are: '%s'" %(arg.name, str(arg.choices)))
+
 def cast(schema, attr, val):
     """
     Convenience function to cast values based
@@ -119,7 +256,7 @@ def cast(schema, attr, val):
                 raise ValueError("valid choices for '%s' are: '%s'" %(arg.name, str(arg.choices)))
     return val
 
-def update_schema(func, attrs, defaults):
+def update_schema(func, attrs, defaults, ignore=[]):
     """
     Update the schema, which is attached to `func`,
     using information gather from the function's signature, 
@@ -131,9 +268,11 @@ def update_schema(func, attrs, defaults):
     It also verifies certain aspects of the schema, mostly as a
     consistency check on the developer
     """
-    args = attrs[1:]
+    args = attrs[1:] # ignore self
+    
+    # get the required names and default names
     required = args; default_names = []
-    if len(defaults):
+    if defaults is not None and len(defaults):
         required = args[:-len(defaults)]  
         default_names = args[-len(defaults):]
     
@@ -149,7 +288,7 @@ def update_schema(func, attrs, defaults):
         func.schema[i] = func.schema.Argument(**d)
         
         # check for extra and missing
-        if a.name not in args:
+        if a.name not in args and a.name not in ignore:
             extra.append(a.name)
         elif a.name in missing:
             missing.remove(a.name)
@@ -161,10 +300,12 @@ def update_schema(func, attrs, defaults):
         raise ValueError("extra arguments in schema : %s" %str(extra))
 
     # reorder the schema list to match the function signature
-    order = [args.index(a.name) for a in func.schema]
-    N = len(func.schema)
+    order = [args.index(a.name) for a in func.schema if a.name in args]
+    N = len(func.schema)-len(ignore)
     if not all(i == order[i] for i in range(N)):
-        func.schema = ConstructorSchema([func.schema[order.index(i)] for i in range(N)])
+        new_schema = [func.schema[order.index(i)] for i in range(N)]
+        for p in ignore: new_schema.append(func.schema[p])
+        func.schema = ConstructorSchema(new_schema)
         
     # update the doc with the schema documentation
     if func.__doc__:
