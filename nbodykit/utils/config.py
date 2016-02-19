@@ -2,48 +2,77 @@ import inspect
 import functools
 from collections import namedtuple 
 
+def create_plugin(cls, plugin_name, cosmo, **kwargs):
+    """
+    Instantiate and return a Plugin, directly from the name of 
+    the Plugin and the necessary attributes, passed as keywords
+    
+    If the Plugin is a DataSource, also pass the `cosmo` instance
+    to the Plugin initialization
+    """
+    if cls.__name__ == 'DataSource':
+        kwargs.update(cosmo=cosmo)
+            
+    return cls.create(plugin_name, **kwargs)
+            
 def initialize_plugins(d, cosmo=None):
     """
     Recursively search a parsed YAML output, replacing
     plugin names and arguments with the initialized instances
-    """
-    from nbodykit.extensionpoints import isplugin, create_plugin
-    from nbodykit.extensionpoints import isextensionpoint, DataSource
     
-    # if not a dict/list, we don't need to do anything
+    """
+    from nbodykit.extensionpoints import isplugin, get_extensionpt
+    
+    # check for strings that represent Plugins (with no attributes)
+    if isinstance(d, str) and isplugin(d):
+        cls = get_extensionpt(d)
+        return create_plugin(cls, d, cosmo)
+        
+    # if not a dict/list, just return it
     if not isinstance(d, (dict, list)):
-        return
+        return d
         
-    # loop over the iterable        
+    # if a dictionary with `plugin` key, make a plugin
+    if isinstance(d, dict) and 'plugin' in d:
+        kwargs = d.copy()
+        name = kwargs.pop('plugin')
+        cls = get_extensionpt(name)
+        return create_plugin(cls, name, cosmo, **kwargs)
+            
+    # loop over the list/dict and recursively search
     for i, k in enumerate(d):
-        
+               
         # check for plugins
-        if isinstance(k, str):
-            if isplugin(k):
+        if isinstance(k, str) and isplugin(k):
+            cls = get_extensionpt(k)
+            
+            # make plugin from (key, value) = (plugin, arguments)
+            if isinstance(d, dict):
+                            
+                kwargs = d[k].copy() if d[k] is not None else {}
+                plugin = create_plugin(cls, k, cosmo, **kwargs)
                 
-                # grab any arguments
-                if isinstance(d, dict):
-                    if d[k] is not None:
-                        kwargs = d[k].copy()
+                # new key for this plugin is name of ExtensionPoint
+                d.pop(k); k = cls.__name__
+                if k in d:
+                    if isinstance(d[k], list):
+                        d[k].append(plugin)
                     else:
-                        kwargs = {}
-                    if isextensionpoint(k, DataSource):
-                        kwargs.update(cosmo=cosmo)
-                    d[k] = create_plugin(k, **kwargs)
-                # no arguments provided
+                        d[k] = [d[k], plugin]
                 else:
-                    kwargs = {}
-                    if isextensionpoint(k, DataSource):
-                        kwargs.update(cosmo=cosmo)
-                    d[i] = create_plugin(k, **kwargs)
+                    d[k] = plugin
+                
+            # make plugin from just the key (no arguments)
+            else:
+                d[i] = create_plugin(cls, k, cosmo)
          
         # call recursively   
         if isinstance(d, dict):
-            initialize_plugins(d[k], cosmo)
+            d[k] = initialize_plugins(d[k], cosmo)
         else:
-            initialize_plugins(d[i], cosmo)
+            d[i] = initialize_plugins(d[i], cosmo)
         
-    return 
+    return d
 
 import yaml
 from collections import OrderedDict
@@ -102,7 +131,7 @@ def ReadConfigFile(config_file, schema):
         config.pop('cosmo')
 
     # initialize plugins
-    initialize_plugins(config, cosmo)
+    config = initialize_plugins(config, cosmo)
                 
     # set the values, casting if available
     for k in config:
@@ -133,6 +162,10 @@ class ConstructorSchema(list):
             >> arg_tuple = schema[param_name]
     """
     Argument = namedtuple('Argument', ['name', 'type', 'default', 'choices', 'help', 'required'])
+    
+    def __init__(self, *args, **kwargs):
+        super(ConstructorSchema, self).__init__(*args)
+        self.description = kwargs.get('description', "")
      
     def __contains__(self, key):
         return key in [a.name for a in self]
@@ -158,6 +191,10 @@ class ConstructorSchema(list):
         """
         Return a string giving the help 
         """
+        toret = ""
+        if getattr(self, 'description', ""):
+            toret += self.description + '\n\n'
+            
         optional = []; required = []
         for p in self:
             h = p.help if p.help is not None else ""
@@ -169,7 +206,7 @@ class ConstructorSchema(list):
             else:
                 optional.append(info)
             
-        toret = "required arguments:\n%s\n" %('-'*18)
+        toret += "required arguments:\n%s\n" %('-'*18)
         toret += "\n".join(required)
         toret += "\n\noptional arguments:\n%s\n" %('-'*18)
         toret += "\n".join(optional)
@@ -305,7 +342,8 @@ def update_schema(func, attrs, defaults, ignore=[]):
     if not all(i == order[i] for i in range(N)):
         new_schema = [func.schema[order.index(i)] for i in range(N)]
         for p in ignore: new_schema.append(func.schema[p])
-        func.schema = ConstructorSchema(new_schema)
+        func.schema = ConstructorSchema(new_schema, description=func.schema.description)
+        
         
     # update the doc with the schema documentation
     if func.__doc__:

@@ -125,15 +125,21 @@ class PluginMount(type):
             # configure the class __init__
             cls.__init__ = autoassign(cls.__init__.__func__, allowed=extra)
             
-    def create(cls, plugin_name, **kwargs): 
+    def create(cls, plugin_name, use_schema=False, **kwargs): 
         """ 
         Instantiate a plugin from this extension point,
-        based on the name/value pairs passed as keywords 
+        based on the name/value pairs passed as keywords. 
+        
+        Optionally, cast the keywords values, using the types
+        defined by the schema of the class we are creating
 
         Parameters
         ----------
         plugin_name: str
             the name of the plugin to instantiate
+        use_schema : bool, optional
+            if `True`, cast the kwargs that are defined in 
+            the class schema before initializing. Default: `False`
         kwargs : (key, value) pairs
             the parameter names and values that will be
             passed to the plugin's __init__
@@ -147,6 +153,14 @@ class PluginMount(type):
             raise ValueError("'%s' does not match the names of any loaded plugins" %plugin_name)
             
         klass = getattr(cls.registry, plugin_name)
+        
+        # cast the input values, using the class schema
+        if use_schema:
+            for k in kwargs:
+                if k in klass.schema:
+                    cast = klass.schema[k].type
+                    if cast is not None: 
+                        kwargs[k] = cast(kwargs[k])
         return klass(**kwargs)
 
     def format_help(cls, *plugins):
@@ -155,7 +169,7 @@ class PluginMount(type):
         specified, or all if none are specified
         """
         if not len(plugins):
-            plugins = list(vars(kls.registry).keys())
+            plugins = list(vars(cls.registry).keys())
             
         s = []
         for k in plugins:
@@ -418,20 +432,6 @@ class Algorithm:
 __valid__ = [DataSource, Painter, Transfer, Algorithm]
 __all__ = list(map(str, __valid__))
 
-
-def create_plugin(plugin_name, **kwargs):
-    """
-    Instatiate and return a plugin, without having to know the extension 
-    point class beforehand
-    """
-    if not isplugin(plugin_name):
-        raise ValueError("'%s' does not match the names of any loaded plugins" %plugin_name)
-    
-    for extensionpt in __valid__:
-        if plugin_name in extensionpt.registry:
-            cls = getattr(extensionpt.registry, plugin_name)
-            return cls.create(plugin_name, **kwargs)
-
 def isplugin(name):
     """
     Return `True`, if `name` is a registered plugin for any extension point
@@ -441,14 +441,13 @@ def isplugin(name):
     
     return False
     
-def isextensionpoint(string, extensionpt):
+def get_extensionpt(plugin_name):
     """
-    Return `True` if the string representation of an extension point
-    is an instance of the extension point class `extensionpt`
+    Return `True`, if `name` is a registered plugin for any extension point
     """
-    if not hasattr(extensionpt, 'registry'):
-        raise TypeError("please specify a valid extension point as the second argument")
+    if not isplugin(plugin_name):
+        raise ValueError("'%s' does not match the names of any loaded plugins" %plugin_name)
         
-    if not isinstance(string, str):
-        return False
-    return string in extensionpt.registry or string == extensionpt.__name__
+    for extensionpt in __valid__:
+        if plugin_name in extensionpt.registry:
+            return extensionpt

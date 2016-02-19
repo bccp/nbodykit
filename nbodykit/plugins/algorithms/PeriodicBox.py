@@ -1,67 +1,58 @@
-from nbodykit.extensionpoints import Algorithm, plugin_isinstance
-from nbodykit.extensionpoints import DataSource, Transfer, Painter
-from nbodykit.plugins import add_plugin_list_argument
+from nbodykit.extensionpoints import Algorithm
+from nbodykit.extensionpoints import Transfer, Painter
 
 import numpy
 import logging
 
-def FieldsType(input_fields):
+def FieldsType(fields_dict):
     """
-    Construct a list of `Fields`, which are tuples of 
+    Construct and return a list of 
     (`DataSource`, `Painter`, `Transfer`)
+    
+    Notes
+    -----
+    *   the default Painter is set to `DefaultPainter`
+    *   the default Transfer chain is set to 
+        [`NormalizeDC`, `RemoveDC`, `AnisotropicCIC`]
     
     Parameters
     ----------
-    input_fields : list
-        a list of string representations of 
-        (DataSource, Painter, Transfer) plugins 
+    fields_dict : OrderedDict
+        an ordered dictionary where the keys are Plugin names
+        and the values are instantiated Plugins
         
     Returns
     -------
-    fields : list
-        list of instantiated (DataSource, Painter, Transfer) tuples
-    """     
-    fields = []
-    i = 0
-    N = len(input_fields)
+    field : list
+        list of (DataSource, Painter, Transfer)
+    """         
+    # define the default Painter and Transfer
+    default_painter = Painter.create("DefaultPainter")
+    default_transfer = [Transfer.create(x) for x in ['NormalizeDC', 'RemoveDC', 'AnisotropicCIC']]
     
-    default_painter = Painter.fromstring("DefaultPainter")
-    default_transfer = [Transfer.fromstring(x) for x in ['NormalizeDC', 'RemoveDC', 'AnisotropicCIC']]
+    # start with a default option for (DataSource, Painter, Transfer)
+    field = [None, default_painter, default_transfer]
+    keys = list(fields_dict.keys())
     
-    while i < N:
-        
-        # start with a default option for (DataSource, Painter, Transfer)
-        field = [None, default_painter, []]
-        
-        # should be a DataSource here, or break
-        if plugin_isinstance(input_fields[i], DataSource):
-            
-            # set data source
-            field[0] = DataSource.fromstring(input_fields[i])
-            
-            # loop until out of values or another DataSource found
-            i += 1
-            while i < N and not plugin_isinstance(input_fields[i], DataSource):
-                s = input_fields[i]
-                
-                # set Painter
-                if plugin_isinstance(s, Painter):
-                    field[1] = Painter.fromstring(s)
-                # add one Transfer
-                elif plugin_isinstance(s, Transfer):
-                    field[2].append(Transfer.fromstring(s))
-                # add list of Transfers
-                elif isinstance(s, list):
-                    field[2] += [Transfer.fromstring(x) for x in s]
-                else:
-                    raise ValueError("failure to parse line `%s` for `fields` key" %str(s))                    
-                i += 1
-            if not len(field[2]): field[2] = default_transfer
-            fields.append(tuple(field))
-        else: # failure
-            raise ValueError("parsing error constructing input `fields` -- see documentation for proper syntax")
+    # set the DataSource
+    if 'DataSource' not in keys:
+        raise ValueError("exactly one `DataSource` per field must be specified")    
+    field[0] = fields_dict['DataSource']
+    
+    # set the Painter
+    if 'Painter' in keys:
+        if isinstance(fields_dict['Painter'], list):
+            raise ValueError("at most one `Painter` per field should be specified")
+        field[1] = fields_dict['Painter']
+    
+    # set the Transfer
+    if 'Transfer' in keys:
+        if not isinstance(fields_dict['Transfer'], list):
+            field[2] = [fields_dict['Transfer']]
+        else:
+            field[2] = fields_dict['Transfer']
 
-    return fields
+    return field
     
 class FFTPowerAlgorithm(Algorithm):
     """
@@ -71,33 +62,45 @@ class FFTPowerAlgorithm(Algorithm):
     plugin_name = "FFTPower"
     logger = logging.getLogger(plugin_name)
     
-    @classmethod
-    def register(kls):
-        p = kls.parser
-        p.description = "periodic power spectrum calculator via FFT"
-
-        # the required arguments
-        p.add_argument("mode", choices=["2d", "1d"], 
-            help='compute the power as a function of `k` or `k` and `mu`') 
-        p.add_argument("Nmesh", type=int, 
-            help='the number of cells in the gridded mesh')
-        add_plugin_list_argument(p, "fields", type=FieldsType,
-            help="strings specifying the input data sources, painters, and transfers, in that order, respectively -- "+
-                "use --list-datasource and --list-painters for further documentation",
-            metavar="DataSource [Painter] [Transfer] [DataSource [Painter] [Transfer]]")
+    def __init__(self, mode, Nmesh, field, other=None, los='z', Nmu=5, 
+                    dk=None, kmin=0., quiet=False, poles=[]):
+          
+        # properly set the logging level          
+        self.log_level = logging.DEBUG
+        if quiet:
+            self.log_level = logging.ERROR
+            
+        # combine the two fields
+        self.fields = [self.field]
+        if self.other is not None:
+            self.fields.append(self.other)
         
-        # the optional arguments
-        p.add_argument("--los", choices="xyz", default='z',
+    @classmethod
+    def register(cls):
+        
+        s = cls.schema
+        s.description = "periodic power spectrum calculator via FFT"
+
+
+        s.add_argument("mode", type=str, choices=['1d', '2d'], 
+            help='compute the power as a function of `k` or `k` and `mu`') 
+        s.add_argument("Nmesh", type=int, 
+            help='the number of cells in the gridded mesh')
+        s.add_argument('field', type=FieldsType,
+            help="first data field; a tuple of (DataSource, Painter, Transfer), see --list-* options")
+        s.add_argument('other', type=FieldsType,
+            help="second data field; a tuple of (DataSource, Painter, Transfer), see --list-* options")
+        s.add_argument("los", type=str, choices="xyz",
             help="the line-of-sight direction -- the angle `mu` is defined with respect to")
-        p.add_argument("--Nmu", type=int, default=5, 
+        s.add_argument("Nmu", type=int,
             help='the number of mu bins to use from mu=[0,1]; if `mode = 1d`, then `Nmu` is set to 1' )
-        p.add_argument("--dk", type=float,
+        s.add_argument("dk", type=float,
             help='the spacing of k bins to use; if not provided, the fundamental mode of the box is used')
-        p.add_argument("--kmin", type=float, default=0.,
+        s.add_argument("kmin", type=float,
             help='the edge of the first `k` bin to use; default is 0')
-        p.add_argument('-q', '--quiet', action="store_const", dest="log_level", default=logging.DEBUG,
-            help="silence the logging output", const=logging.ERROR)
-        p.add_argument('--poles', type=lambda s: [int(i) for i in s.split()], default=[],
+        s.add_argument('quiet', type=bool,
+            help="silence the logging output")
+        s.add_argument('poles', type=list,
             help='if specified, also compute these multipoles from P(k,mu)')
             
     def run(self):
@@ -156,7 +159,7 @@ class FFTPowerAlgorithm(Algorithm):
             the tuple returned by `run()` -- first argument specifies the bin
             edges and the second is a dictionary holding the data results
         """
-        from nbodykit.extensionpoints import MeasurementStorage
+        from nbodykit.storage import MeasurementStorage
         
         # only the master rank writes        
         if self.comm.rank == 0:
@@ -172,7 +175,7 @@ class FFTPowerAlgorithm(Algorithm):
                 
             # write binned statistic
             self.logger.info('measurement done; saving result to %s' %output)
-            storage = MeasurementStorage.new(self.mode, output)
+            storage = MeasurementStorage.create(self.mode, output)
             storage.write(edges_, cols, result, **meta)
         
             # write multipoles
@@ -182,7 +185,7 @@ class FFTPowerAlgorithm(Algorithm):
             
                 # format is k pole_0, pole_1, ...., modes_1d
                 self.logger.info('saving ell = %s multipoles to %s' %(",".join(map(str,self.poles)), pole_output))
-                storage = MeasurementStorage.new('1d', pole_output)
+                storage = MeasurementStorage.create('1d', pole_output)
             
                 k, poles, N = pole_result
                 cols = ['k'] + ['power_%d' %l for l in self.poles] + ['modes']
@@ -198,15 +201,26 @@ class FFTCorrelationAlgorithm(Algorithm):
     """
     plugin_name = "FFTCorrelation"
     logger = logging.getLogger(plugin_name)
+    
+    def __init__(self, mode, Nmesh, field, other=None, los=None, Nmu=5, 
+                    dk=None, kmin=0., quiet=False, poles=[]):
+          
+        # properly set the logging level          
+        self.log_level = logging.DEBUG
+        if quiet:
+            self.log_level = logging.ERROR
+            
+        # combine the two fields
+        self.fields = [self.field]
+        if self.other is not None:
+            self.fields.append(self.other)
 
     @classmethod
-    def register(kls):
-        import copy
+    def register(cls):
         
-        # copy the FFTPower parser
-        kls.parser = copy.copy(FFTPowerAlgorithm.parser)
-        kls.parser.description = "correlation spectrum calculator via FFT in a periodic box"
-        kls.parser.prog = 'FFTCorrelation'
+        cls.schema.description = "correlation spectrum calculator via FFT in a periodic box"
+        for arg in FFTPowerAlgorithm.schema:
+            cls.schema.append(arg)
             
     def run(self):
         """
@@ -263,7 +277,7 @@ class FFTCorrelationAlgorithm(Algorithm):
             the tuple returned by `run()` -- first argument specifies the bin
             edges and the second is a dictionary holding the data results
         """
-        from nbodykit.extensionpoints import MeasurementStorage
+        from nbodykit.storage import MeasurementStorage
 
         # only the master rank writes
         if self.comm.rank == 0:
@@ -279,7 +293,7 @@ class FFTCorrelationAlgorithm(Algorithm):
 
             # write binned statistic
             self.logger.info('measurement done; saving result to %s' %output)
-            storage = MeasurementStorage.new(self.mode, output)
+            storage = MeasurementStorage.create(self.mode, output)
             storage.write(edges_, cols, result, **meta)
 
             # write multipoles
@@ -289,7 +303,7 @@ class FFTCorrelationAlgorithm(Algorithm):
 
                 # format is k pole_0, pole_1, ...., modes_1d
                 self.logger.info('saving ell = %s multipoles to %s' %(",".join(map(str,self.poles)), pole_output))
-                storage = MeasurementStorage.new('1d', pole_output)
+                storage = MeasurementStorage.create('1d', pole_output)
 
                 k, poles, N = pole_result
                 cols = ['k'] + ['power_%d' %l for l in self.poles] + ['modes']

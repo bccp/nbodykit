@@ -45,7 +45,7 @@ class TracerCatalogDataSource(DataSource):
     """
     plugin_name = "TracerCatalog"
     
-    def __init__(self, data, randoms, cosmo, BoxSize=None, BoxPad=0.02, 
+    def __init__(self, data, randoms, BoxSize=None, BoxPad=0.02, 
                     compute_fkp_weights=False, P0_fkp=None, nbar=None, 
                     fsky=None):
         """
@@ -58,10 +58,13 @@ class TracerCatalogDataSource(DataSource):
                coordinates to the [-BoxSize/2, BoxSize/2] domain
             3. compute the number density as a function of redshift
                from the `data` and store a spline
-        """
+        """        
         # source is None by default
         self._source = None
         self.offset  = None
+        
+        if self.cosmo is None:
+            raise ValueError("please specify a input Cosmology to use in TracerCatalog")
 
         # sample the cosmology's comoving distance
         self.cosmo.sample('comoving_distance', numpy.logspace(-5, 1, 1024))
@@ -112,8 +115,8 @@ class TracerCatalogDataSource(DataSource):
             help="`RaDecRedshift` DataSource representing the `data` catalog")
         s.add_argument("randoms",
             help="`RaDecRedshift` DataSource representing the `randoms` catalog")
-        s.add_argument("cosmo",
-            help='the cosmology used to convert (ra,dec,z) to cartesian coordinates')
+        # s.add_argument("cosmo",
+        #     help='the cosmology used to convert (ra,dec,z) to cartesian coordinates')
         s.add_argument("BoxSize", type=cls.BoxSizeParser,
             help="the size of the box; if not provided, automatically computed from the `randoms` catalog")
         s.add_argument('BoxPad', type=float,

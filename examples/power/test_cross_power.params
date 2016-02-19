@@ -1,8 +1,25 @@
 mode: 1d
 Nmesh: 256
-fields:
-    - FastPM:../data/fastpm_1.0000
-    - [NormalizeDC, RemoveDC, AnisotropicCIC]
-    - FOFGroups:../output/fof_ll0.200_1.0000.hdf5:10.0
-    - [NormalizeDC, RemoveDC, AnisotropicCIC]
+
+cosmo: {Om0: 0.27, H0: 100}
+
+# the first field 
+field:
+    DataSource:
+        plugin: FastPM
+        path: ../data/fastpm_1.0000
+    Painter: 
+        DefaultPainter
+    Transfer:
+        [NormalizeDC, RemoveDC, AnisotropicCIC] 
+    
+other:
+    FOFGroups:
+        path: ../output/fof_ll0.200_1.0000.hdf5
+        m0: 10.0
+    DefaultPainter:
+    NormalizeDC:
+    RemoveDC:
+    AnisotropicCIC:
+
 output: ../output/test_cross_power.txt

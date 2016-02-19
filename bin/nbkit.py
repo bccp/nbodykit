@@ -39,8 +39,7 @@ class HelpAction(argparse.Action):
         name = getattr(namespace, 'algorithm_name')
         if rank == 0:
             if name is not None:
-                alg = getattr(algorithms, name)
-                alg.parser.print_help()
+                print(Algorithm.format_help(name))
             else:
                 parser.print_help()
         parser.exit()
