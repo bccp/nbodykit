@@ -19,7 +19,7 @@ class FOFAlgorithm(Algorithm):
         p.add_argument("datasource", type=DataSource.fromstring, 
                         help='`DataSource` objects to run FOF against; run --list-datasource for specifics')
         p.add_argument("linklength", type=float, metavar='0.02', help='Link length')
-        p.add_argument("--absolute", type='store_true',  help='If set, the linking length is in absolute units. The default is in relative to mean particle separation.')
+        p.add_argument("--absolute", action='store_true',  help='If set, the linking length is in absolute units. The default is in relative to mean particle separation.')
         p.add_argument("--without-labels", action='store_true', help='Do not store labels')
         p.add_argument("--nmin", type=int, default=32, help='minimum number of particles in a halo')
         
@@ -28,8 +28,13 @@ class FOFAlgorithm(Algorithm):
         # convert to absolute length
         if not self.absolute:
             if not hasattr(self.datasource, 'TotalLength'):
-                raise ValueError('DataSource must provide TotalLength to use a relative link length')
-
+                logging.info("Playing DataSource to measure TotalLength. " +
+                      "DataSource `%s' shall be fixed to add a TotalLength attribute", self.datasource)
+                [[junk]] = self.datasource.read(['Position'], {}, full=True)
+                TotalLength = self.comm.allreduce(len(junk))
+                del junk
+            else:
+                TotalLength = self.datasource.TotalLength
             ll = self.linklength * (self.datasource.BoxSize.prod() / self.datasource.TotalLength) ** 0.3333333
         else:
             ll = self.linklength
