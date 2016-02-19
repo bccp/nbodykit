@@ -1,47 +1,42 @@
 from nbodykit.extensionpoints import DataSource
 from nbodykit.utils import selectionlanguage
-
 import logging
 import numpy
 
 logger = logging.getLogger('RaDecRedshift')
-  
-def list_str(value):
-    return value.split()
+
     
 class RaDecRedshiftDataSource(DataSource):
     """
-    DataSource to read a plaintext file in (ra, dec, redshift, weigh) 
-    -- only handles the reading of the files
+    DataSource designed to handle reading (ra, dec, redshift)
+    from a plaintext file, using `pandas.read_csv`
     """
     plugin_name = "RaDecRedshift"
-            
+    
+    def __init__(self, path, names, 
+                    usecols=None, sky_cols=['ra','dec'], z_col='z', 
+                    weight_col=None, degrees=False, select=None, bunchsize=4*1024*1024):       
+        pass
+        
     @classmethod
-    def register(kls):
+    def register(cls):
         
-        p = kls.parser
-        
-        # required arguments
-        p.add_argument("path", 
-            help="file path specifying the data to read")
-        p.add_argument("names", type=list_str, 
-            help="names of columns in text file or name of the data group in hdf5 file")
-                
-        # optional arguments
-        p.add_argument("-usecols", type=list_str, metavar="ra dec z",
-            help="only read these columns from file")
-        p.add_argument("-sky_cols", type=list_str, default=['ra','dec'], metavar="ra dec",
+        s = cls.schema
+        s.add_argument("path", type=str, help="the file path to load the data from")
+        s.add_argument("names", type=list, help="the names of columns in text file")
+        s.add_argument("usecols", type=list, help="only read these columns from file")
+        s.add_argument("sky_cols", type=list,
             help="names of the columns specifying the sky coordinates")
-        p.add_argument("-z_col", type=str, default='z',
+        s.add_argument("z_col", type=str,
             help="name of the column specifying the redshift coordinate")
-        p.add_argument("-weight_col", type=str, default='z',
+        s.add_argument("weight_col", type=str,
             help="name of the column specifying the a weight for each object")
-        p.add_argument('-degrees', action='store_true',
-            help='if input (ra,dec) are in degrees, set this flag to convert them to radians')
-        p.add_argument("-select", default=None, type=selectionlanguage.Query, 
+        s.add_argument('degrees', type=bool,
+            help='set this flag if the input (ra, dec) are in degrees')
+        s.add_argument("select", type=selectionlanguage.Query, 
             help='row selection based on conditions specified as string')
-        p.add_argument("-bunchsize", type=int, 
-                default=1024*1024*4, help="number of objects to read per rank in a bunch")
+        s.add_argument("bunchsize", type=int, 
+            help="the number of objects to read per rank in a bunch")
                   
     def read(self, columns, stats, full=False):        
         try:

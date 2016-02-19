@@ -3,19 +3,23 @@ from nbodykit import files
 import numpy
 
 class TPMSnapshotDataSource(DataSource):
+    """
+    DataSource to read snapshot files from Martin White's TPM simulations
+    """
     plugin_name = "TPMSnapshot"
     
+    def __init__(self, path, BoxSize, rsd=None, bunchsize=4*1024*1024):
+        pass
+
     @classmethod
-    def register(kls):
+    def register(cls):
         
-        h = kls.parser
-        h.add_argument("path", help="path to file")
-        h.add_argument("BoxSize", type=kls.BoxSizeParser,
+        s = cls.schema
+        s.add_argument("path", type=str, help="the file path to load the data from")
+        s.add_argument("BoxSize", type=cls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
-        h.add_argument("-rsd", 
-            choices="xyz", default=None, help="direction to do redshift distortion")
-        h.add_argument("-bunchsize", type=int, 
-                default=1024*1024*4, help="number of particles to read per rank in a bunch")
+        s.add_argument("rsd", choices="xyz", help="direction to do redshift distortion")
+        s.add_argument("bunchsize", type=int, help="number of particles to read per rank in a bunch")
 
     def read(self, columns, stats, full=False):
         """ read data in parallel. if Full is True, neglect bunchsize. """

@@ -7,10 +7,13 @@ logger = logging.getLogger('DefaultPainter')
 class DefaultPainter(Painter):
     plugin_name = "DefaultPainter"
 
+    def __init__(self, weight=None):
+        pass
+        
     @classmethod
-    def register(kls):
-        h = kls.parser
-        h.add_argument("-weight", default=None, help="column for the weight")
+    def register(cls):
+        s = cls.schema
+        s.add_argument("weight", help="the column giving the weight for each object")
 
     def paint(self, pm, datasource):
         """

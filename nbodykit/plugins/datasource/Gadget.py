@@ -3,25 +3,29 @@ from nbodykit import files
 import numpy
 
 class GadgetDataSource(DataSource):
+    """
+    A DataSource to read a flavor of Gadget 2 files (experimental)
+    """
     plugin_name = "Gadget"
     
+    def __init__(self, path, BoxSize, ptype=[], posdtype='f4', veldtype='f4', 
+                    iddtype='u8', massdtype='f4', rsd=None, bunchsize=4*1024*1024):
+        pass
+    
     @classmethod
-    def register(kls):
+    def register(cls):
         
-        h = kls.parser
-        h.add_argument("path", help="path to file")
-        h.add_argument("BoxSize", type=kls.BoxSizeParser,
+        s = cls.schema
+        s.add_argument("path", type=str, help="the file path to load the data from")
+        s.add_argument("BoxSize", type=cls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
-        h.add_argument("-ptype", default=[], action='append', type=int,
-                help="particle types to use")
-        h.add_argument("-posdtype", default='f4', help="dtype of position")
-        h.add_argument("-veldtype", default='f4', help="dtype of velocity")
-        h.add_argument("-iddtype", default='u8', help="dtype of id")
-        h.add_argument("-massdtype", default='f4', help="dtype of mass")
-        h.add_argument("-rsd", 
-            choices="xyz", default=None, help="direction to do redshift distortion")
-        h.add_argument("-bunchsize", type=int, 
-                default=1024*1024*4, help="number of particles to read per rank in a bunch")
+        s.add_argument("ptype", type=list, help="the particle types to use")
+        s.add_argument("posdtype", type=str, help="dtype of position")
+        s.add_argument("veldtype", type=str, help="dtype of velocity")
+        s.add_argument("iddtype", type=str, help="dtype of id")
+        s.add_argument("massdtype", type=str, help="dtype of mass")
+        s.add_argument("rsd", choices="xyz", type=str, help="direction to do redshift distortion")
+        s.add_argument("bunchsize", type=int, help="number of particles to read per rank in a bunch")
 
     def read(self, columns, stats, full=False):
         """ read data in parallel. if Full is True, neglect bunchsize. """
@@ -76,28 +80,32 @@ class GadgetDataSource(DataSource):
 
                 yield [P[key] for key in columns]
 
-#------------------------------------------------------------------------------
 
 class GadgetGroupTabDataSource(DataSource):
+    """
+    A DataSource to read a flavor of Gadget 2 FOF catalogs (experimental)
+    """
     plugin_name = "GadgetGroupTab"
     
+    def __init__(self, path, BoxSize, mpch=1000., posdtype='f4', veldtype='f4', 
+                    massdtype='f4', rsd=None, bunchsize=4*1024*1024):
+        pass
+    
     @classmethod
-    def register(kls):
+    def register(cls):
         
-        h = kls.parser
-        h.add_argument("path", help="path to file")
-        h.add_argument("BoxSize", type=kls.BoxSizeParser,
+        s = cls.schema
+        s.add_argument("path", type=str, help="the file path to load the data from")
+        s.add_argument("BoxSize", type=cls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
-        h.add_argument("-mpch", type=float, default=1000.,
-            help="Mpc/h in code unit")
-        h.add_argument("-posdtype", default='f4', help="dtype of position")
-        h.add_argument("-veldtype", default='f4', help="dtype of velocity")
-        h.add_argument("-massdtype", default='f4', help="dtype of mass")
-        h.add_argument("-rsd", 
-            choices="xyz", default=None, help="direction to do redshift distortion")
-        h.add_argument("-bunchsize", type=int, 
-                default=1024*1024*4, help="number of particles to read per rank in a bunch")
-
+        s.add_argument("mpch", type=float, help="Mpc/h in code unit")
+        s.add_argument("posdtype", help="dtype of position")
+        s.add_argument("veldtype", help="dtype of velocity")
+        s.add_argument("massdtype", help="dtype of mass")
+        s.add_argument("rsd", choices="xyz", help="direction to do redshift distortion")
+        s.add_argument("bunchsize", type=int, 
+            help="number of particles to read per rank in a bunch")
+    
     def read(self, columns, stats, full=False):
         """ read data in parallel. if Full is True, neglect bunchsize. """
         Ntot = 0
