@@ -134,15 +134,21 @@ def ReadConfigFile(config_file, schema):
     config = initialize_plugins(config, cosmo)
                 
     # set the values, casting if available
+    missing = [arg.name for arg in schema if arg.required]
     for k in config:
         v = config[k]
         if k in schema:
             cast = schema[k].type
             if cast is not None: v = cast(v)
             setattr(ns, k, v)
+            if schema[k].required: 
+                missing.pop(missing.index(k))
         else:
             setattr(unknown, k, v)
     
+    # crash if we don't have all required args
+    if len(missing):
+        raise ValueError("missing required arguments: %s" %str(missing))
     return ns, unknown
 
 class ConstructorSchema(list):
@@ -265,7 +271,14 @@ def autoassign(init, allowed=[]):
             for attr,val in kwargs.items():
                 check_choices(init.schema, attr, val)
                 setattr(self, attr, val)
-        return init(self, *args, **kwargs)
+        try:
+            return init(self, *args, **kwargs)
+        except Exception as e:
+            args = (self.__class__.__name__, str(e))
+            msg = "error initializing __init__ for '%s': %s " %args
+            msg += '\n\n' + init.schema.format_help()
+            raise TypeError(msg)
+            
     return wrapper
     
 def check_choices(schema, attr, val):
