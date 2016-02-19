@@ -89,7 +89,7 @@ class FFTPowerAlgorithm(Algorithm):
         s.add_argument('field', type=FieldsType,
             help="first data field; a tuple of (DataSource, Painter, Transfer), see --list-* options")
         s.add_argument('other', type=FieldsType,
-            help="second data field; a tuple of (DataSource, Painter, Transfer), see --list-* options")
+            help="the other data field; a tuple of (DataSource, Painter, Transfer), see --list-* options")
         s.add_argument("los", type=str, choices="xyz",
             help="the line-of-sight direction -- the angle `mu` is defined with respect to")
         s.add_argument("Nmu", type=int,
