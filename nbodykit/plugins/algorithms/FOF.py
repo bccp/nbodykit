@@ -24,7 +24,15 @@ class FOFAlgorithm(Algorithm):
         
     def run(self):
         from nbodykit import fof
-        catalog, labels = fof.fof(self.datasource, self.linklength, self.nmin, self.comm, return_labels=True)
+        # convert to absolute length
+        if not hasattr(self.datasource, 'TotalLength'):
+            raise ValueError('DataSource must provide TotalLength to use a relative link length')
+
+        ll = self.linklength * (self.datasource.BoxSize.prod() / self.datasource.TotalLength) ** 0.3333333
+
+        labels = fof.fof(self.datasource, ll, self.nmin, self.comm)
+        catalog = fof.fof_catalogue(self.datasource, labels, self.comm)
+
         Ntot = self.comm.allreduce(len(labels))
         if self.without_labels:
             return catalog, Ntot

@@ -60,7 +60,6 @@ class FOFDataSource(DataSource):
             dataset = h5py.File(self.path, mode='r')[self.dataset]
             BoxSize[:] = dataset.attrs['BoxSize']
             logger.info("Boxsize from file is %s" % str(BoxSize))
-
         BoxSize = self.comm.bcast(BoxSize)
 
         if self.BoxSize is None:

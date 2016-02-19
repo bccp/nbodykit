@@ -12,6 +12,13 @@ class TPMLabel(DataSource):
         h.add_argument("path", help="path to file")
         h.add_argument("-bunchsize", type=int, 
                 default=1024*1024*4, help="number of particles to read per rank in a bunch")
+    def finalize_attributes(self):
+        if self.comm.rank == 0:
+            datastorage = files.DataStorage(self.path, files.HaloLabelFile)
+        else:
+            datastorage = None
+        datastorage = self.comm.bcast(datastorage)
+        self.TotalLength = sum(datastorage.npart)
 
     def read(self, columns, stats, full=False):
         """ read data in parallel. if Full is True, neglect bunchsize. """
