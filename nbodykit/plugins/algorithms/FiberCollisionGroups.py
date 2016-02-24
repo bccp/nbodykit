@@ -1,9 +1,39 @@
-from nbodykit.extensionpoints import Algorithm
-
+from nbodykit.extensionpoints import Algorithm, DataSource
+from nbodykit import fof
 import logging
 import numpy
 
 logger = logging.getLogger('FiberCollisions')
+
+class UnitCartesian(DataSource):
+    plugin_name = 'UnitCartesian'
+        
+    def __init__(self, source):
+        self.source = source
+        self.BoxSize = [1., 1., 1.]
+    
+    @classmethod
+    def register(cls):
+        s = cls.schema
+        s.add_argument('source', help='the datasource that returns (`RA`, `DEC`)')
+    
+    def _to_unit_cartesian(self, ra, dec):
+        """
+        Return the cartesian coordinates on the unit sphere
+        """
+        x = numpy.cos(ra)*numpy.cos(dec)
+        y = numpy.sin(ra)*numpy.cos(dec)
+        z = numpy.sin(dec)
+        return numpy.vstack([x,y,z]).T
+        
+    def read(self, columns, stats, full=False):
+        if len(columns) > 1 or columns[0] != 'Position':
+            raise ValueError("`UnitCartesian` only returns 'Position'")
+        
+        for [ra, dec] in self.source.read(['RA', 'DEC'], stats, full=full):
+            pos = self._to_unit_cartesian(ra, dec)
+            yield [pos]
+        
 
 class FiberCollisionGroupsAlgorithm(Algorithm):
     """
@@ -23,74 +53,53 @@ class FiberCollisionGroupsAlgorithm(Algorithm):
     """
     plugin_name = "FiberCollisionGroups"
     
+    def __init__(self, datasource, collision_radius=62/60./60.):
+        
+        # create the DataSource that returns cartesian coords on unit sphere
+        self.datasource = UnitCartesian(self.datasource)
+    
     @classmethod
-    def register(kls):
+    def register(cls):
         from nbodykit.extensionpoints import DataSource
 
-        p = kls.parser
-        p.description = "the application of fiber collisions to a galaxy survey"
-        p.add_argument("datasource", type=DataSource.fromstring, 
-            help='`DataSource` returning (RA, DEC, Z); run --list-datasource for specifics')
-        p.add_argument("collision_radius", type=float, metavar='62/60/60', 
-            help="the size of the angular collision radius (in degrees)")
-
+        s = cls.schema
+        s.description = "the application of fiber collisions to a galaxy survey"
         
-    def _to_cartesian(self, ra, dec):
-        """
-        Return the cartesian coordinates on the unit sphere
-        """
-        x = numpy.cos(ra)*numpy.cos(dec)
-        y = numpy.sin(ra)*numpy.cos(dec)
-        z = numpy.sin(dec)
-        return numpy.vstack([x,y,z]).T
+        s.add_argument("datasource", type=DataSource.from_config, 
+            help='`DataSource` with `RA`, `DEC` columns; run --list-datasources for options')
+        s.add_argument("collision_radius", type=float, 
+            help="the size of the angular collision radius (in degrees)")
         
     def run(self):
         """
-        Compute the FOF collision group
+        Compute the FOF collision groups
         """
-        
-        if self.comm.rank == 0:
-            
-            # read the data
-            stats = {}
-            [[Position]] = self.datasource.read(['Position'], stats, full=True)
-            
-            # (ra,dec) to unit sphere
-            ra, dec = Position.T
-            cartesian = self._to_cartesian(ra, dec)
-        
-        catalog, labels = fof.fof(self.datasource, self.linklength, self.nmin, self.comm, return_labels=True)
+        labels = fof.fof(self.datasource, self.collision_radius, 1, comm=self.comm)
         Ntot = self.comm.allreduce(len(labels))
-        if self.without_labels:
-            return catalog, Ntot
-        else:
-            return catalog, labels, Ntot
+        return labels, Ntot
 
     def save(self, output, data):
-        if self.without_labels:
-            catalog, Ntot = data
-        else:
-            catalog, labels, Ntot = data
-
-        if self.comm.rank == 0:
-            with h5py.File(output, 'w') as ff:
-                # do not create dataset then fill because of
-                # https://github.com/h5py/h5py/pull/606
-
-                dataset = ff.create_dataset(
-                    name='FOFGroups', data=catalog
-                    )
-                dataset.attrs['Ntot'] = Ntot
-                dataset.attrs['LinkLength'] = self.linklength
-                dataset.attrs['BoxSize'] = self.datasource.BoxSize
-
-        if not self.without_labels:
-            output = output.replace('.hdf5', '.labels')
-            bf = bigfile.BigFileMPI(self.comm, output, create=True)
-            with bf.create_from_array("Label", labels, Nfile=(self.comm.size + 7)// 8) as bb:
-                bb.attrs['LinkLength'] = self.linklength
-                bb.attrs['Ntot'] = Ntot
-                bb.attrs['BoxSize'] = self.datasource.BoxSize
+        labels, Ntot = data
+        print labels, Ntot
+        # if self.comm.rank == 0:
+        #     with h5py.File(output, 'w') as ff:
+        #         # do not create dataset then fill because of
+        #         # https://github.com/h5py/h5py/pull/606
+        #
+        #         dataset = ff.create_dataset(
+        #             name='FOFGroups', data=catalog
+        #             )
+        #         dataset.attrs['Ntot'] = Ntot
+        #         dataset.attrs['LinkLength'] = self.linklength
+        #         dataset.attrs['BoxSize'] = self.datasource.BoxSize
+        #
+        # if not self.without_labels:
+        #     output = output.replace('.hdf5', '.labels')
+        #     bf = bigfile.BigFileMPI(self.comm, output, create=True)
+        #     with bf.create_from_array("Label", labels, Nfile=(self.comm.size + 7)// 8) as bb:
+        #         bb.attrs['LinkLength'] = self.linklength
+        #         bb.attrs['Ntot'] = Ntot
+        #         bb.attrs['BoxSize'] = self.datasource.BoxSize
         return
 
 
