@@ -10,7 +10,12 @@ class TPMLabel(DataSource):
     plugin_name = "TPMLabel"
     
     def __init__(self, path, bunchsize=4*1024*1024):
-        pass
+        if self.comm.rank == 0:
+            datastorage = files.DataStorage(self.path, files.HaloLabelFile)
+        else:
+            datastorage = None
+        datastorage = self.comm.bcast(datastorage)
+        self.TotalLength = sum(datastorage.npart)
     
     @classmethod
     def register(cls):

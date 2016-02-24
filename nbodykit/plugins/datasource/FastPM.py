@@ -19,6 +19,7 @@ class FastPMDataSource(DataSource):
         BoxSize[:] = header.attrs['BoxSize'][0]
         OmegaM = header.attrs['OmegaM'][0]
         self.M0 = 27.75e10 * OmegaM * BoxSize[0] ** 3 / f['Position'].size
+        self.TotalLength = f['Position'].size
 
         if self.comm.rank == 0:
             logger.info("File has boxsize of %s Mpc/h" % str(BoxSize))

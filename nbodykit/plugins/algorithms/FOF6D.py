@@ -176,7 +176,7 @@ def so(center, data, r1, nbar, thresh=200):
     def delta(r):
         if r < 1e-7:
             raise StopIteration
-        N = data.tree.count(dcenter.tree, [r])[0][0]
+        N = data.tree.root.count(dcenter.tree.root, r)
         n = N / (4 / 3 * numpy.pi * r ** 3)
         return 1.0 * n / nbar - 1
      
