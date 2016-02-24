@@ -12,7 +12,7 @@ from mpi4py import MPI
 
 import nbodykit
 from pmesh.particlemesh import ParticleMesh
-from nbodykit.extensionpoints import painters
+from nbodykit.extensionpoints import DataSource, painters
 
 
 class TidalTensor(Algorithm):
@@ -24,9 +24,9 @@ class TidalTensor(Algorithm):
     @classmethod
     def register(cls):
         s = cls.schema
-        s.add_argument("field",
+        s.add_argument("field", type=DataSource.from_config,
                 help="--list-datasource for help")
-        s.add_argument("points", 
+        s.add_argument("points", type=DataSource.from_config,
                 help="A small set of points to calculate tidal force on; --list-datasource for help")
         s.add_argument("Nmesh", type=int,
                 help='Size of FFT mesh for painting')

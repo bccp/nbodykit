@@ -40,15 +40,15 @@ class PandasDataSource(DataSource):
         
         s.add_argument("path", type=str,
             help="the file path to load the data from")
-        s.add_argument("names", type=list, 
+        s.add_argument("names", type=str, nargs='+', 
             help="names of columns in text file or name of the data group in hdf5 file")
         s.add_argument("BoxSize", type=cls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
-        s.add_argument("usecols", type=list, 
+        s.add_argument("usecols", type=str, nargs='*', 
             help="only read these columns from file")
-        s.add_argument("poscols", type=list,
+        s.add_argument("poscols", type=str, nargs=3,
             help="names of the position columns")
-        s.add_argument("velcols", type=list,
+        s.add_argument("velcols", type=str, nargs=3,
             help="names of the velocity columns")
         s.add_argument("rsd", type=str, choices="xyz", 
             help="direction to do redshift distortion")

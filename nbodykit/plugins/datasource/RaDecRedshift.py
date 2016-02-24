@@ -25,9 +25,9 @@ class RaDecRedshiftDataSource(DataSource):
         s.description = "read (ra, dec, z) from a plaintext file, using Pandas"
         
         s.add_argument("path", type=str, help="the file path to load the data from")
-        s.add_argument("names", type=list, help="the names of columns in text file")
-        s.add_argument("usecols", type=list, help="only read these columns from file")
-        s.add_argument("sky_cols", type=list,
+        s.add_argument("names", type=str, nargs='+', help="the names of columns in text file")
+        s.add_argument("usecols", type=str, nargs='*', help="only read these columns from file")
+        s.add_argument("sky_cols", type=str, nargs='*',
             help="names of the columns specifying the sky coordinates")
         s.add_argument("z_col", type=str,
             help="name of the column specifying the redshift coordinate")

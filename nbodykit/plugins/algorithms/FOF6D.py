@@ -1,4 +1,4 @@
-from nbodykit.extensionpoints import Algorithm
+from nbodykit.extensionpoints import Algorithm, DataSource
 import logging
 import numpy
 
@@ -20,9 +20,9 @@ class FOF6DAlgorithm(Algorithm):
         s = cls.schema
         s.description = "Finding subhalos from FOF groups. This is a variant of FOF6D."
         
-        s.add_argument("datasource",
+        s.add_argument("datasource", type=DataSource.from_config,
             help='`DataSource` objects to run FOF against; run --list-datasource for specifics')
-        s.add_argument("halolabel",
+        s.add_argument("halolabel", type=DataSource.from_config,
             help='data source for the halo label files; column name is Label')
         s.add_argument("linklength", type=float, help='the linking length')
         s.add_argument("vfactor", type=float,

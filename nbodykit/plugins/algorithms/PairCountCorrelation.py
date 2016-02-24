@@ -1,4 +1,4 @@
-from nbodykit.extensionpoints import Algorithm
+from nbodykit.extensionpoints import Algorithm, DataSource
 import numpy
 import os
 
@@ -49,14 +49,16 @@ class PairCountCorrelationAlgorithm(Algorithm):
             help='measure the correlation function in `1d` or `2d`') 
         s.add_argument("rbins", type=binning_type, 
             help='the string specifying the binning to use') 
-        s.add_argument("field", help='the first `DataSource` of objects to correlate')
-        s.add_argument("other", help='the other `DataSource` of objects to cross-correlate with')
+        s.add_argument("field", type=DataSource.from_config, 
+            help='the first `DataSource` of objects to correlate')
+        s.add_argument("other", type=DataSource.from_config, 
+            help='the other `DataSource` of objects to cross-correlate with')
         s.add_argument("subsample", type=int, help='use 1 out of every N points')
         s.add_argument("los", choices="xyz",
             help="the line-of-sight: the angle `mu` is defined with respect to")
         s.add_argument("Nmu", type=int,
             help='if `mode == 2d`, the number of mu bins covering mu=[-1,1]')
-        s.add_argument('poles', type=list,
+        s.add_argument('poles', nargs='*', type=int,
             help='compute the multipoles for these `ell` values from xi(r,mu)')
    
     def run(self):

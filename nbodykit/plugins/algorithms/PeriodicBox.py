@@ -1,13 +1,13 @@
 from nbodykit.extensionpoints import Algorithm
-from nbodykit.extensionpoints import Transfer, Painter
+from nbodykit.extensionpoints import DataSource, Transfer, Painter
 
 import numpy
 import logging
 
-def FieldsType(fields_dict):
+def FieldType(ns):
     """
-    Construct and return a list of 
-    (`DataSource`, `Painter`, `Transfer`)
+    Construct and return a `Field`:
+    a tuple of (`DataSource`, `Painter`, `Transfer`)
     
     Notes
     -----
@@ -32,26 +32,20 @@ def FieldsType(fields_dict):
     
     # start with a default option for (DataSource, Painter, Transfer)
     field = [None, default_painter, default_transfer]
-    keys = list(fields_dict.keys())
     
     # set the DataSource
-    if 'DataSource' not in keys:
+    if 'DataSource' not in ns:
         raise ValueError("exactly one `DataSource` per field must be specified")    
-    field[0] = fields_dict['DataSource']
+    field[0] = getattr(ns, 'DataSource')
     
     # set the Painter
-    if 'Painter' in keys:
-        if isinstance(fields_dict['Painter'], list):
-            raise ValueError("at most one `Painter` per field should be specified")
-        field[1] = fields_dict['Painter']
+    if 'Painter' in ns:
+        field[1] = getattr(ns, 'Painter')
     
     # set the Transfer
-    if 'Transfer' in keys:
-        if not isinstance(fields_dict['Transfer'], list):
-            field[2] = [fields_dict['Transfer']]
-        else:
-            field[2] = fields_dict['Transfer']
-
+    if 'Transfer' in ns:
+        field[2] = getattr(ns, 'Transfer')
+        
     return field
     
 class FFTPowerAlgorithm(Algorithm):
@@ -81,15 +75,23 @@ class FFTPowerAlgorithm(Algorithm):
         s = cls.schema
         s.description = "periodic power spectrum calculator via FFT"
 
-
         s.add_argument("mode", type=str, choices=['1d', '2d'], 
             help='compute the power as a function of `k` or `k` and `mu`') 
         s.add_argument("Nmesh", type=int, 
             help='the number of cells in the gridded mesh')
-        s.add_argument('field', type=FieldsType,
+        s.add_argument('field', type=FieldType,
             help="first data field; a tuple of (DataSource, Painter, Transfer), see --list-* options")
-        s.add_argument('other', type=FieldsType,
+        s.add_argument('field.DataSource', type=DataSource.from_config, required=True)
+        s.add_argument('field.Painter', type=Painter.from_config, required=False)
+        s.add_argument('field.Transfer', nargs='*', type=Transfer.from_config, required=False)
+        
+        
+        s.add_argument('other', type=FieldType, required=False,
             help="the other data field; a tuple of (DataSource, Painter, Transfer), see --list-* options")
+        s.add_argument('other.DataSource', type=DataSource.from_config, required=False)
+        s.add_argument('other.Transfer', nargs='*', type=Transfer.from_config, required=False)
+        s.add_argument('other.Painter',  type=Painter.from_config, required=False) 
+        
         s.add_argument("los", type=str, choices="xyz",
             help="the line-of-sight direction -- the angle `mu` is defined with respect to")
         s.add_argument("Nmu", type=int,
@@ -100,7 +102,7 @@ class FFTPowerAlgorithm(Algorithm):
             help='the edge of the first `k` bin to use; default is 0')
         s.add_argument('quiet', type=bool,
             help="silence the logging output")
-        s.add_argument('poles', type=list,
+        s.add_argument('poles', type=int, nargs='*',
             help='if specified, also compute these multipoles from P(k,mu)')
             
     def run(self):
@@ -219,8 +221,8 @@ class FFTCorrelationAlgorithm(Algorithm):
     def register(cls):
         
         cls.schema.description = "correlation spectrum calculator via FFT in a periodic box"
-        for arg in FFTPowerAlgorithm.schema:
-            cls.schema.append(arg)
+        for name in FFTPowerAlgorithm.schema:
+            cls.schema[name] = FFTPowerAlgorithm.schema[name]
             
     def run(self):
         """

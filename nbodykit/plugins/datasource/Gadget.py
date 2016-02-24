@@ -21,7 +21,7 @@ class GadgetDataSource(DataSource):
         s.add_argument("path", type=str, help="the file path to load the data from")
         s.add_argument("BoxSize", type=cls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
-        s.add_argument("ptype", type=list, help="the particle types to use")
+        s.add_argument("ptype", nargs='*', type=int, help="the particle types to use")
         s.add_argument("posdtype", type=str, help="dtype of position")
         s.add_argument("veldtype", type=str, help="dtype of velocity")
         s.add_argument("iddtype", type=str, help="dtype of id")

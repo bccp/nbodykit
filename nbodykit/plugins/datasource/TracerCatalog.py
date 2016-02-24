@@ -58,7 +58,7 @@ class TracerCatalogDataSource(DataSource):
                coordinates to the [-BoxSize/2, BoxSize/2] domain
             3. compute the number density as a function of redshift
                from the `data` and store a spline
-        """        
+        """
         # source is None by default
         self._source = None
         self.offset  = None
@@ -114,9 +114,9 @@ class TracerCatalogDataSource(DataSource):
         s.description = ("representing a catalog of tracer objects, measured in an "
                          "observational survey, with a non-trivial selection function")
         
-        s.add_argument("data", 
+        s.add_argument("data", type=DataSource.from_config,
             help="`RaDecRedshift` DataSource representing the `data` catalog")
-        s.add_argument("randoms",
+        s.add_argument("randoms", type=DataSource.from_config,
             help="`RaDecRedshift` DataSource representing the `randoms` catalog")
         # s.add_argument("cosmo",
         #     help='the cosmology used to convert (ra,dec,z) to cartesian coordinates')

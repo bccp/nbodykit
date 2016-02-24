@@ -1,4 +1,4 @@
-from nbodykit.extensionpoints import Algorithm
+from nbodykit.extensionpoints import Algorithm, DataSource
 import logging
 import numpy
 
@@ -17,7 +17,7 @@ class FOFAlgorithm(Algorithm):
         s = cls.schema
         s.description = "Friend of Friend halo finder"
         
-        s.add_argument("datasource", 
+        s.add_argument("datasource", type=DataSource.from_config,
             help='`DataSource` objects to run FOF against; run --list-datasource for specifics')
         s.add_argument("linklength", type=float, help='the link length in terms of mean particle sep')
         s.add_argument("without_labels", type=bool, help='do not store labels')

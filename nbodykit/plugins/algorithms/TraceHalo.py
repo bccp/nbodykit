@@ -7,8 +7,7 @@ from nbodykit import halos
 
 import numpy
 import mpsort
-from mpi4py import MPI
-from nbodykit.extensionpoints import Algorithm
+from nbodykit.extensionpoints import Algorithm, DataSource
 
 class TraceHaloAlgorithm(Algorithm):
     plugin_name = "TraceHalo"
@@ -21,9 +20,9 @@ class TraceHaloAlgorithm(Algorithm):
         s = cls.schema
         s.description = " Calculate the halo property based on a different set of halo labels."
 
-        s.add_argument("dest", help="type: DataSource")
-        s.add_argument("source", help="type: DataSource")
-        s.add_argument("sourcelabel",
+        s.add_argument("dest", type=DataSource.from_config, help="type: DataSource")
+        s.add_argument("source", type=DataSource.from_config, help="type: DataSource")
+        s.add_argument("sourcelabel", type=DataSource.from_config,
             help='DataSource of the source halo label files, the Label column is used.')
 
     def run(self):

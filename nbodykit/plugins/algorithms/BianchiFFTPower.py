@@ -34,7 +34,8 @@ class BianchiPowerAlgorithm(Algorithm):
                            non-trivial geometry, as detailed in Bianchi et al. 2015"""
 
         # the required arguments
-        s.add_argument('input', type=TracerCatalog,
+        TracerCatalog = DataSource.registry.TracerCatalog
+        s.add_argument('input', type=TracerCatalog.from_config,
             help='the input `TracerCatalog` DataSource, which provides `data` and `randoms`; see --list-datasource')
         s.add_argument("Nmesh", type=int,
             help='the number of cells in the gridded mesh (per axis)')
