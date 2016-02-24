@@ -23,7 +23,11 @@ class RaDecRedshiftDataSource(DataSource):
     def __init__(self, path, names, unit_sphere=False, 
                     usecols=None, sky_cols=['ra','dec'], z_col='z', 
                     weight_col=None, degrees=False, select=None, bunchsize=4*1024*1024):       
+<<<<<<< 03733474fdf84ed14aa806933cde0677961718ab
                     
+=======
+        
+>>>>>>> RaDecRedshift returns Cartesian coords as `Position` column, as well as `Ra`, `Dec`, `Redshift` columns
         # setup the cosmology
         if not self.unit_sphere:
             if self.cosmo is None:
@@ -31,8 +35,11 @@ class RaDecRedshiftDataSource(DataSource):
             
             # sample the cosmology's comoving distance
             self.cosmo.sample('comoving_distance', numpy.logspace(-5, 1, 1024))
+<<<<<<< 03733474fdf84ed14aa806933cde0677961718ab
         else:
             self.BoxSize = numpy.ones(3) # unit box
+=======
+>>>>>>> RaDecRedshift returns Cartesian coords as `Position` column, as well as `Ra`, `Dec`, `Redshift` columns
   
     @classmethod
     def register(cls):
