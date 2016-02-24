@@ -65,9 +65,6 @@ class TracerCatalogDataSource(DataSource):
         
         if self.cosmo is None:
             raise ValueError("please specify a input Cosmology to use in TracerCatalog")
-
-        # sample the cosmology's comoving distance
-        self.cosmo.sample('comoving_distance', numpy.logspace(-5, 1, 1024))
     
         # need to compute cartesian min/max
         coords_min = numpy.array([numpy.inf]*3)
@@ -75,16 +72,15 @@ class TracerCatalogDataSource(DataSource):
         
         # read the data in parallel
         redshifts = []
-        for [coords] in self.data.read(['Position'], full=False):
+        for [coords, z] in self.data.read(['Position', 'Redshift'], full=False):
             
             # global min/max of cartesian
             if len(coords):
-                cartesian = self._to_cartesian(coords)
-                coords_min = numpy.minimum(coords_min, cartesian.min(axis=0))
-                coords_max = numpy.maximum(coords_max, cartesian.max(axis=0))
+                coords_min = numpy.minimum(coords_min, coords.min(axis=0))
+                coords_max = numpy.maximum(coords_max, coords.max(axis=0))
             
                 # store redshifts
-                redshifts += list(coords[:,-1])
+                redshifts += list(z)
                 
         # gather everything to root
         coords_min = self.comm.gather(coords_min)
@@ -162,21 +158,7 @@ class TracerCatalogDataSource(DataSource):
                 if self.BoxSize[i] < L:
                     args = (self.BoxSize[i], i, L)
                     logger.warning("input BoxSize of %.2f in dimension %d smaller than coordinate range of data (%.2f)" %args)
-                            
-    def _to_cartesian(self, coords, translate=[0.,0.,0.]):
-        """
-        Convert the (ra, dec, z) coordinates to cartesian coordinates
-         
-            * uses `self.cosmo` to compute comoving distances
-            * optionally, translate the cartesian grid by the vector `translate`
-        """
-        ra, dec, redshift = coords.T
-        r = self.cosmo.comoving_distance(redshift)
-        x = r*numpy.cos(ra)*numpy.cos(dec)
-        y = r*numpy.sin(ra)*numpy.cos(dec)
-        z = r*numpy.sin(dec)
-        return numpy.vstack([x,y,z]).T + translate
-        
+                                    
     def _set_nbar(self, redshift, alpha=1.0):
         """
         Determine the spline used to compute `nbar`
@@ -249,7 +231,7 @@ class TracerCatalogDataSource(DataSource):
             
             if self.comm.rank == 0:
                 # cartesian coordinates, removing the mean offset in each dimension
-                pos = self._to_cartesian(coords, translate=-self.offset)
+                pos = coords - self.offset
         
                 # number density from redshift
                 nbar = self.nbar(coords[:,-1])

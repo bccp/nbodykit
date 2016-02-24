@@ -11,23 +11,42 @@ class RaDecRedshiftDataSource(DataSource):
     """
     DataSource designed to handle reading (ra, dec, redshift)
     from a plaintext file, using `pandas.read_csv`
+    
+    *   Returns the Cartesian coordinates corresponding to 
+        (ra, dec, redshift) as the `Position` column.
+    *   If `unit_sphere = True`, the Cartesian coordinates
+        are on the unit sphere, so the the redshift information
+        is not used
     """
     plugin_name = "RaDecRedshift"
     
-    def __init__(self, path, names, 
+    def __init__(self, path, names, unit_sphere=False, 
                     usecols=None, sky_cols=['ra','dec'], z_col='z', 
                     weight_col=None, degrees=False, select=None, bunchsize=4*1024*1024):       
-        pass
         
+        # setup the cosmology
+        if not self.unit_sphere:
+            if self.cosmo is None:
+                raise ValueError("please specify a input Cosmology to use in `RaDecRedshift`")
+            
+            # sample the cosmology's comoving distance
+            self.cosmo.sample('comoving_distance', numpy.logspace(-5, 1, 1024))
+  
     @classmethod
     def register(cls):
         
         s = cls.schema
-        s.description = "read (ra, dec, z) from a plaintext file, using Pandas"
+        s.description = "read (ra, dec, z) from a plaintext file, returning Cartesian coordinates"
         
+        # required
         s.add_argument("path", type=str, help="the file path to load the data from")
         s.add_argument("names", type=str, nargs='+', help="the names of columns in text file")
-        s.add_argument("usecols", type=str, nargs='*', help="only read these columns from file")
+        
+        # optional
+        s.add_argument('unit_sphere', type=bool, 
+            help='if True, return Cartesian coordinates on the unit sphere')
+        s.add_argument("usecols", type=str, nargs='*', 
+            help="only read these columns from file")
         s.add_argument("sky_cols", type=str, nargs='*',
             help="names of the columns specifying the sky coordinates")
         s.add_argument("z_col", type=str,
@@ -41,7 +60,20 @@ class RaDecRedshiftDataSource(DataSource):
         s.add_argument("bunchsize", type=int, 
             help="the number of objects to read per rank in a bunch")
                   
-    def read(self, columns, full=False):        
+    def _to_cartesian(self, coords):
+        """
+        Convert the (ra, dec, z) coordinates to cartesian coordinates,
+        scaled to the comoving distance if `unit_sphere = False`, else
+        on the unit sphere
+        """
+        ra, dec, redshift = coords.T
+        r = 1. if self.unit_sphere else self.cosmo.comoving_distance(redshift)
+        x = r*numpy.cos(ra)*numpy.cos(dec)
+        y = r*numpy.sin(ra)*numpy.cos(dec)
+        z = r*numpy.sin(dec)
+        return numpy.vstack([x,y,z]).T
+        
+    def read(self, columns, full=False):  
         try:
             import pandas as pd
         except:
@@ -51,7 +83,6 @@ class RaDecRedshiftDataSource(DataSource):
         bunchsize = self.bunchsize
         if full: bunchsize = None
         
-
         # read in the plain text file using pandas
         kwargs = {}
         kwargs['comment'] = '#'
@@ -61,11 +92,11 @@ class RaDecRedshiftDataSource(DataSource):
         kwargs['delim_whitespace'] = True
         kwargs['usecols'] = self.usecols
         kwargs['chunksize'] = bunchsize
+        kwargs['iterator'] = True
         
         # iterate through in parallel
         data_iter = iter(pd.read_csv(self.path, **kwargs))
         data_iter = itertools.islice(data_iter, self.comm.rank, None, self.comm.size)
-        
         stop = 0
         while True:
             
@@ -90,9 +121,12 @@ class RaDecRedshiftDataSource(DataSource):
                 if self.weight_col is not None:
                     w = data[self.weight_col].values.astype('f4')
 
-                P = {}
-                P['Position'] = pos
-                P['Weight'] = w
+                P             = {}
+                P['Ra']       = pos[:,0]
+                P['Dec']      = pos[:,1]
+                P['Redshift'] = pos[:,2]
+                P['Position'] = self._to_cartesian(pos)
+                P['Weight']   = w
 
                 data = [P[key] for key in columns]
                 
