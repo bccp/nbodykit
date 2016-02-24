@@ -176,27 +176,47 @@ class PluginMount(type):
     def from_config(cls, parsed): 
         """ 
         Instantiate a plugin from this extension point,
-        based on the name/value pairs passed as keywords. 
-        """        
-        if isinstance(parsed, dict):
-            if 'plugin' in parsed:
-                kwargs = parsed.copy()
-                plugin_name = kwargs.pop('plugin')
-                return cls.create(plugin_name, use_schema=True, **kwargs)
-            elif len(parsed) == 1:
-                k = list(parsed.keys())[0]
-                if isinstance(parsed[k], dict):
-                    return cls.create(k, use_schema=True, **parsed[k])
+        based on the input `parsed` value, which is parsed
+        directly from the YAML configuration file
+        
+        There are several valid input cases for `parsed`:
+            1.  parsed: dict
+                containing the key `plugin`, which gives the name of 
+                the Plugin to load; the rest of the dictionary is 
+                treated as arguments of the Plugin
+            2.  parsed: dict
+                having only one entry, with key giving the Plugin name
+                and value being a dictionary of arguments of the Plugin
+            3.  parsed: dict
+                if `from_config` is called directly from a Plugin class, 
+                then `parsed` can be a dictionary of the named arguments,
+                with the Plugin name inferred from the class `cls`
+            4.  parsed: str
+                the name of a Plugin, which will be created with 
+                no arguments
+        """    
+        try:    
+            if isinstance(parsed, dict):
+                if 'plugin' in parsed:
+                    kwargs = parsed.copy()
+                    plugin_name = kwargs.pop('plugin')
+                    return cls.create(plugin_name, use_schema=True, **kwargs)
+                elif len(parsed) == 1:
+                    k = list(parsed.keys())[0]
+                    if isinstance(parsed[k], dict):
+                        return cls.create(k, use_schema=True, **parsed[k])
+                    else:
+                        raise Exception
+                elif hasattr(cls, 'plugin_name'):
+                    return cls.create(cls.plugin_name, use_schema=True, **parsed)
                 else:
-                    raise ValueError
-            elif hasattr(cls, 'plugin_name'):
-                return cls.create(cls.plugin_name, use_schema=True, **parsed)
+                    raise Exception
+            elif isinstance(parsed, str):
+                return cls.create(parsed)
             else:
-                raise ValueError("failure to parse plugin...")
-        elif isinstance(parsed, str):
-            return cls.create(parsed)
-        else:
-            raise ValueError("failure to parse plugin...")
+                raise Exception
+        except:
+            raise ValueError("failure to parse plugin with argument: %s" %str(parsed))
             
     def format_help(cls, *plugins):
         """
