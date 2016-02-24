@@ -90,7 +90,10 @@ def main():
         # ns.config is a file object
         stream = ns.config
     else:
-        stream = sys.stdin.read()
+        if MPI.COMM_WORLD.rank == 0:
+            stream = sys.stdin.read()
+        else:
+            stream = None
         # respect the root rank stdin only;
         # on some systems, the stdin is only redirected to the root rank.
         stream = MPI.COMM_WORLD.bcast(stream)
