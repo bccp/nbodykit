@@ -75,10 +75,13 @@ class FFTPowerAlgorithm(Algorithm):
         s = cls.schema
         s.description = "periodic power spectrum calculator via FFT"
 
+        # required
         s.add_argument("mode", type=str, choices=['1d', '2d'], 
             help='compute the power as a function of `k` or `k` and `mu`') 
         s.add_argument("Nmesh", type=int, 
             help='the number of cells in the gridded mesh')
+        
+        # the first field
         s.add_argument('field', type=FieldType,
             help="first data field; a tuple of (DataSource, Painter, Transfer)")
         s.add_argument('field.DataSource', type=DataSource.from_config, required=True,
@@ -88,16 +91,17 @@ class FFTPowerAlgorithm(Algorithm):
         s.add_argument('field.Transfer', nargs='*', type=Transfer.from_config, required=False,
             help='the 1st Transfer chain; run `nbkit.py --list-transfers` for all options')
         
-        
+        # the other field
         s.add_argument('other', type=FieldType, required=False,
             help="the other data field; a tuple of (DataSource, Painter, Transfer)")
         s.add_argument('other.DataSource', type=DataSource.from_config, required=False,
             help='the 2nd DataSource; run `nbkit.py --list-datasources` for all options')
-        s.add_argument('other.Transfer', nargs='*', type=Transfer.from_config, required=False,
-            help='the 2nd Painter; run `nbkit.py --list-painters` for all options')
         s.add_argument('other.Painter',  type=Painter.from_config, required=False, 
-            help='the 1st Transfer chain; run `nbkit.py --list-transfers` for all options')
-        
+            help='the 2nd Painter; run `nbkit.py --list-painters` for all options')
+        s.add_argument('other.Transfer', nargs='*', type=Transfer.from_config, required=False,
+            help='the 2nd Transfer chain; run `nbkit.py --list-transfers` for all options')
+            
+        # optional
         s.add_argument("los", type=str, choices="xyz",
             help="the line-of-sight direction -- the angle `mu` is defined with respect to")
         s.add_argument("Nmu", type=int,
