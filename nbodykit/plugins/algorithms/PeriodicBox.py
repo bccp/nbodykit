@@ -80,17 +80,23 @@ class FFTPowerAlgorithm(Algorithm):
         s.add_argument("Nmesh", type=int, 
             help='the number of cells in the gridded mesh')
         s.add_argument('field', type=FieldType,
-            help="first data field; a tuple of (DataSource, Painter, Transfer), see --list-* options")
-        s.add_argument('field.DataSource', type=DataSource.from_config, required=True)
-        s.add_argument('field.Painter', type=Painter.from_config, required=False)
-        s.add_argument('field.Transfer', nargs='*', type=Transfer.from_config, required=False)
+            help="first data field; a tuple of (DataSource, Painter, Transfer)")
+        s.add_argument('field.DataSource', type=DataSource.from_config, required=True,
+            help='the 1st DataSource; run `nbkit.py --list-datasources` for all options')
+        s.add_argument('field.Painter', type=Painter.from_config, required=False, 
+            help='the 1st Painter; run `nbkit.py --list-painters` for all options')
+        s.add_argument('field.Transfer', nargs='*', type=Transfer.from_config, required=False,
+            help='the 1st Transfer chain; run `nbkit.py --list-transfers` for all options')
         
         
         s.add_argument('other', type=FieldType, required=False,
-            help="the other data field; a tuple of (DataSource, Painter, Transfer), see --list-* options")
-        s.add_argument('other.DataSource', type=DataSource.from_config, required=False)
-        s.add_argument('other.Transfer', nargs='*', type=Transfer.from_config, required=False)
-        s.add_argument('other.Painter',  type=Painter.from_config, required=False) 
+            help="the other data field; a tuple of (DataSource, Painter, Transfer)")
+        s.add_argument('other.DataSource', type=DataSource.from_config, required=False,
+            help='the 2nd DataSource; run `nbkit.py --list-datasources` for all options')
+        s.add_argument('other.Transfer', nargs='*', type=Transfer.from_config, required=False,
+            help='the 2nd Painter; run `nbkit.py --list-painters` for all options')
+        s.add_argument('other.Painter',  type=Painter.from_config, required=False, 
+            help='the 1st Transfer chain; run `nbkit.py --list-transfers` for all options')
         
         s.add_argument("los", type=str, choices="xyz",
             help="the line-of-sight direction -- the angle `mu` is defined with respect to")

@@ -50,9 +50,11 @@ class PairCountCorrelationAlgorithm(Algorithm):
         s.add_argument("rbins", type=binning_type, 
             help='the string specifying the binning to use') 
         s.add_argument("field", type=DataSource.from_config, 
-            help='the first `DataSource` of objects to correlate')
+            help='the first `DataSource` of objects to correlate; '
+                 'run `nbkit.py --list-datasources` for all options')
         s.add_argument("other", type=DataSource.from_config, 
-            help='the other `DataSource` of objects to cross-correlate with')
+            help='the other `DataSource` of objects to cross-correlate with; '
+                 'run `nbkit.py --list-datasources` for all options')
         s.add_argument("subsample", type=int, help='use 1 out of every N points')
         s.add_argument("los", choices="xyz",
             help="the line-of-sight: the angle `mu` is defined with respect to")

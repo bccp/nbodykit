@@ -25,9 +25,10 @@ class TidalTensor(Algorithm):
     def register(cls):
         s = cls.schema
         s.add_argument("field", type=DataSource.from_config,
-                help="--list-datasource for help")
+                help="DataSource; run `nbkit.py --list-datasources` for all options")
         s.add_argument("points", type=DataSource.from_config,
-                help="A small set of points to calculate tidal force on; --list-datasource for help")
+                help="A small set of points to calculate tidal force on; "
+                     "run `nbkit.py --list-datasources` for all options")
         s.add_argument("Nmesh", type=int,
                 help='Size of FFT mesh for painting')
         s.add_argument("smoothing", type=float,

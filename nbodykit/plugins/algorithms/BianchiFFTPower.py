@@ -36,7 +36,8 @@ class BianchiPowerAlgorithm(Algorithm):
         # the required arguments
         TracerCatalog = DataSource.registry.TracerCatalog
         s.add_argument('input', type=TracerCatalog.from_config,
-            help='the input `TracerCatalog` DataSource, which provides `data` and `randoms`; see --list-datasource')
+            help='the input `TracerCatalog` DataSource; '
+                 'run `nbkit.py --list-datasources TracerCatalog` for details')
         s.add_argument("Nmesh", type=int,
             help='the number of cells in the gridded mesh (per axis)')
         s.add_argument('max_ell', type=int, choices=[0,2,4],

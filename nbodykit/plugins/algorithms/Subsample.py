@@ -27,7 +27,7 @@ class Subsample(Algorithm):
         s.description = "create a subsample from a DataSource, and evaluate density (1 + delta) smoothed at the given scale"
         
         s.add_argument("datasource", type=DataSource.from_config,
-            help="the DataSource to read; see --list-datasource for help")
+            help="the DataSource to read; run `nbkit.py --list-datasources` for all options")
         s.add_argument("Nmesh", type=int, help='the size of FFT mesh for painting')
         s.add_argument("seed", type=int, help='the random seed')
         s.add_argument("ratio", type=float, help='the fraction of particles to keep')
