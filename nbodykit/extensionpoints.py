@@ -216,7 +216,9 @@ class PluginMount(type):
             else:
                 raise Exception
         except Exception as e:
-            raise ValueError("failure to parse plugin with argument: %s; %s" %(str(parsed), str(e)))
+            import traceback
+            traceback = traceback.format_exc()
+            raise ValueError("failure to parse plugin:\n\n%s" %(traceback))
             
     def format_help(cls, *plugins):
         """

@@ -341,7 +341,7 @@ def autoassign(init, attach_comm=True, attach_cosmo=False):
         # handle extra allowed keywords (that aren't in signature)
         for k in allowed:
             if k in kwargs:
-                setattr(self, k, val)
+                setattr(self, k, kwargs.pop(k))
         
         # handle default values
         for attr, val in zip(reversed(attrs), reversed(defaults)):
@@ -366,9 +366,10 @@ def autoassign(init, attach_comm=True, attach_cosmo=False):
         try:
             return init(self, *args, **kwargs)
         except Exception as e:
-            args = (self.__class__.__name__, str(e))
-            msg = "error initializing __init__ for '%s': %s " %args
-            msg += '\n\n' + init.schema.format_help()
+            import traceback
+            traceback = traceback.format_exc()
+            args = (self.__class__.__name__, traceback)
+            msg = "error initializing __init__ for '%s':\n\n%s " %args
             raise TypeError(msg)
             
     return wrapper
