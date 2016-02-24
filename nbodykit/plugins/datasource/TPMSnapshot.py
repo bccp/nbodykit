@@ -24,6 +24,8 @@ class TPMSnapshotDataSource(DataSource):
         s.add_argument("path", type=str, help="the file path to load the data from")
         s.add_argument("BoxSize", type=cls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
+        s.add_argument("rsd", choices="xyz", help="direction to do redshift distortion")
+        s.add_argument("bunchsize", type=int, help="number of particles to read per rank in a bunch")
 
     def read(self, columns, stats, full=False):
         """ read data in parallel. if Full is True, neglect bunchsize. """
