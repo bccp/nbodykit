@@ -2,6 +2,7 @@ from nbodykit.extensionpoints import DataSource
 from nbodykit.utils import selectionlanguage
 import logging
 import numpy
+import itertools
 
 logger = logging.getLogger('RaDecRedshift')
 
@@ -51,70 +52,70 @@ class RaDecRedshiftDataSource(DataSource):
         if full: bunchsize = None
         
         stats['Ntot'] = 0.
-        if self.comm.rank == 0:
-                    
-            # read in the plain text file using pandas
-            kwargs = {}
-            kwargs['comment'] = '#'
-            kwargs['names'] = self.names
-            kwargs['header'] = None
-            kwargs['engine'] = 'c'
-            kwargs['delim_whitespace'] = True
-            kwargs['usecols'] = self.usecols
-            kwargs['chunksize'] = bunchsize
-            data_iter = iter(pd.read_csv(self.path, **kwargs))
+
+        # read in the plain text file using pandas
+        kwargs = {}
+        kwargs['comment'] = '#'
+        kwargs['names'] = self.names
+        kwargs['header'] = None
+        kwargs['engine'] = 'c'
+        kwargs['delim_whitespace'] = True
+        kwargs['usecols'] = self.usecols
+        kwargs['chunksize'] = bunchsize
         
-        stop = False
-        cols = ['ra', 'dec', 'z']
-        while not stop:
+        # iterate through in parallel
+        data_iter = iter(pd.read_csv(self.path, **kwargs))
+        data_iter = itertools.islice(data_iter, self.comm.rank, None, self.comm.size)
+        
+        stop = 0
+        while True:
             
-            if self.comm.rank == 0:
+            try:
+                data = next(data_iter)
                 
-                try:
-                    data = next(data_iter)
-                    
-                    # select based on input conditions
-                    if self.select is not None:
-                        mask = self.select.get_mask(data)
-                        data = data[mask]
+                # select based on input conditions
+                if self.select is not None:
+                    mask = self.select.get_mask(data)
+                    data = data[mask]
 
-                    # rescale the angles
-                    if self.degrees:
-                        data[self.sky_cols] *= numpy.pi/180.
+                # rescale the angles
+                if self.degrees:
+                    data[self.sky_cols] *= numpy.pi/180.
 
-                    # get the (ra, dec, z) coords
-                    cols = self.sky_cols + [self.z_col]
-                    pos = data[cols].values.astype('f4')
+                # get the (ra, dec, z) coords
+                cols = self.sky_cols + [self.z_col]
+                pos = data[cols].values.astype('f4')
 
-                    # get the weights
-                    w = numpy.ones(len(pos))
-                    if self.weight_col is not None:
-                        w = data[self.weight_col].values.astype('f4')
+                # get the weights
+                w = numpy.ones(len(pos))
+                if self.weight_col is not None:
+                    w = data[self.weight_col].values.astype('f4')
 
-                    P = {}
-                    P['Position'] = pos
-                    P['Weight'] = w
+                P = {}
+                P['Position'] = pos
+                P['Weight'] = w
 
-                    data = [P[key] for key in columns]
-                except StopIteration:
-                    stop = True
+                data = [P[key] for key in columns]
                 
-                if not stop:
-                    shape_and_dtype = [(d.shape, d.dtype) for d in data]
-                    Ntot = len(data[0]) # columns has to have length >= 1, or we crashed already
-            
+            except StopIteration:
+                stop = 1
+                data = None
+
+            if data is not None:
+                shape_and_dtype = [(d.shape, d.dtype) for d in data]
+                Ntot = len(data[0])
             else:
                 shape_and_dtype = None
                 Ntot = None
                 
             # check if we are stopping
-            stop = self.comm.bcast(stop)
-            if stop: break
+            stop = self.comm.allreduce(stop)    
+            if stop == self.comm.size: break # all ranks are done iterating
                 
             shape_and_dtype = self.comm.bcast(shape_and_dtype)
             stats['Ntot'] += self.comm.bcast(Ntot)
 
-            if self.comm.rank != 0:
+            if data is None:
                 data = [
                     numpy.empty(0, dtype=(dtype, shape[1:]))
                     for shape,dtype in shape_and_dtype

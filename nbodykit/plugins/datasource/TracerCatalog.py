@@ -73,23 +73,31 @@ class TracerCatalogDataSource(DataSource):
         coords_min = numpy.array([numpy.inf]*3)
         coords_max = numpy.array([-numpy.inf]*3)
         
-        # read the data to find total number
+        # read the data in parallel
         data_stats = {}
         redshifts = []
         for [coords] in self.data.read(['Position'], data_stats, full=False):
             
-            if self.comm.rank == 0:
+            # global min/max of cartesian
+            cartesian = self._to_cartesian(coords)
+            coords_min = numpy.minimum(coords_min, cartesian.min(axis=0))
+            coords_max = numpy.maximum(coords_max, cartesian.max(axis=0))
+            
+            # store redshifts
+            redshifts += list(coords[:,-1])
                 
-                # global min/max of cartesian
-                cartesian = self._to_cartesian(coords)
-                coords_min = numpy.minimum(coords_min, cartesian.min(axis=0))
-                coords_max = numpy.maximum(coords_max, cartesian.max(axis=0))
-                
-                # store redshifts
-                redshifts += list(coords[:,-1])
-                
+        # gather everything to root
+        coords_min = self.comm.gather(coords_min)
+        coords_max = self.comm.gather(coords_max)
+        redshifts = self.comm.gather(redshifts)
+        
         # only rank zero does the work, then broadcast
         if self.comm.rank == 0:
+            
+            # find the global
+            coords_min = numpy.amin(coords_min, axis=0)
+            coords_max = numpy.amax(coords_max, axis=0)
+            redshifts = numpy.concatenate(redshifts)
             
             # setup the box, using randoms to define it
             self._define_box(coords_min, coords_max)
