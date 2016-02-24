@@ -215,8 +215,8 @@ class PluginMount(type):
                 return cls.create(parsed)
             else:
                 raise Exception
-        except:
-            raise ValueError("failure to parse plugin with argument: %s" %str(parsed))
+        except Exception as e:
+            raise ValueError("failure to parse plugin with argument: %s; %s" %(str(parsed), str(e)))
             
     def format_help(cls, *plugins):
         """

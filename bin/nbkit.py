@@ -83,7 +83,7 @@ def main():
 
     # parse the command-line
     ns, args = parser.parse_known_args()
-    alg_name = ns.algorithm_name; output = ns.output
+    alg_name = ns.algorithm_name
 
     # configuration file passed via -c
     params, extra = Algorithm.parse_known_yaml(alg_name, ns.config)
