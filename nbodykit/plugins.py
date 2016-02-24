@@ -44,13 +44,15 @@ def ListPluginsAction(extensionpoint):
                      dest=SUPPRESS,
                      default=SUPPRESS,
                      help=None, 
-                     nargs=None):
+                     nargs=None,
+                     metavar=None):
             Action.__init__(self, 
                 option_strings=option_strings,
                 dest=dest,
                 default=default,
                 nargs=nargs,
-                help=help)
+                help=help,
+                metavar=metavar)
         
         def __call__(self, parser, namespace, values, option_string=None):
             parser.exit(0, extensionpoint.format_help(*values))

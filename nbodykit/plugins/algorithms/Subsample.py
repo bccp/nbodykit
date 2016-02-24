@@ -24,7 +24,8 @@ class Subsample(Algorithm):
     def register(cls):
         
         s = cls.schema
-        s.description = "create a subsample from a DataSource, and evaluate density (1 + delta) smoothed at the given scale"
+        s.description = "create a subsample from a DataSource, and evaluate density \n"
+        s.description += "(1 + delta) smoothed at the given scale"
         
         s.add_argument("datasource", type=DataSource.from_config,
             help="the DataSource to read; run `nbkit.py --list-datasources` for all options")

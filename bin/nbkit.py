@@ -63,15 +63,18 @@ def main():
     parser.add_argument('config', type=argparse.FileType(mode='r'), nargs='?', default=sys.stdin,
                         help='the name of the file to read parameters from using YAML syntax; '
                              'if not provided, stdin is read from')
-    parser.add_argument('-o', '--output', help='the string specifying the output')
-    parser.add_argument('-h', '--help', action=HelpAction, help='Help on an algorithm')
-    parser.add_argument("-X", type=load, action="append", help="Add a directory or file for looking up plugins.")
+    parser.add_argument('-h', '--help', action=HelpAction, help='help for a specific algorithm')
+    parser.add_argument("-X", type=load, action="append", help="add a directory or file to load plugins from")
     
     # help arguments
-    parser.add_argument('--list-datasources', nargs='*', action=ListPluginsAction(DataSource), help='List DataSource')
-    parser.add_argument('--list-algorithms',  nargs='*', action=ListPluginsAction(Algorithm), help='List Algorithms')
-    parser.add_argument('--list-painters',  nargs='*', action=ListPluginsAction(Painter), help='List Painters')
-    parser.add_argument('--list-transfers',  nargs='*', action=ListPluginsAction(Transfer), help='List Transfer Functions')
+    parser.add_argument('--list-datasources', nargs='*', action=ListPluginsAction(DataSource), 
+        metavar='DataSource', help='list DataSource options')
+    parser.add_argument('--list-algorithms',  nargs='*', action=ListPluginsAction(Algorithm), 
+        metavar='Algorithm', help='list Algorithm options')
+    parser.add_argument('--list-painters',  nargs='*', action=ListPluginsAction(Painter), 
+        metavar='Painter', help='list Painter options')
+    parser.add_argument('--list-transfers',  nargs='*', action=ListPluginsAction(Transfer), 
+        metavar='Transfer', help='list Transfer options')
 
     # configure printing
     parser.usage = parser.format_usage()[6:-1] + " ... \n"

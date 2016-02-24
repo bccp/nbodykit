@@ -30,8 +30,8 @@ class BianchiPowerAlgorithm(Algorithm):
     def register(cls):
         
         s = cls.schema
-        s.description = """power spectrum multipoles using FFTs for a data survey with 
-                           non-trivial geometry, as detailed in Bianchi et al. 2015"""
+        s.description = "power spectrum multipoles using FFTs for a data survey with \n"
+        s.description += "non-trivial geometry, as detailed in Bianchi et al. 2015"
 
         # the required arguments
         TracerCatalog = DataSource.registry.TracerCatalog

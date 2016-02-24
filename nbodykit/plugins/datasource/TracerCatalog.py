@@ -118,8 +118,6 @@ class TracerCatalogDataSource(DataSource):
             help="`RaDecRedshift` DataSource representing the `data` catalog")
         s.add_argument("randoms", type=DataSource.from_config,
             help="`RaDecRedshift` DataSource representing the `randoms` catalog")
-        # s.add_argument("cosmo",
-        #     help='the cosmology used to convert (ra,dec,z) to cartesian coordinates')
         s.add_argument("BoxSize", type=cls.BoxSizeParser,
             help="the size of the box; if not provided, automatically computed from the `randoms` catalog")
         s.add_argument('BoxPad', type=float,
