@@ -1,6 +1,7 @@
 mode: 2d
 Nmesh: 256
 
-fields:
-    - TPMSnapshot:../data/tpm_1.0000.bin:384
+field:
+    DataSource:
+        TPMSnapshot: {path: ../data/tpm_1.0000.bin, BoxSize: 384}
 output: ../output/test_power_tpmsnapshot_2d.txt

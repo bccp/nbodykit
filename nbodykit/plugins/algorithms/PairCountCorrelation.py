@@ -1,6 +1,4 @@
-from nbodykit.extensionpoints import Algorithm
-from nbodykit.plugins import ListPluginsAction, add_plugin_list_argument
-
+from nbodykit.extensionpoints import Algorithm, DataSource
 import numpy
 import os
 
@@ -33,36 +31,38 @@ class PairCountCorrelationAlgorithm(Algorithm):
     """
     plugin_name = "PairCountCorrelation"
 
-    @classmethod
-    def register(kls):
-        """
-        Setup the argument parser needed for initialization via the command-line
-        """
-        from nbodykit.extensionpoints import DataSource
+    def __init__(self, mode, rbins, field, other=None, subsample=1, 
+                    los='z', Nmu=10, poles=[]):
+                    
+        # construct the input fields list
+        self.inputs = [self.field]
+        if self.other is not None:
+            self.inputs.append(self.other)
         
-        p = kls.parser
-        p.description = "correlation function calculator via pair counting"
+    @classmethod
+    def register(cls):  
+        s = cls.schema
+        s.description = "correlation function calculator via pair counting"
     
         # the positional arguments
-        p.add_argument("mode", choices=["1d", "2d"],
-                        help='measure the correlation function in `1d` or `2d`') 
-        p.add_argument("rbins", type=binning_type, 
-                        help='the string specifying the binning to use') 
-        add_plugin_list_argument(p, "inputs", type=lambda l: [DataSource.fromstring(s) for s in l],
-                        help='1 or 2 input `DataSource` objects to correlate; run --list-datasource for specifics')
-
-        # add the optional arguments
-        p.add_argument("--subsample", type=int, default=1,
-                        help='use 1 out of every N points')
-        p.add_argument("--los", choices="xyz", default='z', 
-                        help="the line-of-sight: the angle `mu` is defined with respect to")
-        p.add_argument("--Nmu", type=int, default=10,
-                        help='if `mode == 2d`, the number of mu bins covering mu=[-1,1]')
-        p.add_argument('--poles', type=lambda s: [int(i) for i in s.split()], metavar="0 2 4", default=[],
-                        help='compute the multipoles for these `ell` values from xi(r,mu)')
-        p.add_argument("--list-datasource", action=ListPluginsAction(DataSource),
-                        help='list the help for each available `DataSource`')
-            
+        s.add_argument("mode", type=str, choices=["1d", "2d"],
+            help='measure the correlation function in `1d` or `2d`') 
+        s.add_argument("rbins", type=binning_type, 
+            help='the string specifying the binning to use') 
+        s.add_argument("field", type=DataSource.from_config, 
+            help='the first `DataSource` of objects to correlate; '
+                 'run `nbkit.py --list-datasources` for all options')
+        s.add_argument("other", type=DataSource.from_config, 
+            help='the other `DataSource` of objects to cross-correlate with; '
+                 'run `nbkit.py --list-datasources` for all options')
+        s.add_argument("subsample", type=int, help='use 1 out of every N points')
+        s.add_argument("los", choices="xyz",
+            help="the line-of-sight: the angle `mu` is defined with respect to")
+        s.add_argument("Nmu", type=int,
+            help='if `mode == 2d`, the number of mu bins covering mu=[-1,1]')
+        s.add_argument('poles', nargs='*', type=int,
+            help='compute the multipoles for these `ell` values from xi(r,mu)')
+   
     def run(self):
         """
         Run the pair-count correlation function and return the result
@@ -115,13 +115,13 @@ class PairCountCorrelationAlgorithm(Algorithm):
             the tuple returned by `run()` -- first argument specifies the bin
             edges and the second is a dictionary holding the data results
         """
-        from nbodykit.extensionpoints import MeasurementStorage
+        from nbodykit.storage import MeasurementStorage
         
         # only master writes
         if self.comm.rank == 0:
             
             edges, result = result
-            storage = MeasurementStorage.new(self.mode, output)
+            storage = MeasurementStorage.create(self.mode, output)
         
             cols = list(result.keys())
             values = list(result.values())

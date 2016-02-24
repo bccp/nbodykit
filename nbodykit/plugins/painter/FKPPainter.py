@@ -7,8 +7,11 @@ logger = logging.getLogger('FKPPainter')
 class FKPPainter(Painter):
     plugin_name = "FKPPainter"
 
+    def __init__(self):
+        pass
+        
     @classmethod
-    def register(kls):
+    def register(cls):
         pass
 
     def paint(self, pm, datasource):

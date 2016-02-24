@@ -9,21 +9,22 @@ logger = logging.getLogger('CollapsedHalo')
 class CollapsedHaloDataSource(DataSource):
     plugin_name = "CollapsedHaloMatter"
     
+    def __init__(self, pathhalo, BoxSize, logMmin, logMmax, m0, pathmatter, pathlabel, rsd=None):
+        pass
+    
     @classmethod
-    def register(kls):
-        h = kls.parser
+    def register(cls):
+        s = cls.schema
         
-        h.add_argument("pathhalo", help="path to file")
-        h.add_argument("BoxSize", type=kls.BoxSizeParser,
+        s.add_argument("pathhalo", help="path to file")
+        s.add_argument("BoxSize", type=cls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
-        h.add_argument("logMmin", type=float, help="log10 min mass")
-        h.add_argument("logMmax", type=float, help="log10 max mass")
-        h.add_argument("m0", type=float, help="mass mass of a particle")
-        h.add_argument("pathmatter", help="path to matter file")
-        h.add_argument("pathlabel", help="path to label file")
-        
-        h.add_argument("-rsd", 
-            choices="xyz", help="direction to do redshift distortion")
+        s.add_argument("logMmin", type=float, help="log10 min mass")
+        s.add_argument("logMmax", type=float, help="log10 max mass")
+        s.add_argument("m0", type=float, help="mass mass of a particle")
+        s.add_argument("pathmatter", help="path to matter file")
+        s.add_argument("pathlabel", help="path to label file")
+        s.add_argument("rsd", choices="xyz", help="direction to do redshift distortion")
     
     def read(self, columns, comm, bunchsize):
         if comm.rank == 0:

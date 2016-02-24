@@ -1,5 +1,4 @@
-from nbodykit.extensionpoints import DataSource, Cosmology
-from nbodykit.extensionpoints import datasources
+from nbodykit.extensionpoints import DataSource
 
 from mpi4py import MPI
 import numpy
@@ -45,42 +44,15 @@ class TracerCatalogDataSource(DataSource):
             domain of [-BoxSize/2, BoxSize/2]
     """
     plugin_name = "TracerCatalog"
-            
-    @classmethod
-    def register(kls):
-        
-        h = kls.parser
-        
-        # required arguments
-        h.add_argument("data", type=datasources.RaDecRedshift.fromstring, 
-            help="`RaDecRedshift` DataSource representing the `data` catalog")
-        h.add_argument("randoms", type=datasources.RaDecRedshift.fromstring, 
-            help="`RaDecRedshift` DataSource representing the `randoms` catalog")
-        h.add_argument("cosmo", type=Cosmology.fromstring, 
-            help='the cosmology used to convert (ra,dec,z) to cartesian coordinates')
-            
-        # optional arguments
-        h.add_argument("-BoxSize", type=kls.BoxSizeParser,
-            help="the size of the box; if not provided, automatically computed from the `randoms` catalog")
-        h.add_argument('-BoxPad', type=float, default=0.02, 
-            help='when setting the box size automatically, apply this additional buffer')
-        h.add_argument('-compute_fkp_weights', action='store_true', 
-            help='if set, use FKP weights, computed from `P0_fkp` and the provided `nbar`') 
-        h.add_argument('-P0_fkp', type=float,
-            help='the fiducial power value `P0` used to compute FKP weights')
-        h.add_argument('-nbar', type=nbar_fromfile,
-            help='read `nbar(z)` from this file, which provides two columns (z, nbar)')
-        h.add_argument('-fsky', type=float, 
-            help='the sky area fraction of the tracer catalog, used in the volume calculation of `nbar`')
-        
-      
-    def finalize_attributes(self):
+    
+    def __init__(self, data, randoms, BoxSize=None, BoxPad=0.02, 
+                    compute_fkp_weights=False, P0_fkp=None, nbar=None, 
+                    fsky=None):
         """
-        Finalize the attributes by performing several steps:
+        Finalize by performing several steps:
         
-            1. if `BoxSize` not provided on the command-line, 
-               infer the value from the Cartesian coordinates of
-               the `data` catalog
+            1. if `BoxSize` not provided, infer the value 
+               from the Cartesian coordinates of the `data` catalog
             2. compute the mean coordinate offset for each 
                Cartesian dimension -- used to re-center the 
                coordinates to the [-BoxSize/2, BoxSize/2] domain
@@ -90,6 +62,9 @@ class TracerCatalogDataSource(DataSource):
         # source is None by default
         self._source = None
         self.offset  = None
+        
+        if self.cosmo is None:
+            raise ValueError("please specify a input Cosmology to use in TracerCatalog")
 
         # sample the cosmology's comoving distance
         self.cosmo.sample('comoving_distance', numpy.logspace(-5, 1, 1024))
@@ -98,23 +73,32 @@ class TracerCatalogDataSource(DataSource):
         coords_min = numpy.array([numpy.inf]*3)
         coords_max = numpy.array([-numpy.inf]*3)
         
-        # read the data to find total number
+        # read the data in parallel
         data_stats = {}
         redshifts = []
         for [coords] in self.data.read(['Position'], data_stats, full=False):
             
-            if self.comm.rank == 0:
-                
-                # global min/max of cartesian
+            # global min/max of cartesian
+            if len(coords):
                 cartesian = self._to_cartesian(coords)
                 coords_min = numpy.minimum(coords_min, cartesian.min(axis=0))
                 coords_max = numpy.maximum(coords_max, cartesian.max(axis=0))
-                
+            
                 # store redshifts
                 redshifts += list(coords[:,-1])
                 
+        # gather everything to root
+        coords_min = self.comm.gather(coords_min)
+        coords_max = self.comm.gather(coords_max)
+        redshifts = self.comm.gather(redshifts)
+        
         # only rank zero does the work, then broadcast
         if self.comm.rank == 0:
+            
+            # find the global
+            coords_min = numpy.amin(coords_min, axis=0)
+            coords_max = numpy.amax(coords_max, axis=0)
+            redshifts = numpy.concatenate(redshifts)
             
             # setup the box, using randoms to define it
             self._define_box(coords_min, coords_max)
@@ -131,7 +115,31 @@ class TracerCatalogDataSource(DataSource):
             logger.info("BoxSize = %s" %str(self.BoxSize))
             logger.info("cartesian coordinate range: %s : %s" %(str(coords_min), str(coords_max)))
             logger.info("mean coordinate offset = %s" %str(self.offset))
+            
+    @classmethod
+    def register(cls):
         
+        s = cls.schema
+        s.description = ("representing a catalog of tracer objects, measured in an "
+                         "observational survey, with a non-trivial selection function")
+        
+        s.add_argument("data", type=DataSource.from_config,
+            help="`RaDecRedshift` DataSource representing the `data` catalog")
+        s.add_argument("randoms", type=DataSource.from_config,
+            help="`RaDecRedshift` DataSource representing the `randoms` catalog")
+        s.add_argument("BoxSize", type=cls.BoxSizeParser,
+            help="the size of the box; if not provided, automatically computed from the `randoms` catalog")
+        s.add_argument('BoxPad', type=float,
+            help='when setting the box size automatically, apply this additional buffer')
+        s.add_argument('compute_fkp_weights', type=bool,
+            help='if set, use FKP weights, computed from `P0_fkp` and the provided `nbar`') 
+        s.add_argument('P0_fkp', type=float,
+            help='the fiducial power value `P0` used to compute FKP weights')
+        s.add_argument('nbar', type=nbar_fromfile,
+            help='read `nbar(z)` from this file, which provides two columns (z, nbar)')
+        s.add_argument('fsky', type=float, 
+            help='the sky area fraction of the tracer catalog, used in the volume calculation of `nbar`')
+         
     def _define_box(self, coords_min, coords_max):
         """
         Define the Cartesian box to hold the tracers by:

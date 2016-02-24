@@ -1,9 +1,13 @@
-from nbodykit.extensionpoints import Algorithm, datasources
+from nbodykit.extensionpoints import Algorithm, DataSource
 
 import numpy
 import logging
 import os
 
+def TracerCatalog(kwargs):
+    kwargs['cosmo'] = kwargs['data'].cosmo
+    return DataSource.create('TracerCatalog', use_schema=True, **kwargs)
+    
 class BianchiPowerAlgorithm(Algorithm):
     """
     Algorithm to compute the power spectrum multipoles using FFTs
@@ -15,48 +19,37 @@ class BianchiPowerAlgorithm(Algorithm):
     plugin_name = "BianchiFFTPower"
     logger = logging.getLogger(plugin_name)
 
+    def __init__(self, input, Nmesh, max_ell, dk=None, kmin=0., quiet=False):
+               
+        # properly set the logging level          
+        self.log_level = logging.DEBUG
+        if quiet:
+            self.log_level = logging.ERROR
+            
     @classmethod
-    def register(kls):
-        from argparse import _HelpAction
+    def register(cls):
         
-        p = kls.parser
-        p.description = """power spectrum multipoles using FFTs for a data survey with 
-                           non-trivial geometry, as detailed in Bianchi et al. 2015"""
+        s = cls.schema
+        s.description = "power spectrum multipoles using FFTs for a data survey with \n"
+        s.description += "non-trivial geometry, as detailed in Bianchi et al. 2015"
 
         # the required arguments
-        p.add_argument("Nmesh", type=int,
+        TracerCatalog = DataSource.registry.TracerCatalog
+        s.add_argument('input', type=TracerCatalog.from_config,
+            help='the input `TracerCatalog` DataSource; '
+                 'run `nbkit.py --list-datasources TracerCatalog` for details')
+        s.add_argument("Nmesh", type=int,
             help='the number of cells in the gridded mesh (per axis)')
-        p.add_argument('max_ell', type=int, choices=[0,2,4], metavar='max_ell {0,2,4}',
+        s.add_argument('max_ell', type=int, choices=[0,2,4],
             help='compute multipoles up to and including this ell value')
 
         # the optional arguments
-        p.add_argument("--dk", type=float,
+        s.add_argument("dk", type=float,
             help='the spacing of k bins to use; if not provided, the fundamental mode of the box is used')
-        p.add_argument("--kmin", type=float, default=0.,
+        s.add_argument("kmin", type=float,
             help='the edge of the first `k` bin to use; default is 0')
-        p.add_argument('-q', '--quiet', action="store_const", dest="log_level",
-            default=logging.DEBUG, help="silence the logging output", const=logging.ERROR)
-            
-        # promote the TracerCatalog attributes to this parser (in their own argument group)
-        source = p.add_argument_group(title="`TracerCatalog` DataSource parameters")
-        source_parser = datasources.TracerCatalog.parser
-        for group in source_parser._action_groups:
-            for a in group._group_actions:
-                if not isinstance(a, _HelpAction):
-                    source._add_action(a)
-        
-    def finalize_attributes(self):
-        """
-        Gather the parameters belonging to the `TracerCatalog` DataSource, 
-        create an instance, and store it as the `input` attribute
-        """
-        params = {}
-        source_parser = self.parser._action_groups[-1]
-        for a in source_parser._group_actions:
-            name = a.dest
-            params[name] = getattr(self, name) 
-        self.input = datasources.TracerCatalog(**params)
-        
+        s.add_argument('quiet', type=bool, help="silence the logging output")
+                    
     def run(self):
         """
         Run the algorithm, which computes and returns the power spectrum
@@ -71,7 +64,8 @@ class BianchiPowerAlgorithm(Algorithm):
         pm = ParticleMesh(self.input.BoxSize, self.Nmesh, dtype='f4', comm=self.comm)
 
         # measure
-        poles, meta = measurestats.compute_bianchi_poles(self.max_ell, self.input, pm, comm=self.comm, log_level=self.log_level)
+        kws = {'comm':self.comm, 'log_level':self.log_level}
+        poles, meta = measurestats.compute_bianchi_poles(self.max_ell, self.input, pm, **kws)
         k3d = pm.k
 
         # binning in k out to the minimum nyquist frequency
@@ -114,7 +108,7 @@ class BianchiPowerAlgorithm(Algorithm):
             the tuple returned by `run()` -- first argument specifies the bin
             edges and the second is a dictionary holding the data results
         """
-        from nbodykit.extensionpoints import MeasurementStorage
+        from nbodykit.storage import MeasurementStorage
         
         # only the master rank writes
         if self.comm.rank == 0:
@@ -129,6 +123,6 @@ class BianchiPowerAlgorithm(Algorithm):
             cols = ['k'] + ['power_%d' %l for l in ells] + ['modes']
             pole_result = [k] + [pole for pole in poles] + [N]
             
-            storage = MeasurementStorage.new('1d', output)
+            storage = MeasurementStorage.create('1d', output)
             storage.write(kedges, cols, pole_result, **meta)
 

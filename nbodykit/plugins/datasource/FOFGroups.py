@@ -12,55 +12,22 @@ class FOFDataSource(DataSource):
     Notes
     -----
     * `h5py` must be installed to use this data source.
-    
-    Parameters
-    ----------
-    path    : str
-        the path of the file to read the data from 
-    dataset: list of str
-        For text files, one or more strings specifying the names of the data
-        columns. Shape must be equal to number of columns
-        in the field, otherwise, behavior is undefined.
-        For hdf5 files, the name of the pandas data group.
-    BoxSize : float or array_like (3,)
-        the box size, either provided as a single float (isotropic)
-        or an array of the sizes of the three dimensions
-    rsd     : [x|y|z], optional
-        direction to do the redshift space distortion
-    select  : str, optional
-        string specifying how to select a subset of data, based
-        on the column names. For example, if there are columns
-        `type` and `mass`, you could specify 
-        select= "type == central and mass > 1e14"
     """
     plugin_name = "FOFGroups"
-    @classmethod
-    def register(kls):
-        h = kls.parser 
-
-        h.add_argument("path", help="path to file")
-        h.add_argument("m0", type=float, help="mass unit")
-        h.add_argument("-dataset",  default="FOFGroups", help="name of dataset in HDF5 file")
-        h.add_argument("-BoxSize", type=kls.BoxSizeParser,
-            default=None,
-            help="Overide the size of the box can be a scalar or a vector of length 3")
-        h.add_argument("-rsd", choices="xyz", 
-            help="direction to do redshift distortion")
-        h.add_argument("-select", default=None, type=selectionlanguage.Query, 
-            help='row selection based on conditions specified as string')
     
-    def finalize_attributes(self):
+    def __init__(self, path, m0, dataset="FOFGroups", BoxSize=None, rsd=None, select=None):
+        
         try:
             import h5py
         except:
-            raise ImportError("h5py must be installed to use HDF5 reader")
+            name = self.__class__.__name__
+            raise ImportError("h5py must be installed to use '%s' reader" %name)
 
         BoxSize = numpy.empty(3, dtype='f8')
         if self.comm.rank == 0:
             dataset = h5py.File(self.path, mode='r')[self.dataset]
             BoxSize[:] = dataset.attrs['BoxSize']
             logger.info("Boxsize from file is %s" % str(BoxSize))
-
         BoxSize = self.comm.bcast(BoxSize)
 
         if self.BoxSize is None:
@@ -68,7 +35,22 @@ class FOFDataSource(DataSource):
         else:
             if self.comm.rank == 0:
                 logger.info("Overriding BoxSize as %s" % str(self.BoxSize))
+        
+    @classmethod
+    def register(cls):
+        s = cls.schema
+        s.description = "read data from a HDF5 FOFGroup file"
 
+        s.add_argument("path", type=str, help="the file path to load the data from")
+        s.add_argument("m0", type=float, help="the mass unit")
+        s.add_argument("dataset", type=str, help="the name of the dataset in HDF5 file")
+        s.add_argument("BoxSize", type=cls.BoxSizeParser,
+            help="overide the size of the box; can be a scalar or a three-vector")
+        s.add_argument("rsd", type=str, choices="xyz", 
+            help="direction to do redshift distortion")
+        s.add_argument("select", type=selectionlanguage.Query, 
+            help='row selection based on conditions specified as string')
+    
     def readall(self, columns):
         import h5py
 

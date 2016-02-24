@@ -11,10 +11,13 @@ class GridPainter(Painter):
     mesh
     """
     plugin_name = "GridPainter"
+    
+    def __init__(self):
+        pass
 
     @classmethod
-    def register(kls):
-        h = kls.parser
+    def register(cls):
+        pass
         
     def paint(self, pm, datasource):
         """

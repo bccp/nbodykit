@@ -1,9 +1,14 @@
 mode: 2d
 Nmesh: 256
 
-fields:
-    - PlainText:../data/plaintext.txt:x y z z_redshift is_sat N_sat collided resolved:1380:-poscols=x y z_redshift
-    - DefaultPainter
-    - [NormalizeDC, RemoveDC, AnisotropicCIC]
+field:
+    DataSource:
+       plugin: PlainText
+       path: ../data/plaintext.txt
+       names: [x, y, z, z_redshift, is_sat, N_sat, collided, resolved]
+       BoxSize: 1380
+       poscols: [x, y, z_redshift]
+    DefaultPainter:
+    Transfer: [NormalizeDC, RemoveDC, AnisotropicCIC]
     
 output: ../output/power_2d_plaintext_test.dat

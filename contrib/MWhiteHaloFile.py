@@ -63,17 +63,19 @@ class MWhiteHaloFile(object):
 class MWhiteHaloFileDataSource(DataSource):
     plugin_name = "MWhiteHaloFile"
     
-    @classmethod
-    def register(kls):
+    def __init__(self, path, BoxSize, rsd=None, select=None):
+        pass
         
-        h = kls.parser
-        h.add_argument("path", help="path to file")
-        h.add_argument("BoxSize", type=kls.BoxSizeParser,
+    @classmethod
+    def register(cls):
+        
+        s = cls.schema
+        s.add_argument("path", help="the path to the file to read")
+        s.add_argument("BoxSize", type=cls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
-            
-        h.add_argument("-rsd", 
-            choices="xyz", help="direction to do redshift distortion")
-        h.add_argument("-select", default=None, type=selectionlanguage.Query,
+        s.add_argument("rsd", choices="xyz", 
+            help="direction to do redshift distortion")
+        s.add_argument("select", type=selectionlanguage.Query,
             help='row selection based on logmass, e.g. LogMass > 13 and LogMass < 15')
     
     def readall(self, columns):

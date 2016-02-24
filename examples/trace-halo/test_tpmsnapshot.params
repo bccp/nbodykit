@@ -1,4 +1,14 @@
-TPMSnapshot:../data/tpm_1.0000.bin:384
-TPMSnapshot:../data/tpm_1.0000.bin:384
-HaloLabel:../output/fof_ll0.200_1.0000.labels
--o../output/fof_ll0.200_1.0000_ichalo.hdf5
+dest:
+    plugin: TPMSnapshot
+    path: ../data/tpm_1.0000.bin
+    BoxSize: 384
+source:
+    plugin: TPMSnapshot
+    path: ../data/tpm_1.0000.bin
+    BoxSize: 384
+sourcelabel:
+    plugin: HaloLabel
+    path: ../output/fof_ll0.200_1.0000.labels
+    
+    
+output: ../output/fof_ll0.200_1.0000_ichalo.hdf5

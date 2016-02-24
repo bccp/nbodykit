@@ -1,4 +1,4 @@
-from nbodykit.extensionpoints import Algorithm
+from nbodykit.extensionpoints import Algorithm, DataSource
 import logging
 import numpy
 
@@ -11,20 +11,24 @@ from kdcount import cluster
 class FOF6DAlgorithm(Algorithm):
     plugin_name = "FOF6D"
 
-    @classmethod
-    def register(kls):
-        from nbodykit.extensionpoints import DataSource
+    def __init__(self, datasource, halolabel, linklength=0.078, vfactor=0.368, nmin=32):
+        pass
 
-        p = kls.parser
-        p.description = "Finding subhalos from FOF groups. This is a variant of FOF6D."
-        p.add_argument("datasource", type=DataSource.fromstring, 
-                        help='`DataSource` objects to run FOF against; run --list-datasource for specifics')
-        p.add_argument("halolabel", type=DataSource.fromstring,
-                help='data source for the halo label files; column name is Label.')
-        p.add_argument("--linklength", type=float, default=0.078, help='Link Length.')
-        p.add_argument("--vfactor", type=float, default=0.368,
-                help='velocity linking length in units of 1d velocity dispersion.')
-        p.add_argument("--nmin", type=int, default=32, help='minimum number of particles in a halo')
+    @classmethod
+    def register(cls):
+
+        s = cls.schema
+        s.description = "finding subhalos from FOF groups; a variant of FOF6D"
+        
+        s.add_argument("datasource", type=DataSource.from_config,
+            help='`DataSource` objects to run FOF against; ' 
+                 'run `nbkit.py --list-datasources` for all options')
+        s.add_argument("halolabel", type=DataSource.from_config,
+            help='data source for the halo label files; column name is Label')
+        s.add_argument("linklength", type=float, help='the linking length')
+        s.add_argument("vfactor", type=float,
+               help='velocity linking length in units of 1d velocity dispersion.')
+        s.add_argument("nmin", type=int, help='minimum number of particles in a halo')
 
     def run(self):
         comm = self.comm
@@ -173,7 +177,7 @@ def so(center, data, r1, nbar, thresh=200):
     def delta(r):
         if r < 1e-7:
             raise StopIteration
-        N = data.tree.count(dcenter.tree, [r])[0][0]
+        N = data.tree.root.count(dcenter.tree.root, r)
         n = N / (4 / 3 * numpy.pi * r ** 3)
         return 1.0 * n / nbar - 1
      
