@@ -127,23 +127,23 @@ class Argument(namedtuple('Argument', ['name', 'required', 'type', 'default', 'c
              
 class ConstructorSchema(OrderedDict):
     """
-    A `defaultdict` of `Argument` objects, which are `namedtuples`.
+    An `OrderedDict` of `Argument` objects, which are `namedtuples`.
     Each `Argument` stores the relevant information of that
     argument, included `type`, `help`, `choices`, etc. 
     
     Each `Argument` also stores a `subfields` attribute, which
-    is a new defaultdict of `Arguments`, storing any sub-fields
+    is a new `OrderedDict` of `Arguments`, storing any sub-fields
     
     Notes
     -----
-    *   you can test whether an argument 'name' is in the schema
-        with the usual syntax:
-            >> param_name = 'param'
-            >> contains = param_name in schema
+    *   you can test whether a full argument 'name' is in the schema
+        with the `contains` function
+            >> param_name = 'field.DataSource'
+            >> contains = schema.contains(param_name)
             
-    *   in addition to the normal `list` syntax, you can access
-        the named tuple arguments via a dict-like syntax
-            >> arg_tuple = schema[param_name]
+    *   Arguments that are subfields can be accessed 
+        in a sequential dict-like fashion:
+            >> subarg = schema['field']['DataSource']
     """  
     Argument = Argument 
               
@@ -155,7 +155,16 @@ class ConstructorSchema(OrderedDict):
     def cast(arg, value):
         """
         Convenience function to cast values based
-        on the `type` stored in `schema`, and check `choices`
+        on the `type` stored in `schema`
+        
+        Parameters
+        ----------
+        arg : Argument
+            the `Argument` which gives the relevant metadata
+            to properly cast value
+        value : 
+            the value we are casting, using the `type`
+            attribute of `arg`
         """
         if arg.nargs is not None:
             if not isinstance(value, list): value = [value]
@@ -221,7 +230,8 @@ class ConstructorSchema(OrderedDict):
         
         Format: name: description (default=`default`)
         """
-        info = "%s%-20s %s" %("  "*(1+indent), name, arg.help)
+        space = "  " if indent == 0 else "   "*(1+indent)
+        info = "%s%-20s %s" %(space, name, arg.help)
         if arg.default is not None:
             info += " (default: %s)" %arg.default
         return info
