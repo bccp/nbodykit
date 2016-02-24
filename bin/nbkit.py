@@ -2,7 +2,7 @@
 
 import argparse
 import logging
-import os
+import os, sys
 from mpi4py import MPI
 
 from nbodykit.extensionpoints import Algorithm, algorithms
@@ -17,13 +17,6 @@ logging.basicConfig(level=logging.DEBUG,
                             '%(asctime)s %(name)-15s %(levelname)-8s %(message)s',
                     datefmt='%m-%d %H:%M')
 
-
-def config_stream(value):
-    if os.path.exists(value):
-        return open(value, 'r').read()
-    else:
-        return value
-    
 class HelpAction(argparse.Action):
     """
     Help action that replicates the behavior of subcommands, 
@@ -66,12 +59,13 @@ def main():
     parser = argparse.ArgumentParser("nbkit.py", add_help=False, **kwargs)
 
     # add the arguments to the parser
-    parser.add_argument('-o', '--output', help='the string specifying the output')
     parser.add_argument('algorithm_name', choices=valid_algorithms)
+    parser.add_argument('config', type=argparse.FileType(mode='r'), nargs='?', default=sys.stdin,
+                        help='the name of the file to read parameters from using YAML syntax; '
+                             'if not provided, stdin is read from')
+    parser.add_argument('-o', '--output', help='the string specifying the output')
     parser.add_argument('-h', '--help', action=HelpAction, help='Help on an algorithm')
     parser.add_argument("-X", type=load, action="append", help="Add a directory or file for looking up plugins.")
-    parser.add_argument('-c', '--config', type=config_stream, required=True,
-                        help='the name of the file to read parameters from, using YAML syntax')
     
     # help arguments
     parser.add_argument('--list-datasources', nargs='*', action=ListPluginsAction(DataSource), help='List DataSource')

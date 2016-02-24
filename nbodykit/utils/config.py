@@ -1,82 +1,12 @@
 import inspect
 import functools
-from collections import namedtuple 
+from collections import namedtuple, OrderedDict
 import yaml
-from collections import OrderedDict
+from argparse import Namespace
 
-def create_plugin(cls, plugin_name, cosmo, **kwargs):
-    """
-    Instantiate and return a Plugin, directly from the name of 
-    the Plugin and the necessary attributes, passed as keywords
-    
-    If the Plugin is a DataSource, also pass the `cosmo` instance
-    to the Plugin initialization
-    """
-    if cls.__name__ == 'DataSource':
-        kwargs.update(cosmo=cosmo)
-            
-    # make sure we cast the kwargs for all plugins
-    return cls.create(plugin_name, use_schema=True, **kwargs)
-            
-def initialize_plugins(d, cosmo=None):
-    """
-    Recursively search a parsed YAML output, replacing
-    plugin names and arguments with the initialized instances
-    
-    """
-    from nbodykit.extensionpoints import isplugin, get_extensionpt
-    
-    # check for strings that represent Plugins (with no attributes)
-    if isinstance(d, str) and isplugin(d):
-        cls = get_extensionpt(d)
-        return create_plugin(cls, d, cosmo)
-        
-    # if not a dict/list, just return it
-    if not isinstance(d, (dict, list)):
-        return d
-        
-    # if a dictionary with `plugin` key, make a plugin
-    if isinstance(d, dict) and 'plugin' in d:
-        kwargs = d.copy()
-        name = kwargs.pop('plugin')
-        cls = get_extensionpt(name)
-        return create_plugin(cls, name, cosmo, **kwargs)
-            
-    # loop over the list/dict and recursively search
-    for i, k in enumerate(d):
-               
-        # check for plugins
-        if isinstance(k, str) and isplugin(k):
-            cls = get_extensionpt(k)
-            
-            # make plugin from (key, value) = (plugin, arguments)
-            if isinstance(d, dict):
-                            
-                kwargs = d[k].copy() if d[k] is not None else {}
-                plugin = create_plugin(cls, k, cosmo, **kwargs)
-                
-                # new key for this plugin is name of ExtensionPoint
-                d.pop(k); k = cls.__name__
-                if k in d:
-                    if isinstance(d[k], list):
-                        d[k].append(plugin)
-                    else:
-                        d[k] = [d[k], plugin]
-                else:
-                    d[k] = plugin
-                
-            # make plugin from just the key (no arguments)
-            else:
-                d[i] = create_plugin(cls, k, cosmo)
-         
-        # call recursively   
-        if isinstance(d, dict):
-            d[k] = initialize_plugins(d[k], cosmo)
-        else:
-            d[i] = initialize_plugins(d[i], cosmo)
-        
-    return d
-
+class ConfigurationError(Exception):   
+    pass
+ 
 def ordered_load(stream, Loader=yaml.SafeLoader, object_pairs_hook=OrderedDict):
     """
     Load from yaml into OrderedDict to preserve the ordering used 
@@ -95,6 +25,37 @@ def ordered_load(stream, Loader=yaml.SafeLoader, object_pairs_hook=OrderedDict):
     return yaml.load(stream, OrderedLoader)
 
 
+def fill_namespace(ns, arg, config, missing):
+    """
+    Recursively fill a namespace from a configuration file
+    such that arguments with subfields get their own namespaces, etc
+    """
+    name = arg.name.split('.')[-1]
+    
+    if not len(arg.subfields):  
+        if config is not None and name in config:
+            value = config.pop(name)
+            try:
+                setattr(ns, name, ConstructorSchema.cast(arg, value))
+            except Exception as e:
+                raise ConfigurationError("unable to cast '%s' value: %s" %(arg.name, str(e)))
+        else:
+            if arg.required:
+                missing.append(arg.name)
+    else:
+        subns = Namespace()
+        subconfig = config.pop(name, None)
+    
+        for k in arg.subfields:
+            fill_namespace(subns, arg[k], subconfig, missing)
+            
+        if len(vars(subns)):
+            try:
+                setattr(ns, name, ConstructorSchema.cast(arg, subns))
+            except Exception as e:
+                raise ConfigurationError("unable to cast '%s' value: %s" %(arg.name, str(e)))
+            
+ 
 def ReadConfigFile(config_stream, schema):
     """
     Read parameters from a file using YAML syntax
@@ -105,17 +66,22 @@ def ReadConfigFile(config_stream, schema):
         * infer the `type` of each parameter
         * check if any required parameters are missing
     """
-    from argparse import Namespace
     from nbodykit.cosmology import Cosmology
+    from nbodykit.extensionpoints import set_nbkit_cosmo
     from nbodykit.plugins import load
-    
+
     # make a new namespace
     ns, unknown = Namespace(), Namespace()
 
     # read the yaml config file
-    config = ordered_load(config_stream)
+    try:
+        config = ordered_load(config_stream)
+        if isinstance(config, (str, type(None))):
+            raise Exception("no valid keys found")
+    except Exception as e:
+        raise ConfigurationError("error parsing YAML file: %s" %str(e))
     
-    # first search for plugins
+    # first load any plugins
     plugins = []
     if 'X' in config:
         plugins = config['X']
@@ -128,34 +94,45 @@ def ReadConfigFile(config_stream, schema):
     # now load cosmology
     cosmo = None
     if 'cosmo' in config:
-        cosmo = Cosmology(**config['cosmo'])
-        config.pop('cosmo')
-
-    # initialize plugins
-    config = initialize_plugins(config, cosmo)
+       cosmo = Cosmology(**config.pop('cosmo'))
+       set_nbkit_cosmo(cosmo)
                 
-    # set the values, casting if available
-    missing = [arg.name for arg in schema if arg.required]
-    for k in config:
-        v = config[k]
-        if k in schema:
-            cast = schema[k].type
-            if cast is not None: v = cast(v)
-            setattr(ns, k, v)
-            if schema[k].required: 
-                missing.pop(missing.index(k))
-        else:
-            setattr(unknown, k, v)
+    # fill the namespace, recursively 
+    missing = []
+    extra = config.copy()
+    for name in schema:
+        fill_namespace(ns, schema[name], extra, missing)
+    
+    # store any unknown values
+    for k in extra:
+        setattr(unknown, k, extra[k])
     
     # crash if we don't have all required args
     if len(missing):
         raise ValueError("missing required arguments: %s" %str(missing))
     return ns, unknown
 
-class ConstructorSchema(list):
+class Argument(namedtuple('Argument', ['name', 'required', 'type', 'default', 'choices', 'nargs', 'help', 'subfields'])):
     """
-    A list of named tuples, which store the relevant argument
-    information needed to construct a class.
+    Class to represent an argument in the `ConstructorSchema`
+    """
+    def __new__(cls, name, required, type=None, default=None, choices=None, nargs=None, help="", subfields=None):
+        if subfields is None: subfields = OrderedDict()
+        return super(Argument, cls).__new__(cls, name, required, type, default, choices, nargs, help, subfields)
+                
+    def __getitem__(self, key):
+        if isinstance(key, str):
+            return self.subfields[key]
+        return tuple.__getitem__(self, key)
+             
+class ConstructorSchema(OrderedDict):
+    """
+    A `defaultdict` of `Argument` objects, which are `namedtuples`.
+    Each `Argument` stores the relevant information of that
+    argument, included `type`, `help`, `choices`, etc. 
+    
+    Each `Argument` also stores a `subfields` attribute, which
+    is a new defaultdict of `Arguments`, storing any sub-fields
     
     Notes
     -----
@@ -167,33 +144,103 @@ class ConstructorSchema(list):
     *   in addition to the normal `list` syntax, you can access
         the named tuple arguments via a dict-like syntax
             >> arg_tuple = schema[param_name]
-    """
-    Argument = namedtuple('Argument', ['name', 'type', 'default', 'choices', 'help', 'required'])
+    """  
+    Argument = Argument 
+              
+    def __init__(self, description=""):
+        super(ConstructorSchema, self).__init__()
+        self.description = description
     
-    def __init__(self, *args, **kwargs):
-        super(ConstructorSchema, self).__init__(*args)
-        self.description = kwargs.get('description', "")
-     
-    def __contains__(self, key):
-        return key in [a.name for a in self]
-    
-    def __getitem__(self, key):
+    @staticmethod
+    def cast(arg, value):
+        """
+        Convenience function to cast values based
+        on the `type` stored in `schema`, and check `choices`
+        """
+        if arg.nargs is not None:
+            if not isinstance(value, list): value = [value]
+        if isinstance(arg.nargs, int) and len(value) != arg.nargs:
+            raise ValueError("'%s' requires exactly %d arguments" %(arg.name, arg.nargs))
+        if arg.nargs == '+' and len(value) == 0:
+            raise ValueError("'%s' requires at least one argument" %arg.name) 
         
-        if isinstance(key, str):
-            names = [a.name for a in self]
-            if key not in names:
-                raise KeyError("no such argument with name '%s'" %key)
-            return self[names.index(key)]
-        else:
-            return list.__getitem__(self, key)
+        cast = arg.type
+        if cast is not None: 
+            if arg.nargs is not None:
+                value = [cast(v) for v in value]
+            else:
+                value = cast(value)
+        return value
+                    
+    def contains(self, key):
+        """
+        Check if the schema contains the full argument name, using
+        `.` to represent subfields
+        """
+        split = key.split('.')
+        prefix = split[:-1]; name = split[-1]
+        obj = self
+        for k in prefix:
+            obj = self[k].subfields
+        
+        return name in obj 
     
-    def add_argument(self, name, type=None, default=None, choices=None, help=None, required=True):
+    def add_argument(self, name, type=None, default=None, choices=None, nargs=None, help=None, required=False):
         """
         Add an argument to the schema
-        """        
-        arg = self.Argument(name, type, default, choices, help, required)
-        self.append(arg)
+        """                
+        # get the prefix
+        split = name.split('.')
+        prefix = split[:-1]; suffix = split[-1]
         
+        # create default parent Arguments that do not exist
+        obj = self
+        for i, k in enumerate(prefix):
+            if k not in obj:
+                obj[k] = Argument('.'.join(prefix[:i+1]), required)
+            obj = obj[k].subfields
+        
+        # add new argument (with empty subfields)
+        if not self.contains(name):
+            obj[suffix] = Argument(name, required, nargs=nargs, type=type, default=default, choices=choices, help=help)
+        # overwrite existing object (copying the subfields)
+        else:
+            arg             = obj[name]._asdict()
+            arg['type']     = type
+            arg['default']  = default
+            arg['choices']  = choices
+            arg['help']     = help
+            arg['required'] = required
+            arg['nargs']    = nargs
+            obj[suffix]     = Argument(**arg)
+     
+    def _arg_info(self, name, arg, indent=0):
+        """
+        Internal helper function that returns the info string 
+        for one argument, indenting to match a specific level
+        
+        Format: name: description (default=`default`)
+        """
+        info = "%s%-20s %s" %("  "*(1+indent), name, arg.help)
+        if arg.default is not None:
+            info += " (default: %s)" %arg.default
+        return info
+                     
+    def _parse_info(self, name, arg, level):
+        """
+        Internal function to recursively parse a argument and any
+        subfields, returning the full into string
+        """
+        info = self._arg_info(name, arg, indent=level)
+        if not len(arg.subfields):
+            return info
+            
+        for k in arg.subfields:
+            v = arg.subfields[k]
+            info += '\n'+self._parse_info(k, v, level+1)
+             
+        return info+'\n'
+            
     def format_help(self):
         """
         Return a string giving the help 
@@ -203,12 +250,10 @@ class ConstructorSchema(list):
             toret += self.description + '\n\n'
             
         optional = []; required = []
-        for p in self:
-            h = p.help if p.help is not None else ""
-            info = "  %-20s %s" %(p.name, h)
-            if p.default is not None:
-                info += " (default: %s)" %p.default
-            if p.required:
+        for k in self:
+            arg = self[k]
+            info = self._parse_info(k, arg, level=0)
+            if arg.required:
                 required.append(info)
             else:
                 optional.append(info)
@@ -218,6 +263,8 @@ class ConstructorSchema(list):
         toret += "\n\noptional arguments:\n%s\n" %('-'*18)
         toret += "\n".join(optional)
         return toret
+        
+    __str__ = format_help
         
 def attribute(name, **kwargs):
     """
@@ -231,7 +278,7 @@ def attribute(name, **kwargs):
         return func
     return _argument
     
-def autoassign(init, allowed=[], attach_comm=True):
+def autoassign(init, attach_comm=True, attach_cosmo=False):
     """
     Verify the schema attached to the input `init` function,
     automatically set the input arguments, and then finally
@@ -247,27 +294,44 @@ def autoassign(init, allowed=[], attach_comm=True):
         we are automatically setting the cosmology
     attach_comm : bool, optional
         if `True`, set the `comm` attribute to the return value
-        of `get_plugin_comm`; default: True
+        of `get_nbkit_comm`; default: True
     """
     # inspect the function
     attrs, varargs, varkw, defaults = inspect.getargspec(init)
     if defaults is None: defaults = []
     
+    allowed = []
+    if attach_cosmo:
+        if 'cosmo' not in init.schema:
+            h = 'the `Cosmology` class relevant for the DataSource'
+            init.schema.add_argument("cosmo", default=None, help=h)
+        allowed.append('cosmo')
+    if attach_comm:
+        if 'comm' not in init.schema:
+            h = 'the global MPI communicator'
+            init.schema.add_argument("comm", default=None, help=h)
+        allowed.append('comm')
+         
     # verify the schema
     update_schema(init, attrs, defaults, allowed=allowed)
-    
+         
     @functools.wraps(init)
     def wrapper(self, *args, **kwargs):
         
         # attach the global communicator
         if attach_comm:
-            from nbodykit.extensionpoints import get_plugin_comm
-            self.comm = get_plugin_comm()
+            from nbodykit.extensionpoints import get_nbkit_comm
+            self.comm = get_nbkit_comm()
+
+        # attach the global cosmology
+        if attach_cosmo:
+            from nbodykit.extensionpoints import get_nbkit_cosmo
+            self.cosmo = get_nbkit_cosmo()
         
         # handle extra allowed keywords (that aren't in signature)
         for k in allowed:
-            val = kwargs.pop(k, init.schema[k].default)
-            setattr(self, k, val)
+            if k in kwargs:
+                setattr(self, k, val)
         
         # handle default values
         for attr, val in zip(reversed(attrs), reversed(defaults)):
@@ -282,7 +346,7 @@ def autoassign(init, allowed=[], attach_comm=True):
         # handle varargs
         if varargs:
             remaining_args = args[len(positional_attrs):]
-            setattr(self, varargs, remaining_args)                
+            setattr(self, varargs, remaining_args)            
         
         # handle varkw
         if kwargs:
@@ -310,20 +374,6 @@ def check_choices(schema, attr, val):
             if val not in arg.choices:
                 raise ValueError("valid choices for '%s' are: '%s'" %(arg.name, str(arg.choices)))
 
-def cast(schema, attr, val):
-    """
-    Convenience function to cast values based
-    on the `type` stored in `schema`, and check `choices`
-    """
-    if attr in schema:
-        arg = schema[attr]
-        if arg.type is not None: 
-            val = arg.type(val)
-        if arg.choices is not None:
-            if val not in arg.choices:
-                raise ValueError("valid choices for '%s' are: '%s'" %(arg.name, str(arg.choices)))
-    return val
-
 def update_schema(func, attrs, defaults, allowed=[]):
     """
     Update the schema, which is attached to `func`,
@@ -337,7 +387,7 @@ def update_schema(func, attrs, defaults, allowed=[]):
     consistency check on the developer
     """
     args = attrs[1:] # ignore self
-    
+
     # get the required names and default names
     required = args; default_names = []
     if defaults is not None and len(defaults):
@@ -346,14 +396,15 @@ def update_schema(func, attrs, defaults, allowed=[]):
     
     # loop over the schema arguments
     extra = []; missing = default_names + required
-    for i, a in enumerate(func.schema):
-            
+    for name in func.schema:
+        a = func.schema[name]
+        
         # infer required and defaults and update them
         d = a._asdict()
         d['required'] = a.name in required
         if a.name in default_names:
             d['default'] = defaults[default_names.index(a.name)]
-        func.schema[i] = func.schema.Argument(**d)
+        func.schema[name] = func.schema.Argument(**d)
         
         # check for extra and missing
         if a.name not in args and a.name not in allowed:
@@ -367,13 +418,13 @@ def update_schema(func, attrs, defaults, allowed=[]):
     if len(extra):
         raise ValueError("extra arguments in schema : %s" %str(extra))
 
-    # reorder the schema list to match the function signature
-    order = [args.index(a.name) for a in func.schema if a.name in args]
-    N = len(func.schema) - len(allowed)
-    if not all(i == order[i] for i in range(N)):
-        new_schema = [func.schema[order.index(i)] for i in range(N)]
-        for p in allowed: new_schema.append(func.schema[p])
-        func.schema = ConstructorSchema(new_schema, description=func.schema.description)
+    # # reorder the schema list to match the function signature
+    # order = [args.index(func.schema[k].name) for k in func.schema if func.schema[k].name in args]
+    # N = len(func.schema) - len(allowed)
+    # if not all(i == order[i] for i in range(N)):
+    #     new_schema = [func.schema[order.index(i)] for i in range(N)]
+    #     for p in allowed: new_schema.append(func.schema[p])
+    #     func.schema = ConstructorSchema(new_schema, description=func.schema.description)
         
         
     # update the doc with the schema documentation

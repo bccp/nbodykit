@@ -7,7 +7,7 @@ from string import Formatter
 
 from mpi4py import MPI
 from nbodykit.extensionpoints import Algorithm, algorithms
-from nbodykit.extensionpoints import set_plugin_comm
+from nbodykit.extensionpoints import set_nbkit_comm
 
 logger = logging.getLogger('taskmanager')
 
@@ -302,7 +302,7 @@ class TaskManager(object):
         self.pool_comm = self.comm.Split(color, 0)
         
         # set the global extension point comm
-        set_plugin_comm(self.pool_comm)
+        set_nbkit_comm(self.pool_comm)
         
     def run_all(self):
         """
