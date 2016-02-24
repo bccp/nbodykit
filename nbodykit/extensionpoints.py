@@ -488,3 +488,12 @@ class Algorithm:
 
 __valid__ = [DataSource, Painter, Transfer, Algorithm]
 __all__ = list(map(str, __valid__))
+
+def isplugin(name):
+    """
+    Return `True`, if `name` is a registered plugin for any extension point
+    """
+    for extensionpt in __valid__:
+        if name in extensionpt.registry: return True
+    
+    return False
