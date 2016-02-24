@@ -6,26 +6,33 @@ import bigfile
 
 logger = logging.getLogger('BlueTides')
 
+def ptypes_type(value):
+    choices = ['0', '1', '2', '3', '4', '5', 'FOFGroups']
+    if not all(v in choices for v in value):
+        raise ValueError("valid choices for `ptypes` are: %s" %str(choices))
+    return value
+    
 class BlueTidesDataSource(DataSource):
     plugin_name = "BlueTides"
     
+    def __init__(self, path, BoxSize, ptypes=None, load=[], 
+                    subsample=False, bunchsize=4*1024*1024, select=None):
+        pass
+    
     @classmethod
-    def register(kls):
+    def register(cls):
         
-        h = kls.parser
-
-        h.add_argument("path", help="path to file")
-        h.add_argument("BoxSize", type=kls.BoxSizeParser,
+        s = cls.schema
+        s.description = "read from the BlueTides simulation"
+        
+        s.add_argument("path", help="path to file")
+        s.add_argument("BoxSize", type=cls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
-        h.add_argument("-ptype", dest='ptypes', action='append', 
-            choices=["0", "1", "2", "3", "4", "5", "FOFGroups"], help="type of particle to read")
-        h.add_argument("-load", dest='load', action='append', default=[],
-                         help="extra columns to load")
-        h.add_argument("-subsample", action='store_true',
-                default=False, help="this is a subsample file")
-        h.add_argument("-bunchsize", type=int, default=4 *1024*1024,
-                help="number of particle to read in a bunch")
-        h.add_argument("-select", default=None, type=selectionlanguage.Query,
+        s.add_argument("ptypes", type=ptypes_type, help="type of particle to read")
+        s.add_argument("load", type=list, help="extra columns to load")
+        s.add_argument("subsample", type=bool, help="this is a subsample file")
+        s.add_argument("bunchsize", type=int, help="number of particle to read in a bunch")
+        s.add_argument("-select", type=selectionlanguage.Query,
             help='row selection e.g. Mass > 1e3 and Mass < 1e5')
     
     def read(self, columns, comm, stats, full=False):

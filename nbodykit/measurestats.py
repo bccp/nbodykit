@@ -185,8 +185,8 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
     offset = getattr(datasource, 'offset', [0., 0., 0.])
     
     # get the datasource, painter, and transfer
-    painter = Painter.fromstring('FKPPainter')
-    transfer = [Transfer.fromstring('AnisotropicCIC')]
+    painter = Painter.create('FKPPainter')
+    transfer = [Transfer.create('AnisotropicCIC')]
 
     # which transfers do we need
     if max_ell not in [0, 2, 4]:

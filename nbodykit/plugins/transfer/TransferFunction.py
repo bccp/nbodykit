@@ -8,11 +8,14 @@ class AnisotropicCIC(Transfer):
     cloud-in-cell window function in configuration space
     """
     plugin_name = "AnisotropicCIC"
-
-    @classmethod
-    def register(kls):
+    
+    def __init__(self):
         pass
-
+    
+    @classmethod
+    def register(cls):
+        pass
+        
     def __call__(self, pm, complex):
         for wi in pm.w:
             tmp = (1 - 2. / 3 * numpy.sin(0.5 * wi) ** 2) ** 0.5
@@ -25,9 +28,11 @@ class NormalizeDC(Transfer):
     divides by the mean in configuration space
     """
     plugin_name = "NormalizeDC"
-
+    def __init__(self):
+        pass
+    
     @classmethod
-    def register(kls):
+    def register(cls):
         pass
 
     def __call__(self, pm, complex):
@@ -51,9 +56,11 @@ class RemoveDC(Transfer):
     field in configuration space to zero
     """
     plugin_name = "RemoveDC"
+    def __init__(self):
+        pass
 
     @classmethod
-    def register(kls):
+    def register(cls):
         pass
 
     def __call__(self, pm, complex):

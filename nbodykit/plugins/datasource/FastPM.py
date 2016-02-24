@@ -6,21 +6,13 @@ import bigfile
 logger = logging.getLogger('FastPM')
 
 class FastPMDataSource(DataSource):
+    """
+    DataSource to read snapshot files of the FastPM simulation
+    """
     plugin_name = "FastPM"
     
-    @classmethod
-    def register(kls):
-        h = kls.parser
-
-        h.add_argument("path", help="path to file")
-        h.add_argument("-BoxSize", type=kls.BoxSizeParser, default=None,
-            help="Override the size of the box, can be a scalar or a three vector")
-        h.add_argument("-bunchsize", type=int, default=4 *1024*1024,
-                help="number of particle to read in a bunch")
-        h.add_argument("-rsd", 
-            choices="xyz", default=None, help="direction to do redshift distortion")
-    
-    def finalize_attributes(self):
+    def __init__(self, path, BoxSize=None, bunchsize=4*1024*1024, rsd=None):
+        
         BoxSize = numpy.empty(3, dtype='f8')
         f = bigfile.BigFileMPI(self.comm, self.path)
         header = f['header']
@@ -38,7 +30,25 @@ class FastPMDataSource(DataSource):
         else:
             if self.comm.rank == 0:
                 logger.info("Overriding boxsize as %s" % str(self.BoxSize))
+        
     
+    @classmethod
+    def register(cls):
+        """
+        Fill the attribute schema associated with this class
+        """
+        s = cls.schema
+        s.description = "read snapshot files of the FastPM simulation"
+        
+        s.add_argument("path", type=str,
+            help="the file path to load the data from")
+        s.add_argument("BoxSize", type=cls.BoxSizeParser,
+            help="override the size of the box; can be a scalar or a three vector")
+        s.add_argument("rsd", type=str, choices="xyz", 
+            help="direction to do redshift distortion")
+        s.add_argument("bunchsize", type=int, 
+            help="number of particles to read per rank in a bunch")
+                
     def read(self, columns, stats, full=False):
         f = bigfile.BigFileMPI(self.comm, self.path)
         header = f['header']

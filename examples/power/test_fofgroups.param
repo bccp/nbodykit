@@ -1,9 +1,0 @@
-mode: 2d      # 1d or 2d
-Nmesh: 256     # size of mesh
-
-# here are the input files
-fields:
-    - FOFGroups:../output/fof00100_ll0.200_1.0000.hdf5:10.0:-rsd=z:-select= Rank < 1000
-    - [NormalizeDC, RemoveDC, AnisotropicCIC]
-    
-output: ../output/power_2d_fofgroups.dat  # output

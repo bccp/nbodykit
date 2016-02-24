@@ -1,4 +1,0 @@
-1d
-256
-TPMSnapshot:../data/tpm_1.0000.bin:384
--o=../output/test_power_tpmsnapshot_1d_argparse.txt

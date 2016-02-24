@@ -1,9 +1,12 @@
 mode: 1d
 Nmesh: 256
 
-fields:
-    - TPMSnapshot:../data/tpm_1.0000.bin:384
-    - [NormalizeDC, RemoveDC, AnisotropicCIC]
+field:
+    DataSource:
+        plugin: TPMSnapshot
+        path: ../data/tpm_1.0000.bin
+        BoxSize: 384
+    Transfer: [NormalizeDC, RemoveDC, AnisotropicCIC]
 
 output: ../output/test_power_tpmsnapshot_1d.txt
 

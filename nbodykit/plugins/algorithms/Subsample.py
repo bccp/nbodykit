@@ -16,27 +16,28 @@ from nbodykit.extensionpoints import DataSource, Painter
 
 class Subsample(Algorithm):
     plugin_name = "Subsample"
+    
+    def __init__(self, datasource, Nmesh, seed=12345, ratio=0.01, smoothing=None, format='hdf5'):
+        pass
 
     @classmethod
-    def register(kls):
-        from nbodykit.extensionpoints import DataSource
-        p = kls.parser
-        p.add_argument("datasource", type=DataSource.fromstring, 
-                help="--list-datasource for help")
-        p.add_argument("Nmesh", type=int,
-                help='Size of FFT mesh for painting')
-        p.add_argument("--seed", type=int, default=12345,
-                help='seed')
-        p.add_argument("--ratio", type=float, default=0.01,
-                help='fraction of particles to keep')
-        p.add_argument("--smoothing", type=float, default=None,
-                help='Smoothing Length in distance units. '
+    def register(cls):
+        
+        s = cls.schema
+        s.description = "create a subsample from a DataSource, and evaluate density \n"
+        s.description += "(1 + delta) smoothed at the given scale"
+        
+        s.add_argument("datasource", type=DataSource.from_config,
+            help="the DataSource to read; run `nbkit.py --list-datasources` for all options")
+        s.add_argument("Nmesh", type=int, help='the size of FFT mesh for painting')
+        s.add_argument("seed", type=int, help='the random seed')
+        s.add_argument("ratio", type=float, help='the fraction of particles to keep')
+        s.add_argument("smoothing", type=float,
+                help='the smoothing length in distance units. '
                       'It has to be greater than the mesh resolution. '
                       'Otherwise the code will die. Default is the mesh resolution.')
         # this is for output..
-        p.add_argument("--format", choices=['hdf5', 'mwhite'], default='hdf5', 
-                help='format of the output')
-
+        s.add_argument("format", choices=['hdf5', 'mwhite'], help='the format of the output')
 
     def run(self):
         pm = ParticleMesh(self.datasource.BoxSize, self.Nmesh, dtype='f4', comm=self.comm)
@@ -45,7 +46,7 @@ class Subsample(Algorithm):
         elif (self.datasource.BoxSize / self.Nmesh > self.smoothing).any():
             raise ValueError("smoothing is too small")
      
-        painter = Painter.fromstring("DefaultPainter")
+        painter = Painter.create("DefaultPainter")
         painter.paint(pm, self.datasource)
         pm.r2c()
         def Smoothing(pm, complex):

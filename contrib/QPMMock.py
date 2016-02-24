@@ -33,7 +33,7 @@ class QPMMockDataSource(DataSource):
     qpar = 0.9851209643
     qperp = 0.9925056798
     
-    def finalize_attributes(self):
+    def __init__(self, path, BoxSize, scaled=False, rsd=None, velf=1.):
         
         # create a copy of the original box size
         self._BoxSize0 = self.BoxSize.copy()
@@ -52,19 +52,17 @@ class QPMMockDataSource(DataSource):
         
     
     @classmethod
-    def register(kls):
-        h = kls.parser
+    def register(sls):
+        s = cls.schema
+        s.description = 'read the BOSS DR12 periodic QPM mocks'
         
-        h.add_argument("path", help="path to file")
-        h.add_argument("BoxSize", type=kls.BoxSizeParser,
+        s.add_argument("path", help="path to file")
+        s.add_argument("BoxSize", type=cls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
-
-        h.add_argument("-scaled", action='store_true', 
+        s.add_argument("scaled", type=bool,
             help='rescale the parallel and perp coordinates by the AP factor')
-        h.add_argument("-rsd", choices="xyz",
-            help="direction to do redshift distortion")
-        h.add_argument("-velf", default=1., type=float, 
-            help="factor to scale the velocities")
+        s.add_argument("rsd", choices="xyz", help="direction to do redshift distortion")
+        s.add_argument("velf", type=float, help="factor to scale the velocities")
     
     def readall(self, columns):
 

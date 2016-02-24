@@ -1,4 +1,4 @@
-from nbodykit.extensionpoints import Algorithm
+from nbodykit.extensionpoints import Algorithm, DataSource
 import logging
 import numpy
 
@@ -7,21 +7,26 @@ import h5py
 import bigfile
 
 class FOFAlgorithm(Algorithm):
-
     plugin_name = "FOF"
     
+    def __init__(self, datasource, linklength, absolute=False, without_labels=False, nmin=32):
+        pass
+    
     @classmethod
-    def register(kls):
-        from nbodykit.extensionpoints import DataSource
-
-        p = kls.parser
-        p.description = "Friend of Friend halo finder"
-        p.add_argument("datasource", type=DataSource.fromstring, 
-                        help='`DataSource` objects to run FOF against; run --list-datasource for specifics')
-        p.add_argument("linklength", type=float, metavar='0.02', help='Link length')
-        p.add_argument("--absolute", action='store_true',  help='If set, the linking length is in absolute units. The default is in relative to mean particle separation.')
-        p.add_argument("--without-labels", action='store_true', help='Do not store labels')
-        p.add_argument("--nmin", type=int, default=32, help='minimum number of particles in a halo')
+    def register(cls):
+        s = cls.schema
+        s.description = "Friend of Friend halo finder"
+        
+        s.add_argument("datasource", type=DataSource.from_config,
+            help='`DataSource` objects to run FOF against; '
+                 'run `nbkit.py --list-datasources` for all options')
+        s.add_argument("linklength", type=float, 
+            help='the link length in terms of mean particle sep')
+        s.add_argument("absolute", type=bool,
+            help='If set, the linking length is in absolute units. '
+                 'The default is in relative to mean particle separation.')
+        s.add_argument("without_labels", type=bool, help='do not store labels')
+        s.add_argument("nmin", type=int, help='minimum number of particles in a halo')
         
     def run(self):
         from nbodykit import fof
