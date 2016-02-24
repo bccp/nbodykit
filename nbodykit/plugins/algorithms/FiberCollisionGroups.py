@@ -5,35 +5,11 @@ import numpy
 
 logger = logging.getLogger('FiberCollisions')
 
-class UnitCartesian(DataSource):
-    plugin_name = 'UnitCartesian'
-        
-    def __init__(self, source):
-        self.source = source
-        self.BoxSize = [1., 1., 1.]
-    
-    @classmethod
-    def register(cls):
-        s = cls.schema
-        s.add_argument('source', help='the datasource that returns (`RA`, `DEC`)')
-    
-    def _to_unit_cartesian(self, ra, dec):
-        """
-        Return the cartesian coordinates on the unit sphere
-        """
-        x = numpy.cos(ra)*numpy.cos(dec)
-        y = numpy.sin(ra)*numpy.cos(dec)
-        z = numpy.sin(dec)
-        return numpy.vstack([x,y,z]).T
-        
-    def read(self, columns, stats, full=False):
-        if len(columns) > 1 or columns[0] != 'Position':
-            raise ValueError("`UnitCartesian` only returns 'Position'")
-        
-        for [ra, dec] in self.source.read(['RA', 'DEC'], stats, full=full):
-            pos = self._to_unit_cartesian(ra, dec)
-            yield [pos]
-        
+def RaDecDataSource(d):
+    source = DataSource.registry.RaDecRedshift
+    d['unit_sphere'] = True
+    return source.from_config(d)
+            
 
 class FiberCollisionGroupsAlgorithm(Algorithm):
     """
@@ -54,19 +30,16 @@ class FiberCollisionGroupsAlgorithm(Algorithm):
     plugin_name = "FiberCollisionGroups"
     
     def __init__(self, datasource, collision_radius=62/60./60.):
-        
-        # create the DataSource that returns cartesian coords on unit sphere
-        self.datasource = UnitCartesian(self.datasource)
-    
+        pass
+            
     @classmethod
     def register(cls):
-        from nbodykit.extensionpoints import DataSource
 
         s = cls.schema
         s.description = "the application of fiber collisions to a galaxy survey"
         
-        s.add_argument("datasource", type=DataSource.from_config, 
-            help='`DataSource` with `RA`, `DEC` columns; run --list-datasources for options')
+        s.add_argument("datasource", type=RaDecDataSource,
+            help='`RaDecRedshift DataSource; run `nbkit.py --list-datasources RaDecRedshift` for details')
         s.add_argument("collision_radius", type=float, 
             help="the size of the angular collision radius (in degrees)")
         
@@ -74,9 +47,13 @@ class FiberCollisionGroupsAlgorithm(Algorithm):
         """
         Compute the FOF collision groups
         """
+        from nbodykit import fof
         labels = fof.fof(self.datasource, self.collision_radius, 1, comm=self.comm)
-        Ntot = self.comm.allreduce(len(labels))
-        return labels, Ntot
+        N = numpy.bincount(labels)
+        
+        
+        
+        return labels, N
 
     def save(self, output, data):
         labels, Ntot = data
