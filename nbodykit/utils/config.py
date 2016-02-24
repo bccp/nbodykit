@@ -385,6 +385,10 @@ def update_schema(func, attrs, defaults, allowed=[]):
     
     It also verifies certain aspects of the schema, mostly as a
     consistency check on the developer
+    
+    The `allowed` list provides the names of the parameters
+    not in the function signature that are still allowed, because
+    they will be set before the function call
     """
     args = attrs[1:] # ignore self
 
@@ -418,14 +422,17 @@ def update_schema(func, attrs, defaults, allowed=[]):
     if len(extra):
         raise ValueError("extra arguments in schema : %s" %str(extra))
 
-    # # reorder the schema list to match the function signature
-    # order = [args.index(func.schema[k].name) for k in func.schema if func.schema[k].name in args]
-    # N = len(func.schema) - len(allowed)
-    # if not all(i == order[i] for i in range(N)):
-    #     new_schema = [func.schema[order.index(i)] for i in range(N)]
-    #     for p in allowed: new_schema.append(func.schema[p])
-    #     func.schema = ConstructorSchema(new_schema, description=func.schema.description)
-        
+    # reorder the schema list to match the function signature
+    schema_keys = [k for k in func.schema.keys() if k in args]
+    if schema_keys != args:
+        new_schema = ConstructorSchema(description=func.schema.description)
+        for a in args:
+            if a in func.schema:
+                new_schema[a] = func.schema[a]
+        for p in allowed: 
+            if p in func.schema:
+                new_schema[p] = func.schema[p]
+        func.schema = new_schema
         
     # update the doc with the schema documentation
     if func.__doc__:
