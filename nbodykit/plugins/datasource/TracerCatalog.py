@@ -79,12 +79,13 @@ class TracerCatalogDataSource(DataSource):
         for [coords] in self.data.read(['Position'], data_stats, full=False):
             
             # global min/max of cartesian
-            cartesian = self._to_cartesian(coords)
-            coords_min = numpy.minimum(coords_min, cartesian.min(axis=0))
-            coords_max = numpy.maximum(coords_max, cartesian.max(axis=0))
+            if len(coords):
+                cartesian = self._to_cartesian(coords)
+                coords_min = numpy.minimum(coords_min, cartesian.min(axis=0))
+                coords_max = numpy.maximum(coords_max, cartesian.max(axis=0))
             
-            # store redshifts
-            redshifts += list(coords[:,-1])
+                # store redshifts
+                redshifts += list(coords[:,-1])
                 
         # gather everything to root
         coords_min = self.comm.gather(coords_min)
