@@ -5,5 +5,5 @@ cd $DIR
 
 for fn in *.params; do
     echo testing $fn ...
-    mpirun -n 2 python ../../bin/nbkit.py FOF6D -c $fn || exit
+    mpirun -n 2 python ../../bin/nbkit.py FOF6D $fn || exit
 done

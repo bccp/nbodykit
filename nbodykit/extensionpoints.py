@@ -29,21 +29,35 @@ transfers   = Namespace()
 # private variable to store global MPI communicator 
 # that all plugins are initialized with
 _comm = MPI.COMM_WORLD
+_cosmo = None
 
-def get_plugin_comm():
+def get_nbkit_comm():
     """
     Return the global MPI communicator that all plugins 
     will be instantiated with (stored in `comm` attribute of plugin)
     """
     return _comm
     
-def set_plugin_comm(comm):
+def set_nbkit_comm(comm):
     """
     Set the global MPI communicator that all plugins 
     will be instantiated with (stored in `comm` attribute of plugin)
     """
     global _comm
     _comm = comm
+    
+def get_nbkit_cosmo():
+    """
+    Return the global Cosmology instance
+    """
+    return _cosmo
+    
+def set_nbkit_cosmo(cosmo):
+    """
+    Set the global Cosmology instance
+    """
+    global _cosmo
+    _cosmo = cosmo
 
 class PluginInterface(object):
     """ 
@@ -96,7 +110,15 @@ class PluginMount(type):
             # initialize the schema and alias it
             if cls.__init__ == object.__init__:
                 raise ValueError("please define an __init__ method for '%s'" %cls.__name__)
-            cls.__init__.__func__.schema = ConstructorSchema()
+            
+            # in python 2, __func__ needed to attach attributes to the real function; 
+            # __func__ removed in python 3, so just attach to the function
+            init = cls.__init__
+            if hasattr(init, '__func__'):
+                init = init.__func__
+            
+            # add a schema
+            init.schema = ConstructorSchema()
             cls.schema = cls.__init__.schema
 
             # track names of classes
@@ -105,16 +127,9 @@ class PluginMount(type):
             # register the class
             cls.register()
             
-            # if a `DataSource`, inject the 'cosmo' keyword
-            extra = []
-            if issubclass(cls, DataSource):
-                if 'cosmo' not in cls.schema:
-                    h = 'the `Cosmology` class relevant for the DataSource'
-                    cls.schema.add_argument("cosmo", default=None, help=h)
-                    extra.append('cosmo')               
-                
-            # configure the class __init__, attaching the comm
-            cls.__init__ = autoassign(cls.__init__.__func__, allowed=extra)
+            # configure the class __init__, attaching the comm, and optionally cosmo
+            attach_cosmo = issubclass(cls, DataSource)
+            cls.__init__ = autoassign(init, attach_cosmo=attach_cosmo)
             
     def create(cls, plugin_name, use_schema=False, **kwargs): 
         """ 
@@ -149,16 +164,40 @@ class PluginMount(type):
         if use_schema:
             for k in kwargs:
                 if k in klass.schema:
-                    cast = klass.schema[k].type
-                    if cast is not None: 
-                        kwargs[k] = cast(kwargs[k])
+                    arg = klass.schema[k]
+                    kwargs[k] = klass.schema.cast(arg, kwargs[k])
                         
         toret = klass(**kwargs)
         
         ### FIXME: not always using create!!
         toret.string = id(toret)
         return toret
-
+        
+    def from_config(cls, parsed): 
+        """ 
+        Instantiate a plugin from this extension point,
+        based on the name/value pairs passed as keywords. 
+        """        
+        if isinstance(parsed, dict):
+            if 'plugin' in parsed:
+                kwargs = parsed.copy()
+                plugin_name = kwargs.pop('plugin')
+                return cls.create(plugin_name, use_schema=True, **kwargs)
+            elif len(parsed) == 1:
+                k = list(parsed.keys())[0]
+                if isinstance(parsed[k], dict):
+                    return cls.create(k, use_schema=True, **parsed[k])
+                else:
+                    raise ValueError
+            elif hasattr(cls, 'plugin_name'):
+                return cls.create(cls.plugin_name, use_schema=True, **parsed)
+            else:
+                raise ValueError("failure to parse plugin...")
+        elif isinstance(parsed, str):
+            return cls.create(parsed)
+        else:
+            raise ValueError("failure to parse plugin...")
+            
     def format_help(cls, *plugins):
         """
         Return a string specifying the `help` for each of the plugins
@@ -429,23 +468,3 @@ class Algorithm:
 
 __valid__ = [DataSource, Painter, Transfer, Algorithm]
 __all__ = list(map(str, __valid__))
-
-def isplugin(name):
-    """
-    Return `True`, if `name` is a registered plugin for any extension point
-    """
-    for extensionpt in __valid__:
-        if name in extensionpt.registry: return True
-    
-    return False
-    
-def get_extensionpt(plugin_name):
-    """
-    Return `True`, if `name` is a registered plugin for any extension point
-    """
-    if not isplugin(plugin_name):
-        raise ValueError("'%s' does not match the names of any loaded plugins" %plugin_name)
-        
-    for extensionpt in __valid__:
-        if plugin_name in extensionpt.registry:
-            return extensionpt

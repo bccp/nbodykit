@@ -13,19 +13,18 @@ field:
     Transfer:
         [NormalizeDC, RemoveDC, AnisotropicCIC] 
 
-# the field to cross-correlate with   
+#the field to cross-correlate with
 other:
     # datasource
-    FOFGroups:
+    DataSource:
+        plugin: FOFGroups
         path: ../output/fof_ll0.200_1.0000.hdf5
         m0: 10.0
-        
+
     # painter (can omit this and get same value)
-    DefaultPainter:
-    
+    Painter: DefaultPainter
+
     # transfers (can omit and get this sequence)
-    NormalizeDC:
-    RemoveDC:
-    AnisotropicCIC:
+    Transfer: [NormalizeDC, RemoveDC, AnisotropicCIC]
 
 output: ../output/test_cross_power.txt

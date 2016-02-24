@@ -2,7 +2,8 @@ mode: 2d
 Nmesh: 256
 
 field:
-    MWhiteHaloFile:
+    DataSource:
+        plugin: MWhiteHaloFile
         path: ../data/mwhite_halo.fofp
         BoxSize: 1380.
         rsd: z

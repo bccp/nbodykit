@@ -3,7 +3,8 @@ Nmesh: 256
 output: ../output/test_power_fastpm_2d.txt
 
 field:
-    FastPM:
+    DataSource: 
+        plugin: FastPM
         path: ../data/fastpm_1.0000
         rsd: z
     Transfer: [NormalizeDC, RemoveDC, AnisotropicCIC]

@@ -2,7 +2,8 @@ mode: 1d
 Nmesh: 256
 
 field:
-    TPMSnapshot:
+    DataSource:
+        plugin: TPMSnapshot
         path: ../data/tpm_1.0000.bin
         BoxSize: 384
     Transfer: [NormalizeDC, RemoveDC, AnisotropicCIC]

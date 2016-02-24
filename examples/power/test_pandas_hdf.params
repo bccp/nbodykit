@@ -2,9 +2,10 @@ mode: 2d      # 1d or 2d
 Nmesh: 256     # size of mesh
 
 field:
-    Pandas:
+    DataSource:
+        plugin: Pandas
         path: ../data/pandas_data.hdf5
-        names: [data]
+        names: data
         BoxSize: 1380.
         poscols: [x, y, z]
         velcols: [vx, vy, vz]

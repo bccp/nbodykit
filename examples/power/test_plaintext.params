@@ -2,7 +2,8 @@ mode: 2d
 Nmesh: 256
 
 field:
-    PlainText:
+    DataSource:
+       plugin: PlainText
        path: ../data/plaintext.txt
        names: [x, y, z, z_redshift, is_sat, N_sat, collided, resolved]
        BoxSize: 1380

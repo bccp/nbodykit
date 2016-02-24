@@ -1,7 +1,8 @@
 mode: 1d
 Nmesh: 256
 field:
-    FastPM:
+    DataSource:
+        plugin: FastPM
         path: ../data/fastpm_1.0000
         rsd: {los}
     Transfer: [NormalizeDC, RemoveDC, AnisotropicCIC]
