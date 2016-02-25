@@ -51,7 +51,7 @@ class FOFDataSource(DataSource):
         s.add_argument("select", type=selectionlanguage.Query, 
             help='row selection based on conditions specified as string')
     
-    def readall(self, columns):
+    def simple_read(self, columns):
         import h5py
 
         dataset = h5py.File(self.path, mode='r')[self.dataset]

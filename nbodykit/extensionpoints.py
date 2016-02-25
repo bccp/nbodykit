@@ -314,7 +314,7 @@ class DataSource:
         relevant attributes for the class by adding them to the
         class schema
     
-    readall: method
+    simple_read: method
         A method that performs the reading of the field. This method
         reads in the full data set. It shall
         returns the position (in 0 to BoxSize) and velocity (in the
@@ -348,9 +348,9 @@ class DataSource:
             raise ValueError("BoxSize must be a scalar or three-vector")
         return boxsize
 
-    def readall(self, columns):
+    def simple_read(self, columns):
         """ 
-        Override to provide a method to read in all data at once,
+        Override to provide a method to read in all data at once 
         uncollectively. 
 
         Notes
@@ -382,22 +382,16 @@ class DataSource:
             if not len(columns):
                 raise RuntimeError("DataSource::read received no columns to read")
             
-            data = self.readall(columns)    
-            shape_and_dtype = [(d.shape, d.dtype) for d in data]
+            data = self.simple_read(columns)    
             
             # make sure the number of rows in each column read is equal
             # columns has to have length >= 1, or we crashed already
             if not all(len(d) == len(data[0]) for d in data):
                 raise RuntimeError("column length mismatch in DataSource::read")
-        else:
-            shape_and_dtype = None
-        shape_and_dtype = self.comm.bcast(shape_and_dtype)
 
-        if self.comm.rank != 0:
-            data = [
-                numpy.empty(0, dtype=(dtype, shape[1:]))
-                for shape,dtype in shape_and_dtype
-            ]
+            data = [self.comm.scatter(numpy.array_split(d, self.comm.size)) for d in data]
+        else:
+            data = [self.comm.scatter(None) for c in columns]
 
         yield data 
 

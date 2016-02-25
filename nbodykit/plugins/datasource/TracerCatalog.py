@@ -218,7 +218,7 @@ class TracerCatalogDataSource(DataSource):
     def set_source(self, which):
         """
         Set the `source` point to either `data` or `randoms`, such
-        that when `readall` is called, the results for that
+        that when `simple_read` is called, the results for that
         source are returned
         
         Set to `None` by default to remind the user to set it
@@ -232,7 +232,7 @@ class TracerCatalogDataSource(DataSource):
         
     def read(self, columns, full=False):
         """
-        Read data from `source` by calling the `readall` function
+        Read data from `source` by calling the `simple_read` function
         """
         # need to know which source to return from
         if self._source is None:
