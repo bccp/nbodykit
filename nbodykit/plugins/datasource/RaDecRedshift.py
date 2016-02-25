@@ -41,7 +41,7 @@ class RaDecRedshiftDataSource(DataSource):
         s.add_argument("bunchsize", type=int, 
             help="the number of objects to read per rank in a bunch")
                   
-    def read(self, columns, stats, full=False):        
+    def read(self, columns, full=False):        
         try:
             import pandas as pd
         except:
@@ -51,7 +51,6 @@ class RaDecRedshiftDataSource(DataSource):
         bunchsize = self.bunchsize
         if full: bunchsize = None
         
-        stats['Ntot'] = 0.
 
         # read in the plain text file using pandas
         kwargs = {}
@@ -113,7 +112,6 @@ class RaDecRedshiftDataSource(DataSource):
             if stop == self.comm.size: break # all ranks are done iterating
                 
             shape_and_dtype = self.comm.bcast(shape_and_dtype)
-            stats['Ntot'] += self.comm.bcast(Ntot)
 
             if data is None:
                 data = [

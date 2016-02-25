@@ -341,15 +341,14 @@ def compute_brutal_corr(datasources, rbins, Nmu=0, comm=None, subsample=1, los='
     grid = [numpy.linspace(0, datasources[0].BoxSize[i], Nproc[i]+1, endpoint=True) for i in range(3)]
     domain = GridND(grid, comm=comm)
 
-    stats = {}
     # read position for field #1 
-    [[pos1]] = datasources[0].read(['Position'], stats, full=True)
+    [[pos1]] = datasources[0].read(['Position'], full=True)
     pos1 = pos1[comm.rank * subsample // comm.size ::subsample]
     N1 = comm.allreduce(len(pos1))
     
     # read position for field #2
     if len(datasources) > 1:
-        [[pos2]] = datasources[1].read(['Position'], stats, full=True)
+        [[pos2]] = datasources[1].read(['Position'], full=True)
         pos2 = pos2[comm.rank * subsample // comm.size ::subsample]
         N2 = comm.allreduce(len(pos2))
     else:

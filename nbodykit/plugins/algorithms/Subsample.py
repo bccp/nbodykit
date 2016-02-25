@@ -91,8 +91,8 @@ class Subsample(Algorithm):
                 ]) 
 
         subsample = [numpy.empty(0, dtype=dtype)]
-        stat = {}
-        for Position, ID, Velocity in self.datasource.read(columns, stat):
+
+        for Position, ID, Velocity in self.datasource.read(columns):
             u = rngtable[self.comm.rank].uniform(size=len(ID))
             keep = u < self.ratio
             Nkeep = keep.sum()

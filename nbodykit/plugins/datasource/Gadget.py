@@ -29,7 +29,7 @@ class GadgetDataSource(DataSource):
         s.add_argument("rsd", choices="xyz", type=str, help="direction to do redshift distortion")
         s.add_argument("bunchsize", type=int, help="number of particles to read per rank in a bunch")
 
-    def read(self, columns, stats, full=False):
+    def read(self, columns, full=False):
         """ read data in parallel. if Full is True, neglect bunchsize. """
         Ntot = 0
         # avoid reading Velocity if RSD is not requested.
@@ -46,7 +46,6 @@ class GadgetDataSource(DataSource):
         if full: bunchsize = -1
         if full and len(self.ptype) > 1:
             raise ValueError("cannot read multple ptype in a full load")
-        stats['Ntot'] = 0
         for ptype in self.ptype:
             args = dict(ptype=ptype,
                  posdtype=self.posdtype,
@@ -66,7 +65,7 @@ class GadgetDataSource(DataSource):
             datastorage = self.comm.bcast(datastorage)
 
             for round, P in enumerate(
-                    datastorage.iter(stats=stats, comm=self.comm, 
+                    datastorage.iter(comm=self.comm, 
                         columns=newcolumns, bunchsize=bunchsize)):
                 P = dict(zip(newcolumns, P))
                 if 'Position' in P:
@@ -110,7 +109,7 @@ class GadgetGroupTabDataSource(DataSource):
         s.add_argument("bunchsize", type=int, 
             help="number of particles to read per rank in a bunch")
     
-    def read(self, columns, stats, full=False):
+    def read(self, columns, full=False):
         """ read data in parallel. if Full is True, neglect bunchsize. """
         Ntot = 0
         # avoid reading Velocity if RSD is not requested.
@@ -126,7 +125,6 @@ class GadgetGroupTabDataSource(DataSource):
         bunchsize = self.bunchsize
         if full: bunchsize = -1
 
-        stats['Ntot'] = 0
         args = dict(posdtype=self.posdtype,
              veldtype=self.veldtype,
              massdtype=self.massdtype,
@@ -140,7 +138,7 @@ class GadgetGroupTabDataSource(DataSource):
         datastorage = self.comm.bcast(datastorage)
 
         for round, P in enumerate(
-                datastorage.iter(stats=stats, comm=self.comm, 
+                datastorage.iter(comm=self.comm, 
                     columns=newcolumns, bunchsize=bunchsize)):
             P = dict(zip(newcolumns, P))
             if 'Position' in P:

@@ -49,7 +49,7 @@ class FastPMDataSource(DataSource):
         s.add_argument("bunchsize", type=int, 
             help="number of particles to read per rank in a bunch")
                 
-    def read(self, columns, stats, full=False):
+    def read(self, columns, full=False):
         f = bigfile.BigFileMPI(self.comm, self.path)
         header = f['header']
         boxsize = header.attrs['BoxSize'][0]
@@ -67,7 +67,6 @@ class FastPMDataSource(DataSource):
         if 'Mass' in readcolumns: 
             readcolumns.remove('Mass')
             
-        stats['Ntot'] = 0
         done = False
         i = 0
         while not numpy.all(self.comm.allgather(done)):
@@ -119,6 +118,5 @@ class FastPMDataSource(DataSource):
                 P['InitialPosition'][:] += 0.5
                 P['InitialPosition'][:] *= cellsize
 
-            stats['Ntot'] += self.comm.allreduce(bunchend - bunchstart)
             i = i + 1
             yield [P[column] for column in columns]

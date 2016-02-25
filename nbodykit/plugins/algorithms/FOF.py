@@ -38,7 +38,7 @@ class FOFAlgorithm(Algorithm):
             if not hasattr(self.datasource, 'TotalLength'):
                 logging.info("Playing DataSource to measure TotalLength. " +
                       "DataSource `%s' shall be fixed to add a TotalLength attribute", self.datasource)
-                [[junk]] = self.datasource.read(['Position'], {}, full=True)
+                [[junk]] = self.datasource.read(['Position'], full=True)
                 TotalLength = self.comm.allreduce(len(junk))
                 del junk
             else:

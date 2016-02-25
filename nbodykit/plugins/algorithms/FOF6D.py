@@ -34,8 +34,7 @@ class FOF6DAlgorithm(Algorithm):
         comm = self.comm
         offset = 0
         
-        stats = {}
-        [[Label]] = self.halolabel.read(['Label'], stats, full=True)
+        [[Label]] = self.halolabel.read(['Label'], full=True)
         mask = Label != 0
         PIG = numpy.empty(mask.sum(), dtype=[
                 ('Position', ('f4', 3)), 
@@ -45,10 +44,10 @@ class FOF6DAlgorithm(Algorithm):
                 ])
         PIG['Label'] = Label[mask]
         del Label
-        [[Position]] = self.datasource.read(['Position'], stats, full=True)
+        [[Position]] = self.datasource.read(['Position'], full=True)
         PIG['Position'] = Position[mask]
         del Position
-        [[Velocity]] = self.datasource.read(['Velocity'], stats, full=True)
+        [[Velocity]] = self.datasource.read(['Velocity'], full=True)
         PIG['Velocity'] = Velocity[mask]
         del Velocity
      
