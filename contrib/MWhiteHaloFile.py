@@ -78,7 +78,7 @@ class MWhiteHaloFileDataSource(DataSource):
         s.add_argument("select", type=selectionlanguage.Query,
             help='row selection based on logmass, e.g. LogMass > 13 and LogMass < 15')
     
-    def readall(self, columns):
+    def simple_read(self, columns):
         dtype = numpy.dtype([
             ('Position', ('f4', 3)),
             ('Velocity', ('f4', 3)),

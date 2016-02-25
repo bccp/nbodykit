@@ -52,7 +52,7 @@ class PlainTextDataSource(DataSource):
         s.add_argument("select", type=selectionlanguage.Query, 
             help='row selection based on conditions specified as string, i.e., "Mass > 1e14"')
         
-    def readall(self, columns):
+    def simple_read(self, columns):
         # read in the plain text file as a recarray
         kwargs = {}
         kwargs['comments'] = '#'

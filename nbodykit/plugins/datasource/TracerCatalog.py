@@ -59,8 +59,8 @@ class TracerCatalogDataSource(DataSource):
             3. compute the number density as a function of redshift
                from the `data` and store a spline
         """
-        # source is None by default
-        self._source = None
+        # stream is None by default
+        self._stream = None
         self.offset  = None
         
         if self.cosmo is None:
@@ -71,9 +71,8 @@ class TracerCatalogDataSource(DataSource):
         coords_max = numpy.array([-numpy.inf]*3)
         
         # read the data in parallel
-        data_stats = {}
         redshifts = []
-        for [coords, z] in self.data.read(['Position', 'Redshift'], data_stats, full=False):
+        for [coords, z] in self.data.read(['Position', 'Redshift'], full=False):
             
             # global min/max of cartesian
             if len(coords):
@@ -198,28 +197,28 @@ class TracerCatalogDataSource(DataSource):
         z_cen = 0.5*(zbins[:-1] + zbins[1:])
         self.nbar = spline(z_cen, alpha*N/volume)
             
-    def set_source(self, which):
+    def set_stream(self, which):
         """
-        Set the `source` point to either `data` or `randoms`, such
-        that when `readall` is called, the results for that
-        source are returned
+        Set the `stream` point to either `data` or `randoms`, such
+        that when `simple_read` is called, the results for that
+        stream are returned
         
         Set to `None` by default to remind the user to set it
         """
         if which == 'data':
-            self._source = self.data
+            self._stream = self.data
         elif which == 'randoms':
-            self._source = self.randoms
+            self._stream = self.randoms
         else:
-            raise NotImplementedError("'source' must be set to either `data` or `randoms`")
+            raise NotImplementedError("'stream' must be set to either `data` or `randoms`")
         
-    def read(self, columns, stats, full=False):
+    def read(self, columns, full=False):
         """
-        Read data from `source` by calling the `readall` function
+        Read data from `stream`
         """
-        # need to know which source to return from
-        if self._source is None:
-            raise ValueError("set `source` attribute to `data` or `randoms` by calling `set_source`")
+        # need to know which stream to return from
+        if self._stream is None:
+            raise ValueError("set `stream` attribute to `data` or `randoms` by calling `set_stream`")
             
         # check valid columns
         valid = ['Position', 'Weight', 'Nbar']
@@ -227,48 +226,24 @@ class TracerCatalogDataSource(DataSource):
             args = (self.__class__.__name__, str(valid))
             raise ValueError("valid `columns` to read from %s: %s" %args)
             
-        # compute normalization A and shot noise S
-        stats['A'] = 0.
-        stats['S'] = 0.
-        
-        # read (ra,dec,z) and weights and convert to cartesian
-        for [coords, weight] in self._source.read(['Position', 'Weight'], stats, full=full):
+        # read position, redshift, and weights from the stream
+        for [coords, redshift, weight] in self._stream.read(['Position', 'Redshift', 'Weight'], full=full):
             
-            if self.comm.rank == 0:
-                # cartesian coordinates, removing the mean offset in each dimension
-                pos = coords - self.offset
-        
-                # number density from redshift
-                nbar = self.nbar(coords[:,-1])
-        
-                # update the weights with new FKP
-                if self.compute_fkp_weights:
-                    if self.P0_fkp is None:
-                        raise ValueError("if 'compute_fkp_weights' is set, please specify a value for 'P0_fkp'")
-                    weight = 1. / (1. + nbar*self.P0_fkp)
-                    
-                P = {}
-                P['Position'] = pos
-                P['Weight']   = weight
-                P['Nbar']     = nbar
+            # cartesian coordinates, removing the mean offset in each dimension
+            pos = coords - self.offset
+    
+            # number density from redshift
+            nbar = self.nbar(redshift)
+    
+            # update the weights with new FKP
+            if self.compute_fkp_weights:
+                if self.P0_fkp is None:
+                    raise ValueError("if 'compute_fkp_weights' is set, please specify a value for 'P0_fkp'")
+                weight = 1. / (1. + nbar*self.P0_fkp)
                 
-                data = [P[key] for key in columns]        
-                shape_and_dtype = [(d.shape, d.dtype) for d in data]
-        
-                # see equations 13-15 of Beutler et al 2013
-                A = (nbar*weight**2).sum()
-                S = (weight**2).sum()
-            else:
-                shape_and_dtype = None
-                A = None; S = None
-                
-            shape_and_dtype = self.comm.bcast(shape_and_dtype)
-            stats['A'] += self.comm.bcast(A)
-            stats['S'] += self.comm.bcast(S)
-
-            if self.comm.rank != 0:
-                data = [
-                    numpy.empty(0, dtype=(dtype, shape[1:]))
-                    for shape,dtype in shape_and_dtype
-                ]
-            yield data
+            P = {}
+            P['Position'] = pos
+            P['Weight']   = weight
+            P['Nbar']     = nbar
+            
+            yield [P[key] for key in columns]        

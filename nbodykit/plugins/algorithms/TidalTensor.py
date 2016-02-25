@@ -92,9 +92,8 @@ class TidalTensor(Algorithm):
         pm.r2c()
 
         pm.transfer([self.Smoothing, self.NormalizeDC])
-        stat = {}
 
-        [[Position ]] = self.points.read(['Position'], stat, full=True)
+        [[Position ]] = self.points.read(['Position'], full=True)
 
         layout = pm.decompose(Position)
         pos1 = layout.exchange(Position)

@@ -60,7 +60,7 @@ def main():
 
     # add the arguments to the parser
     parser.add_argument('algorithm_name', choices=valid_algorithms)
-    parser.add_argument('config', type=argparse.FileType(mode='r'), nargs='?', default=sys.stdin,
+    parser.add_argument('config', type=argparse.FileType(mode='r'), nargs='?', default=None,
                         help='the name of the file to read parameters from using YAML syntax; '
                              'if not provided, stdin is read from')
     parser.add_argument('-h', '--help', action=HelpAction, help='help for a specific algorithm')
@@ -86,7 +86,19 @@ def main():
     alg_name = ns.algorithm_name
 
     # configuration file passed via -c
-    params, extra = Algorithm.parse_known_yaml(alg_name, ns.config)
+    if ns.config is not None:
+        # ns.config is a file object
+        stream = ns.config
+    else:
+        if MPI.COMM_WORLD.rank == 0:
+            stream = sys.stdin.read()
+        else:
+            stream = None
+        # respect the root rank stdin only;
+        # on some systems, the stdin is only redirected to the root rank.
+        stream = MPI.COMM_WORLD.bcast(stream)
+    params, extra = Algorithm.parse_known_yaml(alg_name, stream)
+        
     output = getattr(extra, 'output', None)
     
     # output is required

@@ -9,7 +9,7 @@ import bigfile
 class FOFAlgorithm(Algorithm):
     plugin_name = "FOF"
     
-    def __init__(self, datasource, linklength, absolute=False, without_labels=False, nmin=32):
+    def __init__(self, datasource, linklength, absolute=False, without_labels=False, nmin=32, calculate_initial_position=False):
         pass
     
     @classmethod
@@ -25,6 +25,9 @@ class FOFAlgorithm(Algorithm):
         s.add_argument("absolute", type=bool,
             help='If set, the linking length is in absolute units. '
                  'The default is in relative to mean particle separation.')
+        s.add_argument("calculate_initial_position", type=bool,
+            help='If set, calculate initial position of halos based on the InitialPosition field of DataSource'
+                 )
         s.add_argument("without_labels", type=bool, help='do not store labels')
         s.add_argument("nmin", type=int, help='minimum number of particles in a halo')
         
@@ -35,7 +38,7 @@ class FOFAlgorithm(Algorithm):
             if not hasattr(self.datasource, 'TotalLength'):
                 logging.info("Playing DataSource to measure TotalLength. " +
                       "DataSource `%s' shall be fixed to add a TotalLength attribute", self.datasource)
-                [[junk]] = self.datasource.read(['Position'], {}, full=True)
+                [[junk]] = self.datasource.read(['Position'], full=True)
                 TotalLength = self.comm.allreduce(len(junk))
                 del junk
             else:
@@ -45,7 +48,7 @@ class FOFAlgorithm(Algorithm):
             ll = self.linklength
 
         labels = fof.fof(self.datasource, ll, self.nmin, self.comm)
-        catalog = fof.fof_catalogue(self.datasource, labels, self.comm)
+        catalog = fof.fof_catalogue(self.datasource, labels, self.comm, self.calculate_initial_position)
 
         Ntot = self.comm.allreduce(len(labels))
         if self.without_labels:

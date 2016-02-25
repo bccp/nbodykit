@@ -24,10 +24,9 @@ class HaloLabel(DataSource):
         s.add_argument("path", type=str, help="the file path to load the data from")
         s.add_argument("bunchsize", type=int, help="number of particle to read in a bunch")
 
-    def read(self, columns, stats, full=False):
+    def read(self, columns, full=False):
         f = bigfile.BigFileMPI(self.comm, self.path)
         readcolumns = columns
-        stats['Ntot'] = 0
         done = False
         i = 0
         while not numpy.all(self.comm.allgather(done)):
@@ -56,6 +55,5 @@ class HaloLabel(DataSource):
                 data = dataset[column][bunchstart:bunchend]
                 P[column] = data
 
-            stats['Ntot'] += self.comm.allreduce(bunchend - bunchstart)
             i = i + 1
             yield [P[column] for column in columns]

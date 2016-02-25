@@ -28,8 +28,9 @@ class TraceHaloAlgorithm(Algorithm):
     def run(self):
         comm = self.comm
 
-        stats = {}
-        [[ID]] = self.source.read(['ID'], stats, full=True)
+        [[ID]] = self.source.read(['ID'], full=True)
+
+        Ntot = self.comm.allreduce(len(ID))
 
         start = sum(comm.allgather(len(ID))[:comm.rank])
         end   = sum(comm.allgather(len(ID))[:comm.rank+1])
@@ -39,8 +40,7 @@ class TraceHaloAlgorithm(Algorithm):
                     ])
         data['ID'] = ID
         del ID
-        Ntot = stats['Ntot']
-        [[data['Label'][...]]] = self.sourcelabel.read(['Label'], stats, full=True)
+        [[data['Label'][...]]] = self.sourcelabel.read(['Label'], full=True)
 
         mpsort.sort(data, orderby='ID')
 
@@ -52,9 +52,9 @@ class TraceHaloAlgorithm(Algorithm):
                     ('Position', ('f4', 3)), 
                     ('Velocity', ('f4', 3)), 
                     ])
-        [[data['Position'][...]]] = self.dest.read(['Position'], stats, full=True)
-        [[data['Velocity'][...]]] = self.dest.read(['Velocity'], stats, full=True)
-        [[data['ID'][...]]] = self.dest.read(['ID'], stats, full=True)
+        [[data['Position'][...]]] = self.dest.read(['Position'], full=True)
+        [[data['Velocity'][...]]] = self.dest.read(['Velocity'], full=True)
+        [[data['ID'][...]]] = self.dest.read(['ID'], full=True)
         mpsort.sort(data, orderby='ID')
 
         data['Position'] /= self.dest.BoxSize
