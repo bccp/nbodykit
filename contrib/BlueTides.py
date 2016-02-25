@@ -35,7 +35,7 @@ class BlueTidesDataSource(DataSource):
         s.add_argument("-select", type=selectionlanguage.Query,
             help='row selection e.g. Mass > 1e3 and Mass < 1e5')
     
-    def read(self, columns, comm, stats, full=False):
+    def read(self, columns, comm, full=False):
         f = bigfile.BigFile(self.path)
         header = f['header']
         boxsize = header.attrs['BoxSize'][0]
@@ -50,11 +50,10 @@ class BlueTidesDataSource(DataSource):
                     readcolumns.append('NeutralHydrogenFraction')
             else:
                 readcolumns.append(column)
-        stats['Ntot'] = 0
 
         readcolumns = readcolumns + self.load
         for ptype in ptypes:
-            for data in self.read_ptype(ptype, readcolumns, comm, stats, full):
+            for data in self.read_ptype(ptype, readcolumns, comm, full):
                 P = dict(zip(readcolumns, data))
                 if 'HI' in columns:
                     P['HI'] = P['NeutralHydrogenFraction'] * P['Mass']
@@ -72,7 +71,7 @@ class BlueTidesDataSource(DataSource):
                     mask = Ellipsis
                 yield [P[column][mask] for column in columns]
 
-    def read_ptype(self, ptype, columns, comm, stats, full):
+    def read_ptype(self, ptype, columns, comm, full):
         f = bigfile.BigFile(self.path)
         done = False
         i = 0
@@ -108,7 +107,6 @@ class BlueTidesDataSource(DataSource):
                     done = True
                 data = cdata[bunchstart:bunchend]
                 ret.append(data)
-            stats['Ntot'] += comm.allreduce(bunchend - bunchstart)
             i = i + 1
             yield ret
 
