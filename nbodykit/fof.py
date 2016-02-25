@@ -209,7 +209,7 @@ def fof(datasource, linking_length, nmin, comm=MPI.COMM_WORLD, log_level=logging
 
     return label
 
-def fof_catalogue(datasource, label, comm):
+def fof_catalogue(datasource, label, comm, calculate_initial=False):
     """ Catalogue of FOF groups based on label from a data source
 
         Friend-of-friend was first used by Davis et al 1985 to define
@@ -243,11 +243,15 @@ def fof_catalogue(datasource, label, comm):
             does not correspond to any halo.
  
     """
+    dtype=[
+        ('Position', ('f4', 3)),
+        ('Velocity', ('f4', 3)),
+        ('Length', 'i4')]
 
     N = halos.count(label, comm=comm)
     stats = {}
-    [[Position]] = datasource.read(['Position'], stats, full=True)
 
+    [[Position]] = datasource.read(['Position'], stats, full=True)
     Position /= datasource.BoxSize
     hpos = halos.centerofmass(label, Position, boxsize=1.0, comm=comm)
     del Position
@@ -258,22 +262,29 @@ def fof_catalogue(datasource, label, comm):
     hvel = halos.centerofmass(label, Velocity, boxsize=None, comm=comm)
     del Velocity
 
+    if calculate_initial:
+
+        dtype.append(('InitialPosition', ('f4', 3)))
+
+        [[Position]] = datasource.read(['InitialPosition'], stats, full=True)
+        Position /= datasource.BoxSize
+        hpos_init = halos.centerofmass(label, Position, boxsize=1.0, comm=comm)
+        del Position
+
     if comm.rank == 0: logger.info("Calculated catalogue %d halos found. " % (len(N) -1 ))
     if comm.rank == 0: logger.info("Length = %s " % N[1:])
     if comm.rank == 0: logger.info("%d particles not in halo" % N[0])
 
-    dtype=[
-        ('Position', ('f4', 3)),
-        ('Velocity', ('f4', 3)),
-        ('Length', 'i4')]
 
     if comm.rank == 0:
         catalogue = numpy.empty(shape=len(N), dtype=dtype)
-    
+
         catalogue['Position'] = hpos
         catalogue['Velocity'] = hvel
         catalogue['Length'] = N
         catalogue['Length'][0] = 0
+        if calculate_initial:
+            catalogue['InitialPosition'] = hpos_init
     else:
         catalogue = numpy.empty(shape=0, dtype=dtype)
         
