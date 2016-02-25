@@ -22,7 +22,7 @@ class RaDecRedshiftDataSource(DataSource):
     
     def __init__(self, path, names, unit_sphere=False, 
                     usecols=None, sky_cols=['ra','dec'], z_col='z', 
-                    weight_col=None, degrees=False, select=None, bunchsize=4*1024*1024):       
+                    weight_col=None, degrees=False, select=None):       
 
         # setup the cosmology
         if not self.unit_sphere:
@@ -61,8 +61,6 @@ class RaDecRedshiftDataSource(DataSource):
             help='set this flag if the input (ra, dec) are in degrees')
         s.add_argument("select", type=selectionlanguage.Query, 
             help='row selection based on conditions specified as string')
-        s.add_argument("bunchsize", type=int, 
-            help="the number of objects to read per rank in a bunch")
                   
     def _to_cartesian(self, coords):
         """
@@ -77,16 +75,13 @@ class RaDecRedshiftDataSource(DataSource):
         z = r*numpy.sin(dec)
         return numpy.vstack([x,y,z]).T
         
-    def read(self, columns, full=False):  
+    def simple_read(self, columns):  
         try:
             import pandas as pd
         except:
             name = self.__class__.__name__
             raise ImportError("pandas must be installed to use %s" %name)
-        
-        bunchsize = self.bunchsize
-        if full: bunchsize = None
-        
+
         # read in the plain text file using pandas
         kwargs = {}
         kwargs['comment'] = '#'
@@ -95,69 +90,33 @@ class RaDecRedshiftDataSource(DataSource):
         kwargs['engine'] = 'c'
         kwargs['delim_whitespace'] = True
         kwargs['usecols'] = self.usecols
-        kwargs['chunksize'] = bunchsize
-        kwargs['iterator'] = True
         
         # iterate through in parallel
-        data_iter = iter(pd.read_csv(self.path, **kwargs))
-        data_iter = itertools.islice(data_iter, self.comm.rank, None, self.comm.size)
-        stop = 0
-        while True:
-            
-            try:
-                data = next(data_iter)
-                
-                # select based on input conditions
-                if self.select is not None:
-                    mask = self.select.get_mask(data)
-                    data = data[mask]
+        data = pd.read_csv(self.path, **kwargs)
 
-                # rescale the angles
-                if self.degrees:
-                    data[self.sky_cols] *= numpy.pi/180.
+        # select based on input conditions
+        if self.select is not None:
+            mask = self.select.get_mask(data)
+            data = data[mask]
 
-                # get the (ra, dec, z) coords
-                cols = self.sky_cols + [self.z_col]
-                pos = data[cols].values.astype('f4')
+        # rescale the angles
+        if self.degrees:
+            data[self.sky_cols] *= numpy.pi/180.
 
-                # get the weights
-                w = numpy.ones(len(pos))
-                if self.weight_col is not None:
-                    w = data[self.weight_col].values.astype('f4')
+        # get the (ra, dec, z) coords
+        cols = self.sky_cols + [self.z_col]
+        pos = data[cols].values.astype('f4')
 
-                P             = {}
-                P['Ra']       = pos[:,0]
-                P['Dec']      = pos[:,1]
-                P['Redshift'] = pos[:,2]
-                P['Position'] = self._to_cartesian(pos)
-                P['Weight']   = w
+        # get the weights
+        w = numpy.ones(len(pos))
+        if self.weight_col is not None:
+            w = data[self.weight_col].values.astype('f4')
 
-                data = [P[key] for key in columns]
-                
-            except StopIteration:
-                stop = 1
-                data = None
+        P             = {}
+        P['Ra']       = pos[:,0]
+        P['Dec']      = pos[:,1]
+        P['Redshift'] = pos[:,2]
+        P['Position'] = self._to_cartesian(pos)
+        P['Weight']   = w
 
-            if data is not None:
-                shape_and_dtype = [(d.shape, d.dtype) for d in data]
-                Ntot = len(data[0])
-            else:
-                shape_and_dtype = None
-                Ntot = None
-                
-            # check if we are stopping
-            stop = self.comm.allreduce(stop)    
-            if stop == self.comm.size: break # all ranks are done iterating
-                
-            shape_and_dtype = self.comm.bcast(shape_and_dtype)
-
-            if data is None:
-                data = [
-                    numpy.empty(0, dtype=(dtype, shape[1:]))
-                    for shape,dtype in shape_and_dtype
-                ]
-
-            yield data
-        
-              
-
+        return [P[key] for key in columns]
