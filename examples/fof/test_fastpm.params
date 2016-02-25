@@ -4,3 +4,4 @@ datasource:
     path: ../data/fastpm_1.0000
 linklength: 0.2 
 output: ../output/fof_ll0.200_1.0000.hdf5
+calculate_initial_position: True

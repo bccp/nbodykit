@@ -60,10 +60,13 @@ class FastPMDataSource(DataSource):
         readcolumns = set(columns)
         if self.rsd is not None:
             readcolumns = set(columns + ['Velocity'])
+        if 'InitialPosition' in columns:
+            readcolumns.add('ID')
+            readcolumns.remove('InitialPosition')
 
         if 'Mass' in readcolumns: 
             readcolumns.remove('Mass')
-
+            
         stats['Ntot'] = 0
         done = False
         i = 0
@@ -103,6 +106,18 @@ class FastPMDataSource(DataSource):
                 dir = "xyz".index(self.rsd)
                 P['Position'][:, dir] += P['Velocity'][:, dir]
                 P['Position'][:, dir] %= self.BoxSize[dir]
+            if 'InitialPosition' in columns:
+                P['InitialPosition'] = numpy.empty((len(P['ID']), 3), 'f4')
+                nc = int(self.TotalLength ** (1. / 3) + 0.5)
+                id = P['ID'].copy()
+                for nc in range(nc - 10, nc + 10):
+                    if nc ** 3 == self.TotalLength: break
+                for d in [2, 1, 0]:
+                    P['InitialPosition'][:, d] = id % nc
+                    id[:] //= nc
+                cellsize = self.BoxSize[0] / nc
+                P['InitialPosition'][:] += 0.5
+                P['InitialPosition'][:] *= cellsize
 
             stats['Ntot'] += self.comm.allreduce(bunchend - bunchstart)
             i = i + 1
