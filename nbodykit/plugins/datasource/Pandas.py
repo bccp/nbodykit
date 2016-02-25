@@ -61,7 +61,7 @@ class PandasDataSource(DataSource):
         s.add_argument("ftype", choices=['hdf5', 'text', 'auto'], 
             help='format of the Pandas storage container. auto is to guess from the file name.')
     
-    def readall(self, columns):
+    def simple_read(self, columns):
         try:
             import pandas as pd
         except:

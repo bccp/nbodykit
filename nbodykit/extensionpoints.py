@@ -314,7 +314,7 @@ class DataSource:
         relevant attributes for the class by adding them to the
         class schema
     
-    readall: method
+    simple_read: method
         A method that performs the reading of the field. This method
         reads in the full data set. It shall
         returns the position (in 0 to BoxSize) and velocity (in the
@@ -348,9 +348,9 @@ class DataSource:
             raise ValueError("BoxSize must be a scalar or three-vector")
         return boxsize
 
-    def readall(self, columns):
+    def simple_read(self, columns):
         """ 
-        Override to provide a method to read in all data at once,
+        Override to provide a method to read in all data at once 
         uncollectively. 
 
         Notes
@@ -364,7 +364,7 @@ class DataSource:
         """
         raise NotImplementedError
 
-    def read(self, columns, stat, full=False):
+    def read(self, columns, full=False):
         """
         Yield the data in the columns. If full is True, read all
         particles in one run; otherwise try to read in chunks.
@@ -382,24 +382,16 @@ class DataSource:
             if not len(columns):
                 raise RuntimeError("DataSource::read received no columns to read")
             
-            data = self.readall(columns)    
-            shape_and_dtype = [(d.shape, d.dtype) for d in data]
-            Ntot = len(data[0]) # columns has to have length >= 1, or we crashed already
+            data = self.simple_read(columns)    
             
             # make sure the number of rows in each column read is equal
-            if not all(len(d) == Ntot for d in data):
+            # columns has to have length >= 1, or we crashed already
+            if not all(len(d) == len(data[0]) for d in data):
                 raise RuntimeError("column length mismatch in DataSource::read")
-        else:
-            shape_and_dtype = None
-            Ntot = None
-        shape_and_dtype = self.comm.bcast(shape_and_dtype)
-        stat['Ntot'] = self.comm.bcast(Ntot)
 
-        if self.comm.rank != 0:
-            data = [
-                numpy.empty(0, dtype=(dtype, shape[1:]))
-                for shape,dtype in shape_and_dtype
-            ]
+            data = [self.comm.scatter(numpy.array_split(d, self.comm.size)) for d in data]
+        else:
+            data = [self.comm.scatter(None) for c in columns]
 
         yield data 
 
@@ -427,27 +419,26 @@ class Painter:
     
     def paint(self, pm, datasource):
         """ 
-            Paint from a data source. It shall loop over self.read_and_decompose(...)
-            and paint the data in chunks.
+            Paint from a data source. 
+
+            It shall read data then use basepaint to paint.
+            
+            Returns a dictionary of attributes of the painting operation.
         """
         raise NotImplementedError
 
-    def read_and_decompose(self, pm, datasource, columns, stats):
-
-        assert 'Position' in columns
+    def basepaint(self, pm, position, weight=None):
         assert pm.comm == self.comm # pm must be from the same communicator!
-
-        for data in datasource.read(columns, stats, full=False):
-            data = dict(zip(columns, data))
-            position = data['Position']
-
-            layout = pm.decompose(position)
-
-            for c in columns:
-                data[c] = layout.exchange(data[c])
-                
-            yield [data[c] for c in columns]
-
+        layout = pm.decompose(position)
+        Nlocal = len(position)
+        position = layout.exchange(position)
+        if weight is not None:
+            weight = layout.exchange(weight)
+            pm.paint(position, weight)
+        else:
+            pm.paint(position) 
+        return Nlocal 
+        
 @ExtensionPoint(algorithms)
 class Algorithm:
     """

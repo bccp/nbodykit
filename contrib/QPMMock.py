@@ -64,7 +64,7 @@ class QPMMockDataSource(DataSource):
         s.add_argument("rsd", choices="xyz", help="direction to do redshift distortion")
         s.add_argument("velf", type=float, help="factor to scale the velocities")
     
-    def readall(self, columns):
+    def simple_read(self, columns):
 
         # read in the plain text file using pandas
         kwargs = {}

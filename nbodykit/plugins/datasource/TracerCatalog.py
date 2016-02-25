@@ -74,9 +74,8 @@ class TracerCatalogDataSource(DataSource):
         coords_max = numpy.array([-numpy.inf]*3)
         
         # read the data in parallel
-        data_stats = {}
         redshifts = []
-        for [coords] in self.data.read(['Position'], data_stats, full=False):
+        for [coords] in self.data.read(['Position'], full=False):
             
             # global min/max of cartesian
             if len(coords):
@@ -219,7 +218,7 @@ class TracerCatalogDataSource(DataSource):
     def set_source(self, which):
         """
         Set the `source` point to either `data` or `randoms`, such
-        that when `readall` is called, the results for that
+        that when `simple_read` is called, the results for that
         source are returned
         
         Set to `None` by default to remind the user to set it
@@ -231,9 +230,9 @@ class TracerCatalogDataSource(DataSource):
         else:
             raise NotImplementedError("'source' must be set to either `data` or `randoms`")
         
-    def read(self, columns, stats, full=False):
+    def read(self, columns, full=False):
         """
-        Read data from `source` by calling the `readall` function
+        Read data from `source` by calling the `simple_read` function
         """
         # need to know which source to return from
         if self._source is None:
@@ -245,12 +244,8 @@ class TracerCatalogDataSource(DataSource):
             args = (self.__class__.__name__, str(valid))
             raise ValueError("valid `columns` to read from %s: %s" %args)
             
-        # compute normalization A and shot noise S
-        stats['A'] = 0.
-        stats['S'] = 0.
-        
         # read (ra,dec,z) and weights and convert to cartesian
-        for [coords, weight] in self._source.read(['Position', 'Weight'], stats, full=full):
+        for [coords, weight] in self._source.read(['Position', 'Weight'], full=full):
             
             if self.comm.rank == 0:
                 # cartesian coordinates, removing the mean offset in each dimension
@@ -273,16 +268,11 @@ class TracerCatalogDataSource(DataSource):
                 data = [P[key] for key in columns]        
                 shape_and_dtype = [(d.shape, d.dtype) for d in data]
         
-                # see equations 13-15 of Beutler et al 2013
-                A = (nbar*weight**2).sum()
-                S = (weight**2).sum()
             else:
                 shape_and_dtype = None
                 A = None; S = None
                 
             shape_and_dtype = self.comm.bcast(shape_and_dtype)
-            stats['A'] += self.comm.bcast(A)
-            stats['S'] += self.comm.bcast(S)
 
             if self.comm.rank != 0:
                 data = [

@@ -20,33 +20,43 @@ class FKPPainter(Painter):
         pm.clear()
         columns = ['Position', 'Weight', 'Nbar']
         stats = {}
-        stats['A_ran'] = 0.; stats['A_data'] = 0.
-        stats['S_ran'] = 0.; stats['S_data'] = 0.
+        A_ran = A_data = 0.
+        S_ran = S_data = 0.
+        N_ran = N_data = 0
+
+        # compute normalization A and shot noise S
         
         # paint the randoms
         datasource.set_source('randoms')
-        for [position, weight, nbar] in self.read_and_decompose(pm, datasource, columns, stats):
-            pm.paint(position, weight)
+        for [position, weight, nbar] in datasource.read(columns):
+            Nlocal = self.basepaint(pm, position, weight)
+            A_ran += (nbar*weight**2).sum()
+            N_ran += Nlocal
+            S_ran += (weight**2).sum()
         
+        A_ran = self.comm.allreduce(A_ran)
+        N_ran = self.comm.allreduce(N_ran)
+        S_ran = self.comm.allreduce(S_ran)
+
         # copy and store the randoms
         randoms_density = pm.real.copy()
         
         # get the random stats (see equations 13-15 of Beutler et al 2013)
-        N_ran = stats.pop('Ntot') # total number 
-        A_ran = stats.pop('A') # normalization
-        S_ran = stats.pop('S') # shot noise parameter 
-        
+                # see equations 13-15 of Beutler et al 2013
+
         # paint the data
         pm.clear()
         datasource.set_source('data')
-        for [position, weight, nbar] in self.read_and_decompose(pm, datasource, columns, stats):
-            pm.paint(position, weight)
+        for [position, weight, nbar] in datasource.read(columns):
+            Nlocal = self.basepaint(pm, position, weight)
+            A_data += (nbar*weight**2).sum()
+            N_data += Nlocal # total number 
+            S_data += (weight**2).sum()
             
-        # data stats
-        N_data = stats.pop('Ntot') # total number
-        A_data = stats.pop('A') # normalization
-        S_data = stats.pop('S') # shot noise parameter
-        
+        A_data = self.comm.allreduce(A_data)
+        N_data = self.comm.allreduce(N_data)
+        S_data = self.comm.allreduce(S_data)
+
         # FKP weighted density is n_data - alpha*n_ran
         alpha = 1. * N_data / N_ran
         pm.real[:] -= alpha*randoms_density[:]

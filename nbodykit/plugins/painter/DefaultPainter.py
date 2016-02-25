@@ -36,12 +36,13 @@ class DefaultPainter(Painter):
         pm.real[:] = 0
         stats = {}
 
+        Nlocal = 0
         if self.weight is None:
-            for [position] in self.read_and_decompose(pm, datasource, ['Position'], stats):
-                pm.paint(position)
+            for [position] in datasource.read(['Position']):
+                Nlocal += self.basepaint(pm, position)
         else:
-            for position, weight in self.read_and_decompose(pm, datasource, ['Position', self.weight], stats):
-                pm.paint(position, weight)
-
+            for position, weight in datasource.read(['Position', self.weight]):
+                Nlocal += self.basepaint(pm, position, weight)
+        stats['Ntot'] = self.comm.allreduce(Nlocal)
         return stats
             

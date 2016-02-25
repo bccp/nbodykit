@@ -25,7 +25,7 @@ class TPMLabel(DataSource):
         s.add_argument("path", type=str, help="the file path to load the data from")
         s.add_argument("bunchsize", type=int, help="number of particle to read in a bunch")
 
-    def read(self, columns, stats, full=False):
+    def read(self, columns, full=False):
         """ read data in parallel. if Full is True, neglect bunchsize. """
         Ntot = 0
         # avoid reading Velocity if RSD is not requested.
@@ -43,7 +43,7 @@ class TPMLabel(DataSource):
         datastorage = self.comm.bcast(datastorage)
 
         for round, P in enumerate(
-                datastorage.iter(stats=stats, comm=self.comm, 
+                datastorage.iter(comm=self.comm, 
                     columns=columns, bunchsize=bunchsize)):
             P = dict(zip(columns, P))
 

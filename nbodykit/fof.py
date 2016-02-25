@@ -183,9 +183,7 @@ def fof(datasource, linking_length, nmin, comm=MPI.COMM_WORLD, log_level=logging
     ]
     domain = GridND(grid)
 
-    stats = {}
-
-    [[Position]] = datasource.read(['Position'], stats, full=True)
+    [[Position]] = datasource.read(['Position'], full=True)
 
     if comm.rank == 0: logger.info("ll %g. " % linking_length)
     if comm.rank == 0: logger.debug('grid: %s' % str(grid))
@@ -249,14 +247,13 @@ def fof_catalogue(datasource, label, comm, calculate_initial=False):
         ('Length', 'i4')]
 
     N = halos.count(label, comm=comm)
-    stats = {}
 
-    [[Position]] = datasource.read(['Position'], stats, full=True)
+    [[Position]] = datasource.read(['Position'], full=True)
     Position /= datasource.BoxSize
     hpos = halos.centerofmass(label, Position, boxsize=1.0, comm=comm)
     del Position
 
-    [[Velocity]] = datasource.read(['Velocity'], stats, full=True)
+    [[Velocity]] = datasource.read(['Velocity'], full=True)
     Velocity /= datasource.BoxSize
 
     hvel = halos.centerofmass(label, Velocity, boxsize=None, comm=comm)
@@ -266,7 +263,7 @@ def fof_catalogue(datasource, label, comm, calculate_initial=False):
 
         dtype.append(('InitialPosition', ('f4', 3)))
 
-        [[Position]] = datasource.read(['InitialPosition'], stats, full=True)
+        [[Position]] = datasource.read(['InitialPosition'], full=True)
         Position /= datasource.BoxSize
         hpos_init = halos.centerofmass(label, Position, boxsize=1.0, comm=comm)
         del Position

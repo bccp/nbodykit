@@ -27,7 +27,7 @@ class TPMSnapshotDataSource(DataSource):
         s.add_argument("rsd", choices="xyz", help="direction to do redshift distortion")
         s.add_argument("bunchsize", type=int, help="number of particles to read per rank in a bunch")
 
-    def read(self, columns, stats, full=False):
+    def read(self, columns, full=False):
         """ read data in parallel. if Full is True, neglect bunchsize. """
         Ntot = 0
         # avoid reading Velocity if RSD is not requested.
@@ -48,23 +48,23 @@ class TPMSnapshotDataSource(DataSource):
         bunchsize = self.bunchsize
         if full: bunchsize = -1
 
-        stats['Ntot'] = 0
         if self.comm.rank == 0:
             datastorage = files.DataStorage(self.path, files.TPMSnapshotFile)
         else:
             datastorage = None
         datastorage = self.comm.bcast(datastorage)
 
-        for round, P in enumerate(
-                datastorage.iter(stats=stats, comm=self.comm, 
+        for round, P0 in enumerate(
+                datastorage.iter(comm=self.comm, 
                     columns=newcolumns, bunchsize=bunchsize)):
-            P = dict(zip(newcolumns, P))
+            P = dict(zip(newcolumns, P0))
             if 'Position' in P:
                 P['Position'] *= self.BoxSize
             if 'Velocity' in P:
                 P['Velocity'] *= self.BoxSize
 
-            P['Mass'] = numpy.ones(stats['Ncurrent'], dtype='u1')
+            P['Mass'] = numpy.ones(len(P0[0]), dtype='u1')
+
             if self.rsd is not None:
                 dir = "xyz".index(self.rsd)
                 P['Position'][:, dir] += P['Velocity'][:, dir]

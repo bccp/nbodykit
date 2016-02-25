@@ -25,10 +25,9 @@ class Describe(Algorithm):
         """
         Run the algorithm, which does nothing
         """
-        stats = {}
         left = []
         right = []
-        for pos, in self.datasource.read([self.column], stats):
+        for [pos] in self.datasource.read([self.column]):
             left.append(numpy.min(pos, axis=0))
             right.append(numpy.max(pos, axis=0))
         left = numpy.min(left, axis=0)
