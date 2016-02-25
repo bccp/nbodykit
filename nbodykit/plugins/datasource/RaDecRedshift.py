@@ -32,7 +32,8 @@ class RaDecRedshiftDataSource(DataSource):
             # sample the cosmology's comoving distance
             self.cosmo.sample('comoving_distance', numpy.logspace(-5, 1, 1024))
         else:
-            self.BoxSize = numpy.ones(3) # unit box
+            # unit sphere fits in box of size L = 2
+            self.BoxSize = numpy.array([2., 2., 2.])
   
     @classmethod
     def register(cls):
