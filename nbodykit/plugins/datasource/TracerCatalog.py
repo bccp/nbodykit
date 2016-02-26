@@ -59,15 +59,12 @@ class TracerCatalogDataSource(DataSource):
             3. compute the number density as a function of redshift
                from the `data` and store a spline
         """
-        # source is None by default
-        self._source = None
+        # stream is None by default
+        self._stream = None
         self.offset  = None
         
         if self.cosmo is None:
             raise ValueError("please specify a input Cosmology to use in TracerCatalog")
-
-        # sample the cosmology's comoving distance
-        self.cosmo.sample('comoving_distance', numpy.logspace(-5, 1, 1024))
     
         # need to compute cartesian min/max
         coords_min = numpy.array([numpy.inf]*3)
@@ -75,16 +72,15 @@ class TracerCatalogDataSource(DataSource):
         
         # read the data in parallel
         redshifts = []
-        for [coords] in self.data.read(['Position'], full=False):
+        for [coords, z] in self.data.read(['Position', 'Redshift'], full=False):
             
             # global min/max of cartesian
             if len(coords):
-                cartesian = self._to_cartesian(coords)
-                coords_min = numpy.minimum(coords_min, cartesian.min(axis=0))
-                coords_max = numpy.maximum(coords_max, cartesian.max(axis=0))
+                coords_min = numpy.minimum(coords_min, coords.min(axis=0))
+                coords_max = numpy.maximum(coords_max, coords.max(axis=0))
             
                 # store redshifts
-                redshifts += list(coords[:,-1])
+                redshifts += list(z)
                 
         # gather everything to root
         coords_min = self.comm.gather(coords_min)
@@ -162,21 +158,7 @@ class TracerCatalogDataSource(DataSource):
                 if self.BoxSize[i] < L:
                     args = (self.BoxSize[i], i, L)
                     logger.warning("input BoxSize of %.2f in dimension %d smaller than coordinate range of data (%.2f)" %args)
-                            
-    def _to_cartesian(self, coords, translate=[0.,0.,0.]):
-        """
-        Convert the (ra, dec, z) coordinates to cartesian coordinates
-         
-            * uses `self.cosmo` to compute comoving distances
-            * optionally, translate the cartesian grid by the vector `translate`
-        """
-        ra, dec, redshift = coords.T
-        r = self.cosmo.comoving_distance(redshift)
-        x = r*numpy.cos(ra)*numpy.cos(dec)
-        y = r*numpy.sin(ra)*numpy.cos(dec)
-        z = r*numpy.sin(dec)
-        return numpy.vstack([x,y,z]).T + translate
-        
+                                    
     def _set_nbar(self, redshift, alpha=1.0):
         """
         Determine the spline used to compute `nbar`
@@ -215,28 +197,28 @@ class TracerCatalogDataSource(DataSource):
         z_cen = 0.5*(zbins[:-1] + zbins[1:])
         self.nbar = spline(z_cen, alpha*N/volume)
             
-    def set_source(self, which):
+    def set_stream(self, which):
         """
-        Set the `source` point to either `data` or `randoms`, such
+        Set the `stream` point to either `data` or `randoms`, such
         that when `simple_read` is called, the results for that
-        source are returned
+        stream are returned
         
         Set to `None` by default to remind the user to set it
         """
         if which == 'data':
-            self._source = self.data
+            self._stream = self.data
         elif which == 'randoms':
-            self._source = self.randoms
+            self._stream = self.randoms
         else:
-            raise NotImplementedError("'source' must be set to either `data` or `randoms`")
+            raise NotImplementedError("'stream' must be set to either `data` or `randoms`")
         
     def read(self, columns, full=False):
         """
-        Read data from `source` by calling the `simple_read` function
+        Read data from `stream`
         """
-        # need to know which source to return from
-        if self._source is None:
-            raise ValueError("set `source` attribute to `data` or `randoms` by calling `set_source`")
+        # need to know which stream to return from
+        if self._stream is None:
+            raise ValueError("set `stream` attribute to `data` or `randoms` by calling `set_stream`")
             
         # check valid columns
         valid = ['Position', 'Weight', 'Nbar']
@@ -244,39 +226,24 @@ class TracerCatalogDataSource(DataSource):
             args = (self.__class__.__name__, str(valid))
             raise ValueError("valid `columns` to read from %s: %s" %args)
             
-        # read (ra,dec,z) and weights and convert to cartesian
-        for [coords, weight] in self._source.read(['Position', 'Weight'], full=full):
+        # read position, redshift, and weights from the stream
+        for [coords, redshift, weight] in self._stream.read(['Position', 'Redshift', 'Weight'], full=full):
             
-            if self.comm.rank == 0:
-                # cartesian coordinates, removing the mean offset in each dimension
-                pos = self._to_cartesian(coords, translate=-self.offset)
-        
-                # number density from redshift
-                nbar = self.nbar(coords[:,-1])
-        
-                # update the weights with new FKP
-                if self.compute_fkp_weights:
-                    if self.P0_fkp is None:
-                        raise ValueError("if 'compute_fkp_weights' is set, please specify a value for 'P0_fkp'")
-                    weight = 1. / (1. + nbar*self.P0_fkp)
-                    
-                P = {}
-                P['Position'] = pos
-                P['Weight']   = weight
-                P['Nbar']     = nbar
+            # cartesian coordinates, removing the mean offset in each dimension
+            pos = coords - self.offset
+    
+            # number density from redshift
+            nbar = self.nbar(redshift)
+    
+            # update the weights with new FKP
+            if self.compute_fkp_weights:
+                if self.P0_fkp is None:
+                    raise ValueError("if 'compute_fkp_weights' is set, please specify a value for 'P0_fkp'")
+                weight = 1. / (1. + nbar*self.P0_fkp)
                 
-                data = [P[key] for key in columns]        
-                shape_and_dtype = [(d.shape, d.dtype) for d in data]
-        
-            else:
-                shape_and_dtype = None
-                A = None; S = None
-                
-            shape_and_dtype = self.comm.bcast(shape_and_dtype)
-
-            if self.comm.rank != 0:
-                data = [
-                    numpy.empty(0, dtype=(dtype, shape[1:]))
-                    for shape,dtype in shape_and_dtype
-                ]
-            yield data
+            P = {}
+            P['Position'] = pos
+            P['Weight']   = weight
+            P['Nbar']     = nbar
+            
+            yield [P[key] for key in columns]        

@@ -27,7 +27,7 @@ class FKPPainter(Painter):
         # compute normalization A and shot noise S
         
         # paint the randoms
-        datasource.set_source('randoms')
+        datasource.set_stream('randoms')
         for [position, weight, nbar] in datasource.read(columns):
             Nlocal = self.basepaint(pm, position, weight)
             A_ran += (nbar*weight**2).sum()
@@ -46,7 +46,7 @@ class FKPPainter(Painter):
 
         # paint the data
         pm.clear()
-        datasource.set_source('data')
+        datasource.set_stream('data')
         for [position, weight, nbar] in datasource.read(columns):
             Nlocal = self.basepaint(pm, position, weight)
             A_data += (nbar*weight**2).sum()
