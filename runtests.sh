@@ -7,3 +7,4 @@ bash subhalo/run.sh || exit 1
 bash trace-halo/run.sh || exit 1
 bash subsample/run.sh || exit 1
 bash batch/run.sh || exit 1
+bash fiber_collisions/run.sh || exit 1
