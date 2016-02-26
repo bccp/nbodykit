@@ -403,7 +403,7 @@ preferred method is to use [fast-python]_ .
     source /project/projectdirs/m779/python-mpi/activate.sh
 
     # create the bundle
-    MPICC=cc tar-pip nbodykit.tar.gz -r requirements.txt $PWD
+    MPICC=cc bundle-pip nbodykit.tar.gz -r requirements.txt $PWD
 
 After these steps we can use nbodykit with a job script similar to the example below.
 
