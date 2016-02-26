@@ -2,6 +2,8 @@ from nbodykit.extensionpoints import Algorithm, DataSource
 from nbodykit import fof
 import logging
 import numpy
+import mpsort
+from mpi4py import MPI
 
 logger = logging.getLogger('FiberCollisions')
 
@@ -29,11 +31,16 @@ class FiberCollisionsAlgorithm(Algorithm):
     """
     plugin_name = "FiberCollisions"
     
-    def __init__(self, datasource, collision_radius=62/60./60.):
+    def __init__(self, datasource, collision_radius=62/60./60., seed=0):
         
         # store collision radius in radians
         self._collision_radius_rad = self.collision_radius * numpy.pi/180.
+        if self.comm.rank == 0: 
+            logger.info("collision radius in degrees = %.4f" %collision_radius)
             
+        # set the seed explicitly for reproducibility
+        self.random = numpy.random.RandomState(self.seed)
+        
     @classmethod
     def register(cls):
 
@@ -44,47 +51,139 @@ class FiberCollisionsAlgorithm(Algorithm):
             help='`RaDecRedshift DataSource; run `nbkit.py --list-datasources RaDecRedshift` for details')
         s.add_argument("collision_radius", type=float, 
             help="the size of the angular collision radius (in degrees)")
+        s.add_argument("seed", type=int,
+            help="seed the random number generator explicitly, for reproducibility")
         
     def run(self):
         """
-        Compute the FOF collision groups
+        Compute the FOF collision groups and assign fibers, such that
+        the maximum number of objects receive fibers
         
         Returns
         -------
-        labels : array_like, int
-            an array of integers specifying the group labels for
-            each object in the input DataSource; label == 0 objects
-            are no in a group
-        collided : array_like, int
-            a flag array specifying which objects are collided, i.e.,
-            do not receive a fiber
-        neighbors : array_like, int
-            for those objects that are collided, this gives the index
-            of the nearest neighbor on the sky (0-indexed), else it is set to -1
+        result: array_like
+            a structured array with 3 fields:
+                Label : 
+                    the group labels for each object in the input 
+                    DataSource; label == 0 objects are not in a group
+                Collided : 
+                    a flag array specifying which objects are 
+                    collided, i.e., do not receive a fiber
+                NeighborID : 
+                    for those objects that are collided, this 
+                    gives the (global) index of the nearest neighbor 
+                    on the sky (0-indexed), else it is set to -1
         """
         from nbodykit import fof
         
         # run the angular FoF algorithm to get group labels
-        labels = fof.fof(self.datasource, self._collision_radius_rad, 10, comm=self.comm)
+        # labels gives the global group ID corresponding to each object in Position 
+        # on this rank
+        labels = fof.fof(self.datasource, self._collision_radius_rad, 1, comm=self.comm)
         
-        print numpy.bincount(labels), len(labels)
-        
-        # assign the fibers
-        if self.comm.rank == 0:
-            logger.info("assigning fibers...")
+        # assign the fibers (in parallel)
         collided, neighbors = self._assign_fibers(labels)
-        f = collided.sum()*1./len(collided)
-        
+    
+        # all reduce to get summary statistics
+        N_pop1 = self.comm.allreduce((collided^1).sum())
+        N_pop2 = self.comm.allreduce((collided).sum())
+        f = N_pop2 * 1. / (N_pop1 + N_pop2)
+
         # print out some info
         if self.comm.rank == 0:
-            logger.info("population 1 (clean) size = %d" %(collided^1).sum())
-            logger.info("population 2 (collided) size = %d" %collided.sum())
-            logger.info("collision fraction = %.4f" %f)
-        
-        return labels, collided, neighbors
 
+            logger.info("population 1 (clean) size = %d" %N_pop1)
+            logger.info("population 2 (collided) size = %d" %N_pop2)
+            logger.info("collision fraction = %.4f" %f)
+
+        # return a structured array
+        d = zip(['Label', 'Collided', 'NeighborID'], [labels, collided, neighbors])
+        dtype = [(col, x.dtype) for col, x in d]
+        result = numpy.empty(len(labels), dtype=dtype)
+        for col, x in d: result[col] = x
+        return result
+
+    def _assign_fibers(self, Label):
+        """
+        Initernal function to divide the data by collision group 
+        across ranks and assign fibers, such that the minimum
+        number of objects are collided out of the survey
+        """
+        comm = self.comm
+        mask = Label != 0
+        PIG = numpy.empty(mask.sum(), dtype=[
+                ('Position', ('f4', 3)),  
+                ('Label', ('i4')), 
+                ('Rank', ('i4')), 
+                ('Index', ('i4')),
+                ('Collided', ('i4')),
+                ('NeighborID', ('i4'))
+                ])
+        PIG['Label'] = Label[mask]
+        size = len(Label)
+        size = comm.allgather(size)
+        Ntot = sum(size)
+        offset = sum(size[:comm.rank])
+        PIG['Index'] = offset + numpy.where(mask == True)[0]
+        del Label
+        
+        [[Position]] = self.datasource.read(['Position'], full=True)
+        PIG['Position'] = Position[mask]
+        del Position
+        Ntot = comm.allreduce(len(mask))
+        Nhalo = comm.allreduce(
+            PIG['Label'].max() if len(PIG['Label']) > 0 else 0, op=MPI.MAX) + 1
+
+        # now count number of particles per halo
+        PIG['Rank'] = PIG['Label'] % comm.size
+        cnt = numpy.bincount(PIG['Rank'], minlength=comm.size)
+        Nlocal = comm.allreduce(cnt)[comm.rank]
+
+        # sort by rank and then label
+        PIG2 = numpy.empty(Nlocal, PIG.dtype)
+        mpsort.sort(PIG, orderby='Rank', out=PIG2)
+        assert (PIG2['Rank'] == comm.rank).all()
+        PIG2.sort(order=['Label'])
+        
+        if self.comm.rank == 0:
+            logger.info('total number of collision groups = %d', Nhalo-1)
+            logger.info("Started fiber assignment")
+
+        # loop over unique group ids
+        for group_id in numpy.unique(PIG2['Label']):
+            start = PIG2['Label'].searchsorted(group_id, side='left')
+            end = PIG2['Label'].searchsorted(group_id, side='right')
+            N = end-start
+            assert(PIG2['Label'][start:end] == group_id).all()
+            
+            # pairs (random selection)
+            if N == 2:
+                which = self.random.choice([0,1])
+                indices = [start+which, start+(which^1)]
+                PIG2['Collided'][indices] = [1, 0]
+                PIG2['NeighborID'][indices] = [PIG2['Index'][start+(which^1)], -1]
+            # multiplets (minimize collidedness)
+            elif N > 2:
+                collided, nearest = self._assign_multiplets(PIG2['Position'][start:end])
+                PIG2['Collided'][start:end] = collided[:]
+                PIG2['NeighborID'][start:end] = -1
+                PIG2['NeighborID'][start:end][collided==1] = PIG2['Index'][start+nearest][:]
+
+        if self.comm.rank == 0: logger.info("Finished fiber assignment")
     
-    def _assign_multiplets(self, Position, group_indices):
+        # return to the order specified by the global unique index
+        mpsort.sort(PIG2, orderby='Index', out=PIG)
+        
+        # return arrays including the objects not in any groups
+        collided = numpy.zeros(size[comm.rank], dtype='i4')
+        collided[mask] = PIG['Collided'][:]
+        neighbors = numpy.zeros(size[comm.rank], dtype='i4') - 1
+        neighbors[mask] = PIG['NeighborID'][:]
+         
+        del PIG
+        return collided, neighbors
+    
+    def _assign_multiplets(self, Position):
         """
         Internal function to assign the maximal amount of fibers 
         in collision groups of size N > 2
@@ -95,14 +194,16 @@ class FiberCollisionsAlgorithm(Algorithm):
             return n[numpy.nonzero(slice)[0]].sum()
         
         # first shuffle the member ids, so we select random element when tied
-        group_ids = list(group_indices)
+        N = len(Position)
+        group_ids = list(range(N))
     
         collided_ids = []
         while len(group_ids) > 1:
        
             # compute dists and find where dists < collision radius
             dists = squareform(pdist(Position[group_ids], metric='euclidean'))
-            collisions = (dists > 0.)&(dists <= self._collision_radius_rad)
+            numpy.fill_diagonal(dists, numpy.inf) # ignore self-pairs
+            collisions = dists <= self._collision_radius_rad
             
             # total # of collisions for each group member
             n_collisions = numpy.sum(collisions, axis=0)
@@ -113,7 +214,7 @@ class FiberCollisionsAlgorithm(Algorithm):
             # remove object that has most # of collisions 
             # and those colliding objects have least # of collisions
             idx = numpy.where(n_collisions == n_collisions.max())[0]
-            ii = numpy.random.choice(numpy.where(n_other[idx] == n_other[idx].min())[0])
+            ii = self.random.choice(numpy.where(n_other[idx] == n_other[idx].min())[0])
             collided_index = idx[ii]  
     
             # make the collided galaxy and remove from group
@@ -126,88 +227,38 @@ class FiberCollisionsAlgorithm(Algorithm):
 
         # compute the nearest neighbors
         neighbor_ids = []
-        dists = squareform(pdist(Position[group_indices], metric='euclidean'))
-        uncollided = [i for i, x in enumerate(group_indices) if x not in collided_ids]
-        for idx in collided_ids:
-            i = list(group_indices).index(idx)
-            neighbor = group_indices[uncollided[dists[i][uncollided].argmin()]]
+        group_indices = list(range(N))
+        dists = squareform(pdist(Position, metric='euclidean'))
+        uncollided = [i for i in group_indices if i not in collided_ids]
+        
+        for i in sorted(collided_ids):
+            neighbor = uncollided[dists[i][uncollided].argmin()]
             neighbor_ids.append(neighbor)
             
-        return collided_ids, neighbor_ids
-                
-    def _assign_pairs(self, groups, N):
-        """
-        Assign fibers to collision pairs
-        """
-        # randomly select first/second object of pair
-        which = numpy.random.choice([0,1], size=(N==2).sum())
-        
-        # group numbers of all pairs
-        pair_numbers = numpy.nonzero(N==2)[0]
-
-        # randomly select one element of the pair
-        collided = []; neighbors = []
-        for i in range(self.comm.rank, len(pair_numbers), self.comm.size):
-            idx = groups[pair_numbers[i]]
-            collided.append(idx[which[i]]) # the collided id
-            neighbors.append(idx[which[i]^1]) # the neighbor id is the other object
-
-        return collided, neighbors
-        
-    def _assign_fibers(self, labels):
-        """
-        Assign fibers
-        """
-        import pandas as pd
-                
-        # group by label to get array indices for each label value
-        df = pd.DataFrame(labels, columns=['Label'])
-        groupby = df.groupby('Label')
-        N = groupby.size().values
-        groups = groupby.groups
-        
-        # setup
-        collided = numpy.zeros_like(labels)
-        neighbors = numpy.zeros_like(labels)
-        
-        # assign fibers to the pairs
-        index, neighbor_ids = self._assign_pairs(groups, N)
-        collided[index] = 1
-        neighbors[index] = neighbor_ids
-        
-        # read in the position data for N > 2
-        stats = {}
-        [[Position]] = self.datasource.read(['Position'], stats, full=True)
-        
-        # assign fibers for  N > 2
-        for size in numpy.unique(N[N>2]):
+        collided = numpy.zeros(N)
+        collided[collided_ids] = 1
+        return collided, neighbor_ids
             
-            group_numbers = numpy.nonzero(N == size)[0]
-            for i in range(self.comm.rank, len(group_numbers), self.comm.size):
-                group_ids = groups[group_numbers[i]]
-                index, neighbor_ids = self._assign_multiplets(Position, group_ids)
-                collided[index] = 1
-                neighbors[index] = neighbor_ids                
-        
-        # sum from all ranks
-        collided = self.comm.allreduce(collided)
-        neighbors = self.comm.allreduce(neighbors)
-        neighbors[collided==0] = -1
-        
-        return collided, neighbors
-                
-
-    def save(self, output, data):
+    def save(self, output, result):
         """
-        Save the `Label`, `Collided`, and `NeighborID` arrays
-        to a pandas HDF file, with key `FiberCollisonGroups`
+        Write the `Label`, `Collided`, and `NeighborID` arrays
+        as a Pandas DataFrame to an HDF file, with key `FiberCollisonGroups`
         """
         import pandas as pd
+        import os
+
+        # gather the result to root and output
+        result = self.comm.gather(result, root=0)
         
         if self.comm.rank == 0:
-            columns = ['Label', 'Collided', 'NeighborID']
-            data = dict(zip(columns, data))
-            dtype = [(col, data[col].dtype) for col in columns]
-            df = pd.DataFrame(data)
+            
+            # enforce a default extension
+            _, ext = os.path.splitext(output)
+            if 'hdf' not in ext: output += '.hdf5'
+            
+            logger.info("saving (Label, Collided, NeighborID) as Pandas HDF with name %s" %output)
+        
+            result = numpy.concatenate(result, axis=0)
+            df = pd.DataFrame.from_records(result)
             df.to_hdf(output, 'FiberCollisionGroups')
 
