@@ -6,12 +6,18 @@ logger = logging.getLogger('MomentumPainter')
 
 class MomentumPainter(Painter):
     plugin_name = "MomentumPainter"
+    
+    def __init__(self, velocity_component, moment=1):
+        self._comp_index = "xyz".index(self.velocity_component)
 
     @classmethod
-    def register(kls):
-        h = kls.parser
-        h.add_argument("velocity_comp", type=str, help="which velocity component to grid, either 'x', 'y', 'z'")
-        h.add_argument("-moment", default=1, type=int, help="raise velocity to this power")
+    def register(cls):
+        s = cls.schema
+        s.add_argument("velocity_component", type=str, choices='xyz',
+            help="which velocity component to grid, either 'x', 'y', 'z'")
+        s.add_argument("moment", type=int, 
+            help="the moment of the velocity field to paint, i.e., "
+                 "`moment=1` paints density*velocity, `moment=2` paints density*velocity^2")
 
     def paint(self, pm, datasource):
         """
@@ -27,25 +33,28 @@ class MomentumPainter(Painter):
             
         Returns
         -------
-        Ntot : int
-            the total number of objects, as determined by painting
+        stats : dict
+            dictionary of statistics, usually only containing `Ntot`
         """
-        pm.real[:] = 0
+        pm.clear()
         stats = {}
-        comp = "xyz".index(self.velocity_comp)
+        Nlocal = 0
         
         # just paint density as usual
         if self.moment == 0: 
-            for [position] in self.read_and_decompose(pm, datasource, ['Position'], stats):
-                pm.paint(position)
+            for [position] in datasource.read(['Position']):
+                Nlocal += self.basepaint(pm, position)
         # paint density-weighted velocity moments
         else:
-            for position, velocity in self.read_and_decompose(pm, datasource, ['Position', 'Velocity'], stats):
-                pm.paint(position, velocity[:,comp]**self.moment)
+            for position, velocity in datasource.read(['Position', 'Velocity']):
+                Nlocal += self.basepaint(pm, position, velocity[:,self._comp_index]**self.moment)
     
+        # total N
+        stats['Ntot'] = self.comm.allreduce(Nlocal)
+        
         # normalize config-space velocity field by mean number density
-        norm = 1.*stats['Ntot']/datasource.BoxSize.prod()
+        norm = 1.*stats['Ntot']/pm.BoxSize.prod()
         pm.real[:] /= norm
 
-        return stats['Ntot']
+        return stats
             
