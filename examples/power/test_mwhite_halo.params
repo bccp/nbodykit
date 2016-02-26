@@ -1,7 +1,13 @@
 mode: 2d
 Nmesh: 256
+
+field:
+    DataSource:
+        plugin: MWhiteHaloFile
+        path: ../data/mwhite_halo.fofp
+        BoxSize: 1380.
+        rsd: z
+    Transfer: [NormalizeDC, RemoveDC, AnisotropicCIC]
+
 output: ../output/test_power_2d_mwhite_halo_test.dat
-fields:
-    - MWhiteHaloFile:../data/mwhite_halo.fofp:1380.:-rsd=z
-    - [NormalizeDC, RemoveDC, AnisotropicCIC]
 X: ../../contrib/MWhiteHaloFile.py

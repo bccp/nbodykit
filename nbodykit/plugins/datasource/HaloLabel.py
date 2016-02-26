@@ -1,40 +1,59 @@
 from nbodykit.extensionpoints import DataSource
-from nbodykit import files 
 import numpy
+import logging
+import bigfile
+
+logger = logging.getLogger('HaloLabel')
 
 class HaloLabel(DataSource):
+    """
+    DataSource for reading a file of halo labels (halo id per particle), 
+    as generated the FOF algorithm
+    """
     plugin_name = "HaloLabel"
     
+    def __init__(self, path, bunchsize=4*1024*1024):
+        f = bigfile.BigFileMPI(self.comm, self.path)
+        self.TotalLength = f['Label'].size
+    
     @classmethod
-    def register(kls):
+    def register(cls):
         
-        h = kls.parser
-        h.add_argument("path", help="path to file")
-        h.add_argument("-bunchsize", type=int, 
-                default=1024*1024*4, help="number of particles to read per rank in a bunch")
+        s = cls.schema
+        s.description = "read a file of halo labels (halo id per particle), as generated the FOF algorithm"
+        s.add_argument("path", type=str, help="the file path to load the data from")
+        s.add_argument("bunchsize", type=int, help="number of particle to read in a bunch")
 
-    def read(self, columns, comm, stats, full=False):
-        """ read data in parallel. if Full is True, neglect bunchsize. """
-        Ntot = 0
-        # avoid reading Velocity if RSD is not requested.
-        # this is only needed for large data like a TPMSnapshot
-        # for small Pandas reader etc it doesn't take time to
-        # read velocity
+    def read(self, columns, full=False):
+        f = bigfile.BigFileMPI(self.comm, self.path)
+        readcolumns = columns
+        done = False
+        i = 0
+        while not numpy.all(self.comm.allgather(done)):
+            ret = []
+            dataset = bigfile.BigData(f, readcolumns)
 
-        bunchsize = self.bunchsize
-        if full: bunchsize = -1
+            Ntot = dataset.size
+            start = self.comm.rank * Ntot // self.comm.size
+            end = (self.comm.rank + 1) * Ntot // self.comm.size
 
-        if comm.rank == 0:
-            datastorage = files.DataStorage(self.path, files.HaloLabelFile)
-        else:
-            datastorage = None
-        datastorage = comm.bcast(datastorage)
+            if not full:
+                bunchstart = start + i * self.bunchsize
+                bunchend = start + (i + 1) * self.bunchsize
+                if bunchend > end: bunchend = end
+                if bunchstart > end: bunchstart = end
+            else:
+                bunchstart = start
+                bunchend = end
 
-        for round, P in enumerate(
-                datastorage.iter(stats=stats, comm=comm, 
-                    columns=columns, bunchsize=bunchsize)):
-            P = dict(zip(columns, P))
+            if bunchend == end:
+                done = True
 
-            yield [P[key] for key in columns]
+            P = {}
 
-#------------------------------------------------------------------------------
+            for column in readcolumns:
+                data = dataset[column][bunchstart:bunchend]
+                P[column] = data
+
+            i = i + 1
+            yield [P[column] for column in columns]

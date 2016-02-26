@@ -3,27 +3,33 @@ from nbodykit import files
 import numpy
 
 class GadgetDataSource(DataSource):
+    """
+    A DataSource to read a flavor of Gadget 2 files (experimental)
+    """
     plugin_name = "Gadget"
     
+    def __init__(self, path, BoxSize, ptype=[], posdtype='f4', veldtype='f4', 
+                    iddtype='u8', massdtype='f4', rsd=None, bunchsize=4*1024*1024):
+        pass
+    
     @classmethod
-    def register(kls):
+    def register(cls):
         
-        h = kls.parser
-        h.add_argument("path", help="path to file")
-        h.add_argument("BoxSize", type=kls.BoxSizeParser,
+        s = cls.schema
+        s.description = "read a flavor of Gadget 2 files (experimental)"
+        
+        s.add_argument("path", type=str, help="the file path to load the data from")
+        s.add_argument("BoxSize", type=cls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
-        h.add_argument("-ptype", default=[], action='append', type=int,
-                help="particle types to use")
-        h.add_argument("-posdtype", default='f4', help="dtype of position")
-        h.add_argument("-veldtype", default='f4', help="dtype of velocity")
-        h.add_argument("-iddtype", default='u8', help="dtype of id")
-        h.add_argument("-massdtype", default='f4', help="dtype of mass")
-        h.add_argument("-rsd", 
-            choices="xyz", default=None, help="direction to do redshift distortion")
-        h.add_argument("-bunchsize", type=int, 
-                default=1024*1024*4, help="number of particles to read per rank in a bunch")
+        s.add_argument("ptype", nargs='*', type=int, help="the particle types to use")
+        s.add_argument("posdtype", type=str, help="dtype of position")
+        s.add_argument("veldtype", type=str, help="dtype of velocity")
+        s.add_argument("iddtype", type=str, help="dtype of id")
+        s.add_argument("massdtype", type=str, help="dtype of mass")
+        s.add_argument("rsd", choices="xyz", type=str, help="direction to do redshift distortion")
+        s.add_argument("bunchsize", type=int, help="number of particles to read per rank in a bunch")
 
-    def read(self, columns, comm, stats, full=False):
+    def read(self, columns, full=False):
         """ read data in parallel. if Full is True, neglect bunchsize. """
         Ntot = 0
         # avoid reading Velocity if RSD is not requested.
@@ -40,7 +46,6 @@ class GadgetDataSource(DataSource):
         if full: bunchsize = -1
         if full and len(self.ptype) > 1:
             raise ValueError("cannot read multple ptype in a full load")
-        stats['Ntot'] = 0
         for ptype in self.ptype:
             args = dict(ptype=ptype,
                  posdtype=self.posdtype,
@@ -48,7 +53,7 @@ class GadgetDataSource(DataSource):
                  massdtype=self.massdtype,
                  iddtype=self.iddtype)
 
-            if comm.rank == 0:
+            if self.comm.rank == 0:
                 datastorage = files.DataStorage(self.path,
                         files.GadgetSnapshotFile, args)
                 f0 = files.GadgetSnapshotFile(self.path, 0, args)
@@ -56,11 +61,11 @@ class GadgetDataSource(DataSource):
             else:
                 datastorage = None
                 boxsize = None
-            boxsize = comm.bcast(boxsize)
-            datastorage = comm.bcast(datastorage)
+            boxsize = self.comm.bcast(boxsize)
+            datastorage = self.comm.bcast(datastorage)
 
             for round, P in enumerate(
-                    datastorage.iter(stats=stats, comm=comm, 
+                    datastorage.iter(comm=self.comm, 
                         columns=newcolumns, bunchsize=bunchsize)):
                 P = dict(zip(newcolumns, P))
                 if 'Position' in P:
@@ -76,29 +81,35 @@ class GadgetDataSource(DataSource):
 
                 yield [P[key] for key in columns]
 
-#------------------------------------------------------------------------------
 
 class GadgetGroupTabDataSource(DataSource):
+    """
+    A DataSource to read a flavor of Gadget 2 FOF catalogs (experimental)
+    """
     plugin_name = "GadgetGroupTab"
     
+    def __init__(self, path, BoxSize, mpch=1000., posdtype='f4', veldtype='f4', 
+                    massdtype='f4', rsd=None, bunchsize=4*1024*1024):
+        pass
+    
     @classmethod
-    def register(kls):
+    def register(cls):
         
-        h = kls.parser
-        h.add_argument("path", help="path to file")
-        h.add_argument("BoxSize", type=kls.BoxSizeParser,
+        s = cls.schema
+        s.description = "read a flavor of Gadget 2 FOF catalogs (experimental)"
+        
+        s.add_argument("path", type=str, help="the file path to load the data from")
+        s.add_argument("BoxSize", type=cls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
-        h.add_argument("-mpch", type=float, default=1000.,
-            help="Mpc/h in code unit")
-        h.add_argument("-posdtype", default='f4', help="dtype of position")
-        h.add_argument("-veldtype", default='f4', help="dtype of velocity")
-        h.add_argument("-massdtype", default='f4', help="dtype of mass")
-        h.add_argument("-rsd", 
-            choices="xyz", default=None, help="direction to do redshift distortion")
-        h.add_argument("-bunchsize", type=int, 
-                default=1024*1024*4, help="number of particles to read per rank in a bunch")
-
-    def read(self, columns, comm, stats, full=False):
+        s.add_argument("mpch", type=float, help="Mpc/h in code unit")
+        s.add_argument("posdtype", help="dtype of position")
+        s.add_argument("veldtype", help="dtype of velocity")
+        s.add_argument("massdtype", help="dtype of mass")
+        s.add_argument("rsd", choices="xyz", help="direction to do redshift distortion")
+        s.add_argument("bunchsize", type=int, 
+            help="number of particles to read per rank in a bunch")
+    
+    def read(self, columns, full=False):
         """ read data in parallel. if Full is True, neglect bunchsize. """
         Ntot = 0
         # avoid reading Velocity if RSD is not requested.
@@ -114,21 +125,20 @@ class GadgetGroupTabDataSource(DataSource):
         bunchsize = self.bunchsize
         if full: bunchsize = -1
 
-        stats['Ntot'] = 0
         args = dict(posdtype=self.posdtype,
              veldtype=self.veldtype,
              massdtype=self.massdtype,
              iddtype=self.iddtype)
 
-        if comm.rank == 0:
+        if self.comm.rank == 0:
             datastorage = files.DataStorage(self.path,
                     files.GadgetGroupTabFile, args)
         else:
             datastorage = None
-        datastorage = comm.bcast(datastorage)
+        datastorage = self.comm.bcast(datastorage)
 
         for round, P in enumerate(
-                datastorage.iter(stats=stats, comm=comm, 
+                datastorage.iter(comm=self.comm, 
                     columns=newcolumns, bunchsize=bunchsize)):
             P = dict(zip(newcolumns, P))
             if 'Position' in P:

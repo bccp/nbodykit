@@ -1,6 +1,7 @@
 import numpy
 from mpi4py import MPI
 import logging
+from nbodykit.extensionpoints import Painter, Transfer
 
 logger = logging.getLogger('measurestats')
 
@@ -14,7 +15,7 @@ def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
         the list of fields which the 3D power will be computed
         
     pm : ``ParticleMesh``
-        particle mesh object that does the painting
+        particle mesh object that handles the painting and FFTs
                 
     comm : MPI.Communicator, optional
         the communicator to pass to the ``ParticleMesh`` object. If not
@@ -29,12 +30,13 @@ def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
     p3d : array_like (real)
         the 3D power spectrum, corresponding to the gridded input fields
         
-    N1 : int
-        the total number of objects in the 1st field
+    stats1 : dict
+        dictionary holding the statistics of the first field, as returned
+        by the `Painter` used 
         
-    N2 : int
-        the total number of objects in the 2nd field (equal to N1 if 
-        only one input field specified)
+    stats2 : dict
+        dictionary holding the statistics of the second field, as returned
+        by the `Painter` used
     """
     # some setup
     rank = comm.rank if comm is not None else MPI.COMM_WORLD.rank
@@ -46,7 +48,7 @@ def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
     transfers   = [t for d, p, t in fields]
         
     # paint, FT field and filter field #1
-    N1 = painters[0].paint(pm, datasources[0])
+    stats1 = painters[0].paint(pm, datasources[0])
     if rank == 0: logger.info('painting done')
     pm.r2c()
     if rank == 0: logger.info('r2c done')
@@ -63,7 +65,7 @@ def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
         c1 = pm.complex.copy()
         
         # paint, FT, and filter field #2
-        N2 = painters[1].paint(pm, datasources[1])
+        stats2 = painters[1].paint(pm, datasources[1])
         if rank == 0: logger.info('painting 2 done')
         pm.r2c()
         if rank == 0: logger.info('r2c 2 done')
@@ -74,7 +76,7 @@ def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
     else:
         c1 = pm.complex
         c2 = pm.complex
-        N2 = N1
+        stats2 = stats1
 
     # reuse the memory in c1.real for the 3d power spectrum
     p3d = c1
@@ -87,10 +89,188 @@ def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
     # ref to http://icc.dur.ac.uk/~tt/Lectures/UA/L4/cosmology.pdf
     p3d[...] *= pm.BoxSize.prod() 
                 
-    return p3d, N1, N2
+    return p3d, stats1, stats2
+    
+def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.DEBUG):
+    """
+    Compute and return the 3D power multipoles (ell = [0, 2, 4]) from one 
+    input field, which contains non-trivial survey geometry.
+    
+    The estimator uses the FFT algorithm outlined in Bianchi et al. 2015 to compute
+    the monopole, quadrupole, and hexadecapole
+    
+    Parameters
+    ----------
+    max_ell : int
+        the maximum multipole number to compute up to (and including). Must be
+        one of [0, 2, 4]
+        
+    datasource : ``DataSource``
+        the DataSource which will be return the Cartesian coordinates of the
+        (ra, dec, z) survey
+        
+    pm : ``ParticleMesh``
+        particle mesh object that handles the painting and FFTs
+                
+    comm : MPI.Communicator, optional
+        the communicator to pass to the ``ParticleMesh`` object. If not
+        provided, ``MPI.COMM_WORLD`` is used
+        
+    log_level : int, optional
+        logging level to use while computing. Default is ``logging.DEBUG``
+        which has numeric value of `10`
+    
+    Returns
+    -------
+    poles : list
+        list of the 3D power multipoles computed, up to and including `ell=max_ell`
+        
+    stats : dict
+        dictionary holding the statistics of the input datasource, as returned
+        by the `FKPPainter` painter
+    """
+    def bianchi_transfer(data, x, i, j, k=None, offset=[0., 0., 0.]):
+        """
+        Transfer functions necessary to compute the power spectrum  
+        multipoles via FFTs
+        
+        This multiplies by one of two kernels:
+        
+            1. x_i * x_j / x**2 * data, if `k` is None
+            2. x_i**2 * x_j * x_k / x**4 * data, if `k` is not None
+        
+        See equations 10 (for quadrupole) and 12 (for hexadecapole)
+        of Bianchi et al 2015.
+        
+        Parameters
+        ----------
+        data : array_like
+            the array to rescale -- either the configuration-space 
+            `pm.real` or the Fourier-space `pm.complex`
+        x : array_like
+            the coordinate array -- either `pm.r` or `pm.k`
+        i, j, k : int
+            the integers specifying the coordinate axes; see the 
+            above description 
+        offset : array_like
+            add an average offset to the `x` component arrays; 
+            needed if the simulation box has an average offset 
+            from the grid box in configuration-space
+        """
+        # compute x**2
+        norm = sum((xi + offset[ii])**2 for ii, xi in enumerate(x))
+        
+        # get x_i, x_j
+        # if i == 'x' direction, it's just one value
+        xi = x[i] + offset[i]
+        xj = x[j] + offset[j]
+
+        # multiply the kernel
+        if k is not None:
+            xk = x[k] + offset[k]
+            data[:] *= xi**2 * xj * xk
+            idx = norm != 0.
+            data[idx] /= norm[idx]**2
+            
+        else:
+            data[:] *= xi * xj
+            idx = norm != 0.
+            data[idx] /= norm[idx]
+                                    
+    # some setup
+    rank = comm.rank if comm is not None else MPI.COMM_WORLD.rank
+    if log_level is not None: logger.setLevel(log_level)
+    
+    # box offset; default to no offset
+    offset = getattr(datasource, 'offset', [0., 0., 0.])
+    
+    # get the datasource, painter, and transfer
+    painter = Painter.create('FKPPainter')
+    transfer = [Transfer.create('AnisotropicCIC')]
+
+    # which transfers do we need
+    if max_ell not in [0, 2, 4]:
+        raise ValueError("valid values for the maximum multipole number are [0, 2, 4]")
+    ells = numpy.arange(0, max_ell+1, 2)
+    bianchi_transfers = []
+    
+    # quadrupole kernels
+    if max_ell > 0:
+        k2 = [(0, 0), (1, 1), (2, 2), (0, 1), (0, 2), (1, 2)]
+        a2 = [1.]*3 + [2.]*3
+        bianchi_transfers.append((a2, k2))
+    
+    # hexadecapole kernels
+    if max_ell > 2:
+        k4 = [(0, 0, 0), (1, 1, 1), (2, 2, 2), (0, 0, 1), (0, 0, 2),
+             (1, 1, 0), (1, 1, 2), (2, 2, 0), (2, 2, 1), (0, 1, 1),
+             (0, 2, 2), (1, 2, 2), (0, 1, 2), (1, 0, 2), (2, 0, 1)]
+        a4 = [1.]*3 + [4.]*6 + [6.]*3 + [12.]*3
+        bianchi_transfers.append((a4, k4))
+    
+    # paint once and save the density
+    stats = painter.paint(pm, datasource)
+    density = pm.real.copy()
+    if rank == 0: logger.info('painting done')
+    
+    # compute the monopole, A0(k), and save
+    pm.r2c()
+    pm.transfer(transfer)
+    A0 = pm.complex.copy()
+    if rank == 0: logger.info('ell = 0 done; 1 r2c completed')
+    
+    # store the A0, A2, A4 arrays
+    result = []
+    result.append(A0)
+    
+    for iell, ell in enumerate(ells[1:]):
+        A_ell = numpy.zeros_like(pm.complex)
+        
+        for amp, integers in zip(*bianchi_transfers[iell]):
+            
+            # reset the 'real' array to the original painted density
+            pm.real[:] = density[:]
+        
+            # apply the real-space transfer
+            bianchi_transfer(pm.real, pm.x, *integers, offset=offset)
+                        
+            # do the FT and apply the k-space kernel
+            pm.r2c()
+            bianchi_transfer(pm.complex, pm.k, *integers)
+            pm.transfer(transfer)
+        
+            # and save
+            A_ell[:] += amp*pm.complex[:]
+            
+        result.append(A_ell)
+        if rank == 0: 
+            args = (ell, len(bianchi_transfers[iell][0]))
+            logger.info('ell = %d done; %s r2c completed' %args)
+            
+    # proper normalization: A_ran from equation 
+    norm = pm.BoxSize.prod()**2 / stats['A_ran']
+    
+    # reuse memory for output
+    P0 = result[0]
+    if max_ell > 0: P2 = result[1]
+    if max_ell > 2: P4 = result[2]
+    
+    # calculate the multipoles, islab by islab to save memory
+    # see equations 6-8 of Bianchi et al. 2015
+    for islab in range(len(P0)):
+        if max_ell > 2:
+            P4[islab, ...] = norm * 9./8 * P0[islab] * (35.*P4[islab].conj() - 30.*P2[islab].conj() + 3.*P0[islab].conj())
+        if max_ell > 0:
+            P2[islab, ...] = norm * 5./2 * P0[islab] * (3.*P2[islab].conj() - P0[islab].conj())
+        P0[islab, ...] = norm * P0[islab] * P0[islab].conj()
+
+    result = [P0]
+    if max_ell > 0: result.append(P2)
+    if max_ell > 2: result.append(P4)
+    return result, stats
 
 
-def compute_brutal_corr(datasources, Rmax, Nr, Nmu=0, comm=None, subsample=1, los='z', poles=[]):
+def compute_brutal_corr(datasources, rbins, Nmu=0, comm=None, subsample=1, los='z', poles=[]):
     """
     Compute the correlation function by direct pair summation, projected
     into either 1d `R` bins or 2d (`R`, `mu`) bins
@@ -137,6 +317,7 @@ def compute_brutal_corr(datasources, Rmax, Nr, Nmu=0, comm=None, subsample=1, lo
         raise ValueError("the `los` must be one of `x`, `y`, or `z`")
     los = "xyz".index(los)
     poles = numpy.array(poles)
+    Rmax = rbins[-1]
     
     # the comm
     if comm is None: comm = MPI.COMM_WORLD
@@ -160,15 +341,14 @@ def compute_brutal_corr(datasources, Rmax, Nr, Nmu=0, comm=None, subsample=1, lo
     grid = [numpy.linspace(0, datasources[0].BoxSize[i], Nproc[i]+1, endpoint=True) for i in range(3)]
     domain = GridND(grid, comm=comm)
 
-    stats = {}
     # read position for field #1 
-    [[pos1]] = datasources[0].read(['Position'], comm, stats, full=False)
+    [[pos1]] = datasources[0].read(['Position'], full=True)
     pos1 = pos1[comm.rank * subsample // comm.size ::subsample]
     N1 = comm.allreduce(len(pos1))
     
     # read position for field #2
     if len(datasources) > 1:
-        [[pos2]] = datasources[1].read(['Position'], comm, stats, full=False)
+        [[pos2]] = datasources[1].read(['Position'], full=True)
         pos2 = pos2[comm.rank * subsample // comm.size ::subsample]
         N2 = comm.allreduce(len(pos2))
     else:
@@ -200,11 +380,11 @@ def compute_brutal_corr(datasources, Rmax, Nr, Nmu=0, comm=None, subsample=1, lo
 
     # the binning, either r or (r,mu)
     if len(poles):
-        bins = correlate.FlatSkyMultipoleBinning(Rmax, Nr, poles, los, compute_mean_coords=True)
+        bins = correlate.FlatSkyMultipoleBinning(rbins, poles, los, compute_mean_coords=True)
     elif Nmu > 0:
-        bins = correlate.FlatSkyBinning(Rmax, Nr, Nmu, los, compute_mean_coords=True)
+        bins = correlate.FlatSkyBinning(rbins, Nmu, los, compute_mean_coords=True)
     else:
-        bins = correlate.RBinning(Rmax, Nr, compute_mean_coords=True)
+        bins = correlate.RBinning(rbins, compute_mean_coords=True)
 
     # do the pair count
     # have to set usefast = False to get mean centers, or exception thrown

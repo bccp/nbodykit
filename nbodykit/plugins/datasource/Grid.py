@@ -5,30 +5,26 @@ logger = logging.getLogger('Grid')
 
 class GridDataSource(DataSource):
     """
-    Class to read field gridded data from a binary file.
+    Class to read field gridded data from a binary file
     
     Notes
     -----
     * Reading is designed to be done by `GridPainter`, which
       reads gridded quantity straight into the `ParticleMesh`
-
-    
-    Parameters
-    ----------
-    path    : str
-        the path of the file to read the data from 
-    BoxSize : float
-        the box size
     """
     plugin_name = "Grid"
     
+    def __init__(self, path, BoxSize, dtype='f4'):
+        pass
+    
     @classmethod
-    def register(kls):
+    def register(cls):
         
-        h = kls.parser
+        s = cls.schema
+        s.description = "read gridded field data from a binary file"
         
-        h.add_argument("path", help="path to file")
-        h.add_argument("BoxSize", type=kls.BoxSizeParser,
+        s.add_argument("path", type=str, help="the file path to load the data from")
+        s.add_argument("BoxSize", type=cls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
-        h.add_argument("-dtype", default='f4', type=str, help="data type of binary file to read")
+        s.add_argument("dtype", type=str, help="data type of binary file to read")
 

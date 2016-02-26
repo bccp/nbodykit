@@ -1,0 +1,12 @@
+smoothing: 20.0
+
+field:
+    plugin: FastPM
+    path: ../data/fastpm_1.0000
+points:
+    plugin: FOFGroups
+    path: ../output/fof_ll0.200_1.0000.hdf5
+    m0: 1.0
+Nmesh: 256
+
+output: ../output/tidaltensor_1.0000.hdf5

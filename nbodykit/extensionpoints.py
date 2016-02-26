@@ -1,112 +1,246 @@
 """
-    Declare PluginMount and various extention points.
+    Declare `PluginMount` and various extension points
 
-    To define a Plugin, 
+    To define a Plugin: 
 
-    1. subclass from the extension point class
-    2. define a class method `register`, that calls add_argument
-       to kls.parser.
-    3. define a plugin_name member.
+    1.  subclass from the desired extension point class
+    2.  define a class method `register` that fills the declares
+        the relevant attributes by calling `add_argument`
+        of `cls.schema`
+    3. define a `plugin_name` class attribute
 
-    To define an ExtensionPoint,
+    To define an ExtensionPoint:
 
     1. add a class decorator @ExtensionPoint
-    
 """
-class PluginInterface(object):
-    """ The basic interface of a plugin 
-    """
-    def initialize(self, args):
-        ns = self.parser.parse_args(args)
-        self.__dict__.update(ns.__dict__)
+import numpy
+from nbodykit.utils.config import autoassign, ConstructorSchema, ReadConfigFile
+from argparse import Namespace
 
+# MPI will be required because
+# a plugin instance will be created for a MPI communicator.
+from mpi4py import MPI
+
+algorithms  = Namespace()
+datasources = Namespace()
+painters    = Namespace()
+transfers   = Namespace()
+
+# private variable to store global MPI communicator 
+# that all plugins are initialized with
+_comm = MPI.COMM_WORLD
+_cosmo = None
+
+def get_nbkit_comm():
+    """
+    Return the global MPI communicator that all plugins 
+    will be instantiated with (stored in `comm` attribute of plugin)
+    """
+    return _comm
+    
+def set_nbkit_comm(comm):
+    """
+    Set the global MPI communicator that all plugins 
+    will be instantiated with (stored in `comm` attribute of plugin)
+    """
+    global _comm
+    _comm = comm
+    
+def get_nbkit_cosmo():
+    """
+    Return the global Cosmology instance
+    """
+    return _cosmo
+    
+def set_nbkit_cosmo(cosmo):
+    """
+    Set the global Cosmology instance
+    """
+    global _cosmo
+    _cosmo = cosmo
+
+class PluginInterface(object):
+    """ 
+    The basic interface of a plugin -- classes must implement
+    the 'register' function
+    """
     @classmethod
     def register(kls):
         raise NotImplementedError
 
-    def __eq__(self, other):
-        return self.string == other.string
-
-    def __ne__(self, other):
-        return self.string != other.string
-
-
-def ExtensionPoint(cls):
-    """ Declares a class as an extension point """
-    return add_metaclass(PluginMount)(cls)
+        
+def ExtensionPoint(registry):
+    """ 
+    Declares a class as an extension point, registering to registry 
+    """
+    def wrapped(cls):
+        cls = add_metaclass(PluginMount)(cls)
+        cls.registry = registry
+        return cls
+    return wrapped
 
 class PluginMount(type):
-    """ Metaclass for an extension point that provides
-        the methods to manage
-        plugins attached to the extension point.
+    """ 
+    Metaclass for an extension point that provides the 
+    methods to manage plugins attached to the extension point
     """
     def __new__(cls, name, bases, attrs):
-        # for python 2, ensure extension points are objects
-        # this is important for python 3 compatibility.
-        if len(bases) == 0:
-            bases = (object,)
-        # Only add PluginInterface to the ExtensionPoint,
-        # such that Plugins will inherit from this.
-        if len(bases) == 1 and bases[0] is object:
+        # Add PluginInterface to the ExtensionPoint,
+        # Plugins at an extensioni point will inherit from PluginInterface
+        # This is more twisted than it could have been!
+
+        if len(bases) == 0 or (len(bases) == 1 and bases[0] is object):
             bases = (PluginInterface,)
         return type.__new__(cls, name, bases, attrs)
 
     def __init__(cls, name, bases, attrs):
-
         # only executes when processing the mount point itself.
-        if not hasattr(cls, 'plugins'):
-            cls.plugins = {}
-        # called for each plugin, which already has 'plugins' list
-        else:
-            if not hasattr(cls, 'plugin_name'):
-                raise RuntimeError("Plugin class must carry a plugin_name.")
+        # the extension mount point only declares a PluginInterface
+        # the plugins at an extension point will always be its subclass
+        
+        if cls.__bases__ == (PluginInterface, ):
+            return
+
+        if not hasattr(cls, 'plugin_name'):
+            raise RuntimeError("Plugin class must carry a 'plugin_name'")
+        
+        # register, if this plugin isn't yet
+        if cls.plugin_name not in cls.registry:
+
+            # initialize the schema and alias it
+            if cls.__init__ == object.__init__:
+                raise ValueError("please define an __init__ method for '%s'" %cls.__name__)
             
-            # register, if this plugin isn't yet
-            if cls.plugin_name not in cls.plugins:
-                # add a commandline argument parser that parsers the ':' seperated
-                # commandlines.
-                cls.parser = ArgumentParser(cls.plugin_name, 
-                        usage=None, add_help=False, 
-                        formatter_class=HelpFormatterColon)
-
-                # track names of classes
-                cls.plugins[cls.plugin_name] = cls
+            # in python 2, __func__ needed to attach attributes to the real function; 
+            # __func__ removed in python 3, so just attach to the function
+            init = cls.__init__
+            if hasattr(init, '__func__'):
+                init = init.__func__
             
-                # try to call register class method
-                if hasattr(cls, 'register'):
-                    cls.register()
+            # add a schema
+            init.schema = ConstructorSchema()
+            cls.schema = cls.__init__.schema
 
-    def create(kls, string): 
-        """ Instantiate a plugin from this extension point,
-            based on the cmdline string
+            # track names of classes
+            setattr(cls.registry, cls.plugin_name, cls)
 
-            Parameters
-            ----------
-            string: string
-                A colon (:) separated string of arguments.
-                The first field specifies the type of the plugin
-                to create.
-                The reset depends on the type of the plugin.
+            # register the class
+            cls.register()
+            
+            # configure the class __init__, attaching the comm, and optionally cosmo
+            attach_cosmo = issubclass(cls, DataSource)
+            cls.__init__ = autoassign(init, attach_cosmo=attach_cosmo)
+            
+    def create(cls, plugin_name, use_schema=False, **kwargs): 
+        """ 
+        Instantiate a plugin from this extension point,
+        based on the name/value pairs passed as keywords. 
+        
+        Optionally, cast the keywords values, using the types
+        defined by the schema of the class we are creating
+
+        Parameters
+        ----------
+        plugin_name: str
+            the name of the plugin to instantiate
+        use_schema : bool, optional
+            if `True`, cast the kwargs that are defined in 
+            the class schema before initializing. Default: `False`
+        kwargs : (key, value) pairs
+            the parameter names and values that will be
+            passed to the plugin's __init__
+
+        Returns
+        -------
+        plugin : 
+            the initialized instance of `plugin_name`
         """
-        words = string.split(':')
+        if plugin_name not in cls.registry:
+            raise ValueError("'%s' does not match the names of any loaded plugins" %plugin_name)
+            
+        klass = getattr(cls.registry, plugin_name)
         
-        klass = kls.plugins[words[0]]
+        # cast the input values, using the class schema
+        if use_schema:
+            for k in kwargs:
+                if k in klass.schema:
+                    arg = klass.schema[k]
+                    kwargs[k] = klass.schema.cast(arg, kwargs[k])
+                        
+        toret = klass(**kwargs)
         
-        self = klass()
-        self.initialize(words[1:])
-        self.string = string
-        return self
+        ### FIXME: not always using create!!
+        toret.string = id(toret)
+        return toret
+        
+    def from_config(cls, parsed): 
+        """ 
+        Instantiate a plugin from this extension point,
+        based on the input `parsed` value, which is parsed
+        directly from the YAML configuration file
+        
+        There are several valid input cases for `parsed`:
+            1.  parsed: dict
+                containing the key `plugin`, which gives the name of 
+                the Plugin to load; the rest of the dictionary is 
+                treated as arguments of the Plugin
+            2.  parsed: dict
+                having only one entry, with key giving the Plugin name
+                and value being a dictionary of arguments of the Plugin
+            3.  parsed: dict
+                if `from_config` is called directly from a Plugin class, 
+                then `parsed` can be a dictionary of the named arguments,
+                with the Plugin name inferred from the class `cls`
+            4.  parsed: str
+                the name of a Plugin, which will be created with 
+                no arguments
+        """    
+        try:    
+            if isinstance(parsed, dict):
+                if 'plugin' in parsed:
+                    kwargs = parsed.copy()
+                    plugin_name = kwargs.pop('plugin')
+                    return cls.create(plugin_name, use_schema=True, **kwargs)
+                elif len(parsed) == 1:
+                    k = list(parsed.keys())[0]
+                    if isinstance(parsed[k], dict):
+                        return cls.create(k, use_schema=True, **parsed[k])
+                    else:
+                        raise Exception
+                elif hasattr(cls, 'plugin_name'):
+                    return cls.create(cls.plugin_name, use_schema=True, **parsed)
+                else:
+                    raise Exception
+            elif isinstance(parsed, str):
+                return cls.create(parsed)
+            else:
+                raise Exception
+        except Exception as e:
+            import traceback
+            traceback = traceback.format_exc()
+            raise ValueError("failure to parse plugin:\n\n%s" %(traceback))
+            
+    def format_help(cls, *plugins):
+        """
+        Return a string specifying the `help` for each of the plugins
+        specified, or all if none are specified
+        """
+        if not len(plugins):
+            plugins = list(vars(cls.registry).keys())
+            
+        s = []
+        for k in plugins:
+            if not isplugin(k):
+                raise ValueError("'%s' is not a valid Plugin name" %k)
+            header = "Plugin : %s  ExtensionPoint : %s" % (k, cls.__name__)
+            s.append(header)
+            s.append("=" * (len(header)))
+            s.append(getattr(cls.registry, k).schema.format_help())
 
-    def format_help(kls):
-        
-        rt = []
-        for k in kls.plugins:
-            rt.append(kls.plugins[k].parser.format_help())
-
-        if not len(rt):
-            return "No available Plugins registered at %s" % kls.__name__
+        if not len(s):
+            return "No available Plugins registered at %s" %cls.__name__
         else:
-            return '\n'.join(rt)
+            return '\n'.join(s) + '\n'
 
 # copied from six
 def add_metaclass(metaclass):
@@ -124,11 +258,7 @@ def add_metaclass(metaclass):
         return metaclass(cls.__name__, cls.__bases__, orig_vars)
     return wrapper
 
-import numpy
-from nbodykit.plugins import HelpFormatterColon
-from argparse import ArgumentParser
-
-@ExtensionPoint
+@ExtensionPoint(transfers)
 class Transfer:
     """
     Mount point for plugins which apply a k-space transfer function
@@ -162,24 +292,29 @@ class Transfer:
         """
         raise NotImplementedError
 
-@ExtensionPoint
+@ExtensionPoint(datasources)
 class DataSource:
     """
     Mount point for plugins which refer to the reading of input files 
-    and the subsequent painting of those fields.
+    
+    Notes
+    -----
+    *   a `Cosmology` instance can be passed to any `DataSource`
+        class via the `cosmo` keyword
 
     Plugins implementing this reference should provide the following 
     attributes:
 
     plugin_name : str
-        class attribute giving the name of the subparser which 
-        defines the necessary command line arguments for the plugin
+        class attribute that defines the name of the Plugin in 
+        the registry
     
     register : classmethod
-        A class method taking no arguments that adds a subparser
-        and the necessary command line arguments for the plugin
+        A class method taking no arguments that declares the
+        relevant attributes for the class by adding them to the
+        class schema
     
-    readall: method
+    simple_read: method
         A method that performs the reading of the field. This method
         reads in the full data set. It shall
         returns the position (in 0 to BoxSize) and velocity (in the
@@ -192,15 +327,12 @@ class DataSource:
         same units as position), in chunks as an iterator. The
         default behavior is to use Rank 0 to read in the full data
         and yield an empty data. 
-
     """
-    
     @staticmethod
     def BoxSizeParser(value):
         """
-        Parse a string of either a single float, or 
-        a space-separated string of 3 floats, representing 
-        a box size. Designed to be used by the DataSource plugins
+        Read the `BoxSize, enforcing that the BoxSize must be a 
+        scalar or 3-vector
         
         Returns
         -------
@@ -208,55 +340,63 @@ class DataSource:
             an array of size 3 giving the box size in each dimension
         """
         boxsize = numpy.empty(3, dtype='f8')
-        sizes = [float(i) for i in value.split()]
-        if len(sizes) == 1: sizes = sizes[0]
-        boxsize[:] = sizes
+        try:
+            if isinstance(value, (tuple, list)) and len(value) != 3:
+                raise ValueError
+            boxsize[:] = value
+        except:
+            raise ValueError("BoxSize must be a scalar or three-vector")
         return boxsize
 
-    def readall(self, columns):
-        raise NotImplementedError
-
-    def read(self, columns, comm, stat, full=False):
+    def simple_read(self, columns):
         """ 
-            Yield the data in the columns. If full is True, read all
-            particles in one run; otherwise try to read in chunks.
+        Override to provide a method to read in all data at once 
+        uncollectively. 
 
-            On every iteration stat is updated with the global 
-            statistics. Current keys are min, max, Ntot.
+        Notes
+        -----
+
+        This function will be called by the default 'read' function
+        on the root rank to read in the data set.
+        The intention is to reduce the complexity of implementing a
+        simple and small data source.
             
         """
-        if comm.rank == 0:
+        raise NotImplementedError
+
+    def read(self, columns, full=False):
+        """
+        Yield the data in the columns. If full is True, read all
+        particles in one run; otherwise try to read in chunks.
+
+        Override this function for complex, large data sets. The read
+        operation shall be collective, each yield generates different
+        sections of the datasource.
+
+        On every iteration `stat` shall be updated with the global 
+        statistics. Current keys are `Ntot`    
+        """
+        if self.comm.rank == 0:
             
             # make sure we have at least one column to read
             if not len(columns):
                 raise RuntimeError("DataSource::read received no columns to read")
             
-            data = self.readall(columns)    
-            shape_and_dtype = [(d.shape, d.dtype) for d in data]
-            Ntot = len(data[0]) # columns has to have length >= 1, or we crashed already
+            data = self.simple_read(columns)    
             
             # make sure the number of rows in each column read is equal
-            if not all(len(d) == Ntot for d in data):
+            # columns has to have length >= 1, or we crashed already
+            if not all(len(d) == len(data[0]) for d in data):
                 raise RuntimeError("column length mismatch in DataSource::read")
-        else:
-            shape_and_dtype = None
-            Ntot = None
-        shape_and_dtype = comm.bcast(shape_and_dtype)
-        stat['Ntot'] = comm.bcast(Ntot)
 
-        if comm.rank != 0:
-            data = [
-                numpy.empty(0, dtype=(dtype, shape[1:]))
-                for shape,dtype in shape_and_dtype
-            ]
+            data = [self.comm.scatter(numpy.array_split(d, self.comm.size)) for d in data]
+        else:
+            data = [self.comm.scatter(None) for c in columns]
 
         yield data 
 
-import numpy
-from nbodykit.plugins import HelpFormatterColon
-from argparse import ArgumentParser
 
-@ExtensionPoint
+@ExtensionPoint(painters)
 class Painter:
     """
     Mount point for plugins which refer to the painting of input files.
@@ -279,75 +419,74 @@ class Painter:
     
     def paint(self, pm, datasource):
         """ 
-            Paint from a data source. It shall loop over self.read_and_decompose(...)
-            and paint the data in chunks.
+            Paint from a data source. 
+
+            It shall read data then use basepaint to paint.
+            
+            Returns a dictionary of attributes of the painting operation.
         """
         raise NotImplementedError
 
-    def read_and_decompose(self, pm, datasource, columns, stats):
-
-        assert 'Position' in columns
-
-        for data in datasource.read(columns, pm.comm, stats, full=False):
-            data = dict(zip(columns, data))
-            position = data['Position']
-
-            layout = pm.decompose(position)
-
-            for c in list(data.keys()):
-                data[c] = layout.exchange(data[c])
-                
-            yield [data[c] for c in columns]
-
-import sys
-import contextlib
-
-@ExtensionPoint
-class MeasurementStorage:
-
-    plugin_name = None
-    klasses = {}
-
-    def __init__(self, path):
-        self.path = path
-
-    @classmethod
-    def add_storage_klass(kls, klass):
-        kls.klasses[klass.plugin_name] = klass
-
-    @classmethod
-    def new(kls, dim, path):
-        klass = kls.klasses[dim]
-        obj = klass(path)
-        return obj
-        
-    @contextlib.contextmanager
-    def open(self):
-        if self.path and self.path != '-':
-            ff = open(self.path, 'wb')
+    def basepaint(self, pm, position, weight=None):
+        assert pm.comm == self.comm # pm must be from the same communicator!
+        layout = pm.decompose(position)
+        Nlocal = len(position)
+        position = layout.exchange(position)
+        if weight is not None:
+            weight = layout.exchange(weight)
+            pm.paint(position, weight)
         else:
-            ff = sys.stdout
-            
-        try:
-            yield ff
-        finally:
-            if ff is not sys.stdout:
-                ff.close()
-
-    def write(self, cols, data, **meta):
-        return NotImplemented
+            pm.paint(position) 
+        return Nlocal 
         
-__all__ = ['DataSource', 'Painter', 'Transfer', 'MeasurementStorage']
-
-def plugin_isinstance(string, extensionpt):
+@ExtensionPoint(algorithms)
+class Algorithm:
     """
-    Return `True` if the string representation of an extension point
-    is an instance of the extension point class `extensionpt`
-    """
-    if not hasattr(extensionpt, 'plugins'):
-        raise TypeError("please specify a valid extension point as the second argument")
-        
-    if not isinstance(string, str):
-        return False
-    return string.split(":")[0] in extensionpt.plugins.keys()
+    Mount point for plugins which provide an interface for running
+    one of the high-level algorithms, i.e, power spectrum calculation
+    or FOF halo finder
     
+    Plugins implementing this reference should provide the following 
+    attributes:
+
+    plugin_name : str
+        class attribute giving the name of the subparser which 
+        defines the necessary command line arguments for the plugin
+    
+    register : classmethod
+        A class method taking no arguments that adds a subparser
+        and the necessary command line arguments for the plugin
+    
+    __call__ : method
+        function that will apply the transfer function to the complex array
+    """        
+    def run(self):
+        raise NotImplementedError
+    
+    def save(self, *args, **kwargs):
+        raise NotImplementedError
+    
+    @classmethod
+    def parse_known_yaml(kls, name, stream):
+        """
+        Parse the known (and unknown) attributes from a YAML, where `known`
+        arguments must be part of the Algorithm.parser instance
+        """
+        # get the class for this algorithm name
+        klass = getattr(kls.registry, name)
+        
+        # get the namespace from the config file
+        return ReadConfigFile(stream, klass.schema)
+
+
+__valid__ = [DataSource, Painter, Transfer, Algorithm]
+__all__ = list(map(str, __valid__))
+
+def isplugin(name):
+    """
+    Return `True`, if `name` is a registered plugin for any extension point
+    """
+    for extensionpt in __valid__:
+        if name in extensionpt.registry: return True
+    
+    return False

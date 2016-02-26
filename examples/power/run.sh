@@ -1,12 +1,16 @@
 DIR=`dirname $0`
+echo Testing FFTPower
 cd $DIR
 [ -d ../output ] || mkdir ../output
 for fn in *.params; do
     echo testing $fn ...
-    mpirun -n 2 python ../../bin/power.py $fn || exit
-done
-
-for fn in *.argparse; do
-    echo testing $fn ...
-    mpirun -n 2 python ../../bin/power.py @$fn || exit
+    if [[ $fn == *"corr"* ]]
+    then 
+        mpirun -n 2 python ../../bin/nbkit.py FFTCorrelation $fn || exit
+    elif [[ $fn == *"bianchi"* ]]
+    then
+        mpirun -n 2 python ../../bin/nbkit.py BianchiFFTPower $fn || exit
+    else
+        mpirun -n 2 python ../../bin/nbkit.py FFTPower $fn || exit
+    fi
 done

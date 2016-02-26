@@ -129,7 +129,7 @@ class DataStorage(object):
     
         return 
 
-    def iter(self, columns, stats, bunchsize, comm):
+    def iter(self, columns, bunchsize, comm):
         """
         Parallel reading. This is a generator function and a collective 
         operation.
@@ -171,8 +171,6 @@ class DataStorage(object):
         
         # ensure every rank yields the same number of times
         # for decompose is a collective operation.
-        stats['Ntot'] = 0
-        stats['Ncurrent'] = 0
 
         Nchunk = max(comm.allgather(Nchunk))
         for i in range(Nchunk):
@@ -186,8 +184,6 @@ class DataStorage(object):
             # FIXME: we need to fix this ugly thing
             #print comm.allreduce(P['Position'].max(), op=MPI.MAX)
             #print comm.allreduce(P['Position'].min(), op=MPI.MIN)
-            stats['Ntot'] += comm.allreduce(b - a)
-            stats['Ncurrent'] += b - a
             yield data
             i = i + bunchsize
             

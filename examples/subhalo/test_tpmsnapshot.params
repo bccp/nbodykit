@@ -1,6 +1,15 @@
---linklength=0.18
---vfactor=100 
---Nmin=0
-TPMSnapshot:../data/snp00100_1.0000.bin:1380 
-HaloLabel:../output/fof00100_ll0.200_1.0000.grp
-../output/sub00100_0.180_100_1.0000.hdf5
+linklength: 0.18
+vfactor: 100 
+nmin: 0
+
+datasource:
+    plugin: TPMSnapshot
+    path: ../data/tpm_1.0000.bin
+    BoxSize: 384 
+
+halolabel:
+    plugin: HaloLabel
+    path: ../output/fof_ll0.200_1.0000.labels
+    
+    
+output: ../output/sub_0.180_100_1.0000.hdf5

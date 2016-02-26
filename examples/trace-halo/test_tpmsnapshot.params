@@ -1,4 +1,14 @@
-TPMSnapshot:../data/snp00100_1.0000.bin:1380
-TPMSnapshot:../data/snp00100_1.0000.bin:1380
-HaloLabel:../output/fof00100_ll0.200_1.0000.grp
-../output/fof00100_ll0.200_1.0000_ichalo
+dest:
+    plugin: TPMSnapshot
+    path: ../data/tpm_1.0000.bin
+    BoxSize: 384
+source:
+    plugin: TPMSnapshot
+    path: ../data/tpm_1.0000.bin
+    BoxSize: 384
+sourcelabel:
+    plugin: HaloLabel
+    path: ../output/fof_ll0.200_1.0000.labels
+    
+    
+output: ../output/fof_ll0.200_1.0000_ichalo.hdf5

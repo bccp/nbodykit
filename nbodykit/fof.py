@@ -13,7 +13,7 @@ import logging
 
 logger = logging.getLogger('measurestats')
 
-def assign_halo_label(data, comm, thresh):
+def fof_halo_label(minid, comm, thresh):
     """ 
     Convert minid to sequential labels starting from 0.
 
@@ -39,11 +39,17 @@ def assign_halo_label(data, comm, thresh):
         particles that are in halos that contain less than thresh particles.
     
     """
-    data['origind'] = numpy.arange(len(data), dtype='i4')
+    data = numpy.empty(len(minid), dtype=[
+            ('origind', 'u8'), 
+            ('fofid', 'u8'),
+            ])
+    # assign origind for recovery of ordering, since
+    # we need to work in sorted fofid 
+    data['fofid'] = minid
+    data['origind'] = numpy.arange(len(data), dtype='u4')
     data['origind'] += sum(comm.allgather(len(data))[:comm.rank]) \
  
     data = DistributedArray(data, comm)
-
 
     # first attempt is to assign fofid for each group
     data.sort('fofid')
@@ -52,7 +58,7 @@ def assign_halo_label(data, comm, thresh):
     N = label.bincount()
     
     # now eliminate those with less than thresh particles
-    small = N.local <= 32
+    small = N.local <= thresh
 
     Nlocal = label.bincount(local=True)
     # mask == True for particles in small halos
@@ -67,123 +73,46 @@ def assign_halo_label(data, comm, thresh):
 
     data.sort('fofid')
 
-    label = data['fofid'].unique_labels() 
-
-    data['fofid'].local[:] = label.local[:]
+    data['fofid'].local[:] = data['fofid'].unique_labels().local[:]
 
     data.sort('origind')
     
-    label = data['fofid'].local.view('i8')
+    label = data['fofid'].local.view('i8').copy()
+    
+    del data
 
     Nhalo0 = max(comm.allgather(label.max())) + 1
-
     Nlocal = numpy.bincount(label, minlength=Nhalo0)
     comm.Allreduce(MPI.IN_PLACE, Nlocal, op=MPI.SUM)
 
     # sort the labels by halo size
     arg = Nlocal[1:].argsort()[::-1] + 1
-    P = numpy.arange(Nhalo0)
-    P[arg] = numpy.arange(len(arg)) + 1
+    P = numpy.arange(Nhalo0, dtype='i4')
+    P[arg] = numpy.arange(len(arg), dtype='i4') + 1
     label = P[label]
         
     return label
 
-def local_fof(pos, ll):
-    data = cluster.dataset(pos, boxsize=1.0)
+def local_fof(layout, pos, boxsize, ll, comm):
+    N = len(pos)
+
+    pos = layout.exchange(pos)
+    data = cluster.dataset(pos, boxsize=boxsize)
     fof = cluster.fof(data, linking_length=ll, np=0)
     labels = fof.labels
-    return labels
+    del fof
 
-def fof(datasource, linking_length, nmin, comm=MPI.COMM_WORLD, return_labels=False, log_level=logging.DEBUG):
-    """ Run Friend-of-friend halo finder.
+    PID = numpy.arange(N, dtype='intp')
+    PID += sum(comm.allgather(N)[:comm.rank])
 
-        Friend-of-friend was first used by Davis et al 1985 to define
-        halos in hierachical structure formation of cosmological simulations.
-        The algorithm is also known as DBSCAN in computer science. 
-        The subroutine here implements a parallel version of the FOF. 
-
-        The underlying local FOF algorithm is from `kdcount.cluster`, 
-        which is an adaptation of the implementation in Volker Springel's 
-        Gadget and Martin White's PM. It could have been done faster.
-
-        Parameters
-        ----------
-        datasource: DataSource
-            datasource; must support Position and Velocity.
-            datasource.BoxSize is used too.
-        linking_length: float
-            linking length in terms of mean particle seperation.
-            Typical values are 0.2 or 0.168.
-        nmin: int
-            Minimal length (number of particles) of a halo. Features
-            with less than nmin particles are considered noise, and
-            removed from the catalogue
-        return_labels: boolean
-            If true, return the labels. The labels can be a large chunk
-            of memory. Default: False
-
-        comm: MPI.Comm
-            The mpi communicator.
-
-        Returns
-        -------
-        catalogue: array_like
-            A 1-d array of type 'Position', 'Velocity', 'Length'. 
-            The center mass position and velocity of the FOF halo, and
-            Length is the number of particles in a halo. The catalogue is
-            sorted such that the most massive halo is first. catalogue[0]
-            does not correspond to any halo.
-
-        label: array_like
-            The halo label of each particle, as the sequence they were
-            in the data source. A label of 0 standands for not in any halo.
- 
-    """
-    if log_level is not None: logger.setLevel(log_level)
-
-    np = split_size_2d(comm.size)
-
-    grid = [
-        numpy.linspace(0, 1.0, np[0] + 1, endpoint=True),
-        numpy.linspace(0, 1.0, np[1] + 1, endpoint=True),
-    ]
-    domain = GridND(grid)
-
-    if comm.rank == 0: logger.debug('grid: %s' % str(grid))
-
-    # read in all !
-    stats = {}
-    [[Position]] = datasource.read(['Position'], comm, stats, full=True)
-    Position /= datasource.BoxSize
-
-    Ntot = stats['Ntot']
-
-    if comm.rank == 0: logger.debug('Ntot: %d' % Ntot)
-
-    ll = linking_length * Ntot ** -0.3333333
-
-    Nread = len(Position)
-
-    layout = domain.decompose(Position, smoothing=ll * 1)
-    Position = layout.exchange(Position)
-
-    comm.barrier()
-    if comm.rank == 0: logger.info("Starting local fof.")
-
-    labels = local_fof(Position, ll)
-    del Position
-
-    comm.barrier()
-    if comm.rank == 0: logger.info("Finished local fof.")
-    # local done. now do the global stuff.
-
-    ID = numpy.arange(Nread, dtype='intp')
-    ID += sum(comm.allgather(Nread)[:comm.rank])
-
-    ID = layout.exchange(ID)
+    PID = layout.exchange(PID)
     # initialize global labels
-    minid = equiv_class(labels, ID, op=numpy.fmin)[labels]
-    del ID
+    minid = equiv_class(labels, PID, op=numpy.fmin)[labels]
+
+    return minid
+
+def fof_merge(layout, minid, comm):
+    # generate global halo id
 
     while True:
         # merge, if a particle belongs to several ranks
@@ -207,77 +136,174 @@ def fof(datasource, linking_length, nmin, comm=MPI.COMM_WORLD, return_labels=Fal
         old = old[arg]
         replacesorted(minid, old, new, out=minid)
 
+    minid = layout.gather(minid, mode=numpy.fmin)
+    return minid
+
+def fof(datasource, linking_length, nmin, comm=MPI.COMM_WORLD, log_level=logging.DEBUG):
+    """ Run Friend-of-friend halo finder.
+
+        Friend-of-friend was first used by Davis et al 1985 to define
+        halos in hierachical structure formation of cosmological simulations.
+        The algorithm is also known as DBSCAN in computer science. 
+        The subroutine here implements a parallel version of the FOF. 
+
+        The underlying local FOF algorithm is from `kdcount.cluster`, 
+        which is an adaptation of the implementation in Volker Springel's 
+        Gadget and Martin White's PM. It could have been done faster.
+
+        Parameters
+        ----------
+        datasource: DataSource
+            datasource; must support Position.
+            datasource.BoxSize is used too.
+        linking_length: float
+            linking length in data units. (Usually Mpc/h).
+        nmin: int
+            Minimal length (number of particles) of a halo. Features
+            with less than nmin particles are considered noise, and
+            removed from the catalogue
+
+        comm: MPI.Comm
+            The mpi communicator.
+
+        Returns
+        -------
+        label: array_like
+            The halo label of each position. A label of 0 standands for not in any halo.
+ 
+    """
+    if log_level is not None: logger.setLevel(log_level)
+
+    np = split_size_3d(comm.size)
+
+    grid = [
+        numpy.linspace(0, datasource.BoxSize[0], np[0] + 1, endpoint=True),
+        numpy.linspace(0, datasource.BoxSize[1], np[1] + 1, endpoint=True),
+        numpy.linspace(0, datasource.BoxSize[2], np[2] + 1, endpoint=True),
+    ]
+    domain = GridND(grid)
+
+    [[Position]] = datasource.read(['Position'], full=True)
+
+    if comm.rank == 0: logger.info("ll %g. " % linking_length)
+    if comm.rank == 0: logger.debug('grid: %s' % str(grid))
+
+    layout = domain.decompose(Position, smoothing=linking_length * 1)
+
+    comm.barrier()
+    if comm.rank == 0: logger.info("Starting local fof.")
+
+    minid = local_fof(layout, Position, datasource.BoxSize, linking_length, comm)
+    
+    comm.barrier()
+    if comm.rank == 0: logger.info("Finished local fof.")
+
     if comm.rank == 0: logger.info("Merged global FOF.")
 
-    minid = layout.gather(minid, mode=numpy.fmin)
+    minid = fof_merge(layout, minid, comm)
     del layout
+    # sort calculate halo catalogue
+    label = fof_halo_label(minid, comm, thresh=nmin)
 
-    # calculate halo catalogue
+    return label
 
-    Nitem = len(minid)
+def fof_catalogue(datasource, label, comm, calculate_initial=False):
+    """ Catalogue of FOF groups based on label from a data source
 
-    data = numpy.empty(Nitem, dtype=[
-            ('origind', 'u8'), 
-            ('fofid', 'u8'),
-            ])
-    # assign origind for recovery of ordering, since
-    # we need to work in sorted fofid 
-    data['fofid'] = minid
-    del minid
+        Friend-of-friend was first used by Davis et al 1985 to define
+        halos in hierachical structure formation of cosmological simulations.
+        The algorithm is also known as DBSCAN in computer science. 
+        The subroutine here implements a parallel version of the FOF. 
 
-    label = assign_halo_label(data, comm, thresh=nmin)
-    label = label.copy()
-    del data
-    N = halos.count(label, comm=comm)
+        The underlying local FOF algorithm is from `kdcount.cluster`, 
+        which is an adaptation of the implementation in Volker Springel's 
+        Gadget and Martin White's PM. It could have been done faster.
 
-    [[Position]] = datasource.read(['Position'], comm, stats, full=True)
+        Parameters
+        ----------
+        label : array_like
+            halo label of particles from data source. 
 
-    Position /= datasource.BoxSize
-    hpos = halos.centerofmass(label, Position, boxsize=1.0, comm=comm)
-    del Position
+        datasource: DataSource
+            datasource; must support Position and Velocity.
+            datasource.BoxSize is used too.
 
-    [[Velocity]] = datasource.read(['Velocity'], comm, stats, full=True)
-    Velocity /= datasource.BoxSize
+        comm: MPI.Comm
+            The mpi communicator. Must agree with the datasource
 
-    hvel = halos.centerofmass(label, Velocity, boxsize=None, comm=comm)
-    del Velocity
-
-    if comm.rank == 0: logger.info("Calculated catalogue %d halos found. " % (len(N) -1 ))
-    if comm.rank == 0: logger.info("Length = %s " % N[1:])
-    if comm.rank == 0: logger.info("%d particles not in halo" % N[0])
-
+        Returns
+        -------
+        catalogue: array_like
+            A 1-d array of type 'Position', 'Velocity', 'Length'. 
+            The center mass position and velocity of the FOF halo, and
+            Length is the number of particles in a halo. The catalogue is
+            sorted such that the most massive halo is first. catalogue[0]
+            does not correspond to any halo.
+ 
+    """
     dtype=[
         ('Position', ('f4', 3)),
         ('Velocity', ('f4', 3)),
         ('Length', 'i4')]
 
+    N = halos.count(label, comm=comm)
+
+    [[Position]] = datasource.read(['Position'], full=True)
+    Position /= datasource.BoxSize
+    hpos = halos.centerofmass(label, Position, boxsize=1.0, comm=comm)
+    del Position
+
+    [[Velocity]] = datasource.read(['Velocity'], full=True)
+    Velocity /= datasource.BoxSize
+
+    hvel = halos.centerofmass(label, Velocity, boxsize=None, comm=comm)
+    del Velocity
+
+    if calculate_initial:
+
+        dtype.append(('InitialPosition', ('f4', 3)))
+
+        [[Position]] = datasource.read(['InitialPosition'], full=True)
+        Position /= datasource.BoxSize
+        hpos_init = halos.centerofmass(label, Position, boxsize=1.0, comm=comm)
+        del Position
+
+    if comm.rank == 0: logger.info("Calculated catalogue %d halos found. " % (len(N) -1 ))
+    if comm.rank == 0: logger.info("Length = %s " % N[1:])
+    if comm.rank == 0: logger.info("%d particles not in halo" % N[0])
+
+
     if comm.rank == 0:
         catalogue = numpy.empty(shape=len(N), dtype=dtype)
-    
+
         catalogue['Position'] = hpos
         catalogue['Velocity'] = hvel
         catalogue['Length'] = N
         catalogue['Length'][0] = 0
+        if calculate_initial:
+            catalogue['InitialPosition'] = hpos_init
     else:
         catalogue = numpy.empty(shape=0, dtype=dtype)
         
-    if return_labels:
-        label = numpy.int32(label)
-        return catalogue, label
-    else:
-        return catalogue
+    return catalogue
 
-def split_size_2d(s):
+def split_size_3d(s):
     """ Split `s` into two integers, 
         a and d, such that a * d == s and a <= d
 
         returns:  a, d
     """
-    a = int(s** 0.5) + 1
+    a = int(s** 0.33333) + 1
     d = s
     while a > 1:
         if s % a == 0:
-            d = s // a
+            s = s // a
             break
         a = a - 1 
-    return a, d
+    b = int(s**0.5) + 1
+    while b > 1:
+        if s % b == 0:
+            s = s // b
+            break
+        b = b - 1
+    return a, b, s

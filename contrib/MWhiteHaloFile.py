@@ -49,32 +49,36 @@ class MWhiteHaloFile(object):
     def read_pos(self):
         with open(self.filename, 'r') as ff:
             ff.seek(4 + 5*self._nhalo * 4, 0)
-            return numpy.fromfile(ff, count=self._nhalo, dtype=('f4', 3))[1:]
+            dtype = numpy.dtype(('f4', 3))
+            return numpy.fromfile(ff, count=self._nhalo, dtype=dtype)[1:]
 
     def read_vel(self):
         with open(self.filename, 'r') as ff:
             ff.seek(4 + 10*self._nhalo * 4, 0)
-            return numpy.fromfile(ff, count=self._nhalo, dtype=('f4', 3))[1:]
+            dtype = numpy.dtype(('f4', 3))
+            return numpy.fromfile(ff, count=self._nhalo, dtype=dtype)[1:]
             
             
 #------------------------------------------------------------------------------          
 class MWhiteHaloFileDataSource(DataSource):
     plugin_name = "MWhiteHaloFile"
     
-    @classmethod
-    def register(kls):
+    def __init__(self, path, BoxSize, rsd=None, select=None):
+        pass
         
-        h = kls.parser
-        h.add_argument("path", help="path to file")
-        h.add_argument("BoxSize", type=kls.BoxSizeParser,
+    @classmethod
+    def register(cls):
+        
+        s = cls.schema
+        s.add_argument("path", help="the path to the file to read")
+        s.add_argument("BoxSize", type=cls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
-            
-        h.add_argument("-rsd", 
-            choices="xyz", help="direction to do redshift distortion")
-        h.add_argument("-select", default=None, type=selectionlanguage.Query,
+        s.add_argument("rsd", choices="xyz", 
+            help="direction to do redshift distortion")
+        s.add_argument("select", type=selectionlanguage.Query,
             help='row selection based on logmass, e.g. LogMass > 13 and LogMass < 15')
     
-    def readall(self, columns):
+    def simple_read(self, columns):
         dtype = numpy.dtype([
             ('Position', ('f4', 3)),
             ('Velocity', ('f4', 3)),

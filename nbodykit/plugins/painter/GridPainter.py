@@ -11,10 +11,13 @@ class GridPainter(Painter):
     mesh
     """
     plugin_name = "GridPainter"
+    
+    def __init__(self):
+        pass
 
     @classmethod
-    def register(kls):
-        h = kls.parser
+    def register(cls):
+        pass
         
     def paint(self, pm, datasource):
         """
@@ -60,5 +63,5 @@ class GridPainter(Painter):
                         args = (pm.Nmesh, str(e))
                         raise ValueError("cannot read binary file using `Nmesh = %d`; original message: %s" %args)
                         
-        return 0
+        return {}
             

@@ -4,94 +4,64 @@ import logging
 from nbodykit.utils import selectionlanguage
 
 logger = logging.getLogger('Pandas')
-
-def list_str(value):
-    return value.split()
          
 class PandasDataSource(DataSource):
     """
-    Class to read field data from a Pandas data file
-    and paint the field onto a density grid. 
-    File types are guessed from the file name extension, or
-    specified via `-ftype` commandline argument.  
-    For text files, the data is read using `pandas.read_csv`. 
-    For HDF5 files (.hdf5), the data is read using `pandas.read_hdf5`.
+    Class to read data from a plaintext file using
+    `pandas.read_csv` or a 'pandas-flavored' `HDF5` file
+    using `pandas.read_hdf`
     
-    Data is stored internally in a `pandas.DataFrame`. 
+    Reading method is guessed from the file type, or
+    specified via the `ftype` argument. 
 
     Notes
     -----
-    * `pandas` must be installed to use
-    * data file is assumed to be space-separated
-    * commented lines must begin with `#`, with all other lines
-    providing data values to be read
-    * `names` parameter must be equal to the number of data
-    columns, otherwise behavior is undefined
-    
-    Parameters
-    ----------
-    path    : str
-        the path of the file to read the data from 
-    names   : list of str
-        For text files, one or more strings specifying the names of the data
-        columns. Shape must be equal to number of columns
-        in the field, otherwise, behavior is undefined.
-        For hdf5 files, the name of the pandas data group.
-    BoxSize : float or array_like (3,)
-        the box size, either provided as a single float (isotropic)
-        or an array of the sizes of the three dimensions
-    usecols : list of str, optional
-         if not None, only these columns will be read from file
-    poscols : list of str, optional
-        list of three column names to treat as the position data
-    velcols : list of str, optional
-        list of three column names to treat as the velociy data
-    rsd     : [x|y|z], optional
-        direction to do the redshift space distortion
-    posf    : float, optional
-        multiply the position data by this factor
-    velf    : float, optional
-        multiply the velocity data by this factor
-    select  : str, optional
-        string specifying how to select a subset of data, based
-        on the column names. For example, if there are columns
-        `type` and `mass`, you could specify 
-        select= "type == central and mass > 1e14"
+    *   `pandas` must be installed to use
+    *   when reading plaintext files, the file is assumed to be space-separated
+    *   commented lines must begin with `#`, with all other lines
+        providing data values to be read
+    *   `names` parameter must be equal to the number of data
+        columns, otherwise behavior is undefined
     """
     plugin_name = "Pandas"
     
-    @classmethod
-    def register(kls):
-        
-        h = kls.parser
-        
-        h.add_argument("path", help="path to file")
-        h.add_argument("names", type=list_str, 
-            help="names of columns in text file or name of the data group in hdf5 file")
-        h.add_argument("BoxSize", type=kls.BoxSizeParser,
-            help="the size of the isotropic box, or the sizes of the 3 box dimensions")
-                
-        h.add_argument("-usecols", type=list_str, 
-            metavar="x y z",
-            help="only read these columns from file")
-        h.add_argument("-poscols", type=list_str, default=['x','y','z'], 
-            metavar="x y z",
-            help="names of the position columns")
-        h.add_argument("-velcols", type=list_str, default=None,
-            metavar="vx vy vz",
-            help="names of the velocity columns")
-        h.add_argument("-rsd", choices="xyz", 
-            help="direction to do redshift distortion")
-        h.add_argument("-posf", default=1., type=float, 
-            help="factor to scale the positions")
-        h.add_argument("-velf", default=1., type=float, 
-            help="factor to scale the velocities")
-        h.add_argument("-select", default=None, type=selectionlanguage.Query, 
-            help='row selection based on conditions specified as string')
-        h.add_argument("-ftype", default='auto', choices=['hdf5', 'text', 'auto'], 
-            help='Format of the Pandas storage container. auto is to guess from the file name.')
+    def __init__(self, path, names, BoxSize, 
+                    usecols=None, poscols=['x','y','z'], velcols=None, 
+                    rsd=None, posf=1., velf=1., select=None, ftype='auto'):        
+        pass
     
-    def readall(self, columns):
+    @classmethod
+    def register(cls):
+        """
+        Fill the attribute schema associated with this class
+        """
+        s = cls.schema
+        s.description = "read data from a plaintext or HDF5 file using Pandas"
+        
+        s.add_argument("path", type=str,
+            help="the file path to load the data from")
+        s.add_argument("names", type=str, nargs='+', 
+            help="names of columns in text file or name of the data group in hdf5 file")
+        s.add_argument("BoxSize", type=cls.BoxSizeParser,
+            help="the size of the isotropic box, or the sizes of the 3 box dimensions")
+        s.add_argument("usecols", type=str, nargs='*', 
+            help="only read these columns from file")
+        s.add_argument("poscols", type=str, nargs=3,
+            help="names of the position columns")
+        s.add_argument("velcols", type=str, nargs=3,
+            help="names of the velocity columns")
+        s.add_argument("rsd", type=str, choices="xyz", 
+            help="direction to do redshift distortion")
+        s.add_argument("posf", type=float, 
+            help="factor to scale the positions")
+        s.add_argument("velf", type=float, 
+            help="factor to scale the velocities")
+        s.add_argument("select", type=selectionlanguage.Query, 
+            help='row selection based on conditions specified as string, i.e., "Mass > 1e14"')
+        s.add_argument("ftype", choices=['hdf5', 'text', 'auto'], 
+            help='format of the Pandas storage container. auto is to guess from the file name.')
+    
+    def simple_read(self, columns):
         try:
             import pandas as pd
         except:
@@ -103,11 +73,12 @@ class PandasDataSource(DataSource):
                 self.ftype = 'hdf5'
             else: 
                 self.ftype = 'text'
+                
+        # read in the hdf5 file using pandas
         if self.ftype == 'hdf5':
-            # read in the hdf5 file using pandas
             data = pd.read_hdf(self.path, self.names[0], columns=self.usecols)
+        # read in the plain text file using pandas
         elif self.ftype == 'text':
-            # read in the plain text file using pandas
             kwargs = {}
             kwargs['comment'] = '#'
             kwargs['names'] = self.names

@@ -1,6 +1,11 @@
-1d
-../output/test_corr_1d_mwhite_halo.dat
-120
-20
-MWhiteHaloFile:../data/mwhite_halo.fofp:1380.:-rsd=z
--X=../../contrib/MWhiteHaloFile.py
+mode: 1d
+rbins: 'linspace: 0 120 20'
+
+field:
+    plugin: MWhiteHaloFile
+    path: ../data/mwhite_halo.fofp
+    BoxSize: 1380.
+    rsd: z
+    
+X: ../../contrib/MWhiteHaloFile.py
+output: ../output/test_corr_1d_mwhite_halo.dat

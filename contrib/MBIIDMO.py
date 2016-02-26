@@ -9,23 +9,23 @@ logger = logging.getLogger('MBIIDMO')
 class DataSourcePlugin(DataSource):
     plugin_name = "MBIIDMO"
     
+    def __init__(self, path, simulation, type, BoxSize, 
+                    rsd=None, posf=0.001, velf=0.001, select=None):
+        pass
+    
     @classmethod
-    def register(kls):
-        h = kls.parser
+    def register(cls):
+        s = cls.schema
         
-        h.add_argument("path", help="path to file")
-        h.add_argument("simulation", help="name of simulation", choices=["dmo", "mb2"])
-        h.add_argument("type", help="type of objects", choices=["Centrals", "Satellites", "Both"])
-        h.add_argument("BoxSize", type=kls.BoxSizeParser,
+        s.add_argument("path", help="path to file")
+        s.add_argument("simulation", help="name of simulation", choices=["dmo", "mb2"])
+        s.add_argument("type", help="type of objects", choices=["Centrals", "Satellites", "Both"])
+        s.add_argument("BoxSize", type=cls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
-            
-        h.add_argument("-rsd", 
-            choices="xyz", default=None, help="direction to do redshift distortion")
-        h.add_argument("-posf", default=0.001, 
-                help="factor to scale the positions", type=float)
-        h.add_argument("-velf", default=0.001, 
-                help="factor to scale the velocities", type=float)
-        h.add_argument("-select", default=None, type=selectionlanguage.Query,
+        s.add_argument("-rsd", choices="xyz", help="direction to do redshift distortion")
+        s.add_argument("-posf", type=float, help="factor to scale the positions")
+        s.add_argument("-velf", type=float, help="factor to scale the velocities")
+        s.add_argument("-select", type=selectionlanguage.Query,
             help="row selection based on logmass or subtype, e.g. logmass > 13 and logmass < 15 and subtype == 'A'")
 
     def read_block(self, block, dtype, optional=False):

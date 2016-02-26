@@ -3,21 +3,31 @@ from nbodykit import files
 import numpy
 
 class TPMSnapshotDataSource(DataSource):
+    """
+    DataSource to read snapshot files from Martin White's TPM simulations
+    """
     plugin_name = "TPMSnapshot"
     
-    @classmethod
-    def register(kls):
-        
-        h = kls.parser
-        h.add_argument("path", help="path to file")
-        h.add_argument("BoxSize", type=kls.BoxSizeParser,
-            help="the size of the isotropic box, or the sizes of the 3 box dimensions")
-        h.add_argument("-rsd", 
-            choices="xyz", default=None, help="direction to do redshift distortion")
-        h.add_argument("-bunchsize", type=int, 
-                default=1024*1024*4, help="number of particles to read per rank in a bunch")
+    def __init__(self, path, BoxSize, rsd=None, bunchsize=4*1024*1024):
+        if self.comm.rank == 0:
+            datastorage = files.DataStorage(self.path, files.TPMSnapshotFile)
+            self.TotalLength = sum(datastorage.npart)
+        else:
+            self.TotalLength = None
+        self.TotalLength = self.comm.bcast(self.TotalLength)
 
-    def read(self, columns, comm, stats, full=False):
+    @classmethod
+    def register(cls):
+        
+        s = cls.schema
+        s.description = "read snapshot files from Martin White's TPM"
+        s.add_argument("path", type=str, help="the file path to load the data from")
+        s.add_argument("BoxSize", type=cls.BoxSizeParser,
+            help="the size of the isotropic box, or the sizes of the 3 box dimensions")
+        s.add_argument("rsd", choices="xyz", help="direction to do redshift distortion")
+        s.add_argument("bunchsize", type=int, help="number of particles to read per rank in a bunch")
+
+    def read(self, columns, full=False):
         """ read data in parallel. if Full is True, neglect bunchsize. """
         Ntot = 0
         # avoid reading Velocity if RSD is not requested.
@@ -38,23 +48,23 @@ class TPMSnapshotDataSource(DataSource):
         bunchsize = self.bunchsize
         if full: bunchsize = -1
 
-        stats['Ntot'] = 0
-        if comm.rank == 0:
+        if self.comm.rank == 0:
             datastorage = files.DataStorage(self.path, files.TPMSnapshotFile)
         else:
             datastorage = None
-        datastorage = comm.bcast(datastorage)
+        datastorage = self.comm.bcast(datastorage)
 
-        for round, P in enumerate(
-                datastorage.iter(stats=stats, comm=comm, 
+        for round, P0 in enumerate(
+                datastorage.iter(comm=self.comm, 
                     columns=newcolumns, bunchsize=bunchsize)):
-            P = dict(zip(newcolumns, P))
+            P = dict(zip(newcolumns, P0))
             if 'Position' in P:
                 P['Position'] *= self.BoxSize
             if 'Velocity' in P:
                 P['Velocity'] *= self.BoxSize
 
-            P['Mass'] = numpy.ones(stats['Ncurrent'], dtype='u1')
+            P['Mass'] = numpy.ones(len(P0[0]), dtype='u1')
+
             if self.rsd is not None:
                 dir = "xyz".index(self.rsd)
                 P['Position'][:, dir] += P['Velocity'][:, dir]
@@ -62,4 +72,3 @@ class TPMSnapshotDataSource(DataSource):
 
             yield [P[key] for key in columns]
 
-#------------------------------------------------------------------------------

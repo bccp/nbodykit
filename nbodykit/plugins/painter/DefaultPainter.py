@@ -7,10 +7,13 @@ logger = logging.getLogger('DefaultPainter')
 class DefaultPainter(Painter):
     plugin_name = "DefaultPainter"
 
+    def __init__(self, weight=None):
+        pass
+        
     @classmethod
-    def register(kls):
-        h = kls.parser
-        h.add_argument("-weight", default=None, help="column for the weight")
+    def register(cls):
+        s = cls.schema
+        s.add_argument("weight", help="the column giving the weight for each object")
 
     def paint(self, pm, datasource):
         """
@@ -33,12 +36,13 @@ class DefaultPainter(Painter):
         pm.real[:] = 0
         stats = {}
 
+        Nlocal = 0
         if self.weight is None:
-            for [position] in self.read_and_decompose(pm, datasource, ['Position'], stats):
-                pm.paint(position)
+            for [position] in datasource.read(['Position']):
+                Nlocal += self.basepaint(pm, position)
         else:
-            for position, weight in self.read_and_decompose(pm, datasource, ['Position', self.weight], stats):
-                pm.paint(position, weight)
-
-        return stats['Ntot']
+            for position, weight in datasource.read(['Position', self.weight]):
+                Nlocal += self.basepaint(pm, position, weight)
+        stats['Ntot'] = self.comm.allreduce(Nlocal)
+        return stats
             
