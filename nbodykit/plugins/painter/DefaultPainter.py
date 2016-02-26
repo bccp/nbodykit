@@ -29,8 +29,8 @@ class DefaultPainter(Painter):
             
         Returns
         -------
-        Ntot : int
-            the total number of objects, as determined by painting
+        stats : dict
+            dictionary of statistics, usually only containing `Ntot`
         """
 
         pm.real[:] = 0

@@ -71,8 +71,3 @@ class RemoveDC(Transfer):
             ind.append((wi == 0).nonzero()[0][0])
         ind = tuple(ind)
         complex[ind] = 0.
-            
-
-
-        
-            
