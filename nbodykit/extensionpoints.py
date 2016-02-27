@@ -15,6 +15,7 @@
 """
 import numpy
 from nbodykit.utils.config import autoassign, ConstructorSchema, ReadConfigFile
+from nbodykit.distributedarray import ScatterArray
 from argparse import Namespace
 
 # MPI will be required because
@@ -388,12 +389,16 @@ class DataSource:
             # columns has to have length >= 1, or we crashed already
             if not all(len(d) == len(data[0]) for d in data):
                 raise RuntimeError("column length mismatch in DataSource::read")
-
-            data = [self.comm.scatter(numpy.array_split(d, self.comm.size)) for d in data]
+            
         else:
-            data = [self.comm.scatter(None) for c in columns]
+            data = [None for c in columns]
+        
+        
+        newdata = []
+        for d in data:
+            newdata.append(ScatterArray(d, self.comm, root=0))
 
-        yield data 
+        yield newdata 
 
 
 @ExtensionPoint(painters)
