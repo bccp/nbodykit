@@ -25,8 +25,12 @@ def ScatterArray(data, comm, root=0):
         the chunk of `data` that each rank gets
     """
     if comm.rank == root:
-        if data is None: 
-            raise ValueError("data should not be `None` on root in ScatterArray")
+        if not isinstance(data, numpy.ndarray): 
+            raise ValueError("`data` must by numpy array on root in ScatterArray")
+        
+        # need C-contiguous order
+        if not data.flags['C_CONTIGUOUS']:
+            data = numpy.ascontiguousarray(data)
         shape_and_dtype = (data.shape, data.dtype)
     else:
         shape_and_dtype = None
