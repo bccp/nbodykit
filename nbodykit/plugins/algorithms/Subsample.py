@@ -100,8 +100,6 @@ class Subsample(Algorithm):
             data = numpy.empty(Nkeep, dtype=dtype)
             data['Position'][:] = Position[keep]
             data['Velocity'][:] = Velocity[keep]       
-            data['Position'][:] /= self.datasource.BoxSize
-            data['Velocity'][:] /= self.datasource.BoxSize
             data['ID'][:] = ID[keep] 
 
             layout = pm.decompose(data['Position'])
@@ -109,6 +107,9 @@ class Subsample(Algorithm):
             density1 = pm.readout(pos1)
             density = layout.gather(density1)
 
+            # normalize the position after reading out density!
+            data['Position'][:] /= self.datasource.BoxSize
+            data['Velocity'][:] /= self.datasource.BoxSize
             data['Density'][:] = density
             subsample.append(data)
              
