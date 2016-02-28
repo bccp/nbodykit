@@ -91,7 +91,7 @@ class TracerCatalogDataSource(DataSource):
         coords_min = self.comm.gather(coords_min)
         coords_max = self.comm.gather(coords_max)
         redshifts  = self.comm.gather(redshifts)
-        N_data     = self.comm.gather(N_data)
+        N_data     = self.comm.reduce(N_data)
         
         # only rank zero does the work, then broadcast
         if self.comm.rank == 0:
