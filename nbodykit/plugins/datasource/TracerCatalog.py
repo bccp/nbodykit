@@ -81,11 +81,17 @@ class TracerCatalogDataSource(DataSource):
             
                 # store redshifts
                 redshifts += list(z)
-                
+        
+        # need N_data
+        N_data = 0
+        for [Position] in self.data.read(['Position'], full=False):
+            N_data += len(Position)
+        
         # gather everything to root
         coords_min = self.comm.gather(coords_min)
         coords_max = self.comm.gather(coords_max)
-        redshifts = self.comm.gather(redshifts)
+        redshifts  = self.comm.gather(redshifts)
+        N_data     = self.comm.gather(N_data)
         
         # only rank zero does the work, then broadcast
         if self.comm.rank == 0:
@@ -99,7 +105,7 @@ class TracerCatalogDataSource(DataSource):
             self._define_box(coords_min, coords_max)
     
             # compute the number density from the data
-            self._set_nbar(numpy.array(redshifts), alpha=1.0)
+            self._set_nbar(numpy.array(redshifts), alpha=1.*N_data/len(redshifts))
             
         # broadcast the results that rank 0 computed
         self.BoxSize   = self.comm.bcast(self.BoxSize)
