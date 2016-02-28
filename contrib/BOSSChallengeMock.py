@@ -96,35 +96,56 @@ class BOSSChallengeBoxADataSource(BOSSChallengeMockDataSource):
     qperp = 0.998753592
     qpar = 0.9975277944
     
+    def __init__(self, path, BoxSize, scaled=False):
+        super(BOSSChallengeBoxADataSource, self).__init__(path, BoxSize, scaled)
+    
 class BOSSChallengeBoxBDataSource(BOSSChallengeMockDataSource):
     plugin_name = 'BOSSChallengeBoxB'
     qperp = 0.998753592
     qpar = 0.9975277944
+    
+    def __init__(self, path, BoxSize, scaled=False):
+        super(BOSSChallengeBoxBDataSource, self).__init__(path, BoxSize, scaled)
     
 class BOSSChallengeBoxCDataSource(BOSSChallengeMockDataSource):
     plugin_name = 'BOSSChallengeBoxC'
     qperp = 0.9875682111
     qpar = 0.9751013789
     
+    def __init__(self, path, BoxSize, scaled=False):
+        super(BOSSChallengeBoxCDataSource, self).__init__(path, BoxSize, scaled)
+    
 class BOSSChallengeBoxDDataSource(BOSSChallengeMockDataSource):
     plugin_name = 'BOSSChallengeBoxD'
     qperp = 0.9916978595
     qpar = 0.9834483344
+    
+    def __init__(self, path, BoxSize, scaled=False):
+        super(BOSSChallengeBoxDDataSource, self).__init__(path, BoxSize, scaled)
     
 class BOSSChallengeBoxEDataSource(BOSSChallengeMockDataSource):
     plugin_name = 'BOSSChallengeBoxE'
     qperp = 0.9916978595
     qpar = 0.9834483344
     
+    def __init__(self, path, BoxSize, scaled=False):
+        super(BOSSChallengeBoxEDataSource, self).__init__(path, BoxSize, scaled)
+    
 class BOSSChallengeBoxFDataSource(BOSSChallengeMockDataSource):
     plugin_name = 'BOSSChallengeBoxF'
     qperp = 0.998753592
     qpar = 0.9975277944
     
+    def __init__(self, path, BoxSize, scaled=False):
+        super(BOSSChallengeBoxFDataSource, self).__init__(path, BoxSize, scaled)
+    
 class BOSSChallengeBoxGDataSource(BOSSChallengeMockDataSource):
     plugin_name = 'BOSSChallengeBoxG'
     qperp = 0.998753592
     qpar = 0.9975277944
+    
+    def __init__(self, path, BoxSize, scaled=False):
+        super(BOSSChallengeBoxGDataSource, self).__init__(path, BoxSize, scaled)
 
 
 class BOSSChallengeNSeriesDataSource(DataSource):
