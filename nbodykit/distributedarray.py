@@ -2,6 +2,68 @@ import numpy
 import mpsort
 from mpi4py import MPI
 
+def ScatterArray(data, comm, root=0):
+    """
+    Scatter the input data array across all ranks, assuming `data` is 
+    initially only on `root` (and `None` on other ranks)
+    
+    This uses `Scatterv`, which avoids mpi4py pickling, and also
+    avoids the 2 GB mpi4py limit for bytes using a custom datatype
+    
+    Parameters
+    ----------
+    data : array_like or None
+        on `root`, this gives the data to split and scatter 
+    comm : MPI communicator
+        the MPI communicator
+    root : int
+        the rank number that initially has the data
+        
+    Returns
+    -------
+    recvbuffer : array_like
+        the chunk of `data` that each rank gets
+    """
+    if comm.rank == root:
+        if not isinstance(data, numpy.ndarray): 
+            raise ValueError("`data` must by numpy array on root in ScatterArray")
+        
+        # need C-contiguous order
+        if not data.flags['C_CONTIGUOUS']:
+            data = numpy.ascontiguousarray(data)
+        shape_and_dtype = (data.shape, data.dtype)
+    else:
+        shape_and_dtype = None
+        
+    # each rank needs shape/dtype of input data
+    shape, dtype = comm.bcast(shape_and_dtype)
+    
+    # initialize empty data on non-root ranks
+    if comm.rank != root:
+        data = numpy.empty(0, dtype=(dtype, shape[1:]))
+
+    # setup the custom dtype 
+    duplicity = numpy.product(numpy.array(shape[1:], 'intp'))
+    itemsize = duplicity * dtype.itemsize
+    dt = MPI.BYTE.Create_contiguous(itemsize)
+    dt.Commit()
+    
+    # compute the new shape for each rank
+    newshape = list(shape)
+    newlength = shape[0] // comm.size
+    if comm.size < shape[0] % comm.size:
+        newlength += 1
+    newshape[0] = newlength
+
+    # the return array
+    recvbuffer = numpy.empty(newshape, dtype=dtype, order='C')
+
+    # scatter into recvbuffer, with the specified counts/offsets
+    counts = comm.allgather(newlength)
+    offsets = comm.allgather(sum(counts[:comm.rank]))
+    comm.Scatterv([data, (counts, offsets), dt], [recvbuffer, dt])
+    return recvbuffer
+
 class EmptyRankType(object):
     def __repr__(self):
         return "EmptyRank"
