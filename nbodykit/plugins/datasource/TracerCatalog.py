@@ -70,9 +70,9 @@ class TracerCatalogDataSource(DataSource):
         coords_min = numpy.array([numpy.inf]*3)
         coords_max = numpy.array([-numpy.inf]*3)
         
-        # read the data in parallel
+        # read the randoms in parallel
         redshifts = []
-        for [coords, z] in self.data.read(['Position', 'Redshift'], full=False):
+        for [coords, z] in self.randoms.read(['Position', 'Redshift'], full=False):
             
             # global min/max of cartesian
             if len(coords):
