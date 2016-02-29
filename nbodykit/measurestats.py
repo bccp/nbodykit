@@ -223,6 +223,10 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
     result = []
     result.append(A0)
     
+    # the x grid points (at point centers)
+    cell_size = pm.BoxSize / pm.Nmesh
+    xgrid = [(xi+0.5)*cell_size[i] for i, xi in enumerate(pm.x)]
+    
     for iell, ell in enumerate(ells[1:]):
         A_ell = numpy.zeros_like(pm.complex)
         
@@ -232,7 +236,7 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
             pm.real[:] = density[:]
         
             # apply the real-space transfer
-            bianchi_transfer(pm.real, pm.x, *integers, offset=offset)
+            bianchi_transfer(pm.real, xgrid, *integers, offset=offset)
                         
             # do the FT and apply the k-space kernel
             pm.r2c()
