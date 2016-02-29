@@ -46,8 +46,8 @@ class TracerCatalogDataSource(DataSource):
     plugin_name = "TracerCatalog"
     
     def __init__(self, data, randoms, BoxSize=None, BoxPad=0.02, 
-                    compute_fkp_weights=False, P0_fkp=None, nbar=None, 
-                    fsky=None):
+                    compute_fkp_weights=False, P0_fkp=None, 
+                    nbar=None, fsky=None):
         """
         Finalize by performing several steps:
         
@@ -66,13 +66,18 @@ class TracerCatalogDataSource(DataSource):
         if self.cosmo is None:
             raise ValueError("please specify a input Cosmology to use in TracerCatalog")
     
+        # cache the return results
+        self.data.cache_data()
+        self.randoms.cache_data()
+    
         # need to compute cartesian min/max
         coords_min = numpy.array([numpy.inf]*3)
         coords_max = numpy.array([-numpy.inf]*3)
         
         # read the randoms in parallel
         redshifts = []
-        for [coords, z] in self.randoms.read(['Position', 'Redshift'], full=False):
+        columns = ['Position', 'Redshift', 'Weight']
+        for [coords, z, w] in self.randoms.read(columns, full=False):
             
             # global min/max of cartesian
             if len(coords):
@@ -84,7 +89,7 @@ class TracerCatalogDataSource(DataSource):
         
         # need N_data
         N_data = 0
-        for [Position] in self.data.read(['Position'], full=False):
+        for [Position, z, w] in self.data.read(['Position', 'Redshift', 'Weight'], full=False):
             N_data += len(Position)
         
         # gather everything to root
