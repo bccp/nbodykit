@@ -211,17 +211,13 @@ class ConstructorSchema(OrderedDict):
         
         # add new argument (with empty subfields)
         if not self.contains(name):
-            obj[suffix] = Argument(name, required, nargs=nargs, type=type, default=default, choices=choices, help=help)
+            obj[suffix] = Argument(name, required, nargs=nargs, type=type, default=default, 
+                                    choices=choices, help=help)
+                                    
         # overwrite existing object (copying the subfields)
         else:
-            arg             = obj[name]._asdict()
-            arg['type']     = type
-            arg['default']  = default
-            arg['choices']  = choices
-            arg['help']     = help
-            arg['required'] = required
-            arg['nargs']    = nargs
-            obj[suffix]     = Argument(**arg)
+            obj[suffix] = obj[suffix]._replace(type=type, default=default, choices=choices, 
+                                                help=help, required=required, nargs=nargs)
      
     def _arg_info(self, name, arg, indent=0):
         """
