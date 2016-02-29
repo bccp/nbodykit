@@ -225,7 +225,7 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
     
     # the x grid points (at point centers)
     cell_size = pm.BoxSize / pm.Nmesh
-    xgrid = [(xi+0.5)*cell_size[i] for i, xi in enumerate(pm.x)]
+    xgrid = [(ri+0.5)*cell_size[i] for i, ri in enumerate(pm.r)]
     
     for iell, ell in enumerate(ells[1:]):
         A_ell = numpy.zeros_like(pm.complex)
