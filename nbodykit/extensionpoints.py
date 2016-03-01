@@ -13,14 +13,18 @@
 
     1. add a class decorator @ExtensionPoint
 """
-import numpy
 from nbodykit.utils.config import autoassign, ConstructorSchema, ReadConfigFile
 from nbodykit.distributedarray import ScatterArray
+
+import numpy
 from argparse import Namespace
+import functools
+from inspect import isgeneratorfunction
 
 # MPI will be required because
 # a plugin instance will be created for a MPI communicator.
 from mpi4py import MPI
+
 
 algorithms  = Namespace()
 datasources = Namespace()
@@ -293,6 +297,45 @@ class Transfer:
         """
         raise NotImplementedError
 
+def memoized(f):
+    """
+    Decorator to cache return values of `DataSource.read`
+    
+    This is designed such that the user can decorate any
+    DataSource `read` calls in any DataSource Plugin
+    """
+    cache = {}
+
+    @functools.wraps(f)
+    def wrapped(*args, **kwargs):
+        columns = args[-1]
+        
+        # only respects full at the moment
+        full = kwargs.get('full', None)
+        if set(kwargs) not in [{"full"}, set()]:
+            raise ValueError("DataSource cache only respects `full` keyword; others were provided")
+
+        # find out which columns are in cache
+        missing = [(c, full) for c in columns if (c,full) not in cache]
+        if len(missing):
+            cols = [m[0] for m in missing]
+            newargs = list(args); newargs[-1] = cols
+            result = f(*newargs, **kwargs) # this is a generator
+
+            # generator returned, so unpack it into list and arrange by column
+            result = list(zip(*result))
+            # cache each column result
+            for i, key in enumerate(missing):
+                cache[key] = result[i]
+
+        # return
+        toret = [cache[(col,full)] for col in columns]
+        return zip(*toret) # re-zip results from the generator
+        
+    wrapped.cache = cache
+    return wrapped
+
+
 @ExtensionPoint(datasources)
 class DataSource:
     """
@@ -328,7 +371,7 @@ class DataSource:
         same units as position), in chunks as an iterator. The
         default behavior is to use Rank 0 to read in the full data
         and yield an empty data. 
-    """
+    """        
     @staticmethod
     def BoxSizeParser(value):
         """
@@ -349,6 +392,23 @@ class DataSource:
             raise ValueError("BoxSize must be a scalar or three-vector")
         return boxsize
 
+    def cache_data(self, cache=True):
+        """
+        Cache/un-cache the return results of `read`
+        
+        Each column that is asked for via `read` will be cached, 
+        and returned from cache if asked for multiple times
+        """
+        # setup the caching read function
+        if cache:
+            if not hasattr(self.read, 'cache'):  # already cached
+                self._original_read = self.read
+                self.read = memoized(self.read)
+        # restore the original
+        else:
+            if hasattr(self.read, 'cache'):
+                self.read = self._original_read
+            
     def simple_read(self, columns):
         """ 
         Override to provide a method to read in all data at once 

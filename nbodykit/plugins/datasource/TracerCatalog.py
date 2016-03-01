@@ -46,8 +46,8 @@ class TracerCatalogDataSource(DataSource):
     plugin_name = "TracerCatalog"
     
     def __init__(self, data, randoms, BoxSize=None, BoxPad=0.02, 
-                    compute_fkp_weights=False, P0_fkp=None, nbar=None, 
-                    fsky=None):
+                    compute_fkp_weights=False, P0_fkp=None, 
+                    nbar=None, fsky=None):
         """
         Finalize by performing several steps:
         
@@ -66,13 +66,18 @@ class TracerCatalogDataSource(DataSource):
         if self.cosmo is None:
             raise ValueError("please specify a input Cosmology to use in TracerCatalog")
     
+        # cache the return results
+        self.data.cache_data()
+        self.randoms.cache_data()
+    
         # need to compute cartesian min/max
         coords_min = numpy.array([numpy.inf]*3)
         coords_max = numpy.array([-numpy.inf]*3)
         
-        # read the data in parallel
+        # read the randoms in parallel
         redshifts = []
-        for [coords, z] in self.data.read(['Position', 'Redshift'], full=False):
+        columns = ['Position', 'Redshift', 'Weight']
+        for [coords, z, w] in self.randoms.read(columns, full=False):
             
             # global min/max of cartesian
             if len(coords):
@@ -81,11 +86,17 @@ class TracerCatalogDataSource(DataSource):
             
                 # store redshifts
                 redshifts += list(z)
-                
+        
+        # need N_data
+        N_data = 0
+        for [Position, z, w] in self.data.read(['Position', 'Redshift', 'Weight'], full=False):
+            N_data += len(Position)
+        
         # gather everything to root
         coords_min = self.comm.gather(coords_min)
         coords_max = self.comm.gather(coords_max)
-        redshifts = self.comm.gather(redshifts)
+        redshifts  = self.comm.gather(redshifts)
+        N_data     = self.comm.reduce(N_data)
         
         # only rank zero does the work, then broadcast
         if self.comm.rank == 0:
@@ -99,7 +110,7 @@ class TracerCatalogDataSource(DataSource):
             self._define_box(coords_min, coords_max)
     
             # compute the number density from the data
-            self._set_nbar(numpy.array(redshifts), alpha=1.0)
+            self._set_nbar(numpy.array(redshifts), alpha=1.*N_data/len(redshifts))
             
         # broadcast the results that rank 0 computed
         self.BoxSize   = self.comm.bcast(self.BoxSize)
