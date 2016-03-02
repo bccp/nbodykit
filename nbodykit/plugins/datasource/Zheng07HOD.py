@@ -43,10 +43,11 @@ class Zheng07HodDataSource(DataSource):
             raise AttributeError("a cosmology instance is required to populate an Hod")
         
         # set defaults and load the rest
+        sim_manager.sim_defaults.Num_ptcl_requirement = 1 # keep all halos
         sim_manager.sim_defaults.default_cosmology = self.cosmo.engine
         sim_manager.sim_defaults.default_redshift = self.redshift
         from halotools import empirical_models as em_models
-
+        
         # grab the halocat BoxSize
         self.BoxSize = self.halocat.BoxSize
         
@@ -63,7 +64,7 @@ class Zheng07HodDataSource(DataSource):
             
             # explicitly set an analytic mass-concentration relation
             sats_prof_model = em_models.NFWPhaseSpace(conc_mass_model='dutton_maccio14')
-        
+
             # build the model and set defaults
             base_model = em_models.PrebuiltHodModelFactory('zheng07')
             self.model = em_models.HodModelFactory(baseline_model_instance=base_model, 
@@ -117,7 +118,20 @@ class Zheng07HodDataSource(DataSource):
         s.add_argument("rsd", type=str, choices="xyz", 
             help="the direction to do redshift distortion")
         
-
+    def log_populated_stats(self):
+        """
+        Log statistics of the populated catalog
+        """
+        data = self.model.mock.galaxy_table
+        logger.info("populated %d galaxies into halo catalog" %len(data))
+        
+        fsat = 1.*(data['gal_type'] == 'satellites').sum()/len(data)
+        logger.info("  satellite fraction: %.2f" %fsat)
+        
+        logmass = numpy.log10(data['halo_mvir'])
+        logger.info("  mean log10 halo mass: %.2f" %logmass.mean())
+        logger.info("  std log10 halo mass: %.2f" %logmass.std())
+    
     def update_and_populate(self, **params):
         """
         Update the Hod parameters and populate a mock
@@ -126,7 +140,7 @@ class Zheng07HodDataSource(DataSource):
         This is only done on root 0, which is the only rank
         to have the Hod model
         """
-        if self.rank == 0:
+        if self.comm.rank == 0:
             
             # update Hod model
             for name in params:
@@ -137,9 +151,8 @@ class Zheng07HodDataSource(DataSource):
             
             # repopulate
             self.populate_mock()
-            N = len(self.model.mock.galaxy_table)
-            logger.info("populated %d galaxies into halo catalog" %N)
-     
+            self.log_populated_stats()
+        
     def populate_mock(self):
         """
         Populate the halo catalog with a new set of galaxies. 
@@ -149,7 +162,7 @@ class Zheng07HodDataSource(DataSource):
         This is only done on root 0, which is the only rank
         to have the Hod model
         """  
-        if self.rank == 0:
+        if self.comm.rank == 0:
             
             # populate for first time  
             if not hasattr(self.model, 'mock'):
@@ -157,9 +170,7 @@ class Zheng07HodDataSource(DataSource):
             # repopulate
             else:
                 self.model.mock.populate()
-            
-            N = len(self.model.mock.galaxy_table)
-            logger.info("populated %d galaxies into halo catalog" %N)
+            self.log_populated_stats()
     
     def read(self, columns, full=False):
         """
@@ -171,8 +182,7 @@ class Zheng07HodDataSource(DataSource):
             # populate the model, if need be
             if not hasattr(self.model, 'mock'):
                 self.model.populate_mock(halocat=self._halotools_cat)
-                N = len(self.model.mock.galaxy_table)
-                logger.info("populated %d galaxies into halo catalog" %N)
+                self.log_populated_stats()
         
             # the data
             data = self.model.mock.galaxy_table        
@@ -199,7 +209,7 @@ class Zheng07HodDataSource(DataSource):
                 elif c == 'Velocity':
                     toret.append(vel)
                 else:
-                    toret.append(numpy.array(data[c]))
+                    toret.append(numpy.array(data[c].copy()))
         else:
             toret = [None for c in columns]
         
