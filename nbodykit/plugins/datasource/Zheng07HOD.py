@@ -47,7 +47,9 @@ class Zheng07HodDataSource(DataSource):
         sim_manager.sim_defaults.default_redshift = self.redshift
         from halotools import empirical_models as em_models
 
-
+        # grab the halocat BoxSize
+        self.BoxSize = self.halocat.BoxSize
+        
         # read data from halo catalog and then gather to root
         Columns = ['Position','Velocity', 'Mass']
         [data] = self.halocat.read(Columns, full=True)
