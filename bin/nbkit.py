@@ -99,11 +99,9 @@ def main():
         stream = MPI.COMM_WORLD.bcast(stream)
     params, extra = Algorithm.parse_known_yaml(alg_name, stream)
         
-    output = getattr(extra, 'output', None)
-    
     # output is required
-    if output is None:
-        raise ValueError("argument -o/--output is required")
+    if not hasattr(extra, 'output'):
+        raise ValueError("parameter `output` is required in configuration; set to `None` for stdout")
             
     # initialize the algorithm and run
     alg_class = getattr(algorithms, alg_name)
@@ -111,7 +109,7 @@ def main():
 
     # run and save
     result = alg.run()
-    alg.save(output, result) 
+    alg.save(extra.output, result) 
        
 if __name__ == '__main__':
     main()

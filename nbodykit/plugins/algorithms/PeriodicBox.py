@@ -1,6 +1,7 @@
 from nbodykit.extensionpoints import Algorithm
 from nbodykit.extensionpoints import DataSource, Transfer, Painter
 
+import os
 import numpy
 import logging
 
