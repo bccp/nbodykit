@@ -420,6 +420,8 @@ After these steps we can use nbodykit with a job script similar to the example b
 
     export OMP_NUM_THREADS=1
     export ATP_ENABLED=0
+    
+    module load python/2.7-anaconda
     source /project/projectdirs/m779/python-mpi/nersc/activate.sh 
 
     bcast -v nbodykit.tar.gz
