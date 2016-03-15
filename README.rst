@@ -336,10 +336,39 @@ compiler, which doesn't compile fftw correctly due to lack of openmp support.
     
     export OMPI_CC=gcc
  
-Edison/Cori Notes
-+++++++++++++++++
+NERSC Notes
++++++++++++
 
-To use nbodykit on a Cray system (e.g. [Edison]_, [Cori]_), we need to ensure the python environment
+We maintain a ``daily`` build of nbodykit on NERSC systems that works with the 2.7-anaconda python via the python-mpi-bcast helper. Here is an example job script:
+
+.. code:: bash
+
+    #! /bin/bash
+    #SBATCH -o 40steps-pm-79678.powermh.%j
+    #SBATCH -N 16
+    #SBATCH -p debug
+    #SBATCH -t 00:30:00
+    #SBATCH -J 40steps-pm-79678.powermh
+
+    set -x
+
+    export OMP_NUM_THREADS=1
+    export ATP_ENABLED=0
+    module unload darshan altd
+    module load python/2.7-anaconda
+    source /project/projectdirs/m779/nbodykit/activate.sh 
+
+    srun -n 512 python-mpi \
+    $NBKITBIN FFTPower \
+    2d 2048 power2d_40steps-pm_mh14.00_1.0000.txt \
+    TPMSnapshot:$SCRATCH/crosshalo/40steps-pm/snp00100_1.0000.bin:1380:-rsd=z \
+    FOFGroups:fof00100_0.200_1.0000.hdf5:1380:2.4791e10:"-select=Rank < 79678":-rsd=z
+
+Detail on NERSC
+----------------
+If you would like to do development on NERSC (not recommended), then more work is involved.
+
+To use nbodykit on a NERSC Cray system (e.g. [Edison]_, [Cori]_), we need to ensure the python environment
 is setup to working efficiently on the computing nodes.
 
 If darshan [darshan]_ or altd are loaded by default, be sure to unload them since they tend to interfere
