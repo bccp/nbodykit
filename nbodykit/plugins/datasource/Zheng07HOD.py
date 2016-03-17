@@ -42,8 +42,7 @@ class Zheng07HodDataSource(DataSource):
         if self.cosmo is None:
             raise AttributeError("a cosmology instance is required to populate an Hod")
         
-        # set defaults and load the rest
-        sim_manager.sim_defaults.Num_ptcl_requirement = 1 # keep all halos
+        # set global redshift and cosmology as global defaults
         sim_manager.sim_defaults.default_cosmology = self.cosmo.engine
         sim_manager.sim_defaults.default_redshift = self.redshift
         from halotools import empirical_models as em_models
@@ -65,10 +64,10 @@ class Zheng07HodDataSource(DataSource):
             # explicitly set an analytic mass-concentration relation
             sats_prof_model = em_models.NFWPhaseSpace(conc_mass_model='dutton_maccio14')
 
-            # build the model and set defaults
+            # build the full hod model, and set our params
             base_model = em_models.PrebuiltHodModelFactory('zheng07')
             self.model = em_models.HodModelFactory(baseline_model_instance=base_model, 
-                                                    satellites_profile=sats_prof_model)
+                                                   satellites_profile=sats_prof_model)
             for param in self.model.param_dict:
                 self.model.param_dict[param] = getattr(self, param)
         
@@ -93,6 +92,7 @@ class Zheng07HodDataSource(DataSource):
             cols['halo_rvir']     = sats_prof_model.halo_mass_to_halo_radius(Mass)
             cols['halo_id']       = numpy.arange(len(Position))
             cols['halo_upid']     = numpy.zeros_like(Mass) - 1
+            cols['simname']       = 'FOFGroups'
             self._halotools_cat   = sim_manager.UserSuppliedHaloCatalog(**cols)
             
     @classmethod
@@ -164,9 +164,9 @@ class Zheng07HodDataSource(DataSource):
         """  
         if self.comm.rank == 0:
             
-            # populate for first time  
+            # populate for first time (removing only mass=0)
             if not hasattr(self.model, 'mock'):
-                self.model.populate_mock(halocat=self._halotools_cat)
+                self.model.populate_mock(halocat=self._halotools_cat, Num_ptcl_requirement=1)
             # repopulate
             else:
                 self.model.mock.populate()
@@ -181,7 +181,7 @@ class Zheng07HodDataSource(DataSource):
             
             # populate the model, if need be
             if not hasattr(self.model, 'mock'):
-                self.model.populate_mock(halocat=self._halotools_cat)
+                self.model.populate_mock(halocat=self._halotools_cat, Num_ptcl_requirement=1)
                 self.log_populated_stats()
         
             # the data
