@@ -1,4 +1,4 @@
-from nbodykit.extensionpoints import DataSource, datasources
+from nbodykit.extensionpoints import DataSource
 from nbodykit.distributedarray import ScatterArray
 
 import numpy
@@ -6,6 +6,10 @@ import logging
 
 logger = logging.getLogger('Zheng07Hod')
 
+def FOFGroups(d):
+    from nbodykit.extensionpoints import datasources
+    return datasources.FOFGroups.from_config(d)
+    
 class Zheng07HodDataSource(DataSource):
     """
     A `DataSource` that uses the Hod prescription of 
@@ -101,7 +105,7 @@ class Zheng07HodDataSource(DataSource):
         s = cls.schema
         s.description = "DataSource for galaxies populating a halo catalog using the Zheng et al. 2007 Hod"
         
-        s.add_argument("halocat", type=datasources.FOFGroups.from_config,
+        s.add_argument("halocat", type=FOFGroups,
             help="`FOFGroups` DataSource representing the `halo` catalog")
         s.add_argument('redshift', type=float,
             help='the redshift of the ')
