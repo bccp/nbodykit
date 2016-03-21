@@ -439,27 +439,42 @@ After these steps we can use nbodykit with a job script similar to the example b
 .. code:: bash
 
     #! /bin/bash
-    #SBATCH -o 40steps-pm-79678.powermh.%j
-    #SBATCH -N 16
+
+    #SBATCH -n 32
     #SBATCH -p debug
-    #SBATCH -t 00:30:00
-    #SBATCH -J 40steps-pm-79678.powermh
+    #SBATCH -t 10:00
 
     set -x
-
-    export OMP_NUM_THREADS=1
-    export ATP_ENABLED=0
-    
     module load python/2.7-anaconda
-    source /project/projectdirs/m779/python-mpi/nersc/activate.sh 
 
-    bcast -v nbodykit.tar.gz
+    source /project/projectdirs/m779/nbodykit/activate.sh
 
-    srun -n 512 python-mpi \
-    /dev/shm/local/bin/nbkit.py FFTPower \
-    2d 2048 power2d_40steps-pm_mh14.00_1.0000.txt \
-    TPMSnapshot:$SCRATCH/crosshalo/40steps-pm/snp00100_1.0000.bin:1380:-rsd=z \
-    FOFGroups:fof00100_0.200_1.0000.hdf5:1380:2.4791e10:"-select=Rank < 79678":-rsd=z
+    srun -n 16 python-mpi $NBKITBIN FOF <<EOF
+    nmin: 10
+    datasource:
+        plugin: FastPM
+        path: data/fastpm_1.0000
+    linklength: 0.2 
+    output: output/fof_ll0.200_1.0000.hdf5
+    calculate_initial_position: True
+    EOF
+
+    srun -n 16 python-mpi $NBKITBIN FFTPower <<EOF
+
+    mode: 2d      # 1d or 2d
+    Nmesh: 256     # size of mesh
+
+    # here are the input fields 
+    field:
+      DataSource:
+        plugin: FOFGroups
+        path: output/fof_ll0.200_1.0000.hdf5
+        m0: 2.27e12  # mass of a particle: use OmegaM * 27.75e10 * BoxSize ** 3/ Ntot
+        rsd: z       # direction of RSD, usually use 'z', the default LOS direction.
+    #    select: Rank < 1000 # Limits to the first 1000 halos for abundance matching or
+        select: LogMass > 13 # limit to the halos with logMass > 13 (LRGs). 
+    output: output/power_2d_fofgroups.dat  # output
+    EOF
 
 
 References
