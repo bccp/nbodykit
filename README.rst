@@ -339,30 +339,52 @@ compiler, which doesn't compile fftw correctly due to lack of openmp support.
 NERSC Notes
 +++++++++++
 
-We maintain a ``daily`` build of nbodykit on NERSC systems that works with the 2.7-anaconda python via the python-mpi-bcast helper. Here is an example job script:
+We maintain a ``daily`` build of nbodykit on NERSC systems that works with the 2.7-anaconda python via the python-mpi-bcast helper. Here is an example job script, that
+runs a friend of friend finder (FOF) then measures the halo power spectrum for halos of mass greater than 1e13 (Msun/h). 
 
 .. code:: bash
 
     #! /bin/bash
-    #SBATCH -o 40steps-pm-79678.powermh.%j
-    #SBATCH -N 16
+
+    #SBATCH -n 32
     #SBATCH -p debug
-    #SBATCH -t 00:30:00
-    #SBATCH -J 40steps-pm-79678.powermh
+    #SBATCH -t 10:00
 
     set -x
-
-    export OMP_NUM_THREADS=1
-    export ATP_ENABLED=0
-    module unload darshan altd
     module load python/2.7-anaconda
-    source /project/projectdirs/m779/nbodykit/activate.sh 
 
-    srun -n 512 python-mpi \
-    $NBKITBIN FFTPower \
-    2d 2048 power2d_40steps-pm_mh14.00_1.0000.txt \
-    TPMSnapshot:$SCRATCH/crosshalo/40steps-pm/snp00100_1.0000.bin:1380:-rsd=z \
-    FOFGroups:fof00100_0.200_1.0000.hdf5:1380:2.4791e10:"-select=Rank < 79678":-rsd=z
+    source /project/projectdirs/m779/nbodykit/activate.sh
+
+    srun -n 16 python-mpi $NBKITBIN FOF <<EOF
+    nmin: 10
+    datasource:
+        plugin: FastPM
+        path: data/fastpm_1.0000
+    linklength: 0.2 
+    output: output/fof_ll0.200_1.0000.hdf5
+    calculate_initial_position: True
+    EOF
+
+    srun -n 16 python-mpi $NBKITBIN FFTPower <<EOF
+
+    mode: 2d      # 1d or 2d
+    Nmesh: 256     # size of mesh
+
+    # here are the input fields 
+    field:
+      DataSource:
+        plugin: FOFGroups
+        path: output/fof_ll0.200_1.0000.hdf5
+        m0: 2.27e12  # mass of a particle: use OmegaM * 27.75e10 * BoxSize ** 3/ Ntot
+        rsd: z       # direction of RSD, usually use 'z', the default LOS direction.
+    #    select: Rank < 1000 # Limits to the first 1000 halos for abundance matching or
+        select: LogMass > 13 # limit to the halos with logMass > 13 (LRGs). 
+    output: output/power_2d_fofgroups.dat  # output
+    EOF
+
+Note that we need to provide the 
+mass of a single particle for FOFGroups. The number is :math:`27.75\times10^{10} \Omega_M (L / N)^3 h^{-1} M_\odot`, where :math:`L` is the boxsize in Mpc/h, and 
+:math:`N` is the number of particles per side -- :math:`N^3` is the total number of particles. 
 
 Detail on NERSC
 ----------------
@@ -434,47 +456,6 @@ preferred method is to use [fast-python]_ .
     # create the bundle
     MPICC=cc bundle-pip nbodykit.tar.gz -r requirements.txt $PWD
 
-After these steps we can use nbodykit with a job script similar to the example below.
-
-.. code:: bash
-
-    #! /bin/bash
-
-    #SBATCH -n 32
-    #SBATCH -p debug
-    #SBATCH -t 10:00
-
-    set -x
-    module load python/2.7-anaconda
-
-    source /project/projectdirs/m779/nbodykit/activate.sh
-
-    srun -n 16 python-mpi $NBKITBIN FOF <<EOF
-    nmin: 10
-    datasource:
-        plugin: FastPM
-        path: data/fastpm_1.0000
-    linklength: 0.2 
-    output: output/fof_ll0.200_1.0000.hdf5
-    calculate_initial_position: True
-    EOF
-
-    srun -n 16 python-mpi $NBKITBIN FFTPower <<EOF
-
-    mode: 2d      # 1d or 2d
-    Nmesh: 256     # size of mesh
-
-    # here are the input fields 
-    field:
-      DataSource:
-        plugin: FOFGroups
-        path: output/fof_ll0.200_1.0000.hdf5
-        m0: 2.27e12  # mass of a particle: use OmegaM * 27.75e10 * BoxSize ** 3/ Ntot
-        rsd: z       # direction of RSD, usually use 'z', the default LOS direction.
-    #    select: Rank < 1000 # Limits to the first 1000 halos for abundance matching or
-        select: LogMass > 13 # limit to the halos with logMass > 13 (LRGs). 
-    output: output/power_2d_fofgroups.dat  # output
-    EOF
 
 
 References
