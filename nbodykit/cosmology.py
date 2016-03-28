@@ -101,6 +101,7 @@ class Cosmology(CosmologyBase):
             self.engine = cosmology.wCDM(self.H0, self.Om0, self.Ode0, **kw)
         else:
             self.engine = cosmology.FlatwCDM(self.H0, self.Om0, **kw)
+            self.Ode0 = self.engine.Ode0 # set this automatically
     
     def comoving_distance(self, z):
         """
