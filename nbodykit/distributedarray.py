@@ -51,7 +51,7 @@ def ScatterArray(data, comm, root=0):
     # compute the new shape for each rank
     newshape = list(shape)
     newlength = shape[0] // comm.size
-    if comm.size < shape[0] % comm.size:
+    if comm.rank < shape[0] % comm.size:
         newlength += 1
     newshape[0] = newlength
 
