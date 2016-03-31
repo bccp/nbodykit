@@ -117,6 +117,7 @@ class TracerCatalogDataSource(DataSource):
         self.BoxSize   = self.comm.bcast(self.BoxSize)
         self.offset    = self.comm.bcast(self.offset)
         self.nbar      = self.comm.bcast(self.nbar)
+        self.alpha     = self.comm.bcast(self.alpha)
         
         if self.comm.rank == 0:
             logger.info("BoxSize = %s" %str(self.BoxSize))
