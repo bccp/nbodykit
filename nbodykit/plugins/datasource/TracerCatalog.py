@@ -238,14 +238,15 @@ class TracerCatalogDataSource(DataSource):
             raise ValueError("valid `columns` to read from %s: %s" %args)
             
         # read position, redshift, and weights from the stream
-        for [coords, redshift, weight] in self._stream.read(['Position', 'Redshift', 'Weight'], full=full):
+        for [coords, redshift, weight, nbar] in self._stream.read(['Position', 'Redshift', 'Weight', 'Nbar'], full=full):
             
             # cartesian coordinates, removing the mean offset in each dimension
             pos = coords - self.offset
     
             # number density from redshift
-            nbar = self.nbar(redshift)
-    
+            if not len(nbar):
+                nbar = self.nbar(redshift)
+                    
             # update the weights with new FKP
             if self.compute_fkp_weights:
                 if self.P0_fkp is None:
