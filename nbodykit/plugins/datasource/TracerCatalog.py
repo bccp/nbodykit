@@ -110,7 +110,8 @@ class TracerCatalogDataSource(DataSource):
             self._define_box(coords_min, coords_max)
     
             # compute the number density from the data
-            self._set_nbar(numpy.array(redshifts), alpha=1.*N_data/len(redshifts))
+            self.alpha = 1.*N_data/len(redshifts)
+            self._set_nbar(numpy.array(redshifts), alpha=self.alpha)
             
         # broadcast the results that rank 0 computed
         self.BoxSize   = self.comm.bcast(self.BoxSize)
@@ -246,6 +247,8 @@ class TracerCatalogDataSource(DataSource):
             # number density from redshift
             if not len(nbar):
                 nbar = self.nbar(redshift)
+            elif self._stream is self.randoms:
+                nbar *= self.alpha
                     
             # update the weights with new FKP
             if self.compute_fkp_weights:
