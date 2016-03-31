@@ -30,7 +30,7 @@ def bianchi_paint(painter, pm, datasource, i, j, k=None, offset=[0., 0., 0.]):
     # paint the data
     pm.clear()
     datasource.set_stream('data')
-    for [position, weight, nbar] in datasource.read(columns):
+    for [position, weight] in datasource.read(columns):
         position += offset
         r2 = (position**2).sum(axis=-1)
         if k is None:
