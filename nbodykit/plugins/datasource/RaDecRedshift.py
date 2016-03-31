@@ -22,7 +22,7 @@ class RaDecRedshiftDataSource(DataSource):
     
     def __init__(self, path, names, unit_sphere=False, 
                     usecols=None, sky_cols=['ra','dec'], z_col='z', 
-                    weight_col=None, degrees=False, select=None):       
+                    weight_col=None, degrees=False, select=None, nbar_col=None):       
 
         # setup the cosmology
         if not self.unit_sphere:
