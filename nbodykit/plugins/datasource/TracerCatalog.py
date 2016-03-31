@@ -62,6 +62,7 @@ class TracerCatalogDataSource(DataSource):
         # stream is None by default
         self._stream = None
         self.offset  = None
+        self.alpha   = 1.0
         
         if self.cosmo is None:
             raise ValueError("please specify a input Cosmology to use in TracerCatalog")
