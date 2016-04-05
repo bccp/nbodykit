@@ -138,7 +138,7 @@ class TracerCatalogDataSource(DataSource):
         for [Position, z, w] in self.data.read(['Position', 'Redshift', 'Weight'], full=False):
             self.N_data += len(Position)
         self.N_data = self.comm.allreduce(self.N_data)
-        logger.info("updating ``data`` -- new N_data = %d" %self.N_data)
+        logger.debug("updating ``data`` -- new N_data = %d" %self.N_data)
     
     @classmethod
     def register(cls):
@@ -265,10 +265,7 @@ class TracerCatalogDataSource(DataSource):
             if any(n is None for n in nbar):
                 nbar = self.nbar(redshift)
             elif self._stream is self.randoms:
-                nbar *= 1.*self.N_data/self.N_ran
-                logger.info("N_data = %d" %self.N_data)
-                logger.info("N_ran = %d" %self.N_ran)
-                logger.info("nbar = %s" %str(nbar))
+                nbar = nbar * (self.N_data/self.N_ran) # multiply by alpha
                                 
             # update the weights with new FKP
             if self.compute_fkp_weights:
