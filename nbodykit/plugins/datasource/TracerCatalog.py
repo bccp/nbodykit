@@ -134,10 +134,11 @@ class TracerCatalogDataSource(DataSource):
         self.data.cache_data()
         
         # compute the total number
-        N_data = 0
+        self.N_data = 0
         for [Position, z, w] in self.data.read(['Position', 'Redshift', 'Weight'], full=False):
-            N_data += len(Position)
-        self.N_data = self.comm.allreduce(N_data)
+            self.N_data += len(Position)
+        self.N_data = self.comm.allreduce(self.N_data)
+        logger.info("updating ``data`` -- new N_data = %d" %self.N_data)
     
     @classmethod
     def register(cls):
