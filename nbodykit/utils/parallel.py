@@ -2,6 +2,7 @@ from mpi4py import MPI
 import os
 import traceback
 import logging
+import numpy
 
 from nbodykit.extensionpoints import set_nbkit_comm
 
@@ -22,23 +23,24 @@ def split_ranks(N_ranks, N, include_all=False):
         exactly `N` ranks, instead including the remainder as well;
         default is `False`
     """
-    available = list(range(1, N_ranks)) # available ranks to do work
+    available = list(range(1, N_ranks)) # available ranks to do work    
     total = len(available)
     extra_ranks = total % N
+  
+    if include_all:
+        for i, chunk in enumerate(numpy.array_split(available, total//N)):
+            yield i, list(chunk)
+    else:
+        for i in range(total//N):
+            yield i, available[i*N:(i+1)*N]
     
-    start = 0
-    stop = N  
-    for i in range(total//N):
-        
-        ranks = available[start:stop]
-        start = stop
-        stop += N
-        if include_all and extra_ranks:
-            stop += 1
-            extra_ranks -= 1
+        if extra_ranks and extra_ranks >= N//2:
+            remove = extra_ranks % 2 # make it an even number
+            ranks = available[-extra_ranks:]
+            if remove: ranks = ranks[:-remove]
+            if len(ranks):
+                yield i+1, ranks
             
-        yield i, ranks
-       
 def enum(*sequential, **named):
     enums = dict(zip(sequential, range(len(sequential))), **named)
     return type('Enum', (), enums)
