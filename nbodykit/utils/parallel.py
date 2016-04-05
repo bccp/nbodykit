@@ -273,7 +273,8 @@ class MPIPool(object):
             os._exit(1)  
             
         finally:
-            # exit
+            # wait and exit
+            self.comm.Barrier()
             self.logger.debug("rank %d process finished" %self.rank)
             
         # return the results in sorted order
