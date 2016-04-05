@@ -266,6 +266,9 @@ class TracerCatalogDataSource(DataSource):
                 nbar = self.nbar(redshift)
             elif self._stream is self.randoms:
                 nbar *= 1.*self.N_data/self.N_ran
+                logger.info("N_data = %d" %self.N_data)
+                logger.info("N_ran = %d" %self.N_ran)
+                logger.info("nbar = %s" %str(nbar))
                                 
             # update the weights with new FKP
             if self.compute_fkp_weights:
