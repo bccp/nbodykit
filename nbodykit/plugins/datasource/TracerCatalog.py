@@ -62,7 +62,7 @@ class TracerCatalogDataSource(DataSource):
         # stream is None by default
         self._stream = None
         self.offset  = None
-        self.alpha   = 1.0
+        self.N_ran   = 0 
         
         if self.cosmo is None:
             raise ValueError("please specify a input Cosmology to use in TracerCatalog")
@@ -94,10 +94,10 @@ class TracerCatalogDataSource(DataSource):
             N_data += len(Position)
         
         # gather everything to root
-        coords_min = self.comm.gather(coords_min)
-        coords_max = self.comm.gather(coords_max)
-        redshifts  = self.comm.gather(redshifts)
-        N_data     = self.comm.reduce(N_data)
+        coords_min  = self.comm.gather(coords_min)
+        coords_max  = self.comm.gather(coords_max)
+        redshifts   = self.comm.gather(redshifts)
+        self.N_data = self.comm.allreduce(N_data)
         
         # only rank zero does the work, then broadcast
         if self.comm.rank == 0:
@@ -105,26 +105,37 @@ class TracerCatalogDataSource(DataSource):
             # find the global
             coords_min = numpy.amin(coords_min, axis=0)
             coords_max = numpy.amax(coords_max, axis=0)
-            redshifts = numpy.concatenate(redshifts)
+            redshifts  = numpy.concatenate(redshifts)
+            self.N_ran = len(redshifts)
             
             # setup the box, using randoms to define it
             self._define_box(coords_min, coords_max)
     
             # compute the number density from the data
-            self.alpha = 1.*N_data/len(redshifts)
-            self._set_nbar(numpy.array(redshifts), alpha=self.alpha)
+            self._set_nbar(numpy.array(redshifts), alpha=1.*self.N_data/self.N_ran)
             
         # broadcast the results that rank 0 computed
         self.BoxSize   = self.comm.bcast(self.BoxSize)
         self.offset    = self.comm.bcast(self.offset)
         self.nbar      = self.comm.bcast(self.nbar)
-        self.alpha     = self.comm.bcast(self.alpha)
+        self.N_ran     = self.comm.bcast(self.N_ran)
         
         if self.comm.rank == 0:
             logger.info("BoxSize = %s" %str(self.BoxSize))
             logger.info("cartesian coordinate range: %s : %s" %(str(coords_min), str(coords_max)))
             logger.info("mean coordinate offset = %s" %str(self.offset))
             
+    def update_data(self, data):
+        """
+        Update the ``data`` attribute, keeping track of the total number 
+        of objects
+        """
+        self.data = data
+        N_data = 0
+        for [Position, z, w] in self.data.read(['Position', 'Redshift', 'Weight'], full=False):
+            N_data += len(Position)
+        self.N_data = self.comm.allreduce(N_data)
+    
     @classmethod
     def register(cls):
         
@@ -247,10 +258,10 @@ class TracerCatalogDataSource(DataSource):
             pos = coords - self.offset
     
             # number density from redshift
-            if not len(nbar):
+            if any(n is None for n in nbar):
                 nbar = self.nbar(redshift)
             elif self._stream is self.randoms:
-                nbar *= self.alpha
+                nbar *= 1.*self.N_data/self.N_ran
                     
             # update the weights with new FKP
             if self.compute_fkp_weights:
