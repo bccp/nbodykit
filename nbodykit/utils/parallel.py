@@ -240,26 +240,22 @@ class MPIPool(object):
         try:
     
             # loop until all workers have finished with no more tasks
-            while closed_workers < self.workers:
+            while task_index < ntasks:
                 data = self.comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=self.status)
                 source = self.status.Get_source()
                 tag = self.status.Get_tag()
     
                 # worker is ready, so send it a task
                 if tag == self.tags.READY:
-                    if task_index < ntasks:
-                        this_task = [task_index, tasks[task_index]]
-                        self.comm.send(this_task, dest=source, tag=self.tags.START)
-                        self.logger.info("sending task `%s` to worker %d" %(str(tasks[task_index]), source))
-                        task_index += 1
-                    else:
-                        self.comm.send(None, dest=source, tag=self.tags.EXIT)
+                    this_task = [task_index, tasks[task_index]]
+                    self.comm.send(this_task, dest=source, tag=self.tags.START)
+                    self.logger.info("sending task `%s` to worker %d" %(str(tasks[task_index]), source))
+                    task_index += 1
+                        
                 elif tag == self.tags.DONE:
                     results.append(data)
                     self.logger.debug("received result from worker %d" %source)
-                elif tag == self.tags.EXIT:
-                    closed_workers += 1
-                    self.logger.debug("worker %d has exited, closed workers = %d" %(source, closed_workers))
+
                     
         except Exception as e:
             self.logger.error("an exception has occurred on one of the ranks...all ranks exiting")
@@ -283,6 +279,25 @@ class MPIPool(object):
         """
         Close the pool by freeing the subcomm
         """
+        closed_workers = 0
+        
+        # send the exit tags
+        while closed_workers < self.workers:
+            
+            data = self.comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=self.status)
+            source = self.status.Get_source()
+            tag = self.status.Get_tag()
+            
+            # if it's ready, tell it to close
+            if tag == self.tags.READY:
+                self.comm.send(None, dest=source, tag=self.tags.EXIT)
+            # track the closed workers
+            elif tag == self.tags.EXIT:
+                closed_workers += 1
+                self.logger.debug("worker %d has exited, closed workers = %d" %(source, closed_workers))
+                
+        self.comm.Barrier()
+        
         if self.is_master():
             self.logger.info("master is finished; terminating")
             if self.subcomm is not None:
