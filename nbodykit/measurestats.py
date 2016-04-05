@@ -284,7 +284,13 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
         for amp, integers in zip(*bianchi_transfers[iell]):
             
             # paint the weighted real-space field
-            bianchi_paint(painter, pm, datasource, *integers, offset=offset)
+            #bianchi_paint(painter, pm, datasource, *integers, offset=offset)
+            
+            # reset the 'real' array to the original painted density
+            pm.real[:] = density[:]
+        
+            # apply the real-space transfer
+            bianchi_transfer(pm.real, xgrid, *integers, offset=offset)
         
             # do the FT and apply the k-space kernel
             pm.r2c()
@@ -300,7 +306,8 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
             logger.info('ell = %d done; %s r2c completed' %args)
         
     stop = time.time()
-    logger.info("higher order multipoles computed in elapsed time %s" %timer(start, stop))
+    if rank == 0:
+        logger.info("higher order multipoles computed in elapsed time %s" %timer(start, stop))
     
     # proper normalization: A_ran from equation 
     norm = pm.BoxSize.prod()**2 / stats['A_ran']
