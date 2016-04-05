@@ -34,6 +34,10 @@ class FKPPainter(Painter):
             N_ran += Nlocal
             S_ran += (weight**2).sum()
         
+        logger.info("A_ran = %f" %A_ran)
+        logger.info("nbar = %s" %str(nbar))
+        logger.info("weight = %s" %str(weight))
+        
         A_ran = self.comm.allreduce(A_ran)
         N_ran = self.comm.allreduce(N_ran)
         S_ran = self.comm.allreduce(S_ran)

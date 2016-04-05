@@ -89,15 +89,15 @@ class TracerCatalogDataSource(DataSource):
                 redshifts += list(z)
         
         # need N_data
-        N_data = 0
+        self.N_data = 0
         for [Position, z, w] in self.data.read(['Position', 'Redshift', 'Weight'], full=False):
-            N_data += len(Position)
+            self.N_data += len(Position)
         
         # gather everything to root
         coords_min  = self.comm.gather(coords_min)
         coords_max  = self.comm.gather(coords_max)
         redshifts   = self.comm.gather(redshifts)
-        self.N_data = self.comm.allreduce(N_data)
+        self.N_data = self.comm.allreduce(self.N_data)
         
         # only rank zero does the work, then broadcast
         if self.comm.rank == 0:
@@ -265,7 +265,6 @@ class TracerCatalogDataSource(DataSource):
             if any(n is None for n in nbar):
                 nbar = self.nbar(redshift)
             elif self._stream is self.randoms:
-                logger.info("multiplying nbar by %f" %(1.*self.N_data/self.N_ran))
                 nbar *= 1.*self.N_data/self.N_ran
                                 
             # update the weights with new FKP
