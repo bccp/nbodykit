@@ -19,7 +19,7 @@ def main():
     desc = """iterate (possibly in parallel) over a set of configuration parameters, 
               running the specified `Algorithm` for each"""
     manager = TaskManager.create(MPI.COMM_WORLD, desc=desc)
-    manager.run_all()
+    manager.compute()
    
 if __name__ == '__main__' :
     main()
