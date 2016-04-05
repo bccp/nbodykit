@@ -131,6 +131,9 @@ class TracerCatalogDataSource(DataSource):
         of objects
         """
         self.data = data
+        self.data.cache_data()
+        
+        # compute the total number
         N_data = 0
         for [Position, z, w] in self.data.read(['Position', 'Redshift', 'Weight'], full=False):
             N_data += len(Position)
@@ -254,6 +257,7 @@ class TracerCatalogDataSource(DataSource):
         # read position, redshift, and weights from the stream
         for [coords, redshift, weight, nbar] in self._stream.read(['Position', 'Redshift', 'Weight', 'Nbar'], full=full):
             
+            print "nbar = ", nbar
             # cartesian coordinates, removing the mean offset in each dimension
             pos = coords - self.offset
     
@@ -263,6 +267,9 @@ class TracerCatalogDataSource(DataSource):
             elif self._stream is self.randoms:
                 nbar *= 1.*self.N_data/self.N_ran
                     
+            print "nbar2 = ", nbar
+            print self.N_data, self.N_ran
+            
             # update the weights with new FKP
             if self.compute_fkp_weights:
                 if self.P0_fkp is None:
