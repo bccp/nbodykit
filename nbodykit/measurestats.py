@@ -2,8 +2,14 @@ import numpy
 from mpi4py import MPI
 import logging
 from nbodykit.extensionpoints import Painter, Transfer
+import time
 
 logger = logging.getLogger('measurestats')
+
+def timer(start, end):
+    hours, rem = divmod(end-start, 3600)
+    minutes, seconds = divmod(rem, 60)
+    return "{:0>2}:{:0>2}:{:05.2f}".format(int(hours),int(minutes),seconds)
 
 def bianchi_paint(painter, pm, datasource, i, j, k=None, offset=[0., 0., 0.]):
 
@@ -271,6 +277,7 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
     cell_size = pm.BoxSize / pm.Nmesh
     xgrid = [(ri+0.5)*cell_size[i] for i, ri in enumerate(pm.r)]
     
+    start = time.time()
     for iell, ell in enumerate(ells[1:]):
         A_ell = numpy.zeros_like(pm.complex)
         
@@ -291,7 +298,9 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
         if rank == 0: 
             args = (ell, len(bianchi_transfers[iell][0]))
             logger.info('ell = %d done; %s r2c completed' %args)
-            
+        
+    stop = time.time()
+    logger.info("higher order multipoles computed in elapsed time %s" %time(start, stop))
     # proper normalization: A_ran from equation 
     norm = pm.BoxSize.prod()**2 / stats['A_ran']
     
