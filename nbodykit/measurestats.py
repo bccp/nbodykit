@@ -261,6 +261,7 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
     
     # paint once and save the density
     stats = painter.paint(pm, datasource)
+    density = pm.real.copy()
     if rank == 0: logger.info('painting done')
     
     # compute the monopole, A0(k), and save
