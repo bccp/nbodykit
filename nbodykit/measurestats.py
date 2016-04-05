@@ -300,7 +300,8 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
             logger.info('ell = %d done; %s r2c completed' %args)
         
     stop = time.time()
-    logger.info("higher order multipoles computed in elapsed time %s" %time(start, stop))
+    logger.info("higher order multipoles computed in elapsed time %s" %timer(start, stop))
+    
     # proper normalization: A_ran from equation 
     norm = pm.BoxSize.prod()**2 / stats['A_ran']
     
