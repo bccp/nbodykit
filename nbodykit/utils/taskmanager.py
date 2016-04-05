@@ -253,16 +253,10 @@ class TaskManager(object):
     def compute(self):
         """
         Compute all of the tasks
-        """  
-        if not self.pool.is_master():
-            self.pool.wait()
-            sys.exit(0)
-           
+        """             
         # compute the work
         results = self.pool.compute(self.task_values)
-        
-        # close the pool
-        self.pool.close()
+        return results
             
     def compute_one_task(self, itask, task):
         """

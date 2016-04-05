@@ -166,11 +166,6 @@ class MPIPool(object):
         if self.is_master():
             raise RuntimeError("master node told to await jobs")
 
-        # must be valid worker to wait
-        if not self.is_worker():
-            self.logger.debug("rank %d process is done waiting" %self.rank)
-            return
-
         # logging info
         if self.subcomm.rank == 0:
             args = (self.rank, MPI.Get_processor_name(), self.subcomm.size)
@@ -221,48 +216,49 @@ class MPIPool(object):
             each task
         """
         ntasks = len(tasks)
-
-        # everyone but master should wait for instructions
-        if not self.is_master():
-            self.wait()
-            self.logger.debug("rank %d process finished" %self.rank)
-            return
-
-        # initialize
-        task_index = 0
-        closed_workers = 0
         results = []
-
-        # logging info
-        args = (self.workers, ntasks)
-        self.logger.info("master starting with %d worker(s) with %d total tasks" %args)
 
         try:
     
-            # loop until all workers have finished with no more tasks
-            while task_index < ntasks:
-                data = self.comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=self.status)
-                source = self.status.Get_source()
-                tag = self.status.Get_tag()
+            if self.is_master():
+                
+                # initialize
+                task_index = 0
+                closed_workers = 0
+                
+                # logging info
+                args = (self.workers, ntasks)
+                self.logger.info("master starting with %d worker(s) with %d total tasks" %args)
+                
+                # loop until all workers have finished with no more tasks
+                while closed_workers < self.workers:
+                
+                    data = self.comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=self.status)
+                    source = self.status.Get_source()
+                    tag = self.status.Get_tag()
     
-                # worker is ready, so send it a task
-                if tag == self.tags.READY:
-                    this_task = [task_index, tasks[task_index]]
-                    self.comm.send(this_task, dest=source, tag=self.tags.START)
-                    self.logger.info("sending task `%s` to worker %d" %(str(tasks[task_index]), source))
-                    task_index += 1
+                    # worker is ready, so send it a task
+                    if tag == self.tags.READY:
+                        if task_index < ntasks:
+                            this_task = [task_index, tasks[task_index]]
+                            self.comm.send(this_task, dest=source, tag=self.tags.START)
+                            self.logger.info("sending task `%s` to worker %d" %(str(tasks[task_index]), source))
+                            task_index += 1
+                        else:
+                            self.comm.send(None, dest=source, tag=self.tags.EXIT)
+                    elif tag == self.tags.DONE:
+                        results.append(data)
+                        self.logger.debug("received result from worker %d" %source)
+                    elif tag == self.tags.EXIT:
+                        closed_workers += 1
+                        self.logger.debug("worker %d has exited, closed workers = %d" %(source, closed_workers))
                         
-                elif tag == self.tags.DONE:
-                    results.append(data)
-                    self.logger.debug("received result from worker %d" %source)
-
+            elif self.is_worker():
+                self.wait()
                     
         except Exception as e:
             self.logger.error("an exception has occurred on one of the ranks...all ranks exiting")
             self.logger.error(traceback.format_exc())
-            
-            # close the pool 
-            self.close()
             
             # bit of hack that forces mpi4py to exit all ranks
             # see https://groups.google.com/forum/embed/#!topic/mpi4py/RovYzJ8qkbc
@@ -271,40 +267,13 @@ class MPIPool(object):
         finally:
             # wait and exit
             self.logger.debug("rank %d process finished" %self.rank)
+            self.comm.Barrier()
+            
+            if self.is_master():
+                self.logger.info("master is finished; terminating")
+                if self.subcomm is not None:
+                    self.subcomm.Free()
             
         # return the results in sorted order
+        results = self.comm.bcast(results)
         return [r[1] for r in sorted(results, key=lambda r: r[0])]
-        
-    def close(self):
-        """
-        Close the pool by freeing the subcomm
-        """
-        closed_workers = 0
-        
-        # send the exit tags
-        while closed_workers < self.workers:
-            
-            data = self.comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=self.status)
-            source = self.status.Get_source()
-            tag = self.status.Get_tag()
-            
-            # if it's ready, tell it to close
-            if tag == self.tags.READY:
-                self.comm.send(None, dest=source, tag=self.tags.EXIT)
-            # track the closed workers
-            elif tag == self.tags.EXIT:
-                closed_workers += 1
-                self.logger.debug("worker %d has exited, closed workers = %d" %(source, closed_workers))
-                
-        self.comm.Barrier()
-        
-        if self.is_master():
-            self.logger.info("master is finished; terminating")
-            if self.subcomm is not None:
-                self.subcomm.Free()
-    
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        self.close()
