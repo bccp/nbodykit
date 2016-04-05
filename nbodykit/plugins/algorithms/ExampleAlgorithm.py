@@ -40,7 +40,7 @@ class Describe(Algorithm):
         left, right = data
         if self.comm.rank == 0:
             template = "DataSource %s Column %s : min = %s max = %s\n"
-            if output == '-':
+            if output == '-' or output is None:
                 import sys
                 output = sys.stdout
             else:

@@ -62,6 +62,7 @@ class TracerCatalogDataSource(DataSource):
         # stream is None by default
         self._stream = None
         self.offset  = None
+        self.alpha   = 1.0
         
         if self.cosmo is None:
             raise ValueError("please specify a input Cosmology to use in TracerCatalog")
@@ -110,12 +111,14 @@ class TracerCatalogDataSource(DataSource):
             self._define_box(coords_min, coords_max)
     
             # compute the number density from the data
-            self._set_nbar(numpy.array(redshifts), alpha=1.*N_data/len(redshifts))
+            self.alpha = 1.*N_data/len(redshifts)
+            self._set_nbar(numpy.array(redshifts), alpha=self.alpha)
             
         # broadcast the results that rank 0 computed
         self.BoxSize   = self.comm.bcast(self.BoxSize)
         self.offset    = self.comm.bcast(self.offset)
         self.nbar      = self.comm.bcast(self.nbar)
+        self.alpha     = self.comm.bcast(self.alpha)
         
         if self.comm.rank == 0:
             logger.info("BoxSize = %s" %str(self.BoxSize))
@@ -238,14 +241,17 @@ class TracerCatalogDataSource(DataSource):
             raise ValueError("valid `columns` to read from %s: %s" %args)
             
         # read position, redshift, and weights from the stream
-        for [coords, redshift, weight] in self._stream.read(['Position', 'Redshift', 'Weight'], full=full):
+        for [coords, redshift, weight, nbar] in self._stream.read(['Position', 'Redshift', 'Weight', 'Nbar'], full=full):
             
             # cartesian coordinates, removing the mean offset in each dimension
             pos = coords - self.offset
     
             # number density from redshift
-            nbar = self.nbar(redshift)
-    
+            if not len(nbar):
+                nbar = self.nbar(redshift)
+            elif self._stream is self.randoms:
+                nbar *= self.alpha
+                    
             # update the weights with new FKP
             if self.compute_fkp_weights:
                 if self.P0_fkp is None:
