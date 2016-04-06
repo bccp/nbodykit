@@ -10,6 +10,51 @@ def timer(start, end):
     hours, rem = divmod(end-start, 3600)
     minutes, seconds = divmod(rem, 60)
     return "{:0>2}:{:0>2}:{:05.2f}".format(int(hours),int(minutes),seconds)
+    
+
+def bianchi_paint(painter, pm, datasource, i, j, k=None, offset=[0., 0., 0.]):
+
+    # setup
+    pm.clear()
+    columns = ['Position', 'Weight']
+    N_ran = N_data = 0
+
+    # paint the randoms
+    datasource.set_stream('randoms')
+    for [position, weight] in datasource.read(columns):
+        position += offset
+        r2 = (position**2).sum(axis=-1)
+        if k is None:
+            w = position[:,i] * position[:,j] / r2
+        else:
+            w = position[:,i]**2 * position[:,j] * position[:,k] / r2**2
+        Nlocal = painter.basepaint(pm, position-offset, w*weight)
+        N_ran += Nlocal
+        
+    # copy and store the randoms
+    randoms_density = pm.real.copy()
+    
+    # paint the data
+    pm.clear()
+    datasource.set_stream('data')
+    for [position, weight] in datasource.read(columns):
+        position += offset
+        r2 = (position**2).sum(axis=-1)
+        if k is None:
+            w = position[:,i] * position[:,j] / r2
+        else:
+            w = position[:,i]**2 * position[:,j] * position[:,k] / r2**2
+        Nlocal = painter.basepaint(pm, position-offset, w*weight)
+        N_data += Nlocal
+        
+    N_ran = painter.comm.allreduce(N_ran)
+    N_data = painter.comm.allreduce(N_data)
+
+    # FKP weighted density is n_data - alpha*n_ran
+    alpha = 1. * N_data / N_ran
+    pm.real[:] -= alpha*randoms_density[:]
+    
+    return {}
 
 def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
     """
@@ -216,7 +261,7 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
     
     # paint once and save the density
     stats = painter.paint(pm, datasource)
-    density = pm.real.copy()
+    #density = pm.real.copy()
     if rank == 0: logger.info('painting done')
     
     # compute the monopole, A0(k), and save
@@ -240,10 +285,11 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
         for amp, integers in zip(*bianchi_transfers[iell]):
                         
             # reset the 'real' array to the original painted density
-            pm.real[:] = density[:]
+            #pm.real[:] = density[:]
+            bianchi_paint(painter, pm, datasource, *integers, offset=offset)
         
             # apply the real-space transfer
-            bianchi_transfer(pm.real, xgrid, *integers, offset=offset)
+            #bianchi_transfer(pm.real, xgrid, *integers, offset=offset)
         
             # do the FT and apply the k-space kernel
             pm.r2c()
