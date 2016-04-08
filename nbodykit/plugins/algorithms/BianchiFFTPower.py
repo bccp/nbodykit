@@ -19,7 +19,7 @@ class BianchiPowerAlgorithm(Algorithm):
     plugin_name = "BianchiFFTPower"
     logger = logging.getLogger(plugin_name)
 
-    def __init__(self, input, Nmesh, max_ell, dk=None, kmin=0., quiet=False):
+    def __init__(self, input, Nmesh, max_ell, dk=None, kmin=0., quiet=False, factor_hexadec=False):
                
         # properly set the logging level          
         self.log_level = logging.DEBUG
@@ -49,6 +49,7 @@ class BianchiPowerAlgorithm(Algorithm):
         s.add_argument("kmin", type=float,
             help='the edge of the first `k` bin to use; default is 0')
         s.add_argument('quiet', type=bool, help="silence the logging output")
+        s.add_argument('factor_hexadec', type=bool, help="use the factored version of the hexadecapole estimator")
                     
     def run(self):
         """
@@ -64,7 +65,7 @@ class BianchiPowerAlgorithm(Algorithm):
         pm = ParticleMesh(self.input.BoxSize, self.Nmesh, dtype='f4', comm=self.comm)
 
         # measure
-        kws = {'comm':self.comm, 'log_level':self.log_level}
+        kws = {'comm':self.comm, 'log_level':self.log_level, 'factor_hexadec':self.factor_hexadec}
         poles, meta = measurestats.compute_bianchi_poles(self.max_ell, self.input, pm, **kws)
         k3d = pm.k
 

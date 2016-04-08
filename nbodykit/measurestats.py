@@ -97,7 +97,7 @@ def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
                 
     return p3d, stats1, stats2
     
-def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.DEBUG):
+def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.DEBUG, factor_hexadec=False):
     """
     Compute and return the 3D power multipoles (ell = [0, 2, 4]) from one 
     input field, which contains non-trivial survey geometry.
@@ -231,7 +231,7 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
     
     # the x grid points (at point centers)
     cell_size = pm.BoxSize / pm.Nmesh
-    xgrid = [(ri)*cell_size[i] for i, ri in enumerate(pm.r)]
+    xgrid = [(ri+0.5)*cell_size[i] for i, ri in enumerate(pm.r)]
     
     start = time.time()
     for iell, ell in enumerate(ells[1:]):
@@ -274,10 +274,16 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
     # see equations 6-8 of Bianchi et al. 2015
     for islab in range(len(P0)):
         if max_ell > 2:
-            P4[islab, ...] = norm * 9./8 * P0[islab] * (35.*P4[islab].conj() - 30.*P2[islab].conj() + 3.*P0[islab].conj())
+            if not factor_hexadec:
+                P4[islab, ...] = norm * 9./8 * P0[islab] * (35.*P4[islab].conj() - 30.*P2[islab].conj() + 3.*P0[islab].conj())
+            else:
+                P4[islab, ...] = norm * 7./10. * P4[islab] * P4[islab].conj()
         if max_ell > 0:
             P2[islab, ...] = norm * 5./2 * P0[islab] * (3.*P2[islab].conj() - P0[islab].conj())
         P0[islab, ...] = norm * P0[islab] * P0[islab].conj()
+        
+    if max_ell > 2 and factor_hexadec:
+        P4[:] -= (P2[:] + 7./2. * P0[:])
 
     result = [P0]
     if max_ell > 0: result.append(P2)
