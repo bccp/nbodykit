@@ -284,7 +284,7 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
             if not factor_hexadec:
                 P4[islab, ...] = norm * 9./8 * P0[islab] * (35.*P4[islab].conj() - 30.*P2[islab].conj() + 3.*P0[islab].conj())
             else:
-                P4[islab, ...] = norm * 7./10. * P2[islab] * P2[islab].conj()
+                P4[islab, ...] = norm * 7./20. * (3.*P2[islab] - P0[islab]) * (3.*P2[islab].conj() - P0[islab].conj())
         if max_ell > 0:
             P2[islab, ...] = norm * 5./2 * P0[islab] * (3.*P2[islab].conj() - P0[islab].conj())
         P0[islab, ...] = norm * P0[islab] * P0[islab].conj()
