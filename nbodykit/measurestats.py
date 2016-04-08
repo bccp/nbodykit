@@ -234,7 +234,8 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
     xgrid = [(ri+0.5)*cell_size[i] for i, ri in enumerate(pm.r)]
     
     start = time.time()
-    for iell, ell in enumerate(ells[1:]):
+    for iell in range(len(bianchi_transfers)):
+        ell = ells[iell+1]
         A_ell = numpy.zeros_like(pm.complex)
         
         for amp, integers in zip(*bianchi_transfers[iell]):
@@ -261,6 +262,8 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
     stop = time.time()
     if rank == 0:
         logger.info("higher order multipoles computed in elapsed time %s" %timer(start, stop))
+        if factor_hexadec:
+            logger.info("using factorized hexadecapole estimator")
     
     # proper normalization: A_ran from equation 
     norm = pm.BoxSize.prod()**2 / stats['A_ran']
