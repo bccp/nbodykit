@@ -207,7 +207,7 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
         bianchi_transfers.append((a2, k2))
     
     # hexadecapole kernels
-    if max_ell > 2:
+    if max_ell > 2 and not factor_hexadec:
         k4 = [(0, 0, 0), (1, 1, 1), (2, 2, 2), (0, 0, 1), (0, 0, 2),
              (1, 1, 0), (1, 1, 2), (2, 2, 0), (2, 2, 1), (0, 1, 1),
              (0, 2, 2), (1, 2, 2), (0, 1, 2), (1, 0, 2), (2, 0, 1)]
@@ -268,7 +268,11 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
     # reuse memory for output
     P0 = result[0]
     if max_ell > 0: P2 = result[1]
-    if max_ell > 2: P4 = result[2]
+    if max_ell > 2:
+        if not factor_hexadec: 
+            P4 = result[2]
+        else:
+            P4 = numpy.empty_like(P2)
     
     # calculate the multipoles, islab by islab to save memory
     # see equations 6-8 of Bianchi et al. 2015
@@ -277,7 +281,7 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
             if not factor_hexadec:
                 P4[islab, ...] = norm * 9./8 * P0[islab] * (35.*P4[islab].conj() - 30.*P2[islab].conj() + 3.*P0[islab].conj())
             else:
-                P4[islab, ...] = norm * 7./10. * P4[islab] * P4[islab].conj()
+                P4[islab, ...] = norm * 7./10. * P2[islab] * P2[islab].conj()
         if max_ell > 0:
             P2[islab, ...] = norm * 5./2 * P0[islab] * (3.*P2[islab].conj() - P0[islab].conj())
         P0[islab, ...] = norm * P0[islab] * P0[islab].conj()
