@@ -248,12 +248,14 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
         
             # do the FT and apply the k-space kernel
             pm.r2c()
-            pm.transfer(transfer)
             bianchi_transfer(pm.complex, pm.k, *integers)
             
             # and save
             A_ell[:] += amp*pm.complex[:]
             
+        pm.complex[:] = A_ell[:]
+        pm.transfer(transfer)
+        A_ell[:] = pm.complex[:]
         result.append(A_ell)
         if rank == 0: 
             args = (ell, len(bianchi_transfers[iell][0]))
