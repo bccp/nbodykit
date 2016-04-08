@@ -284,14 +284,11 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
             if not factor_hexadec:
                 P4[islab, ...] = norm * 9./8 * P0[islab] * (35.*P4[islab].conj() - 30.*P2[islab].conj() + 3.*P0[islab].conj())
             else:
-                P4[islab, ...] = norm * 7./10. * (3./2.*P2[islab] - 1./2*P0[islab]) * (3./2.*P2[islab].conj() - 1./2*P0[islab].conj())
+                P4[islab, ...] = norm * 9. * ( 35./8*P2[islab]*P2[islab].conj() - 1./9*P0[islab]*P0[islab].conj() - 55./24*P0[islab]*P2[islab].conj() - 35./24*P2[islab]*P0[islab].conj() )
         if max_ell > 0:
             P2[islab, ...] = norm * 5./2 * P0[islab] * (3.*P2[islab].conj() - P0[islab].conj())
         P0[islab, ...] = norm * P0[islab] * P0[islab].conj()
         
-    if max_ell > 2 and factor_hexadec:
-        P4[:] -= (P2[:] + 7./2. * P0[:])
-
     result = [P0]
     if max_ell > 0: result.append(P2)
     if max_ell > 2: result.append(P4)
