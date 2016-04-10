@@ -19,7 +19,8 @@ class BianchiPowerAlgorithm(Algorithm):
     plugin_name = "BianchiFFTPower"
     logger = logging.getLogger(plugin_name)
 
-    def __init__(self, input, Nmesh, max_ell, dk=None, kmin=0., quiet=False, factor_hexadec=False):
+    def __init__(self, input, Nmesh, max_ell, 
+                    dk=None, kmin=0., quiet=False, factor_hexadecapole=False):
                
         # properly set the logging level          
         self.log_level = logging.DEBUG
@@ -45,11 +46,14 @@ class BianchiPowerAlgorithm(Algorithm):
 
         # the optional arguments
         s.add_argument("dk", type=float,
-            help='the spacing of k bins to use; if not provided, the fundamental mode of the box is used')
+            help='the spacing of k bins to use; if not provided, '
+                 'the fundamental mode of the box is used')
         s.add_argument("kmin", type=float,
             help='the edge of the first `k` bin to use; default is 0')
         s.add_argument('quiet', type=bool, help="silence the logging output")
-        s.add_argument('factor_hexadec', type=bool, help="use the factored version of the hexadecapole estimator")
+        s.add_argument('factor_hexadecapole', type=bool, 
+            help="use the factored expression for the hexadecapole (ell=4) from "
+                 "eq. 27 of Scoccimarro 2015 (1506.02729)")
                     
     def run(self):
         """
@@ -65,7 +69,7 @@ class BianchiPowerAlgorithm(Algorithm):
         pm = ParticleMesh(self.input.BoxSize, self.Nmesh, dtype='f4', comm=self.comm)
 
         # measure
-        kws = {'comm':self.comm, 'log_level':self.log_level, 'factor_hexadec':self.factor_hexadec}
+        kws = {'comm':self.comm, 'log_level':self.log_level, 'factor_hexadecapole':self.factor_hexadecapole}
         poles, meta = measurestats.compute_bianchi_poles(self.max_ell, self.input, pm, **kws)
         k3d = pm.k
 
@@ -120,7 +124,7 @@ class BianchiPowerAlgorithm(Algorithm):
             
             # write binned statistic
             args = (",".join(map(str, ells)), output)
-            self.logger.info('measurment done; saving ell = %s multipole(s) to %s' %args)
+            self.logger.info('measurement done; saving ell = %s multipole(s) to %s' %args)
             cols = ['k'] + ['power_%d' %l for l in ells] + ['modes']
             pole_result = [k] + [pole for pole in poles] + [N]
             

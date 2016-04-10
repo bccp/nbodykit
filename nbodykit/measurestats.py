@@ -97,7 +97,7 @@ def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
                 
     return p3d, stats1, stats2
     
-def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.DEBUG, factor_hexadec=False):
+def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.DEBUG, factor_hexadecapole=False):
     """
     Compute and return the 3D power multipoles (ell = [0, 2, 4]) from one 
     input field, which contains non-trivial survey geometry.
@@ -125,6 +125,10 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
     log_level : int, optional
         logging level to use while computing. Default is ``logging.DEBUG``
         which has numeric value of `10`
+        
+    factor_hexadecapole: bool, optional
+        if `True`, use the factored expression for the hexadecapole (ell=4) from
+        eq. 27 of Scoccimarro 2015 (1506.02729); default is `False`
     
     Returns
     -------
@@ -207,7 +211,7 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
         bianchi_transfers.append((a2, k2))
     
     # hexadecapole kernels
-    if max_ell > 2 and not factor_hexadec:
+    if max_ell > 2 and not factor_hexadecapole:
         k4 = [(0, 0, 0), (1, 1, 1), (2, 2, 2), (0, 0, 1), (0, 0, 2),
              (1, 1, 0), (1, 1, 2), (2, 2, 0), (2, 2, 1), (0, 1, 1),
              (0, 2, 2), (1, 2, 2), (0, 1, 2), (1, 0, 2), (2, 0, 1)]
@@ -263,8 +267,8 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
     stop = time.time()
     if rank == 0:
         logger.info("higher order multipoles computed in elapsed time %s" %timer(start, stop))
-        if factor_hexadec:
-            logger.info("using factorized hexadecapole estimator")
+        if factor_hexadecapole:
+            logger.info("using factorized hexadecapole estimator for ell=4")
     
     # proper normalization: A_ran from equation 
     norm = pm.BoxSize.prod()**2 / stats['A_ran']
@@ -273,7 +277,7 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
     P0 = result[0]
     if max_ell > 0: P2 = result[1]
     if max_ell > 2:
-        if not factor_hexadec: 
+        if not factor_hexadecapole: 
             P4 = result[2]
         else:
             P4 = numpy.empty_like(P2)
@@ -282,7 +286,7 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
     # see equations 6-8 of Bianchi et al. 2015
     for islab in range(len(P0)):
         if max_ell > 2:
-            if not factor_hexadec:
+            if not factor_hexadecapole:
                 P4[islab, ...] = norm * 9./8 * P0[islab] * (35.*P4[islab].conj() - 30.*P2[islab].conj() + 3.*P0[islab].conj())
             else:
                 P4[islab, ...] = norm * 9./2. * ( 35./4*P2[islab]*P2[islab].conj() + 3./4*P0[islab]*P0[islab].conj() - 5./12*(11*P0[islab]*P2[islab].conj() + 7.*P2[islab]*P0[islab].conj()) )
