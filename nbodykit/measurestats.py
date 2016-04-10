@@ -285,16 +285,14 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
     # calculate the multipoles, islab by islab to save memory
     # see equations 6-8 of Bianchi et al. 2015
     for islab in range(len(P0)):
-        P0_star = P0[islab].conj() # save for reuse
         if max_ell > 2:
-            P2_star = P2[islab].conj() # save for reuse
             if not factor_hexadecapole:
-                P4[islab, ...] = norm * 9./8 * P0[islab] * (35.*P4[islab].conj() - 30.*P2_star + 3.*P0_star)
+                P4[islab, ...] = norm * 9./8 * P0[islab] * (35.*P4[islab].conj() - 30.*P2[islab].conj() + 3.*P0[islab].conj())
             else:
-                P4[islab, ...] = norm * 9./2. * ( 35./4*P2[islab]*P2_star + 3./4*P0[islab]*P0_star - 5./12*(11*P0[islab]*P2_star + 7.*P2[islab]*P0_star) )
+                P4[islab, ...] = norm * 9./2. * ( 35./4*P2[islab]*P2[islab].conj() + 3./4*P0[islab]*P0[islab].conj() - 5./12*(11*P0[islab]*P2[islab].conj() + 7.*P2[islab]*P0[islab].conj()) )
         if max_ell > 0:
-            P2[islab, ...] = norm * 5./2 * P0[islab] * (3.*P2_star - P0_star)
-        P0[islab, ...] = norm * P0[islab] * P0_star
+            P2[islab, ...] = norm * 5./2 * P0[islab] * (3.*P2[islab].conj() - P0[islab].conj())
+        P0[islab, ...] = norm * P0[islab] * P0[islab].conj()
         
     result = [P0]
     if max_ell > 0: result.append(P2)
