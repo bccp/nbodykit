@@ -192,7 +192,7 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
     
     # get the datasource, painter, and transfer
     painter = Painter.create('FKPPainter')
-    transfer = [Transfer.create('AnisotropicCIC')]
+    transfer = Transfer.create('AnisotropicCIC')
 
     # which transfers do we need
     if max_ell not in [0, 2, 4]:
@@ -221,7 +221,7 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
     
     # compute the monopole, A0(k), and save
     pm.r2c()
-    pm.transfer(transfer)
+    transfer(pm, pm.complex)
     A0 = pm.complex.copy()
     if rank == 0: logger.info('ell = 0 done; 1 r2c completed')
     
@@ -253,9 +253,8 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
             # and save
             A_ell[:] += amp*pm.complex[:]
             
-        pm.complex[:] = A_ell[:]
-        pm.transfer(transfer)
-        A_ell[:] = pm.complex[:]
+        # apply the CIC transfer and save
+        transfer(pm, A_ell)
         result.append(A_ell)
         if rank == 0: 
             args = (ell, len(bianchi_transfers[iell][0]))
