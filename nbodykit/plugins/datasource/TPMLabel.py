@@ -15,7 +15,7 @@ class TPMLabel(DataSource):
         else:
             datastorage = None
         datastorage = self.comm.bcast(datastorage)
-        self.TotalLength = sum(datastorage.npart)
+        self.size = sum(datastorage.npart)
     
     @classmethod
     def register(cls):
@@ -25,7 +25,7 @@ class TPMLabel(DataSource):
         s.add_argument("path", type=str, help="the file path to load the data from")
         s.add_argument("bunchsize", type=int, help="number of particle to read in a bunch")
 
-    def read(self, columns, full=False):
+    def parallel_read(self, columns, full=False):
         """ read data in parallel. if Full is True, neglect bunchsize. """
         Ntot = 0
         # avoid reading Velocity if RSD is not requested.
@@ -47,4 +47,4 @@ class TPMLabel(DataSource):
                     columns=columns, bunchsize=bunchsize)):
             P = dict(zip(columns, P))
 
-            yield [P[key] for key in columns]
+            yield [P.get(key, None) for key in columns]

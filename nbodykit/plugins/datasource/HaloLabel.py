@@ -14,7 +14,7 @@ class HaloLabel(DataSource):
     
     def __init__(self, path, bunchsize=4*1024*1024):
         f = bigfile.BigFileMPI(self.comm, self.path)
-        self.TotalLength = f['Label'].size
+        self.size = f['Label'].size
     
     @classmethod
     def register(cls):
@@ -24,7 +24,7 @@ class HaloLabel(DataSource):
         s.add_argument("path", type=str, help="the file path to load the data from")
         s.add_argument("bunchsize", type=int, help="number of particle to read in a bunch")
 
-    def read(self, columns, full=False):
+    def parallel_read(self, columns, full=False):
         f = bigfile.BigFileMPI(self.comm, self.path)
         readcolumns = columns
         done = False
@@ -56,4 +56,4 @@ class HaloLabel(DataSource):
                 P[column] = data
 
             i = i + 1
-            yield [P[column] for column in columns]
+            yield [P.get(column, None) for column in columns]

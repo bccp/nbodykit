@@ -19,12 +19,10 @@ from nbodykit.distributedarray import ScatterArray
 import numpy
 from argparse import Namespace
 import functools
-from inspect import isgeneratorfunction
 
 # MPI will be required because
 # a plugin instance will be created for a MPI communicator.
 from mpi4py import MPI
-
 
 algorithms  = Namespace()
 datasources = Namespace()
@@ -297,45 +295,45 @@ class Transfer:
         """
         raise NotImplementedError
 
-def memoized(f):
+class DataStream(object):
     """
-    Decorator to cache return values of `DataSource.read`
+    A class to represent an open `DataSource` stream, which
+    is called by `DataSource.open()`
     
-    This is designed such that the user can decorate any
-    DataSource `read` calls in any DataSource Plugin
+    The class is written such that it be used with or without
+    the `with` statement, similar to the file `open()` function
     """
-    cache = {}
-
-    @functools.wraps(f)
-    def wrapped(*args, **kwargs):
-        columns = args[-1]
+    def __init__ (self, data, defaults={}):
+        self.data = data
+        self.defaults = defaults
         
-        # only respects full at the moment
-        full = kwargs.get('full', None)
-        if set(kwargs) not in [{"full"}, set()]:
-            raise ValueError("DataSource cache only respects `full` keyword; others were provided")
-
-        # find out which columns are in cache
-        missing = [(c, full) for c in columns if (c,full) not in cache]
-        if len(missing):
-            cols = [m[0] for m in missing]
-            newargs = list(args); newargs[-1] = cols
-            result = f(*newargs, **kwargs) # this is a generator
-
-            # generator returned, so unpack it into list and arrange by column
-            result = list(zip(*result))
-            # cache each column result
-            for i, key in enumerate(missing):
-                cache[key] = result[i]
-
-        # return
-        toret = [cache[(col,full)] for col in columns]
-        return zip(*toret) # re-zip results from the generator
+        # only cache if we aren't open yet
+        if not self.isopen():
+            if self.data._cache_data(): # fails if readall not defined
+                self.data._has_readall = True
+            # don't do anything if `readall` not defined    
+            else:
+                self.data._has_readall = False
+                
+        # store the defaults
+        self.data.defaults = defaults
         
-    wrapped.cache = cache
-    return wrapped
-
-
+    def read(self, *args, **kwargs):
+        return self.data.read(*args, **kwargs)
+    
+    def close(self):
+        self.data.close()
+    
+    def isopen(self):
+        return self.data.isopen()
+        
+    def __enter__ (self):
+        return self
+        
+    def __exit__ (self, exc_type, exc_value, traceback):
+        self.close()
+        
+            
 @ExtensionPoint(datasources)
 class DataSource:
     """
@@ -391,75 +389,284 @@ class DataSource:
         except:
             raise ValueError("BoxSize must be a scalar or three-vector")
         return boxsize
-
-    def cache_data(self, cache=True):
-        """
-        Cache/un-cache the return results of `read`
-        
-        Each column that is asked for via `read` will be cached, 
-        and returned from cache if asked for multiple times
-        """
-        # setup the caching read function
-        if cache:
-            if not hasattr(self.read, 'cache'):  # already cached
-                self._original_read = self.read
-                self.read = memoized(self.read)
-        # restore the original
-        else:
-            if hasattr(self.read, 'cache'):
-                self.read = self._original_read
             
-    def simple_read(self, columns):
+    def open(self, defaults={}):
+        """
+        `Open` the DataSource
+        """
+        # note: if DataSource is already `open` (i.e., cached), we can 
+        # still get a new stream with different defaults
+        return DataStream(self, defaults=defaults)
+            
+    def isopen(self):
+        """
+        Return if the DataSource is open
+        """
+        return hasattr(self, '_has_readall')
+    
+    def close(self):
+        """
+        Close an open DataSource
+        """
+        # strict error catching
+        if not self.isopen():
+            raise ValueError("cannot perfom `close` operation on an already closed `DataSource`")
+        
+        # delete the cache and size if they exist
+        if self._has_readall:
+            if hasattr(self, 'cache'): del self.cache
+            if hasattr(self, 'size'): del self.size
+            
+        # delete any defaults we defined
+        if hasattr(self, 'defaults'):
+            del self.defaults
+            
+        # this is created when 'open()' is called
+        del self._has_readall
+                 
+    def read(self, columns, full=False):
+        """
+        Read the data corresponding to `columns` from an `open` DataSource
+        """
+        if not self.isopen():
+            raise ValueError("cannot perfom `read` operation on a closed `DataSource`")
+            
+        # return data from cache
+        if self._has_readall:
+            
+            # valid column names
+            valid_columns = list(set(self.cached_columns)|set(self.defaults))
+            
+            # replace any missing columns with None
+            data = []
+            for i, col in enumerate(columns):
+                if col in self.cached_columns:
+                    index = self.cached_columns.index(col)
+                    data.append(self.cache[index])
+                else:
+                    data.append(None)
+            
+            # yield the blended data
+            yield self._blend_data(columns, data, valid_columns, self.size)
+            
+        # parallel read is defined
+        else:
+            
+            for data in self.parallel_read(columns, full=full):
+                
+                # determine the valid columns (where data is not None)
+                valid_columns = []; indices = []
+                for i, col in enumerate(columns):
+                    if data[i] is not None:
+                        valid_columns.append(col)
+                        indices.append(i)
+                valid_columns = list(set(valid_columns)|set(self.defaults))
+                
+                # verify data
+                valid_data = [data[i] for i in indices]
+                size = self._verify_data(valid_data)
+                
+                # yield the blended data with defaults
+                yield self._blend_data(columns, data, valid_columns, size)
+
+    def readall(self):
         """ 
-        Override to provide a method to read in all data at once 
-        uncollectively. 
+        Override to provide a method to read all available data at once 
+        (uncollectively) and cache the data in memory for repeated 
+        calls to `read`
 
         Notes
         -----
-
-        This function will be called by the default 'read' function
-        on the root rank to read in the data set.
-        The intention is to reduce the complexity of implementing a
-        simple and small data source.
+        *   The default 'read' function calls this function on the
+            root rank to read all available data, and then scatters
+            the data evenly across all available ranks
+        *   The intention is to reduce the complexity of implementing a 
+            simple and small data source, for which reading all data at once
+            is feasible
             
+        Returns
+        -------
+        data : dict
+            a dictionary of all supported data for the datasource; keys
+            give the column names and values are numpy arrays
         """
         raise NotImplementedError
-
-    def read(self, columns, full=False):
-        """
-        Yield the data in the columns. If full is True, read all
-        particles in one run; otherwise try to read in chunks.
-
+        
+    def parallel_read(self, columns, full=False):
+        """ 
         Override this function for complex, large data sets. The read
         operation shall be collective, each yield generates different
-        sections of the datasource.
-
-        On every iteration `stat` shall be updated with the global 
-        statistics. Current keys are `Ntot`    
+        sections of the datasource. No caching of data takes places.
+        
+        If the `DataSource` does not provide a column in `columns`, 
+        `None` should be returned
+        
+        Notes
+        -----
+        *   This function will be called if `readall` is not provided
+        *   The intention is for this function to handle complex and 
+            large data sets, where parallel I/O across ranks are 
+            required to avoid memory and I/O issues
+            
+        Parameters
+        ----------
+        full : bool, optional
+            if `True`, any `bunchsize` parameters will be ignored, so 
+            that each rank will read all of its specified data section
+            at once
+        
+        Returns
+        -------
+        data : list
+            a list of the data for each column in columns; if the datasource
+            does not provide a given column, that element should be `None`
         """
+        raise NotImplementedError
+        
+    def _cache_data(self):
+        """
+        Internal function to cache the data from `readall`.
+        
+        This function performs the following actions:
+        
+             1. calls `readall` on the root rank
+             2. scatters read data evenly across all ranks
+             3. stores the scattered data as the `cache` attribute
+             4. stores the total size of the data as the `size` attribute
+             5. stores the available columns in the cache as `cached_columns`
+             
+        Returns
+        -------
+        success : bool
+            if the call to `readall` is successful, returns `True`, else `False`
+        """
+        # rank 0 tries to read, and tells everyone else if it succeeds
+        success = False
         if self.comm.rank == 0:
             
-            # make sure we have at least one column to read
-            if not len(columns):
-                raise RuntimeError("DataSource::read received no columns to read")
+            # read all available data
+            try:
+                data = self.readall()
+                success = True
+            except:
+                pass
+                
+        # determine if readall was successful
+        success = self.comm.bcast(success, root=0)
+    
+        # cache the data
+        if success:
             
-            data = self.simple_read(columns)    
+            columns = []; size = None
+            if self.comm.rank == 0:
+                columns = list(data.keys())
+                data = [data[c] for c in columns] # store a list
             
-            # make sure the number of rows in each column read is equal
-            # columns has to have length >= 1, or we crashed already
-            if not all(len(d) == len(data[0]) for d in data):
-                raise RuntimeError("column length mismatch in DataSource::read")
+            # everyone gets the column names
+            columns = self.comm.bcast(columns, root=0)
+        
+            # verify the input data
+            if self.comm.rank == 0:    
+                size = self._verify_data(data)
+            else:
+                data = [None for c in columns]
+        
+            # everyone gets the total size
+            size = self.comm.bcast(size, root=0)
+        
+            # scatter the data across all ranks
+            # each rank caches only a part of the total data
+            self.cache = []
+            for d in data:
+                self.cache.append(ScatterArray(d, self.comm, root=0))
+
+            # store the size and column names
+            self.size = size
+            self.cached_columns = columns
             
+            return True
         else:
-            data = [None for c in columns]
+            return False
+
+    def _verify_data(self, data):
+        """
+        Internal function to verify the input data by checking that: 
+            
+            1. `data` is not empty
+            2. the sizes of each element of data are equal
         
+        Returns
+        -------
+        size : int
+            the size of each element of `data`
+        """
+        # need some data
+        if not len(data):
+            raise ValueError('DataSource::read did not return any data')
         
+        # make sure the number of rows in each column read is equal
+        # columns has to have length >= 1, or we crashed already
+        if not all(len(d) == len(data[0]) for d in data):
+            raise RuntimeError("column length mismatch in DataSource::read")
+        
+        # return the size
+        return len(data[0])
+        
+    def _blend_data(self, columns, data, valid_columns, size):
+        """
+        Internal function to blend data that has been explicitly read
+        and any default values that have been set. 
+        
+        Notes
+        -----
+        *   Default values are returned with the correct size but minimal
+            memory usage using `stride_tricks` from `numpy.lib`
+        *   This function will crash if a column is requested that the 
+            data source does not provided and no default exists
+        
+        Parameters
+        ----------
+        columns : list
+            list of the column names that are being returned
+        data : list
+            list of data corresponding to `columns`; if a column is not 
+            supported, the element of data is `None`
+        valid_columns : list
+            the list of valid column names; the union of the columns supported
+            by the data source and the default values
+        size : int
+            the size of the data we are returning
+        
+        Returns
+        -------
+        newdata : list
+            the list of data with defaults blended in, if need be
+        """
         newdata = []
-        for d in data:
-            newdata.append(ScatterArray(d, self.comm, root=0))
-
-        yield newdata 
-
+        for i, col in enumerate(columns):
+                        
+            # this column is missing -- crash
+            if col not in valid_columns:
+                args = (col, str(valid_columns))
+                raise ValueError("column '%s' is unavailable; valid columns are: %s" %args)
+            
+            # we have this column
+            else:
+                # return read data, if not None
+                if data[i] is not None:
+                    newdata.append(data[i])
+                # return the default
+                else:
+                    if col not in self.defaults:
+                        raise RuntimeError("missing default value when trying to blend data")    
+                        
+                    # use stride_tricks to avoid memory usage
+                    val = numpy.asarray(self.defaults[col])
+                    d = numpy.lib.stride_tricks.as_strided(val, (size, val.size), (0, val.itemsize))
+                    newdata.append(numpy.squeeze(d))
+            
+        return newdata
+        
 
 @ExtensionPoint(painters)
 class Painter:

@@ -99,7 +99,19 @@ class RaDecRedshiftDataSource(DataSource):
         
         return pos.T
         
-    def simple_read(self, columns):  
+    def readall(self):
+        """
+        Read all available data, returning a dictionary
+        
+        This provides the following columns:
+        
+            ``Ra``  : right ascension (in radians)
+            ``Dec`` : declination (in radians)  
+            ``Redshift`` : the redshift
+            ``Position`` : cartesian coordinates computed from angular coords + redshift
+        
+        And optionally, the `Weight` and `Nbar` columns
+        """  
         try:
             import pandas as pd
         except:
@@ -131,22 +143,18 @@ class RaDecRedshiftDataSource(DataSource):
         cols = self.sky_cols + [self.z_col]
         pos = data[cols].values.astype('f4')
 
-        # get the weights
-        w = numpy.ones(len(pos))
+        toret             = {}
+        toret['Ra']       = pos[:,0]
+        toret['Dec']      = pos[:,1]
+        toret['Redshift'] = pos[:,2]
+        toret['Position'] = self._to_cartesian(pos)
+
+        # optionally, return a weight
         if self.weight_col is not None:
-            w = data[self.weight_col].values.astype('f4')
+            toret['Weight'] = data[self.weight_col].values.astype('f4')
 
-        # get the nbar
-        nbar = numpy.array([None]*len(pos))
+        # optionally, return nbar
         if self.nbar_col is not None:
-            nbar = data[self.nbar_col].values.astype('f4')
-
-        P             = {}
-        P['Ra']       = pos[:,0]
-        P['Dec']      = pos[:,1]
-        P['Redshift'] = pos[:,2]
-        P['Position'] = self._to_cartesian(pos)
-        P['Weight']   = w
-        P['Nbar']     = nbar
+            toret['Nbar'] = data[self.nbar_col].values.astype('f4')
     
-        return [P[key] for key in columns]
+        return toret
