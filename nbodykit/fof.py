@@ -183,7 +183,8 @@ def fof(datasource, linking_length, nmin, comm=MPI.COMM_WORLD, log_level=logging
     ]
     domain = GridND(grid)
 
-    [[Position]] = datasource.read(['Position'], full=True)
+    with datasource.open() as stream:
+        [[Position]] = stream.read(['Position'], full=True)
 
     if comm.rank == 0: logger.info("ll %g. " % linking_length)
     if comm.rank == 0: logger.debug('grid: %s' % str(grid))
@@ -247,8 +248,11 @@ def fof_catalogue(datasource, label, comm, calculate_initial=False):
         ('Length', 'i4')]
 
     N = halos.count(label, comm=comm)
-
-    [[Position]] = datasource.read(['Position'], full=True)
+    
+    # explicitly open the DataSource
+    stream = datasource.open()
+    
+    [[Position]] = stream.read(['Position'], full=True)
     Position /= datasource.BoxSize
     hpos = halos.centerofmass(label, Position, boxsize=1.0, comm=comm)
     del Position
@@ -262,11 +266,14 @@ def fof_catalogue(datasource, label, comm, calculate_initial=False):
     if calculate_initial:
 
         dtype.append(('InitialPosition', ('f4', 3)))
-
+        
         [[Position]] = datasource.read(['InitialPosition'], full=True)
         Position /= datasource.BoxSize
         hpos_init = halos.centerofmass(label, Position, boxsize=1.0, comm=comm)
         del Position
+
+    # close the datasource stream
+    stream.close()
 
     if comm.rank == 0: logger.info("Calculated catalogue %d halos found. " % (len(N) -1 ))
     if comm.rank == 0: logger.info("Length = %s " % N[1:])

@@ -78,7 +78,7 @@ class MWhiteHaloFileDataSource(DataSource):
         s.add_argument("select", type=selectionlanguage.Query,
             help='row selection based on logmass, e.g. LogMass > 13 and LogMass < 15')
     
-    def simple_read(self, columns):
+    def readall(self):
         dtype = numpy.dtype([
             ('Position', ('f4', 3)),
             ('Velocity', ('f4', 3)),
@@ -92,9 +92,8 @@ class MWhiteHaloFileDataSource(DataSource):
         
         P['Position']= numpy.float32(hf.read_pos())
         P['Velocity']= numpy.float32(hf.read_vel())
-        P['Mass'] = numpy.ones(len(P['Position']))
-        P['Weight'] = P['Mass']
-        P['LogMass'] = numpy.log10(numpy.float32(hf.read_mass()))
+        P['Mass'] = numpy.float32(hf.read_mass())
+        P['LogMass'] = numpy.log10(P['Mass'])
         
         # select based on selection conditions
         if self.select is not None:
@@ -110,4 +109,4 @@ class MWhiteHaloFileDataSource(DataSource):
             P['Position'][:, dir] += P['Velocity'][:, dir]
             P['Position'][:, dir] %= self.BoxSize[dir]
 
-        return [P[key] for key in columns]
+        return {key: P[key] for key in P.dtype.names}

@@ -22,19 +22,22 @@ class DefaultPainter(Painter):
     
         Parameters
         ----------
-        field : ``DataSource``
-            the data source object representing the field to paint onto the mesh
         pm : ``ParticleMesh``
             particle mesh object that does the painting
+        datasource : ``DataSource``
+            the data source object representing the field to paint onto the mesh
             
         Returns
         -------
         stats : dict
             dictionary of statistics, usually only containing `Ntot`
         """
-
         pm.real[:] = 0
         stats = {}
+        
+        # open the datasource stream (with no defaults)
+        if not datasource.isopen():
+            datasource = datasource.open()
 
         Nlocal = 0
         if self.weight is None:
@@ -43,6 +46,7 @@ class DefaultPainter(Painter):
         else:
             for position, weight in datasource.read(['Position', self.weight]):
                 Nlocal += self.basepaint(pm, position, weight)
+        
         stats['Ntot'] = self.comm.allreduce(Nlocal)
         return stats
             

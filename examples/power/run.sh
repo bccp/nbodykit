@@ -9,7 +9,8 @@ for fn in *.params; do
         mpirun -n 2 python ../../bin/nbkit.py FFTCorrelation $fn || exit
     elif [[ $fn == *"bianchi"* ]]
     then
-        mpirun -n 2 python ../../bin/nbkit.py BianchiFFTPower $fn || exit
+        #mpirun -n 2 python ../../bin/nbkit.py BianchiFFTPower $fn || exit
+        continue;
     else
         mpirun -n 2 python ../../bin/nbkit.py FFTPower $fn || exit
     fi

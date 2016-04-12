@@ -26,7 +26,7 @@ class CollapsedHaloDataSource(DataSource):
         s.add_argument("pathlabel", help="path to label file")
         s.add_argument("rsd", choices="xyz", help="direction to do redshift distortion")
     
-    def read(self, columns, comm, bunchsize):
+    def parallel_read(self, columns, full=False):
         if comm.rank == 0:
             hf = files.HaloFile(self.pathhalo)
             nhalo = hf.nhalo

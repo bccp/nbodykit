@@ -27,13 +27,14 @@ class Describe(Algorithm):
         """
         left = []
         right = []
-        for [pos] in self.datasource.read([self.column]):
-            left.append(numpy.min(pos, axis=0))
-            right.append(numpy.max(pos, axis=0))
-        left = numpy.min(left, axis=0)
-        right = numpy.max(right, axis=0)
-        left = numpy.min(self.comm.allgather(left), axis=0)
-        right = numpy.max(self.comm.allgather(right), axis=0)
+        with self.datasource.open() as stream:
+            for [pos] in stream.read([self.column]):
+                left.append(numpy.min(pos, axis=0))
+                right.append(numpy.max(pos, axis=0))
+            left = numpy.min(left, axis=0)
+            right = numpy.max(right, axis=0)
+            left = numpy.min(self.comm.allgather(left), axis=0)
+            right = numpy.max(self.comm.allgather(right), axis=0)
         return left, right
 
     def save(self, output, data):

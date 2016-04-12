@@ -40,14 +40,18 @@ class Subsample(Algorithm):
         s.add_argument("format", choices=['hdf5', 'mwhite'], help='the format of the output')
 
     def run(self):
+        
         pm = ParticleMesh(self.datasource.BoxSize, self.Nmesh, dtype='f4', comm=self.comm)
         if self.smoothing is None:
             self.smoothing = self.datasource.BoxSize[0] / self.Nmesh
         elif (self.datasource.BoxSize / self.Nmesh > self.smoothing).any():
             raise ValueError("smoothing is too small")
      
+        # open the datasource
+        datasource = self.datasource.open()
+     
         painter = Painter.create("DefaultPainter")
-        painter.paint(pm, self.datasource)
+        painter.paint(pm, datasource)
         pm.r2c()
         def Smoothing(pm, complex):
             k = pm.k
@@ -92,7 +96,7 @@ class Subsample(Algorithm):
 
         subsample = [numpy.empty(0, dtype=dtype)]
 
-        for Position, ID, Velocity in self.datasource.read(columns):
+        for Position, ID, Velocity in datasource.read(columns):
             u = rngtable[self.comm.rank].uniform(size=len(ID))
             keep = u < self.ratio
             Nkeep = keep.sum()
@@ -112,9 +116,13 @@ class Subsample(Algorithm):
             data['Velocity'][:] /= self.datasource.BoxSize
             data['Density'][:] = density
             subsample.append(data)
+        
+        # close the datasource stream
+        datasource.close()
              
         subsample = numpy.concatenate(subsample)
         mpsort.sort(subsample, orderby='ID')
+        
         return subsample
 
     def save(self, output, data):

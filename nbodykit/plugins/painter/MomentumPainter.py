@@ -40,6 +40,10 @@ class MomentumPainter(Painter):
         stats = {}
         Nlocal = 0
         
+        # open the datasource stream (with no defaults)
+        if not datasource.isopen():
+            datasource = datasource.open()
+        
         # just paint density as usual
         if self.moment == 0: 
             for [position] in datasource.read(['Position']):

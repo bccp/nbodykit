@@ -127,7 +127,8 @@ class FiberCollisionsAlgorithm(Algorithm):
         PIG['Index'] = offset + numpy.where(mask == True)[0]
         del Label
         
-        [[Position]] = self.datasource.read(['Position'], full=True)
+        with self.datasource.open() as stream:
+            [[Position]] = stream.read(['Position'], full=True)
         PIG['Position'] = Position[mask]
         del Position
         Ntot = comm.allreduce(len(mask))
