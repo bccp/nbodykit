@@ -11,50 +11,6 @@ def timer(start, end):
     minutes, seconds = divmod(rem, 60)
     return "{:0>2}:{:0>2}:{:05.2f}".format(int(hours),int(minutes),seconds)
 
-def bianchi_paint(painter, pm, datasource, i, j, k=None, offset=[0., 0., 0.]):
-
-    # setup
-    pm.clear()
-    columns = ['Position', 'Weight']
-    N_ran = N_data = 0
-
-    # paint the randoms
-    datasource.set_stream('randoms')
-    for [position, weight] in datasource.read(columns):
-        position += offset
-        r2 = (position**2).sum(axis=-1)
-        if k is None:
-            w = position[:,i] * position[:,j] / r2
-        else:
-            w = position[:,i]**2 * position[:,j] * position[:,k] / r2**2
-        Nlocal = painter.basepaint(pm, position-offset, w*weight)
-        N_ran += Nlocal
-        
-    # copy and store the randoms
-    randoms_density = pm.real.copy()
-    
-    # paint the data
-    pm.clear()
-    datasource.set_stream('data')
-    for [position, weight] in datasource.read(columns):
-        position += offset
-        r2 = (position**2).sum(axis=-1)
-        if k is None:
-            w = position[:,i] * position[:,j] / r2
-        else:
-            w = position[:,i]**2 * position[:,j] * position[:,k] / r2**2
-        Nlocal = painter.basepaint(pm, position-offset, w*weight)
-        N_data += Nlocal
-        
-    N_ran = painter.comm.allreduce(N_ran)
-    N_data = painter.comm.allreduce(N_data)
-
-    # FKP weighted density is n_data - alpha*n_ran
-    alpha = 1. * N_data / N_ran
-    pm.real[:] -= alpha*randoms_density[:]
-    
-    return {}
-
 def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
     """
     Compute and return the 3D power from two input fields
@@ -211,33 +167,25 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
             needed if the simulation box has an average offset 
             from the grid box in configuration-space
         """
-        # add the offset
-        x = [xi + offset[ii] for ii, xi in enumerate(x)]
+        # compute x**2
+        norm = sum((xi + offset[ii])**2 for ii, xi in enumerate(x))
+    
+        # get x_i, x_j
+        # if i == 'x' direction, it's just one value
+        xi = x[i] + offset[i]
+        xj = x[j] + offset[j]
 
-        # do the calculations on y-z planes to save memory
-        for islab in range(len(x[0])):
-
-            # compute x**2
-            norm = numpy.float64(x[0][islab] ** 2)
-            for xi in x[1:]:
-                norm = norm + xi[0] ** 2
-
-            # get x_i, x_j
-            # if i == 'x' direction, it's just one value
-            xi = x[i][islab] if i == 0 else x[i][0]
-            xj = x[j][islab] if j == 0 else x[j][0]
+        # multiply the kernel
+        if k is not None:
+            xk = x[k] + offset[k]
+            data[:] *= xi**2 * xj * xk
+            idx = norm != 0.
+            data[idx] /= norm[idx]**2
         
-            # multiply the kernel
-            if k is not None:
-                xk = x[k][islab] if k == 0 else x[k][0]
-                data[islab] = data[islab] * xi**2 * xj * xk
-                idx = norm != 0.
-                data[islab, idx] /= norm[idx]**2
-
-            else:
-                data[islab] = data[islab] * xi * xj
-                idx = norm != 0.
-                data[islab, idx] /= norm[idx]
+        else:
+            data[:] *= xi * xj
+            idx = norm != 0.
+            data[idx] /= norm[idx]
         
                                     
     # some setup
@@ -298,11 +246,10 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
         for amp, integers in zip(*bianchi_transfers[iell]):
                         
             # reset the 'real' array to the original painted density
-            #pm.real[:] = density[:]
-            bianchi_paint(painter, pm, datasource, *integers, offset=offset)
+            pm.real[:] = density[:]
         
             # apply the real-space transfer
-            #bianchi_transfer(pm.real, xgrid, *integers, offset=offset)
+            bianchi_transfer(pm.real, xgrid, *integers, offset=offset)
         
             # do the FT and apply the k-space kernel
             pm.r2c()
@@ -339,15 +286,23 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
     # calculate the multipoles, islab by islab to save memory
     # see equations 6-8 of Bianchi et al. 2015
     for islab in range(len(P0)):
-        P0_star = P0[islab].conj() # save for reuse
+        
+        # save for reuse
+        P0_star = P0[islab].conj() 
+        if max_ell > 0: P2_star = P2[islab].conj() 
+        
+        # hexadecapole    
         if max_ell > 2:
-            P2_star = P2[islab].conj() # save for reuse
             if not factor_hexadecapole:
-                P4[islab, ...] = norm * 9./8 * P0[islab] * (35.*P4[islab].conj() - 30.*P2_star + 3.*P0_star)
+                P4[islab, ...] = norm * 9./8. * P0[islab] * (35.*P4[islab].conj() - 30.*P2_star + 3.*P0_star)
             else:
-                P4[islab, ...] = norm * 9./2. * ( 35./4*P2[islab]*P2_star + 3./4*P0[islab]*P0_star - 5./12*(11*P0[islab]*P2_star + 7.*P2[islab]*P0_star) )
+                P4[islab, ...] = norm * 9./8. * ( 35.*P2[islab]*P2_star + 3.*P0[islab]*P0_star - 5./3.*(11.*P0[islab]*P2_star + 7.*P2[islab]*P0_star) )
+        
+        # quadrupole
         if max_ell > 0:
-            P2[islab, ...] = norm * 5./2 * P0[islab] * (3.*P2_star - P0_star)
+            P2[islab, ...] = norm * 5./2. * P0[islab] * (3.*P2_star - P0_star)
+        
+        # monopole
         P0[islab, ...] = norm * P0[islab] * P0_star
         
     result = [P0]
