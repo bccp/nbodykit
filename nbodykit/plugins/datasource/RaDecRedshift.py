@@ -137,7 +137,7 @@ class RaDecRedshiftDataSource(DataSource):
             w = data[self.weight_col].values.astype('f4')
 
         # get the nbar
-        nbar = numpy.empty(0)
+        nbar = numpy.array([None]*len(pos))
         if self.nbar_col is not None:
             nbar = data[self.nbar_col].values.astype('f4')
 

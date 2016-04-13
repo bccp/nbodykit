@@ -2,53 +2,14 @@ import numpy
 from mpi4py import MPI
 import logging
 from nbodykit.extensionpoints import Painter, Transfer
+import time
 
 logger = logging.getLogger('measurestats')
 
-def bianchi_paint(painter, pm, datasource, i, j, k=None, offset=[0., 0., 0.]):
-
-    # setup
-    pm.clear()
-    columns = ['Position', 'Weight']
-    N_ran = N_data = 0
-
-    # paint the randoms
-    datasource.set_stream('randoms')
-    for [position, weight] in datasource.read(columns):
-        position += offset
-        r2 = (position**2).sum(axis=-1)
-        if k is None:
-            w = position[:,i] * position[:,j] / r2
-        else:
-            w = position[:,i]**2 * position[:,j] * position[:,k] / r2**2
-        Nlocal = painter.basepaint(pm, position-offset, w*weight)
-        N_ran += Nlocal
-        
-    # copy and store the randoms
-    randoms_density = pm.real.copy()
-    
-    # paint the data
-    pm.clear()
-    datasource.set_stream('data')
-    for [position, weight] in datasource.read(columns):
-        position += offset
-        r2 = (position**2).sum(axis=-1)
-        if k is None:
-            w = position[:,i] * position[:,j] / r2
-        else:
-            w = position[:,i]**2 * position[:,j] * position[:,k] / r2**2
-        Nlocal = painter.basepaint(pm, position-offset, w*weight)
-        N_data += Nlocal
-        
-    N_ran = painter.comm.allreduce(N_ran)
-    N_data = painter.comm.allreduce(N_data)
-
-    # FKP weighted density is n_data - alpha*n_ran
-    alpha = 1. * N_data / N_ran
-    pm.real[:] -= alpha*randoms_density[:]
-    
-    return {}
-        
+def timer(start, end):
+    hours, rem = divmod(end-start, 3600)
+    minutes, seconds = divmod(rem, 60)
+    return "{:0>2}:{:0>2}:{:05.2f}".format(int(hours),int(minutes),seconds)
 
 def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
     """
@@ -136,7 +97,7 @@ def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
                 
     return p3d, stats1, stats2
     
-def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.DEBUG):
+def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.DEBUG, factor_hexadecapole=False):
     """
     Compute and return the 3D power multipoles (ell = [0, 2, 4]) from one 
     input field, which contains non-trivial survey geometry.
@@ -164,6 +125,10 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
     log_level : int, optional
         logging level to use while computing. Default is ``logging.DEBUG``
         which has numeric value of `10`
+        
+    factor_hexadecapole: bool, optional
+        if `True`, use the factored expression for the hexadecapole (ell=4) from
+        eq. 27 of Scoccimarro 2015 (1506.02729); default is `False`
     
     Returns
     -------
@@ -204,7 +169,7 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
         """
         # compute x**2
         norm = sum((xi + offset[ii])**2 for ii, xi in enumerate(x))
-        
+    
         # get x_i, x_j
         # if i == 'x' direction, it's just one value
         xi = x[i] + offset[i]
@@ -216,11 +181,12 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
             data[:] *= xi**2 * xj * xk
             idx = norm != 0.
             data[idx] /= norm[idx]**2
-            
+        
         else:
             data[:] *= xi * xj
             idx = norm != 0.
             data[idx] /= norm[idx]
+        
                                     
     # some setup
     rank = comm.rank if comm is not None else MPI.COMM_WORLD.rank
@@ -231,7 +197,7 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
     
     # get the datasource, painter, and transfer
     painter = Painter.create('FKPPainter')
-    transfer = [Transfer.create('AnisotropicCIC')]
+    transfer = Transfer.create('AnisotropicCIC')
 
     # which transfers do we need
     if max_ell not in [0, 2, 4]:
@@ -246,7 +212,7 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
         bianchi_transfers.append((a2, k2))
     
     # hexadecapole kernels
-    if max_ell > 2:
+    if max_ell > 2 and not factor_hexadecapole:
         k4 = [(0, 0, 0), (1, 1, 1), (2, 2, 2), (0, 0, 1), (0, 0, 2),
              (1, 1, 0), (1, 1, 2), (2, 2, 0), (2, 2, 1), (0, 1, 1),
              (0, 2, 2), (1, 2, 2), (0, 1, 2), (1, 0, 2), (2, 0, 1)]
@@ -255,11 +221,12 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
     
     # paint once and save the density
     stats = painter.paint(pm, datasource)
+    #density = pm.real.copy()
     if rank == 0: logger.info('painting done')
     
     # compute the monopole, A0(k), and save
     pm.r2c()
-    pm.transfer(transfer)
+    transfer(pm, pm.complex)
     A0 = pm.complex.copy()
     if rank == 0: logger.info('ell = 0 done; 1 r2c completed')
     
@@ -271,44 +238,73 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
     cell_size = pm.BoxSize / pm.Nmesh
     xgrid = [(ri+0.5)*cell_size[i] for i, ri in enumerate(pm.r)]
     
-    for iell, ell in enumerate(ells[1:]):
+    start = time.time()
+    for iell in range(len(bianchi_transfers)):
+        ell = ells[iell+1]
         A_ell = numpy.zeros_like(pm.complex)
         
         for amp, integers in zip(*bianchi_transfers[iell]):
-            
-            # paint the weighted real-space field
-            bianchi_paint(painter, pm, datasource, *integers, offset=offset)
+                        
+            # reset the 'real' array to the original painted density
+            pm.real[:] = density[:]
+        
+            # apply the real-space transfer
+            bianchi_transfer(pm.real, xgrid, *integers, offset=offset)
         
             # do the FT and apply the k-space kernel
             pm.r2c()
-            pm.transfer(transfer)
             bianchi_transfer(pm.complex, pm.k, *integers)
             
             # and save
             A_ell[:] += amp*pm.complex[:]
             
+        # apply the CIC transfer and save
+        transfer(pm, A_ell)
         result.append(A_ell)
         if rank == 0: 
             args = (ell, len(bianchi_transfers[iell][0]))
             logger.info('ell = %d done; %s r2c completed' %args)
-            
+        
+    stop = time.time()
+    if rank == 0:
+        logger.info("higher order multipoles computed in elapsed time %s" %timer(start, stop))
+        if factor_hexadecapole:
+            logger.info("using factorized hexadecapole estimator for ell=4")
+    
     # proper normalization: A_ran from equation 
     norm = pm.BoxSize.prod()**2 / stats['A_ran']
     
     # reuse memory for output
     P0 = result[0]
     if max_ell > 0: P2 = result[1]
-    if max_ell > 2: P4 = result[2]
+    if max_ell > 2:
+        if not factor_hexadecapole: 
+            P4 = result[2]
+        else:
+            P4 = numpy.empty_like(P2)
     
     # calculate the multipoles, islab by islab to save memory
     # see equations 6-8 of Bianchi et al. 2015
     for islab in range(len(P0)):
+        
+        # save for reuse
+        P0_star = P0[islab].conj() 
+        if max_ell > 0: P2_star = P2[islab].conj() 
+        
+        # hexadecapole    
         if max_ell > 2:
-            P4[islab, ...] = norm * 9./8 * P0[islab] * (35.*P4[islab].conj() - 30.*P2[islab].conj() + 3.*P0[islab].conj())
+            if not factor_hexadecapole:
+                P4[islab, ...] = norm * 9./8. * P0[islab] * (35.*P4[islab].conj() - 30.*P2_star + 3.*P0_star)
+            else:
+                P4[islab, ...] = norm * 9./8. * ( 35.*P2[islab]*P2_star + 3.*P0[islab]*P0_star - 5./3.*(11.*P0[islab]*P2_star + 7.*P2[islab]*P0_star) )
+        
+        # quadrupole
         if max_ell > 0:
-            P2[islab, ...] = norm * 5./2 * P0[islab] * (3.*P2[islab].conj() - P0[islab].conj())
-        P0[islab, ...] = norm * P0[islab] * P0[islab].conj()
-
+            P2[islab, ...] = norm * 5./2. * P0[islab] * (3.*P2_star - P0_star)
+        
+        # monopole
+        P0[islab, ...] = norm * P0[islab] * P0_star
+        
     result = [P0]
     if max_ell > 0: result.append(P2)
     if max_ell > 2: result.append(P4)

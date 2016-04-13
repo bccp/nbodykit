@@ -33,7 +33,7 @@ class FKPPainter(Painter):
             A_ran += (nbar*weight**2).sum()
             N_ran += Nlocal
             S_ran += (weight**2).sum()
-        
+
         A_ran = self.comm.allreduce(A_ran)
         N_ran = self.comm.allreduce(N_ran)
         S_ran = self.comm.allreduce(S_ran)
