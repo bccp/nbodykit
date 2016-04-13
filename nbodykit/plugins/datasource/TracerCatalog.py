@@ -187,7 +187,7 @@ class TracerCatalogDataSource(DataSource):
                 if self.BoxSize[i] < L:
                     args = (self.BoxSize[i], i, L)
                     logger.warning("input BoxSize of %.2f in dimension %d smaller than coordinate range of data (%.2f)" %args)
-                                    
+                                                
     def _set_nbar(self, redshift, alpha=1.0):
         """
         Determine the spline used to compute `nbar`

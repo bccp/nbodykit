@@ -169,7 +169,7 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
         """
         # compute x**2
         norm = sum((xi + offset[ii])**2 for ii, xi in enumerate(x))
-        
+    
         # get x_i, x_j
         # if i == 'x' direction, it's just one value
         xi = x[i] + offset[i]
@@ -181,11 +181,12 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
             data[:] *= xi**2 * xj * xk
             idx = norm != 0.
             data[idx] /= norm[idx]**2
-            
+        
         else:
             data[:] *= xi * xj
             idx = norm != 0.
             data[idx] /= norm[idx]
+        
                                     
     # some setup
     rank = comm.rank if comm is not None else MPI.COMM_WORLD.rank
@@ -220,7 +221,7 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
     
     # paint once and save the density
     stats = painter.paint(pm, datasource)
-    density = pm.real.copy()
+    #density = pm.real.copy()
     if rank == 0: logger.info('painting done')
     
     # compute the monopole, A0(k), and save
@@ -285,15 +286,23 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
     # calculate the multipoles, islab by islab to save memory
     # see equations 6-8 of Bianchi et al. 2015
     for islab in range(len(P0)):
-        P0_star = P0[islab].conj() # save for reuse
+        
+        # save for reuse
+        P0_star = P0[islab].conj() 
+        if max_ell > 0: P2_star = P2[islab].conj() 
+        
+        # hexadecapole    
         if max_ell > 2:
-            P2_star = P2[islab].conj() # save for reuse
             if not factor_hexadecapole:
-                P4[islab, ...] = norm * 9./8 * P0[islab] * (35.*P4[islab].conj() - 30.*P2_star + 3.*P0_star)
+                P4[islab, ...] = norm * 9./8. * P0[islab] * (35.*P4[islab].conj() - 30.*P2_star + 3.*P0_star)
             else:
-                P4[islab, ...] = norm * 9./2. * ( 35./4*P2[islab]*P2_star + 3./4*P0[islab]*P0_star - 5./12*(11*P0[islab]*P2_star + 7.*P2[islab]*P0_star) )
+                P4[islab, ...] = norm * 9./8. * ( 35.*P2[islab]*P2_star + 3.*P0[islab]*P0_star - 5./3.*(11.*P0[islab]*P2_star + 7.*P2[islab]*P0_star) )
+        
+        # quadrupole
         if max_ell > 0:
-            P2[islab, ...] = norm * 5./2 * P0[islab] * (3.*P2_star - P0_star)
+            P2[islab, ...] = norm * 5./2. * P0[islab] * (3.*P2_star - P0_star)
+        
+        # monopole
         P0[islab, ...] = norm * P0[islab] * P0_star
         
     result = [P0]
