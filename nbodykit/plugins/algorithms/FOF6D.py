@@ -35,7 +35,7 @@ class FOF6DAlgorithm(Algorithm):
         offset = 0
         
         with self.halolabel.open() as stream:
-            [[Label]] = self.halolabel.read(['Label'], full=True)
+            [[Label]] = stream.read(['Label'], full=True)
         mask = Label != 0
         PIG = numpy.empty(mask.sum(), dtype=[
                 ('Position', ('f4', 3)), 
