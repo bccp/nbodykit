@@ -36,16 +36,15 @@ class DefaultPainter(Painter):
         stats = {}
         
         # open the datasource stream (with no defaults)
-        if not datasource.isopen():
-            datasource = datasource.open()
+        with datasource.open() as stream:
 
-        Nlocal = 0
-        if self.weight is None:
-            for [position] in datasource.read(['Position']):
-                Nlocal += self.basepaint(pm, position)
-        else:
-            for position, weight in datasource.read(['Position', self.weight]):
-                Nlocal += self.basepaint(pm, position, weight)
+            Nlocal = 0
+            if self.weight is None:
+                for [position] in stream.read(['Position']):
+                    Nlocal += self.basepaint(pm, position)
+            else:
+                for position, weight in stream.read(['Position', self.weight]):
+                    Nlocal += self.basepaint(pm, position, weight)
         
         stats['Ntot'] = self.comm.allreduce(Nlocal)
         return stats
