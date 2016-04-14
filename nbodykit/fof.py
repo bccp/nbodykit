@@ -250,35 +250,34 @@ def fof_catalogue(datasource, label, comm, calculate_initial=False):
     N = halos.count(label, comm=comm)
     
     # explicitly open the DataSource
-    stream = datasource.open()
+    with datasource.keep_cache():
     
-    [[Position]] = stream.read(['Position'], full=True)
-    Position /= datasource.BoxSize
-    hpos = halos.centerofmass(label, Position, boxsize=1.0, comm=comm)
-    del Position
-
-    [[Velocity]] = datasource.read(['Velocity'], full=True)
-    Velocity /= datasource.BoxSize
-
-    hvel = halos.centerofmass(label, Velocity, boxsize=None, comm=comm)
-    del Velocity
-
-    if calculate_initial:
-
-        dtype.append(('InitialPosition', ('f4', 3)))
-        
-        [[Position]] = datasource.read(['InitialPosition'], full=True)
+        with datasource.open() as stream:
+            [[Position]] = stream.read(['Position'], full=True)
         Position /= datasource.BoxSize
-        hpos_init = halos.centerofmass(label, Position, boxsize=1.0, comm=comm)
+        hpos = halos.centerofmass(label, Position, boxsize=1.0, comm=comm)
         del Position
 
-    # close the datasource stream
-    stream.close()
+        with datasource.open() as stream: 
+            [[Velocity]] = stream.read(['Velocity'], full=True)
+        Velocity /= datasource.BoxSize
+
+        hvel = halos.centerofmass(label, Velocity, boxsize=None, comm=comm)
+        del Velocity
+
+        if calculate_initial:
+
+            dtype.append(('InitialPosition', ('f4', 3)))
+        
+            with datasource.open() as stream:
+                [[Position]] = stream.read(['InitialPosition'], full=True)
+            Position /= datasource.BoxSize
+            hpos_init = halos.centerofmass(label, Position, boxsize=1.0, comm=comm)
+            del Position
 
     if comm.rank == 0: logger.info("Calculated catalogue %d halos found. " % (len(N) -1 ))
     if comm.rank == 0: logger.info("Length = %s " % N[1:])
     if comm.rank == 0: logger.info("%d particles not in halo" % N[0])
-
 
     if comm.rank == 0:
         catalogue = numpy.empty(shape=len(N), dtype=dtype)
