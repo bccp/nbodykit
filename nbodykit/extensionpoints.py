@@ -304,16 +304,30 @@ class DataStream(object):
     
     The class is written such that it be used with or without
     the `with` statement, similar to the file `open()` function
+    
+    
+    Attributes
+    ----------
+    read : callable
+        a method that returns an iterator that will iterate through
+        the data source (either collectively or uncollectively), 
+        returning the specified columns
+    nread : int
+        during each iteration of `read`, this will store the number
+        of rows read from the data source
     """
     def __init__ (self, data, defaults={}):
         
         # store the data and defaults
         self.data = data
         self.defaults = defaults
+        self.nread = 0
         
         # store a weak reference to the private cache
         self._cacheref = data._cache
-                
+        if not self._cacheref.empty:
+            self.nread = self._cacheref.size
+            
     def __enter__ (self):
         return self
         
@@ -375,8 +389,10 @@ class DataStream(object):
             
         # parallel read is defined
         else:
+            # reset the number of rows read
+            self.nread = 0
             
-            size = 0
+            # do the parallel read
             for data in self.data.parallel_read(columns, full=full):
                 
                 # determine the valid columns (where data is not None)
@@ -389,14 +405,15 @@ class DataStream(object):
                 
                 # verify data
                 valid_data = [data[i] for i in indices]
-                section_size = self.data._verify_data(valid_data)
-                size += section_size
+                size = self.data._verify_data(valid_data)
+                
+                # update the number of rows read
+                self.nread += self.data.comm.allreduce(size)
                 
                 # yield the blended data with defaults
-                yield self._blend_data(columns, data, valid_columns, section_size)
+                yield self._blend_data(columns, data, valid_columns, size)
                 
-            # set the size of the datasource
-            self.data.size = self.data.comm.allreduce(size)
+
     
     def _blend_data(self, columns, data, valid_columns, size):
         """
@@ -647,7 +664,7 @@ class DataSource:
                 raise ValueError
             boxsize[:] = value
         except:
-            raise ValueError("BoxSize must be a scalar or three-vector")
+            raise ValueError("DataSource `BoxSize` must be a scalar or three-vector")
         return boxsize
     
     @property
@@ -661,15 +678,17 @@ class DataSource:
         try:
             return self._size
         except:
-            raise AttributeError("`size` is not known yet")
+            raise AttributeError("DataSource `size` is not known a priori (i.e., before the 'read' operation)")
     
     @size.setter
     def size(self, val):
         """
-        Set the `size` attribute. This can only be set once
+        Set the `size` attribute. This should only be set once
         """
         if not hasattr(self, '_size'):
             self._size = val
+        else:
+            raise ValueError("DataSource `size` has already been set, and shouldn't be reset")
     
     def keep_cache(self):
         """
@@ -690,7 +709,7 @@ class DataSource:
         # simplest implementation is returning a stream
         return DataStream(self) 
     
-    def open(self, defaults={}):
+    def open(self, defaults={}, name=None):
         """
         Open the `DataSource` by returning a `DataStream` from which
         the data can be read. 
@@ -705,6 +724,9 @@ class DataSource:
         ----------
         defaults : dict, optional
             a dictionary providing default values for a given column
+        name : str, optional
+            return a specific named stream; the datasource must have
+            an attribute with this name, which is a `DataSource` 
         
         Returns
         -------
@@ -712,9 +734,18 @@ class DataSource:
             the stream object from which the data can be read via
             the `read` function
         """
+        # which datasource we are opening
+        data = self
+        if name is not None:
+            if not hasattr(self, name):
+                raise AttributeError("DataSource cannot open stream with name '%s'" %name)
+            data = getattr(self, name)
+            if not isinstance(data, DataSource):
+                raise TypeError("named stream '%s' is not a DataSource" %name)
+        
         # note: if DataSource is already `open`, we can 
         # still get a new stream with different defaults
-        return DataStream(self, defaults=defaults)
+        return DataStream(data, defaults=defaults)
                              
     def readall(self):
         """ 
