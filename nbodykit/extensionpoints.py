@@ -356,7 +356,7 @@ class DataStream(object):
         if self.closed:
             raise ValueError("'read' operation on closed data stream")
             
-        # return data from cache
+        # return data from cache, if it's not empty
         if not self._cacheref.empty:
             
             # valid column names
@@ -376,6 +376,7 @@ class DataStream(object):
         # parallel read is defined
         else:
             
+            size = 0
             for data in self.data.parallel_read(columns, full=full):
                 
                 # determine the valid columns (where data is not None)
@@ -388,10 +389,14 @@ class DataStream(object):
                 
                 # verify data
                 valid_data = [data[i] for i in indices]
-                size = self.data._verify_data(valid_data)
+                section_size = self.data._verify_data(valid_data)
+                size += section_size
                 
                 # yield the blended data with defaults
-                yield self._blend_data(columns, data, valid_columns, size)
+                yield self._blend_data(columns, data, valid_columns, section_size)
+                
+            # set the size of the datasource
+            self.data.size = self.data.comm.allreduce(size)
     
     def _blend_data(self, columns, data, valid_columns, size):
         """
@@ -607,6 +612,23 @@ class DataSource:
         
         # return the size
         return len(data[0])
+                    
+    @property
+    def _cache(self):
+        """
+        Internal cache property storing a `DataCache`. This is designed to 
+        be accessed only by `DataStream` objects
+        """
+        # create the weakref dict if need be
+        if not hasattr(self, '_weakcache'):
+            self._weakcache = weakref.WeakValueDictionary()
+            
+        # create the DataCache if need be
+        if 'cache' not in self._weakcache:
+            cache = self._cache_data()
+            self._weakcache['cache'] = cache
+            
+        return self._weakcache['cache']
         
     @staticmethod
     def BoxSizeParser(value):
@@ -627,24 +649,28 @@ class DataSource:
         except:
             raise ValueError("BoxSize must be a scalar or three-vector")
         return boxsize
-            
+    
     @property
-    def _cache(self):
+    def size(self):
         """
-        Internal cache property storing a `DataCache`. This is designed to 
-        be accessed only by `DataStream` objects
-        """
-        # create the weakref dict if need be
-        if not hasattr(self, '_weakcache'):
-            self._weakcache = weakref.WeakValueDictionary()
-            
-        # create the DataCache if need be
-        if 'cache' not in self._weakcache:
-            cache = self._cache_data()
-            self._weakcache['cache'] = cache
-            
-        return self._weakcache['cache']
+        The total size of the DataSource returned via the `read` operation.
         
+        The user can set this explicitly if the size is known before 
+        `read` is called, otherwise it will be set (exactly once) after `read` is called 
+        """
+        try:
+            return self._size
+        except:
+            raise AttributeError("`size` is not known yet")
+    
+    @size.setter
+    def size(self, val):
+        """
+        Set the `size` attribute. This can only be set once
+        """
+        if not hasattr(self, '_size'):
+            self._size = val
+    
     def keep_cache(self):
         """
         A context manager that forces the `DataSource` cache to persist,
