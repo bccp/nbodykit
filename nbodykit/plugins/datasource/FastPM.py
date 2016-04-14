@@ -67,6 +67,11 @@ class FastPMDataSource(DataSource):
         if 'Mass' in readcolumns: 
             readcolumns.remove('Mass')
             
+        # remove columns not in the file (None will be returned)
+        for col in list(readcolumns):
+            if col not in f:
+                readcolumns.remove(col)
+            
         done = False
         i = 0
         while not numpy.all(self.comm.allgather(done)):

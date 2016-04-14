@@ -26,7 +26,13 @@ class HaloLabel(DataSource):
 
     def parallel_read(self, columns, full=False):
         f = bigfile.BigFileMPI(self.comm, self.path)
-        readcolumns = columns
+        readcolumns = set(columns)
+        
+        # remove columns not in the file (None will be returned)
+        for col in list(readcolumns):
+            if col not in f:
+                readcolumns.remove(col)
+        
         done = False
         i = 0
         while not numpy.all(self.comm.allgather(done)):
