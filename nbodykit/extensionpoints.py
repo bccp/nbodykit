@@ -482,6 +482,9 @@ class DataSource:
     The `read` operation occurs on a `DataStream` object, which
     is returned by `DataSource.open()`
     
+    Default values for any columns to read can be supplied as a 
+    dictionary argument to `DataSource.open()`
+    
     Notes
     -----
     *   a `Cosmology` instance can be passed to any `DataSource`
