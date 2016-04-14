@@ -478,12 +478,18 @@ class DataCache(object):
 @ExtensionPoint(datasources)
 class DataSource:
     """
-    Mount point for plugins which refer to the reading of input files 
+    Mount point for plugins which refer to the reading of input files.
+    The `read` operation occurs on a `DataStream` object, which
+    is returned by `DataSource.open()`
     
     Notes
     -----
     *   a `Cosmology` instance can be passed to any `DataSource`
         class via the `cosmo` keyword
+    *   the data will be cached in memory if returned via `readall`;
+        the default behavior is for the cache to persist while 
+        an open `DataStream` is valid, but the cache can be forced
+        to persist via the `keep_cache` context manager
 
     Plugins implementing this reference should provide the following 
     attributes:
@@ -498,18 +504,14 @@ class DataSource:
         class schema
     
     readall: method
-        A method that performs the reading of the field. This method
-        reads in the full data set. It shall
-        returns the position (in 0 to BoxSize) and velocity (in the
-        same units as position). This method is called by the default
-        read method on the root rank for reading small data sets.
+        A method to read all available data at once (uncollectively) 
+        and cache the data in memory for repeated calls to `read`
 
-    read: method
-        A method that performs the reading of the field. It shall
-        returns the position (in 0 to BoxSize) and velocity (in the
-        same units as position), in chunks as an iterator. The
-        default behavior is to use Rank 0 to read in the full data
-        and yield an empty data. 
+    parallel_read: method
+        A method to read data for complex, large data sets. The read
+        operation shall be collective, with each yield generating 
+        different sections of the datasource on different ranks. 
+        No caching of data takes places.
     """        
     def _cache_data(self):
         """
