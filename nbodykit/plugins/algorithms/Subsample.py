@@ -47,12 +47,6 @@ class Subsample(Algorithm):
         elif (self.datasource.BoxSize / self.Nmesh > self.smoothing).any():
             raise ValueError("smoothing is too small")
      
-        # open the datasource
-        datasource = self.datasource.open()
-     
-        painter = Painter.create("DefaultPainter")
-        painter.paint(pm, datasource)
-        pm.r2c()
         def Smoothing(pm, complex):
             k = pm.k
             k2 = 0
@@ -80,46 +74,51 @@ class Subsample(Algorithm):
             value = comm.allreduce(value, MPI.SUM)
             complex[:] /= value
             
-        pm.transfer([Smoothing, NormalizeDC])
-        pm.c2r()
-        columns = ['Position', 'ID', 'Velocity']
-        rng = numpy.random.RandomState(self.Nmesh)
-        seedtable = rng.randint(1024*1024*1024, size=self.comm.size)
-        rngtable = [numpy.random.RandomState(seed) for seed in seedtable]
-
-        dtype = numpy.dtype([
-                ('Position', ('f4', 3)),
-                ('Velocity', ('f4', 3)),
-                ('ID', 'u8'),
-                ('Density', 'f4'),
-                ]) 
-
-        subsample = [numpy.empty(0, dtype=dtype)]
-
-        for Position, ID, Velocity in datasource.read(columns):
-            u = rngtable[self.comm.rank].uniform(size=len(ID))
-            keep = u < self.ratio
-            Nkeep = keep.sum()
-            if Nkeep == 0: continue 
-            data = numpy.empty(Nkeep, dtype=dtype)
-            data['Position'][:] = Position[keep]
-            data['Velocity'][:] = Velocity[keep]       
-            data['ID'][:] = ID[keep] 
-
-            layout = pm.decompose(data['Position'])
-            pos1 = layout.exchange(data['Position'])
-            density1 = pm.readout(pos1)
-            density = layout.gather(density1)
-
-            # normalize the position after reading out density!
-            data['Position'][:] /= self.datasource.BoxSize
-            data['Velocity'][:] /= self.datasource.BoxSize
-            data['Density'][:] = density
-            subsample.append(data)
+        # open the datasource and keep the cache
+        with self.datasource.keep_cache():
+     
+            painter = Painter.create("DefaultPainter")
+            painter.paint(pm, self.datasource)
+            pm.r2c()
         
-        # close the datasource stream
-        datasource.close()
-             
+            pm.transfer([Smoothing, NormalizeDC])
+            pm.c2r()
+            columns = ['Position', 'ID', 'Velocity']
+            rng = numpy.random.RandomState(self.Nmesh)
+            seedtable = rng.randint(1024*1024*1024, size=self.comm.size)
+            rngtable = [numpy.random.RandomState(seed) for seed in seedtable]
+
+            dtype = numpy.dtype([
+                    ('Position', ('f4', 3)),
+                    ('Velocity', ('f4', 3)),
+                    ('ID', 'u8'),
+                    ('Density', 'f4'),
+                    ]) 
+
+            subsample = [numpy.empty(0, dtype=dtype)]
+
+            with self.datasource.open() as stream:
+                for Position, ID, Velocity in stream.read(columns):
+                    u = rngtable[self.comm.rank].uniform(size=len(ID))
+                    keep = u < self.ratio
+                    Nkeep = keep.sum()
+                    if Nkeep == 0: continue 
+                    data = numpy.empty(Nkeep, dtype=dtype)
+                    data['Position'][:] = Position[keep]
+                    data['Velocity'][:] = Velocity[keep]       
+                    data['ID'][:] = ID[keep] 
+
+                    layout = pm.decompose(data['Position'])
+                    pos1 = layout.exchange(data['Position'])
+                    density1 = pm.readout(pos1)
+                    density = layout.gather(density1)
+
+                    # normalize the position after reading out density!
+                    data['Position'][:] /= self.datasource.BoxSize
+                    data['Velocity'][:] /= self.datasource.BoxSize
+                    data['Density'][:] = density
+                    subsample.append(data)
+        
         subsample = numpy.concatenate(subsample)
         mpsort.sort(subsample, orderby='ID')
         
