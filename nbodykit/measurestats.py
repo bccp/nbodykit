@@ -191,8 +191,7 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
     rank = comm.rank
     if log_level is not None: logger.setLevel(log_level)
     
-    # get the datasource, painter, and transfer
-    painter = Painter.create('FKPPainter')
+    # the CIC transfer
     transfer = Transfer.create('AnisotropicCIC')
 
     # which transfers do we need
