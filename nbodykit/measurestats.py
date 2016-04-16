@@ -97,7 +97,9 @@ def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
                 
     return p3d, stats1, stats2
     
-def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.DEBUG, factor_hexadecapole=False):
+def compute_bianchi_poles(comm, max_ell, catalog, Nmesh, 
+                            log_level=logging.DEBUG, 
+                            factor_hexadecapole=False):
     """
     Compute and return the 3D power multipoles (ell = [0, 2, 4]) from one 
     input field, which contains non-trivial survey geometry.
@@ -117,11 +119,7 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
         
     pm : ``ParticleMesh``
         particle mesh object that handles the painting and FFTs
-                
-    comm : MPI.Communicator, optional
-        the communicator to pass to the ``ParticleMesh`` object. If not
-        provided, ``MPI.COMM_WORLD`` is used
-        
+            
     log_level : int, optional
         logging level to use while computing. Default is ``logging.DEBUG``
         which has numeric value of `10`
@@ -139,6 +137,8 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
         dictionary holding the statistics of the input datasource, as returned
         by the `FKPPainter` painter
     """
+    from pmesh.particlemesh import ParticleMesh
+    
     def bianchi_transfer(data, x, i, j, k=None, offset=[0., 0., 0.]):
         """
         Transfer functions necessary to compute the power spectrum  
@@ -186,14 +186,10 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
             data[:] *= xi * xj
             idx = norm != 0.
             data[idx] /= norm[idx]
-        
-                                    
-    # some setup
-    rank = comm.rank if comm is not None else MPI.COMM_WORLD.rank
-    if log_level is not None: logger.setLevel(log_level)
     
-    # box offset; default to no offset
-    offset = getattr(datasource, 'offset', [0., 0., 0.])
+    # some setup
+    rank = comm.rank
+    if log_level is not None: logger.setLevel(log_level)
     
     # get the datasource, painter, and transfer
     painter = Painter.create('FKPPainter')
@@ -219,9 +215,20 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
         a4 = [1.]*3 + [4.]*6 + [6.]*3 + [12.]*3
         bianchi_transfers.append((a4, k4))
     
-    # paint once and save the density
-    stats = painter.paint(pm, datasource)
-    #density = pm.real.copy()
+    # load the data/randoms and setup boxsize, etc
+    with catalog:
+        
+        # the mean coordinate offset
+        offset = catalog.mean_coordinate_offset
+        
+        # initialize the particle mesh
+        pm = ParticleMesh(catalog.BoxSize, Nmesh, dtype='f4', comm=comm)
+        
+        # do the FKP painting
+        stats = catalog.paint(pm)
+    
+    # save the fkp density for later
+    density = pm.real.copy()
     if rank == 0: logger.info('painting done')
     
     # compute the monopole, A0(k), and save
@@ -245,7 +252,7 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
         
         for amp, integers in zip(*bianchi_transfers[iell]):
                         
-            # reset the 'real' array to the original painted density
+            # reset the 'pm.real' array to the original FKP density
             pm.real[:] = density[:]
         
             # apply the real-space transfer
@@ -308,7 +315,7 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
     result = [P0]
     if max_ell > 0: result.append(P2)
     if max_ell > 2: result.append(P4)
-    return result, stats
+    return pm, result, stats
 
 
 def compute_brutal_corr(datasources, rbins, Nmu=0, comm=None, subsample=1, los='z', poles=[]):
