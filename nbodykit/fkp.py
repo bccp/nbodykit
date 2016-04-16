@@ -272,7 +272,12 @@ class FKPCatalog(object):
     def read(self, name, columns, full=False):
         """
         Read data from `stream`, which is specified by the `name` argument
-        """                    
+        """   
+        # check valid columns
+        valid = ['Position', 'Weight', 'Nbar']
+        if any(col not in valid for col in columns):
+            raise ValueError("valid `columns` to read from FKPCatalog: %s" %str(valid))
+                             
         if name == 'data':
             stream = self.data_stream
         elif name == 'randoms':
