@@ -7,68 +7,6 @@ from nbodykit.extensionpoints import Painter
 
 logger = logging.getLogger('FKPCatalog')
 
-
-def read(catalog, columns, name, full=False):
-    """
-    Read data from `stream`, which corresponding
-    """                    
-    if name == 'data':
-        stream = catalog.data_stream
-    elif name == 'randoms':
-        stream = catalog.randoms_stream
-    else:
-        raise ValueError('bad!')
-    
-    # read position, redshift, and weights from the stream
-    columns0 = ['Position', 'Redshift', 'Weight', 'Nbar']
-    for [coords, redshift, weight, nbar] in stream.read(columns0, full=full):
-        
-        # determine if we have unique redshift, nbar arrays
-        default_z = stream.isdefault('Redshift', redshift)
-        default_nbar = stream.isdefault('Nbar', nbar)
-        
-        # recentered cartesian coordinates
-        pos = coords - catalog.mean_coordinate_offset
-
-        # number density from redshift
-        if catalog.nbar is not None:
-            if catalog.nbar.need_redshift:
-                if default_z:
-                    raise ValueError("`n(z)` calculation requires redshift "
-                                     "but '%s' DataSource does not support `Redshift` column" %name)
-                nbar = catalog.nbar(redshift)
-            else:
-                nbar = catalog.nbar()
-        
-        elif default_nbar:
-            if default_z:
-                raise ValueError("`n(z)` calculation requires redshift "
-                                 "but '%s' DataSource does not support `Redshift` column" %name)
-            
-            if catalog._no_fsky:
-                raise ValueError("computing `n(z)` from 'randoms' DataSource, but no `fsky` "
-                                 "provided for volume calculation")
-            alpha = 1.*catalog.data.size/catalog.randoms.size
-            nbar = catalog.randoms_nbar(redshift) * alpha
-        
-        elif name == 'randoms':
-            alpha = 1.*catalog.data.size/catalog.randoms.size
-            nbar = nbar * alpha
-                
-        # update the weights with new FKP
-        if catalog.compute_fkp_weights:
-            if catalog.P0_fkp is None:
-                raise ValueError("if 'compute_fkp_weights' is set, please specify a value for 'P0_fkp'")
-            weight = 1. / (1. + nbar*catalog.P0_fkp)
-            
-        P = {}
-        P['Position'] = pos
-        P['Weight']   = weight
-        P['Nbar']     = nbar
-        
-        yield [P[key] for key in columns]  
-
-
 class FKPCatalog(object):
     """
     A `DataSource` representing a catalog of tracer objects, 
@@ -331,6 +269,66 @@ class FKPCatalog(object):
     def __exit__ (self, exc_type, exc_value, traceback):
         self.close()
         
+    def read(self, name, columns, full=False):
+        """
+        Read data from `stream`, which is specified by the `name` argument
+        """                    
+        if name == 'data':
+            stream = self.data_stream
+        elif name == 'randoms':
+            stream = self.randoms_stream
+        else:
+            raise ValueError('bad!')
+    
+        # read position, redshift, and weights from the stream
+        columns0 = ['Position', 'Redshift', 'Weight', 'Nbar']
+        for [coords, redshift, weight, nbar] in stream.read(columns0, full=full):
+        
+            # determine if we have unique redshift, nbar arrays
+            default_z = stream.isdefault('Redshift', redshift)
+            default_nbar = stream.isdefault('Nbar', nbar)
+        
+            # recentered cartesian coordinates
+            pos = coords - self.mean_coordinate_offset
+
+            # number density from redshift
+            if self.nbar is not None:
+                if self.nbar.need_redshift:
+                    if default_z:
+                        raise ValueError("`n(z)` calculation requires redshift "
+                                         "but '%s' DataSource does not support `Redshift` column" %name)
+                    nbar = self.nbar(redshift)
+                else:
+                    nbar = self.nbar()
+        
+            elif default_nbar:
+                if default_z:
+                    raise ValueError("`n(z)` calculation requires redshift "
+                                     "but '%s' DataSource does not support `Redshift` column" %name)
+            
+                if self._no_fsky:
+                    raise ValueError("computing `n(z)` from 'randoms' DataSource, but no `fsky` "
+                                     "provided for volume calculation")
+                alpha = 1.*self.data.size/self.randoms.size
+                nbar = self.randoms_nbar(redshift) * alpha
+        
+            elif name == 'randoms':
+                alpha = 1.*self.data.size/self.randoms.size
+                nbar = nbar * alpha
+                
+            # update the weights with new FKP
+            if self.compute_fkp_weights:
+                if self.P0_fkp is None:
+                    raise ValueError("if 'compute_fkp_weights' is set, please specify a value for 'P0_fkp'")
+                weight = 1. / (1. + nbar*self.P0_fkp)
+            
+            P = {}
+            P['Position'] = pos
+            P['Weight']   = weight
+            P['Nbar']     = nbar
+        
+            yield [P[key] for key in columns]
+            
     def paint(self, pm):
         """
         Paint the FKP weighted density field: ``data - alpha*randoms`` using
