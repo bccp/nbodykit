@@ -349,6 +349,16 @@ class DataStream(object):
         """
         return not hasattr(self, '_cacheref')        
         
+    def isdefault(self, name, data):
+        """
+        Return `True` if the input data is equal to the default
+        value for this stream
+        """
+        if name in self.defaults:
+            return self.defaults[name] == data[0]
+        else:
+            return False
+        
     def read(self, columns, full=False):
         """
         Read the data corresponding to `columns`
@@ -413,8 +423,6 @@ class DataStream(object):
                 # yield the blended data with defaults
                 yield self._blend_data(columns, data, valid_columns, size)
                 
-
-    
     def _blend_data(self, columns, data, valid_columns, size):
         """
         Internal function to blend data that has been explicitly read
@@ -688,7 +696,8 @@ class DataSource:
         if not hasattr(self, '_size'):
             self._size = val
         else:
-            raise ValueError("DataSource `size` has already been set, and shouldn't be reset")
+            if val != self._size:
+                raise ValueError("DataSource `size` has already been set to a different value")
     
     def keep_cache(self):
         """
