@@ -48,8 +48,8 @@ class ClosePairBiasing(DataSource):
     """
     plugin_name = "ClosePairBias"
     
-    def __init__(self, path, dataset, BoxSize, m0, massive, rsd=None,
-                    select1=None, select2=None):
+    def __init__(self, path, dataset, BoxSize, m0, massive, 
+                    rsd=None, select1=None, select2=None):
         pass
     
     @classmethod
@@ -65,13 +65,13 @@ class ClosePairBiasing(DataSource):
         s.add_argument("massive", type=selectionlanguage.Query, 
             help="selection that defines the 'massive halo'; it can also be 'less massive halo' ")
         s.add_argument("sd", choices="xyz", help="direction to do redshift distortion")
-        s.add_argument("-select1", type=selectionlanguage.Query, 
+        s.add_argument("select1", type=selectionlanguage.Query, 
             help='row selection based on conditions specified as string')
-        s.add_argument("-select2", type=selectionlanguage.Query, 
+        s.add_argument("select2", type=selectionlanguage.Query, 
             help='row selection based on conditions specified as string')
     
-    def read(self, columns, comm, bunchsize):
-        if comm.rank == 0:
+    def parallel_read(self, columns, full=False):
+        if self.comm.rank == 0:
             try:
                 import h5py
             except:
@@ -96,30 +96,30 @@ class ClosePairBiasing(DataSource):
             if len(massive) == 0: 
                 raise ValueError("too few massive halos. Check the 'massive' selection clause.")
             
-            data = numpy.array_split(data, comm.size)
+            data = numpy.array_split(data, self.comm.size)
         else:
             massive = None
             data = None
 
-        if comm.rank == 0:
+        if self.comm.rank == 0:
             logger.info("load balancing ")
-        data = comm.scatter(data)
-        massive = comm.bcast(massive)
+        data = self.comm.scatter(data)
+        massive = self.comm.bcast(massive)
 
-        if comm.rank == 0:
+        if self.comm.rank == 0:
             logger.info("Querying KDTree")
         tree = KDTree(massive['Position'])
 
-        nobjs = comm.allreduce(len(data))
-        if comm.rank == 0:
+        nobjs = self.comm.allreduce(len(data))
+        if self.comm.rank == 0:
             logger.info("total number of objects is %d" % nobjs)
 
         # select based on input conditions
         if self.select1 is not None:
             mask = self.select1.get_mask(data)
             data = data[mask]
-            nobjs1 = comm.allreduce(len(data))
-            if comm.rank == 0:
+            nobjs1 = self.comm.allreduce(len(data))
+            if self.comm.rank == 0:
                 logger.info("selected (1) number of objects is %d" % (nobjs1 ))
 
         d, i = tree.query(data['Position'], k=2)
@@ -131,24 +131,24 @@ class ClosePairBiasing(DataSource):
             mymax = data['Proximity'].max()
         else:
             mymax = 0
-        pbins = numpy.linspace(0, numpy.max(comm.allgather(mymax)), 10)
-        h = comm.allreduce(numpy.histogram(data['Proximity'], bins=pbins)[0])
+        pbins = numpy.linspace(0, numpy.max(self.comm.allgather(mymax)), 10)
+        h = self.comm.allreduce(numpy.histogram(data['Proximity'], bins=pbins)[0])
 
-        if comm.rank == 0:
+        if self.comm.rank == 0:
             for p1, p2, h in zip(list(pbins), list(pbins[1:]) + [numpy.inf], h):
                 logger.info("Proximity: [%g - %g] Halos %d" % (p1, p2, h))
 
         if self.select2 is not None:
             mask = self.select2.get_mask(data)
             data = data[mask]
-            nobjs2 = comm.allreduce(len(data))
-            if comm.rank == 0:
+            nobjs2 = self.comm.allreduce(len(data))
+            if self.comm.rank == 0:
                 logger.info("selected (2) number of objects is %d (%g %%)" % (nobjs2, 100.0 * nobjs2 / nobjs1))
 
-        meanmass = comm.allreduce(data['Mass'].sum(dtype='f8')) \
-                 / comm.allreduce(len(data))
+        meanmass = self.comm.allreduce(data['Mass'].sum(dtype='f8')) \
+                 / self.comm.allreduce(len(data))
 
-        if comm.rank == 0:
+        if self.comm.rank == 0:
             logger.info("mean mass of selected objects is %g (log10 = %g)" 
                 % (meanmass, numpy.log10(meanmass)))
 
@@ -172,5 +172,5 @@ class ClosePairBiasing(DataSource):
             P['Position'][:, dir] += P['Velocity'][:, dir]
             P['Position'][:, dir] %= self.BoxSize[dir]
 
-        yield [P[key] for key in columns]
+        yield [P.get(key, None) for key in columns]
 

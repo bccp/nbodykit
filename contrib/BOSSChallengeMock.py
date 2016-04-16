@@ -53,7 +53,7 @@ class BOSSChallengeMockDataSource(DataSource):
         s.add_argument("scaled", type=bool,
             help='rescale the parallel and perp coordinates by the AP factor')
     
-    def simple_read(self, columns):
+    def readall(self):
                 
         # read in the plain text file using pandas
         kwargs = {}
@@ -80,16 +80,9 @@ class BOSSChallengeMockDataSource(DataSource):
             pos[:,0:2] *= self.qperp
             pos[:,-1] *= self.qpar
 
-        if 'Velocity' in columns:
-            raise KeyError("Velocity is not supported")
-        if 'Mass' in columns:
-            raise KeyError("Mass is not supported")
-
         P = {}
         P['Position'] = pos
-        P['Weight'] = numpy.ones(len(pos))
-
-        return [P[key] for key in columns]
+        return P
         
 class BOSSChallengeBoxADataSource(BOSSChallengeMockDataSource):
     plugin_name = 'BOSSChallengeBoxA'
@@ -186,7 +179,7 @@ class BOSSChallengeNSeriesDataSource(DataSource):
         s.add_argument("rsd", choices="xyz", help="direction to do redshift distortion")
         s.add_argument("velf", type=float, help="factor to scale the velocities")
     
-    def simple_read(self, columns):
+    def readall(self):
             
         # read in the plain text file using pandas
         kwargs = {}
@@ -230,10 +223,4 @@ class BOSSChallengeNSeriesDataSource(DataSource):
         P = {}
         P['Position'] = pos
         P['Velocity'] = vel
-        P['Weight'] = numpy.ones(len(pos))
-
-        return [P[key] for key in columns]
-
-    
-
-
+        return P

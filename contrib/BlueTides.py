@@ -35,7 +35,8 @@ class BlueTidesDataSource(DataSource):
         s.add_argument("-select", type=selectionlanguage.Query,
             help='row selection e.g. Mass > 1e3 and Mass < 1e5')
     
-    def read(self, columns, comm, full=False):
+    def parallel_read(self, columns, full=False):
+         
         f = bigfile.BigFile(self.path)
         header = f['header']
         boxsize = header.attrs['BoxSize'][0]
@@ -53,7 +54,7 @@ class BlueTidesDataSource(DataSource):
 
         readcolumns = readcolumns + self.load
         for ptype in ptypes:
-            for data in self.read_ptype(ptype, readcolumns, comm, full):
+            for data in self.read_ptype(ptype, readcolumns, full):
                 P = dict(zip(readcolumns, data))
                 if 'HI' in columns:
                     P['HI'] = P['NeutralHydrogenFraction'] * P['Mass']
@@ -69,13 +70,19 @@ class BlueTidesDataSource(DataSource):
                     mask = self.select.get_mask(P)
                 else:
                     mask = Ellipsis
-                yield [P[column][mask] for column in columns]
+                toret = []
+                for column in columns:
+                    d = P.get(column, None)
+                    if d is not None:
+                        d = d[mask]
+                    toret.append(d)
+                yield toret
 
-    def read_ptype(self, ptype, columns, comm, full):
+    def read_ptype(self, ptype, columns, full):
         f = bigfile.BigFile(self.path)
         done = False
         i = 0
-        while not numpy.all(comm.allgather(done)):
+        while not numpy.all(self.comm.allgather(done)):
             ret = []
             for column in columns:
                 f = bigfile.BigFile(self.path)
@@ -93,8 +100,8 @@ class BlueTidesDataSource(DataSource):
                 cdata = f['%s/%s' % (ptype, read_column)]
 
                 Ntot = cdata.size
-                start = comm.rank * Ntot // comm.size
-                end = (comm.rank + 1) * Ntot //comm.size
+                start = self.comm.rank * Ntot // self.comm.size
+                end = (self.comm.rank + 1) * Ntot //self.comm.size
                 if not full:
                     bunchstart = start + i * self.bunchsize
                     bunchend = start + (i + 1) * self.bunchsize

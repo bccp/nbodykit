@@ -76,13 +76,16 @@ class FiberCollisionsAlgorithm(Algorithm):
         """
         from nbodykit import fof
         
-        # run the angular FoF algorithm to get group labels
-        # labels gives the global group ID corresponding to each object in Position 
-        # on this rank
-        labels = fof.fof(self.datasource, self._collision_radius_rad, 1, comm=self.comm)
+        # open a persistent cache
+        with self.datasource.keep_cache():
+            
+            # run the angular FoF algorithm to get group labels
+            # labels gives the global group ID corresponding to each object in Position 
+            # on this rank
+            labels = fof.fof(self.datasource, self._collision_radius_rad, 1, comm=self.comm)
         
-        # assign the fibers (in parallel)
-        collided, neighbors = self._assign_fibers(labels)
+            # assign the fibers (in parallel)
+            collided, neighbors = self._assign_fibers(labels)
     
         # all reduce to get summary statistics
         N_pop1 = self.comm.allreduce((collided^1).sum())
@@ -127,7 +130,8 @@ class FiberCollisionsAlgorithm(Algorithm):
         PIG['Index'] = offset + numpy.where(mask == True)[0]
         del Label
         
-        [[Position]] = self.datasource.read(['Position'], full=True)
+        with self.datasource.open() as stream:
+            [[Position]] = stream.read(['Position'], full=True)
         PIG['Position'] = Position[mask]
         del Position
         Ntot = comm.allreduce(len(mask))

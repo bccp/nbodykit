@@ -35,15 +35,17 @@ class FOFAlgorithm(Algorithm):
         from nbodykit import fof
         # convert to absolute length
         if not self.absolute:
-            if not hasattr(self.datasource, 'TotalLength'):
-                logging.info("Playing DataSource to measure TotalLength. " +
-                      "DataSource `%s' shall be fixed to add a TotalLength attribute", self.datasource)
-                [[junk]] = self.datasource.read(['Position'], full=True)
-                TotalLength = self.comm.allreduce(len(junk))
-                del junk
+            if not hasattr(self.datasource, 'size'):
+                logging.info("Playing DataSource to measure total size. " +
+                      "DataSource `%s' shall be fixed to add a size attribute", self.datasource)
+                
+                with self.datasource.open() as stream:
+                    [[junk]] = stream.read(['Position'], full=True)
+                    size = self.comm.allreduce(len(junk))
+                    del junk
             else:
-                TotalLength = self.datasource.TotalLength
-            ll = self.linklength * (self.datasource.BoxSize.prod() / self.datasource.TotalLength) ** 0.3333333
+                size = self.datasource.size
+            ll = self.linklength * (self.datasource.BoxSize.prod() / self.datasource.size) ** 0.3333333
         else:
             ll = self.linklength
 

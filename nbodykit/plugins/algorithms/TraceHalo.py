@@ -28,7 +28,8 @@ class TraceHaloAlgorithm(Algorithm):
     def run(self):
         comm = self.comm
 
-        [[ID]] = self.source.read(['ID'], full=True)
+        with self.source.open() as source:
+            [[ID]] = source.read(['ID'], full=True)
 
         Ntot = self.comm.allreduce(len(ID))
 
@@ -40,7 +41,8 @@ class TraceHaloAlgorithm(Algorithm):
                     ])
         data['ID'] = ID
         del ID
-        [[data['Label'][...]]] = self.sourcelabel.read(['Label'], full=True)
+        with self.sourcelabel.open() as sourcelabel:
+            [[data['Label'][...]]] = sourcelabel.read(['Label'], full=True)
 
         mpsort.sort(data, orderby='ID')
 
@@ -52,9 +54,10 @@ class TraceHaloAlgorithm(Algorithm):
                     ('Position', ('f4', 3)), 
                     ('Velocity', ('f4', 3)), 
                     ])
-        [[data['Position'][...]]] = self.dest.read(['Position'], full=True)
-        [[data['Velocity'][...]]] = self.dest.read(['Velocity'], full=True)
-        [[data['ID'][...]]] = self.dest.read(['ID'], full=True)
+        with self.dest.open() as dest:
+            [[data['Position'][...]]] = dest.read(['Position'], full=True)
+            [[data['Velocity'][...]]] = dest.read(['Velocity'], full=True)
+            [[data['ID'][...]]] = dest.read(['ID'], full=True)
         mpsort.sort(data, orderby='ID')
 
         data['Position'] /= self.dest.BoxSize

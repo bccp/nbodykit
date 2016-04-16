@@ -46,20 +46,20 @@ class UniformBoxDataSource(DataSource):
         s.add_argument("seed", type=int,
             help='the number used to seed the random number generator')
     
-    def simple_read(self, columns):
+    def readall(self):
         
         valid = ['Position', 'Velocity']
         if any(col not in valid for col in columns):
             args = (self.plugin_name, str(valid))
             raise ValueError("valid column names for '%s' are %s" %args)
             
-        P = {}
+        toret = {}
         shape = (self.Nlocal, 3)
         
         if 'Position' in columns:
-            P['Position'] = self.random.uniform(size=shape) * self.BoxSize
+            toret['Position'] = self.random.uniform(size=shape) * self.BoxSize
         if 'Velocity' in columns:
-            P['Velocity'] = 2*self.max_speed * self.random.uniform(size=shape) - self.max_speed
+            toret['Velocity'] = 2*self.max_speed * self.random.uniform(size=shape) - self.max_speed
         
-        return [P[key] for key in columns]
+        return toret
 

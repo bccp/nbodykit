@@ -31,6 +31,11 @@ class TPMSnapshotFile(StripeFile):
         return self
  
     def read(self, column, mystart=0, myend=-1):
+        
+        # return zero-length array, if we don't support column
+        if column not in self.offset_table:
+            return numpy.empty(0)
+            
         dtype, offset = self.offset_table[column]
         dtype = numpy.dtype(dtype)
         if myend == -1:
@@ -44,6 +49,10 @@ class TPMSnapshotFile(StripeFile):
             return numpy.fromfile(ff, count=myend - mystart, dtype=dtype)
 
     def write(self, column, mystart, data):
+        
+        # crash if we don't support column
+        if column not in self.offset_table:
+            raise ValueError("available columns to write: %s" %str(self.offset_table))
         dtype, offset = self.offset_table[column]
         dtype = numpy.dtype(dtype)
         with open(self.filename, 'rb+') as ff:
@@ -104,6 +113,10 @@ class GadgetSnapshotFile(StripeFile):
         self.offset_table = o
 
     def read(self, column, mystart=0, myend=-1):
+        # return zero-length array, if we don't support column
+        if column not in self.offset_table:
+            return numpy.empty(0)
+            
         dtype, offset = self.offset_table[column]
         dtype = numpy.dtype(dtype)
         if myend == -1:
@@ -155,6 +168,10 @@ class GadgetGroupTabFile(StripeFile):
         self.offset_table = o
 
     def read(self, column, mystart=0, myend=-1):
+        # return zero-length array, if we don't support column
+        if column not in self.offset_table:
+            return numpy.empty(0)
+            
         dtype, offset = self.offset_table[column]
         dtype = numpy.dtype(dtype)
         if myend == -1:

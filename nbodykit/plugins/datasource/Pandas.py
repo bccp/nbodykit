@@ -61,7 +61,12 @@ class PandasDataSource(DataSource):
         s.add_argument("ftype", choices=['hdf5', 'text', 'auto'], 
             help='format of the Pandas storage container. auto is to guess from the file name.')
     
-    def simple_read(self, columns):
+    def readall(self):
+        """
+        Read all available data, returning a dictionary
+        
+        This provides ``Position`` and optionally ``Velocity`` columns
+        """
         try:
             import pandas as pd
         except:
@@ -96,7 +101,7 @@ class PandasDataSource(DataSource):
             data = data[mask]
         logger.info("total number of objects selected is %d / %d" % (len(data), nobj))
 
-        P = {}
+        toret = {}
         
         # get position and velocity, if we have it
         pos = data[self.poscols].values.astype('f4')
@@ -104,16 +109,14 @@ class PandasDataSource(DataSource):
         if self.velcols is not None or self.rsd is not None:
             vel = data[self.velcols].values.astype('f4')
             vel *= self.velf
-            P['Velocity'] = vel
+            toret['Velocity'] = vel
 
+        # shift position by RSD
         if self.rsd is not None:
             dir = "xyz".index(self.rsd)
             pos[:, dir] += vel[:, dir]
             pos[:, dir] %= self.BoxSize[dir]
-
-        P['Position'] = pos
-        P['Weight'] = numpy.ones(len(pos))
-        P['Mass'] = numpy.ones(len(pos))
-
-        return [P[key] for key in columns]
+        toret['Position'] = pos
+        
+        return toret
 

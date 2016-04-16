@@ -19,7 +19,7 @@ class FastPMDataSource(DataSource):
         BoxSize[:] = header.attrs['BoxSize'][0]
         OmegaM = header.attrs['OmegaM'][0]
         self.M0 = 27.75e10 * OmegaM * BoxSize[0] ** 3 / f['Position'].size
-        self.TotalLength = f['Position'].size
+        self.size = f['Position'].size
 
         if self.comm.rank == 0:
             logger.info("File has boxsize of %s Mpc/h" % str(BoxSize))
@@ -49,7 +49,7 @@ class FastPMDataSource(DataSource):
         s.add_argument("bunchsize", type=int, 
             help="number of particles to read per rank in a bunch")
                 
-    def read(self, columns, full=False):
+    def parallel_read(self, columns, full=False):
         f = bigfile.BigFileMPI(self.comm, self.path)
         header = f['header']
         boxsize = header.attrs['BoxSize'][0]
@@ -66,6 +66,11 @@ class FastPMDataSource(DataSource):
 
         if 'Mass' in readcolumns: 
             readcolumns.remove('Mass')
+            
+        # remove columns not in the file (None will be returned)
+        for col in list(readcolumns):
+            if col not in f:
+                readcolumns.remove(col)
             
         done = False
         i = 0
@@ -107,10 +112,10 @@ class FastPMDataSource(DataSource):
                 P['Position'][:, dir] %= self.BoxSize[dir]
             if 'InitialPosition' in columns:
                 P['InitialPosition'] = numpy.empty((len(P['ID']), 3), 'f4')
-                nc = int(self.TotalLength ** (1. / 3) + 0.5)
+                nc = int(self.size ** (1. / 3) + 0.5)
                 id = P['ID'].copy()
                 for nc in range(nc - 10, nc + 10):
-                    if nc ** 3 == self.TotalLength: break
+                    if nc ** 3 == self.size: break
                 for d in [2, 1, 0]:
                     P['InitialPosition'][:, d] = id % nc
                     id[:] //= nc
@@ -119,4 +124,4 @@ class FastPMDataSource(DataSource):
                 P['InitialPosition'][:] *= cellsize
 
             i = i + 1
-            yield [P[column] for column in columns]
+            yield [P.get(column, None) for column in columns]
