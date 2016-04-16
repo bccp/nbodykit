@@ -9,12 +9,13 @@ class TPMSnapshotDataSource(DataSource):
     plugin_name = "TPMSnapshot"
     
     def __init__(self, path, BoxSize, rsd=None, bunchsize=4*1024*1024):
+        
         if self.comm.rank == 0:
             datastorage = files.DataStorage(self.path, files.TPMSnapshotFile)
-            self.size = sum(datastorage.npart)
+            size = sum(datastorage.npart)
         else:
-            self.size = None
-        self.size = self.comm.bcast(self.size)
+            size = None
+        self.size = self.comm.bcast(size)
 
     @classmethod
     def register(cls):
