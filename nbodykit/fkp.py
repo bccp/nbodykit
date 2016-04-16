@@ -367,7 +367,7 @@ class FKPCatalog(object):
         alpha = 1.*self.data.size/self.randoms.size
         
         # paint -1.0*alpha*N_randoms
-        for [position, weight, nbar] in read(self, columns, 'randoms'):
+        for [position, weight, nbar] in self.read(self, columns, 'randoms'):
             Nlocal = self.painter.basepaint(pm, position, -alpha*weight)
             A_ran += (nbar*weight**2).sum()
             N_ran += Nlocal
@@ -381,7 +381,7 @@ class FKPCatalog(object):
             raise ValueError("mismatch between `size` of 'randoms' and `N_ran` when painting")
 
         # paint the +data
-        for [position, weight, nbar] in read(self, columns, 'data'):
+        for [position, weight, nbar] in self.read(self, columns, 'data'):
             Nlocal = self.painter.basepaint(pm, position, weight)
             A_data += (nbar*weight**2).sum()
             N_data += Nlocal 
