@@ -86,7 +86,7 @@ class BianchiPowerAlgorithm(Algorithm):
             help="use the factored expression for the hexadecapole (ell=4) from "
                  "eq. 27 of Scoccimarro 2015 (1506.02729)")
         s.add_argument('keep_cache', type=bool, 
-            help='if `True`, force the data cache to persist throughout the algorithm steps')
+            help='if `True`, force the data cache to persist while the algorithm instance is valid')
                     
     def run(self):
         """
