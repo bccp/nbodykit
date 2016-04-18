@@ -571,8 +571,12 @@ class DataSource:
             try:
                 data = self.readall()
                 success = True
-            except:
+            except NotImplementedError:
                 pass
+            except Exception:
+                import traceback
+                raise Exception("an unknown exception occurred while trying to cache data via `readall`:\n"
+                                "traceback:\n\n%s" %traceback.format_exc())
                 
         # determine if readall was successful
         success = self.comm.bcast(success, root=0)
