@@ -78,71 +78,82 @@ class FKPCatalog(object):
         self.P0_fkp              = P0_fkp
         self.nbar                = nbar
         self.fsky                = fsky
-        self._no_fsky            = fsky is None
         
         # default painter
         self.painter = Painter.create('DefaultPainter')
-    
-    def open(self):
+
+    @property
+    def fsky(self):
         """
-        Open the catalog by defining the Cartesian box
-        and opening the `data` and `randoms` streams
+        The sky area fraction (relative to 4pi str); needed for the volume 
+        computation when computing `n(z)`
         """
-        # open the streams
-        defaults = {'Redshift':-1., 'Nbar':-1., 'Weight':1.}
-        self.data_stream = self.data.open(defaults)
-        self.randoms_stream = self.randoms.open(defaults)
-                
-        # need to compute cartesian min/max
-        pos_min = numpy.array([numpy.inf]*3)
-        pos_max = numpy.array([-numpy.inf]*3)
-        
-        redshifts = []
-        columns = ['Position', 'Redshift', 'Nbar']
-        for [pos, z, nbar] in self.randoms_stream.read(columns, full=False):
-            if len(pos):
-                
-                # global min/max of cartesian coordinates
-                pos_min = numpy.minimum(pos_min, pos.min(axis=0))
-                pos_max = numpy.maximum(pos_max, pos.max(axis=0))
-        
-                # store redshifts for n(z)
-                redshifts += list(z)
-        if not hasattr(self.randoms, 'size'):
-            self.randoms.size = self.randoms_stream.nread
-                
-        # gather everything to root
-        pos_min   = self.comm.gather(pos_min)
-        pos_max   = self.comm.gather(pos_max)
-        redshifts = self.comm.gather(redshifts)
-        
-        # rank 0 setups up the box and computes nbar (if needed)
-        if self.comm.rank == 0:
+        try:
+            return self._fsky
+        except:
+            cls = self.__class__.__name__
+            raise AttributeError("'%s' object has no attribute 'fsky'" %cls)
             
-            # find the global
-            pos_min   = numpy.amin(pos_min, axis=0)
-            pos_max   = numpy.amax(pos_max, axis=0)
-            redshifts = numpy.concatenate(redshifts)
-            
-            # setup the box, using randoms to define it
-            self._define_box(pos_min, pos_max)
-    
-            # compute the number density from the randoms
-            self._compute_randoms_nbar(numpy.array(redshifts))
+    @fsky.setter
+    def fsky(self, val):
+        """
+        Set the sky fraction, only if not None
+        """
+        if val is not None:
+            self._fsky = val
+        
+    @property
+    def data(self):
+        """
+        Update the ``data`` attribute, keeping track of the total number 
+        of objects
+        """
+        try:
+            return self._data
+        except:
+            cls = self.__class__.__name__
+            raise AttributeError("'%s' object has no attribute 'data'" %cls)
+        
+    @data.setter
+    def data(self, val):
+        """
+        Set the data
+        """
+        if not hasattr(self, '_data'):
+            self._data = val
         else:
-            self.randoms_nbar           = None
-            self.mean_coordinate_offset = None
+            # open the new data automatically
+            if not self.closed:
+                
+                # close the old data
+                if hasattr(self, 'data_stream'):
+                    self.data_stream.close()
+                    del self.data_stream
+                
+                # set and open the new data
+                self._data = val
+                defaults = {'Redshift':-1., 'Nbar':-1., 'Weight':1.}
+                self.data_stream = self.data.open(defaults)
+                self.verify_data_size() # verify the size
             
-        # broadcast the results that rank 0 computed
-        self.BoxSize                = self.comm.bcast(self.BoxSize)
-        self.mean_coordinate_offset = self.comm.bcast(self.mean_coordinate_offset)
-        self.randoms_nbar           = self.comm.bcast(self.randoms_nbar)
-        
-        if self.comm.rank == 0:
-            logger.info("BoxSize = %s" %str(self.BoxSize))
-            logger.info("cartesian coordinate range: %s : %s" %(str(pos_min), str(pos_max)))
-            logger.info("mean coordinate offset = %s" %str(self.mean_coordinate_offset))
-        
+            else:
+                self._data = val
+    
+    def verify_data_size(self):
+        """
+        Verify the size of the data, setting it if need be
+        """            
+        # make sure the size is set properly
+        try:
+            size = self.data.size
+        except:
+            if hasattr(self, 'data_stream') and not self.data_stream.closed:            
+                # compute the total number
+                for [Position] in self.data_stream.read(['Position'], full=False):
+                    continue
+                self.data.size = self.data_stream.nread
+                logger.debug("setting `data` size to %d" %self.data.size)
+                        
     @property
     def closed(self):
         """
@@ -251,6 +262,69 @@ class FKPCatalog(object):
         z_cen = 0.5*(zbins[:-1] + zbins[1:])
         self.randoms_nbar = spline(z_cen, 1.*N/volume)
         
+    def open(self):
+        """
+        Open the catalog by defining the Cartesian box
+        and opening the `data` and `randoms` streams
+        """
+        # open the streams
+        defaults = {'Redshift':-1., 'Nbar':-1., 'Weight':1.}
+        self.data_stream = self.data.open(defaults)
+        self.randoms_stream = self.randoms.open(defaults)
+                
+        # verify data size
+        self.verify_data_size()
+    
+        # need to compute cartesian min/max
+        pos_min = numpy.array([numpy.inf]*3)
+        pos_max = numpy.array([-numpy.inf]*3)
+        
+        redshifts = []
+        columns = ['Position', 'Redshift', 'Nbar']
+        for [pos, z, nbar] in self.randoms_stream.read(columns, full=False):
+            if len(pos):
+                
+                # global min/max of cartesian coordinates
+                pos_min = numpy.minimum(pos_min, pos.min(axis=0))
+                pos_max = numpy.maximum(pos_max, pos.max(axis=0))
+        
+                # store redshifts for n(z)
+                redshifts += list(z)
+        if not hasattr(self.randoms, 'size'):
+            self.randoms.size = self.randoms_stream.nread
+                
+        # gather everything to root
+        pos_min   = self.comm.gather(pos_min)
+        pos_max   = self.comm.gather(pos_max)
+        redshifts = self.comm.gather(redshifts)
+        
+        # rank 0 setups up the box and computes nbar (if needed)
+        if self.comm.rank == 0:
+            
+            # find the global
+            pos_min   = numpy.amin(pos_min, axis=0)
+            pos_max   = numpy.amax(pos_max, axis=0)
+            redshifts = numpy.concatenate(redshifts)
+            
+            # setup the box, using randoms to define it
+            self._define_box(pos_min, pos_max)
+    
+            # compute the number density from the randoms
+            self._compute_randoms_nbar(numpy.array(redshifts))
+        else:
+            self.randoms_nbar           = None
+            self.mean_coordinate_offset = None
+            
+        # broadcast the results that rank 0 computed
+        self.BoxSize                = self.comm.bcast(self.BoxSize)
+        self.mean_coordinate_offset = self.comm.bcast(self.mean_coordinate_offset)
+        self.randoms_nbar           = self.comm.bcast(self.randoms_nbar)
+        
+        if self.comm.rank == 0:
+            logger.info("BoxSize = %s" %str(self.BoxSize))
+            logger.info("cartesian coordinate range: %s : %s" %(str(pos_min), str(pos_max)))
+            logger.info("mean coordinate offset = %s" %str(self.mean_coordinate_offset))
+            
     def close(self):
         """
         Close the FKPCatalog by close the `data` and `randoms` streams
@@ -268,7 +342,7 @@ class FKPCatalog(object):
         
     def __exit__ (self, exc_type, exc_value, traceback):
         self.close()
-        
+                    
     def read(self, name, columns, full=False):
         """
         Read data from `stream`, which is specified by the `name` argument
@@ -311,7 +385,7 @@ class FKPCatalog(object):
                     raise ValueError("`n(z)` calculation requires redshift "
                                      "but '%s' DataSource does not support `Redshift` column" %name)
             
-                if self._no_fsky:
+                if not hasattr(self, 'fsky'):
                     raise ValueError("computing `n(z)` from 'randoms' DataSource, but no `fsky` "
                                      "provided for volume calculation")
                 alpha = 1.*self.data.size/self.randoms.size

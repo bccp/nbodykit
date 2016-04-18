@@ -26,7 +26,8 @@ class BianchiPowerAlgorithm(Algorithm):
                     nbar=None, 
                     fsky=None,
                     quiet=False, 
-                    factor_hexadecapole=False):
+                    factor_hexadecapole=False,
+                    keep_cache=False):
                
         # properly set the logging level          
         self.log_level = logging.DEBUG
@@ -84,6 +85,8 @@ class BianchiPowerAlgorithm(Algorithm):
         s.add_argument('factor_hexadecapole', type=bool, 
             help="use the factored expression for the hexadecapole (ell=4) from "
                  "eq. 27 of Scoccimarro 2015 (1506.02729)")
+        s.add_argument('keep_cache', type=bool, 
+            help='if `True`, force the data cache to persist while the algorithm instance is valid')
                     
     def run(self):
         """
@@ -93,7 +96,14 @@ class BianchiPowerAlgorithm(Algorithm):
                 
         self.logger.setLevel(self.log_level)
         if self.comm.rank == 0: self.logger.info('importing done')
-
+        
+        # explicity store an open stream
+        # this prevents the cache from being destroyed while the 
+        # algorithm instance is active
+        if self.keep_cache:
+            self._datacache = self.catalog.data.keep_cache()
+            self._rancache = self.catalog.randoms.keep_cache()
+        
         # measure
         kws = {'log_level':self.log_level, 'factor_hexadecapole':self.factor_hexadecapole}
         pm, poles, meta = measurestats.compute_bianchi_poles(self.comm, self.max_ell, self.catalog, self.Nmesh, **kws)
