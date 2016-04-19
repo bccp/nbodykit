@@ -603,13 +603,17 @@ class DataSource:
         
             # scatter the data across all ranks
             # each rank caches only a part of the total data
-            cache = []
+            cache = []; local_size = None
             for d in data:
                 cache.append(ScatterArray(d, self.comm, root=0))
+                if local_size is None:
+                    local_size = len(cache[-1])
 
-            # store the size and column names
+            # the total collective size of the datasource
             self.size = size # this will persist, even if cache is deleted
-            return DataCache(columns, cache, size)
+            
+            # return the cache
+            return DataCache(columns, cache, local_size)
         else:
             return DataCache([], [], 0) # empty cache
 
