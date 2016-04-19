@@ -603,13 +603,21 @@ class DataSource:
         
             # scatter the data across all ranks
             # each rank caches only a part of the total data
-            cache = []
+            cache = []; local_sizes = []
             for d in data:
                 cache.append(ScatterArray(d, self.comm, root=0))
+                local_sizes.append(len(cache[-1]))
+                
+            # this should hopefully never fail (guaranted to have nonzero length)
+            if not all(s == local_sizes[0] for s in local_sizes):
+                raise RuntimeError("scattering data resulted in uneven lengths between columns")
+            local_size = local_sizes[0]
 
-            # store the size and column names
+            # the total collective size of the datasource
             self.size = size # this will persist, even if cache is deleted
-            return DataCache(columns, cache, size)
+            
+            # return the cache
+            return DataCache(columns, cache, local_size)
         else:
             return DataCache([], [], 0) # empty cache
 
