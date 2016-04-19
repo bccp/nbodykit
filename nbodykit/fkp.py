@@ -232,8 +232,7 @@ class FKPCatalog(object):
         of the redshift histogram for the randoms
         """ 
         # crash later if n(z) needed and fsky not provided
-        if self.fsky is None:
-            self.fsky = 1.
+        fsky = 1. if not hasattr(self, 'fsky') else self.fsky
         
         def scotts_bin_width(data):
             """
@@ -256,7 +255,7 @@ class FKPCatalog(object):
         # compute the volume
         R_hi = self.cosmo.comoving_distance(zbins[1:])
         R_lo = self.cosmo.comoving_distance(zbins[:-1])
-        volume = (4./3.)*numpy.pi*(R_hi**3 - R_lo**3) * self.fsky
+        volume = (4./3.)*numpy.pi*(R_hi**3 - R_lo**3) * fsky
         
         # store the nbar 
         z_cen = 0.5*(zbins[:-1] + zbins[1:])
