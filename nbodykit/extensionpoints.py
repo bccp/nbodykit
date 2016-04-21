@@ -730,7 +730,7 @@ class DataSource:
         # simplest implementation is returning a stream
         return DataStream(self) 
     
-    def open(self, defaults={}, name=None):
+    def open(self, defaults={}):
         """
         Open the `DataSource` by returning a `DataStream` from which
         the data can be read. 
@@ -755,18 +755,9 @@ class DataSource:
             the stream object from which the data can be read via
             the `read` function
         """
-        # which datasource we are opening
-        data = self
-        if name is not None:
-            if not hasattr(self, name):
-                raise AttributeError("DataSource cannot open stream with name '%s'" %name)
-            data = getattr(self, name)
-            if not isinstance(data, DataSource):
-                raise TypeError("named stream '%s' is not a DataSource" %name)
-        
         # note: if DataSource is already `open`, we can 
         # still get a new stream with different defaults
-        return DataStream(data, defaults=defaults)
+        return DataStream(self, defaults=defaults)
                              
     def readall(self):
         """ 
