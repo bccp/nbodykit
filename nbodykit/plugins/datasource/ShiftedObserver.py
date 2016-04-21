@@ -12,7 +12,7 @@ class ShiftedObserverDataSource(DataSource):
     """
     plugin_name = "ShiftedObserver"
     
-    def __init__(self, data, translate, rsd=False):        
+    def __init__(self, datasource, translate, rsd=False):        
         
         # make it an array
         self.translate = numpy.array(self.translate)
@@ -23,7 +23,7 @@ class ShiftedObserverDataSource(DataSource):
         s = cls.schema
         s.description = "establish an explicit observer (outside the box) for a periodic box"
         
-        s.add_argument("data", type=DataSource.from_config,
+        s.add_argument("datasource", type=DataSource.from_config,
             help="the data to translate in order to impose an explicit observer line-of-sight")
         s.add_argument("translate", type=float, nargs=3,
             help="translate the input data by this vector")
@@ -37,7 +37,7 @@ class ShiftedObserverDataSource(DataSource):
             columns.append('Velocity')
         
         # read position, redshift, and weights from the stream
-        for data in self.data.read(columns, full=full):
+        for data in self.datasource.read(columns, full=full):
             
             # translate the cartesian coordinates
             if 'Position' in columns:
