@@ -29,37 +29,44 @@ class ShiftedObserverDataSource(DataSource):
             help="translate the input data by this vector")
         s.add_argument("rsd", type=bool, 
             help="if `True`, impose redshift distortions along the observer's line-of-sight")
-
-    def read(self, columns, full=False):
+    
+    def parallel_read(self, columns, full=False):
+        """
+        Read from `datasource`, and return the shifted
+        data, optionally with RSD implemented from the shifted location
+        """
+        # length of the original data
+        ncols = len(columns)
         
         # request velocity if we are doing RSD
         if self.rsd and 'Velocity' not in columns:
             columns.append('Velocity')
         
         # read position, redshift, and weights from the stream
-        for data in self.datasource.read(columns, full=full):
+        with self.datasource.open() as stream:
+            for data in stream.read(columns, full=full):
             
-            # translate the cartesian coordinates
-            if 'Position' in columns:
-                i = columns.index('Position')
-                data[i] += self.translate
+                # translate the cartesian coordinates
+                if 'Position' in columns:
+                    i = columns.index('Position')
+                    data[i] += self.translate
                 
-            # add in RSD, along observer LOS
-            if self.rsd and 'Position' in columns:
-                i = columns.index('Position')
-                j = columns.index('Velocity')
-                pos = data[i]; vel = data[j]
+                # add in RSD, along observer LOS
+                if self.rsd and 'Position' in columns:
+                    i = columns.index('Position')
+                    j = columns.index('Velocity')
+                    pos = data[i]; vel = data[j]
                 
-                # the peculiar velocity
-                rad = numpy.linalg.norm(pos, axis=-1)
-                vpec = (pos*vel).sum(axis=-1) / rad
+                    # the peculiar velocity
+                    rad = numpy.linalg.norm(pos, axis=-1)
+                    vpec = (pos*vel).sum(axis=-1) / rad
                 
-                # shift by the peculiar velocity along LOS
-                # assuming vpec is normalized appropriately
-                line_of_sight = pos / rad[:,None]
-                pos +=  vpec[:,None] * line_of_sight
+                    # shift by the peculiar velocity along LOS
+                    # assuming vpec is normalized appropriately
+                    line_of_sight = pos / rad[:,None]
+                    pos +=  vpec[:,None] * line_of_sight
                             
-            yield data
+                yield data[:ncols] # remove velocity if not asked for
         
         
         
