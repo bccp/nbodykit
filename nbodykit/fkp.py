@@ -186,7 +186,7 @@ class FKPCatalog(object):
         Set the number density as a function of redshift n(z)
         """
         if val is not None:
-            if isinstance(val, basestring) and os.path.exist(val):
+            if isinstance(val, basestring) and os.path.exists(val):
                 try:
                     d = numpy.loadtxt(val)
                     self._nbar = spline(d[:,0], d[:,1])
