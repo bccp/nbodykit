@@ -70,7 +70,7 @@ class FKPCatalog(object):
         # data and randoms datasources
         self.data    = data
         self.randoms = randoms
-        
+
         # optional configuration
         self.BoxSize             = BoxSize
         self.BoxPad              = BoxPad
@@ -233,7 +233,7 @@ class FKPCatalog(object):
         """ 
         # crash later if n(z) needed and fsky not provided
         fsky = 1. if not hasattr(self, 'fsky') else self.fsky
-        
+    
         def scotts_bin_width(data):
             """
             Return the optimal histogram bin width using Scott's rule
@@ -268,8 +268,8 @@ class FKPCatalog(object):
         """
         # open the streams
         defaults = {'Redshift':-1., 'Nbar':-1., 'Weight':1.}
-        self.data_stream = self.data.open(defaults)
-        self.randoms_stream = self.randoms.open(defaults)
+        self.data_stream = self.data.open(defaults=defaults)
+        self.randoms_stream = self.randoms.open(defaults=defaults)
                 
         # verify data size
         self.verify_data_size()
@@ -288,7 +288,9 @@ class FKPCatalog(object):
                 pos_max = numpy.maximum(pos_max, pos.max(axis=0))
         
                 # store redshifts for n(z)
-                redshifts += list(z)
+                if not self.randoms_stream.isdefault('Redshift', z):
+                    redshifts += list(z)
+        
         if not hasattr(self.randoms, 'size'):
             self.randoms.size = self.randoms_stream.nread
                 
@@ -309,7 +311,8 @@ class FKPCatalog(object):
             self._define_box(pos_min, pos_max)
     
             # compute the number density from the randoms
-            self._compute_randoms_nbar(numpy.array(redshifts))
+            if len(redshifts):
+                self._compute_randoms_nbar(numpy.array(redshifts))
         else:
             self.randoms_nbar           = None
             self.mean_coordinate_offset = None
@@ -317,7 +320,9 @@ class FKPCatalog(object):
         # broadcast the results that rank 0 computed
         self.BoxSize                = self.comm.bcast(self.BoxSize)
         self.mean_coordinate_offset = self.comm.bcast(self.mean_coordinate_offset)
-        self.randoms_nbar           = self.comm.bcast(self.randoms_nbar)
+        
+        if len(redshifts):
+            self.randoms_nbar           = self.comm.bcast(self.randoms_nbar)
         
         if self.comm.rank == 0:
             logger.info("BoxSize = %s" %str(self.BoxSize))
