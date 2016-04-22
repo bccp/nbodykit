@@ -1,4 +1,4 @@
-from nbodykit.plugins import load
+from nbodykit.pluginmanager import load
 import os.path
 path = os.path.abspath(os.path.dirname(__file__))
 

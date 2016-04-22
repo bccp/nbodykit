@@ -7,7 +7,7 @@ from mpi4py import MPI
 
 from nbodykit.extensionpoints import Algorithm, algorithms
 from nbodykit.extensionpoints import DataSource, Transfer, Painter
-from nbodykit.plugins import ListPluginsAction, load
+from nbodykit.pluginmanager import ListPluginsAction, load
 
 # configure the logging
 rank = MPI.COMM_WORLD.rank
