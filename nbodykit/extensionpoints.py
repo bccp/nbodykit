@@ -326,7 +326,7 @@ class DataStream(object):
         # store a weak reference to the private cache
         self._cacheref = data._cache
         if not self._cacheref.empty:
-            self.nread = self._cacheref.size
+            self.nread = self._cacheref.total_size
             
     def __enter__ (self):
         return self
@@ -395,7 +395,7 @@ class DataStream(object):
                     data.append(None)
             
             # yield the blended data
-            yield self._blend_data(columns, data, valid_columns, self._cacheref.size)
+            yield self._blend_data(columns, data, valid_columns, self._cacheref.local_size)
             
         # parallel read is defined
         else:
@@ -483,9 +483,12 @@ class DataCache(object):
     A class to cache data in manner that can be weakly
     referenced via `weakref`
     """
-    def __init__(self, columns, data, size):
-        self.columns = columns
-        self.size    = size
+    def __init__(self, columns, data, local_size, total_size):
+        
+        self.columns    = columns
+        self.local_size = local_size
+        self.total_size = total_size
+    
         for col, d in zip(columns, data):
             setattr(self, col, d)
     
@@ -617,9 +620,9 @@ class DataSource:
             self.size = size # this will persist, even if cache is deleted
             
             # return the cache
-            return DataCache(columns, cache, local_size)
+            return DataCache(columns, cache, local_size, size)
         else:
-            return DataCache([], [], 0) # empty cache
+            return DataCache([], [], 0, 0) # empty cache
 
     def _verify_data(self, data):
         """
@@ -730,7 +733,7 @@ class DataSource:
         # simplest implementation is returning a stream
         return DataStream(self) 
     
-    def open(self, defaults={}, name=None):
+    def open(self, defaults={}):
         """
         Open the `DataSource` by returning a `DataStream` from which
         the data can be read. 
@@ -755,18 +758,9 @@ class DataSource:
             the stream object from which the data can be read via
             the `read` function
         """
-        # which datasource we are opening
-        data = self
-        if name is not None:
-            if not hasattr(self, name):
-                raise AttributeError("DataSource cannot open stream with name '%s'" %name)
-            data = getattr(self, name)
-            if not isinstance(data, DataSource):
-                raise TypeError("named stream '%s' is not a DataSource" %name)
-        
         # note: if DataSource is already `open`, we can 
         # still get a new stream with different defaults
-        return DataStream(data, defaults=defaults)
+        return DataStream(self, defaults=defaults)
                              
     def readall(self):
         """ 

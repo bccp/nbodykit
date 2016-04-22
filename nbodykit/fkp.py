@@ -70,7 +70,7 @@ class FKPCatalog(object):
         # data and randoms datasources
         self.data    = data
         self.randoms = randoms
-        
+
         # optional configuration
         self.BoxSize             = BoxSize
         self.BoxPad              = BoxPad
@@ -186,7 +186,7 @@ class FKPCatalog(object):
         Set the number density as a function of redshift n(z)
         """
         if val is not None:
-            if isinstance(val, basestring) and os.path.exist(val):
+            if isinstance(val, str) and os.path.exists(val):
                 try:
                     d = numpy.loadtxt(val)
                     self._nbar = spline(d[:,0], d[:,1])
@@ -218,7 +218,7 @@ class FKPCatalog(object):
         # set the box size automatically
         if self.BoxSize is None:
             delta *= 1.0 + self.BoxPad
-            self.BoxSize = delta.astype(int)
+            self.BoxSize = numpy.around(delta) # round to nearest integer
         else:
             # check the input size
             for i, L in enumerate(delta):
@@ -233,7 +233,7 @@ class FKPCatalog(object):
         """ 
         # crash later if n(z) needed and fsky not provided
         fsky = 1. if not hasattr(self, 'fsky') else self.fsky
-        
+    
         def scotts_bin_width(data):
             """
             Return the optimal histogram bin width using Scott's rule
@@ -268,8 +268,8 @@ class FKPCatalog(object):
         """
         # open the streams
         defaults = {'Redshift':-1., 'Nbar':-1., 'Weight':1.}
-        self.data_stream = self.data.open(defaults)
-        self.randoms_stream = self.randoms.open(defaults)
+        self.data_stream = self.data.open(defaults=defaults)
+        self.randoms_stream = self.randoms.open(defaults=defaults)
                 
         # verify data size
         self.verify_data_size()
@@ -288,7 +288,9 @@ class FKPCatalog(object):
                 pos_max = numpy.maximum(pos_max, pos.max(axis=0))
         
                 # store redshifts for n(z)
-                redshifts += list(z)
+                if not self.randoms_stream.isdefault('Redshift', z):
+                    redshifts += list(z)
+        
         if not hasattr(self.randoms, 'size'):
             self.randoms.size = self.randoms_stream.nread
                 
@@ -309,7 +311,10 @@ class FKPCatalog(object):
             self._define_box(pos_min, pos_max)
     
             # compute the number density from the randoms
-            self._compute_randoms_nbar(numpy.array(redshifts))
+            if len(redshifts):
+                self._compute_randoms_nbar(numpy.array(redshifts))
+            else:
+                self.randoms_nbar = None
         else:
             self.randoms_nbar           = None
             self.mean_coordinate_offset = None
@@ -451,7 +456,8 @@ class FKPCatalog(object):
         S_ran = self.comm.allreduce(S_ran)
         
         if N_ran != self.randoms.size:
-            raise ValueError("mismatch between `size` of 'randoms' and `N_ran` when painting")
+            args = (N_ran, self.randoms.size)
+            raise ValueError("`size` mismatch when painting: `N_ran` = %d, `randoms.size` = %d" %args)
 
         # paint the +data
         for [position, weight, nbar] in self.read('data', columns):
@@ -465,7 +471,8 @@ class FKPCatalog(object):
         S_data = self.comm.allreduce(S_data)
         
         if N_data != self.data.size:
-            raise ValueError("mismatch between `size` of 'data' and `N_data` when painting")
+            args = (N_data, self.data.size)
+            raise ValueError("`size` mismatch when painting: `N_data` = %d, `data.size` = %d" %args)
 
         # store the stats (see equations 13-15 of Beutler et al 2013)
         # see equations 13-15 of Beutler et al 2013
