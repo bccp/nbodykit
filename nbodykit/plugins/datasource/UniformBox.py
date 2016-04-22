@@ -3,16 +3,6 @@ import numpy
 import logging
 
 logger = logging.getLogger('UniformBox')
-
-def get_Nlocal(N, size, rank):
-    """
-    Return the local number of objects on each rank, given
-    the desired total `N`, the communicator `size`, and the
-    `rank`
-    """
-    Neach_section, extras = divmod(N, size)
-    section_sizes = extras * [Neach_section+1] + (size-extras) * [Neach_section]
-    return section_sizes[rank]
          
 class UniformBoxDataSource(DataSource):
     """
@@ -27,10 +17,7 @@ class UniformBoxDataSource(DataSource):
         # initalize a random state for each rank
         seed = self.seed*(self.comm.rank+1)
         self.random = numpy.random.RandomState(seed)
-        
-        # local number of particles on each rank
-        self.Nlocal = get_Nlocal(self.N, self.comm.size, self.comm.rank)
-    
+            
     @classmethod
     def register(cls):
         
@@ -51,7 +38,7 @@ class UniformBoxDataSource(DataSource):
         Return `Position` and `Velocity` distributed normally in the box
         """            
         toret = {}
-        shape = (self.Nlocal, 3)
+        shape = (self.N, 3)
         
         toret['Position'] = self.random.uniform(size=shape) * self.BoxSize
         toret['Velocity'] = 2*self.max_speed * self.random.uniform(size=shape) - self.max_speed
