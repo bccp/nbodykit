@@ -66,7 +66,7 @@ class ShiftedObserverDataSource(DataSource):
                 # translate the cartesian coordinates
                 if 'Position' in columns:
                     i = columns.index('Position')
-                    data[i] += self.translate
+                    data[i] = data[i] + self.translate
         
                 # add in RSD, along observer LOS
                 if self.rsd and 'Position' in columns:

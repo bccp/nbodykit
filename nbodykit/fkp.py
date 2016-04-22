@@ -218,7 +218,7 @@ class FKPCatalog(object):
         # set the box size automatically
         if self.BoxSize is None:
             delta *= 1.0 + self.BoxPad
-            self.BoxSize = delta.astype(int)
+            self.BoxSize = numpy.around(delta) # round to nearest integer
         else:
             # check the input size
             for i, L in enumerate(delta):
