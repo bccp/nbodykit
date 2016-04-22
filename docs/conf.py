@@ -40,6 +40,7 @@ extensions = [
     'numpydoc',
 ]
 
+numpydoc_show_class_members = False
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -57,8 +58,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'nbodykit'
-copyright = u'2015, Yu Feng'
-author = u'Yu Feng'
+copyright = u'2015, Yu Feng, Nick Hand '
+author = u'Yu Feng, Nick Hand'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

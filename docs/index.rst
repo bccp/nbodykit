@@ -1,11 +1,10 @@
 nbodykit package
 ================
+
 .. toctree::
     :maxdepth: 4
+    :glob:
 
-    nbodykit
+    modules
 
-.. automodule:: nbodykit
-    :members:
-    :undoc-members:
-    :show-inheritance:
+    plugins/modules
