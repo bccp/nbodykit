@@ -76,7 +76,7 @@ class ShiftedObserverDataSource(DataSource):
         
                     # the peculiar velocity
                     rad = numpy.linalg.norm(pos, axis=-1)
-                    vpec = (pos*vel).sum(axis=-1) / rad
+                    vpec = numpy.einsum("ij,ij->i", pos, vel) / rad
         
                     # shift by the peculiar velocity along LOS
                     # assuming vpec is normalized appropriately
