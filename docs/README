@@ -1,0 +1,2 @@
+To build the documentation, first run apidoc.sh, then type 'make html'.
+
