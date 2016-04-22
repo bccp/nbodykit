@@ -313,6 +313,8 @@ class FKPCatalog(object):
             # compute the number density from the randoms
             if len(redshifts):
                 self._compute_randoms_nbar(numpy.array(redshifts))
+            else:
+                self.randoms_nbar = None
         else:
             self.randoms_nbar           = None
             self.mean_coordinate_offset = None
@@ -320,9 +322,7 @@ class FKPCatalog(object):
         # broadcast the results that rank 0 computed
         self.BoxSize                = self.comm.bcast(self.BoxSize)
         self.mean_coordinate_offset = self.comm.bcast(self.mean_coordinate_offset)
-        
-        if len(redshifts):
-            self.randoms_nbar           = self.comm.bcast(self.randoms_nbar)
+        self.randoms_nbar           = self.comm.bcast(self.randoms_nbar)
         
         if self.comm.rank == 0:
             logger.info("BoxSize = %s" %str(self.BoxSize))
@@ -456,7 +456,8 @@ class FKPCatalog(object):
         S_ran = self.comm.allreduce(S_ran)
         
         if N_ran != self.randoms.size:
-            raise ValueError("mismatch between `size` of 'randoms' and `N_ran` when painting")
+            args = (N_ran, self.randoms.size)
+            raise ValueError("`size` mismatch when painting: `N_ran` = %d, `randoms.size` = %d" %args)
 
         # paint the +data
         for [position, weight, nbar] in self.read('data', columns):
@@ -470,7 +471,8 @@ class FKPCatalog(object):
         S_data = self.comm.allreduce(S_data)
         
         if N_data != self.data.size:
-            raise ValueError("mismatch between `size` of 'data' and `N_data` when painting")
+            args = (N_data, self.data.size)
+            raise ValueError("`size` mismatch when painting: `N_data` = %d, `data.size` = %d" %args)
 
         # store the stats (see equations 13-15 of Beutler et al 2013)
         # see equations 13-15 of Beutler et al 2013
