@@ -252,17 +252,29 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
         for amp, integers in zip(*bianchi_transfers[iell]):
                         
             # reset the 'pm.real' array to the original FKP density
+            if rank == 0:  logger.info('copying density...')
             pm.real[:] = density[:]
+            if rank == 0: logger.info('...done')
         
             # apply the real-space transfer
+            if rank == 0: logger.info("applying real-space bianchi transfer for %s..." %str(integers))
             bianchi_transfer(pm.real, xgrid, *integers, offset=offset)
+            if rank == 0: logger.info('...done')
         
             # do the FT and apply the k-space kernel
+            if rank == 0: logger.info("performing r2c...")
             pm.r2c()
+            if rank == 0: logger.info('...done')
+            
+            if rank == 0: logger.info("applying Fourier-space bianchi transfer for %s..." %str(integers))
             bianchi_transfer(pm.complex, pm.k, *integers)
+            if rank == 0: logger.info('...done')
+            
             
             # and save
+            if rank == 0: logger.info('saving the result...')
             A_ell[:] += amp*pm.complex[:]
+            if rank == 0: logger.info('...done')
             
         # apply the CIC transfer and save
         transfer(pm, A_ell)
