@@ -59,12 +59,7 @@ class FFTPowerAlgorithm(Algorithm):
     
     def __init__(self, mode, Nmesh, field, other=None, los='z', Nmu=5, 
                     dk=None, kmin=0., quiet=False, poles=[]):
-          
-        # properly set the logging level          
-        self.log_level = logging.DEBUG
-        if quiet:
-            self.log_level = logging.ERROR
-            
+                      
         # combine the two fields
         self.fields = [self.field]
         if self.other is not None:
@@ -123,7 +118,6 @@ class FFTPowerAlgorithm(Algorithm):
         from nbodykit import measurestats
         from pmesh.particlemesh import ParticleMesh
         
-        self.logger.setLevel(self.log_level)
         if self.comm.rank == 0: self.logger.info('importing done')
         
         # setup the particle mesh object, taking BoxSize from the painters
@@ -133,7 +127,7 @@ class FFTPowerAlgorithm(Algorithm):
         if self.mode == "1d": self.Nmu = 1
     
         # measure
-        y3d, stats1, stats2 = measurestats.compute_3d_power(self.fields, pm, comm=self.comm, log_level=self.log_level)
+        y3d, stats1, stats2 = measurestats.compute_3d_power(self.fields, pm, comm=self.comm)
         x3d = pm.k
     
         # get the number of objects (in a safe manner)
@@ -217,11 +211,6 @@ class FFTCorrelationAlgorithm(Algorithm):
     
     def __init__(self, mode, Nmesh, field, other=None, los='z', Nmu=5, 
                     dk=None, kmin=0., quiet=False, poles=[]):
-          
-        # properly set the logging level          
-        self.log_level = logging.DEBUG
-        if quiet:
-            self.log_level = logging.ERROR
             
         # combine the two fields
         self.fields = [self.field]
@@ -242,7 +231,6 @@ class FFTCorrelationAlgorithm(Algorithm):
         from nbodykit import measurestats
         from pmesh.particlemesh import ParticleMesh
 
-        self.logger.setLevel(self.log_level)
         if self.comm.rank == 0: self.logger.info('importing done')
 
         # setup the particle mesh object, taking BoxSize from the painters
@@ -252,7 +240,7 @@ class FFTCorrelationAlgorithm(Algorithm):
         if self.mode == "1d": self.Nmu = 1
 
         # measure
-        y3d, stats1, stats2 = measurestats.compute_3d_corr(self.fields, pm, comm=self.comm, log_level=self.log_level)
+        y3d, stats1, stats2 = measurestats.compute_3d_corr(self.fields, pm, comm=self.comm)
         x3d = pm.x
         
         # get the number of objects (in a safe manner)
