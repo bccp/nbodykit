@@ -255,13 +255,19 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
             pm.real[:] = density[:]
         
             # apply the real-space transfer
+            if rank == 0: logger.debug("applying real-space Bianchi transfer for %s..." %str(integers))
             bianchi_transfer(pm.real, xgrid, *integers, offset=offset)
+            if rank == 0: logger.debug('...done')
         
             # do the FT and apply the k-space kernel
+            if rank == 0: logger.debug("performing r2c...")
             pm.r2c()
+            if rank == 0: logger.debug('...done')
             
             # fourier space kernel
+            if rank == 0: logger.debug("applying Fourier-space Bianchi transfer for %s..." %str(integers))
             bianchi_transfer(pm.complex, pm.k, *integers)
+            if rank == 0: logger.debug('...done')
             
             # and save
             A_ell[:] += amp*pm.complex[:]
