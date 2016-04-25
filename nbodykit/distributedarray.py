@@ -41,19 +41,13 @@ def ScatterArray(data, comm, root=0):
     # initialize empty data on non-root ranks
     if comm.rank != root:
         data = numpy.empty(0, dtype=(dtype, shape[1:]))
-
-    # wait for everyone (avoids race condition)
-    comm.Barrier()
     
     # setup the custom dtype 
     duplicity = numpy.product(numpy.array(shape[1:], 'intp'))
     itemsize = duplicity * dtype.itemsize
     dt = MPI.BYTE.Create_contiguous(itemsize)
     dt.Commit()
-    
-    # wait for everyone
-    comm.Barrier()
-    
+        
     # compute the new shape for each rank
     newshape = list(shape)
     newlength = shape[0] // comm.size
@@ -64,10 +58,18 @@ def ScatterArray(data, comm, root=0):
     # the return array
     recvbuffer = numpy.empty(newshape, dtype=dtype, order='C')
 
-    # scatter into recvbuffer, with the specified counts/offsets
+    # the send counts
     counts = comm.allgather(newlength)
-    offsets = comm.allgather(sum(counts[:comm.rank]))
+    counts = numpy.array(counts, order='C')
+    
+    # the send offsets
+    offsets = numpy.zeros_like(counts, order='C')
+    offsets[1:] = counts.cumsum()[:-1]
+    
+    # do the scatter
+    comm.Barrier()
     comm.Scatterv([data, (counts, offsets), dt], [recvbuffer, dt])
+    dt.Free()
     return recvbuffer
 
 class EmptyRankType(object):
