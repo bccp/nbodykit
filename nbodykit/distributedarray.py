@@ -42,11 +42,17 @@ def ScatterArray(data, comm, root=0):
     if comm.rank != root:
         data = numpy.empty(0, dtype=(dtype, shape[1:]))
 
+    # wait for everyone (avoids race condition)
+    comm.Barrier()
+    
     # setup the custom dtype 
     duplicity = numpy.product(numpy.array(shape[1:], 'intp'))
     itemsize = duplicity * dtype.itemsize
     dt = MPI.BYTE.Create_contiguous(itemsize)
     dt.Commit()
+    
+    # wait for everyone
+    comm.Barrier()
     
     # compute the new shape for each rank
     newshape = list(shape)
