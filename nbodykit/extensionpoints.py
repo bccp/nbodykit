@@ -323,11 +323,8 @@ class DataStream(object):
         self.defaults = defaults
         self.nread = 0
         
-        # update the stream count
-        self.data._stream_count += 1
-        
-        # store a reference to the private cache
-        self._cacheref = self.data._cache
+        # store a weak reference to the private cache
+        self._cacheref = data._cache
         if not self._cacheref.empty:
             self.nread = self._cacheref.total_size
             
@@ -343,7 +340,6 @@ class DataStream(object):
         allowed on closed streams
         """
         if not self.closed:
-            self.data._stream_count -= 1
             del self._cacheref
         
     @property
@@ -511,9 +507,6 @@ class DataCache(object):
         
     def __repr__(self):
         return 'DataCache(%s)' %str(self.columns)
-        
-    def __del__(self):
-        print "(Deleting %s)" %self
          
 @ExtensionPoint(datasources)
 class DataSource:
@@ -666,54 +659,17 @@ class DataSource:
         Internal cache property storing a `DataCache`. This is designed to 
         be accessed only by `DataStream` objects
         """
-        # create the weak and strong reference dicts
-        if not hasattr(self, '_weak_cacheref'):
-            self._weak_cacheref = weakref.WeakValueDictionary()
-        if not hasattr(self, '_cacheref'):
-            self._cacheref = {}
+        # create the weakref dict if need be
+        if not hasattr(self, '_weakcache'):
+            self._weakcache = weakref.WeakValueDictionary()
             
         # create the DataCache if need be
-        if 'cache' not in self._weak_cacheref:
+        if 'cache' not in self._weakcache:
             cache = self._cache_data()
-            self._weak_cacheref['cache'] = cache
-            self._cacheref['cache'] = cache
-            del cache
-        elif 'cache' not in self._cacheref:
-            raise RuntimeError("internal error in DataSource; weak reference to cache exists, "
-                                "but not strong reference")
+            self._weakcache['cache'] = cache
             
-        # return the strong ref to the cache
-        return self._cacheref['cache']
-    
-    @property
-    def _stream_count(self):
-        """
-        Internal variable to track number of open streams; 
-        returns 0 if not set yet
-        """    
-        try:
-            return self._num_open_streams
-        except AttributeError:
-            return 0
-    
-    @_stream_count.setter
-    def _stream_count(self, val):
-        """
-        Set the stream count, and if we are setting to zero, delete the last
-        strong reference to the cache, allowing it to be garbage collected
-        """
-        # some basic error checking
-        if val < 0:
-            raise ValueError("`_stream_count` cannot be negative; internal error occurred")
-            
-        # do the set
-        self._num_open_streams = val
+        return self._weakcache['cache']
         
-        # if no open stream, delete last strong ref to cache
-        # this allows the weak ref to cache to be deleted
-        if val == 0 and hasattr(self, '_cacheref'):
-            del self._cacheref
-    
     @staticmethod
     def BoxSizeParser(value):
         """
