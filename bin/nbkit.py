@@ -12,10 +12,15 @@ from nbodykit.plugins import ListPluginsAction, load
 # configure the logging
 rank = MPI.COMM_WORLD.rank
 name = MPI.Get_processor_name()
-logging.basicConfig(level=logging.DEBUG,
-                    format='rank %d on %s: '%(rank,name) + \
-                            '%(asctime)s %(name)-15s %(levelname)-8s %(message)s',
-                    datefmt='%m-%d %H:%M')
+
+def setup_logging(log_level):
+    """
+    Set the basic configuration of all loggers
+    """
+    logging.basicConfig(level=log_level,
+                        format='rank %d on %s: '%(rank,name) + \
+                                '%(asctime)s %(name)-15s %(levelname)-8s %(message)s',
+                        datefmt='%m-%d %H:%M')
 
 class HelpAction(argparse.Action):
     """
@@ -65,6 +70,9 @@ def main():
                              'if not provided, stdin is read from')
     parser.add_argument('-h', '--help', action=HelpAction, help='help for a specific algorithm')
     parser.add_argument("-X", type=load, action="append", help="add a directory or file to load plugins from")
+    parser.add_argument('-v', '--verbose', action="store_const", dest="log_level", 
+                        const=logging.DEBUG, default=logging.INFO, 
+                        help="run in 'verbose' mode, with increased logging output")
     
     # help arguments
     parser.add_argument('--list-datasources', nargs='*', action=ListPluginsAction(DataSource), 
@@ -84,7 +92,10 @@ def main():
     # parse the command-line
     ns, args = parser.parse_known_args()
     alg_name = ns.algorithm_name
-
+    
+    # setup logging
+    setup_logging(ns.log_level)
+        
     # configuration file passed via -c
     if ns.config is not None:
         # ns.config is a file object

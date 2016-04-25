@@ -25,15 +25,9 @@ class BianchiPowerAlgorithm(Algorithm):
                     P0_fkp=None, 
                     nbar=None, 
                     fsky=None,
-                    quiet=False, 
                     factor_hexadecapole=False,
                     keep_cache=False):
-               
-        # properly set the logging level          
-        self.log_level = logging.DEBUG
-        if quiet:
-            self.log_level = logging.ERROR
-            
+                           
         # initialize the FKP catalog (unopened)
         kws = {}
         kws['BoxSize'] = self.BoxSize
@@ -75,13 +69,11 @@ class BianchiPowerAlgorithm(Algorithm):
         s.add_argument('fsky', type=float, 
             help='the sky area fraction of the tracer catalog, used in the volume calculation of `nbar`')
         
-        
         s.add_argument("dk", type=float,
             help='the spacing of k bins to use; if not provided, '
                  'the fundamental mode of the box is used')
         s.add_argument("kmin", type=float,
             help='the edge of the first `k` bin to use; default is 0')
-        s.add_argument('quiet', type=bool, help="silence the logging output")
         s.add_argument('factor_hexadecapole', type=bool, 
             help="use the factored expression for the hexadecapole (ell=4) from "
                  "eq. 27 of Scoccimarro 2015 (1506.02729)")
@@ -93,8 +85,6 @@ class BianchiPowerAlgorithm(Algorithm):
         Run the algorithm, which computes and returns the power spectrum
         """
         from nbodykit import measurestats
-                
-        self.logger.setLevel(self.log_level)
         if self.comm.rank == 0: self.logger.info('importing done')
         
         # explicity store an open stream
@@ -105,7 +95,7 @@ class BianchiPowerAlgorithm(Algorithm):
             self._rancache = self.catalog.randoms.keep_cache()
         
         # measure
-        kws = {'log_level':self.log_level, 'factor_hexadecapole':self.factor_hexadecapole}
+        kws = {'factor_hexadecapole':self.factor_hexadecapole}
         pm, poles, meta = measurestats.compute_bianchi_poles(self.comm, self.max_ell, self.catalog, self.Nmesh, **kws)
         k3d = pm.k
 

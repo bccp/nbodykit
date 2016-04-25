@@ -11,7 +11,7 @@ def timer(start, end):
     minutes, seconds = divmod(rem, 60)
     return "{:0>2}:{:0>2}:{:05.2f}".format(int(hours),int(minutes),seconds)
 
-def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
+def compute_3d_power(fields, pm, comm=None):
     """
     Compute and return the 3D power from two input fields
     
@@ -27,10 +27,6 @@ def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
         the communicator to pass to the ``ParticleMesh`` object. If not
         provided, ``MPI.COMM_WORLD`` is used
         
-    log_level : int, optional
-        logging level to use while computing. Default is ``logging.DEBUG``
-        which has numeric value of `10`
-    
     Returns
     -------
     p3d : array_like (real)
@@ -46,7 +42,6 @@ def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
     """
     # some setup
     rank = comm.rank if comm is not None else MPI.COMM_WORLD.rank
-    if log_level is not None: logger.setLevel(log_level)
     
     # check that the painter was passed correctly
     datasources = [d for d, p, t in fields]
@@ -98,7 +93,6 @@ def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
     return p3d, stats1, stats2
     
 def compute_bianchi_poles(comm, max_ell, catalog, Nmesh, 
-                            log_level=logging.DEBUG, 
                             factor_hexadecapole=False):
     """
     Compute and return the 3D power multipoles (ell = [0, 2, 4]) from one 
@@ -120,10 +114,6 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
     pm : ``ParticleMesh``
         particle mesh object that handles the painting and FFTs
             
-    log_level : int, optional
-        logging level to use while computing. Default is ``logging.DEBUG``
-        which has numeric value of `10`
-        
     factor_hexadecapole: bool, optional
         if `True`, use the factored expression for the hexadecapole (ell=4) from
         eq. 27 of Scoccimarro 2015 (1506.02729); default is `False`
@@ -187,9 +177,8 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
             idx = norm != 0.
             data[idx] /= norm[idx]
     
-    # some setup
+    # the rank
     rank = comm.rank
-    if log_level is not None: logger.setLevel(log_level)
     
     # the CIC transfer
     transfer = Transfer.create('AnisotropicCIC')
@@ -255,11 +244,19 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
             pm.real[:] = density[:]
         
             # apply the real-space transfer
+            if rank == 0: logger.debug("applying real-space Bianchi transfer for %s..." %str(integers))
             bianchi_transfer(pm.real, xgrid, *integers, offset=offset)
+            if rank == 0: logger.debug('...done')
         
             # do the FT and apply the k-space kernel
+            if rank == 0: logger.debug("performing r2c...")
             pm.r2c()
+            if rank == 0: logger.debug('...done')
+            
+            # fourier space kernel
+            if rank == 0: logger.debug("applying Fourier-space Bianchi transfer for %s..." %str(integers))
             bianchi_transfer(pm.complex, pm.k, *integers)
+            if rank == 0: logger.debug('...done')
             
             # and save
             A_ell[:] += amp*pm.complex[:]
@@ -466,7 +463,7 @@ def compute_brutal_corr(datasources, rbins, Nmu=0, comm=None, subsample=1, los='
 
     return pc, xi, RR
 
-def compute_3d_corr(fields, pm, comm=None, log_level=logging.DEBUG):
+def compute_3d_corr(fields, pm, comm=None):
     """
     Compute the 3d correlation function by Fourier transforming 
     the 3d power spectrum
@@ -474,7 +471,7 @@ def compute_3d_corr(fields, pm, comm=None, log_level=logging.DEBUG):
     See documentation of `measurestats.compute_3d_power`
     """
 
-    p3d, N1, N2 = compute_3d_power(fields, pm, comm=comm, log_level=log_level)
+    p3d, N1, N2 = compute_3d_power(fields, pm, comm=comm)
     
     # directly transform dimensionless p3d
     # Note that L^3 cancels with dk^3.
