@@ -68,7 +68,7 @@ def ReadConfigFile(config_stream, schema):
     """
     from nbodykit.cosmology import Cosmology
     from nbodykit.extensionpoints import set_nbkit_cosmo
-    from nbodykit.plugins import load
+    from nbodykit.pluginmanager import load
 
     # make a new namespace
     ns, unknown = Namespace(), Namespace()
