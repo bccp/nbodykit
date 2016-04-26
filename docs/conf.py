@@ -33,14 +33,27 @@ sys.path.insert(0, os.path.abspath('../nbodykit'))
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.todo',
-    'sphinx.ext.coverage',
     'sphinx.ext.pngmath',
-    'sphinx.ext.viewcode',
+    'sphinx.ext.intersphinx',
+    'sphinx.ext.extlinks',
     'sphinx.ext.autosummary',
     'numpydoc',
 ]
 
+autosummary_generate = True
 numpydoc_show_class_members = False
+numpydoc_class_members_toctree = False
+
+def skip(app, what, name, obj, skip, options):
+    if name == "__init__":
+        print('--------------')
+        print(app, what, name, obj, obj.__doc__)
+        print('--------------')
+        return False
+    return skip
+
+def setup(app):
+    app.connect("autodoc-skip-member", skip)
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -119,7 +132,14 @@ todo_include_todos = False
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'nature'
+
+on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
+
+if not on_rtd:
+    import sphinx_rtd_theme
+    html_theme = 'sphinx_rtd_theme'
+    html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
+#html_theme = 'nature'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
