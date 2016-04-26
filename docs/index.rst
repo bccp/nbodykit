@@ -5,6 +5,6 @@ nbodykit package
     :maxdepth: 4
     :glob:
 
-    modules
+    api/modules
 
     plugins/modules
