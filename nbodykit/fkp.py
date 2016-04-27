@@ -373,6 +373,14 @@ class FKPCatalog(object):
         
             # recentered cartesian coordinates
             pos = coords - self.mean_coordinate_offset
+            
+            # enforce that position is between -L/2 and L/2
+            lim = (pos < -self.BoxSize*0.5)|(pos > self.BoxSize*0.5)
+            if lim.any():
+                outbound = list(lim.sum(axis=0))
+                name = self.__class__.__name__
+                errmsg = "%s particles out of bounds in each dimension in %s" %(str(outbound), name)
+                raise ValueError(errmsg)
 
             # number density from redshift
             if self.nbar is not None:
