@@ -113,6 +113,13 @@ def main():
     # output is required
     if not hasattr(extra, 'output'):
         raise ValueError("parameter `output` is required in configuration; set to `None` for stdout")
+    extra = vars(extra)
+    output = extra.pop('output')
+    
+    # print warning if extra parameters ignored
+    if len(extra):
+        ignored = "[ %s ]" % ", ".join(["'%s'" %k for k in extra.keys()])
+        logging.warning("the following keywords to `nbkit.py` have been ignored: %s" %ignored)
             
     # initialize the algorithm and run
     alg_class = getattr(algorithms, alg_name)
@@ -120,7 +127,7 @@ def main():
 
     # run and save
     result = alg.run()
-    alg.save(extra.output, result) 
+    alg.save(output, result) 
        
 if __name__ == '__main__':
     main()
