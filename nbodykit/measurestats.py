@@ -47,10 +47,10 @@ def compute_3d_power(fields, pm, comm=None):
     datasources = [d for d, p, t in fields]
     painters    = [p for d, p, t in fields]
     transfers   = [t for d, p, t in fields]
-        
+    
     # paint, FT field and filter field #1
     stats1 = painters[0].paint(pm, datasources[0])
-    if rank == 0: logger.info('painting done')
+    if rank == 0: logger.info('%s painting done' %pm.paintbrush)
     pm.r2c()
     if rank == 0: logger.info('r2c done')
     pm.transfer(transfers[0])
@@ -67,7 +67,7 @@ def compute_3d_power(fields, pm, comm=None):
         
         # paint, FT, and filter field #2
         stats2 = painters[1].paint(pm, datasources[1])
-        if rank == 0: logger.info('painting 2 done')
+        if rank == 0: logger.info('%s painting 2 done' %pm.paintbrush)
         pm.r2c()
         if rank == 0: logger.info('r2c 2 done')
         pm.transfer(transfers[1])
@@ -93,7 +93,7 @@ def compute_3d_power(fields, pm, comm=None):
     return p3d, stats1, stats2
     
 def compute_bianchi_poles(comm, max_ell, catalog, Nmesh, 
-                            factor_hexadecapole=False):
+                            factor_hexadecapole=False, paintbrush='cic'):
     """
     Compute and return the 3D power multipoles (ell = [0, 2, 4]) from one 
     input field, which contains non-trivial survey geometry.
@@ -180,8 +180,13 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
     # the rank
     rank = comm.rank
     
-    # the CIC transfer
-    transfer = Transfer.create('AnisotropicCIC')
+    # the painting kernel transfer
+    if paintbrush == 'cic':
+        transfer = Transfer.create('AnisotropicCIC')
+    elif paintbrush == 'tsc':
+        transfer = Transfer.create('AnisotropicTSC')
+    else:
+        raise ValueError("valid `paintbrush` values are: ['cic', 'tsc']")
 
     # which transfers do we need
     if max_ell not in [0, 2, 4]:
@@ -210,14 +215,14 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
         offset = catalog.mean_coordinate_offset
         
         # initialize the particle mesh
-        pm = ParticleMesh(catalog.BoxSize, Nmesh, dtype='f4', comm=comm)
+        pm = ParticleMesh(catalog.BoxSize, Nmesh, paintbrush=paintbrush, dtype='f4', comm=comm)
         
         # do the FKP painting
         stats = catalog.paint(pm)
     
     # save the fkp density for later
     density = pm.real.copy()
-    if rank == 0: logger.info('painting done')
+    if rank == 0: logger.info('%s painting done' %paintbrush)
     
     # compute the monopole, A0(k), and save
     pm.r2c()
