@@ -23,4 +23,5 @@ fsky: 0.16608
 Nmesh: 128
 max_ell: 4
 dk: 0.005
+paintbrush: TSC
 output: ../output/test_bianchi_poles.dat
