@@ -5,7 +5,7 @@ class AnisotropicCIC(Transfer):
     """
     Divide by a kernel in Fourier space to account for
     the convolution of the gridded quantity with the 
-    cloud-in-cell window function in configuration space
+    CIC window function in configuration space
     """
     plugin_name = "AnisotropicCIC"
     
@@ -19,6 +19,27 @@ class AnisotropicCIC(Transfer):
     def __call__(self, pm, complex):
         for wi in pm.w:
             tmp = (1 - 2. / 3 * numpy.sin(0.5 * wi) ** 2) ** 0.5
+            complex[:] /= tmp
+            
+class AnisotropicTSC(Transfer):
+    """
+    Divide by a kernel in Fourier space to account for
+    the convolution of the gridded quantity with the 
+    TSC window function in configuration space
+    """
+    plugin_name = "AnisotropicTSC"
+    
+    def __init__(self):
+        pass
+    
+    @classmethod
+    def register(cls):
+        pass
+        
+    def __call__(self, pm, complex):
+        for wi in pm.w:
+            s = numpy.sin(0.5 * wi)**2
+            tmp = (1 - s + 2./15 * s**2) ** 0.5
             complex[:] /= tmp
             
             

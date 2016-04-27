@@ -58,7 +58,7 @@ class FFTPowerAlgorithm(Algorithm):
     logger = logging.getLogger(plugin_name)
     
     def __init__(self, mode, Nmesh, field, other=None, los='z', Nmu=5, 
-                    dk=None, kmin=0., quiet=False, poles=[]):
+                    dk=None, kmin=0., quiet=False, poles=[], paintbrush='cic'):
                       
         # combine the two fields
         self.fields = [self.field]
@@ -110,6 +110,9 @@ class FFTPowerAlgorithm(Algorithm):
             help="silence the logging output")
         s.add_argument('poles', type=int, nargs='*',
             help='if specified, also compute these multipoles from P(k,mu)')
+        s.add_argument('paintbrush', type=lambda x: x.lower(), choices=['cic', 'tsc'],
+            help='the density assignment kernel to use when painting; '
+                 'CIC (2nd order) or TSC (3rd order)')
             
     def run(self):
         """
@@ -121,7 +124,8 @@ class FFTPowerAlgorithm(Algorithm):
         if self.comm.rank == 0: self.logger.info('importing done')
         
         # setup the particle mesh object, taking BoxSize from the painters
-        pm = ParticleMesh(self.fields[0][0].BoxSize, self.Nmesh, dtype='f4', comm=self.comm)
+        pm = ParticleMesh(self.fields[0][0].BoxSize, self.Nmesh, 
+                            paintbrush=self.paintbrush, dtype='f4', comm=self.comm)
 
         # only need one mu bin if 1d case is requested
         if self.mode == "1d": self.Nmu = 1
@@ -210,7 +214,7 @@ class FFTCorrelationAlgorithm(Algorithm):
     logger = logging.getLogger(plugin_name)
     
     def __init__(self, mode, Nmesh, field, other=None, los='z', Nmu=5, 
-                    dk=None, kmin=0., quiet=False, poles=[]):
+                    dk=None, kmin=0., quiet=False, poles=[], paintbrush='cic'):
             
         # combine the two fields
         self.fields = [self.field]
@@ -234,7 +238,8 @@ class FFTCorrelationAlgorithm(Algorithm):
         if self.comm.rank == 0: self.logger.info('importing done')
 
         # setup the particle mesh object, taking BoxSize from the painters
-        pm = ParticleMesh(self.fields[0][0].BoxSize, self.Nmesh, dtype='f4', comm=self.comm)
+        pm = ParticleMesh(self.fields[0][0].BoxSize, self.Nmesh, 
+                            paintbrush=self.paintbrush, dtype='f4', comm=self.comm)
 
         # only need one mu bin if 1d case is requested
         if self.mode == "1d": self.Nmu = 1

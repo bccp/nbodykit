@@ -17,6 +17,7 @@ class BianchiPowerAlgorithm(Algorithm):
     logger = logging.getLogger(plugin_name)
 
     def __init__(self, data, randoms, Nmesh, max_ell, 
+                    paintbrush='cic',
                     dk=None, 
                     kmin=0., 
                     BoxSize=None, 
@@ -69,6 +70,9 @@ class BianchiPowerAlgorithm(Algorithm):
         s.add_argument('fsky', type=float, 
             help='the sky area fraction of the tracer catalog, used in the volume calculation of `nbar`')
         
+        s.add_argument('paintbrush', type=lambda x: x.lower(), choices=['cic', 'tsc'],
+            help='the density assignment kernel to use when painting; '
+                 'CIC (2nd order) or TSC (3rd order)')
         s.add_argument("dk", type=float,
             help='the spacing of k bins to use; if not provided, '
                  'the fundamental mode of the box is used')
@@ -95,7 +99,7 @@ class BianchiPowerAlgorithm(Algorithm):
             self._rancache = self.catalog.randoms.keep_cache()
         
         # measure
-        kws = {'factor_hexadecapole':self.factor_hexadecapole}
+        kws = {'factor_hexadecapole':self.factor_hexadecapole, 'paintbrush':self.paintbrush}
         pm, poles, meta = measurestats.compute_bianchi_poles(self.comm, self.max_ell, self.catalog, self.Nmesh, **kws)
         k3d = pm.k
 
