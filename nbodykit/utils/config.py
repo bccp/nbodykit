@@ -6,6 +6,9 @@ from argparse import Namespace
 
 class ConfigurationError(Exception):   
     pass
+
+class PluginParsingError(Exception):   
+    pass
  
 def ordered_load(stream, Loader=yaml.SafeLoader, object_pairs_hook=OrderedDict):
     """
@@ -344,9 +347,11 @@ def autoassign(init, attach_comm=True, attach_cosmo=False):
             setattr(self, attr, val)
         
         # handle positional arguments
-        positional_attrs = attrs[1:]            
+        positional_attrs = attrs[1:]
+        posargs = {}            
         for attr, val in zip(positional_attrs, args):
             check_choices(init.schema, attr, val)
+            posargs[attr] = val
             setattr(self, attr, val)
     
         # handle varargs
@@ -359,17 +364,66 @@ def autoassign(init, attach_comm=True, attach_cosmo=False):
             for attr,val in kwargs.items():
                 check_choices(init.schema, attr, val)
                 setattr(self, attr, val)
+        
+        # call the __init__ to confirm proper initialization
         try:
             return init(self, *args, **kwargs)
         except Exception as e:
-            import traceback
-            traceback = traceback.format_exc()
-            args = (self.__class__.__name__, traceback)
-            msg = "error initializing __init__ for '%s':\n\n%s " %args
-            raise TypeError(msg)
+            
+            # get the error message
+            errmsg = get_init_errmsg(init.schema, posargs, kwargs)
+            
+            # format the total message
+            args = (self.__class__.__name__,)
+            msg = '\n' + '-'*75 + '\n'
+            msg += "error initializing __init__ for '%s':\n" %self.__class__.__name__
+            msg += "\t%-25s: '%s'\n" %("original error message", str(e))
+            if len(errmsg): msg += "%s\n" %errmsg
+            msg += '-'*75 + '\n'
+            e.args = (msg, )
+            raise
             
     return wrapper
     
+def get_init_errmsg(schema, posargs, kwargs):
+    """
+    Return a reasonable error message, accounting for:
+    
+        * missing arguments
+        * extra arguments
+        * duplicated positional + keyword arguments
+    """
+    errmsg = ""
+    
+    # check duplicated
+    duplicated = list(set(posargs.keys()) & set(kwargs.keys()))
+    if len(duplicated):
+        s = "duplicated arguments"
+        errmsg += "\t%-25s: %s\n" %(s, str(duplicated))
+        
+    # check for missing arguments
+    required = [s for s in schema if schema[s].required]
+    missing = []
+    for r in required:
+        if r not in posargs and r not in kwargs:
+            missing.append(r)
+    if len(missing):
+        s = "missing arguments"
+        errmsg += "\t%-25s: %s\n" %(s, str(missing))
+    
+    # check for extra arguments
+    keys = list(set(posargs.keys()) | set(kwargs.keys()))
+    extra = []
+    for k in keys:
+        if k not in schema:
+            extra.append(k)
+    if len(extra):
+        s = "extra arguments"
+        errmsg += "\t%-25s: %s\n" %(s, str(extra))
+    
+    return errmsg
+    
+
 def check_choices(schema, attr, val):
     """
     Verify that the input values are consistent

@@ -13,7 +13,7 @@
 
     1. add a class decorator @ExtensionPoint
 """
-from nbodykit.utils.config import autoassign, ConstructorSchema, ReadConfigFile
+from nbodykit.utils.config import autoassign, ConstructorSchema, ReadConfigFile, PluginParsingError
 from nbodykit.distributedarray import ScatterArray
 
 import numpy
@@ -211,19 +211,34 @@ class PluginMount(type):
                     if isinstance(parsed[k], dict):
                         return cls.create(k, use_schema=True, **parsed[k])
                     else:
-                        raise Exception
+                        raise PluginParsingError
                 elif hasattr(cls, 'plugin_name'):
                     return cls.create(cls.plugin_name, use_schema=True, **parsed)
                 else:
-                    raise Exception
+                    raise PluginParsingError
             elif isinstance(parsed, str):
                 return cls.create(parsed)
             else:
-                raise Exception
-        except Exception as e:
-            import traceback
-            traceback = traceback.format_exc()
-            raise ValueError("failure to parse plugin:\n\n%s" %(traceback))
+                raise PluginParsingError
+        except PluginParsingError as e:
+            msg = '\n' + '-'*75 + '\n'
+            msg += "failure to parse plugin from configuration using `from_config()`\n"
+            msg += ("\nThere are several ways to initialize plugins from configuration files:\n"
+                    "1. The plugin parameters are specified as a dictionary containing the key `plugin`,\n"
+                    "   which gives the name of the plugin to load; the rest of the dictionary is\n"
+                    "   passed to the plugin `__init__()` as keyword arguments\n"
+                    "2. The plugin is specified as a dictionary having only one entry -- \n"
+                    "   the key gives the plugin name and the value is a dict of arguments\n"
+                    "   to be passed to the plugin `__init__()`\n"
+                    "3. When `from_config()` is bound to a particular plugin class, only a dict\n"
+                    "   of the `__init__()` arguments should be specified\n"
+                    "4. The plugin is specified as a string, which gives the name of the plugin;\n"
+                    "   the plugin will be created with no arguments\n")
+            msg += '\n' + '-'*75 + '\n'
+            e.args = (msg,)
+            raise 
+        except:
+            raise
             
     def format_help(cls, *plugins):
         """
