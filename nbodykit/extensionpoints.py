@@ -226,12 +226,12 @@ class PluginMount(type):
             msg += ("\nThere are several ways to initialize plugins from configuration files:\n"
                     "1. The plugin parameters are specified as a dictionary containing the key `plugin`,\n"
                     "   which gives the name of the plugin to load; the rest of the dictionary is\n"
-                    "   treated as arguments to be passed to the plugin __init__\n"
-                    "2. The plugin is specified as a dictionaty having only one entry;\n"
-                    "   the key gives the plugin name, and the value is a dict of arguments\n"
-                    "   to be passed to the plugin __init__\n"
+                    "   passed to the plugin `__init__()` as keyword arguments\n"
+                    "2. The plugin is specified as a dictionary having only one entry -- \n"
+                    "   the key gives the plugin name and the value is a dict of arguments\n"
+                    "   to be passed to the plugin `__init__()`\n"
                     "3. When `from_config()` is bound to a particular plugin class, only a dict\n"
-                    "   of the __init__ arguments should be specified\n"
+                    "   of the `__init__()` arguments should be specified\n"
                     "4. The plugin is specified as a string, which gives the name of the plugin;\n"
                     "   the plugin will be created with no arguments\n")
             msg += '\n' + '-'*75 + '\n'
