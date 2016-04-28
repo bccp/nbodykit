@@ -266,7 +266,7 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
             # and save
             A_ell[:] += amp*pm.complex[:]
             
-        # apply the CIC transfer and save
+        # apply the gridding transfer and save
         transfer(pm, A_ell)
         result.append(A_ell)
         if rank == 0: 
