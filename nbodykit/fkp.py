@@ -218,14 +218,8 @@ class FKPCatalog(object):
         # set the box size automatically
         if self.BoxSize is None:
             delta *= 1.0 + self.BoxPad
-            self.BoxSize = numpy.around(delta) # round to nearest integer
-        else:
-            # check the input size
-            for i, L in enumerate(delta):
-                if self.BoxSize[i] < L:
-                    args = (self.BoxSize[i], i, L)
-                    logger.warning("input BoxSize of %.2f in dimension %d smaller than coordinate range of randoms (%.2f)" %args)
-                                    
+            self.BoxSize = numpy.ceil(delta) # round up to nearest integer
+        
     def _compute_randoms_nbar(self, redshift):
         """
         Compute `n(z)` from the `randoms` by making a spline
@@ -377,9 +371,8 @@ class FKPCatalog(object):
             # enforce that position is between -L/2 and L/2
             lim = (pos < -self.BoxSize*0.5)|(pos > self.BoxSize*0.5)
             if lim.any():
-                outbound = list(lim.sum(axis=0))
-                name = self.__class__.__name__
-                errmsg = "%s particles out of bounds in each dimension in %s" %(str(outbound), name)
+                args = (list(lim.sum(axis=0)), self.BoxSize)
+                errmsg = "%s particles out of bounds in each dimension when using BoxSize %s" %args
                 raise ValueError(errmsg)
 
             # number density from redshift
