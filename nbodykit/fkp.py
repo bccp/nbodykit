@@ -220,7 +220,7 @@ class FKPCatalog(object):
             delta *= 1.0 + self.BoxPad
             self.BoxSize = numpy.ceil(delta) # round up to nearest integer
             
-        self.mean_coordinate_offset += self.BoxSize*0.5
+        self.mean_coordinate_offset -= self.BoxSize*0.5
         
     def _compute_randoms_nbar(self, redshift):
         """
