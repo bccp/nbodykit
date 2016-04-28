@@ -117,7 +117,7 @@ def main():
     output = extra.pop('output')
     
     # print warning if extra parameters ignored
-    if len(extra):
+    if MPI.COMM_WORLD.rank == 0 and len(extra):
         ignored = "[ %s ]" % ", ".join(["'%s'" %k for k in extra.keys()])
         logging.warning("the following keywords to `nbkit.py` have been ignored: %s" %ignored)
             

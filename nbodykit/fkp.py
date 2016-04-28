@@ -219,7 +219,7 @@ class FKPCatalog(object):
         if self.BoxSize is None:
             delta *= 1.0 + self.BoxPad
             self.BoxSize = numpy.ceil(delta) # round up to nearest integer
-        
+                    
     def _compute_randoms_nbar(self, redshift):
         """
         Compute `n(z)` from the `randoms` by making a spline
@@ -365,11 +365,11 @@ class FKPCatalog(object):
             default_z = stream.isdefault('Redshift', redshift)
             default_nbar = stream.isdefault('Nbar', nbar)
         
-            # recentered cartesian coordinates
+            # recentered cartesian coordinates (between -BoxSize/2 and BoxSize/2)
             pos = coords - self.mean_coordinate_offset
             
-            # enforce that position is between -L/2 and L/2
-            lim = (pos < -0.5*self.BoxSize)|(pos > self.BoxSize*0.5)
+            # enforce that position is between (-L/2, L/2)
+            lim = (pos < -0.5*self.BoxSize)|(pos > 0.5*self.BoxSize)
             if lim.any():
                 args = (list(lim.sum(axis=0)), name, self.BoxSize)
                 errmsg = "%s '%s' particles out of bounds in each dimension when using BoxSize %s" %args
