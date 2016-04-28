@@ -219,9 +219,7 @@ class FKPCatalog(object):
         if self.BoxSize is None:
             delta *= 1.0 + self.BoxPad
             self.BoxSize = numpy.ceil(delta) # round up to nearest integer
-            
-        self.mean_coordinate_offset -= self.BoxSize*0.5
-        
+                    
     def _compute_randoms_nbar(self, redshift):
         """
         Compute `n(z)` from the `randoms` by making a spline
@@ -367,8 +365,8 @@ class FKPCatalog(object):
             default_z = stream.isdefault('Redshift', redshift)
             default_nbar = stream.isdefault('Nbar', nbar)
         
-            # recentered cartesian coordinates
-            pos = coords - self.mean_coordinate_offset
+            # recentered cartesian coordinates (between 0 and BoxSize)
+            pos = coords - self.mean_coordinate_offset + self.BoxSize*0.5
             
             # enforce that position is between (0, L)
             lim = (pos < 0)|(pos > self.BoxSize)
