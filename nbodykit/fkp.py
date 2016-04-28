@@ -365,11 +365,11 @@ class FKPCatalog(object):
             default_z = stream.isdefault('Redshift', redshift)
             default_nbar = stream.isdefault('Nbar', nbar)
         
-            # recentered cartesian coordinates (between 0 and BoxSize)
-            pos = coords - self.mean_coordinate_offset + self.BoxSize*0.5
+            # recentered cartesian coordinates (between -BoxSize/2 and BoxSize/2)
+            pos = coords - self.mean_coordinate_offset
             
-            # enforce that position is between (0, L)
-            lim = (pos < 0)|(pos > self.BoxSize)
+            # enforce that position is between (-L/2, L/2)
+            lim = (pos < -0.5*self.BoxSize)|(pos > 0.5*self.BoxSize)
             if lim.any():
                 args = (list(lim.sum(axis=0)), name, self.BoxSize)
                 errmsg = "%s '%s' particles out of bounds in each dimension when using BoxSize %s" %args
