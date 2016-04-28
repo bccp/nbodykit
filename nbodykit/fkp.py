@@ -219,6 +219,8 @@ class FKPCatalog(object):
         if self.BoxSize is None:
             delta *= 1.0 + self.BoxPad
             self.BoxSize = numpy.ceil(delta) # round up to nearest integer
+            
+        self.mean_coordinate_offset += self.BoxSize*0.5
         
     def _compute_randoms_nbar(self, redshift):
         """
@@ -368,8 +370,8 @@ class FKPCatalog(object):
             # recentered cartesian coordinates
             pos = coords - self.mean_coordinate_offset
             
-            # enforce that position is between -L/2 and L/2
-            lim = (pos < -0.5*self.BoxSize)|(pos > self.BoxSize*0.5)
+            # enforce that position is between (0, L)
+            lim = (pos < 0)|(pos > self.BoxSize)
             if lim.any():
                 args = (list(lim.sum(axis=0)), name, self.BoxSize)
                 errmsg = "%s '%s' particles out of bounds in each dimension when using BoxSize %s" %args
