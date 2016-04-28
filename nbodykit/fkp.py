@@ -369,10 +369,10 @@ class FKPCatalog(object):
             pos = coords - self.mean_coordinate_offset
             
             # enforce that position is between -L/2 and L/2
-            lim = (pos < -self.BoxSize*0.5)|(pos > self.BoxSize*0.5)
+            lim = (pos < -0.5*self.BoxSize)|(pos > self.BoxSize*0.5)
             if lim.any():
-                args = (list(lim.sum(axis=0)), self.BoxSize)
-                errmsg = "%s particles out of bounds in each dimension when using BoxSize %s" %args
+                args = (list(lim.sum(axis=0)), name, self.BoxSize)
+                errmsg = "%s '%s' particles out of bounds in each dimension when using BoxSize %s" %args
                 raise ValueError(errmsg)
 
             # number density from redshift
