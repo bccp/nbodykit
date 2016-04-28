@@ -91,7 +91,6 @@ def ReadConfigFile(config_stream, schema):
         if isinstance(plugins, str):
             plugins = [plugins]
         for plugin in plugins: load(plugin)
-        unknown.X = plugins 
         config.pop('X')
     
     # now load cosmology
