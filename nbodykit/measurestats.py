@@ -235,8 +235,8 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
     result.append(A0)
     
     # the x grid points (at point centers)
-    cell_size = pm.BoxSize / pm.Nmesh
-    xgrid = [(ri+0.5)*cell_size[i] for i, ri in enumerate(pm.r)]
+    #cell_size = pm.BoxSize / pm.Nmesh
+    #xgrid = [(ri+0.5)*cell_size[i] for i, ri in enumerate(pm.r)]
     
     start = time.time()
     for iell in range(len(bianchi_transfers)):
@@ -250,7 +250,7 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
         
             # apply the real-space transfer
             if rank == 0: logger.debug("applying real-space Bianchi transfer for %s..." %str(integers))
-            bianchi_transfer(pm.real, xgrid, *integers, offset=offset)
+            bianchi_transfer(pm.real, pm.x, *integers, offset=offset)
             if rank == 0: logger.debug('...done')
         
             # do the FT and apply the k-space kernel
