@@ -24,7 +24,7 @@ randoms:
     
 nbar: 0.00041784996586253983
 compute_fkp_weights: False
-BoxPad: 0.
+BoxSize: 2700.
 
 Nmesh: 128
 max_ell: 4
