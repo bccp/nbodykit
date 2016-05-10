@@ -27,7 +27,8 @@ class BianchiPowerAlgorithm(Algorithm):
                     nbar=None, 
                     fsky=None,
                     factor_hexadecapole=False,
-                    keep_cache=False):
+                    keep_cache=False, 
+                    plane_parallel=None):
                            
         # initialize the FKP catalog (unopened)
         kws = {}
