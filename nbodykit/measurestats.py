@@ -93,7 +93,9 @@ def compute_3d_power(fields, pm, comm=None):
     return p3d, stats1, stats2
     
 def compute_bianchi_poles(comm, max_ell, catalog, Nmesh, 
-                            factor_hexadecapole=False, paintbrush='cic'):
+                            factor_hexadecapole=False, 
+                            paintbrush='cic',
+                            plane_parallel=None):
     """
     Compute and return the 3D power multipoles (ell = [0, 2, 4]) from one 
     input field, which contains non-trivial survey geometry.
@@ -208,6 +210,10 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
         a4 = [1.]*3 + [4.]*6 + [6.]*3 + [12.]*3
         bianchi_transfers.append((a4, k4))
     
+    pp_index = -1
+    if plane_parallel is not None:
+        pp_index = "xyz".index(plane_parallel)
+    
     # load the data/randoms and setup boxsize, etc
     with catalog:
         
@@ -249,9 +255,10 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
             pm.real[:] = density[:]
         
             # apply the real-space transfer
-            if rank == 0: logger.debug("applying real-space Bianchi transfer for %s..." %str(integers))
-            bianchi_transfer(pm.real, xgrid, *integers, offset=offset)
-            if rank == 0: logger.debug('...done')
+            if plane_parallel is None:
+                if rank == 0: logger.debug("applying real-space Bianchi transfer for %s..." %str(integers))
+                bianchi_transfer(pm.real, xgrid, *integers, offset=offset)
+                if rank == 0: logger.debug('...done')
         
             # do the FT and apply the k-space kernel
             if rank == 0: logger.debug("performing r2c...")
@@ -259,9 +266,10 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
             if rank == 0: logger.debug('...done')
             
             # fourier space kernel
-            if rank == 0: logger.debug("applying Fourier-space Bianchi transfer for %s..." %str(integers))
-            bianchi_transfer(pm.complex, pm.k, *integers)
-            if rank == 0: logger.debug('...done')
+            if plane_parallel is None or all(xx == pp_index for xx in integers):
+                if rank == 0: logger.debug("applying Fourier-space Bianchi transfer for %s..." %str(integers))
+                bianchi_transfer(pm.complex, pm.k, *integers)
+                if rank == 0: logger.debug('...done')
             
             # and save
             A_ell[:] += amp*pm.complex[:]
