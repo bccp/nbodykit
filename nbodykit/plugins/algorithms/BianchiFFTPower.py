@@ -84,7 +84,7 @@ class BianchiPowerAlgorithm(Algorithm):
                  "eq. 27 of Scoccimarro 2015 (1506.02729)")
         s.add_argument('keep_cache', type=bool, 
             help='if `True`, force the data cache to persist while the algorithm instance is valid')
-        s.add_argument('plane_parallel', type=str, choices=['xyz'], 
+        s.add_argument('plane_parallel', type=str, choices='xyz', 
             help='use the plane parallel approximation, applying Bianchi kernels in only one direction')
                     
     def run(self):
