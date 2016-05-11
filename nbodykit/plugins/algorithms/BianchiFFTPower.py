@@ -27,8 +27,7 @@ class BianchiPowerAlgorithm(Algorithm):
                     nbar=None, 
                     fsky=None,
                     factor_hexadecapole=False,
-                    keep_cache=False, 
-                    plane_parallel=None):
+                    keep_cache=False):
                            
         # initialize the FKP catalog (unopened)
         kws = {}
@@ -84,9 +83,7 @@ class BianchiPowerAlgorithm(Algorithm):
                  "eq. 27 of Scoccimarro 2015 (1506.02729)")
         s.add_argument('keep_cache', type=bool, 
             help='if `True`, force the data cache to persist while the algorithm instance is valid')
-        s.add_argument('plane_parallel', type=str, choices='xyz', 
-            help='use the plane parallel approximation, applying Bianchi kernels in only one direction')
-                    
+                                
     def run(self):
         """
         Run the algorithm, which computes and returns the power spectrum
