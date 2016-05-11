@@ -99,10 +99,7 @@ class BianchiPowerAlgorithm(Algorithm):
             self._rancache = self.catalog.randoms.keep_cache()
         
         # measure
-        kws = {}
-        kws['plane_parallel'] = self.plane_parallel
-        kws['factor_hexadecapole'] = self.factor_hexadecapole
-        kws['paintbrush'] = self.paintbrush
+        kws = {'factor_hexadecapole': self.factor_hexadecapole, 'paintbrush':self.paintbrush}
         pm, poles, meta = measurestats.compute_bianchi_poles(self.comm, self.max_ell, self.catalog, self.Nmesh, **kws)
         k3d = pm.k
 
