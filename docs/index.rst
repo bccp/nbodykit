@@ -1,5 +1,5 @@
 
-.. image:: _static/nbodykit-logo-thick.png
+.. image:: _static/nbodykit-logo.gif
    :width: 425 px
    :align: center
 
