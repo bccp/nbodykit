@@ -499,4 +499,3 @@ def update_schema(func, attrs, defaults, allowed=[]):
         func.__doc__ += "\n\n" + func.schema.format_help()
     else:
         func.__doc__ = func.schema.format_help()
-

@@ -121,7 +121,7 @@ class PluginMount(type):
             init = cls.__init__
             if hasattr(init, '__func__'):
                 init = init.__func__
-            
+
             # add a schema
             init.schema = ConstructorSchema()
             cls.schema = cls.__init__.schema
@@ -131,16 +131,16 @@ class PluginMount(type):
 
             # register the class
             cls.register()
-            
+
             # configure the class __init__, attaching the comm, and optionally cosmo
             attach_cosmo = issubclass(cls, DataSource)
             cls.__init__ = autoassign(init, attach_cosmo=attach_cosmo)
-            
-    def create(cls, plugin_name, use_schema=False, **kwargs): 
-        """ 
+
+    def create(cls, plugin_name, use_schema=False, **kwargs):
+        """
         Instantiate a plugin from this extension point,
-        based on the name/value pairs passed as keywords. 
-        
+        based on the name/value pairs passed as keywords.
+
         Optionally, cast the keywords values, using the types
         defined by the schema of the class we are creating
 

@@ -1,10 +1,4 @@
-from nbodykit.pluginmanager import load
-import os.path
-path = os.path.abspath(os.path.dirname(__file__))
+from nbodykit.pluginmanager import load_builtins
 
-builtins = ['datasource', 'painter/', 'transfer/', 'algorithms/']
+load_builtins()
 
-for plugin in builtins:
-    load(os.path.join(path, 'plugins', plugin))
-
- 

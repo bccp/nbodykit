@@ -1,41 +1,71 @@
+import os
 import os.path
 import glob
 import traceback
 from argparse import Action, SUPPRESS
+from sys import modules
+from types import ModuleType
 
-references = {}
+# import the parent modules
+import nbodykit.plugins.algorithms
+import nbodykit.plugins.datasource
+import nbodykit.plugins.painter
+import nbodykit.plugins.transfer
+import nbodykit.plugins.user
 
-def load(filename, namespace=None):
+def load(filename):
+    return load2(filename, qualifiedprefix='nbodykit.plugins.user')
+
+def load_builtins():
+    path = os.path.abspath(os.path.dirname(__file__))
+    return load2(os.path.join(path, 'plugins'), qualifiedprefix='nbodykit')
+
+def load2(filename, qualifiedprefix='nbodykit.plugins.user'):
     """ load a plugin from filename.
-        
+
         Parameters
         ----------
         filename : string
             path to the .py file
-        namespace : dict
-            global namespace, if None, an empty space will be created
-        
+        qualifiedprefix: string
+            a prefix to build a qualified name in sys.modules. This
+            is used to load the built-in plugins in nbodykit.plugins
+
         Returns
         -------
         namespace : dict
             modified global namespace of the plugin script.
     """
     if os.path.isdir(filename):
-        l = glob.glob(os.path.join(filename, "*.py"))
-        for f in l:
-            load(f, namespace)
-        return
-    if namespace is None:
-        namespace = {}
-    namespace = dict(namespace)
+        root = filename.rstrip('/')
+        qualname = '.'.join([qualifiedprefix, os.path.basename(root)])
+        if qualname not in modules:
+            __import__(qualname)
+        module = modules[qualname]
+        for filename in os.listdir(root):
+            fullfilename = os.path.join(root, filename)
+            basename = os.path.splitext(os.path.basename(filename))[0]
+            add = False
+            if os.path.isdir(fullfilename):
+                add = True
+            if filename.endswith('.py'): 
+                add = True
+            if basename == '__init__': continue
+
+            if add:
+                module.__dict__[basename] = load2(fullfilename, qualifiedprefix=qualname)
+        return module
+    basename, ext = os.path.splitext(os.path.basename(filename))
+    qualname = '.'.join([qualifiedprefix, basename])
+    module = ModuleType(qualname)
     try:
-        with open(filename) as f:
+        with open(filename, 'r') as f:
             code = compile(f.read(), filename, 'exec')
-            exec(code, namespace)
+            exec(code, module.__dict__)
     except Exception as e:
         raise RuntimeError("Failed to load plugin '%s': %s : %s" % (filename, str(e), traceback.format_exc()))
-    references[filename] = namespace
-    return filename
+    modules[qualname] = module
+    return module
 
 def ListPluginsAction(extensionpoint):
     class ListPluginsAction(Action):
