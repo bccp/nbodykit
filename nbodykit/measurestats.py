@@ -93,7 +93,8 @@ def compute_3d_power(fields, pm, comm=None):
     return p3d, stats1, stats2
     
 def compute_bianchi_poles(comm, max_ell, catalog, Nmesh, 
-                            factor_hexadecapole=False, paintbrush='cic'):
+                            factor_hexadecapole=False, 
+                            paintbrush='cic'):
     """
     Compute and return the 3D power multipoles (ell = [0, 2, 4]) from one 
     input field, which contains non-trivial survey geometry.
@@ -252,7 +253,7 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
             if rank == 0: logger.debug("applying real-space Bianchi transfer for %s..." %str(integers))
             bianchi_transfer(pm.real, xgrid, *integers, offset=offset)
             if rank == 0: logger.debug('...done')
-        
+    
             # do the FT and apply the k-space kernel
             if rank == 0: logger.debug("performing r2c...")
             pm.r2c()

@@ -83,7 +83,7 @@ class BianchiPowerAlgorithm(Algorithm):
                  "eq. 27 of Scoccimarro 2015 (1506.02729)")
         s.add_argument('keep_cache', type=bool, 
             help='if `True`, force the data cache to persist while the algorithm instance is valid')
-                    
+                                
     def run(self):
         """
         Run the algorithm, which computes and returns the power spectrum
@@ -99,7 +99,7 @@ class BianchiPowerAlgorithm(Algorithm):
             self._rancache = self.catalog.randoms.keep_cache()
         
         # measure
-        kws = {'factor_hexadecapole':self.factor_hexadecapole, 'paintbrush':self.paintbrush}
+        kws = {'factor_hexadecapole': self.factor_hexadecapole, 'paintbrush':self.paintbrush}
         pm, poles, meta = measurestats.compute_bianchi_poles(self.comm, self.max_ell, self.catalog, self.Nmesh, **kws)
         k3d = pm.k
 

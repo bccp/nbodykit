@@ -41,14 +41,11 @@ extensions = [
 ]
 
 autosummary_generate = True
-numpydoc_show_class_members = False
+numpydoc_show_class_members = True
 numpydoc_class_members_toctree = False
 
 def skip(app, what, name, obj, skip, options):
     if name == "__init__":
-        print('--------------')
-        print(app, what, name, obj, obj.__doc__)
-        print('--------------')
         return False
     return skip
 
@@ -313,3 +310,10 @@ texinfo_documents = [
 
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 #texinfo_no_detailmenu = False
+
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/2.7/', None),
+    'pandas': ('http://pandas.pydata.org/pandas-docs/stable/', None),
+    'numpy': ('http://docs.scipy.org/doc/numpy/', None),
+    'xarray': ('http://xarray.pydata.org/en/stable/', None)
+}
