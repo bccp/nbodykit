@@ -7,6 +7,7 @@ from sys import modules
 from types import ModuleType
 
 # import the parent modules
+import nbodykit.plugins
 import nbodykit.plugins.algorithms
 import nbodykit.plugins.datasource
 import nbodykit.plugins.painter
@@ -42,15 +43,16 @@ def load2(filename, qualifiedprefix='nbodykit.plugins.user'):
         if qualname not in modules:
             __import__(qualname)
         module = modules[qualname]
-        for filename in os.listdir(root):
+        for filename in sorted(os.listdir(root)):
             fullfilename = os.path.join(root, filename)
             basename = os.path.splitext(os.path.basename(filename))[0]
             add = False
             if os.path.isdir(fullfilename):
                 add = True
-            if filename.endswith('.py'): 
+            if filename.endswith('.py'):
                 add = True
-            if basename == '__init__': continue
+            if basename.startswith('__'):
+                continue
 
             if add:
                 module.__dict__[basename] = load2(fullfilename, qualifiedprefix=qualname)
@@ -58,12 +60,11 @@ def load2(filename, qualifiedprefix='nbodykit.plugins.user'):
     basename, ext = os.path.splitext(os.path.basename(filename))
     qualname = '.'.join([qualifiedprefix, basename])
     module = ModuleType(qualname)
-    try:
-        with open(filename, 'r') as f:
-            code = compile(f.read(), filename, 'exec')
-            exec(code, module.__dict__)
-    except Exception as e:
-        raise RuntimeError("Failed to load plugin '%s': %s : %s" % (filename, str(e), traceback.format_exc()))
+
+    with open(filename, 'r') as f:
+        code = compile(f.read(), filename, 'exec')
+        exec(code, module.__dict__)
+
     modules[qualname] = module
     return module
 
