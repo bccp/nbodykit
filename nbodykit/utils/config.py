@@ -114,19 +114,28 @@ def ReadConfigFile(config_stream, schema):
         raise ValueError("missing required arguments: %s" %str(missing))
     return ns, unknown
 
-class Argument(namedtuple('Argument', ['name', 'required', 'type', 'default', 'choices', 'nargs', 'help', 'subfields'])):
+ArgumentBase = namedtuple('Argument', ['name', 'required', 'type', 'default', 'choices', 'nargs', 'help', 'subfields'])
+class Argument(ArgumentBase):
     """
     Class to represent an argument in the `ConstructorSchema`
     """
     def __new__(cls, name, required, type=None, default=None, choices=None, nargs=None, help="", subfields=None):
         if subfields is None: subfields = OrderedDict()
         return super(Argument, cls).__new__(cls, name, required, type, default, choices, nargs, help, subfields)
-                
+
     def __getitem__(self, key):
         if isinstance(key, str):
             return self.subfields[key]
-        return tuple.__getitem__(self, key)
-             
+        return ArgumentBase.__getitem__(self, key)
+
+    def _asdict(self):
+        # FIXME: the override to getitem seems to be messing up Python 3.
+        # is it used at all?
+        d = {}
+        for f in self._fields:
+            d[f] = getattr(self, f)
+        return d
+
 class ConstructorSchema(OrderedDict):
     """
     An `OrderedDict` of `Argument` objects, which are `namedtuples`.
@@ -462,14 +471,15 @@ def update_schema(func, attrs, defaults, allowed=[]):
     extra = []; missing = default_names + required
     for name in func.schema:
         a = func.schema[name]
-        
+
         # infer required and defaults and update them
         d = a._asdict()
         d['required'] = a.name in required
         if a.name in default_names:
             d['default'] = defaults[default_names.index(a.name)]
+
         func.schema[name] = func.schema.Argument(**d)
-        
+
         # check for extra and missing
         if a.name not in args and a.name not in allowed:
             extra.append(a.name)
