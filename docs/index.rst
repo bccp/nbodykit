@@ -41,7 +41,8 @@ Documentation
    why-nbodykit
    examples
    installing
-
+   api/modules
+   plugins/modules
 
 Get in touch
 ------------
