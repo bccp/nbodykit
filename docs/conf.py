@@ -17,7 +17,7 @@ import os
 import shlex
 
 import mock
-MOCK_MODULES = ['mpsort']
+MOCK_MODULES = ['mpsort', 'mpi4py', 'mpi4py.MPI']
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.Mock()
 
