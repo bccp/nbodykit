@@ -17,7 +17,7 @@ import os
 import shlex
 
 import mock
-MOCK_MODULES = ['mpsort', 'mpi4py', 'scipy', 'scipy.interpolate']
+MOCK_MODULES = ['mpsort', 'mpi4py', 'scipy', 'scipy.interpolate', 'h5py']
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.Mock()
 
