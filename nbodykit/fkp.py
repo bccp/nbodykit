@@ -4,6 +4,7 @@ import os
 from contextlib import contextmanager
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 from nbodykit.extensionpoints import Painter
+from .distributedarray import GatherArray
 
 logger = logging.getLogger('FKPCatalog')
 
@@ -291,7 +292,7 @@ class FKPCatalog(object):
         # gather everything to root
         pos_min   = self.comm.gather(pos_min)
         pos_max   = self.comm.gather(pos_max)
-        redshifts = self.comm.gather(redshifts)
+        redshifts = GatherArray(numpy.array(redshifts), self.comm, root=0)
         
         # rank 0 setups up the box and computes nbar (if needed)
         if self.comm.rank == 0:
@@ -299,14 +300,13 @@ class FKPCatalog(object):
             # find the global
             pos_min   = numpy.amin(pos_min, axis=0)
             pos_max   = numpy.amax(pos_max, axis=0)
-            redshifts = numpy.concatenate(redshifts)
             
             # setup the box, using randoms to define it
             self._define_box(pos_min, pos_max)
     
             # compute the number density from the randoms
             if len(redshifts):
-                self._compute_randoms_nbar(numpy.array(redshifts))
+                self._compute_randoms_nbar(redshifts)
             else:
                 self.randoms_nbar = None
         else:
