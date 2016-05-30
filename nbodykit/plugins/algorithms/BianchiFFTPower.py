@@ -3,8 +3,6 @@ from nbodykit.fkp import FKPCatalog
 import numpy
 import logging
 
-logger = logging.getLogger('BianchiFFTPower')
-
 class BianchiPowerAlgorithm(Algorithm):
     """
     Algorithm to compute the power spectrum multipoles using FFTs
