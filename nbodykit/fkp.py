@@ -191,7 +191,13 @@ class FKPCatalog(object):
             if isinstance(val, str) and os.path.exists(val):
                 try:
                     d = numpy.loadtxt(val)
-                    self._nbar = spline(d[:,0], d[:,1])
+                    
+                    # columns are z, n(z)
+                    if d.shape[1] == 2:
+                        self._nbar = spline(d[:,0], d[:,1])
+                    # columns are z_min, z_max, z_cen, n(z)
+                    elif d.shape[1] == 4:
+                        self._nbar = spline(d[:,-2], d[:,-1])
                     self._nbar.need_redshift = True
                 except:
                     raise ValueError("cannot initialize `n(z)` spline from file '%s'" %val)
