@@ -563,7 +563,10 @@ class DataSource:
         operation shall be collective, with each yield generating 
         different sections of the datasource on different ranks. 
         No caching of data takes places.
-    """        
+    """
+    class MissingColumn(Exception):
+        pass
+            
     def _cache_data(self):
         """
         Internal function to cache the data from `readall`.
