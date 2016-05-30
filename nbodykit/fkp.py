@@ -3,8 +3,9 @@ import logging
 import os
 from contextlib import contextmanager
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
-from nbodykit.extensionpoints import Painter
-from .distributedarray import GatherArray
+
+from nbodykit.extensionpoints import DataSource, Painter, algorithms
+from nbodykit.distributedarray import GatherArray
 
 logger = logging.getLogger('FKPCatalog')
 
@@ -220,41 +221,6 @@ class FKPCatalog(object):
         if self.BoxSize is None:
             delta *= 1.0 + self.BoxPad
             self.BoxSize = numpy.ceil(delta) # round up to nearest integer
-                    
-    def _compute_randoms_nbar(self, redshift):
-        """
-        Compute `n(z)` from the `randoms` by making a spline
-        of the redshift histogram for the randoms
-        """ 
-        # crash later if n(z) needed and fsky not provided
-        fsky = 1. if not hasattr(self, 'fsky') else self.fsky
-    
-        def scotts_bin_width(data):
-            """
-            Return the optimal histogram bin width using Scott's rule
-            """
-            n = data.size
-            sigma = numpy.std(data)
-            dx = 3.5 * sigma * 1. / (n ** (1. / 3))
-            
-            Nbins = numpy.ceil((data.max() - data.min()) * 1. / dx)
-            Nbins = max(1, Nbins)
-            bins = data.min() + dx * numpy.arange(Nbins + 1)
-            return dx, bins
-        
-        # do the histogram of N(z)
-        dz, zbins = scotts_bin_width(redshift)
-        dig = numpy.searchsorted(zbins, redshift, "right")
-        N = numpy.bincount(dig, minlength=len(zbins)+1)[1:-1]
-        
-        # compute the volume
-        R_hi = self.cosmo.comoving_distance(zbins[1:])
-        R_lo = self.cosmo.comoving_distance(zbins[:-1])
-        volume = (4./3.)*numpy.pi*(R_hi**3 - R_lo**3) * fsky
-        
-        # store the nbar 
-        z_cen = 0.5*(zbins[:-1] + zbins[1:])
-        self.randoms_nbar = spline(z_cen, 1.*N/volume)
         
     def open(self):
         """
@@ -273,26 +239,34 @@ class FKPCatalog(object):
         pos_min = numpy.array([numpy.inf]*3)
         pos_max = numpy.array([-numpy.inf]*3)
         
-        redshifts = []
-        columns = ['Position', 'Redshift', 'Nbar']
-        for [pos, z, nbar] in self.randoms_stream.read(columns, full=False):
+        # loop over the randoms to make the box
+        for [pos] in self.randoms_stream.read(['Position'], full=False):
             if len(pos):
                 
                 # global min/max of cartesian coordinates
                 pos_min = numpy.minimum(pos_min, pos.min(axis=0))
                 pos_max = numpy.maximum(pos_max, pos.max(axis=0))
-        
-                # store redshifts for n(z)
-                if not self.randoms_stream.isdefault('Redshift', z):
-                    redshifts += list(z)
-        
+
+        # set the size, if not set already
         if not hasattr(self.randoms, 'size'):
             self.randoms.size = self.randoms_stream.nread
                 
         # gather everything to root
         pos_min   = self.comm.gather(pos_min)
         pos_max   = self.comm.gather(pos_max)
-        redshifts = GatherArray(numpy.array(redshifts), self.comm, root=0)
+        
+        # compute the n(z) of the randoms to get n(z)
+        if self.nbar is None:
+            fsky = 1. if not hasattr(self, 'fsky') else self.fsky
+            nz_computer = algorithms.RedshiftHistogram(self.randoms, fsky=fsky)
+            try:
+                zbins, z_cen, nz = nz_computer.run()
+                self.randoms_nbar = spline(z_cen, nz)
+            except DataSource.MissingColumn:
+                self.randoms_nbar = None
+            except Exception as e:
+                logger.warning("exception occurred while computing randoms n(z)")
+                self.randoms_nbar = None
         
         # rank 0 setups up the box and computes nbar (if needed)
         if self.comm.rank == 0:
@@ -303,20 +277,12 @@ class FKPCatalog(object):
             
             # setup the box, using randoms to define it
             self._define_box(pos_min, pos_max)
-    
-            # compute the number density from the randoms
-            if len(redshifts):
-                self._compute_randoms_nbar(redshifts)
-            else:
-                self.randoms_nbar = None
         else:
-            self.randoms_nbar           = None
             self.mean_coordinate_offset = None
             
         # broadcast the results that rank 0 computed
         self.BoxSize                = self.comm.bcast(self.BoxSize)
         self.mean_coordinate_offset = self.comm.bcast(self.mean_coordinate_offset)
-        self.randoms_nbar           = self.comm.bcast(self.randoms_nbar)
         
         if self.comm.rank == 0:
             logger.info("BoxSize = %s" %str(self.BoxSize))
@@ -348,7 +314,7 @@ class FKPCatalog(object):
         # check valid columns
         valid = ['Position', 'Weight', 'Nbar']
         if any(col not in valid for col in columns):
-            raise ValueError("valid `columns` to read from FKPCatalog: %s" %str(valid))
+            raise DataSource.MissingColumn("valid `columns` to read from FKPCatalog: %s" %str(valid))
                              
         if name == 'data':
             stream = self.data_stream
@@ -396,6 +362,11 @@ class FKPCatalog(object):
                 if not hasattr(self, 'fsky'):
                     raise ValueError("computing `n(z)` from 'randoms' DataSource, but no `fsky` "
                                      "provided for volume calculation")
+                
+                if self.randoms_nbar is None:
+                    raise ValueError("`n(z)` calculation requires redshift "
+                                     "but 'randoms' DataSource does not support `Redshift` column")
+                    
                 alpha = 1.*self.data.size/self.randoms.size
                 nbar = self.randoms_nbar(redshift) * alpha
         
@@ -463,7 +434,7 @@ class FKPCatalog(object):
             args = (N_ran, self.randoms.size)
             raise ValueError("`size` mismatch when painting: `N_ran` = %d, `randoms.size` = %d" %args)
 
-        # paint the +data
+        # paint the data
         for [position, weight, nbar] in self.read('data', columns):
             Nlocal = self.painter.basepaint(pm, position, weight)
             A_data += (nbar*weight**2).sum()

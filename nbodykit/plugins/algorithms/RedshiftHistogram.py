@@ -92,6 +92,8 @@ class RedshiftHistogramAlgorithm(Algorithm):
                 if len(z):
                     if not stream.isdefault('Redshift', z):
                         redshift += list(z)
+                    else:
+                        raise DataSource.MissingColumn("no ``Redshift`` column in input DataSource")
         
         # gather to root and avoid MPI pickling limits
         redshift = GatherArray(numpy.array(redshift), self.comm, root=0)
@@ -120,8 +122,9 @@ class RedshiftHistogramAlgorithm(Algorithm):
             z_cen = 0.5*(zbins[:-1] + zbins[1:])
             nz = 1.*N/volume
         else:
-            nz = None; z_cen = None
+            nz = None; z_cen = None; zbins = None
         
+        zbins = self.comm.bcast(zbins)
         z_cen = self.comm.bcast(z_cen)    
         nz = self.comm.bcast(nz)
         
