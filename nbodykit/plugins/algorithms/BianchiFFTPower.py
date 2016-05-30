@@ -3,7 +3,7 @@ from nbodykit.fkp import FKPCatalog
 import numpy
 import logging
 
-logger = logging.getLogger('BianchiPower')
+logger = logging.getLogger('BianchiFFTPower')
 
 class BianchiPowerAlgorithm(Algorithm):
     """
