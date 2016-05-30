@@ -383,8 +383,11 @@ class FKPCatalog(object):
                                          "but '%s' DataSource does not support `Redshift` column" %name)
                     nbar = self.nbar(redshift)
                 else:
-                    nbar = self.nbar()
-        
+                    # nbar is a single value
+                    nbar = numpy.array(self.nbar())
+                    nbar = numpy.lib.stride_tricks.as_strided(nbar, (len(pos), nbar.size), (0, nbar.itemsize))
+                    nbar = nbar.squeeze()
+                    
             elif default_nbar:
                 if default_z:
                     raise ValueError("`n(z)` calculation requires redshift "
