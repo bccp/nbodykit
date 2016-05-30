@@ -145,7 +145,8 @@ class RedshiftHistogramAlgorithm(Algorithm):
         if self.comm.rank == 0:
             edges, z_cen, nz = result
             
-            with open(output, 'w') as ff:
+            with open(output, 'wb') as ff:
                 
-                ff.write("# z_min z_max z_cen n(z)\n")
-                numpy.savetxt(ff, zip(edges[:-1], edges[1:], z_cen, nz), fmt='%.6e')
+                ff.write(("# z_min z_max z_cen n(z)\n").encode())
+                out = numpy.vstack([edges[:-1], edges[1:], z_cen, nz]).T
+                numpy.savetxt(ff, out, fmt='%.6e')
