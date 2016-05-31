@@ -1,5 +1,7 @@
 from nbodykit.extensionpoints import Algorithm, DataSource
 from nbodykit.fkp import FKPCatalog
+
+import os
 import numpy
 import logging
 
@@ -25,7 +27,9 @@ class BianchiPowerAlgorithm(Algorithm):
                     nbar=None, 
                     fsky=None,
                     factor_hexadecapole=False,
-                    keep_cache=False):
+                    keep_cache=False,
+                    compute_pkmu=False,
+                    Nmu=5):
                            
         # initialize the FKP catalog (unopened)
         kws = {}
@@ -81,6 +85,11 @@ class BianchiPowerAlgorithm(Algorithm):
                  "eq. 27 of Scoccimarro 2015 (1506.02729)")
         s.add_argument('keep_cache', type=bool, 
             help='if `True`, force the data cache to persist while the algorithm instance is valid')
+            
+        s.add_argument('compute_pkmu', type=bool, 
+            help='save P(k,mu) in addition to the multipoles')
+        s.add_argument("Nmu", type=int,
+            help='the number of mu bins to use from mu=[0,1], if ``compute_pku = True``')
                                 
     def run(self):
         """
@@ -97,7 +106,9 @@ class BianchiPowerAlgorithm(Algorithm):
             self._rancache = self.catalog.randoms.keep_cache()
         
         # measure
-        kws = {'factor_hexadecapole': self.factor_hexadecapole, 'paintbrush':self.paintbrush}
+        kws = {}
+        kws['factor_hexadecapole'] = self.factor_hexadecapole
+        kws['paintbrush'] = self.paintbrush
         pm, poles, meta = measurestats.compute_bianchi_poles(self.comm, self.max_ell, self.catalog, self.Nmesh, **kws)
         k3d = pm.k
 
@@ -121,13 +132,23 @@ class BianchiPowerAlgorithm(Algorithm):
         k = numpy.squeeze(result[0])
         modes = numpy.squeeze(result[-1])
         result = k, poles_final, modes
+        
+        # compute P(k,mu) from monopole?
+        if self.compute_pkmu:
+            
+            muedges = numpy.linspace(0, 1, self.Nmu+1, endpoint=True)
+            edges = [kedges, muedges]
+            pkmu_result, _ = measurestats.project_to_basis(pm.comm, k3d, poles[0], edges, symmetric=True)
+            
+        else:
+            pkmu_result = None
 
         # compute the metadata to return
         Lx, Ly, Lz = pm.BoxSize
         meta.update({'Lx':Lx, 'Ly':Ly, 'Lz':Lz, 'volume':Lx*Ly*Lz})
 
         # return all the necessary results
-        return kedges, result, meta
+        return kedges, result, pkmu_result, meta
 
     def save(self, output, result):
         """
@@ -146,7 +167,7 @@ class BianchiPowerAlgorithm(Algorithm):
         # only the master rank writes
         if self.comm.rank == 0:
             
-            kedges, result, meta = result
+            kedges, result, pkmu_result, meta = result
             k, poles, N = result
             ells = range(0, self.max_ell+1, 2)
             
@@ -158,4 +179,19 @@ class BianchiPowerAlgorithm(Algorithm):
             
             storage = MeasurementStorage.create('1d', output)
             storage.write(kedges, cols, pole_result, **meta)
+            
+            # write P(k,mu)?
+            if pkmu_result is not None:
+                
+                filename, ext = os.path.splitext(output)
+                pkmu_output = filename + '_pkmu' + ext
+                
+                muedges = numpy.linspace(0, 1, self.Nmu+1, endpoint=True)
+                edges = [kedges, muedges]
+                cols = ['k', 'mu', 'power', 'modes']
+
+                # write binned statistic
+                self.logger.info('saving P(k,mu) result to %s' %pkmu_output)
+                storage = MeasurementStorage.create('2d', pkmu_output)
+                storage.write(edges, cols, pkmu_result, **meta)
 
