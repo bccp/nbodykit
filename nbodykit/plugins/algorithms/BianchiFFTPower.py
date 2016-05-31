@@ -29,6 +29,7 @@ class BianchiPowerAlgorithm(Algorithm):
                     factor_hexadecapole=False,
                     keep_cache=False,
                     compute_pkmu=False,
+                    pkmu_los='z',
                     Nmu=5):
                            
         # initialize the FKP catalog (unopened)
@@ -90,6 +91,8 @@ class BianchiPowerAlgorithm(Algorithm):
             help='save P(k,mu) in addition to the multipoles')
         s.add_argument("Nmu", type=int,
             help='the number of mu bins to use from mu=[0,1], if ``compute_pku = True``')
+        s.add_argument("pkmu_los", type=str, choices="xyz",
+            help="the line-of-sight direction for P(k,mu) -- the angle `mu` is defined with respect to")
                                 
     def run(self):
         """
@@ -138,7 +141,7 @@ class BianchiPowerAlgorithm(Algorithm):
             
             muedges = numpy.linspace(0, 1, self.Nmu+1, endpoint=True)
             edges = [kedges, muedges]
-            pkmu_result, _ = measurestats.project_to_basis(pm.comm, k3d, poles[0], edges, symmetric=True)
+            pkmu_result, _ = measurestats.project_to_basis(pm.comm, k3d, poles[0], edges, los=self.pkmu_los, symmetric=True)
             
         else:
             pkmu_result = None
