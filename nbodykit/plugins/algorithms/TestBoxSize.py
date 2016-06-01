@@ -63,31 +63,23 @@ class TestBoxSizeAlgorithm(Algorithm):
                 # the index of each out of bounds particle
                 index = idx.nonzero()[0]
                 
+                # the out-of-bounds boolean 3-vector
+                out_of_bounds = lim[idx]
+                
                 # concat and gather to root
-                data = GatherArray(index, self.comm, root=0)
+                data = numpy.concatenate([index[:,None], out_of_bounds], axis=1)
+                data = GatherArray(data, self.comm, root=0)
                 if self.comm.rank == 0:
                     toret.append(data)
                     
-                
             if self.comm.rank == 0:
                 toret = numpy.concatenate(toret)
-                if len(toret):
-                    self.logger.info("%d particles found to be out of range" %len(toret))
+                self.logger.info("%d particles found to be out of range" %len(toret))
                 return toret
                 
-            
-
     def save(self, output, result):
         """
-        Save the power spectrum results to the specified output file
-
-        Parameters
-        ----------
-        output : str
-            the string specifying the file to save
-        result : tuple
-            the tuple returned by `run()` -- first argument specifies the bin
-            edges and the second is a dictionary holding the data results
+        Write out the out-of-bounds particles (done by root)
         """
         # only the master rank writes
         if self.comm.rank == 0:
@@ -97,7 +89,10 @@ class TestBoxSizeAlgorithm(Algorithm):
                 header = "# %d particles out of bounds\n" %len(result)
                 header += "# BoxSize: %s\n" %str(self.BoxSize)
                 header += "# mean position vector: %s\n" %str(self.mean_coordinate_offset)
-                header += "# index of out-of-bounds particles (starting at 0)\n"
+                header += "# column 1: index of out-of-bounds particles (starting at 0)\n"
+                header += "# column 2: out of range flag for 'x' dimension (1 if out-of-bounds)\n"
+                header += "# column 3: out of range flag for 'y' dimension (1 if out-of-bounds)\n"
+                header += "# column 4: out of range flag for 'z' dimension (1 if out-of-bounds)\n"
                 ff.write(header.encode())
                 numpy.savetxt(ff, result, fmt='%d')
 
