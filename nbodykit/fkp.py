@@ -344,8 +344,11 @@ class FKPCatalog(object):
             lim = (pos < -0.5*self.BoxSize)|(pos > 0.5*self.BoxSize)
             if lim.any():
                 args = (list(lim.sum(axis=0)), name, self.BoxSize)
-                errmsg = "%s '%s' particles out of bounds in each dimension when using BoxSize %s" %args
-                raise ValueError(errmsg)
+                errmsg = ("%s '%s' particles have positions outside of the box in the [x, y, z] "
+                          "directions when using a BoxSize of %s" %args)
+                logger.warning(errmsg)
+                logger.warning(("the positions of out-of-bounds particles are periodically wrapped into "
+                                 "the box domain -- the resulting behavior is undefined"))
 
             # number density from redshift
             if self.nbar is not None:
