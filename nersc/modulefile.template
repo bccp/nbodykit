@@ -4,7 +4,7 @@
 ## Required internal variables
 
 set		name		nbodykit
-set		version		XYZ
+set		version		THIS_VERSION
 set		root		/usr/common/contrib/bccp/nbodykit/
 
 ## List conflicting modules here

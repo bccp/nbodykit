@@ -1,10 +1,10 @@
 #! /bin/bash
 
 if [ "x$1" == "x-h" ] || [ "x$1" == "x" ] ; then
-    echo "deploy.sh version"
+    echo "usage: deploy.sh version"
     exit 1
 fi
-
+version=$1
 PREFIX=${NERSC_HOST}
 
 # setup build directory
@@ -14,13 +14,13 @@ install -d /usr/common/contrib/bccp/nbodykit/builds/$version
 install activate.sh /usr/common/contrib/bccp/nbodykit/builds/$version
 
 # copy the necessary tar files
-rsync --exclude='*.gz-*' -ar $PREFIX/* /usr/common/contrib/bccp/nbodykit/builds/$version/*
+rsync --exclude='*.gz-*' -ar $PREFIX/* /usr/common/contrib/bccp/nbodykit/builds/$version/
 
 # setup modulefile directory
 install -d /usr/common/contrib/bccp/nbodykit/modulefiles/nbodykit/
 
-# move the modulefile
-sed 's/THIS_VERSION/${version}/g' modulefile > /usr/common/contrib/bccp/nbodykit/modulefiles/nbodykit/$version
+# set the modulefile version and move the modulefile
+sed 's/THIS_VERSION/${version}/g' modulefile.template > /usr/common/contrib/bccp/nbodykit/modulefiles/nbodykit/$version
 
 function tree {
     SEDMAGIC='s;[^/]*/;|____;g;s;____|; |;g'
