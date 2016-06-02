@@ -1,0 +1,14 @@
+cosmo:
+    H0: 70
+    Om0: 0.286
+    flat: True
+
+datasource:
+    plugin: RaDecRedshift
+    path: ../data/test_bianchi_randoms.dat
+    names: [ra, dec, z]
+    usecols: [ra, dec, z]
+    degrees: True
+    
+BoxSize: [1400, 3000, 1788]
+output: ../output/test_boxsize.dat
