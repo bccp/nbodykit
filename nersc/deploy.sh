@@ -1,13 +1,20 @@
 #! /bin/bash
+
+if [ "x$1" == "x-h" ] || [ "x$1" == "x" ] ; then
+    echo "usage: deploy.sh <version>"
+    exit 1
+fi
+version=$1
 PREFIX=${NERSC_HOST}
 
-install -d /usr/common/contrib/bccp/nbodykit
+# setup build directory
+install -d /usr/common/contrib/bccp/nbodykit/$version
 
-install -d /usr/common/contrib/bccp/nbodykit/nersc
+# move the activate script to the build dir
+install activate.sh /usr/common/contrib/bccp/nbodykit/$version
 
-install activate.sh /usr/common/contrib/bccp/nbodykit/nersc/
-
-rsync --exclude='*.gz-*' -ar $PREFIX /usr/common/contrib/bccp/nbodykit/nersc/
+# copy the necessary tar files
+rsync --exclude='*.gz-*' -ar $PREFIX/$version/* /usr/common/contrib/bccp/nbodykit/$version/
 
 function tree {
     SEDMAGIC='s;[^/]*/;|____;g;s;____|; |;g'

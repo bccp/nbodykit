@@ -16,7 +16,7 @@ module load python/2.7-anaconda
 
 source /usr/common/contrib/bccp/python-mpi-bcast/nersc/activate.sh
 
-bcast ${NBKITROOT}/nersc/${NERSC_HOST}/nbodykit-dep.tar.gz ${NBKITROOT}/nersc/${NERSC_HOST}/nbodykit.tar.gz
+bcast ${NBKITROOT}/nbodykit-dep.tar.gz ${NBKITROOT}/nbodykit.tar.gz
 
 function srun-nbkit {
     local np=
