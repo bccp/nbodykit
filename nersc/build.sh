@@ -26,13 +26,14 @@ then
     exit 1
 fi
 
+version=$1; shift
+
 # activate python-mpi-bcast
 source /usr/common/contrib/bccp/python-mpi-bcast/activate.sh
 
 case "$subcommand" in
   
   all )
-    version=$1; shift
     mkdir -p ${NERSC_HOST}/${version}
     MPICC=cc bundle-pip ${NERSC_HOST}/${version}/nbodykit-dep.tar.gz -r ../requirements.txt 
     bundle-pip ${NERSC_HOST}/nbodykit.tar.gz ..
