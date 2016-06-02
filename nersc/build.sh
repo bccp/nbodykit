@@ -6,6 +6,7 @@ while getopts ":h" opt; do
     h )
       echo "usage:"
       echo "    build.sh -h                      Display this help message."
+      echo "    build.sh all <version>           Build both the source and the dependencies."
       echo "    build.sh source <version>        Build only the source."
       echo "    build.sh deps <version>          Build only the dependencies."
       exit 0
@@ -30,6 +31,12 @@ source /usr/common/contrib/bccp/python-mpi-bcast/activate.sh
 
 case "$subcommand" in
   
+  all )
+    version=$1; shift
+    mkdir -p ${NERSC_HOST}/${version}
+    MPICC=cc bundle-pip ${NERSC_HOST}/${version}/nbodykit-dep.tar.gz -r ../requirements.txt 
+    bundle-pip ${NERSC_HOST}/nbodykit.tar.gz ..
+  ;;
   source )
     version=$1; shift
     mkdir -p ${NERSC_HOST}/${version}
