@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 from glob import glob
-setup(name="nbodykit", version="0.1pre",
+setup(name="nbodykit", version="0.1.0",
       author="Yu Feng, Nick Hand, et al",
       maintainer="Yu Feng",
       maintainer_email="rainwoodman@gmail.com",
