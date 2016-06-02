@@ -14,13 +14,7 @@ install -d /usr/common/contrib/bccp/nbodykit/builds/$version
 install activate.sh /usr/common/contrib/bccp/nbodykit/builds/$version
 
 # copy the necessary tar files
-rsync --exclude='*.gz-*' -ar $PREFIX/* /usr/common/contrib/bccp/nbodykit/builds/$version/
-
-# setup modulefile directory
-install -d /usr/common/contrib/bccp/nbodykit/modulefiles/nbodykit/
-
-# set the modulefile version and move the modulefile
-sed 's/THIS_VERSION/${version}/g' modulefile.template > /usr/common/contrib/bccp/nbodykit/modulefiles/nbodykit/$version
+rsync --exclude='*.gz-*' -ar $PREFIX/* /usr/common/contrib/bccp/nbodykit/$version/
 
 function tree {
     SEDMAGIC='s;[^/]*/;|____;g;s;____|; |;g'
