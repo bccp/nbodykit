@@ -1,0 +1,34 @@
+#%Module1.0
+##
+
+## Required internal variables
+
+set		name		nbodykit
+set		version		XYZ
+set		root		/usr/common/contrib/bccp/nbodykit/
+
+## List conflicting modules here
+
+conflict $name
+
+## List prerequisite modules here
+
+set		fullname	nbodykit
+set		externalurl	http://nbodykit.readthedocs.io
+set		description	"a massively parallel large-scale structure toolkit"
+
+## Required for "module help ..."
+
+proc ModulesHelp { } {
+  global description nerscurl externalurl
+  puts stderr "Description - $description"
+  puts stderr "Other Docs  - $externalurl"
+}
+
+## Required for "module display ..." and SWDB
+
+module-whatis			"$description"
+setenv          NBKIT_VERSION   $version
+set status [catch {source $root/builds/$version/activate.sh} output]
+
+
