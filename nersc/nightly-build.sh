@@ -18,7 +18,7 @@ bundle-pip ${NERSC_HOST}/nbodykit-stable.tar.gz git+https://github.com/bccp/nbod
 rsync ${NERSC_HOST}/nbodykit-stable.tar.gz /usr/common/contrib/bccp/nbodykit/
 
 # build the dependencies from the requirements.txt file
-bundle-pip ${NERSC_HOST}/nbodykit-dep.tar.gz https://raw.githubusercontent.com/bccp/nbodykit/develop/requirements.txt
+bundle-pip ${NERSC_HOST}/nbodykit-dep.tar.gz -r https://raw.githubusercontent.com/bccp/nbodykit/develop/requirements.txt
 rsync ${NERSC_HOST}/nbodykit-dep.tar.gz /usr/common/contrib/bccp/nbodykit/
 
 # remove the temporary directory
