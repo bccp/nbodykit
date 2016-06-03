@@ -15,9 +15,6 @@ fi
 version=$1
 PREFIX=${NERSC_HOST}
 
-# setup build directory
-install -d /usr/common/contrib/bccp/nbodykit/
-
 # move the activate script to the build dir
 install activate.sh /usr/common/contrib/bccp/nbodykit/
 
