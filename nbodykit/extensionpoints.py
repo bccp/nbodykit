@@ -26,6 +26,9 @@ import weakref
 # a plugin instance will be created for a MPI communicator.
 from mpi4py import MPI
 
+__all__ = []
+extensionpoints = {} # collection of extensionpoints
+
 algorithms  = Namespace()
 datasources = Namespace()
 painters    = Namespace()
@@ -64,23 +67,27 @@ def set_nbkit_cosmo(cosmo):
     global _cosmo
     _cosmo = cosmo
 
-class PluginInterface(object):
-    """ 
-    The basic interface of a plugin -- classes must implement
-    the 'register' function
-    """
-    @classmethod
-    def register(kls):
-        raise NotImplementedError
-
-        
 def ExtensionPoint(registry):
     """ 
     Declares a class as an extension point, registering to registry 
     """
     def wrapped(cls):
+        # this attribute will be used to detect
+        # if the metaclass initializer is ran on the
+        # extension point.
+
+        cls.extensionpoint_name = cls.__name__
+
+        # note that we are not keeping a reference to
+        # the extensionpoint class here to avoid
+        # a circular reference.
         cls = add_metaclass(PluginMount)(cls)
         cls.registry = registry
+
+        # now add the extension point for book keeping
+        extensionpoints[cls.__name__] = cls
+        # also hack the __all__ variable for self-introspection.
+        __all__.append(cls.__name__)
         return cls
     return wrapped
 
@@ -89,33 +96,29 @@ class PluginMount(type):
     Metaclass for an extension point that provides the 
     methods to manage plugins attached to the extension point
     """
-    def __new__(cls, name, bases, attrs):
-        # Add PluginInterface to the ExtensionPoint,
-        # Plugins at an extensioni point will inherit from PluginInterface
-        # This is more twisted than it could have been!
-
-        if len(bases) == 0 or (len(bases) == 1 and bases[0] is object):
-            bases = (PluginInterface,)
-        return type.__new__(cls, name, bases, attrs)
-
     def __init__(cls, name, bases, attrs):
-        # only executes when processing the mount point itself.
-        # the extension mount point only declares a PluginInterface
-        # the plugins at an extension point will always be its subclass
-        
-        if cls.__bases__ == (PluginInterface, ):
-            return
+
+        # we need to avoid plugin initialization on
+        # the extensionpoint base classes.
+
+        # If the name of the class is the same as the
+        # extensionpoint_name we are shooting ourselves.
+
+        if name == cls.extensionpoint_name: return
 
         if not hasattr(cls, 'plugin_name'):
             raise RuntimeError("Plugin class must carry a 'plugin_name'")
-        
+
+        if not hasattr(cls, 'register'):
+            raise TypeError("Plugin class must declare a 'register' method")
+
         # register, if this plugin isn't yet
         if cls.plugin_name not in cls.registry:
 
             # initialize the schema and alias it
             if cls.__init__ == object.__init__:
                 raise ValueError("please define an __init__ method for '%s'" %cls.__name__)
-            
+
             # in python 2, __func__ needed to attach attributes to the real function; 
             # __func__ removed in python 3, so just attach to the function
             init = cls.__init__
@@ -133,7 +136,7 @@ class PluginMount(type):
             cls.register()
 
             # configure the class __init__, attaching the comm, and optionally cosmo
-            attach_cosmo = issubclass(cls, DataSource)
+            attach_cosmo = issubclass(cls, DataSourceBase)
             cls.__init__ = autoassign(init, attach_cosmo=attach_cosmo)
 
     def create(cls, plugin_name, use_schema=False, **kwargs):
@@ -522,9 +525,37 @@ class DataCache(object):
         
     def __repr__(self):
         return 'DataCache(%s)' %str(self.columns)
-         
+
+class DataSourceBase(object):
+
+    @staticmethod
+    def BoxSizeParser(value):
+        """
+        Read the `BoxSize, enforcing that the BoxSize must be a
+        scalar or 3-vector
+
+        Returns
+        -------
+        BoxSize : array_like
+            an array of size 3 giving the box size in each dimension
+        """
+        boxsize = numpy.empty(3, dtype='f8')
+        try:
+            if isinstance(value, (tuple, list)) and len(value) != 3:
+                raise ValueError
+            boxsize[:] = value
+        except:
+            raise ValueError("DataSource `BoxSize` must be a scalar or three-vector")
+        return boxsize
+    pass
+
 @ExtensionPoint(datasources)
-class DataSource:
+class GridDataSource(DataSourceBase):
+    def read(self, ix, iy):
+        pass
+
+@ExtensionPoint(datasources)
+class DataSource(DataSourceBase):
     """
     Mount point for plugins which refer to the reading of input files.
     The `read` operation occurs on a `DataStream` object, which
@@ -687,26 +718,6 @@ class DataSource:
             self._weakcache['cache'] = cache
             
         return self._weakcache['cache']
-        
-    @staticmethod
-    def BoxSizeParser(value):
-        """
-        Read the `BoxSize, enforcing that the BoxSize must be a 
-        scalar or 3-vector
-        
-        Returns
-        -------
-        BoxSize : array_like
-            an array of size 3 giving the box size in each dimension
-        """
-        boxsize = numpy.empty(3, dtype='f8')
-        try:
-            if isinstance(value, (tuple, list)) and len(value) != 3:
-                raise ValueError
-            boxsize[:] = value
-        except:
-            raise ValueError("DataSource `BoxSize` must be a scalar or three-vector")
-        return boxsize
     
     @property
     def size(self):
@@ -918,14 +929,11 @@ class Algorithm:
         return ReadConfigFile(stream, klass.schema)
 
 
-__valid__ = [DataSource, Painter, Transfer, Algorithm]
-__all__ = list(map(str, __valid__))
-
 def isplugin(name):
     """
     Return `True`, if `name` is a registered plugin for any extension point
     """
-    for extensionpt in __valid__:
-        if name in extensionpt.registry: return True
+    for extname, ext in extensionpoints:
+        if name in ext.registry: return True
     
     return False
