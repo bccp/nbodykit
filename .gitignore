@@ -2,3 +2,5 @@
 examples/data
 examples/nbodykit-data.tar.gz
 examples/output
+nersc/cori
+nersc/edison
