@@ -10,11 +10,11 @@ echo use Control-C to stop this one if it hangs.
 mpirun -np 2 python ../../bin/nbkit.py FFTPower <<EOF
 mode: 1d
 Nmesh: 256
-output: ../output/test_power_fastpm_1d.txt
+output: ${NBKIT_HOME}/examples/output/test_stdin.dat
 
 field:
     DataSource: 
        plugin: FastPM
-       path: ../data/fastpm_1.0000
+       path: ${NBKIT_CACHE}/data/fastpm_1.0000
     Transfer: [NormalizeDC, RemoveDC, AnisotropicCIC]
 EOF

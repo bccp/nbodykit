@@ -5,13 +5,13 @@ cosmo:
 
 data: 
     plugin: RaDecRedshift
-    path: ../data/test_bianchi_data.dat
+    path: ${NBKIT_CACHE}/data/test_bianchi_data.dat
     names: [ra, dec, z]
     usecols: [ra, dec, z]
     degrees: True
 randoms: 
     plugin: RaDecRedshift
-    path: ../data/test_bianchi_randoms.dat
+    path: ${NBKIT_CACHE}/data/test_bianchi_randoms.dat
     names: [ra, dec, z]
     usecols: [ra, dec, z]
     degrees: True
@@ -24,4 +24,4 @@ Nmesh: 128
 max_ell: 4
 dk: 0.005
 paintbrush: TSC
-output: ../output/test_bianchi_poles.dat
+output: ${NBKIT_HOME}/examples/output/test_power_bianchi_1.dat

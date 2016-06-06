@@ -5,10 +5,10 @@ Nmesh: 256     # size of mesh
 field:
     DataSource:
       plugin: FOFGroups
-      path: ../output/fof_ll0.200_1.0000.hdf5
+      path: ${NBKIT_CACHE}/data/fof_ll0.200_1.0000.hdf5
       m0: 10.0
       rsd: z
       select: Rank < 1000
     Transfer: [NormalizeDC, RemoveDC, AnisotropicCIC]
     
-output: ../output/power_2d_fofgroups.dat  # output
+output: ${NBKIT_HOME}/examples/output/test_power_fofgroups.dat  # output
