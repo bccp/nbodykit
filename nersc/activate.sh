@@ -26,6 +26,7 @@ else
 fi
 
 NBKITROOT=`dirname ${_SCRIPT_LOCATION}`
+NBKITROOT=`readlink -f $NBKITROOT`
 
 # load default python
 module load python/2.7-anaconda
