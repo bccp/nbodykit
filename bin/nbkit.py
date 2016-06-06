@@ -99,7 +99,7 @@ def main():
     # configuration file passed via -c
     if ns.config is not None:
         # ns.config is a file object
-        stream = ns.config
+        stream = ns.config.read()
     else:
         if MPI.COMM_WORLD.rank == 0:
             stream = sys.stdin.read()
@@ -108,6 +108,10 @@ def main():
         # respect the root rank stdin only;
         # on some systems, the stdin is only redirected to the root rank.
         stream = MPI.COMM_WORLD.bcast(stream)
+    
+    
+    # expand environment variables in the input stream
+    stream = os.path.expandvars(stream)
     params, extra = Algorithm.parse_known_yaml(alg_name, stream)
         
     # output is required
