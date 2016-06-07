@@ -32,7 +32,7 @@ install:
     - pip install --pre -r requirements.txt .
     
 script:
-    - py.test nbodykit --cov=nbodykit --cov-report term-missing
+    - py.test -s nbodykit/test/test_power.py::TestMWhiteHalo #--cov=nbodykit --cov-report term-missing
 
 #notifications:
 #  email: false

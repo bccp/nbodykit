@@ -23,6 +23,9 @@ def test_result_md5(self):
     result file
     """
     this_output = os.path.join(examples_dir, 'output', self.output_file)
+    with open(this_output, 'r') as ff:
+        print this_output + '\n-'*20
+        print ff.read()
     assert compute_md5sum(this_output) == reference_result_md5(self.output_file)
     
 def test_pandas_hdf_result(self, dataset):
