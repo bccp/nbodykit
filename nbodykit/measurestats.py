@@ -292,31 +292,40 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
         else:
             P4 = numpy.empty_like(P2)
     
-    # calculate the multipoles, islab by islab to save memory
-    # see equations 6-8 of Bianchi et al. 2015
-    for islab in range(len(P0)):
-        
-        # save for reuse
-        P0_star = (P0[islab]).conj()
-        if max_ell > 0: P2_star = (P2[islab]).conj()
-        
-        # hexadecapole    
-        if max_ell > 2:
-            if not factor_hexadecapole:
-                P4[islab, ...] = norm * 9./8. * P0[islab] * (35.*(P4[islab]).conj() - 30.*P2_star + 3.*P0_star)
-            else:
-                P4[islab, ...] = norm * 9./8. * ( 35.*P2[islab]*P2_star + 3.*P0[islab]*P0_star - 5./3.*(11.*P0[islab]*P2_star + 7.*P2[islab]*P0_star) )
-        
-        # quadrupole
-        if max_ell > 0:
-            P2[islab, ...] = norm * 5./2. * P0[islab] * (3.*P2_star - P0_star)
-        
-        # monopole
-        P0[islab, ...] = norm * P0[islab] * P0_star
+    
+    P4 = 9./8. * P0 * (35.*P4.conj() - 30.*P2.conj() + 3.*P0.conj()) * norm
+    P2 = 5./2. * P0 * (3.*P2.conj() - P0.conj()) * norm
+    P0 = P0 * P0.conj() * norm
+    
+    # # calculate the multipoles, islab by islab to save memory
+    # # see equations 6-8 of Bianchi et al. 2015
+    # #for islab in range(len(P0)):
+    #
+    #     # save for reuse
+    #     P0_star = (P0[islab]).conj()
+    #     if max_ell > 0: P2_star = (P2[islab]).conj()
+    #
+    #     # hexadecapole
+    #     if max_ell > 2:
+    #         if not factor_hexadecapole:
+    #             t = 9./8. * P0[islab] * (35.*(P4[islab]).conj() - 30.*P2_star + 3.*P0_star)
+    #             P4[islab, ...] = norm * t
+    #         else:
+    #             t = 9./8. * ( 35.*P2[islab]*P2_star + 3.*P0[islab]*P0_star - 5./3.*(11.*P0[islab]*P2_star + 7.*P2[islab]*P0_star) )
+    #             P4[islab, ...] = norm * t
+    #     # quadrupole
+    #     if max_ell > 0:
+    #         t = 5./2. * P0[islab] * (3.*P2_star - P0_star)
+    #         P2[islab, ...] = norm * t
+    #
+    #     # monopole
+    #     t = P0[islab] * P0_star
+    #     P0[islab, ...] = norm * t
         
     result = [P0]
     if max_ell > 0: result.append(P2)
     if max_ell > 2: result.append(P4)
+
     return pm, result, stats
 
 
