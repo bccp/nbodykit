@@ -18,8 +18,8 @@ class TestCrossCorr(unittest.TestCase):
     def test_exception(self):
         functions.test_exception(self)
     
-    def test_result_md5(self):
-        functions.test_result_md5(self)    
+    def test_result(self):
+        functions.test_dataset(self, '1d', 'corr')
 
   
 @add_run_fixture(__name__, RunCorrAlgorithm, 'PairCountCorrelation')
@@ -34,8 +34,8 @@ class TestMWhiteCorr1D(unittest.TestCase):
     def test_exception(self):
         functions.test_exception(self)
     
-    def test_result_md5(self):
-        functions.test_result_md5(self)
+    def test_result(self):
+        functions.test_dataset(self, '1d', 'corr')
         
 @add_run_fixture(__name__, RunCorrAlgorithm, 'PairCountCorrelation')
 class TestMWhiteCorr2D(unittest.TestCase):
@@ -49,8 +49,8 @@ class TestMWhiteCorr2D(unittest.TestCase):
     def test_exception(self):
         functions.test_exception(self)
     
-    def test_result_md5(self):
-        functions.test_result_md5(self)
+    def test_result(self):
+        functions.test_dataset(self, '2d', 'corr')
         
 @add_run_fixture(__name__, RunCorrAlgorithm, 'PairCountCorrelation')
 class TestMWhiteCorrPoles(unittest.TestCase):
@@ -64,8 +64,8 @@ class TestMWhiteCorrPoles(unittest.TestCase):
     def test_exception(self):
         functions.test_exception(self)
     
-    def test_result_md5(self):
-        functions.test_result_md5(self)
+    def test_result(self):
+        functions.test_dataset(self, '1d', 'corr')
         
 @add_run_fixture(__name__, RunCorrAlgorithm, 'FFTCorrelation')
 class TestFFTCorr(unittest.TestCase):
@@ -79,5 +79,5 @@ class TestFFTCorr(unittest.TestCase):
     def test_exception(self):
         functions.test_exception(self)
     
-    def test_result_md5(self):
-        functions.test_result_md5(self)
+    def test_result(self):
+        functions.test_dataset(self, '1d', 'corr')

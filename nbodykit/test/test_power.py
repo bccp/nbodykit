@@ -18,8 +18,8 @@ class TestBianchi1(unittest.TestCase):
     def test_exception(self):
         functions.test_exception(self)   
     
-    def test_result_md5(self):
-        functions.test_result_md5(self) 
+    def test_result(self):
+        functions.test_dataset(self, '1d', 'power') 
 
 
 @add_run_fixture(__name__, RunPowerAlgorithm, 'BianchiFFTPower')
@@ -34,8 +34,8 @@ class TestBianchi2(unittest.TestCase):
     def test_exception(self):
         functions.test_exception(self)    
     
-    def test_result_md5(self):
-        functions.test_result_md5(self)
+    def test_result(self):
+        functions.test_dataset(self, '1d', 'power')
 
 
 @add_run_fixture(__name__, RunPowerAlgorithm, 'FFTPower')
@@ -50,8 +50,8 @@ class TestCrossMomentum(unittest.TestCase):
     def test_exception(self):
         functions.test_exception(self)  
     
-    def test_result_md5(self):
-        functions.test_result_md5(self)  
+    def test_result(self):
+        functions.test_dataset(self, '1d', 'power')
 
 
 @add_run_fixture(__name__, RunPowerAlgorithm, 'FFTPower')
@@ -66,8 +66,8 @@ class TestCrossPower(unittest.TestCase):
     def test_exception(self):
         functions.test_exception(self)   
     
-    def test_result_md5(self):
-        functions.test_result_md5(self) 
+    def test_result(self):
+        functions.test_dataset(self, '1d', 'power')
          
 
 @add_run_fixture(__name__, RunPowerAlgorithm, 'FFTPower')
@@ -82,8 +82,8 @@ class TestFastPM1D(unittest.TestCase):
     def test_exception(self):
         functions.test_exception(self)   
     
-    def test_result_md5(self):
-        functions.test_result_md5(self) 
+    def test_result(self):
+        functions.test_dataset(self, '1d', 'power')
          
 
 @add_run_fixture(__name__, RunPowerAlgorithm, 'FFTPower')
@@ -98,8 +98,8 @@ class TestFastPM2D(unittest.TestCase):
     def test_exception(self):
         functions.test_exception(self)   
     
-    def test_result_md5(self):
-        functions.test_result_md5(self) 
+    def test_result(self):
+        functions.test_dataset(self, '2d', 'power')
          
 
 @add_run_fixture(__name__, RunPowerAlgorithm, 'FFTPower')
@@ -114,8 +114,8 @@ class TestFOFGroups(unittest.TestCase):
     def test_exception(self):
         functions.test_exception(self)    
     
-    def test_result_md5(self):
-        functions.test_result_md5(self)
+    def test_result(self):
+        functions.test_dataset(self, '2d', 'power')
          
 
 @add_run_fixture(__name__, RunPowerAlgorithm, 'FFTPower')
@@ -130,8 +130,8 @@ class TestPandasHDF(unittest.TestCase):
     def test_exception(self):
         functions.test_exception(self)    
          
-    def test_result_md5(self):
-        functions.test_result_md5(self)
+    def test_result(self):
+        functions.test_dataset(self, '2d', 'power')
 
 @add_run_fixture(__name__, RunPowerAlgorithm, 'FFTPower')
 class TestPandasPlaintext(unittest.TestCase):
@@ -145,8 +145,8 @@ class TestPandasPlaintext(unittest.TestCase):
     def test_exception(self):
         functions.test_exception(self) 
     
-    def test_result_md5(self):
-        functions.test_result_md5(self)   
+    def test_result(self):
+        functions.test_dataset(self, '2d', 'power')
          
 
 @add_run_fixture(__name__, RunPowerAlgorithm, 'FFTPower')
@@ -161,8 +161,8 @@ class TestPlaintext(unittest.TestCase):
     def test_exception(self):
         functions.test_exception(self) 
     
-    def test_result_md5(self):
-        functions.test_result_md5(self)   
+    def test_result(self):
+        functions.test_dataset(self, '2d', 'power')
 
          
 
@@ -178,8 +178,8 @@ class TestTPMSnapshot1D(unittest.TestCase):
     def test_exception(self):
         functions.test_exception(self)   
     
-    def test_result_md5(self):
-        functions.test_result_md5(self) 
+    def test_result(self):
+        functions.test_dataset(self, '1d', 'power')
 
          
 
@@ -195,8 +195,8 @@ class TestTPMSnapshot2D(unittest.TestCase):
     def test_exception(self):
         functions.test_exception(self) 
     
-    def test_result_md5(self):
-        functions.test_result_md5(self)   
+    def test_result(self):
+        functions.test_dataset(self, '2d', 'power')
          
 
 @add_run_fixture(__name__, RunPowerAlgorithm, 'FFTPower')
@@ -211,5 +211,5 @@ class TestMWhiteHalo(unittest.TestCase):
     def test_exception(self):
         functions.test_exception(self)
     
-    def test_result_md5(self):
-        functions.test_result_md5(self)
+    def test_result(self):
+        functions.test_dataset(self, '2d', 'power')

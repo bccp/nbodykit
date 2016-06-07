@@ -37,8 +37,8 @@ class TestStdin(unittest.TestCase):
     def test_exception(self):
         functions.test_exception(self) 
     
-    def test_result_md5(self):
-        functions.test_result_md5(self)
+    def test_result(self):
+        functions.test_dataset(self, '1d', 'power')
         
 @add_run_fixture(__name__, RunBatchAlgorithm, 'FFTPower', timeout=120, make_fixture=batch_fixture)
 class TestBatch(unittest.TestCase):
@@ -53,6 +53,6 @@ class TestBatch(unittest.TestCase):
     def test_exception(self):
         functions.test_exception(self) 
     
-    def test_result_md5(self):
-        functions.test_result_md5(self)   
+    def test_result(self):
+        functions.test_dataset(self, '1d', 'power')
 
