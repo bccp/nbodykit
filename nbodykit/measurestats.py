@@ -297,13 +297,13 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
     for islab in range(len(P0)):
         
         # save for reuse
-        P0_star = P0[islab].conj() 
-        if max_ell > 0: P2_star = P2[islab].conj() 
+        P0_star = (P0[islab]).conj()
+        if max_ell > 0: P2_star = (P2[islab]).conj()
         
         # hexadecapole    
         if max_ell > 2:
             if not factor_hexadecapole:
-                P4[islab, ...] = norm * 9./8. * P0[islab] * (35.*P4[islab].conj() - 30.*P2_star + 3.*P0_star)
+                P4[islab, ...] = norm * 9./8. * P0[islab] * (35.*(P4[islab]).conj() - 30.*P2_star + 3.*P0_star)
             else:
                 P4[islab, ...] = norm * 9./8. * ( 35.*P2[islab]*P2_star + 3.*P0[islab]*P0_star - 5./3.*(11.*P0[islab]*P2_star + 7.*P2[islab]*P0_star) )
         
