@@ -147,6 +147,7 @@ class Measurement2DStorage(MeasurementStorage):
             
             # write out flattened columns
             columns = numpy.dstack(columns).reshape(-1, len(columns))
+            print columns[:10, 0]
             numpy.savetxt(ff, numpy.around(columns, 5), '%0.7g')
             
             # write out edges                
