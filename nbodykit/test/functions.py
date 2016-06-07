@@ -81,6 +81,9 @@ def test_dataset(self, dim, stat):
     this_output = os.path.join(examples_dir, 'output', self.output_file)
     ref = os.path.join(os.path.expanduser(cache_dir), 'results', self.output_file)
 
+    with open(this_output, 'r') as ff:
+        print ff.read()
+        
     # determine the file loader
     if stat == 'power':
         if dim.lower() == '2d':
