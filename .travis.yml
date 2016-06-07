@@ -30,8 +30,7 @@ install:
     - if [ $TRAVIS_PYTHON_VERSION == 2.6 ]; then conda install --yes argparse; fi
     - pip install --pre pfft-python kdcount mpsort pmesh sharedmem bigfile --no-deps
     - pip install --pre -r requirements.txt .
-    - if ! [ -f examples/data/tpm_1.0000.bin.00 ]; then (cd examples; bash get-data.sh); fi
-
+    
 script:
     - py.test nbodykit --cov=nbodykit --cov-report term-missing
 
