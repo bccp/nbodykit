@@ -790,7 +790,7 @@ def from_2d_measurement(dims, d, meta, **kwargs):
     and any additional data
     """
     if 'edges' not in d:
-        raise ValueError("must supply `edges` value in `d` input" %name)
+        raise ValueError("must supply `edges` value in `d` input")
 
     d['dims'] = dims
     meta.update(kwargs)
