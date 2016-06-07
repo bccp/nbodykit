@@ -75,7 +75,7 @@ def test_dataset(self, dim, stat):
     result file
     """
     from nbodykit import files, dataset
-    from numpy.testing import assert_array_almost_equal
+    from numpy.testing import assert_allclose, assert_array_almost_equal
     
     # this result and  reference result
     this_output = os.path.join(examples_dir, 'output', self.output_file)
@@ -105,18 +105,13 @@ def test_dataset(self, dim, stat):
         if name not in this_output.variables:
             raise AssertionError("variables name mismatch")
         
-        # determine the precision
-        precision = 5
-        if 'power' in name or 'corr' in name:
-            precision = 0
-            
         # check
-        assert_array_almost_equal(this_output[name], ref[name], precision)
+        assert_allclose(this_output[name], ref[name], rtol=0.01, atol=1e-3)
         
     # check the meta-data
     for name in ref.attrs:
         if name not in this_output.attrs:
             raise AssertionError("meta-data name mismatch")
-        assert_array_almost_equal(this_output.attrs[name], ref.attrs[name], 5)
+        assert_array_almost_equal(this_output.attrs[name], ref.attrs[name])
         
         

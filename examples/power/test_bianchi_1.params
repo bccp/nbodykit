@@ -23,5 +23,5 @@ fsky: 0.16608
 Nmesh: 128
 max_ell: 4
 dk: 0.005
-paintbrush: TSC
+paintbrush: CIC
 output: ${NBKIT_HOME}/examples/output/test_power_bianchi_1.dat
