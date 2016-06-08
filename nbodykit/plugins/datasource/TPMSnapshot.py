@@ -9,12 +9,13 @@ class TPMSnapshotDataSource(DataSource):
     plugin_name = "TPMSnapshot"
     
     def __init__(self, path, BoxSize, rsd=None, bunchsize=4*1024*1024):
+        
         if self.comm.rank == 0:
             datastorage = files.DataStorage(self.path, files.TPMSnapshotFile)
-            self.TotalLength = sum(datastorage.npart)
+            size = sum(datastorage.npart)
         else:
-            self.TotalLength = None
-        self.TotalLength = self.comm.bcast(self.TotalLength)
+            size = None
+        self.size = self.comm.bcast(size)
 
     @classmethod
     def register(cls):
@@ -27,8 +28,12 @@ class TPMSnapshotDataSource(DataSource):
         s.add_argument("rsd", choices="xyz", help="direction to do redshift distortion")
         s.add_argument("bunchsize", type=int, help="number of particles to read per rank in a bunch")
 
-    def read(self, columns, full=False):
-        """ read data in parallel. if Full is True, neglect bunchsize. """
+    def parallel_read(self, columns, full=False):
+        """ 
+        read data in parallel. if Full is True, neglect bunchsize.
+        
+        This supports `Position`, `Velocity` columns
+        """
         Ntot = 0
         # avoid reading Velocity if RSD is not requested.
         # this is only needed for large data like a TPMSnapshot
@@ -63,12 +68,10 @@ class TPMSnapshotDataSource(DataSource):
             if 'Velocity' in P:
                 P['Velocity'] *= self.BoxSize
 
-            P['Mass'] = numpy.ones(len(P0[0]), dtype='u1')
-
             if self.rsd is not None:
                 dir = "xyz".index(self.rsd)
                 P['Position'][:, dir] += P['Velocity'][:, dir]
                 P['Position'][:, dir] %= self.BoxSize[dir]
 
-            yield [P[key] for key in columns]
+            yield [P.get(key, None) for key in columns]
 

@@ -2,10 +2,10 @@ mode: 2d
 rbins: 'linspace: 0 120 20'
 field:
     plugin: MWhiteHaloFile
-    path: ../data/mwhite_halo.fofp
+    path: ${NBKIT_CACHE}/data/mwhite_halo.fofp
     BoxSize: 1380.
     rsd: z
 Nmu: 10
 
-X: ../../contrib/MWhiteHaloFile.py
-output: ../output/test_corr_2d_mwhite_halo.dat
+X: ${NBKIT_HOME}/contrib/MWhiteHaloFile.py
+output: ${NBKIT_HOME}/examples/output/test_corr_mwhite_halo_2d.dat

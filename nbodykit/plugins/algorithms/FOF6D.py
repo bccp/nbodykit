@@ -34,7 +34,8 @@ class FOF6DAlgorithm(Algorithm):
         comm = self.comm
         offset = 0
         
-        [[Label]] = self.halolabel.read(['Label'], full=True)
+        with self.halolabel.open() as stream:
+            [[Label]] = stream.read(['Label'], full=True)
         mask = Label != 0
         PIG = numpy.empty(mask.sum(), dtype=[
                 ('Position', ('f4', 3)), 
@@ -44,12 +45,13 @@ class FOF6DAlgorithm(Algorithm):
                 ])
         PIG['Label'] = Label[mask]
         del Label
-        [[Position]] = self.datasource.read(['Position'], full=True)
-        PIG['Position'] = Position[mask]
-        del Position
-        [[Velocity]] = self.datasource.read(['Velocity'], full=True)
-        PIG['Velocity'] = Velocity[mask]
-        del Velocity
+        with self.datasource.open() as stream:
+            [[Position]] = stream.read(['Position'], full=True)
+            PIG['Position'] = Position[mask]
+            del Position
+            [[Velocity]] = stream.read(['Velocity'], full=True)
+            PIG['Velocity'] = Velocity[mask]
+            del Velocity
      
         Ntot = comm.allreduce(len(mask))
         del mask
@@ -177,7 +179,7 @@ def so(center, data, r1, nbar, thresh=200):
         if r < 1e-7:
             raise StopIteration
         N = data.tree.root.count(dcenter.tree.root, r)
-        n = N / (4 / 3 * numpy.pi * r ** 3)
+        n = N / (4. / 3. * numpy.pi * r ** 3)
         return 1.0 * n / nbar - 1
      
     try:

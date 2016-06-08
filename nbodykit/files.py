@@ -31,6 +31,11 @@ class TPMSnapshotFile(StripeFile):
         return self
  
     def read(self, column, mystart=0, myend=-1):
+        
+        # return zero-length array, if we don't support column
+        if column not in self.offset_table:
+            return numpy.empty(0)
+            
         dtype, offset = self.offset_table[column]
         dtype = numpy.dtype(dtype)
         if myend == -1:
@@ -44,6 +49,10 @@ class TPMSnapshotFile(StripeFile):
             return numpy.fromfile(ff, count=myend - mystart, dtype=dtype)
 
     def write(self, column, mystart, data):
+        
+        # crash if we don't support column
+        if column not in self.offset_table:
+            raise ValueError("available columns to write: %s" %str(self.offset_table))
         dtype, offset = self.offset_table[column]
         dtype = numpy.dtype(dtype)
         with open(self.filename, 'rb+') as ff:
@@ -104,6 +113,10 @@ class GadgetSnapshotFile(StripeFile):
         self.offset_table = o
 
     def read(self, column, mystart=0, myend=-1):
+        # return zero-length array, if we don't support column
+        if column not in self.offset_table:
+            return numpy.empty(0)
+            
         dtype, offset = self.offset_table[column]
         dtype = numpy.dtype(dtype)
         if myend == -1:
@@ -155,6 +168,10 @@ class GadgetGroupTabFile(StripeFile):
         self.offset_table = o
 
     def read(self, column, mystart=0, myend=-1):
+        # return zero-length array, if we don't support column
+        if column not in self.offset_table:
+            return numpy.empty(0)
+            
         dtype, offset = self.offset_table[column]
         dtype = numpy.dtype(dtype)
         if myend == -1:
@@ -277,14 +294,14 @@ def Read2DPlainText(filename):
     with open(filename, 'r') as ff:
         
         # read number of k and mu bins are first line
-        Nk, Nmu = map(int, ff.readline().split())
+        Nk, Nmu = [int(l) for l in ff.readline().split()]
         N = Nk*Nmu
         
         # names of data columns on second line
         columns = ff.readline().split()
         
         lines = ff.readlines()
-        data = numpy.array([map(float, line.split()) for line in lines[:N]])
+        data = numpy.array([float(l) for line in lines[:N] for l in line.split()])
         data = data.reshape((Nk, Nmu, -1)) #reshape properly to (Nk, Nmu)
                         
         # store as return dict, making complex arrays from real/imag parts
@@ -303,9 +320,9 @@ def Read2DPlainText(filename):
         # read the edges for k and mu bins
         edges = []
         l1 = int(lines[N].split()[-1]); N = N+1
-        edges.append(numpy.array(map(float, lines[N:N+l1])))
+        edges.append(numpy.array([float(line) for line in lines[N:N+l1]]))
         l2 = int(lines[N+l1].split()[-1]); N = N+l1+1
-        edges.append(numpy.array(map(float, lines[N:N+l2])))
+        edges.append(numpy.array([float(line) for line in lines[N:N+l2]]))
         toret['edges'] = edges
         
         # read any metadata
@@ -377,7 +394,7 @@ def Read1DPlainText(filename):
                 continue
                 
             if line[0] != '#':
-                data.append(map(float, line.split()))
+                data.append([float(l) for l in line.split()])
             else:
                 line = line[1:]
                 
@@ -385,7 +402,7 @@ def Read1DPlainText(filename):
                 if 'edges' in line:
                     fields = line.split()
                     N = int(fields[-1]) # number of edges
-                    metadata['edges'] = numpy.array(map(make_float, lines[currline+1:currline+1+N]))
+                    metadata['edges'] = numpy.array([make_float(l) for l in lines[currline+1:currline+1+N]])
                     currline += 1+N
                     continue
         

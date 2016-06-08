@@ -40,14 +40,17 @@ class MomentumPainter(Painter):
         stats = {}
         Nlocal = 0
         
-        # just paint density as usual
-        if self.moment == 0: 
-            for [position] in datasource.read(['Position']):
-                Nlocal += self.basepaint(pm, position)
-        # paint density-weighted velocity moments
-        else:
-            for position, velocity in datasource.read(['Position', 'Velocity']):
-                Nlocal += self.basepaint(pm, position, velocity[:,self._comp_index]**self.moment)
+        # open the datasource stream (with no defaults)
+        with datasource.open() as stream:
+        
+            # just paint density as usual
+            if self.moment == 0: 
+                for [position] in stream.read(['Position']):
+                    Nlocal += self.basepaint(pm, position)
+            # paint density-weighted velocity moments
+            else:
+                for position, velocity in stream.read(['Position', 'Velocity']):
+                    Nlocal += self.basepaint(pm, position, velocity[:,self._comp_index]**self.moment)
     
         # total N
         stats['Ntot'] = self.comm.allreduce(Nlocal)

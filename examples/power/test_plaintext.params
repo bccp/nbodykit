@@ -4,11 +4,11 @@ Nmesh: 256
 field:
     DataSource:
        plugin: PlainText
-       path: ../data/plaintext.txt
+       path: ${NBKIT_CACHE}/data/plaintext_data.txt
        names: [x, y, z, z_redshift, is_sat, N_sat, collided, resolved]
        BoxSize: 1380
        poscols: [x, y, z_redshift]
     DefaultPainter:
     Transfer: [NormalizeDC, RemoveDC, AnisotropicCIC]
     
-output: ../output/power_2d_plaintext_test.dat
+output: ${NBKIT_HOME}/examples/output/test_power_plaintext.dat

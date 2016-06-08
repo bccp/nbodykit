@@ -29,7 +29,7 @@ class GadgetDataSource(DataSource):
         s.add_argument("rsd", choices="xyz", type=str, help="direction to do redshift distortion")
         s.add_argument("bunchsize", type=int, help="number of particles to read per rank in a bunch")
 
-    def read(self, columns, full=False):
+    def parallel_read(self, columns, full=False):
         """ read data in parallel. if Full is True, neglect bunchsize. """
         Ntot = 0
         # avoid reading Velocity if RSD is not requested.
@@ -79,7 +79,7 @@ class GadgetDataSource(DataSource):
                     P['Position'][:, dir] += P['Velocity'][:, dir]
                     P['Position'][:, dir] %= self.BoxSize[dir]
 
-                yield [P[key] for key in columns]
+                yield [P.get(key, None) for key in columns]
 
 
 class GadgetGroupTabDataSource(DataSource):

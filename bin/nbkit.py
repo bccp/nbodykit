@@ -7,15 +7,20 @@ from mpi4py import MPI
 
 from nbodykit.extensionpoints import Algorithm, algorithms
 from nbodykit.extensionpoints import DataSource, Transfer, Painter
-from nbodykit.plugins import ListPluginsAction, load
+from nbodykit.pluginmanager import ListPluginsAction, load
 
 # configure the logging
 rank = MPI.COMM_WORLD.rank
 name = MPI.Get_processor_name()
-logging.basicConfig(level=logging.DEBUG,
-                    format='rank %d on %s: '%(rank,name) + \
-                            '%(asctime)s %(name)-15s %(levelname)-8s %(message)s',
-                    datefmt='%m-%d %H:%M')
+
+def setup_logging(log_level):
+    """
+    Set the basic configuration of all loggers
+    """
+    logging.basicConfig(level=log_level,
+                        format='rank %d on %s: '%(rank,name) + \
+                                '%(asctime)s %(name)-15s %(levelname)-8s %(message)s',
+                        datefmt='%m-%d %H:%M')
 
 class HelpAction(argparse.Action):
     """
@@ -65,6 +70,9 @@ def main():
                              'if not provided, stdin is read from')
     parser.add_argument('-h', '--help', action=HelpAction, help='help for a specific algorithm')
     parser.add_argument("-X", type=load, action="append", help="add a directory or file to load plugins from")
+    parser.add_argument('-v', '--verbose', action="store_const", dest="log_level", 
+                        const=logging.DEBUG, default=logging.INFO, 
+                        help="run in 'verbose' mode, with increased logging output")
     
     # help arguments
     parser.add_argument('--list-datasources', nargs='*', action=ListPluginsAction(DataSource), 
@@ -84,11 +92,14 @@ def main():
     # parse the command-line
     ns, args = parser.parse_known_args()
     alg_name = ns.algorithm_name
-
+    
+    # setup logging
+    setup_logging(ns.log_level)
+        
     # configuration file passed via -c
     if ns.config is not None:
         # ns.config is a file object
-        stream = ns.config
+        stream = ns.config.read()
     else:
         if MPI.COMM_WORLD.rank == 0:
             stream = sys.stdin.read()
@@ -97,11 +108,22 @@ def main():
         # respect the root rank stdin only;
         # on some systems, the stdin is only redirected to the root rank.
         stream = MPI.COMM_WORLD.bcast(stream)
+    
+    
+    # expand environment variables in the input stream
+    stream = os.path.expandvars(stream)
     params, extra = Algorithm.parse_known_yaml(alg_name, stream)
         
     # output is required
     if not hasattr(extra, 'output'):
         raise ValueError("parameter `output` is required in configuration; set to `None` for stdout")
+    extra = vars(extra)
+    output = extra.pop('output')
+    
+    # print warning if extra parameters ignored
+    if MPI.COMM_WORLD.rank == 0 and len(extra):
+        ignored = "[ %s ]" % ", ".join(["'%s'" %k for k in extra.keys()])
+        logging.warning("the following keywords to `nbkit.py` have been ignored: %s" %ignored)
             
     # initialize the algorithm and run
     alg_class = getattr(algorithms, alg_name)
@@ -109,7 +131,7 @@ def main():
 
     # run and save
     result = alg.run()
-    alg.save(extra.output, result) 
+    alg.save(output, result) 
        
 if __name__ == '__main__':
     main()

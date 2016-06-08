@@ -22,7 +22,7 @@ class RaDecRedshiftDataSource(DataSource):
     
     def __init__(self, path, names, unit_sphere=False, 
                     usecols=None, sky_cols=['ra','dec'], z_col='z', 
-                    weight_col=None, degrees=False, select=None):       
+                    weight_col=None, degrees=False, select=None, nbar_col=None):       
 
         # setup the cosmology
         if not self.unit_sphere:
@@ -56,7 +56,9 @@ class RaDecRedshiftDataSource(DataSource):
         s.add_argument("z_col", type=str,
             help="name of the column specifying the redshift coordinate")
         s.add_argument("weight_col", type=str,
-            help="name of the column specifying the a weight for each object")
+            help="name of the column specifying the `weight` for each object")
+        s.add_argument("nbar_col", type=str,
+            help="name of the column specifying the `nbar` value for each object")
         s.add_argument('degrees', type=bool,
             help='set this flag if the input (ra, dec) are in degrees')
         s.add_argument("select", type=selectionlanguage.Query, 
@@ -64,18 +66,52 @@ class RaDecRedshiftDataSource(DataSource):
                   
     def _to_cartesian(self, coords):
         """
-        Convert the (ra, dec, z) coordinates to cartesian coordinates,
+        Convert the (ra, dec, redshift) coordinates to cartesian coordinates,
         scaled to the comoving distance if `unit_sphere = False`, else
         on the unit sphere
+        
+        Notes
+        -----
+        Input angles `ra` and `dec` (first 2 columns of `coords`)  
+        are assumed to be in radians
+        
+        Parameters
+        -----------
+        coords : array_like, (N, 3)
+            the input coordinates with the columns giving (ra, dec, redshift),
+            where ``ra`` and ``dec`` are in radians
+        
+        Returns
+        -------
+        pos : array_like, (N,3)
+            the cartesian position coordinates, where columns represent ``x``, 
+            ``y``, and ``z``
         """
         ra, dec, redshift = coords.T
-        r = 1. if self.unit_sphere else self.cosmo.comoving_distance(redshift)
-        x = r*numpy.cos(ra)*numpy.cos(dec)
-        y = r*numpy.sin(ra)*numpy.cos(dec)
-        z = r*numpy.sin(dec)
-        return numpy.vstack([x,y,z]).T
         
-    def simple_read(self, columns):  
+        x = numpy.cos( dec ) * numpy.cos( ra )
+        y = numpy.cos( dec ) * numpy.sin( ra )
+        z = numpy.sin( dec )
+                
+        pos = numpy.vstack([x,y,z])
+        if not self.unit_sphere:
+            pos *= self.cosmo.comoving_distance(redshift)
+        
+        return pos.T
+        
+    def readall(self):
+        """
+        Read all available data, returning a dictionary
+        
+        This provides the following columns:
+        
+            ``Ra``  : right ascension (in radians)
+            ``Dec`` : declination (in radians)  
+            ``Redshift`` : the redshift
+            ``Position`` : cartesian coordinates computed from angular coords + redshift
+        
+        And optionally, the `Weight` and `Nbar` columns
+        """  
         try:
             import pandas as pd
         except:
@@ -107,16 +143,18 @@ class RaDecRedshiftDataSource(DataSource):
         cols = self.sky_cols + [self.z_col]
         pos = data[cols].values.astype('f4')
 
-        # get the weights
-        w = numpy.ones(len(pos))
+        toret             = {}
+        toret['Ra']       = pos[:,0]
+        toret['Dec']      = pos[:,1]
+        toret['Redshift'] = pos[:,2]
+        toret['Position'] = self._to_cartesian(pos)
+
+        # optionally, return a weight
         if self.weight_col is not None:
-            w = data[self.weight_col].values.astype('f4')
+            toret['Weight'] = data[self.weight_col].values.astype('f4')
 
-        P             = {}
-        P['Ra']       = pos[:,0]
-        P['Dec']      = pos[:,1]
-        P['Redshift'] = pos[:,2]
-        P['Position'] = self._to_cartesian(pos)
-        P['Weight']   = w
-
-        return [P[key] for key in columns]
+        # optionally, return nbar
+        if self.nbar_col is not None:
+            toret['Nbar'] = data[self.nbar_col].values.astype('f4')
+    
+        return toret

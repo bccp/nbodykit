@@ -76,13 +76,16 @@ class FiberCollisionsAlgorithm(Algorithm):
         """
         from nbodykit import fof
         
-        # run the angular FoF algorithm to get group labels
-        # labels gives the global group ID corresponding to each object in Position 
-        # on this rank
-        labels = fof.fof(self.datasource, self._collision_radius_rad, 1, comm=self.comm)
-        
-        # assign the fibers (in parallel)
-        collided, neighbors = self._assign_fibers(labels)
+        # open a persistent cache
+        with self.datasource.keep_cache():
+            
+            # run the angular FoF algorithm to get group labels
+            # labels gives the global group ID corresponding to each object in Position 
+            # on this rank
+            labels = fof.fof(self.datasource, self._collision_radius_rad, 1, comm=self.comm)
+
+            # assign the fibers (in parallel)
+            collided, neighbors = self._assign_fibers(labels)
     
         # all reduce to get summary statistics
         N_pop1 = self.comm.allreduce((collided^1).sum())
@@ -97,7 +100,7 @@ class FiberCollisionsAlgorithm(Algorithm):
             logger.info("collision fraction = %.4f" %f)
 
         # return a structured array
-        d = zip(['Label', 'Collided', 'NeighborID'], [labels, collided, neighbors])
+        d = list(zip(['Label', 'Collided', 'NeighborID'], [labels, collided, neighbors]))
         dtype = [(col, x.dtype) for col, x in d]
         result = numpy.empty(len(labels), dtype=dtype)
         for col, x in d: result[col] = x
@@ -127,7 +130,8 @@ class FiberCollisionsAlgorithm(Algorithm):
         PIG['Index'] = offset + numpy.where(mask == True)[0]
         del Label
         
-        [[Position]] = self.datasource.read(['Position'], full=True)
+        with self.datasource.open() as stream:
+            [[Position]] = stream.read(['Position'], full=True)
         PIG['Position'] = Position[mask]
         del Position
         Ntot = comm.allreduce(len(mask))
@@ -179,7 +183,7 @@ class FiberCollisionsAlgorithm(Algorithm):
         collided[mask] = PIG['Collided'][:]
         neighbors = numpy.zeros(size[comm.rank], dtype='i4') - 1
         neighbors[mask] = PIG['NeighborID'][:]
-         
+
         del PIG
         return collided, neighbors
     

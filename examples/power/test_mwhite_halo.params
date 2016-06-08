@@ -4,10 +4,10 @@ Nmesh: 256
 field:
     DataSource:
         plugin: MWhiteHaloFile
-        path: ../data/mwhite_halo.fofp
+        path: ${NBKIT_CACHE}/data/mwhite_halo.fofp
         BoxSize: 1380.
         rsd: z
     Transfer: [NormalizeDC, RemoveDC, AnisotropicCIC]
 
-output: ../output/test_power_2d_mwhite_halo_test.dat
-X: ../../contrib/MWhiteHaloFile.py
+output: ${NBKIT_HOME}/examples/output/test_power_mwhite_halo.dat
+X: ${NBKIT_HOME}/contrib/MWhiteHaloFile.py

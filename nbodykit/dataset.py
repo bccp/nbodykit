@@ -73,95 +73,67 @@ def __unpickle__(cls, d):
 class DataSet(object):
     """
     Lightweight class to hold variables at fixed coordinates, i.e.,
-    a grid of (r,mu) or (k,mu) bins 
+    a grid of (r, mu) or (k, mu) bins for a correlation function or
+    power spectrum measurement
     
-    It is modeled after the syntax of ``xray.DataSet``, and is designed 
+    It is modeled after the syntax of :class:`xarray.Dataset`, and is designed 
     to hold correlation function or power spectrum results (in 1D or 2D)
     
     Notes
     -----
-    *   note that the suffix `_cen` will be appended to the names of the 
-        dimensions passed to the constructor, since the ``coords`` array holds
-        the bin centers, as constructed from the bin edges
-    
-    
-    Attributes
-    ----------
-    data : array_like
-        a structured array holding the data variables on the coordinate grid
-        
-    mask : array_like
-        a boolean array where `True` elements indicate that that coordinate
-        grid point has a data variable that is `inf` or `NaN`
-        
-    attrs : collections.OrderedDict
-        an ordered dictionary holding any meta data that has been attached
-        to the instance
-        
-    dims : list
-        a list of strings specifying the names of each axis of the input data
-    
-    edges : dict
-         a dict holding the bin edges for each dimension in `dims`
-        
-    coords : dict
-        a dict holding the bin centers for each dimension in `dims`
-            
-    shape : tuple
-        a tuple holding the shape of the data variables
-    
-    variables : list
-        the list of names of each data variable
+    *   the suffix *cen* will be appended to the names of the 
+        dimensions passed to the constructor, since the :attr:`coords` array holds
+        the **bin centers**, as constructed from the bin edges
         
     Examples
     --------
-    *   The following example shows how to read a 1d or 2d output 
-        from nbodykit.extensionpoints.MeasurementStorage
+    The following example shows how to read a power spectrum or correlation 
+    function measurement as written by a nbodykit `Algorithm`. It uses
+    :func:`~nbodykit.files.Read1DPlainText`
     
-        >>> from nbodykit import files
-        >>> corr = Corr2dDataSet.from_nbkit(*files.Read2DPlaintext(filename))
-        >>> pk = Power1dDataSet.from_nbkit(*files.Read1DPlaintext(filename))
+    >>> from nbodykit import files
+    >>> corr = Corr2dDataSet.from_nbkit(*files.Read2DPlainText(filename))
+    >>> pk = Power1dDataSet.from_nbkit(*files.Read1DPlainText(filename))
         
-    *   data variables and coordinate arrays can be accessed in a dict-like
-        fashion:
+    Data variables and coordinate arrays can be accessed in a dict-like
+    fashion:
         
-        >>> power = pkmu['power'] # returns power data variable
-        >>> k_cen = pkmu['k_cen'] # returns k_cen coordinate array
+    >>> power = pkmu['power'] # returns power data variable
+    >>> k_cen = pkmu['k_cen'] # returns k_cen coordinate array
         
-    *   array-like indexing of a `DataSet` returns a new `DataSet`
-        holding the sliced data:
+    Array-like indexing of a :class:`DataSet` returns a new :class:`DataSet`
+    holding the sliced data:
         
-        >>> pkmu
-        <DataSet: dims: (k_cen: 200, mu_cen: 5), variables: ('mu', 'k', 'power')>
-        >>> pkmu[:,0] # select first mu column
-        <DataSet: dims: (k_cen: 200), variables: ('mu', 'k', 'power')>
+    >>> pkmu
+    <DataSet: dims: (k_cen: 200, mu_cen: 5), variables: ('mu', 'k', 'power')>
+    >>> pkmu[:,0] # select first mu column
+    <DataSet: dims: (k_cen: 200), variables: ('mu', 'k', 'power')>
     
-    *   additional data variables can be added to the `DataSet` via:
+    Additional data variables can be added to the :class:`DataSet` via:
     
-        >>> modes = numpy.ones((200, 5))
-        >>> pkmu['modes'] = modes
+    >>> modes = numpy.ones((200, 5))
+    >>> pkmu['modes'] = modes
     
-    *   coordinate-based indexing is possible through the ``sel`` function:
+    Coordinate-based indexing is possible through :func:`sel`:
     
-        >>> pkmu
-        <DataSet: dims: (k_cen: 200, mu_cen: 5), variables: ('mu', 'k', 'power')>
-        >>> pkmu.sel(k_cen=slice(0.1, 0.4), mu_cen=0.5)
-        >>> <DataSet: dims: (k_cen: 30), variables: ('mu', 'k', 'power')>
+    >>> pkmu
+    <DataSet: dims: (k_cen: 200, mu_cen: 5), variables: ('mu', 'k', 'power')>
+    >>> pkmu.sel(k_cen=slice(0.1, 0.4), mu_cen=0.5)
+    <DataSet: dims: (k_cen: 30), variables: ('mu', 'k', 'power')>
     
-    *   the ``squeeze`` function will explicitly squeeze the specified dimension 
-        (of length one) such that the resulting instance has one less dimension:
+    :func:`squeeze` will explicitly squeeze the specified dimension 
+    (of length one) such that the resulting instance has one less dimension:
         
-        >>> pkmu
-        <DataSet: dims: (k_cen: 200, mu_cen: 1), variables: ('mu', 'k', 'power')>
-        >>> pkmu.squeeze('mu_cen') # can also just call pkmu.squeeze()
-        <DataSet: dims: (k_cen: 200), variables: ('mu', 'k', 'power')>
+    >>> pkmu
+    <DataSet: dims: (k_cen: 200, mu_cen: 1), variables: ('mu', 'k', 'power')>
+    >>> pkmu.squeeze(dim='mu_cen') # can also just call pkmu.squeeze()
+    <DataSet: dims: (k_cen: 200), variables: ('mu', 'k', 'power')>
     
-    *   the ``average`` function returns a new `DataSet` holding the data
-        averaged over one dimension
-    
-    *   the ``reindex`` function will re-bin the coordinate arrays along
-        the specified dimension
+    :func:`average` returns a new :class:`DataSet` holding the 
+    data averaged over one dimension
         
+    :func:`reindex` will re-bin the coordinate arrays along the specified 
+    dimension
     """
     _fields_to_sum = []
     
@@ -170,20 +142,22 @@ class DataSet(object):
         Parameters
         ----------
         dims : list, (Ndim,)
-            a list of strings specifying names for the coordinate dimensions.
-            The suffix '_cen' will be appended to each dimension name, to indicate
-            that the coordinate grid is defined at the bin centers
+            A list of strings specifying names for the coordinate dimensions.
+            The dimension names stored in :attr:`dims` have the suffix 'cen'
+            added, to indicate that the coordinate grid is defined at the bin 
+            centers
             
         edges : list, (Ndim,)
-            a list specifying the bin edges for each dimension
+            A list specifying the bin edges for each dimension
             
         variables : dict
             a dictionary holding the data variables, where the keys
-            are interpreted as the variable names
+            are interpreted as the variable names. The variable names are 
+            stored in :attr:`variables`
             
         **kwargs :
-            any additional keywords are saved as metadata in the ``attrs``
-            attribute of the class
+            Any additional keywords are saved as metadata in the :attr:`attrs`
+            attribute, which is an :class:`~collections.OrderedDict`
         """
         if len(dims) != len(edges):
             raise ValueError("size mismatch between specified `dims` and `edges`")
@@ -446,7 +420,7 @@ class DataSet(object):
     #--------------------------------------------------------------------------
     def copy(self):
         """
-        Returns a copy of the `DataSet`
+        Returns a copy of the DataSet
         """
         attrs = self.__copy_attrs__()
         cls = self.__class__
@@ -454,9 +428,22 @@ class DataSet(object):
         
     def rename_variable(self, old_name, new_name):
         """
-        Rename a variable in `data` from `old_name` to `new_name`.
+        Rename a variable in :attr:`data` from `old_name` to `new_name`
         
-        Note that this procedure is performed in-place
+        Note that this procedure is performed in-place (does not 
+        return a new DataSet)
+        
+        Parameters
+        ----------
+        old_name : str
+            the name of the old varibale to rename
+        new_name : str
+            the desired new variable name
+        
+        Raises
+        ------
+        ValueError
+            If `old_name` is not present in :attr:`variables`
         """
         import copy
         if old_name not in self.variables:
@@ -470,8 +457,8 @@ class DataSet(object):
         
     def sel(self, method=None, **indexers):
         """
-        Returns a new `DataSet` indexed by coordinate values along the 
-        specified dimension(s). 
+        Return a new DataSet indexed by coordinate values along the 
+        specified dimension(s) 
         
         Notes
         -----
@@ -482,16 +469,16 @@ class DataSet(object):
         Parameters
         ----------
         method : {None, 'nearest'}
-            the method to use for inexact matches; if set to `None`, require
+            The method to use for inexact matches; if set to `None`, require
             an exact coordinate match, otherwise match the nearest coordinate
-        indexers : keyword pairs
+        **indexers : 
             the pairs of dimension name and coordinate value used to index
-            the `DataSet`
+            the DataSet
             
         Returns
         -------
         sliced : DataSet
-            a new ``DataSet`` holding the sliced data and coordinate grid
+            a new DataSet holding the sliced data and coordinate grid
         
         Examples
         --------
@@ -499,13 +486,13 @@ class DataSet(object):
         <DataSet: dims: (k_cen: 200, mu_cen: 5), variables: ('mu', 'k', 'power')>
         
         >>> pkmu.sel(k_cen=0.4)
-        >>> <DataSet: dims: (mu_cen: 5), variables: ('mu', 'k', 'power')>
+        <DataSet: dims: (mu_cen: 5), variables: ('mu', 'k', 'power')>
         
         >>> pkmu.sel(k_cen=[0.4])
-        >>> <DataSet: dims: (k_cen: 1, mu_cen: 5), variables: ('mu', 'k', 'power')>
+        <DataSet: dims: (k_cen: 1, mu_cen: 5), variables: ('mu', 'k', 'power')>
         
         >>> pkmu.sel(k_cen=slice(0.1, 0.4), mu_cen=0.5)
-        >>> <DataSet: dims: (k_cen: 30), variables: ('mu', 'k', 'power')>
+        <DataSet: dims: (k_cen: 30), variables: ('mu', 'k', 'power')>
         """
         indices = [range(0, self.shape[i]) for i in range(len(self.dims))]
         squeezed_dims = []
@@ -549,21 +536,26 @@ class DataSet(object):
     @classmethod
     def from_nbkit(cls, d, meta):
         """
-        Return a DataSet object from a dictionary of data. Additional
-        metadata can be specified as keyword arguments
+        Return a DataSet object from a dictionary of data and
+        metadata
         
         Notes
         -----
-        * the dictionary ``d`` must also have entries for ``dims``
-        and ``edges`` used to construct the ``DataSet``
+        *   The dictionary `d` must also have entries for `dims`
+            and `edges` which are used to construct the DataSet
         
         Parameters
         ----------
         d : dict 
-            a dictionary holding the data variables, as well as the
+            A dictionary holding the data variables, as well as the
             `dims` and `edges` values
         meta : dict
-            dictionary of metadata to store in the ``attrs`` attribute
+            dictionary of metadata to store in the :attr:`attrs` attribute
+        
+        Returns
+        -------
+        DataSet
+            The newly constructed DataSet
         """
         d = d.copy() # copy so we don't edit for caller
         for name in ['dims', 'edges']:
@@ -576,26 +568,35 @@ class DataSet(object):
                 
     def squeeze(self, dim=None):
         """
-        Squeeze the `DataSet` along the specified dimension, which
-        removes that dimension from the `DataSet`. 
+        Squeeze the DataSet along the specified dimension, which
+        removes that dimension from the DataSet
+        
+        The behavior is similar to that of :func:`numpy.squeeze`.
         
         Parameters
         ----------
         dim : str, optional
-            the name of the dimension to squeeze. If no dimension
+            The name of the dimension to squeeze. If no dimension
             is provided, then the one dimension with unit length will 
-            be squeeze
+            be squeezed
         
         Returns
         -------
         squeezed : DataSet
-            a new `DataSet` instance, squeezed along one dimension
+            a new DataSet instance, squeezed along one dimension
+        
+        Raises
+        ------
+        ValueError
+            If the specified dimension does not have length one, or 
+            no dimension is specified and multiple dimensions have 
+            length one
         
         Examples
         --------
         >>> pkmu
-        <DataSet: dims: (k_cen: 200, mu_cen: 5), variables: ('mu', 'k', 'power')>
-        >>> pkmu[:,0].squeeze() # select first mu bin and squeeze
+        <DataSet: dims: (k_cen: 200, mu_cen: 1), variables: ('mu', 'k', 'power')>
+        >>> pkmu.squeeze() # squeeze the mu dimension
         <DataSet: dims: (k_cen: 200), variables: ('mu', 'k', 'power')>
         """
         # infer the right dimension to squeeze
@@ -627,21 +628,21 @@ class DataSet(object):
         
     def average(self, dim, **kwargs):
         """
-        Compute the average of each variable over the specified dimension
+        Compute the average of each variable over the specified dimension.
         
         Parameters
         ----------
         dim : str
-            the name of the dimension to average over
-        kwargs : key/value pairs
-            additional keywords to pass to ``DataSet.reindex``. See documentation
-            for ``DataSet.reindex`` for valid keywords
+            The name of the dimension to average over
+        **kwargs :
+            Additional keywords to pass to :func:`DataSet.reindex`. See the 
+            documentation for :func:`DataSet.reindex` for valid keywords.
         
         Returns
         -------
         averaged : DataSet
-            a new `DataSet` instance, averaged along one dimension, 
-            such that there is one less dimension now
+            A new DataSet, with data averaged along one dimension, 
+            which reduces the number of dimension by one
         """
         spacing = (self.edges[dim][-1] - self.edges[dim][0])
         toret = self.reindex(dim, spacing, **kwargs)
@@ -656,7 +657,7 @@ class DataSet(object):
                     return_spacing=False):
         """
         Reindex the dimension `dim` by averaging over multiple coordinate bins, 
-        optionally weighting by `weights`. Return a new `DataSet` holding the 
+        optionally weighting by `weights`. Return a new DataSet holding the 
         re-binned data
         
         Notes
@@ -664,33 +665,37 @@ class DataSet(object):
         *   We can only re-bin to an integral factor of the current 
             dimension size in order to inaccuracies when re-binning to 
             overlapping bins
-        *   For variables specified in `self._fields_to_sum`, those
-            variables will be summed when re-indexing, instead of averaging
+        *   Variables specified in :attr:`DataSet._fields_to_sum` will 
+            be summed when re-indexing, instead of averaging
         
         
         Parameters
         ----------
         dim : str
-            the name of the dimension to average over
+            The name of the dimension to average over
         spacing : float
-            the desired spacing for the re-binned data. If `force = True`,
+            The desired spacing for the re-binned data. If `force = True`,
             the spacing used will be the closest value to this value, such
             that the new bins are N times larger, when N is an integer
         weights : array_like or str, optional (`None`)
-            an array to weight the data by before re-binning, or if
+            An array to weight the data by before re-binning, or if
             a string is provided, the name of a data column to use as weights
-        force : bool, optional (`True`)
-            if `True`, force the spacing to be a value such
-            that the new bins are N times larger, when N is an integer; otherwise,
-            raise an exception
-        return_spacing : bool, optional (`False`)
-            if `True`, return the new k spacing as the second return value
+        force : bool, optional
+            If `True`, force the spacing to be a value such
+            that the new bins are N times larger, when N is an integer, 
+            otherwise, raise an exception. Default is `True`
+        return_spacing : bool, optional
+            If `True`, return the new spacing as the second return value. 
+            Default is `False`.
             
         Returns
         -------
         rebinned : DataSet
-            a new `DataSet` instance, which holds the rebinned coordinate
+            A new DataSet instance, which holds the rebinned coordinate
             grid and data variables
+        spacing : float, optional
+            If `return_spacing` is `True`, the new coordinate spacing 
+            will be returned
         """        
         i = self.dims.index(dim)
         
@@ -759,8 +764,6 @@ class DataSet(object):
         
         return (toret, spacing) if return_spacing else toret
         
-        
-
 def from_1d_measurement(dims, d, meta, columns=None, **kwargs):
     """
     Return a DataSet object from columns of data and
@@ -787,7 +790,7 @@ def from_2d_measurement(dims, d, meta, **kwargs):
     and any additional data
     """
     if 'edges' not in d:
-        raise ValueError("must supply `edges` value in `d` input" %name)
+        raise ValueError("must supply `edges` value in `d` input")
 
     d['dims'] = dims
     meta.update(kwargs)
@@ -809,7 +812,7 @@ class Power1dDataSet(DataSet):
     def from_nbkit(cls, d, meta, columns=None, **kwargs):
         """
         Return a `Power1dDataSet` instance taking the return values
-        of `files.Read1DPlaintext` as input
+        of `files.Read1DPlainText` as input
                
         Parameters
         ----------
@@ -826,7 +829,7 @@ class Power1dDataSet(DataSet):
         Examples
         --------
         >>> from nbodykit import files
-        >>> power = Power1dDataSet.from_nbkit(*files.Read1DPlaintext(filename))
+        >>> power = Power1dDataSet.from_nbkit(*files.Read1DPlainText(filename))
         """
         toret = from_1d_measurement(['k'], d, meta, columns=columns, **kwargs)
         toret.__class__ = cls
@@ -845,7 +848,7 @@ class Power2dDataSet(DataSet):
     def from_nbkit(cls, d, meta, **kwargs):
         """
         Return a `Power2dDataSet` instance taking the return values
-        of `files.Read2DPlaintext` as input
+        of `files.Read2DPlainText` as input
                
         Parameters
         ----------
@@ -859,7 +862,7 @@ class Power2dDataSet(DataSet):
         Examples
         --------
         >>> from nbodykit import files
-        >>> power = Power2dDataSet.from_nbkit(*files.Read2DPlaintext(filename))
+        >>> power = Power2dDataSet.from_nbkit(*files.Read2DPlainText(filename))
         """
         toret = from_2d_measurement(['k', 'mu'], d, meta, **kwargs)
         toret.__class__ = cls
@@ -881,7 +884,7 @@ class Corr1dDataSet(DataSet):
     def from_nbkit(cls, d, meta, columns=None, **kwargs):
         """
         Return a `Corr1dDataSet` instance taking the return values
-        of `files.Read1DPlaintext` as input
+        of `files.Read1DPlainText` as input
                
         Parameters
         ----------
@@ -898,7 +901,7 @@ class Corr1dDataSet(DataSet):
         Examples
         --------
         >>> from nbodykit import files
-        >>> corr = Power1dDataSet.from_nbkit(*files.Read1DPlaintext(filename))
+        >>> corr = Power1dDataSet.from_nbkit(*files.Read1DPlainText(filename))
         """
         toret = from_1d_measurement(['r'], d, meta, columns=columns, **kwargs)
         toret.__class__ = cls
@@ -917,7 +920,7 @@ class Corr2dDataSet(DataSet):
     def from_nbkit(cls, d, meta, **kwargs):
         """
         Return a `Corr2dDataSet` instance taking the return values
-        of `files.Read2DPlaintext` as input
+        of `files.Read2DPlainText` as input
                
         Parameters
         ----------
@@ -931,7 +934,7 @@ class Corr2dDataSet(DataSet):
         Examples
         --------
         >>> from nbodykit import files
-        >>> corr = Corr2dDataSet.from_nbkit(*files.Read2DPlaintext(filename))
+        >>> corr = Corr2dDataSet.from_nbkit(*files.Read2DPlainText(filename))
         """
         toret = from_2d_measurement(['r', 'mu'], d, meta, **kwargs)
         toret.__class__ = cls

@@ -1,0 +1,6 @@
+*.rst
+!index.rst
+!installing.rst
+!why-nbodykit.rst
+!examples.rst
+_build

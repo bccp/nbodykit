@@ -84,7 +84,7 @@ class Measurement1DStorage(MeasurementStorage):
                      
             # write out the 1D data arrays
             columns = numpy.vstack(columns).T
-            numpy.savetxt(ff, columns, '%0.7g')
+            numpy.savetxt(ff, columns, '%s')
 
             # write out the bin edges
             header = "# edges %d\n" %len(edges)
@@ -147,7 +147,7 @@ class Measurement2DStorage(MeasurementStorage):
             
             # write out flattened columns
             columns = numpy.dstack(columns).reshape(-1, len(columns))
-            numpy.savetxt(ff, columns, '%0.7g')
+            numpy.savetxt(ff, columns, '%s')
             
             # write out edges                
             for name, e in zip(['kedges', 'muedges'], edges):

@@ -52,7 +52,13 @@ class PlainTextDataSource(DataSource):
         s.add_argument("select", type=selectionlanguage.Query, 
             help='row selection based on conditions specified as string, i.e., "Mass > 1e14"')
         
-    def simple_read(self, columns):
+    def readall(self):
+        """
+        Read all available data, returning a dictionary
+        
+        This provides ``Position`` and optionally ``Velocity`` columns
+        """
+        
         # read in the plain text file as a recarray
         kwargs = {}
         kwargs['comments'] = '#'
@@ -67,25 +73,21 @@ class PlainTextDataSource(DataSource):
             data = data[mask]
         logger.info("total number of objects selected is %d / %d" % (len(data), nobj))
         
+        toret = {}
+        
         # get position and velocity, if we have it
         pos = numpy.vstack(data[k] for k in self.poscols).T.astype('f4')
         pos *= self.posf
         if self.velcols is not None:
             vel = numpy.vstack(data[k] for k in self.velcols).T.astype('f4')
             vel *= self.velf
-        else:
-            vel = numpy.empty(0, dtype=('f4', 3))
+            toret['Velocity'] = Velocity
 
         if self.rsd is not None:
             dir = "xyz".index(self.rsd)
             pos[:, dir] += vel[:, dir]
             pos[:, dir] %= self.BoxSize[dir]
-
-        P = {}
-        P['Position'] = pos
-        P['Velocity'] = vel
-        P['Weight'] = numpy.ones(len(pos))
-        P['Mass'] = numpy.ones(len(pos))
-
-        return [P[key] for key in columns]
+        toret['Position'] = pos
+        
+        return toret
 

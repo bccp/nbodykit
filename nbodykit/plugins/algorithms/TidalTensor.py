@@ -93,7 +93,8 @@ class TidalTensor(Algorithm):
 
         pm.transfer([self.Smoothing, self.NormalizeDC])
 
-        [[Position ]] = self.points.read(['Position'], full=True)
+        with self.points.open() as stream:
+            [[Position ]] = stream.read(['Position'], full=True)
 
         layout = pm.decompose(Position)
         pos1 = layout.exchange(Position)

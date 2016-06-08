@@ -58,13 +58,8 @@ class FFTPowerAlgorithm(Algorithm):
     logger = logging.getLogger(plugin_name)
     
     def __init__(self, mode, Nmesh, field, other=None, los='z', Nmu=5, 
-                    dk=None, kmin=0., quiet=False, poles=[]):
-          
-        # properly set the logging level          
-        self.log_level = logging.DEBUG
-        if quiet:
-            self.log_level = logging.ERROR
-            
+                    dk=None, kmin=0., quiet=False, poles=[], paintbrush='cic'):
+                      
         # combine the two fields
         self.fields = [self.field]
         if self.other is not None:
@@ -115,6 +110,9 @@ class FFTPowerAlgorithm(Algorithm):
             help="silence the logging output")
         s.add_argument('poles', type=int, nargs='*',
             help='if specified, also compute these multipoles from P(k,mu)')
+        s.add_argument('paintbrush', type=lambda x: x.lower(), choices=['cic', 'tsc'],
+            help='the density assignment kernel to use when painting; '
+                 'CIC (2nd order) or TSC (3rd order)')
             
     def run(self):
         """
@@ -123,17 +121,17 @@ class FFTPowerAlgorithm(Algorithm):
         from nbodykit import measurestats
         from pmesh.particlemesh import ParticleMesh
         
-        self.logger.setLevel(self.log_level)
         if self.comm.rank == 0: self.logger.info('importing done')
         
         # setup the particle mesh object, taking BoxSize from the painters
-        pm = ParticleMesh(self.fields[0][0].BoxSize, self.Nmesh, dtype='f4', comm=self.comm)
+        pm = ParticleMesh(self.fields[0][0].BoxSize, self.Nmesh, 
+                            paintbrush=self.paintbrush, dtype='f4', comm=self.comm)
 
         # only need one mu bin if 1d case is requested
         if self.mode == "1d": self.Nmu = 1
     
         # measure
-        y3d, stats1, stats2 = measurestats.compute_3d_power(self.fields, pm, comm=self.comm, log_level=self.log_level)
+        y3d, stats1, stats2 = measurestats.compute_3d_power(self.fields, pm, comm=self.comm)
         x3d = pm.k
     
         # get the number of objects (in a safe manner)
@@ -216,12 +214,7 @@ class FFTCorrelationAlgorithm(Algorithm):
     logger = logging.getLogger(plugin_name)
     
     def __init__(self, mode, Nmesh, field, other=None, los='z', Nmu=5, 
-                    dk=None, kmin=0., quiet=False, poles=[]):
-          
-        # properly set the logging level          
-        self.log_level = logging.DEBUG
-        if quiet:
-            self.log_level = logging.ERROR
+                    dk=None, kmin=0., quiet=False, poles=[], paintbrush='cic'):
             
         # combine the two fields
         self.fields = [self.field]
@@ -242,17 +235,17 @@ class FFTCorrelationAlgorithm(Algorithm):
         from nbodykit import measurestats
         from pmesh.particlemesh import ParticleMesh
 
-        self.logger.setLevel(self.log_level)
         if self.comm.rank == 0: self.logger.info('importing done')
 
         # setup the particle mesh object, taking BoxSize from the painters
-        pm = ParticleMesh(self.fields[0][0].BoxSize, self.Nmesh, dtype='f4', comm=self.comm)
+        pm = ParticleMesh(self.fields[0][0].BoxSize, self.Nmesh, 
+                            paintbrush=self.paintbrush, dtype='f4', comm=self.comm)
 
         # only need one mu bin if 1d case is requested
         if self.mode == "1d": self.Nmu = 1
 
         # measure
-        y3d, stats1, stats2 = measurestats.compute_3d_corr(self.fields, pm, comm=self.comm, log_level=self.log_level)
+        y3d, stats1, stats2 = measurestats.compute_3d_corr(self.fields, pm, comm=self.comm)
         x3d = pm.x
         
         # get the number of objects (in a safe manner)

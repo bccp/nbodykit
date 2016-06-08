@@ -2,10 +2,16 @@ import numpy
 from mpi4py import MPI
 import logging
 from nbodykit.extensionpoints import Painter, Transfer
+import time
 
 logger = logging.getLogger('measurestats')
 
-def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
+def timer(start, end):
+    hours, rem = divmod(end-start, 3600)
+    minutes, seconds = divmod(rem, 60)
+    return "{:0>2}:{:0>2}:{:05.2f}".format(int(hours),int(minutes),seconds)
+
+def compute_3d_power(fields, pm, comm=None):
     """
     Compute and return the 3D power from two input fields
     
@@ -21,10 +27,6 @@ def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
         the communicator to pass to the ``ParticleMesh`` object. If not
         provided, ``MPI.COMM_WORLD`` is used
         
-    log_level : int, optional
-        logging level to use while computing. Default is ``logging.DEBUG``
-        which has numeric value of `10`
-    
     Returns
     -------
     p3d : array_like (real)
@@ -40,16 +42,15 @@ def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
     """
     # some setup
     rank = comm.rank if comm is not None else MPI.COMM_WORLD.rank
-    if log_level is not None: logger.setLevel(log_level)
     
     # check that the painter was passed correctly
     datasources = [d for d, p, t in fields]
     painters    = [p for d, p, t in fields]
     transfers   = [t for d, p, t in fields]
-        
+    
     # paint, FT field and filter field #1
     stats1 = painters[0].paint(pm, datasources[0])
-    if rank == 0: logger.info('painting done')
+    if rank == 0: logger.info('%s painting done' %pm.paintbrush)
     pm.r2c()
     if rank == 0: logger.info('r2c done')
     pm.transfer(transfers[0])
@@ -66,7 +67,7 @@ def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
         
         # paint, FT, and filter field #2
         stats2 = painters[1].paint(pm, datasources[1])
-        if rank == 0: logger.info('painting 2 done')
+        if rank == 0: logger.info('%s painting 2 done' %pm.paintbrush)
         pm.r2c()
         if rank == 0: logger.info('r2c 2 done')
         pm.transfer(transfers[1])
@@ -91,7 +92,9 @@ def compute_3d_power(fields, pm, comm=None, log_level=logging.DEBUG):
                 
     return p3d, stats1, stats2
     
-def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.DEBUG):
+def compute_bianchi_poles(comm, max_ell, catalog, Nmesh, 
+                            factor_hexadecapole=False, 
+                            paintbrush='cic'):
     """
     Compute and return the 3D power multipoles (ell = [0, 2, 4]) from one 
     input field, which contains non-trivial survey geometry.
@@ -111,14 +114,10 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
         
     pm : ``ParticleMesh``
         particle mesh object that handles the painting and FFTs
-                
-    comm : MPI.Communicator, optional
-        the communicator to pass to the ``ParticleMesh`` object. If not
-        provided, ``MPI.COMM_WORLD`` is used
-        
-    log_level : int, optional
-        logging level to use while computing. Default is ``logging.DEBUG``
-        which has numeric value of `10`
+            
+    factor_hexadecapole: bool, optional
+        if `True`, use the factored expression for the hexadecapole (ell=4) from
+        eq. 27 of Scoccimarro 2015 (1506.02729); default is `False`
     
     Returns
     -------
@@ -129,6 +128,8 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
         dictionary holding the statistics of the input datasource, as returned
         by the `FKPPainter` painter
     """
+    from pmesh.particlemesh import ParticleMesh
+    
     def bianchi_transfer(data, x, i, j, k=None, offset=[0., 0., 0.]):
         """
         Transfer functions necessary to compute the power spectrum  
@@ -159,7 +160,7 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
         """
         # compute x**2
         norm = sum((xi + offset[ii])**2 for ii, xi in enumerate(x))
-        
+    
         # get x_i, x_j
         # if i == 'x' direction, it's just one value
         xi = x[i] + offset[i]
@@ -171,22 +172,22 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
             data[:] *= xi**2 * xj * xk
             idx = norm != 0.
             data[idx] /= norm[idx]**2
-            
+        
         else:
             data[:] *= xi * xj
             idx = norm != 0.
             data[idx] /= norm[idx]
-                                    
-    # some setup
-    rank = comm.rank if comm is not None else MPI.COMM_WORLD.rank
-    if log_level is not None: logger.setLevel(log_level)
     
-    # box offset; default to no offset
-    offset = getattr(datasource, 'offset', [0., 0., 0.])
+    # the rank
+    rank = comm.rank
     
-    # get the datasource, painter, and transfer
-    painter = Painter.create('FKPPainter')
-    transfer = [Transfer.create('AnisotropicCIC')]
+    # the painting kernel transfer
+    if paintbrush == 'cic':
+        transfer = Transfer.create('AnisotropicCIC')
+    elif paintbrush == 'tsc':
+        transfer = Transfer.create('AnisotropicTSC')
+    else:
+        raise ValueError("valid `paintbrush` values are: ['cic', 'tsc']")
 
     # which transfers do we need
     if max_ell not in [0, 2, 4]:
@@ -201,77 +202,124 @@ def compute_bianchi_poles(max_ell, datasource, pm, comm=None, log_level=logging.
         bianchi_transfers.append((a2, k2))
     
     # hexadecapole kernels
-    if max_ell > 2:
+    if max_ell > 2 and not factor_hexadecapole:
         k4 = [(0, 0, 0), (1, 1, 1), (2, 2, 2), (0, 0, 1), (0, 0, 2),
              (1, 1, 0), (1, 1, 2), (2, 2, 0), (2, 2, 1), (0, 1, 1),
              (0, 2, 2), (1, 2, 2), (0, 1, 2), (1, 0, 2), (2, 0, 1)]
         a4 = [1.]*3 + [4.]*6 + [6.]*3 + [12.]*3
         bianchi_transfers.append((a4, k4))
     
-    # paint once and save the density
-    stats = painter.paint(pm, datasource)
+    # load the data/randoms and setup boxsize, etc
+    with catalog:
+        
+        # the mean coordinate offset
+        offset = catalog.mean_coordinate_offset
+        
+        # initialize the particle mesh
+        pm = ParticleMesh(catalog.BoxSize, Nmesh, paintbrush=paintbrush, dtype='f8', comm=comm)
+        
+        # do the FKP painting
+        stats = catalog.paint(pm)
+    
+    # save the fkp density for later
     density = pm.real.copy()
-    if rank == 0: logger.info('painting done')
+    if rank == 0: logger.info('%s painting done' %paintbrush)
     
     # compute the monopole, A0(k), and save
     pm.r2c()
-    pm.transfer(transfer)
+    transfer(pm, pm.complex)
     A0 = pm.complex.copy()
     if rank == 0: logger.info('ell = 0 done; 1 r2c completed')
     
+    volume = pm.BoxSize.prod()
+    
     # store the A0, A2, A4 arrays
     result = []
-    result.append(A0)
+    result.append(A0*volume)
     
     # the x grid points (at point centers)
     cell_size = pm.BoxSize / pm.Nmesh
     xgrid = [(ri+0.5)*cell_size[i] for i, ri in enumerate(pm.r)]
     
-    for iell, ell in enumerate(ells[1:]):
+    start = time.time()
+    for iell in range(len(bianchi_transfers)):
+        ell = ells[iell+1]
         A_ell = numpy.zeros_like(pm.complex)
         
         for amp, integers in zip(*bianchi_transfers[iell]):
-            
-            # reset the 'real' array to the original painted density
+                        
+            # reset the 'pm.real' array to the original FKP density
             pm.real[:] = density[:]
         
             # apply the real-space transfer
+            if rank == 0: logger.debug("applying real-space Bianchi transfer for %s..." %str(integers))
             bianchi_transfer(pm.real, xgrid, *integers, offset=offset)
-                        
+            if rank == 0: logger.debug('...done')
+    
             # do the FT and apply the k-space kernel
+            if rank == 0: logger.debug("performing r2c...")
             pm.r2c()
-            bianchi_transfer(pm.complex, pm.k, *integers)
-            pm.transfer(transfer)
-        
-            # and save
-            A_ell[:] += amp*pm.complex[:]
+            if rank == 0: logger.debug('...done')
             
+            # fourier space kernel
+            if rank == 0: logger.debug("applying Fourier-space Bianchi transfer for %s..." %str(integers))
+            bianchi_transfer(pm.complex, pm.k, *integers)
+            if rank == 0: logger.debug('...done')
+            
+            # and save
+            A_ell[:] += amp*pm.complex[:]*volume
+            
+        # apply the gridding transfer and save
+        transfer(pm, A_ell)
         result.append(A_ell)
         if rank == 0: 
             args = (ell, len(bianchi_transfers[iell][0]))
             logger.info('ell = %d done; %s r2c completed' %args)
-            
+        
+    stop = time.time()
+    if rank == 0:
+        logger.info("higher order multipoles computed in elapsed time %s" %timer(start, stop))
+        if factor_hexadecapole:
+            logger.info("using factorized hexadecapole estimator for ell=4")
+    
     # proper normalization: A_ran from equation 
-    norm = pm.BoxSize.prod()**2 / stats['A_ran']
+    norm = 1.0 / stats['A_ran']
     
     # reuse memory for output
     P0 = result[0]
     if max_ell > 0: P2 = result[1]
-    if max_ell > 2: P4 = result[2]
-    
+    if max_ell > 2:
+        if not factor_hexadecapole: 
+            P4 = result[2]
+        else:
+            P4 = numpy.empty_like(P2)
+        
     # calculate the multipoles, islab by islab to save memory
     # see equations 6-8 of Bianchi et al. 2015
     for islab in range(len(P0)):
-        if max_ell > 2:
-            P4[islab, ...] = norm * 9./8 * P0[islab] * (35.*P4[islab].conj() - 30.*P2[islab].conj() + 3.*P0[islab].conj())
-        if max_ell > 0:
-            P2[islab, ...] = norm * 5./2 * P0[islab] * (3.*P2[islab].conj() - P0[islab].conj())
-        P0[islab, ...] = norm * P0[islab] * P0[islab].conj()
 
+        # save for reuse
+        P0_star = (P0[islab]).conj()
+        if max_ell > 0: P2_star = (P2[islab]).conj()
+
+        # hexadecapole
+        if max_ell > 2:
+            if not factor_hexadecapole:
+                P4[islab, ...] = norm * 9./8. * P0[islab] * (35.*(P4[islab]).conj() - 30.*P2_star + 3.*P0_star)
+            else:
+                P4[islab, ...] = norm * 9./8. * ( 35.*P2[islab]*P2_star + 3.*P0[islab]*P0_star - 5./3.*(11.*P0[islab]*P2_star + 7.*P2[islab]*P0_star) )
+        # quadrupole
+        if max_ell > 0:
+            P2[islab, ...] = norm * 5./2. * P0[islab] * (3.*P2_star - P0_star)
+
+        # monopole
+        P0[islab, ...] = norm * P0[islab] * P0_star
+        
     result = [P0]
     if max_ell > 0: result.append(P2)
     if max_ell > 2: result.append(P4)
-    return result, stats
+
+    return pm, result, stats
 
 
 def compute_brutal_corr(datasources, rbins, Nmu=0, comm=None, subsample=1, los='z', poles=[]):
@@ -346,13 +394,15 @@ def compute_brutal_corr(datasources, rbins, Nmu=0, comm=None, subsample=1, los='
     domain = GridND(grid, comm=comm)
 
     # read position for field #1 
-    [[pos1]] = datasources[0].read(['Position'], full=True)
+    with datasources[0].open() as stream:
+        [[pos1]] = stream.read(['Position'], full=True)
     pos1 = pos1[comm.rank * subsample // comm.size ::subsample]
     N1 = comm.allreduce(len(pos1))
     
     # read position for field #2
     if len(datasources) > 1:
-        [[pos2]] = datasources[1].read(['Position'], full=True)
+        with datasources[1].open() as stream:
+            [[pos2]] = stream.read(['Position'], full=True)
         pos2 = pos2[comm.rank * subsample // comm.size ::subsample]
         N2 = comm.allreduce(len(pos2))
     else:
@@ -421,7 +471,7 @@ def compute_brutal_corr(datasources, rbins, Nmu=0, comm=None, subsample=1, los='
 
     return pc, xi, RR
 
-def compute_3d_corr(fields, pm, comm=None, log_level=logging.DEBUG):
+def compute_3d_corr(fields, pm, comm=None):
     """
     Compute the 3d correlation function by Fourier transforming 
     the 3d power spectrum
@@ -429,7 +479,7 @@ def compute_3d_corr(fields, pm, comm=None, log_level=logging.DEBUG):
     See documentation of `measurestats.compute_3d_power`
     """
 
-    p3d, N1, N2 = compute_3d_power(fields, pm, comm=comm, log_level=log_level)
+    p3d, N1, N2 = compute_3d_power(fields, pm, comm=comm)
     
     # directly transform dimensionless p3d
     # Note that L^3 cancels with dk^3.

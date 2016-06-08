@@ -13,18 +13,18 @@
 
     1. add a class decorator @ExtensionPoint
 """
-from nbodykit.utils.config import autoassign, ConstructorSchema, ReadConfigFile
+from nbodykit.utils.config import autoassign, ConstructorSchema, ReadConfigFile, PluginParsingError
 from nbodykit.distributedarray import ScatterArray
 
 import numpy
 from argparse import Namespace
 import functools
-from inspect import isgeneratorfunction
+import weakref
+
 
 # MPI will be required because
 # a plugin instance will be created for a MPI communicator.
 from mpi4py import MPI
-
 
 algorithms  = Namespace()
 datasources = Namespace()
@@ -121,7 +121,7 @@ class PluginMount(type):
             init = cls.__init__
             if hasattr(init, '__func__'):
                 init = init.__func__
-            
+
             # add a schema
             init.schema = ConstructorSchema()
             cls.schema = cls.__init__.schema
@@ -131,16 +131,16 @@ class PluginMount(type):
 
             # register the class
             cls.register()
-            
+
             # configure the class __init__, attaching the comm, and optionally cosmo
             attach_cosmo = issubclass(cls, DataSource)
             cls.__init__ = autoassign(init, attach_cosmo=attach_cosmo)
-            
-    def create(cls, plugin_name, use_schema=False, **kwargs): 
-        """ 
+
+    def create(cls, plugin_name, use_schema=False, **kwargs):
+        """
         Instantiate a plugin from this extension point,
-        based on the name/value pairs passed as keywords. 
-        
+        based on the name/value pairs passed as keywords.
+
         Optionally, cast the keywords values, using the types
         defined by the schema of the class we are creating
 
@@ -211,19 +211,34 @@ class PluginMount(type):
                     if isinstance(parsed[k], dict):
                         return cls.create(k, use_schema=True, **parsed[k])
                     else:
-                        raise Exception
+                        raise PluginParsingError
                 elif hasattr(cls, 'plugin_name'):
                     return cls.create(cls.plugin_name, use_schema=True, **parsed)
                 else:
-                    raise Exception
+                    raise PluginParsingError
             elif isinstance(parsed, str):
                 return cls.create(parsed)
             else:
-                raise Exception
-        except Exception as e:
-            import traceback
-            traceback = traceback.format_exc()
-            raise ValueError("failure to parse plugin:\n\n%s" %(traceback))
+                raise PluginParsingError
+        except PluginParsingError as e:
+            msg = '\n' + '-'*75 + '\n'
+            msg += "failure to parse plugin from configuration using `from_config()`\n"
+            msg += ("\nThere are several ways to initialize plugins from configuration files:\n"
+                    "1. The plugin parameters are specified as a dictionary containing the key `plugin`,\n"
+                    "   which gives the name of the plugin to load; the rest of the dictionary is\n"
+                    "   passed to the plugin `__init__()` as keyword arguments\n"
+                    "2. The plugin is specified as a dictionary having only one entry -- \n"
+                    "   the key gives the plugin name and the value is a dict of arguments\n"
+                    "   to be passed to the plugin `__init__()`\n"
+                    "3. When `from_config()` is bound to a particular plugin class, only a dict\n"
+                    "   of the `__init__()` arguments should be specified\n"
+                    "4. The plugin is specified as a string, which gives the name of the plugin;\n"
+                    "   the plugin will be created with no arguments\n")
+            msg += '\n' + '-'*75 + '\n'
+            e.args = (msg,)
+            raise 
+        except:
+            raise
             
     def format_help(cls, *plugins):
         """
@@ -297,54 +312,235 @@ class Transfer:
         """
         raise NotImplementedError
 
-def memoized(f):
+class DataStream(object):
     """
-    Decorator to cache return values of `DataSource.read`
+    A class to represent an open `DataSource` stream, which
+    is called by `DataSource.open()`
     
-    This is designed such that the user can decorate any
-    DataSource `read` calls in any DataSource Plugin
+    The class is written such that it be used with or without
+    the `with` statement, similar to the file `open()` function
+    
+    
+    Attributes
+    ----------
+    read : callable
+        a method that returns an iterator that will iterate through
+        the data source (either collectively or uncollectively), 
+        returning the specified columns
+    nread : int
+        during each iteration of `read`, this will store the number
+        of rows read from the data source
     """
-    cache = {}
-
-    @functools.wraps(f)
-    def wrapped(*args, **kwargs):
-        columns = args[-1]
+    def __init__ (self, data, defaults={}):
         
-        # only respects full at the moment
-        full = kwargs.get('full', None)
-        if set(kwargs) not in [{"full"}, set()]:
-            raise ValueError("DataSource cache only respects `full` keyword; others were provided")
-
-        # find out which columns are in cache
-        missing = [(c, full) for c in columns if (c,full) not in cache]
-        if len(missing):
-            cols = [m[0] for m in missing]
-            newargs = list(args); newargs[-1] = cols
-            result = f(*newargs, **kwargs) # this is a generator
-
-            # generator returned, so unpack it into list and arrange by column
-            result = list(zip(*result))
-            # cache each column result
-            for i, key in enumerate(missing):
-                cache[key] = result[i]
-
-        # return
-        toret = [cache[(col,full)] for col in columns]
-        return zip(*toret) # re-zip results from the generator
+        # store the data and defaults
+        self.data = data
+        self.defaults = defaults
+        self.nread = 0
         
-    wrapped.cache = cache
-    return wrapped
-
-
+        # store a weak reference to the private cache
+        self._cacheref = data._cache
+        if not self._cacheref.empty:
+            self.nread = self._cacheref.total_size
+            
+    def __enter__ (self):
+        return self
+        
+    def __exit__ (self, exc_type, exc_value, traceback):
+        self.close()
+        
+    def close(self):
+        """
+        Close the DataStream; no `read` operations are
+        allowed on closed streams
+        """
+        if not self.closed:
+            del self._cacheref
+        
+    @property
+    def closed(self):
+        """
+        Whether or not the DataStream is closed
+        """
+        return not hasattr(self, '_cacheref')        
+        
+    def isdefault(self, name, data):
+        """
+        Return `True` if the input data is equal to the default
+        value for this stream
+        """
+        if name in self.defaults:
+            return self.defaults[name] == data[0]
+        else:
+            return False
+        
+    def read(self, columns, full=False):
+        """
+        Read the data corresponding to `columns`
+        
+        Parameters
+        ----------
+        columns : list
+            list of strings giving the names of the desired columns
+        full : bool, optional
+            if `True`, any `bunchsize` parameters will be ignored, so 
+            that each rank will read all of its specified data section
+            at once; default is `False`
+        
+        Returns
+        -------
+        data : list
+            a list of the data for each column in `columns`
+        """
+        if self.closed:
+            raise ValueError("'read' operation on closed data stream")
+            
+        # return data from cache, if it's not empty
+        if not self._cacheref.empty:
+            
+            # valid column names
+            valid_columns = list(set(self._cacheref.columns)|set(self.defaults))
+            
+            # replace any missing columns with None
+            data = []
+            for i, col in enumerate(columns):
+                if col in self._cacheref.columns:
+                    data.append(self._cacheref[col])
+                else:
+                    data.append(None)
+            
+            # yield the blended data
+            yield self._blend_data(columns, data, valid_columns, self._cacheref.local_size)
+            
+        # parallel read is defined
+        else:
+            # reset the number of rows read
+            self.nread = 0
+            
+            # do the parallel read
+            for data in self.data.parallel_read(columns, full=full):
+                
+                # determine the valid columns (where data is not None)
+                valid_columns = []; indices = []
+                for i, col in enumerate(columns):
+                    if data[i] is not None:
+                        valid_columns.append(col)
+                        indices.append(i)
+                valid_columns = list(set(valid_columns)|set(self.defaults))
+                
+                # verify data
+                valid_data = [data[i] for i in indices]
+                size = self.data._verify_data(valid_data)
+                
+                # update the number of rows read
+                self.nread += self.data.comm.allreduce(size)
+                
+                # yield the blended data with defaults
+                yield self._blend_data(columns, data, valid_columns, size)
+                
+    def _blend_data(self, columns, data, valid_columns, size):
+        """
+        Internal function to blend data that has been explicitly read
+        and any default values that have been set. 
+        
+        Notes
+        -----
+        *   Default values are returned with the correct size but minimal
+            memory usage using `stride_tricks` from `numpy.lib`
+        *   This function will crash if a column is requested that the 
+            data source does not provided and no default exists
+        
+        Parameters
+        ----------
+        columns : list
+            list of the column names that are being returned
+        data : list
+            list of data corresponding to `columns`; if a column is not 
+            supported, the element of data is `None`
+        valid_columns : list
+            the list of valid column names; the union of the columns supported
+            by the data source and the default values
+        size : int
+            the size of the data we are returning
+        
+        Returns
+        -------
+        newdata : list
+            the list of data with defaults blended in, if need be
+        """
+        newdata = []
+        for i, col in enumerate(columns):
+                        
+            # this column is missing -- crash
+            if col not in valid_columns:
+                args = (col, str(valid_columns))
+                raise ValueError("column '%s' is unavailable; valid columns are: %s" %args)
+            
+            # we have this column
+            else:
+                # return read data, if not None
+                if data[i] is not None:
+                    newdata.append(data[i])
+                # return the default
+                else:
+                    if col not in self.defaults:
+                        raise RuntimeError("missing default value when trying to blend data")    
+                        
+                    # use stride_tricks to avoid memory usage
+                    val = numpy.asarray(self.defaults[col])
+                    d = numpy.lib.stride_tricks.as_strided(val, (size, val.size), (0, val.itemsize))
+                    newdata.append(numpy.squeeze(d))
+            
+        return newdata
+        
+class DataCache(object):
+    """
+    A class to cache data in manner that can be weakly
+    referenced via `weakref`
+    """
+    def __init__(self, columns, data, local_size, total_size):
+        
+        self.columns    = columns
+        self.local_size = local_size
+        self.total_size = total_size
+    
+        for col, d in zip(columns, data):
+            setattr(self, col, d)
+    
+    @property
+    def empty(self):
+        return len(self.columns) == 0
+        
+    def __getitem__(self, col):
+        if col in self.columns:
+            return getattr(self, col)
+        else:
+            raise KeyError("no such column in DataCache; available columns: %s" %str(self.columns))    
+    
+    def __str__(self):
+        return self.__repr__()
+        
+    def __repr__(self):
+        return 'DataCache(%s)' %str(self.columns)
+         
 @ExtensionPoint(datasources)
 class DataSource:
     """
-    Mount point for plugins which refer to the reading of input files 
+    Mount point for plugins which refer to the reading of input files.
+    The `read` operation occurs on a `DataStream` object, which
+    is returned by `DataSource.open()`
+    
+    Default values for any columns to read can be supplied as a 
+    dictionary argument to `DataSource.open()`
     
     Notes
     -----
     *   a `Cosmology` instance can be passed to any `DataSource`
         class via the `cosmo` keyword
+    *   the data will be cached in memory if returned via `readall`;
+        the default behavior is for the cache to persist while 
+        an open `DataStream` is valid, but the cache can be forced
+        to persist via the `keep_cache` context manager
 
     Plugins implementing this reference should provide the following 
     attributes:
@@ -358,20 +554,140 @@ class DataSource:
         relevant attributes for the class by adding them to the
         class schema
     
-    simple_read: method
-        A method that performs the reading of the field. This method
-        reads in the full data set. It shall
-        returns the position (in 0 to BoxSize) and velocity (in the
-        same units as position). This method is called by the default
-        read method on the root rank for reading small data sets.
+    readall: method
+        A method to read all available data at once (uncollectively) 
+        and cache the data in memory for repeated calls to `read`
 
-    read: method
-        A method that performs the reading of the field. It shall
-        returns the position (in 0 to BoxSize) and velocity (in the
-        same units as position), in chunks as an iterator. The
-        default behavior is to use Rank 0 to read in the full data
-        and yield an empty data. 
-    """        
+    parallel_read: method
+        A method to read data for complex, large data sets. The read
+        operation shall be collective, with each yield generating 
+        different sections of the datasource on different ranks. 
+        No caching of data takes places.
+    """
+    class MissingColumn(Exception):
+        pass
+            
+    def _cache_data(self):
+        """
+        Internal function to cache the data from `readall`.
+        
+        This function performs the following actions:
+        
+             1. calls `readall` on the root rank
+             2. scatters read data evenly across all ranks
+             3. stores the scattered data as the `cache` attribute
+             4. stores the total size of the data as the `size` attribute
+             5. stores the available columns in the cache as `cached_columns`
+             
+        Returns
+        -------
+        success : bool
+            if the call to `readall` is successful, returns `True`, else `False`
+        """
+        # rank 0 tries to readall, and tells everyone else if it succeeds
+        success = False
+        if self.comm.rank == 0:
+            
+            # read all available data
+            try:
+                data = self.readall()
+                success = True
+            except NotImplementedError:
+                pass
+            except Exception:
+                import traceback
+                raise Exception("an unknown exception occurred while trying to cache data via `readall`:\n"
+                                "traceback:\n\n%s" %traceback.format_exc())
+                
+        # determine if readall was successful
+        success = self.comm.bcast(success, root=0)
+    
+        # cache the data
+        if success:
+            
+            columns = []; size = None
+            if self.comm.rank == 0:
+                columns = list(data.keys())
+                data = [data[c] for c in columns] # store a list
+            
+            # everyone gets the column names
+            columns = self.comm.bcast(columns, root=0)
+        
+            # verify the input data
+            if self.comm.rank == 0:    
+                size = self._verify_data(data)
+            else:
+                data = [None for c in columns]
+        
+            # everyone gets the total size
+            size = self.comm.bcast(size, root=0)
+        
+            # scatter the data across all ranks
+            # each rank caches only a part of the total data
+            cache = []; local_sizes = []
+            for d in data:
+                cache.append(ScatterArray(d, self.comm, root=0))
+                local_sizes.append(len(cache[-1]))
+                
+            # this should hopefully never fail (guaranted to have nonzero length)
+            if not all(s == local_sizes[0] for s in local_sizes):
+                raise RuntimeError("scattering data resulted in uneven lengths between columns")
+            local_size = local_sizes[0]
+
+            # the total collective size of the datasource
+            self.size = size # this will persist, even if cache is deleted
+            
+            # return the cache
+            return DataCache(columns, cache, local_size, size)
+        else:
+            return DataCache([], [], 0, 0) # empty cache
+
+    def _verify_data(self, data):
+        """
+        Internal function to verify the input data by checking that: 
+            
+            1. `data` is not empty
+            2. the sizes of each element of data are equal
+        
+        Parameters
+        ----------
+        data : list
+            the list of data arrays corresponding to the requested columns
+        
+        Returns
+        -------
+        size : int
+            the size of each element of `data`
+        """
+        # need some data
+        if not len(data):
+            raise ValueError('DataSource::read did not return any data')
+        
+        # make sure the number of rows in each column read is equal
+        # columns has to have length >= 1, or we crashed already
+        if not all(len(d) == len(data[0]) for d in data):
+            raise RuntimeError("column length mismatch in DataSource::read")
+        
+        # return the size
+        return len(data[0])
+                    
+    @property
+    def _cache(self):
+        """
+        Internal cache property storing a `DataCache`. This is designed to 
+        be accessed only by `DataStream` objects
+        """
+        # create the weakref dict if need be
+        if not hasattr(self, '_weakcache'):
+            self._weakcache = weakref.WeakValueDictionary()
+            
+        # create the DataCache if need be
+        if 'cache' not in self._weakcache:
+            cache = self._cache_data()
+            self._weakcache['cache'] = cache
+            
+        return self._weakcache['cache']
+        
     @staticmethod
     def BoxSizeParser(value):
         """
@@ -389,77 +705,135 @@ class DataSource:
                 raise ValueError
             boxsize[:] = value
         except:
-            raise ValueError("BoxSize must be a scalar or three-vector")
+            raise ValueError("DataSource `BoxSize` must be a scalar or three-vector")
         return boxsize
-
-    def cache_data(self, cache=True):
+    
+    @property
+    def size(self):
         """
-        Cache/un-cache the return results of `read`
+        The total size of the DataSource returned via the `read` operation.
         
-        Each column that is asked for via `read` will be cached, 
-        and returned from cache if asked for multiple times
+        The user can set this explicitly if the size is known before 
+        `read` is called, otherwise it will be set (exactly once) after `read` is called 
         """
-        # setup the caching read function
-        if cache:
-            if not hasattr(self.read, 'cache'):  # already cached
-                self._original_read = self.read
-                self.read = memoized(self.read)
-        # restore the original
+        try:
+            return self._size
+        except:
+            raise AttributeError("DataSource `size` is not known a priori (i.e., before the 'read' operation)")
+    
+    @size.setter
+    def size(self, val):
+        """
+        Set the `size` attribute. This should only be set once
+        """
+        if not hasattr(self, '_size'):
+            self._size = val
         else:
-            if hasattr(self.read, 'cache'):
-                self.read = self._original_read
-            
-    def simple_read(self, columns):
+            if val != self._size:
+                raise ValueError("DataSource `size` has already been set to a different value")
+    
+    def keep_cache(self):
+        """
+        A context manager that forces the `DataSource` cache to persist,
+        even if there are no open `DataStream` objects. This will 
+        prevent unwanted and unnecessary rereading of the `DataSource`
+
+        The below example details the intended usage. The data is 
+        only cached once below:
+        
+            >> with datasource.keep_cache():
+            >>    with datasource.open() as stream1:
+            >>      [[pos]] = stream1.read(['Position'], full=True)
+            >>    
+            >>    with datasource.open() as stream2:
+            >>      [[vel]] = stream2.read(['Velocity'], full=True)
+        """
+        # simplest implementation is returning a stream
+        return DataStream(self) 
+    
+    def open(self, defaults={}):
+        """
+        Open the `DataSource` by returning a `DataStream` from which
+        the data can be read. 
+        
+        This function also specifies the default values for any columns
+        that are not supported by the `DataSource`. The defaults are
+        unique to each `DataStream`, but a DataSource can be opened
+        multiple times (returning different streams) with different 
+        default values
+        
+        Parameters
+        ----------
+        defaults : dict, optional
+            a dictionary providing default values for a given column
+        name : str, optional
+            return a specific named stream; the datasource must have
+            an attribute with this name, which is a `DataSource` 
+        
+        Returns
+        -------
+        stream : DataStream
+            the stream object from which the data can be read via
+            the `read` function
+        """
+        # note: if DataSource is already `open`, we can 
+        # still get a new stream with different defaults
+        return DataStream(self, defaults=defaults)
+                             
+    def readall(self):
         """ 
-        Override to provide a method to read in all data at once 
-        uncollectively. 
+        Override to provide a method to read all available data at once 
+        (uncollectively) and cache the data in memory for repeated 
+        calls to `read`
 
         Notes
         -----
-
-        This function will be called by the default 'read' function
-        on the root rank to read in the data set.
-        The intention is to reduce the complexity of implementing a
-        simple and small data source.
+        *   The default 'read' function calls this function on the
+            root rank to read all available data, and then scatters
+            the data evenly across all available ranks
+        *   The intention is to reduce the complexity of implementing a 
+            simple and small data source, for which reading all data at once
+            is feasible
             
+        Returns
+        -------
+        data : dict
+            a dictionary of all supported data for the datasource; keys
+            give the column names and values are numpy arrays
         """
         raise NotImplementedError
-
-    def read(self, columns, full=False):
-        """
-        Yield the data in the columns. If full is True, read all
-        particles in one run; otherwise try to read in chunks.
-
+        
+    def parallel_read(self, columns, full=False):
+        """ 
         Override this function for complex, large data sets. The read
         operation shall be collective, each yield generates different
-        sections of the datasource.
-
-        On every iteration `stat` shall be updated with the global 
-        statistics. Current keys are `Ntot`    
+        sections of the datasource. No caching of data takes places.
+        
+        If the `DataSource` does not provide a column in `columns`, 
+        `None` should be returned
+        
+        Notes
+        -----
+        *   This function will be called if `readall` is not provided
+        *   The intention is for this function to handle complex and 
+            large data sets, where parallel I/O across ranks are 
+            required to avoid memory and I/O issues
+            
+        Parameters
+        ----------
+        full : bool, optional
+            if `True`, any `bunchsize` parameters will be ignored, so 
+            that each rank will read all of its specified data section
+            at once
+        
+        Returns
+        -------
+        data : list
+            a list of the data for each column in columns; if the datasource
+            does not provide a given column, that element should be `None`
         """
-        if self.comm.rank == 0:
-            
-            # make sure we have at least one column to read
-            if not len(columns):
-                raise RuntimeError("DataSource::read received no columns to read")
-            
-            data = self.simple_read(columns)    
-            
-            # make sure the number of rows in each column read is equal
-            # columns has to have length >= 1, or we crashed already
-            if not all(len(d) == len(data[0]) for d in data):
-                raise RuntimeError("column length mismatch in DataSource::read")
-            
-        else:
-            data = [None for c in columns]
+        raise NotImplementedError
         
-        
-        newdata = []
-        for d in data:
-            newdata.append(ScatterArray(d, self.comm, root=0))
-
-        yield newdata 
-
 
 @ExtensionPoint(painters)
 class Painter:

@@ -105,8 +105,10 @@ class DataStorage(object):
 
             ff = self.filetype(self.path, i, self.filetype_args)
             data.append(ff.read(column, mystart, myend))
-    
-        return numpy.concatenate(data, axis=0)
+        
+        data = numpy.concatenate(data, axis=0)
+        if not len(data): data = None
+        return data
 
     def write(self, column, start, data):
         """this function provides a continuous view of multiple files"""

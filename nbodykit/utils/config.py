@@ -6,6 +6,9 @@ from argparse import Namespace
 
 class ConfigurationError(Exception):   
     pass
+
+class PluginParsingError(Exception):   
+    pass
  
 def ordered_load(stream, Loader=yaml.SafeLoader, object_pairs_hook=OrderedDict):
     """
@@ -68,7 +71,7 @@ def ReadConfigFile(config_stream, schema):
     """
     from nbodykit.cosmology import Cosmology
     from nbodykit.extensionpoints import set_nbkit_cosmo
-    from nbodykit.plugins import load
+    from nbodykit.pluginmanager import load
 
     # make a new namespace
     ns, unknown = Namespace(), Namespace()
@@ -88,7 +91,6 @@ def ReadConfigFile(config_stream, schema):
         if isinstance(plugins, str):
             plugins = [plugins]
         for plugin in plugins: load(plugin)
-        unknown.X = plugins 
         config.pop('X')
     
     # now load cosmology
@@ -112,19 +114,28 @@ def ReadConfigFile(config_stream, schema):
         raise ValueError("missing required arguments: %s" %str(missing))
     return ns, unknown
 
-class Argument(namedtuple('Argument', ['name', 'required', 'type', 'default', 'choices', 'nargs', 'help', 'subfields'])):
+ArgumentBase = namedtuple('Argument', ['name', 'required', 'type', 'default', 'choices', 'nargs', 'help', 'subfields'])
+class Argument(ArgumentBase):
     """
     Class to represent an argument in the `ConstructorSchema`
     """
     def __new__(cls, name, required, type=None, default=None, choices=None, nargs=None, help="", subfields=None):
         if subfields is None: subfields = OrderedDict()
         return super(Argument, cls).__new__(cls, name, required, type, default, choices, nargs, help, subfields)
-                
+
     def __getitem__(self, key):
         if isinstance(key, str):
             return self.subfields[key]
-        return tuple.__getitem__(self, key)
-             
+        return ArgumentBase.__getitem__(self, key)
+
+    def _asdict(self):
+        # FIXME: the override to getitem seems to be messing up Python 3.
+        # is it used at all?
+        d = {}
+        for f in self._fields:
+            d[f] = getattr(self, f)
+        return d
+
 class ConstructorSchema(OrderedDict):
     """
     An `OrderedDict` of `Argument` objects, which are `namedtuples`.
@@ -344,9 +355,11 @@ def autoassign(init, attach_comm=True, attach_cosmo=False):
             setattr(self, attr, val)
         
         # handle positional arguments
-        positional_attrs = attrs[1:]            
+        positional_attrs = attrs[1:]
+        posargs = {}            
         for attr, val in zip(positional_attrs, args):
             check_choices(init.schema, attr, val)
+            posargs[attr] = val
             setattr(self, attr, val)
     
         # handle varargs
@@ -359,17 +372,66 @@ def autoassign(init, attach_comm=True, attach_cosmo=False):
             for attr,val in kwargs.items():
                 check_choices(init.schema, attr, val)
                 setattr(self, attr, val)
+        
+        # call the __init__ to confirm proper initialization
         try:
             return init(self, *args, **kwargs)
         except Exception as e:
-            import traceback
-            traceback = traceback.format_exc()
-            args = (self.__class__.__name__, traceback)
-            msg = "error initializing __init__ for '%s':\n\n%s " %args
-            raise TypeError(msg)
+            
+            # get the error message
+            errmsg = get_init_errmsg(init.schema, posargs, kwargs)
+            
+            # format the total message
+            args = (self.__class__.__name__,)
+            msg = '\n' + '-'*75 + '\n'
+            msg += "error initializing __init__ for '%s':\n" %self.__class__.__name__
+            msg += "\t%-25s: '%s'\n" %("original error message", str(e))
+            if len(errmsg): msg += "%s\n" %errmsg
+            msg += '-'*75 + '\n'
+            e.args = (msg, )
+            raise
             
     return wrapper
     
+def get_init_errmsg(schema, posargs, kwargs):
+    """
+    Return a reasonable error message, accounting for:
+    
+        * missing arguments
+        * extra arguments
+        * duplicated positional + keyword arguments
+    """
+    errmsg = ""
+    
+    # check duplicated
+    duplicated = list(set(posargs.keys()) & set(kwargs.keys()))
+    if len(duplicated):
+        s = "duplicated arguments"
+        errmsg += "\t%-25s: %s\n" %(s, str(duplicated))
+        
+    # check for missing arguments
+    required = [s for s in schema if schema[s].required]
+    missing = []
+    for r in required:
+        if r not in posargs and r not in kwargs:
+            missing.append(r)
+    if len(missing):
+        s = "missing arguments"
+        errmsg += "\t%-25s: %s\n" %(s, str(missing))
+    
+    # check for extra arguments
+    keys = list(set(posargs.keys()) | set(kwargs.keys()))
+    extra = []
+    for k in keys:
+        if k not in schema:
+            extra.append(k)
+    if len(extra):
+        s = "extra arguments"
+        errmsg += "\t%-25s: %s\n" %(s, str(extra))
+    
+    return errmsg
+    
+
 def check_choices(schema, attr, val):
     """
     Verify that the input values are consistent
@@ -409,14 +471,15 @@ def update_schema(func, attrs, defaults, allowed=[]):
     extra = []; missing = default_names + required
     for name in func.schema:
         a = func.schema[name]
-        
+
         # infer required and defaults and update them
         d = a._asdict()
         d['required'] = a.name in required
         if a.name in default_names:
             d['default'] = defaults[default_names.index(a.name)]
+
         func.schema[name] = func.schema.Argument(**d)
-        
+
         # check for extra and missing
         if a.name not in args and a.name not in allowed:
             extra.append(a.name)
@@ -446,4 +509,3 @@ def update_schema(func, attrs, defaults, allowed=[]):
         func.__doc__ += "\n\n" + func.schema.format_help()
     else:
         func.__doc__ = func.schema.format_help()
-

@@ -3,12 +3,12 @@ rbins: 'linspace: 0 120 20'
 
 field:
     plugin: TPMSnapshot
-    path: ../data/tpm_1.0000.bin
+    path: ${NBKIT_CACHE}/data/tpm_1.0000.bin
     BoxSize: 384
     
 other:
     plugin: FOFGroups
-    path: ../output/fof_ll0.200_1.0000.hdf5
+    path: ${NBKIT_CACHE}/data/fof_ll0.200_1.0000.hdf5
     m0: 10.0
     
-output: ../output/test_corr_1d.dat
+output: ${NBKIT_HOME}/examples/output/test_corr_cross.dat

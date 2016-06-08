@@ -51,7 +51,7 @@ class FOFDataSource(DataSource):
         s.add_argument("select", type=selectionlanguage.Query, 
             help='row selection based on conditions specified as string')
     
-    def simple_read(self, columns):
+    def readall(self):
         import h5py
 
         dataset = h5py.File(self.path, mode='r')[self.dataset]
@@ -88,5 +88,5 @@ class FOFDataSource(DataSource):
             data2['Position'][:, dir] += data2['Velocity'][:, dir]
             data2['Position'][:, dir] %= self.BoxSize[dir]
 
-        return [data2[key].copy() for key in columns]
+        return {key: data2[key].copy() for key in data2.dtype.names}
 
