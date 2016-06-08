@@ -1,5 +1,5 @@
 from .pipeline import RunAlgorithm, add_run_fixture
-from . import os, functions, unittest
+from . import os, asserts, unittest
 from .. import examples_dir
 
 class RunFOF6DAlgorithm(RunAlgorithm):
@@ -12,11 +12,11 @@ class TestTPMSnapshot(unittest.TestCase):
     datasources = ['tpm_1.0000.bin.00', 'fof_ll0.200_1.0000.labels']
     
     def test_exit_code(self):
-        functions.test_exit_code(self)
+        asserts.test_exit_code(self)
     
     def test_exception(self):
-        functions.test_exception(self)    
+        asserts.test_exception(self)    
     
     def test_result(self):
-        functions.test_hdf_result(self, "Subhalos")
+        asserts.test_hdf_result(self, "Subhalos")
 

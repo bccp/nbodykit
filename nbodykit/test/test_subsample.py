@@ -1,5 +1,5 @@
 from .pipeline import RunAlgorithm, add_run_fixture
-from . import os, functions, unittest
+from . import os, asserts, unittest, results
 from .. import examples_dir
 
 class RunSubsampleAlgorithm(RunAlgorithm):
@@ -13,13 +13,13 @@ class TestTPMSnapshot(unittest.TestCase):
     datasources = ['tpm_1.0000.bin.00']
     
     def test_exit_code(self):
-        functions.test_exit_code(self)
+        asserts.test_exit_code(self)
     
     def test_exception(self):
-        functions.test_exception(self) 
+        asserts.test_exception(self) 
         
     def test_result(self):
-        functions.test_hdf_result(self, "Subsample")
+        asserts.test_hdf_result(self, "Subsample")
                 
 @add_run_fixture(__name__, RunSubsampleAlgorithm, 'Subsample')
 class TestTPMSnapshotMWhite(unittest.TestCase):
@@ -28,10 +28,19 @@ class TestTPMSnapshotMWhite(unittest.TestCase):
     datasources = ['tpm_1.0000.bin.00']
     
     def test_exit_code(self):
-        functions.test_exit_code(self)
+        asserts.test_exit_code(self)
     
     def test_exception(self):
-        functions.test_exception(self)    
+        asserts.test_exception(self)    
 
-    def test_result_md5(self):
-        functions.test_result_md5(self)
+    def test_result(self):
+        import numpy
+        
+        # load the binary data
+        this, ref = results.get_result_paths(self.output_file)
+        this = numpy.fromfile(this)
+        ref = numpy.fromfile(ref)
+        
+        # assert loaded arrays are cose
+        numpy.testing.assert_allclose(this, ref)
+        

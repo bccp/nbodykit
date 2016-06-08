@@ -1,58 +1,10 @@
-from pytest_pipeline import PipelineRun, mark, utils
+from pytest_pipeline import PipelineRun, mark
 from . import os, sys, pytest
 from . import verify_data_in_cache, cache_dir
 from .. import bin_dir, pkg_dir
 
 # global counter for the number of pipeline tests
 _pipeline_tests = 0
-
-def reference_result_md5(result_file):
-    """
-    Return the md5 hash for the reference result file 
-    in the cache directory
-    
-    Parameters
-    ----------
-    result_file : str
-        the name of the output file created by one of the
-        pipeline tests; it should be a path in ``~/.nbodykit/results``
-    
-    Returns
-    -------
-    str : 
-        the md5 sum hash string
-    """    
-    path = os.path.join(os.path.expanduser(cache_dir), 'results', result_file)
-    return compute_md5sum(path)
-    
-def compute_md5sum(path):
-    """
-    Return the md5 hash for the input path. If the input path is
-    a directory, return the concatenatation of all files in the directory
-    
-    Parameters
-    ----------
-    path : str
-        the name of a file or directory path
-    
-    Returns
-    -------
-    str : 
-        the md5 sum hash string
-    """    
-    if not os.path.exists(path):
-        raise ValueError("no result file located at '%s'" %path)
-        
-    if os.path.isdir(path):
-        paths_to_hash = []
-        for root, directories, filenames in os.walk(path):
-            for filename in filenames:
-                paths_to_hash.append(os.path.join(root,filename))
-        
-        return "".join(utils.file_md5sum(f) for f in sorted(paths_to_hash))
-        
-    else:
-        return utils.file_md5sum(path) 
 
 def default_run_fixture(cls, name, timeout=60):
     """

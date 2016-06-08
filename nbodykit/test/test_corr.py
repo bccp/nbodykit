@@ -1,5 +1,5 @@
 from .pipeline import RunAlgorithm, add_run_fixture
-from . import os, functions, unittest
+from . import os, asserts, unittest
 from .. import examples_dir
 
 class RunCorrAlgorithm(RunAlgorithm):
@@ -13,13 +13,13 @@ class TestCrossCorr(unittest.TestCase):
     datasources = ['tpm_1.0000.bin.00', 'fof_ll0.200_1.0000.hdf5']
     
     def test_exit_code(self):
-        functions.test_exit_code(self)
+        asserts.test_exit_code(self)
     
     def test_exception(self):
-        functions.test_exception(self)
+        asserts.test_exception(self)
     
     def test_result(self):
-        functions.test_dataset(self, '1d', 'corr')
+        asserts.test_dataset_result(self, '1d', 'corr')
 
   
 @add_run_fixture(__name__, RunCorrAlgorithm, 'PairCountCorrelation')
@@ -29,13 +29,13 @@ class TestMWhiteCorr1D(unittest.TestCase):
     datasources = ['mwhite_halo.fofp']
 
     def test_exit_code(self):
-        functions.test_exit_code(self)
+        asserts.test_exit_code(self)
 
     def test_exception(self):
-        functions.test_exception(self)
+        asserts.test_exception(self)
     
     def test_result(self):
-        functions.test_dataset(self, '1d', 'corr')
+        asserts.test_dataset_result(self, '1d', 'corr')
         
 @add_run_fixture(__name__, RunCorrAlgorithm, 'PairCountCorrelation')
 class TestMWhiteCorr2D(unittest.TestCase):
@@ -44,13 +44,13 @@ class TestMWhiteCorr2D(unittest.TestCase):
     datasources = ['mwhite_halo.fofp']
 
     def test_exit_code(self):
-        functions.test_exit_code(self)
+        asserts.test_exit_code(self)
 
     def test_exception(self):
-        functions.test_exception(self)
+        asserts.test_exception(self)
     
     def test_result(self):
-        functions.test_dataset(self, '2d', 'corr')
+        asserts.test_dataset_result(self, '2d', 'corr')
         
 @add_run_fixture(__name__, RunCorrAlgorithm, 'PairCountCorrelation')
 class TestMWhiteCorrPoles(unittest.TestCase):
@@ -59,13 +59,13 @@ class TestMWhiteCorrPoles(unittest.TestCase):
     datasources = ['mwhite_halo.fofp']
 
     def test_exit_code(self):
-        functions.test_exit_code(self)
+        asserts.test_exit_code(self)
 
     def test_exception(self):
-        functions.test_exception(self)
+        asserts.test_exception(self)
     
     def test_result(self):
-        functions.test_dataset(self, '1d', 'corr')
+        asserts.test_dataset_result(self, '1d', 'corr')
         
 @add_run_fixture(__name__, RunCorrAlgorithm, 'FFTCorrelation')
 class TestFFTCorr(unittest.TestCase):
@@ -74,10 +74,10 @@ class TestFFTCorr(unittest.TestCase):
     datasources = ['tpm_1.0000.bin.00']
 
     def test_exit_code(self):
-        functions.test_exit_code(self)
+        asserts.test_exit_code(self)
 
     def test_exception(self):
-        functions.test_exception(self)
+        asserts.test_exception(self)
     
     def test_result(self):
-        functions.test_dataset(self, '1d', 'corr')
+        asserts.test_dataset_result(self, '1d', 'corr')

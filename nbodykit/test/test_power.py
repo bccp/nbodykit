@@ -1,5 +1,5 @@
 from .pipeline import RunAlgorithm, add_run_fixture
-from . import os, functions, unittest
+from . import os, asserts, unittest
 from .. import examples_dir
 
 class RunPowerAlgorithm(RunAlgorithm):
@@ -13,13 +13,13 @@ class TestBianchi1(unittest.TestCase):
     datasources = ['test_bianchi_data.dat', 'test_bianchi_randoms.dat']
     
     def test_exit_code(self):
-        functions.test_exit_code(self)
+        asserts.test_exit_code(self)
     
     def test_exception(self):
-        functions.test_exception(self)   
+        asserts.test_exception(self)   
     
     def test_result(self):
-        functions.test_dataset(self, '1d', 'power') 
+        asserts.test_dataset_result(self, '1d', 'power') 
 
 
 @add_run_fixture(__name__, RunPowerAlgorithm, 'BianchiFFTPower')
@@ -29,13 +29,13 @@ class TestBianchi2(unittest.TestCase):
     datasources = ['test_bianchi_data.dat']
     
     def test_exit_code(self):
-        functions.test_exit_code(self)
+        asserts.test_exit_code(self)
     
     def test_exception(self):
-        functions.test_exception(self)    
+        asserts.test_exception(self)    
     
     def test_result(self):
-        functions.test_dataset(self, '1d', 'power')
+        asserts.test_dataset_result(self, '1d', 'power')
 
 
 @add_run_fixture(__name__, RunPowerAlgorithm, 'FFTPower')
@@ -45,13 +45,13 @@ class TestCrossMomentum(unittest.TestCase):
     datasources = ['fastpm_1.0000', 'fof_ll0.200_1.0000.hdf5']
     
     def test_exit_code(self):
-        functions.test_exit_code(self)
+        asserts.test_exit_code(self)
     
     def test_exception(self):
-        functions.test_exception(self)  
+        asserts.test_exception(self)  
     
     def test_result(self):
-        functions.test_dataset(self, '1d', 'power')
+        asserts.test_dataset_result(self, '1d', 'power')
 
 
 @add_run_fixture(__name__, RunPowerAlgorithm, 'FFTPower')
@@ -61,13 +61,13 @@ class TestCrossPower(unittest.TestCase):
     datasources = ['fastpm_1.0000', 'fof_ll0.200_1.0000.hdf5']
     
     def test_exit_code(self):
-        functions.test_exit_code(self)
+        asserts.test_exit_code(self)
     
     def test_exception(self):
-        functions.test_exception(self)   
+        asserts.test_exception(self)   
     
     def test_result(self):
-        functions.test_dataset(self, '1d', 'power')
+        asserts.test_dataset_result(self, '1d', 'power')
          
 
 @add_run_fixture(__name__, RunPowerAlgorithm, 'FFTPower')
@@ -77,13 +77,13 @@ class TestFastPM1D(unittest.TestCase):
     datasources = ['fastpm_1.0000']
     
     def test_exit_code(self):
-        functions.test_exit_code(self)
+        asserts.test_exit_code(self)
     
     def test_exception(self):
-        functions.test_exception(self)   
+        asserts.test_exception(self)   
     
     def test_result(self):
-        functions.test_dataset(self, '1d', 'power')
+        asserts.test_dataset_result(self, '1d', 'power')
          
 
 @add_run_fixture(__name__, RunPowerAlgorithm, 'FFTPower')
@@ -93,13 +93,13 @@ class TestFastPM2D(unittest.TestCase):
     datasources = ['fastpm_1.0000']
     
     def test_exit_code(self):
-        functions.test_exit_code(self)
+        asserts.test_exit_code(self)
     
     def test_exception(self):
-        functions.test_exception(self)   
+        asserts.test_exception(self)   
     
     def test_result(self):
-        functions.test_dataset(self, '2d', 'power')
+        asserts.test_dataset_result(self, '2d', 'power')
          
 
 @add_run_fixture(__name__, RunPowerAlgorithm, 'FFTPower')
@@ -109,13 +109,13 @@ class TestFOFGroups(unittest.TestCase):
     datasources = ['fof_ll0.200_1.0000.hdf5']
     
     def test_exit_code(self):
-        functions.test_exit_code(self)
+        asserts.test_exit_code(self)
     
     def test_exception(self):
-        functions.test_exception(self)    
+        asserts.test_exception(self)    
     
     def test_result(self):
-        functions.test_dataset(self, '2d', 'power')
+        asserts.test_dataset_result(self, '2d', 'power')
          
 
 @add_run_fixture(__name__, RunPowerAlgorithm, 'FFTPower')
@@ -125,13 +125,13 @@ class TestPandasHDF(unittest.TestCase):
     datasources = ['pandas_data.hdf5']
     
     def test_exit_code(self):
-        functions.test_exit_code(self)
+        asserts.test_exit_code(self)
     
     def test_exception(self):
-        functions.test_exception(self)    
+        asserts.test_exception(self)    
          
     def test_result(self):
-        functions.test_dataset(self, '2d', 'power')
+        asserts.test_dataset_result(self, '2d', 'power')
 
 @add_run_fixture(__name__, RunPowerAlgorithm, 'FFTPower')
 class TestPandasPlaintext(unittest.TestCase):
@@ -140,13 +140,13 @@ class TestPandasPlaintext(unittest.TestCase):
     datasources = ['plaintext_data.txt']
     
     def test_exit_code(self):
-        functions.test_exit_code(self)
+        asserts.test_exit_code(self)
     
     def test_exception(self):
-        functions.test_exception(self) 
+        asserts.test_exception(self) 
     
     def test_result(self):
-        functions.test_dataset(self, '2d', 'power')
+        asserts.test_dataset_result(self, '2d', 'power')
          
 
 @add_run_fixture(__name__, RunPowerAlgorithm, 'FFTPower')
@@ -156,13 +156,13 @@ class TestPlaintext(unittest.TestCase):
     datasources = ['plaintext_data.txt']
     
     def test_exit_code(self):
-        functions.test_exit_code(self)
+        asserts.test_exit_code(self)
     
     def test_exception(self):
-        functions.test_exception(self) 
+        asserts.test_exception(self) 
     
     def test_result(self):
-        functions.test_dataset(self, '2d', 'power')
+        asserts.test_dataset_result(self, '2d', 'power')
 
          
 
@@ -173,13 +173,13 @@ class TestTPMSnapshot1D(unittest.TestCase):
     datasources = ['tpm_1.0000.bin.00']
     
     def test_exit_code(self):
-        functions.test_exit_code(self)
+        asserts.test_exit_code(self)
     
     def test_exception(self):
-        functions.test_exception(self)   
+        asserts.test_exception(self)   
     
     def test_result(self):
-        functions.test_dataset(self, '1d', 'power')
+        asserts.test_dataset_result(self, '1d', 'power')
 
          
 
@@ -190,13 +190,13 @@ class TestTPMSnapshot2D(unittest.TestCase):
     datasources = ['tpm_1.0000.bin.00']
     
     def test_exit_code(self):
-        functions.test_exit_code(self)
+        asserts.test_exit_code(self)
     
     def test_exception(self):
-        functions.test_exception(self) 
+        asserts.test_exception(self) 
     
     def test_result(self):
-        functions.test_dataset(self, '2d', 'power')
+        asserts.test_dataset_result(self, '2d', 'power')
          
 
 @add_run_fixture(__name__, RunPowerAlgorithm, 'FFTPower')
@@ -206,10 +206,10 @@ class TestMWhiteHalo(unittest.TestCase):
     datasources = ['mwhite_halo.fofp']
     
     def test_exit_code(self):
-        functions.test_exit_code(self)
+        asserts.test_exit_code(self)
     
     def test_exception(self):
-        functions.test_exception(self)
+        asserts.test_exception(self)
     
     def test_result(self):
-        functions.test_dataset(self, '2d', 'power')
+        asserts.test_dataset_result(self, '2d', 'power')

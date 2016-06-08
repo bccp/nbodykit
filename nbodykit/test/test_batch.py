@@ -1,5 +1,5 @@
 from .pipeline import RunAlgorithm, add_run_fixture
-from . import os, functions, unittest
+from . import os, asserts, unittest
 from .. import examples_dir, bin_dir
 
 class RunBatchAlgorithm(RunAlgorithm):
@@ -32,13 +32,13 @@ class TestStdin(unittest.TestCase):
     datasources = ['fastpm_1.0000']
     
     def test_exit_code(self):
-        functions.test_exit_code(self)
+        asserts.test_exit_code(self)
     
     def test_exception(self):
-        functions.test_exception(self) 
+        asserts.test_exception(self) 
     
     def test_result(self):
-        functions.test_dataset(self, '1d', 'power')
+        asserts.test_dataset_result(self, '1d', 'power')
         
 @add_run_fixture(__name__, RunBatchAlgorithm, 'FFTPower', timeout=120, make_fixture=batch_fixture)
 class TestBatch(unittest.TestCase):
@@ -48,11 +48,11 @@ class TestBatch(unittest.TestCase):
     datasources = ['fastpm_1.0000']
     
     def test_exit_code(self):
-        functions.test_exit_code(self)
+        asserts.test_exit_code(self)
     
     def test_exception(self):
-        functions.test_exception(self) 
+        asserts.test_exception(self) 
     
     def test_result(self):
-        functions.test_dataset(self, '1d', 'power')
+        asserts.test_dataset_result(self, '1d', 'power')
 
