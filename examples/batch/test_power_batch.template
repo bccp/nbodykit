@@ -3,9 +3,9 @@ Nmesh: 256
 field:
     DataSource:
         plugin: FastPM
-        path: ../data/fastpm_1.0000
+        path: ${NBKIT_CACHE}/data/fastpm_1.0000
         rsd: {los}
     Transfer: [NormalizeDC, RemoveDC, AnisotropicCIC]
     
 los: {los}
-output: ../output/test_batch_power_fastpm_1d_{los}los_{tag}.txt
+output: ${NBKIT_HOME}/examples/output/test_batch_power_fastpm_1d_{los}los_{tag}.dat

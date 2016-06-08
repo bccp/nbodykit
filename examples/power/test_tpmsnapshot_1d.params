@@ -4,9 +4,9 @@ Nmesh: 256
 field:
     DataSource:
         plugin: TPMSnapshot
-        path: ../data/tpm_1.0000.bin
+        path: ${NBKIT_CACHE}/data/tpm_1.0000.bin
         BoxSize: 384
     Transfer: [NormalizeDC, RemoveDC, AnisotropicCIC]
 
-output: ../output/test_power_tpmsnapshot_1d.txt
+output: ${NBKIT_HOME}/examples/output/test_power_tpmsnapshot_1d.dat
 
