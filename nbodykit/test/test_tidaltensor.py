@@ -19,4 +19,4 @@ class TestTPMSnapshot(unittest.TestCase):
         asserts.test_exception(self)   
     
     def test_result(self):
-        asserts.test_hdf_result(self, "TidalTensor")
+        asserts.test_hdf_result(self, "TidalTensor", rtol=1e-3)

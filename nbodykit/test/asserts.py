@@ -57,7 +57,7 @@ def test_pandas_hdf_result(self, dataset):
     # assert the DataFrames are equal
     assert_frame_equal(this, ref)
     
-def test_hdf_result(self, dataset):
+def test_hdf_result(self, dataset, rtol=1e-5, atol=1e-8):
     """
     Test that the HDF5 result file is the same as the reference
     result file, using ``h5py``
@@ -68,9 +68,9 @@ def test_hdf_result(self, dataset):
     this = results.load_hdf(this, dataset)
     ref = results.load_hdf(ref, dataset)
     
-    assert_numpy_allclose(this, ref, rtol=1e-5, atol=1e-8)
+    assert_numpy_allclose(this, ref, rtol=rtol, atol=atol)
         
-def test_dataset_result(self, dim, stat, skip_imaginary=True):
+def test_dataset_result(self, dim, stat, rtol=0.01, atol=1e-5, skip_imaginary=True):
     """
     Test that the ``DataSet`` result file is the same as the reference
     result file
@@ -92,7 +92,7 @@ def test_dataset_result(self, dim, stat, skip_imaginary=True):
         
         if name not in this.variables:
             raise AssertionError("variables name mismatch in ``assert_dataset_result``")
-        assert_numpy_allclose(this[name], ref[name], rtol=0.01, atol=1e-5)
+        assert_numpy_allclose(this[name], ref[name], rtol=rtol, atol=atol)
         
     # check the meta-data
     for name in ref.attrs:
