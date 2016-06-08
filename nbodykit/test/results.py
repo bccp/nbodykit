@@ -54,7 +54,7 @@ def load_hdf(filename, dataset):
     import h5py
     return h5py.File(filename, mode='r')[dataset][...]
     
-def load_dataset(filename, dim, stat):
+def get_dataset_loader(dim, stat):
     """
     Load a ``Dataset`` object from file
     """
@@ -72,6 +72,6 @@ def load_dataset(filename, dim, stat):
         reader = files.Read1DPlainText
         cls = dataset.Power1dDataSet if stat == 'power' else dataset.Corr1dDataSet
     
-    return cls.from_nbkit(*reader(filename))
+    return lambda f: cls.from_nbkit(*reader(f))
 
     

@@ -42,5 +42,5 @@ class TestTPMSnapshotMWhite(unittest.TestCase):
         ref = numpy.fromfile(ref)
         
         # assert loaded arrays are cose
-        numpy.testing.assert_allclose(this, ref)
+        numpy.testing.assert_allclose(this, ref, rtol=1e-5, atol=1e-8)
         

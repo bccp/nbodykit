@@ -68,7 +68,7 @@ def test_hdf_result(self, dataset):
     this = results.load_hdf(this, dataset)
     ref = results.load_hdf(ref, dataset)
     
-    assert_numpy_allclose(this, ref)
+    assert_numpy_allclose(this, ref, rtol=1e-5, atol=1e-8)
         
 def test_dataset_result(self, dim, stat, skip_imaginary=True):
     """
@@ -79,8 +79,8 @@ def test_dataset_result(self, dim, stat, skip_imaginary=True):
     this, ref = results.get_result_paths(self.output_file)
     
     # load datasets
-    this = results.load_dataset(this, dim, stat)
-    ref = results.load_dataset(ref, dim, stat)
+    loader = results.get_dataset_loader(dim, stat)
+    this = loader(this); ref = loader(ref)
     
     # check each variable
     for name in ref.variables:
