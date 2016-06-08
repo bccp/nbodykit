@@ -25,10 +25,13 @@ install:
     - pip install pytest pytest-cov pytest-pipeline
     - if [ $TRAVIS_PYTHON_VERSION == 2.6 ]; then conda install --yes argparse; fi
     - pip install --pre pfft-python kdcount mpsort pmesh sharedmem bigfile --no-deps
-    - pip install --pre -r requirements.txt .
+    - pip install --pre -r requirements.txt -e . # develop mode to track coverage of subproccess
     
 script:
     - py.test nbodykit --cov=nbodykit --cov-report term-missing
 
+after_success:
+    - coveralls
+    
 #notifications:
 #  email: false
