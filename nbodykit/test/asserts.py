@@ -41,11 +41,19 @@ def test_result_md5sum(self):
     this, ref = results.get_result_paths(self.output_file)
     assert results.compute_md5sum(this) == results.compute_md5sum(ref)
 
-def test_pandas_hdf_result(self, dataset):
+def test_pandas_hdf_result(self, dataset, **kws):
     """
     Test that the pandas HDF5 result file is the same as the reference
     result file, by checking that the ``DataFrame`` objects are 
     the same
+    
+    Parameters
+    ----------
+    dataset : str
+        the name of the HDF5 dataset to load
+    **kws : 
+        any additional keywords to pass to 
+        :func:`~pandas.util.testing.assert_frame_equal`
     """
     from pandas.util.testing import assert_frame_equal
     this, ref = results.get_result_paths(self.output_file)
@@ -55,12 +63,21 @@ def test_pandas_hdf_result(self, dataset):
     ref = results.load_pandas_hdf(ref, dataset)
     
     # assert the DataFrames are equal
-    assert_frame_equal(this, ref)
+    assert_frame_equal(this, ref, **kws)
     
 def test_hdf_result(self, dataset, rtol=1e-5, atol=1e-8):
     """
     Test that the HDF5 result file is the same as the reference
     result file, using ``h5py``
+    
+    Parameters
+    ----------
+    dataset : str
+        the name of the HDF5 dataset to load
+    rtol : float, optional
+        the relative tolerance; default is 1e-5
+    atol : float, optional
+        the absolute tolerance; default is 1e-8
     """
     this, ref = results.get_result_paths(self.output_file)
     
@@ -70,10 +87,27 @@ def test_hdf_result(self, dataset, rtol=1e-5, atol=1e-8):
     
     assert_numpy_allclose(this, ref, rtol=rtol, atol=atol)
         
-def test_dataset_result(self, dim, stat, rtol=0.01, atol=1e-5, skip_imaginary=True):
+def test_dataset_result(self, dim, stat, rtol=1e-2, atol=1e-5, skip_imaginary=True):
     """
     Test that the ``DataSet`` result file is the same as the reference
     result file
+    
+    This loads the `DataSet` and checks that the data
+    arrays are ``allclose`` and also checks the meta-data
+    
+    Parameters
+    ----------
+    dim : {'1d', '2d'}
+        load either a '1d' or '2d' `DataSet`
+    stat : {'power', 'corr'}
+        load either a power or correlation function measurement
+    rtol : float, optional
+        the relative tolerance; default is 1e-2
+    atol : float, optional
+        the absolute tolerance; default is 1e-8
+    skip_imaginary : bool, optional
+        if `True`, do not check the imaginary components of the data arrays; 
+        default is True
     """
     from numpy.testing import assert_array_almost_equal  
     this, ref = results.get_result_paths(self.output_file)
