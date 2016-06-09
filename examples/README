@@ -1,7 +1,10 @@
-This folder contains example parameter files for the various scripts in nbodykit.
+This folder contains parameter files for the various algorithms in nbodykit. The 
+files are intended to serve as examples and are also used for unit testing.
 
-The scripts in nbodykit can read in commandline arguments from parameter file with
-the '@' operator. For example
+To run an example, the `NBKIT_CACHE` and `NBKIT_HOME` directories must be 
+defined. From the main `nbodykit` directory, an example can be run via:
 
-python power.py @boss-challenge-mock1.param
+
+./examples/download_data
+NBKIT_HOME=. NBKIT_CACHE=~/.nbodykit bin/nbkit.py FFTPower examples/power/test_pandas_hdf.params
 
