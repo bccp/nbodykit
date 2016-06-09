@@ -5,10 +5,10 @@ cosmo:
 
 datasource:
     plugin: RaDecRedshift
-    path: ../data/test_bianchi_randoms.dat
+    path: ${NBKIT_CACHE}/data/test_bianchi_randoms.dat
     names: [ra, dec, z]
     usecols: [ra, dec, z]
     degrees: True
     
 BoxSize: [1400, 3000, 1788]
-output: ../output/test_boxsize.dat
+output: ${NBKIT_HOME}/examples/output/test_boxsize.dat

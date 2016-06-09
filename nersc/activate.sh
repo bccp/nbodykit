@@ -1,5 +1,21 @@
 #!/bin/bash
 
+# can supply 0 or 1 argument
+if [ "$#" -gt 1 ]; then
+    echo "usage: activate.sh [latest|stable]"
+    exit 1
+fi
+
+# if no version provided, use 'stable'
+if [ $# -eq 0 ]; then
+    version="stable"
+elif [[ "$1" -ne "stable" || "$1" -ne "latest" ]]; then
+    echo "valid version names are 'stable' and 'latest'"
+    exit 1
+else
+    version=$1
+fi
+
 if [[ -n $BASH_VERSION ]]; then
     _SCRIPT_LOCATION=${BASH_SOURCE[0]}
 elif [[ -n $ZSH_VERSION ]]; then
@@ -10,13 +26,16 @@ else
 fi
 
 NBKITROOT=`dirname ${_SCRIPT_LOCATION}`
-NBKITROOT=`readlink -f $NBKITROOT/..`
+NBKITROOT=`readlink -f $NBKITROOT`
 
+# load default python
 module load python/2.7-anaconda
 
+# activate python-mpi-bcast
 source /usr/common/contrib/bccp/python-mpi-bcast/nersc/activate.sh
 
-bcast ${NBKITROOT}/nbodykit-dep.tar.gz ${NBKITROOT}/nbodykit.tar.gz
+# load the specified version
+bcast ${NBKITROOT}/nbodykit-dep.tar.gz ${NBKITROOT}/nbodykit-${version}.tar.gz
 
 function srun-nbkit {
     local np=

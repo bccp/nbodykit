@@ -216,7 +216,7 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
         offset = catalog.mean_coordinate_offset
         
         # initialize the particle mesh
-        pm = ParticleMesh(catalog.BoxSize, Nmesh, paintbrush=paintbrush, dtype='f4', comm=comm)
+        pm = ParticleMesh(catalog.BoxSize, Nmesh, paintbrush=paintbrush, dtype='f8', comm=comm)
         
         # do the FKP painting
         stats = catalog.paint(pm)
@@ -231,9 +231,11 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
     A0 = pm.complex.copy()
     if rank == 0: logger.info('ell = 0 done; 1 r2c completed')
     
+    volume = pm.BoxSize.prod()
+    
     # store the A0, A2, A4 arrays
     result = []
-    result.append(A0)
+    result.append(A0*volume)
     
     # the x grid points (at point centers)
     cell_size = pm.BoxSize / pm.Nmesh
@@ -265,7 +267,7 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
             if rank == 0: logger.debug('...done')
             
             # and save
-            A_ell[:] += amp*pm.complex[:]
+            A_ell[:] += amp*pm.complex[:]*volume
             
         # apply the gridding transfer and save
         transfer(pm, A_ell)
@@ -281,7 +283,7 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
             logger.info("using factorized hexadecapole estimator for ell=4")
     
     # proper normalization: A_ran from equation 
-    norm = pm.BoxSize.prod()**2 / stats['A_ran']
+    norm = 1.0 / stats['A_ran']
     
     # reuse memory for output
     P0 = result[0]
@@ -291,32 +293,32 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
             P4 = result[2]
         else:
             P4 = numpy.empty_like(P2)
-    
+        
     # calculate the multipoles, islab by islab to save memory
     # see equations 6-8 of Bianchi et al. 2015
     for islab in range(len(P0)):
-        
+
         # save for reuse
-        P0_star = P0[islab].conj() 
-        if max_ell > 0: P2_star = P2[islab].conj() 
-        
-        # hexadecapole    
+        P0_star = (P0[islab]).conj()
+        if max_ell > 0: P2_star = (P2[islab]).conj()
+
+        # hexadecapole
         if max_ell > 2:
             if not factor_hexadecapole:
-                P4[islab, ...] = norm * 9./8. * P0[islab] * (35.*P4[islab].conj() - 30.*P2_star + 3.*P0_star)
+                P4[islab, ...] = norm * 9./8. * P0[islab] * (35.*(P4[islab]).conj() - 30.*P2_star + 3.*P0_star)
             else:
                 P4[islab, ...] = norm * 9./8. * ( 35.*P2[islab]*P2_star + 3.*P0[islab]*P0_star - 5./3.*(11.*P0[islab]*P2_star + 7.*P2[islab]*P0_star) )
-        
         # quadrupole
         if max_ell > 0:
             P2[islab, ...] = norm * 5./2. * P0[islab] * (3.*P2_star - P0_star)
-        
+
         # monopole
         P0[islab, ...] = norm * P0[islab] * P0_star
         
     result = [P0]
     if max_ell > 0: result.append(P2)
     if max_ell > 2: result.append(P4)
+
     return pm, result, stats
 
 

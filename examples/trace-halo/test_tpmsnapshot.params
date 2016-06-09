@@ -1,14 +1,14 @@
 dest:
     plugin: TPMSnapshot
-    path: ../data/tpm_1.0000.bin
+    path: ${NBKIT_CACHE}/data/tpm_1.0000.bin
     BoxSize: 384
 source:
     plugin: TPMSnapshot
-    path: ../data/tpm_1.0000.bin
+    path: ${NBKIT_CACHE}/data/tpm_1.0000.bin
     BoxSize: 384
 sourcelabel:
     plugin: HaloLabel
-    path: ../output/fof_ll0.200_1.0000.labels
+    path: ${NBKIT_CACHE}/data/fof_ll0.200_1.0000.labels
     
     
-output: ../output/fof_ll0.200_1.0000_ichalo.hdf5
+output: ${NBKIT_HOME}/examples/output/fof_ll0.200_1.0000_ichalo.hdf5

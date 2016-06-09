@@ -2,11 +2,11 @@ mode: 1d
 rbins: 'linspace: 0 120 20'
 field:
     plugin: MWhiteHaloFile
-    path: ../data/mwhite_halo.fofp
+    path: ${NBKIT_CACHE}/data/mwhite_halo.fofp
     BoxSize: 1380.
     rsd: z
 
-X: ../../contrib/MWhiteHaloFile.py
+X: ${NBKIT_HOME}/contrib/MWhiteHaloFile.py
 poles: [0, 2, 4]
 
-output: ../output/test_corr_poles_mwhite_halo.dat
+output: ${NBKIT_HOME}/examples/output/test_corr_mwhite_halo_poles.dat

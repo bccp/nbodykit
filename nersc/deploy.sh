@@ -1,20 +1,26 @@
 #! /bin/bash
 
 if [ "x$1" == "x-h" ] || [ "x$1" == "x" ] ; then
-    echo "usage: deploy.sh <version>"
+    echo "usage: deploy.sh <latest|stable>"
     exit 1
 fi
+
+
+# check input version
+if [[ "$1" -ne "stable" || "$1" -ne "latest" ]]; then
+    echo "valid version names are 'stable' and 'latest'"
+    exit 1
+fi
+
 version=$1
 PREFIX=${NERSC_HOST}
 
-# setup build directory
-install -d /usr/common/contrib/bccp/nbodykit/$version
-
 # move the activate script to the build dir
-install activate.sh /usr/common/contrib/bccp/nbodykit/$version
+install activate.sh /usr/common/contrib/bccp/nbodykit/
 
 # copy the necessary tar files
-rsync --exclude='*.gz-*' -ar $PREFIX/$version/* /usr/common/contrib/bccp/nbodykit/$version/
+rsync --exclude='*.gz-*' -ar $PREFIX/nbodykit-dep.tar.gz /usr/common/contrib/bccp/nbodykit/
+rsync --exclude='*.gz-*' -ar $PREFIX/nbodykit-$version.tar.gz /usr/common/contrib/bccp/nbodykit/
 
 function tree {
     SEDMAGIC='s;[^/]*/;|____;g;s;____|; |;g'
