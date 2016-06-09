@@ -19,6 +19,7 @@ randoms:
         plugin: UniformBox
         N: 1000
         BoxSize: 2600
+        seed: 42
     translate: [-2236.77265798, -1342.26887982,  -533.45178881]
     rsd: False
     

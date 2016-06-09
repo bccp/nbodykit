@@ -474,7 +474,7 @@ class DataStream(object):
             # this column is missing -- crash
             if col not in valid_columns:
                 args = (col, str(valid_columns))
-                raise ValueError("column '%s' is unavailable; valid columns are: %s" %args)
+                raise DataSource.MissingColumn("column '%s' is unavailable; valid columns are: %s" %args)
             
             # we have this column
             else:

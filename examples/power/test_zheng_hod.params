@@ -1,0 +1,32 @@
+cosmo:
+    H0: 70
+    Om0: 0.286
+    flat: True
+    Tcmb0: 0.
+    
+mode: 2d
+Nmesh: 256
+
+field:
+    DataSource:
+        plugin: Zheng07Hod
+        halocat:        
+            plugin: UniformBox
+            N: 1000
+            BoxSize: 1380
+            max_speed: 500
+            mu_logM: 13.5
+            sigma_logM: 1.0
+            seed: 42
+        
+        redshift: 0.55
+        logMmin: 12.0
+        sigma_logM: 0.5
+        alpha: 0.7
+        logM0: 13.3
+        logM1: 14.2
+        rsd: z
+        seed: 42
+    Transfer: [NormalizeDC, RemoveDC, AnisotropicCIC]
+    
+output: ${NBKIT_HOME}/examples/output/test_power_zheng_hod.dat

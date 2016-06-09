@@ -1,7 +1,11 @@
 from .pipeline import RunAlgorithm, add_run_fixture
-from . import os, asserts, unittest
+from . import os, asserts, unittest, pytest
 from .. import examples_dir
 
+# import halotools for HOD power tests
+try: import halotools; missing_halotools=False
+except: missing_halotools = True
+    
 class RunPowerAlgorithm(RunAlgorithm):
     run_dir = os.path.join(examples_dir, 'power')
            
@@ -204,6 +208,22 @@ class TestMWhiteHalo(unittest.TestCase):
     param_file  = "test_mwhite_halo.params"
     output_file = "test_power_mwhite_halo.dat"
     datasources = ['mwhite_halo.fofp']
+    
+    def test_exit_code(self):
+        asserts.test_exit_code(self)
+    
+    def test_exception(self):
+        asserts.test_exception(self)
+    
+    def test_result(self):
+        asserts.test_dataset_result(self, '2d', 'power')
+
+@pytest.mark.skipif(missing_halotools, reason="requires `halotools` package")
+@add_run_fixture(__name__, RunPowerAlgorithm, 'FFTPower')
+class TestZhengHOD(unittest.TestCase):
+    param_file  = "test_zheng_hod.params"
+    output_file = "test_power_zheng_hod.dat"
+    datasources = []
     
     def test_exit_code(self):
         asserts.test_exit_code(self)
