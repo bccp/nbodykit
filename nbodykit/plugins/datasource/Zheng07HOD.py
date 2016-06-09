@@ -1,15 +1,43 @@
 from nbodykit.extensionpoints import DataSource
-from nbodykit.distributedarray import ScatterArray
 
 import numpy
 import logging
 
 logger = logging.getLogger('Zheng07Hod')
 
-def FOFGroups(d):
-    from nbodykit.extensionpoints import datasources
-    return datasources.FOFGroups.from_config(d)
+def set_random_seed(f, seed):
+    """
+    Decorator to seed the random seed in the 
+    ``mc_occuputation_*`` functions of the HOD model instance
+    """
+    def wrapper(*args, **kwargs):
+        kwargs['seed'] = seed
+        return f(*args, **kwargs)
     
+    for a in f.func_dict:
+        setattr(wrapper, a, f.func_dict[a])
+    return wrapper
+    
+    
+def model_with_random_seed(model, seed):
+    """
+    Update the relevant functions of the model to use the
+    specified random seed
+    """
+    # update the satellite profile functions
+    sat_functions = ['mc_pos', 'mc_radial_velocity', 'mc_solid_sphere']
+    sat_prof = model.model_dictionary['satellites_profile']
+    for sat_func in sat_functions:
+        f = set_random_seed(getattr(sat_prof, sat_func), seed)
+        setattr(sat_prof, sat_func, f)
+        
+    # update the occupation functions
+    occup_functions = ['mc_occupation_centrals', 'mc_occupation_satellites']
+    for occup_func in occup_functions:
+        f = set_random_seed(getattr(model, occup_func), seed)
+        setattr(model, occup_func, f)
+
+
 class Zheng07HodDataSource(DataSource):
     """
     A `DataSource` that uses the Hod prescription of 
@@ -31,20 +59,21 @@ class Zheng07HodDataSource(DataSource):
     plugin_name = "Zheng07Hod"
     
     def __init__(self, halocat, redshift, logMmin=13.031, sigma_logM=0.38, 
-                    alpha=0.76, logM0=13.27, logM1=14.08, rsd=None):
+                    alpha=0.76, logM0=13.27, logM1=14.08, rsd=None, seed=None):
         """
         Default values for Hod values from Reid et al. 2014
         """
+        from nbodykit.distributedarray import GatherArray
+        
         # load halotools
         try:
             from halotools import sim_manager
         except:
-            name = self.__class__.__name__
-            raise ValueError("`halotools` must be installed to use '%s' DataSource" %name)
+            raise ValueError("`halotools` must be installed to use '%s' DataSource" %self.plugin_name)
             
         # need cosmology
         if self.cosmo is None:
-            raise AttributeError("a cosmology instance is required to populate an Hod")
+            raise AttributeError("a cosmology instance is required to populate a Hod")
         
         # set global redshift and cosmology as global defaults
         sim_manager.sim_defaults.default_cosmology = self.cosmo.engine
@@ -55,37 +84,50 @@ class Zheng07HodDataSource(DataSource):
         self.BoxSize = self.halocat.BoxSize
         
         # read data from halo catalog and then gather to root
-        Columns = ['Position','Velocity', 'Mass']
-        [data] = self.halocat.read(Columns, full=True)
-        alldata = [self.comm.gather(d) for d in data]
+        columns = ['Position','Velocity', 'Mass']
+        try:
+            with self.halocat.open() as stream:
+                [data] = stream.read(columns, full=True)
+        except Exception as e:
+            m = "error reading from halo catalog in %s; " %self.plugin_name
+            m += "be sure that the following columns are supported: %s\n" %str(columns)
+            raise ValueError(m + "original exception: %s" %str(e))
+        alldata = [GatherArray(d, self.comm, root=0) for d in data]
         
         # rank 0 does the populating
         if self.comm.rank == 0:
-            
-            alldata = [numpy.concatenate(d, axis=0) for d in alldata]
             Position, Velocity, Mass = alldata
             
             # explicitly set an analytic mass-concentration relation
             sats_prof_model = em_models.NFWPhaseSpace(conc_mass_model='dutton_maccio14')
-
+            
             # build the full hod model, and set our params
             base_model = em_models.PrebuiltHodModelFactory('zheng07')
             self.model = em_models.HodModelFactory(baseline_model_instance=base_model, 
                                                    satellites_profile=sats_prof_model)
+        
             for param in self.model.param_dict:
                 self.model.param_dict[param] = getattr(self, param)
+                
+            # set the random seed
+            if self.seed is not None:
+                model_with_random_seed(self.model, self.seed)
         
-            # Velocity is normalized by aH, so un-normalize into km/s
+            # compute the rsd factor from cosmology
             H = self.cosmo.engine.H(self.redshift) / self.cosmo.engine.h
             a = 1./(1+self.redshift)
             self.rsd_factor = 1./(a*H)  # (velocity in km/s) * rsd_factor = redshift space offset in Mpc/h
-            Velocity /= self.rsd_factor
+        
+            # FOFGroups velocity is normalized by aH, so un-normalize into km/s
+            ### FIXME
+            if self.halocat.plugin_name == 'FOFGroups':
+                Velocity /= self.rsd_factor
         
             # make the halotools catalog 
             cols                  = {}
             cols['redshift']      = self.redshift
             cols['Lbox']          = self.halocat.BoxSize.max()
-            cols['particle_mass'] = self.halocat.m0
+            cols['particle_mass'] = getattr(self.halocat, 'm0', 1.0)
             cols['halo_x']        = Position[:,0]
             cols['halo_y']        = Position[:,1]
             cols['halo_z']        = Position[:,2]
@@ -96,17 +138,17 @@ class Zheng07HodDataSource(DataSource):
             cols['halo_rvir']     = sats_prof_model.halo_mass_to_halo_radius(Mass)
             cols['halo_id']       = numpy.arange(len(Position))
             cols['halo_upid']     = numpy.zeros_like(Mass) - 1
-            cols['simname']       = 'FOFGroups'
+            cols['simname']       = self.plugin_name
             self._halotools_cat   = sim_manager.UserSuppliedHaloCatalog(**cols)
             
     @classmethod
     def register(cls):
         
         s = cls.schema
-        s.description = "DataSource for galaxies populating a halo catalog using the Zheng et al. 2007 Hod"
+        s.description = "dataSource for galaxies populating a halo catalog using the Zheng et al. 2007 Hod"
         
-        s.add_argument("halocat", type=FOFGroups,
-            help="`FOFGroups` DataSource representing the `halo` catalog")
+        s.add_argument("halocat", type=DataSource.from_config,
+            help="DataSource representing the `halo` catalog")
         s.add_argument('redshift', type=float,
             help='the redshift of the ')
         s.add_argument("logMmin", type=float, 
@@ -120,15 +162,19 @@ class Zheng07HodDataSource(DataSource):
         s.add_argument("logM1", type=float, 
             help="characteristic halo mass where <Nsat> begins to assume a power law form")
         s.add_argument("rsd", type=str, choices="xyz", 
-            help="the direction to do redshift distortion")
+            help="the direction to do the redshift distortion")
+        s.add_argument("seed", type=int,
+            help='the number used to seed the random number generator')
         
     def log_populated_stats(self):
         """
         Log statistics of the populated catalog
         """
         data = self.model.mock.galaxy_table
+        if not len(data):
+            raise ValueError("cannot log statistics of an empty galaxy catalog")
+            
         logger.info("populated %d galaxies into halo catalog" %len(data))
-        
         fsat = 1.*(data['gal_type'] == 'satellites').sum()/len(data)
         logger.info("  satellite fraction: %.2f" %fsat)
         
@@ -153,9 +199,11 @@ class Zheng07HodDataSource(DataSource):
                     raise ValueError("'%s' is not a valid Hod parameter name; valid are: %s" %(name, str(valid)))
                 self.model.param_dict[name] = params[name]
             
-            # repopulate
+            if not len(self.model.mock.galaxy_table):
+                raise ValueError("populated 0 galaxies into the specified halo catalog -- cannot proceed")
+                
+            # re-populate
             self.populate_mock()
-            self.log_populated_stats()
         
     def populate_mock(self):
         """
@@ -174,28 +222,32 @@ class Zheng07HodDataSource(DataSource):
             # repopulate
             else:
                 self.model.mock.populate()
+                
+            if not len(self.model.mock.galaxy_table):
+                raise ValueError("populated 0 galaxies into the specified halo catalog -- cannot proceed")
             self.log_populated_stats()
     
-    def read(self, columns, full=False):
+    def parallel_read(self, columns, full=False):
         """
         Return the positions of galaxies, populated into halos using an Hod
         """
+        from nbodykit.distributedarray import ScatterArray
+        
         # rank 0 does the work, then scatters
         if self.comm.rank == 0:
             
             # populate the model, if need be
             if not hasattr(self.model, 'mock'):
-                self.model.populate_mock(halocat=self._halotools_cat, Num_ptcl_requirement=1)
-                self.log_populated_stats()
+                self.populate_mock()
         
             # the data
-            data = self.model.mock.galaxy_table        
+            data = self.model.mock.galaxy_table   
         
             # check valid columns
             valid = ['Position', 'Velocity']
             if any(c not in valid and c not in data.colnames for c in columns):
-                args = (self.__class__.__name__, str(valid + data.colnames))
-                raise ValueError('valid column names for %s are: %s' %args)
+                args = (self.plugin_name, str(valid + data.colnames))
+                raise DataSource.MissingColumn('valid column names for %s are: %s' %args)
         
             # position/velocity
             pos = numpy.vstack([data[c] for c in ['x', 'y', 'z']]).T
@@ -221,7 +273,7 @@ class Zheng07HodDataSource(DataSource):
         newdata = []
         for d in toret:
             newdata.append(ScatterArray(d, self.comm, root=0))
-            
+
         yield newdata
         
         
