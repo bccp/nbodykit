@@ -1,3 +1,4 @@
+nbodykit/version.py
 *.pyc
 examples/output
 nersc/cori
