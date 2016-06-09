@@ -89,11 +89,11 @@ class DataSet(object):
     --------
     The following example shows how to read a power spectrum or correlation 
     function measurement as written by a nbodykit `Algorithm`. It uses
-    :func:`~nbodykit.files.Read1DPlaintext`
+    :func:`~nbodykit.files.Read1DPlainText`
     
     >>> from nbodykit import files
-    >>> corr = Corr2dDataSet.from_nbkit(*files.Read2DPlaintext(filename))
-    >>> pk = Power1dDataSet.from_nbkit(*files.Read1DPlaintext(filename))
+    >>> corr = Corr2dDataSet.from_nbkit(*files.Read2DPlainText(filename))
+    >>> pk = Power1dDataSet.from_nbkit(*files.Read1DPlainText(filename))
         
     Data variables and coordinate arrays can be accessed in a dict-like
     fashion:
@@ -790,7 +790,7 @@ def from_2d_measurement(dims, d, meta, **kwargs):
     and any additional data
     """
     if 'edges' not in d:
-        raise ValueError("must supply `edges` value in `d` input" %name)
+        raise ValueError("must supply `edges` value in `d` input")
 
     d['dims'] = dims
     meta.update(kwargs)
@@ -812,7 +812,7 @@ class Power1dDataSet(DataSet):
     def from_nbkit(cls, d, meta, columns=None, **kwargs):
         """
         Return a `Power1dDataSet` instance taking the return values
-        of `files.Read1DPlaintext` as input
+        of `files.Read1DPlainText` as input
                
         Parameters
         ----------
@@ -829,7 +829,7 @@ class Power1dDataSet(DataSet):
         Examples
         --------
         >>> from nbodykit import files
-        >>> power = Power1dDataSet.from_nbkit(*files.Read1DPlaintext(filename))
+        >>> power = Power1dDataSet.from_nbkit(*files.Read1DPlainText(filename))
         """
         toret = from_1d_measurement(['k'], d, meta, columns=columns, **kwargs)
         toret.__class__ = cls
@@ -848,7 +848,7 @@ class Power2dDataSet(DataSet):
     def from_nbkit(cls, d, meta, **kwargs):
         """
         Return a `Power2dDataSet` instance taking the return values
-        of `files.Read2DPlaintext` as input
+        of `files.Read2DPlainText` as input
                
         Parameters
         ----------
@@ -862,7 +862,7 @@ class Power2dDataSet(DataSet):
         Examples
         --------
         >>> from nbodykit import files
-        >>> power = Power2dDataSet.from_nbkit(*files.Read2DPlaintext(filename))
+        >>> power = Power2dDataSet.from_nbkit(*files.Read2DPlainText(filename))
         """
         toret = from_2d_measurement(['k', 'mu'], d, meta, **kwargs)
         toret.__class__ = cls
@@ -884,7 +884,7 @@ class Corr1dDataSet(DataSet):
     def from_nbkit(cls, d, meta, columns=None, **kwargs):
         """
         Return a `Corr1dDataSet` instance taking the return values
-        of `files.Read1DPlaintext` as input
+        of `files.Read1DPlainText` as input
                
         Parameters
         ----------
@@ -901,7 +901,7 @@ class Corr1dDataSet(DataSet):
         Examples
         --------
         >>> from nbodykit import files
-        >>> corr = Power1dDataSet.from_nbkit(*files.Read1DPlaintext(filename))
+        >>> corr = Power1dDataSet.from_nbkit(*files.Read1DPlainText(filename))
         """
         toret = from_1d_measurement(['r'], d, meta, columns=columns, **kwargs)
         toret.__class__ = cls
@@ -920,7 +920,7 @@ class Corr2dDataSet(DataSet):
     def from_nbkit(cls, d, meta, **kwargs):
         """
         Return a `Corr2dDataSet` instance taking the return values
-        of `files.Read2DPlaintext` as input
+        of `files.Read2DPlainText` as input
                
         Parameters
         ----------
@@ -934,7 +934,7 @@ class Corr2dDataSet(DataSet):
         Examples
         --------
         >>> from nbodykit import files
-        >>> corr = Corr2dDataSet.from_nbkit(*files.Read2DPlaintext(filename))
+        >>> corr = Corr2dDataSet.from_nbkit(*files.Read2DPlainText(filename))
         """
         toret = from_2d_measurement(['r', 'mu'], d, meta, **kwargs)
         toret.__class__ = cls

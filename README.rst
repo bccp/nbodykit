@@ -36,6 +36,9 @@ miniconda environment for Python 2.7 and Python 3.4.
 .. image:: https://api.travis-ci.org/bccp/nbodykit.svg
     :alt: Build Status
     :target: https://travis-ci.org/bccp/nbodykit/
+.. image:: https://coveralls.io/repos/github/bccp/nbodykit/badge.svg?branch=develop 
+    :alt: Test Coverage
+    :target: https://coveralls.io/github/bccp/nbodykit?branch=develop
 
 
 Top Level Executables

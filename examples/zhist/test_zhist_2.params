@@ -5,11 +5,11 @@ cosmo:
 
 datasource: 
     plugin: RaDecRedshift
-    path: ../data/test_bianchi_randoms.dat
+    path: ${NBKIT_CACHE}/data/test_bianchi_randoms.dat
     names: [ra, dec, z]
     usecols: [ra, dec, z]
     degrees: True
     
 fsky : 0.005
-bins : numpy.linspace(0.43, 0.7, 10+1)
-output: ../output/test_nz1.params
+bins : 10
+output: ${NBKIT_HOME}/examples/output/test_zhist_2.dat

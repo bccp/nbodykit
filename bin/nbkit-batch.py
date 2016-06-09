@@ -120,7 +120,7 @@ class BatchAlgorithmDriver(object):
         
         self.algorithm_name  = algorithm_name
         self.algorithm_class = getattr(algorithms, algorithm_name) 
-        self.template        = open(config, 'r').read()
+        self.template        = os.path.expandvars(open(config, 'r').read())
         self.cpus_per_worker = cpus_per_worker
         self.task_dims       = task_dims
         self.task_values     = task_values

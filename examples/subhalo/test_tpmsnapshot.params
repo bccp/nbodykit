@@ -4,12 +4,12 @@ nmin: 0
 
 datasource:
     plugin: TPMSnapshot
-    path: ../data/tpm_1.0000.bin
+    path: ${NBKIT_CACHE}/data/tpm_1.0000.bin
     BoxSize: 384 
 
 halolabel:
     plugin: HaloLabel
-    path: ../output/fof_ll0.200_1.0000.labels
+    path: ${NBKIT_CACHE}/data/fof_ll0.200_1.0000.labels
     
     
-output: ../output/sub_0.180_100_1.0000.hdf5
+output: ${NBKIT_HOME}/examples/output/sub_0.180_100_1.0000.hdf5

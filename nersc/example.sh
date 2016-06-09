@@ -9,6 +9,9 @@
 #
 # and type the commands in the shell obtained from salloc
 
+module unload python
+module load python/2.7-anaconda
+
 source /usr/common/contrib/bccp/nbodykit/activate.sh
 
 # regular nbodykit command lines

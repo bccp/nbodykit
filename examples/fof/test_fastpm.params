@@ -1,7 +1,7 @@
 nmin: 10
 datasource:
     plugin: FastPM
-    path: ../data/fastpm_1.0000
+    path: ${NBKIT_CACHE}/data/fastpm_1.0000
 linklength: 0.2 
-output: ../output/fof_ll0.200_1.0000.hdf5
+output: ${NBKIT_HOME}/examples/output/fof_ll0.200_1.0000.hdf5
 calculate_initial_position: True
