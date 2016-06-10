@@ -45,7 +45,7 @@ class TestStdin(unittest.TestCase):
 class TestBatch(unittest.TestCase):
     param_file  = "test_power_batch.template"
     extra_file  = "extra.template"
-    output_file = "test_stdin.dat"
+    output_file = "test_batch_power_fastpm_1d_zlos_task_3.dat"
     datasources = ['fastpm_1.0000']
     
     def test_exit_code(self):
