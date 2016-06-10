@@ -24,8 +24,8 @@ def bin_ndarray(ndarray, new_shape, weights=None, operation=numpy.mean):
     *   Number of output dimensions must match number of input dimensions.
     *   See https://gist.github.com/derricw/95eab740e1b08b78c03f
     
-    Example
-    -------
+    Examples
+    --------
     >>> m = numpy.arange(0,100,1).reshape((10,10))
     >>> n = bin_ndarray(m, new_shape=(5,5), operation=numpy.sum)
     >>> print(n)

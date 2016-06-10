@@ -1,8 +1,6 @@
 import numpy
 import logging
 
-__all__ = ['read', 'TPMSnapshotFile', 'SnapshotFile']
-
 class StripeFile:
     @classmethod
     def enum(filetype, basename, args):
@@ -58,11 +56,13 @@ class StripeFile:
             return ff.tofile(ff)
 
 class DataStorage(object):
-    """ DataStorage provides a continuous view of 
-        across several files.
+    """ 
+    DataStorage provides a continuous view of across several files.
     """
     def __init__(self, path, filetype, filetype_args={}):
-        """ filetype must be of a subclass of StripeFile """
+        """
+        Filetype must be of a subclass of StripeFile 
+        """
         self.npart = numpy.array(
             [ff.npart for ff in filetype.enum(path, filetype_args)],
             dtype='i8')
@@ -75,8 +75,10 @@ class DataStorage(object):
 
     @classmethod
     def create(kls, path, filetype, npart, filetype_args={}):
-        """ create a striped file. 
-            npart is a list of npart for each file 
+        """
+        Create a striped file. 
+        
+        npart is a list of npart for each file 
         """
         for fid, npart1 in enumerate(npart):
             filetype.create(path, fid, npart1, filetype_args)
@@ -136,8 +138,9 @@ class DataStorage(object):
         Parallel reading. This is a generator function and a collective 
         operation.
 
-        Use a for loop. For example
-        .. code:: python
+        Use a `for` loop. For example:
+        
+        .. code-block:: python
             
             for i, P in enumerate(read(comm, 'snapshot', TPMSnapshotFile)):
                 ....
@@ -147,15 +150,13 @@ class DataStorage(object):
         ----------
         comm  : :py:class:`MPI.Comm`
             Communicator
-
         bunchsize : int
             Number of particles to read per rank in each iteration.
             if < 0, all particles are read in one iteration
 
         Yields
         ------
-        data in columns, 
-
+        data in columns 
         """
         
         Ntot = self.npart.sum()
@@ -188,4 +189,3 @@ class DataStorage(object):
             #print comm.allreduce(P['Position'].min(), op=MPI.MIN)
             yield data
             i = i + bunchsize
-            

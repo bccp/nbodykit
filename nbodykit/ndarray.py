@@ -10,20 +10,22 @@ def equiv_class(labels, values, op, dense_labels=False, identity=None, minlength
     """
     apply operation to equivalent classes by label, on values
 
-    Parameters ----------
-    labels  : array_like
+    Parameters 
+    ----------
+    labels : array_like
         the label of objects, starting from 0.
-    values  : array_like
+    values : array_like
         the values of objects (len(labels), ...)
-    op      : :py:class:`numpy.ufunc`
+    op : :py:class:`numpy.ufunc`
         the operation to apply
-    dense_labels: boolean
+    dense_labels : boolean
         If the labels are already dense (from 0 to Nobjects - 1)
         If False, :py:meth:`numpy.unique` is used to convert
         the labels internally
 
     Returns
     -------
+    result : 
         the value of each equivalent class
 
     Examples

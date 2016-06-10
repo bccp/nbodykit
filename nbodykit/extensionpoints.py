@@ -691,7 +691,7 @@ class DataSource:
     @staticmethod
     def BoxSizeParser(value):
         """
-        Read the `BoxSize, enforcing that the BoxSize must be a 
+        Read the `BoxSize`, enforcing that the BoxSize must be a 
         scalar or 3-vector
         
         Returns
@@ -919,7 +919,6 @@ class Algorithm:
 
 
 __valid__ = [DataSource, Painter, Transfer, Algorithm]
-__all__ = list(map(str, __valid__))
 
 def isplugin(name):
     """

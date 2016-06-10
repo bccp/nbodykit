@@ -2,8 +2,6 @@ import numpy
 import logging
 from .stripedfile import StripeFile, DataStorage
 
-__all__ = ['TPMSnapshotFile', 'SnapshotFile']
-
 class TPMSnapshotFile(StripeFile):
     def __init__(self, basename, fid, args={}):
         self.filename = basename + ".%02d" % fid

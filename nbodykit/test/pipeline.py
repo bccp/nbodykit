@@ -60,7 +60,7 @@ def add_run_fixture(modname, basecls, name, make_fixture=default_run_fixture, ti
         new_cls = type("RunClass%d" %_pipeline_tests, (basecls, cls), {})
     
         # make the run fixture and attach it to the module
-        run_name = 'run_%s_%d' %(modname, _pipeline_tests)
+        run_name = 'run_%d' %(_pipeline_tests)
         mod = sys.modules[modname]
         setattr(mod, run_name, make_fixture(new_cls, name, timeout=timeout))
     
@@ -74,12 +74,12 @@ def add_run_fixture(modname, basecls, name, make_fixture=default_run_fixture, ti
 
 class RunAlgorithm(PipelineRun):
     """
-    Run a pipeline that tests an ``Algorithm``. Prior to running
+    Run a pipeline that tests an `Algorithm`. Prior to running
     this class will: 
     
-        * load the necessary data to the cache directory
-        * initialize the ``output`` directory in ``nbodykit/examples``
-        * set the ``NBKIT_CACHE`` and ``NBKIT_HOME`` directories
+        - load the necessary data to the cache directory
+        - initialize the `output` directory in `nbodykit/examples`
+        - set the `NBKIT_CACHE` and `NBKIT_HOME` directories
     """
     @mark.before_run
     def verify_cache(self):
@@ -93,7 +93,7 @@ class RunAlgorithm(PipelineRun):
     @mark.before_run
     def initialize_output(self):
         """
-        Make the ``output`` directory in ``nbodykit/examples`, if 
+        Make the `output` directory in `nbodykit/examples`, if 
         it does not exist yet
         """
         results_dir = os.path.join(pkg_dir, 'examples', 'output')
