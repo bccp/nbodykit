@@ -9,36 +9,85 @@ if PY3:
     from urllib.request import urlretrieve as _urlretrieve
 else:
     from urllib import urlretrieve as _urlretrieve
-    
+
 from nbodykit import examples_dir
-cache_dir = os.path.join('~', '.nbodykit')
+
+def user_cache_dir(appname):
+    r"""
+
+    This function is copied from
+    https://github.com/pypa/pip/blob/master/pip/utils/appdirs.py
+
+    Return full path to the user-specific cache dir for this application.
+        "appname" is the name of application.
+    Typical user cache directories are:
+        Mac OS X:   ~/Library/Caches/<AppName>
+        Unix:       ~/.cache/<AppName> (XDG default)
+        Windows:      C:\Users\<username>\AppData\Local\<AppName>\Cache
+    On Windows the only suggestion in the MSDN docs is that local settings go
+    in the `CSIDL_LOCAL_APPDATA` directory. This is identical to the
+    non-roaming app data dir (the default returned by `user_data_dir`). Apps
+    typically put cache data somewhere *under* the given dir here. Some
+    examples:
+        ...\Mozilla\Firefox\Profiles\<ProfileName>\Cache
+        ...\Acme\SuperApp\Cache\1.0
+    OPINION: This function appends "Cache" to the `CSIDL_LOCAL_APPDATA` value.
+    """
+
+    from os.path import expanduser
+    WINDOWS = (sys.platform.startswith("win") or
+               (sys.platform == 'cli' and os.name == 'nt'))
+
+    if WINDOWS:
+        # Get the base path
+        path = os.path.normpath(_get_win_folder("CSIDL_LOCAL_APPDATA"))
+
+        # Add our app name and Cache directory to it
+        path = os.path.join(path, appname, "Cache")
+    elif sys.platform == "darwin":
+        # Get the base path
+        path = expanduser("~/Library/Caches")
+
+        # Add our app name to it
+        path = os.path.join(path, appname)
+    else:
+        # Get the base path
+        path = os.getenv("XDG_CACHE_HOME", expanduser("~/.cache"))
+
+        # Add our app name to it
+        path = os.path.join(path, appname)
+
+    return path
+
+
+cache_dir = user_cache_dir('nbodykit')
 
 def download_data(github_url, cache_dir):
     """
     Download the github url tarball to the cache directory
     """
     import tarfile
-    
+
     # make the cache dir if it doesnt exist
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir)
-    
+
     # download the tarball locally
     tarball_link = os.path.join(github_url, 'tarball', 'master')
     tarball_local = os.path.join(cache_dir, 'master.tar.gz')
     _urlretrieve(tarball_link, tarball_local)
-    
+
     # extract the tarball to the cache dir
     with tarfile.open(tarball_local) as tar:
-    
+
         members = tar.getmembers()
         topdir = members[0].name
-    
+
         for m in members[1:]:
             name = os.path.relpath(m.name, topdir)
             m.name = name
             tar.extract(m, path=cache_dir)
-            
+
     # remove the downloaded tarball file
     if os.path.exists(tarball_local):
         os.remove(tarball_local)
@@ -68,7 +117,7 @@ def verify_data_in_cache(name, cache_dir=cache_dir,
     # download and cache the nbodykit-data directory
     if not os.path.exists(localfile):
         download_data(github_url, cache_dir)
-        
+
         # crash, if still no data
         if not os.path.exists(localfile):
             raise ValueError("filename `%s` does not exist in nbodykit-data directory" %name)
