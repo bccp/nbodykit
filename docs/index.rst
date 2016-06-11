@@ -39,10 +39,9 @@ Documentation
    :maxdepth: 1
 
    why-nbodykit
-   examples
    installing
+   examples
    api/modules
-   plugins/modules
 
 Get in touch
 ------------

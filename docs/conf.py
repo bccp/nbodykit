@@ -43,11 +43,13 @@ import nbodykit
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.todo',
-    'sphinx.ext.pngmath',
+    'sphinx.ext.imgmath',
     'sphinx.ext.intersphinx',
     'sphinx.ext.extlinks',
     'sphinx.ext.autosummary',
     'numpydoc',
+    'IPython.sphinxext.ipython_directive',
+    'IPython.sphinxext.ipython_console_highlighting'
 ]
 
 autosummary_generate = True
@@ -78,7 +80,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'nbodykit'
-copyright = u'2015, Yu Feng, Nick Hand '
+copyright = u'2015-2016, Yu Feng, Nick Hand '
 author = u'Yu Feng, Nick Hand'
 
 # The version info for the project you're documenting, acts as replacement for
