@@ -5,25 +5,31 @@ def assert_numpy_allclose(this, ref, **kws):
     """
     Wrapper around ``numpy.testing.assert_allclose`` that will loop
     over each element of a complex data type, i.e., structured array
-    """ 
-    from numpy.testing import assert_allclose    
-           
+    """
+    from numpy.testing import assert_allclose
+
     # normal numpy array
     if ref.dtype.names is None:
         assert_allclose(this, ref, **kws)
     # structured array
-    else:    
+    else:
         for name in ref.dtype.names:
             if name not in this.dtype.names:
                 raise AssertionError("dtype mismatch in structured data")
             assert_allclose(this[name], ref[name], **kws)
 
+def _make_exc(self, string):
+    with open("run.stderr", 'r') as stderr:
+        lines = stderr.read()
+    return AssertionError("%s \nCmdline\n %s\nstderr:\n%s\n" % (string, self.run_fixture.cmd, lines))
+
 def test_exit_code(self):
     """
     Assert that the exit code is equal to 0
     """
-    assert self.run_fixture.exit_code == 0
-    
+    if not self.run_fixture.exit_code == 0:
+        raise _make_exc(self, "Exit code nonzero.")
+
 def test_exception(self):
     """
     Assert that no exception occurred, by analyzing the 
@@ -31,8 +37,9 @@ def test_exception(self):
     """
     with open("run.stderr", 'r') as stderr:
         lines = stderr.read()
-        assert "Error" not in lines and "Traceback" not in lines
-            
+        if "Error" in lines or "Traceback" in lines:
+            raise _make_exc(self, "An exception is raised.")
+
 def test_result_md5sum(self):
     """
     Assert that the result file from the pipeline run has the same 

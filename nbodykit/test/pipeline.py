@@ -2,6 +2,10 @@ from pytest_pipeline import PipelineRun, mark
 from . import os, sys, pytest
 from . import verify_data_in_cache, cache_dir
 from .. import bin_dir, pkg_dir
+import platform
+
+def skip_fedora(test):
+    return pytest.mark.skipif('FEDORA' in platform.platform().upper(), reason="https://bugzilla.redhat.com/show_bug.cgi?id=1235044")(test)
 
 # global counter for the number of pipeline tests
 _pipeline_tests = 0

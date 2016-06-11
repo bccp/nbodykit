@@ -1,4 +1,4 @@
-from .pipeline import RunAlgorithm, add_run_fixture
+from .pipeline import RunAlgorithm, add_run_fixture, skip_fedora
 from . import os, asserts, unittest
 from .. import examples_dir, bin_dir
 
@@ -25,6 +25,7 @@ def batch_fixture(cls, name, **kws):
     cmd = "mpirun -np 6 python %s/nbkit-batch.py %s 2 -c %s -i \"los: [x, y, z]\" --extras %s --debug" %args
     return cls.class_fixture(cmd=cmd, stdout='run.stdout', stderr="run.stderr", **kws)
 
+@skip_fedora
 @add_run_fixture(__name__, RunBatchAlgorithm, 'FFTPower', timeout=30, make_fixture=bash_fixture)
 class TestStdin(unittest.TestCase):
     param_file  = "test_stdin.sh"
