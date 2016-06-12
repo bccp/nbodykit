@@ -1,17 +1,20 @@
 """
-    Declare `PluginMount` and various extension points
+Declare the :class:`PluginMount` base class and various extension points
 
-    To define a Plugin: 
+To define a class as an extension point: 
 
-    1.  subclass from the desired extension point class
-    2.  define a class method `register` that fills the declares
-        the relevant attributes by calling `add_argument`
-        of `cls.schema`
-    3. define a `plugin_name` class attribute
+1. Add a class decorator :meth:`@ExtensionPoint <ExtensionPoint>`
 
-    To define an ExtensionPoint:
+To define a plugin: 
 
-    1. add a class decorator @ExtensionPoint
+1.  Subclass from the desired extension point class
+2.  Define a class method `register` that declares
+    the relevant attributes by calling 
+    :func:`~nbodykit.utils.config.ConstructorSchema.add_argument` of 
+    the class's :class:`~nbodykit.utils.config.ConstructorSchema`, 
+    which is stored as the `schema` attribute
+3.  Define a `plugin_name` class attribute
+4.  Define the functions relevant for that extension point interface.
 """
 from nbodykit.utils.config import autoassign, ConstructorSchema, ReadConfigFile, PluginParsingError
 from nbodykit.distributedarray import ScatterArray
@@ -20,7 +23,6 @@ import numpy
 from argparse import Namespace
 import functools
 import weakref
-
 
 # MPI will be required because
 # a plugin instance will be created for a MPI communicator.
@@ -70,7 +72,10 @@ class PluginInterface(object):
     the 'register' function
     """
     @classmethod
-    def register(kls):
+    def register(cls):
+        """
+        Register the plugin by updating the class schema
+        """
         raise NotImplementedError
 
         
@@ -264,7 +269,11 @@ class PluginMount(type):
 
 # copied from six
 def add_metaclass(metaclass):
-    """Class decorator for creating a class with a metaclass."""
+    """
+    Class decorator for creating a class with a metaclass
+    in such a way that is compatible with both python 
+    2 and 3
+    """
     def wrapper(cls):
         orig_vars = cls.__dict__.copy()
         slots = orig_vars.get('__slots__')
@@ -284,16 +293,16 @@ class Transfer:
     Mount point for plugins which apply a k-space transfer function
     to the Fourier transfrom of a datasource field
     
-    Plugins implementing this reference should provide the following 
-    attributes:
+    Plugins of this type should provide the following attributes:
 
     plugin_name : str
-        class attribute giving the name of the subparser which 
-        defines the necessary command line arguments for the plugin
+        class attribute that defines the name of the plugin in 
+        the registry
     
     register : classmethod
-        A class method taking no arguments that adds a subparser
-        and the necessary command line arguments for the plugin
+        a class method taking no arguments that updates the
+        :class:`~nbodykit.utils.config.ConstructorSchema` with
+        the arguments needed to initialize the class
     
     __call__ : method
         function that will apply the transfer function to the complex array
@@ -314,12 +323,13 @@ class Transfer:
 
 class DataStream(object):
     """
-    A class to represent an open `DataSource` stream, which
-    is called by `DataSource.open()`
+    A class to represent an open :class:`DataSource` stream.
     
-    The class is written such that it be used with or without
-    the `with` statement, similar to the file `open()` function
-    
+    The class behaves similar to the built-in :func:`open` for 
+    :obj:`file` objects. The stream is returned by calling 
+    :func:`DataSource.open` and the class is written such that it 
+    can be used with or without the `with` statement, similar to 
+    the file :func:`open` function.
     
     Attributes
     ----------
@@ -332,7 +342,14 @@ class DataStream(object):
         of rows read from the data source
     """
     def __init__ (self, data, defaults={}):
-        
+        """
+        Parameters
+        ----------
+        data : DataSource
+            the DataSource that this stream returns data from
+        defaults : dict
+            dictionary of default values for the specified columns
+        """
         # store the data and defaults
         self.data = data
         self.defaults = defaults
@@ -360,7 +377,7 @@ class DataStream(object):
     @property
     def closed(self):
         """
-        Whether or not the DataStream is closed
+        Return whether or not the DataStream is closed
         """
         return not hasattr(self, '_cacheref')        
         
@@ -495,11 +512,22 @@ class DataStream(object):
         
 class DataCache(object):
     """
-    A class to cache data in manner that can be weakly
+    A class to cache data in a manner that can be weakly
     referenced via `weakref`
     """
     def __init__(self, columns, data, local_size, total_size):
-        
+        """
+        Parameters
+        ----------
+        columns : list of str
+            the list of columns in the cache
+        data : list of array_like
+            a list of data for each column
+        local_size : int
+            the size of the data stored locally on this rank
+        total_size : int
+            the global size of the data
+        """
         self.columns    = columns
         self.local_size = local_size
         self.total_size = total_size
@@ -509,6 +537,9 @@ class DataCache(object):
     
     @property
     def empty(self):
+        """
+        Return whether or not the cache is empty
+        """
         return len(self.columns) == 0
         
     def __getitem__(self, col):
@@ -527,32 +558,22 @@ class DataCache(object):
 class DataSource:
     """
     Mount point for plugins which refer to the reading of input files.
-    The `read` operation occurs on a `DataStream` object, which
-    is returned by `DataSource.open()`
+    The `read` operation occurs on a :class:`DataStream` object, which
+    is returned by :func:`~DataSource.open`.
     
     Default values for any columns to read can be supplied as a 
-    dictionary argument to `DataSource.open()`
+    dictionary argument to :func:`~DataSource.open`.
     
-    Notes
-    -----
-    *   a `Cosmology` instance can be passed to any `DataSource`
-        class via the `cosmo` keyword
-    *   the data will be cached in memory if returned via `readall`;
-        the default behavior is for the cache to persist while 
-        an open `DataStream` is valid, but the cache can be forced
-        to persist via the `keep_cache` context manager
-
-    Plugins implementing this reference should provide the following 
-    attributes:
+    Plugins of this type should provide the following attributes:
 
     plugin_name : str
-        class attribute that defines the name of the Plugin in 
+        A class attribute that defines the name of the plugin in 
         the registry
     
     register : classmethod
-        A class method taking no arguments that declares the
-        relevant attributes for the class by adding them to the
-        class schema
+        A class method taking no arguments that updates the
+        :class:`~nbodykit.utils.config.ConstructorSchema` with
+        the arguments needed to initialize the class
     
     readall: method
         A method to read all available data at once (uncollectively) 
@@ -561,8 +582,17 @@ class DataSource:
     parallel_read: method
         A method to read data for complex, large data sets. The read
         operation shall be collective, with each yield generating 
-        different sections of the datasource on different ranks. 
+        different sections of the data source on different ranks. 
         No caching of data takes places.
+    
+    Notes
+    -----
+    *   a :class:`~nbodykit.cosmology.Cosmology` instance can be passed to 
+        any DataSource class via the `cosmo` keyword
+    *   the data will be cached in memory if returned via :func:`~DataStream.readall`
+    *   the default cache behavior is for the cache to persist while 
+        an open DataStream remains, but the cache can be forced
+        to persist via the :func:`DataSource.keep_cache` context manager
     """
     class MissingColumn(Exception):
         pass
@@ -711,10 +741,10 @@ class DataSource:
     @property
     def size(self):
         """
-        The total size of the DataSource returned via the `read` operation.
+        The total size of the DataSource.
         
-        The user can set this explicitly if the size is known before 
-        `read` is called, otherwise it will be set (exactly once) after `read` is called 
+        The user can set this explicitly (only once per datasource) 
+        if the size is known before :func:`DataStream.read` is called
         """
         try:
             return self._size
@@ -734,31 +764,34 @@ class DataSource:
     
     def keep_cache(self):
         """
-        A context manager that forces the `DataSource` cache to persist,
-        even if there are no open `DataStream` objects. This will 
-        prevent unwanted and unnecessary rereading of the `DataSource`
+        A context manager that forces the DataSource cache to persist,
+        even if there are no open DataStream objects. This will 
+        prevent unwanted and unnecessary re-readings of the DataSource.
 
-        The below example details the intended usage. The data is 
-        only cached once below:
+        The below example details the intended usage. In this example,
+        the data is cached only once, and no re-reading of the data
+        occurs when the second stream is opened.
         
-            >> with datasource.keep_cache():
-            >>    with datasource.open() as stream1:
-            >>      [[pos]] = stream1.read(['Position'], full=True)
-            >>    
-            >>    with datasource.open() as stream2:
-            >>      [[vel]] = stream2.read(['Velocity'], full=True)
+        .. code-block:: python
+        
+            with datasource.keep_cache():
+                with datasource.open() as stream1:
+                    [[pos]] = stream1.read(['Position'], full=True)
+                
+                with datasource.open() as stream2:
+                    [[vel]] = stream2.read(['Velocity'], full=True)
         """
         # simplest implementation is returning a stream
         return DataStream(self) 
     
     def open(self, defaults={}):
         """
-        Open the `DataSource` by returning a `DataStream` from which
+        Open the DataSource by returning a DataStream from which
         the data can be read. 
         
         This function also specifies the default values for any columns
-        that are not supported by the `DataSource`. The defaults are
-        unique to each `DataStream`, but a DataSource can be opened
+        that are not supported by the DataSource. The defaults are
+        unique to each DataStream, but a DataSource can be opened
         multiple times (returning different streams) with different 
         default values
         
@@ -766,15 +799,12 @@ class DataSource:
         ----------
         defaults : dict, optional
             a dictionary providing default values for a given column
-        name : str, optional
-            return a specific named stream; the datasource must have
-            an attribute with this name, which is a `DataSource` 
         
         Returns
         -------
         stream : DataStream
             the stream object from which the data can be read via
-            the `read` function
+            :func:`~DataStream.read` function
         """
         # note: if DataSource is already `open`, we can 
         # still get a new stream with different defaults
@@ -788,7 +818,7 @@ class DataSource:
 
         Notes
         -----
-        *   The default 'read' function calls this function on the
+        *   By default, :func:`DataStream.read` calls this function on the
             root rank to read all available data, and then scatters
             the data evenly across all available ranks
         *   The intention is to reduce the complexity of implementing a 
@@ -798,7 +828,7 @@ class DataSource:
         Returns
         -------
         data : dict
-            a dictionary of all supported data for the datasource; keys
+            a dictionary of all supported data for the data source; keys
             give the column names and values are numpy arrays
         """
         raise NotImplementedError
@@ -809,18 +839,21 @@ class DataSource:
         operation shall be collective, each yield generates different
         sections of the datasource. No caching of data takes places.
         
-        If the `DataSource` does not provide a column in `columns`, 
-        `None` should be returned
+        If the DataSource does not provide a column in `columns`, 
+        `None` should be returned.
         
         Notes
         -----
-        *   This function will be called if `readall` is not provided
+        *   This function will be called if :func:`DataStream.readall` is 
+            not implemented
         *   The intention is for this function to handle complex and 
-            large data sets, where parallel I/O across ranks are 
+            large data sets, where parallel I/O across ranks is 
             required to avoid memory and I/O issues
             
         Parameters
         ----------
+        columns : list of str
+            the list of data columns to return
         full : bool, optional
             if `True`, any `bunchsize` parameters will be ignored, so 
             that each rank will read all of its specified data section
@@ -829,7 +862,7 @@ class DataSource:
         Returns
         -------
         data : list
-            a list of the data for each column in columns; if the datasource
+            a list of the data for each column in columns; if the data source
             does not provide a given column, that element should be `None`
         """
         raise NotImplementedError
@@ -838,35 +871,56 @@ class DataSource:
 @ExtensionPoint(painters)
 class Painter:
     """
-    Mount point for plugins which refer to the painting of input files.
+    Mount point for plugins which refer to the painting of data, i.e.,
+    gridding a field to a mesh
 
-    Plugins implementing this reference should provide the following 
-    attributes:
+    Plugins of this type should provide the following attributes:
 
     plugin_name : str
-        class attribute giving the name of the subparser which 
-        defines the necessary command line arguments for the plugin
+        A class attribute that defines the name of the plugin in 
+        the registry
     
     register : classmethod
-        A class method taking no arguments that adds a subparser
-        and the necessary command line arguments for the plugin
+        A class method taking no arguments that updates the
+        :class:`~nbodykit.utils.config.ConstructorSchema` with
+        the arguments needed to initialize the class
     
     paint : method
         A method that performs the painting of the field.
-
     """
-    
     def paint(self, pm, datasource):
         """ 
-            Paint from a data source. 
-
-            It shall read data then use basepaint to paint.
+        Paint the DataSource specified to a mesh
+    
+        Parameters
+        ----------
+        pm : :class:`~pmesh.particlemesh.ParticleMesh`
+            particle mesh object that does the painting
+        datasource : DataSource
+            the data source object representing the field to paint onto the mesh
             
-            Returns a dictionary of attributes of the painting operation.
+        Returns
+        -------
+        stats : dict
+            dictionary of statistics related to painting and reading of the DataSource
         """
         raise NotImplementedError
 
     def basepaint(self, pm, position, weight=None):
+        """
+        The base function for painting that is used by default. 
+        This handles the domain decomposition steps that are necessary to 
+        complete before painting.
+        
+        Parameters
+        ----------
+        pm : :class:`~pmesh.particlemesh.ParticleMesh`
+            particle mesh object that does the painting
+        position : array_like
+            the position data
+        weight : array_like, optional
+            the weight value to use when painting
+        """
         assert pm.comm == self.comm # pm must be from the same communicator!
         layout = pm.decompose(position)
         Nlocal = len(position)
@@ -885,31 +939,69 @@ class Algorithm:
     one of the high-level algorithms, i.e, power spectrum calculation
     or FOF halo finder
     
-    Plugins implementing this reference should provide the following 
-    attributes:
+    Plugins of this type should provide the following attributes:
 
     plugin_name : str
-        class attribute giving the name of the subparser which 
-        defines the necessary command line arguments for the plugin
+        A class attribute that defines the name of the plugin in 
+        the registry
     
     register : classmethod
-        A class method taking no arguments that adds a subparser
-        and the necessary command line arguments for the plugin
+        A class method taking no arguments that updates the
+        :class:`~nbodykit.utils.config.ConstructorSchema` with
+        the arguments needed to initialize the class
     
-    __call__ : method
-        function that will apply the transfer function to the complex array
+    run : method
+        function that will run the algorithm
+    
+    save : method
+        save the result of the algorithm computed by :func:`Algorithm.run`
     """        
     def run(self):
+        """
+        Run the algorithm
+        
+        Returns
+        -------
+        result : tuple
+            the tuple of results that will be passed to :func:`Algorithm.save`
+        """
         raise NotImplementedError
     
-    def save(self, *args, **kwargs):
+    def save(self, output, result):
+        """
+        Save the results of the algorithm run
+        
+        Parameters
+        ----------
+        output : str
+            the name of the output file to save results too
+        result : tuple
+            the tuple of results returned by :func:`Algorithm.run`
+        """
         raise NotImplementedError
     
     @classmethod
     def parse_known_yaml(kls, name, stream):
         """
-        Parse the known (and unknown) attributes from a YAML, where `known`
-        arguments must be part of the Algorithm.parser instance
+        Parse the known (and unknown) attributes from a YAML 
+        configuration file, where `known` arguments must be part
+        of the ConstructorSchema instance
+        
+        Parameters
+        ----------
+        name : str
+            the name of the Algorithm 
+        stream : str, file object
+            the stream to read from
+        
+        Returns
+        -------
+        known : Namespace
+            namespace holding the parsed values corresponding
+            to the attributes of the specified algorithm's schema
+        unknown : Namespace
+            namespace holding the values that are not in the 
+            algorithm's schema
         """
         # get the class for this algorithm name
         klass = getattr(kls.registry, name)
@@ -922,7 +1014,8 @@ __valid__ = [DataSource, Painter, Transfer, Algorithm]
 
 def isplugin(name):
     """
-    Return `True`, if `name` is a registered plugin for any extension point
+    Return `True`, if `name` is a registered plugin for
+    any extension point
     """
     for extensionpt in __valid__:
         if name in extensionpt.registry: return True
