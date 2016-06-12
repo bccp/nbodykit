@@ -16,9 +16,6 @@ import sys
 import os
 import shlex
 
-# run the apidoc.sh file first
-os.system("bash apidoc.sh")
-
 import mock
 MOCK_MODULES = ['mpsort', 'mpi4py', 'scipy', 'scipy.interpolate', 'h5py', 'bigfile', 
                 'kdcount', 'pmesh', 'pmesh.particlemesh', 'pmesh.domain']
