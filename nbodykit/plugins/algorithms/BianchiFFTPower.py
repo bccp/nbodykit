@@ -42,7 +42,7 @@ class BianchiPowerAlgorithm(Algorithm):
         
         s = cls.schema
         s.description = "power spectrum multipoles using FFTs for a data survey with \n"
-        s.description += "non-trivial geometry, as detailed in Bianchi et al. 2015"
+        s.description += "non-trivial geometry, as detailed in Bianchi et al. 2015 (1505.05341)"
 
         # the required arguments
         s.add_argument("data", type=DataSource.from_config,

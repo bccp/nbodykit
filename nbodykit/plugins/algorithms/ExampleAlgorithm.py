@@ -13,10 +13,11 @@ class Describe(Algorithm):
     @classmethod
     def register(cls):
         s = cls.schema
-        s.description = "describe a specific column of the data source"
+        s.description = "describe a specific column of the input DataSource"
         s.add_argument("datasource", type=DataSource.from_config, 
-            help='the DataSource plugin; run `nbkit.py --list-datasources` for all options')
-        s.add_argument("column", type=str, help='the column to describe')
+            help='the DataSource to describe; run `nbkit.py --list-datasources` for all options')
+        s.add_argument("column", type=str, 
+            help='the column in the DataSource to describe')
      
     def finalize_attributes(self):
         pass

@@ -145,7 +145,7 @@ class Zheng07HodDataSource(DataSource):
     def register(cls):
         
         s = cls.schema
-        s.description = "dataSource for galaxies populating a halo catalog using the Zheng et al. 2007 Hod"
+        s.description = "populate an input halo catalog with galaxies using the Zheng et al. 2007 HOD"
         
         s.add_argument("halocat", type=DataSource.from_config,
             help="DataSource representing the `halo` catalog")
