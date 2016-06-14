@@ -68,7 +68,7 @@ Linux
 ~~~~~
 
 The steps listed below are intended for a commodity Linux based cluster 
-(e.g., a `Rocks Cluster`_) or a Linux based workstation / laptop.
+(e.g., a `Rocks cluster`_) or a Linux based workstation / laptop.
 
 To install the main nbodykit package, as well as the external dependencies 
 listed above, into the default Python installation directory:
@@ -163,7 +163,7 @@ directory:
     pip install pytest pytest-pipeline
     pytest nbodykit
 
-.. _`Rocks Cluster`: http://rocksclusters.org
+.. _`Rocks Cluster`: http://www.rocksclusters.org/rocks-documentation/4.3/
 .. _`py.test`: http://pytest.org/latest/
 .. _`pytest-pipeline`: `https://pypi.python.org/pypi/pytest-pipeline`
 
