@@ -13,6 +13,20 @@ else:
 from nbodykit import examples_dir
 cache_dir = os.path.join('~', '.nbodykit')
 
+def download_results_file(filename, localdir, 
+                            github_url='https://github.com/bccp/nbodykit-data'):
+    """
+    Download a specific results file from the github repo
+    """
+    local_path = os.path.join(localdir, filename)
+    if not os.path.exists(localdir):
+        os.makedirs(localdir)
+    
+    # download the file
+    if not os.path.exists(local_path):
+        remote_path = os.path.join(github_url, 'raw', 'master', 'results', filename)
+        _urlretrieve(remote_path, local_path)
+    
 def download_data(github_url, cache_dir):
     """
     Download the github url tarball to the cache directory
