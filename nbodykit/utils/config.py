@@ -221,6 +221,23 @@ class ConstructorSchema(OrderedDict):
     def add_argument(self, name, type=None, default=None, choices=None, nargs=None, help=None, required=False):
         """
         Add an argument to the schema
+        
+        Parameters
+        ----------
+        name : str
+            the name of the parameter to add
+        type : callable, optional
+            a function that will cast the parsed value
+        default : optional
+            the default value for this parameter
+        choices : optional
+            the distinct values that the parameter can take
+        nargs : int, '*', '+', optional
+             the number of arguments that should be consumed for this parameter
+        help : str, optional
+            the help string
+        required : bool, optional
+            whether the parameter is required or not    
         """                
         # get the prefix
         split = name.split('.')
