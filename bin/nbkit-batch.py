@@ -218,7 +218,7 @@ class BatchAlgorithmDriver(object):
                 updated for each task, i.e., an input file could be specified 
                 as 'input/DataSource_box{box}.dat', if `box` were one of the task 
                 dimensions"""
-        required_named.add_argument('-c', '--config', type=str, help=h)
+        required_named.add_argument('-c', '--config', required=True, type=str, help=h)
     
         # read any extra string replacements from file
         h = """file providing extra string replaces, with lines of the form 
