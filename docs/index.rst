@@ -38,9 +38,11 @@ Documentation
 .. toctree::
    :maxdepth: 1
 
-   why-nbodykit
    installing
-   examples
+   overview
+   running
+   dataset
+   extending
    api/modules
 
 Get in touch
