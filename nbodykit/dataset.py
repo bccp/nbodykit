@@ -646,8 +646,7 @@ class DataSet(object):
         """
         spacing = (self.edges[dim][-1] - self.edges[dim][0])
         toret = self.reindex(dim, spacing, **kwargs)
-        toret = toret.sel(**{dim:toret.coords[dim][0]})
-        return toret.squeeze(dim)
+        return toret.sel(**{dim:toret.coords[dim][0]})
         
     def reindex(self, 
                     dim, 
