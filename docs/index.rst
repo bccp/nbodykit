@@ -45,6 +45,8 @@ Documentation
    extending
    api/modules
 
+   maintainer
+
 Get in touch
 ------------
 

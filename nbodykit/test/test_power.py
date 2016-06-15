@@ -233,3 +233,18 @@ class TestZhengHOD(unittest.TestCase):
     
     def test_result(self):
         asserts.test_dataset_result(self, '2d', 'power')
+
+@add_run_fixture(__name__, RunPowerAlgorithm, 'FFTPower')
+class TestSubsample1D(unittest.TestCase):
+    param_file  = "test_subsample_1d.params"
+    output_file = "test_power_subsample_1d.dat"
+    datasources = ['subsample_1.0000.hdf5']
+
+    def test_exit_code(self):
+        asserts.test_exit_code(self)
+
+    def test_exception(self):
+        asserts.test_exception(self)
+
+    def test_result(self):
+        asserts.test_dataset_result(self, '1d', 'power')

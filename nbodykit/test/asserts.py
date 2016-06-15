@@ -45,8 +45,11 @@ def test_result_md5sum(self):
     Assert that the result file from the pipeline run has the same 
     MD5 sum as the reference result file in the cache directory
     """
-    this, ref = results.get_result_paths(self.output_file)
-    assert results.compute_md5sum(this) == results.compute_md5sum(ref)
+    try:
+        this, ref = results.get_result_paths(self.output_file)
+        assert results.compute_md5sum(this) == results.compute_md5sum(ref)
+    except Exception as e:
+        raise _make_exc(self, str(e))
 
 def test_pandas_hdf_result(self, dataset, **kws):
     """
@@ -62,21 +65,24 @@ def test_pandas_hdf_result(self, dataset, **kws):
         any additional keywords to pass to 
         :func:`~pandas.util.testing.assert_frame_equal`
     """
-    from pandas.util.testing import assert_frame_equal
-    this, ref = results.get_result_paths(self.output_file)
-    
-    # the data
-    this = results.load_pandas_hdf(this, dataset)
-    ref = results.load_pandas_hdf(ref, dataset)
-    
-    # assert the DataFrames are equal
-    assert_frame_equal(this, ref, **kws)
-    
+    try:
+        from pandas.util.testing import assert_frame_equal
+        this, ref = results.get_result_paths(self.output_file)
+
+        # the data
+        this = results.load_pandas_hdf(this, dataset)
+        ref = results.load_pandas_hdf(ref, dataset)
+
+        # assert the DataFrames are equal
+        assert_frame_equal(this, ref, **kws)
+    except Exception as e:
+        raise _make_exc(self, str(e))
+
 def test_hdf_result(self, dataset, rtol=1e-5, atol=1e-8):
     """
     Test that the HDF5 result file is the same as the reference
     result file, using ``h5py``
-    
+
     Parameters
     ----------
     dataset : str
@@ -86,22 +92,26 @@ def test_hdf_result(self, dataset, rtol=1e-5, atol=1e-8):
     atol : float, optional
         the absolute tolerance; default is 1e-8
     """
-    this, ref = results.get_result_paths(self.output_file)
-    
-    # data
-    this = results.load_hdf(this, dataset)
-    ref = results.load_hdf(ref, dataset)
-    
-    assert_numpy_allclose(this, ref, rtol=rtol, atol=atol)
-        
+    try:
+
+        this, ref = results.get_result_paths(self.output_file)
+
+        # data
+        this = results.load_hdf(this, dataset)
+        ref = results.load_hdf(ref, dataset)
+
+        assert_numpy_allclose(this, ref, rtol=rtol, atol=atol)
+    except Exception as e:
+        raise _make_exc(self, str(e))
+
 def test_dataset_result(self, dim, stat, rtol=1e-2, atol=1e-5, skip_imaginary=True):
     """
     Test that the ``DataSet`` result file is the same as the reference
     result file
-    
+
     This loads the `DataSet` and checks that the data
     arrays are ``allclose`` and also checks the meta-data
-    
+
     Parameters
     ----------
     dim : {'1d', '2d'}
@@ -113,32 +123,34 @@ def test_dataset_result(self, dim, stat, rtol=1e-2, atol=1e-5, skip_imaginary=Tr
     atol : float, optional
         the absolute tolerance; default is 1e-8
     skip_imaginary : bool, optional
-        if `True`, do not check the imaginary components of the data arrays; 
+        if `True`, do not check the imaginary components of the data arrays;
         default is True
     """
-    from numpy.testing import assert_array_almost_equal  
-    this, ref = results.get_result_paths(self.output_file)
-    
-    # load datasets
-    loader = results.get_dataset_loader(dim, stat)
-    this = loader(this); ref = loader(ref)
-    
-    # check each variable
-    for name in ref.variables:
-        
-        # skip imaginary elements that are very close to zero
-        # due to numerical differences
-        if skip_imaginary and 'imag' in name:
-            continue
-        
-        if name not in this.variables:
-            raise AssertionError("variables name mismatch in ``assert_dataset_result``")
-        assert_numpy_allclose(this[name], ref[name], rtol=rtol, atol=atol)
-        
-    # check the meta-data
-    for name in ref.attrs:
-        if name not in this.attrs:
-            raise AssertionError("meta-data name mismatch in ``assert_dataset_result``")
-        assert_array_almost_equal(this.attrs[name], ref.attrs[name])
-        
-        
+    try:
+        from numpy.testing import assert_array_almost_equal
+        this, ref = results.get_result_paths(self.output_file)
+
+        # load datasets
+        loader = results.get_dataset_loader(dim, stat)
+        this = loader(this); ref = loader(ref)
+
+        # check each variable
+        for name in ref.variables:
+
+            # skip imaginary elements that are very close to zero
+            # due to numerical differences
+            if skip_imaginary and 'imag' in name:
+                continue
+
+            if name not in this.variables:
+                raise AssertionError("variables name mismatch in ``assert_dataset_result``")
+            assert_numpy_allclose(this[name], ref[name], rtol=rtol, atol=atol)
+
+        # check the meta-data
+        for name in ref.attrs:
+            if name not in this.attrs:
+                raise AssertionError("meta-data name mismatch in ``assert_dataset_result``")
+            assert_array_almost_equal(this.attrs[name], ref.attrs[name])
+
+    except Exception as e:
+        raise _make_exc(self, str(e))
