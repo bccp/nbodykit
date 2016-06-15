@@ -15,23 +15,33 @@ from nbodykit import examples_dir
 def user_cache_dir(appname):
     r"""
 
-    This function is copied from
+    This function is copied from:
     https://github.com/pypa/pip/blob/master/pip/utils/appdirs.py
 
     Return full path to the user-specific cache dir for this application.
-        "appname" is the name of application.
+    
+    Parameters
+    ----------
+    appname : str 
+        the name of application
+    
+    Notes
+    -----
     Typical user cache directories are:
-        Mac OS X:   ~/Library/Caches/<AppName>
-        Unix:       ~/.cache/<AppName> (XDG default)
-        Windows:      C:\Users\<username>\AppData\Local\<AppName>\Cache
+        
+        - Mac OS X: ~/Library/Caches/<AppName>
+        - Unix: ~/.cache/<AppName> (XDG default)
+        - Windows:  C:\Users\<username>\AppData\Local\<AppName>\Cache
+    
     On Windows the only suggestion in the MSDN docs is that local settings go
     in the `CSIDL_LOCAL_APPDATA` directory. This is identical to the
     non-roaming app data dir (the default returned by `user_data_dir`). Apps
-    typically put cache data somewhere *under* the given dir here. Some
-    examples:
+    typically put cache data somewhere *under* the given dir here. 
+    
+    Some examples:
+    
         ...\Mozilla\Firefox\Profiles\<ProfileName>\Cache
         ...\Acme\SuperApp\Cache\1.0
-    OPINION: This function appends "Cache" to the `CSIDL_LOCAL_APPDATA` value.
     """
 
     from os.path import expanduser
