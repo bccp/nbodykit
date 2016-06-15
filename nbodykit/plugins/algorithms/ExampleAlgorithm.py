@@ -19,9 +19,6 @@ class Describe(Algorithm):
         s.add_argument("column", type=str, 
             help='the column in the DataSource to describe')
      
-    def finalize_attributes(self):
-        pass
-
     def run(self):
         """
         Run the algorithm, which does nothing
@@ -29,9 +26,9 @@ class Describe(Algorithm):
         left = []
         right = []
         with self.datasource.open() as stream:
-            for [pos] in stream.read([self.column]):
-                left.append(numpy.min(pos, axis=0))
-                right.append(numpy.max(pos, axis=0))
+            for [col] in stream.read([self.column]):
+                left.append(numpy.min(col, axis=0))
+                right.append(numpy.max(col, axis=0))
             left = numpy.min(left, axis=0)
             right = numpy.max(right, axis=0)
             left = numpy.min(self.comm.allgather(left), axis=0)
@@ -48,5 +45,5 @@ class Describe(Algorithm):
             else:
                 output = file(output, 'w')
             output.write(template % 
-                (self.datasource, self.column, str(left), str(right)))
+                (self.datasource.plugin_name, self.column, str(left), str(right)))
 
