@@ -350,7 +350,7 @@ class DataSet(object):
         # if so, return a DataSet with slice of columns
         if isinstance(key, (list, tuple)) and all(isinstance(x, str) for x in key):
             if all(k in self.variables for k in key):
-                return self.__finalize__(self.data[key], self.mask.copy(), indices)
+                return self.__finalize__(self.data[list(key)], self.mask.copy(), indices)
             else:
                 invalid = ', '.join("'%s'" %k for k in key if k not in self.variables)
                 raise KeyError("cannot slice variables -- invalid names: (%s)" %invalid)
@@ -709,7 +709,7 @@ class DataSet(object):
             raise ValueError("new spacing must be smaller than original spacing of %.2e" %old_spacing)
         if factor == 1:
             raise ValueError("closest binning size to input spacing is the same as current binning")
-        if old_spacing*factor != spacing and not force: 
+        if not numpy.allclose(old_spacing*factor, spacing) and not force: 
             raise ValueError("if `force = False`, new bin spacing must be an integral factor smaller than original")
         
         # make a copy of the data
