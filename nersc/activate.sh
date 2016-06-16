@@ -2,7 +2,7 @@
 
 # can supply 0 or 1 argument
 if [ "$#" -gt 1 ]; then
-    echo "usage: activate.sh [latest|stable]"
+    echo "usage: activate.sh latest|stable"
     exit 1
 fi
 

@@ -6,7 +6,9 @@ install_dir=/usr/common/contrib/bccp/nbodykit/
 # change to a temporary directory
 tmpdir=$(mktemp -d)
 cd $tmpdir
+
 echo "temporary build directory: " $tmpdir
+trap "rm -rf $tmpdir" EXIT
 
 # activate python-mpi-bcast
 source /usr/common/contrib/bccp/python-mpi-bcast/activate.sh
@@ -32,8 +34,23 @@ update_tarball()
     # remake the tarball?
     if [[ $pip_output == *"Installing collected packages"* ]] || [ ! -f $install_dir/$tarball ]; then
         echo "remaking the tarball '$tarball'..."
-        tar -cf $tarball lib
-        cp $tarball $install_dir/$tarball
+        list=
+        for dir in bin lib include share; do
+            if [ -d $dir ]; then
+                list="$list $dir"
+            fi
+        done
+        (
+        tar -czf $tarball \
+            --exclude='*.html' \
+            --exclude='*.jpg' \
+            --exclude='*.jpeg' \
+            --exclude='*.png' \
+            --exclude='*.pyc' \
+            --exclude='*.pyo' \
+            $list
+        ) || exit 1
+        cp $tarball $install_dir/$tarball || exit 1
     fi
     cd ..; rm -r build 
 }
@@ -48,14 +65,13 @@ cd ..; rm -r build
 
 # update the dependencies
 tarball=nbodykit-dep.tar.gz
-pip_install='pip install -U --no-deps -r https://raw.githubusercontent.com/bccp/nbodykit/master/requirements.txt --prefix .'
-update_tarball "${tarball}" "${pip_install}"
+pip_install="pip install -U --no-deps --install-option=--prefix=$tmpdir/build -r https://raw.githubusercontent.com/bccp/nbodykit/master/requirements.txt"
+update_tarball "${tarball}" "${pip_install}" || exit 1
 
 # update stable 
 tarball=nbodykit-stable.tar.gz
-pip_install='pip install -U --no-deps nbodykit --prefix .'
-update_tarball "${tarball}" "${pip_install}"
-
-rm -rf $tmpdir
+pip_install="pip install -U --no-deps --install-option=--prefix=$tmpdir/build nbodykit"
+echo $pip_install
+update_tarball "${tarball}" "${pip_install}" || exit 1
 
 
