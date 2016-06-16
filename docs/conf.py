@@ -11,9 +11,6 @@
 #
 # All configuration values have a default; values that are commented out
 # serve to show the default.
-import matplotlib as mpl
-mpl.use("Agg")
-
 import sys
 import os
 import shlex
@@ -42,17 +39,18 @@ import nbodykit
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
-    'sphinx.ext.todo',
-    'sphinx.ext.pngmath',
+    'sphinx.ext.autosummary',
     'sphinx.ext.intersphinx',
     'sphinx.ext.extlinks',
-    'sphinx.ext.autosummary',
+    'sphinx.ext.mathjax',
     'numpydoc',
     'IPython.sphinxext.ipython_directive',
-    'IPython.sphinxext.ipython_console_highlighting'
+    'IPython.sphinxext.ipython_console_highlighting',
+    'sphinx.ext.todo',
 ]
 
 autosummary_generate = True
+
 numpydoc_show_class_members = True
 numpydoc_class_members_toctree = False
 
@@ -90,7 +88,7 @@ version = release
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+#language = None
 
 # There are two options for replacing |today|: either, you set today to some
 # non-false value, then it is used:
@@ -144,9 +142,7 @@ if not on_rtd:
 else:
     
     # do the html setup
-    cwd = os.getcwd()
     os.system("make html-setup")
-    os.chdir(cwd)
     
 #html_theme = 'nature'
 
@@ -177,7 +173,7 @@ else:
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-#html_static_path = ['_static']
+html_static_path = ['_static']
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied
@@ -263,7 +259,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
   (master_doc, 'nbodykit.tex', u'nbodykit Documentation',
-   u'Yu Feng', 'manual'),
+   author, 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of

@@ -173,7 +173,8 @@ of a 2D DataSet, such as when plotting:
         label = r"$\mu = %.1f$" % power_2d['mu_cen'][i] 
         plt.loglog(pk['k'], pk['power'].real - shot_noise, label=label)
         
-
+    print(os.getcwd())
+    
     plt.legend()
     plt.xlabel(r"$k$ [$h$/Mpc]", fontsize=14)
     plt.ylabel(r"$P(k,\mu)$ $[\mathrm{Mpc}/h]^3$", fontsize=14)    
