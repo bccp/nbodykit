@@ -54,14 +54,6 @@ autosummary_generate = True
 numpydoc_show_class_members = True
 numpydoc_class_members_toctree = False
 
-def skip(app, what, name, obj, skip, options):
-    if name == "__init__":
-        return False
-    return skip
-
-def setup(app):
-    app.connect("autodoc-skip-member", skip)
-
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
@@ -106,7 +98,7 @@ language = None
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = ['_build', 'plugins-ref']
+exclude_patterns = ['_build', 'plugins-list']
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.
@@ -147,19 +139,10 @@ if not on_rtd:
     import sphinx_rtd_theme
     html_theme = 'sphinx_rtd_theme'
     html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
-    
-    ipython_savefig_dir = '.'
-    
-    # Add any paths that contain custom static files (such as style sheets) here,
-    # relative to this directory. They are copied after the builtin static files,
-    # so a file named "default.css" will overwrite the builtin "default.css".
-    html_static_path = ['_static']
-    
 else:
     
     # do the html setup
     os.system("make html-setup")
-
     
 #html_theme = 'nature'
 
@@ -186,6 +169,11 @@ else:
 # docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
 # pixels large.
 #html_favicon = None
+
+# Add any paths that contain custom static files (such as style sheets) here,
+# relative to this directory. They are copied after the builtin static files,
+# so a file named "default.css" will overwrite the builtin "default.css".
+html_static_path = ['_static']
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied
