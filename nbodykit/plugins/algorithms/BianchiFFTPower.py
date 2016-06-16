@@ -14,19 +14,17 @@ class BianchiPowerAlgorithm(Algorithm):
     
     Notes
     -----
-    The algorithm saves the power spectrum multipoles to a plaintext file, 
-    as well as the meta-data associted with the algorithm. The names of the
-    columns saved to file are:
+    The algorithm saves the power spectrum result to a plaintext file, 
+    as well as the meta-data associted with the algorithm.
+    
+    The columns names are:
     
         - k : 
-            the mean wavenumber for each multipole bin
-        - power_X.real, power_X.imag :
-            the real and imaginary components of the 'X' 
-            multipole (`0` for monopole, `2` for quadrupole, or
-            `4` for hexadecapole)
+            the mean value for each `k` bin
+        - power_X.real, power_X.imag : multipoles only
+            the real and imaginary components for the `X` multipole
         - modes : 
-            the number of Fourier modes averaged together in each
-            `k` bin
+            the number of Fourier modes averaged together in each bin
     
     The plaintext files also include meta-data associated with the algorithm:
     
@@ -34,11 +32,27 @@ class BianchiPowerAlgorithm(Algorithm):
             the length of each side of the box used when computing FFTs
         - volumne : 
             the volume of the box; equal to ``Lx*Ly*Lz``
-        - N1 : 
-            the number of objects in the 1st catalog
-        - N2 : 
-            the number of objects in the 2nd catalog; equal to `N1`
-            if the power spectrum is an auto spectrum
+        - N_data : 
+            the number of objects in the "data" catalog
+        - N_ran : 
+            the number of objects in the "randoms" catalog
+        - alpha : 
+            the ratio of data to randoms; equal to ``N_data/N_ran``
+        - S_data : 
+            the unnormalized shot noise for the "data" catalog; see
+            equations 13-15 of `Beutler et al. 2014 <http://arxiv.org/abs/1312.4611>`_
+        - S_ran : 
+            the same as `S_data`, but for the "randoms" catalog
+        - A_data : 
+            the power spectrum normalization, as computed from the "data" catalog; 
+            see equations 13-15 of `Beutler et al. 2014 <http://arxiv.org/abs/1312.4611>`_
+            for further details
+        - A_ran : 
+            the same as `A_data`, but for the "randoms" catalog; this is the 
+            actual value used to normalize the power spectrum, but its value
+            should be very close to `A_data`
+        - shot_noise : 
+            the final shot noise for the monopole; equal to ``(S_ran + S_data)/A_ran``
     
     See :func:`nbodykit.files.Read1DPlainText` and 
     :func:`nbodykit.dataset.Power1dDataSet.from_nbkit` for examples on how to read the

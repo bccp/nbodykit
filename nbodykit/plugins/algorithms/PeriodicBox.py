@@ -56,14 +56,13 @@ class FFTPowerAlgorithm(Algorithm):
     
     Notes
     -----
-    The algorithm saves the power spectrum result to a plaintext file, 
-    as well as the meta-data associted with the algorithm.
-    
-    The columns names are:
+    The algorithm saves the power spectrum results to a plaintext file, 
+    as well as the meta-data associted with the algorithm. The names of the
+    columns saved to file are:
     
         - k : 
             the mean value for each `k` bin
-        - mu : 
+        - mu : 2D power only
             the mean value for each `mu` bin
         - power.real, power.imag : 1D/2D power only
             the real and imaginary components of 1D power
@@ -78,28 +77,11 @@ class FFTPowerAlgorithm(Algorithm):
             the length of each side of the box used when computing FFTs
         - volumne : 
             the volume of the box; equal to ``Lx*Ly*Lz``
-        - N_data : 
-            the number of objects in the "data" catalog
-        - N_ran : 
-            the number of objects in the "randoms" catalog
-        - alpha : 
-            the ratio of data to randoms; equal to ``N_data/N_ran``
-        - S_data : 
-            the unnormalized shot noise for the "data" catalog; see
-            equations 13-15 of `Beutler et al. 2014 <http://arxiv.org/abs/1312.4611>`_
-        - S_ran : 
-            the same as `S_data`, but for the "randoms" catalog
-        - A_data : 
-            the power spectrum normalization, as computed from the "data" catalog; 
-            see equations 13-15 of `Beutler et al. 2014 <http://arxiv.org/abs/1312.4611>`_
-            for further details
-        - A_ran : 
-            the same as `A_data`, but for the "randoms" catalog; this is the 
-            actual value used to normalize the power spectrum, but its value
-            should be very close to `A_data`
-        - shot_noise : 
-            the final shot noise for the monopole; equal to ``(S_ran + S_data)/A_ran``
-    
+        - N1 : 
+            the number of objects in the 1st catalog
+        - N2 : 
+            the number of objects in the 2nd catalog; equal to `N1`
+            if the power spectrum is an auto spectrum
     
     See :func:`nbodykit.files.Read1DPlainText`, :func:`nbodykit.files.Read2DPlainText`
     and :func:`nbodykit.dataset.Power1dDataSet.from_nbkit`
@@ -258,9 +240,46 @@ class FFTPowerAlgorithm(Algorithm):
 
 class FFTCorrelationAlgorithm(Algorithm):
     """
-    Algorithm to compute the 1d or 2d correlation function and multipoles
-    in a periodic box. This FFTs the measured power spectrum to compute
-    the correlation function
+    Algorithm to compute the 1d or 2d correlation function and/or multipoles
+    in a periodic box
+    
+    The algorithm simply takes the Fast Fourier Transform (FFT) of
+    the measured power spectrum, as computed by :class:`FFTPowerAlgorithm`, 
+    to compute the correlation function
+    
+    Notes
+    -----
+    The algorithm saves the correlation function result to a plaintext file, 
+    as well as the meta-data associted with the algorithm. The names of the
+    columns saved to file are:
+    
+        - r : 
+            the mean separation in each `r` bin
+        - mu : 2D corr only
+            the mean value for each `mu` bin
+        - corr : 
+            the correlation function value
+        - corr_X :
+            the `X` multipole of the correlation function
+        - modes : 
+            the number of Fourier modes averaged together in each bin
+    
+    The plaintext files also include meta-data associated with the algorithm:
+    
+        - Lx, Ly, Lz : 
+            the length of each side of the box used when computing FFTs
+        - volumne : 
+            the volume of the box; equal to ``Lx*Ly*Lz``
+        - N1 : 
+            the number of objects in the 1st catalog
+        - N2 : 
+            the number of objects in the 2nd catalog; equal to `N1`
+            if the power spectrum is an auto spectrum
+    
+    See :func:`nbodykit.files.Read1DPlainText`, :func:`nbodykit.files.Read2DPlainText`
+    and :func:`nbodykit.dataset.Corr1dDataSet.from_nbkit`
+    :func:`nbodykit.dataset.Corr2dDataSet.from_nbkit` for examples on how to read the
+    the plaintext file.
     """
     plugin_name = "FFTCorrelation"
     logger = logging.getLogger(plugin_name)
