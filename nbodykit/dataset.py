@@ -727,6 +727,7 @@ class DataSet(object):
             weights = self.data[weights]
             
         edges = self.edges[dim]
+        new_shape = list(self.shape)
         
         # check if we need to discard bins from the end
         leftover = self.shape[i] % factor
@@ -739,10 +740,11 @@ class DataSet(object):
             data = data[sl]
             if weights is not None: weights = weights[sl]
             edges = edges[:-leftover]
+            new_shape[i] = new_shape[i] - leftover
             
         # new edges
-        new_shape = list(self.shape)
         new_shape[i] /= factor
+        new_shape[i] = int(new_shape[i])
         new_edges = numpy.linspace(edges[0], edges[-1], new_shape[i]+1)
         
         # the re-binned data
