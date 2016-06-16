@@ -29,11 +29,12 @@ And for algorithms computing correlation functions:
    :suppress:
    
    from __future__ import print_function
-   from nbodykit.test import download_results_file
+   from nbodykit.test import download_results_file, cache_dir
    import os
    
-   download_results_file('test_power_plaintext.dat', '../examples/output') # 2d result
-   download_results_file('test_power_cross.dat', '../examples/output') # 1d result
+   targetdir = os.path.join(cache_dir, 'results')
+   download_results_file('test_power_plaintext.dat', targetdir) # 2d result
+   download_results_file('test_power_cross.dat', targetdir) # 1d result
       
 Loading results
 ---------------
@@ -48,7 +49,6 @@ The reading and DataSet initialization can be performed in one step, taking adva
 .. ipython:: python
 
     from nbodykit import dataset, files
-    from nbodykit.test import cache_dir
     
     # output file of 'examples/power/test_plaintext.params'
     filename_2d = os.path.join(cache_dir, 'results', 'test_power_plaintext.dat')
