@@ -653,7 +653,8 @@ class DataSet(object):
                     spacing, 
                     weights=None, 
                     force=True, 
-                    return_spacing=False):
+                    return_spacing=False, 
+                    fields_to_sum=[]):
         """
         Reindex the dimension `dim` by averaging over multiple coordinate bins, 
         optionally weighting by `weights`. Return a new DataSet holding the 
@@ -664,7 +665,7 @@ class DataSet(object):
         *   We can only re-bin to an integral factor of the current 
             dimension size in order to inaccuracies when re-binning to 
             overlapping bins
-        *   Variables specified in :attr:`DataSet._fields_to_sum` will 
+        *   Variables specified in `fields_to_sum` will 
             be summed when re-indexing, instead of averaging
         
         
@@ -686,6 +687,9 @@ class DataSet(object):
         return_spacing : bool, optional
             If `True`, return the new spacing as the second return value. 
             Default is `False`.
+        fields_to_sum : list
+            the name of fields that will be summed when reindexing, instead
+            of averaging
             
         Returns
         -------
@@ -697,6 +701,7 @@ class DataSet(object):
             will be returned
         """        
         i = self.dims.index(dim)
+        fields_to_sum += self._fields_to_sum
         
         # determine the new binning
         old_spacings = numpy.diff(self.coords[dim])
@@ -745,9 +750,9 @@ class DataSet(object):
         for name in self.variables:
             operation = numpy.nanmean
             weights_ = weights
-            if weights is not None or name in self._fields_to_sum:
+            if weights is not None or name in fields_to_sum:
                 operation = numpy.nansum
-                if name in self._fields_to_sum: weights_ = None
+                if name in fields_to_sum: weights_ = None
             new_data[name] = bin_ndarray(data[name], new_shape, weights=weights_, operation=operation)
         
         # the new mask
