@@ -240,6 +240,8 @@ html_static_path = ['_static']
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'nbodykitdoc'
 
+ipython_savefig_dir = '.'
+
 # -- Options for LaTeX output ---------------------------------------------
 
 latex_elements = {
