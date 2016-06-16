@@ -29,6 +29,7 @@ update_tarball()
     else
         pip_output=$(MPICC=cc $pip_cmd)
     fi
+    cd ..; cd build # avoid stale file handle
     echo "$pip_output"
     
     # remake the tarball?
