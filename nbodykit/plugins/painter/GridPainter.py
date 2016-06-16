@@ -17,7 +17,8 @@ class GridPainter(Painter):
 
     @classmethod
     def register(cls):
-        pass
+        s = cls.schema
+        s.description = "update the mesh with a gridded density file from file"
         
     def paint(self, pm, datasource):
         """

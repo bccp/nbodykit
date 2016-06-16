@@ -9,25 +9,27 @@ import bigfile
 class FOFAlgorithm(Algorithm):
     plugin_name = "FOF"
     
-    def __init__(self, datasource, linklength, absolute=False, without_labels=False, nmin=32, calculate_initial_position=False):
+    def __init__(self, datasource, linklength, 
+                    absolute=False, without_labels=False, 
+                    nmin=32, calculate_initial_position=False):
         pass
     
     @classmethod
     def register(cls):
         s = cls.schema
-        s.description = "Friend of Friend halo finder"
+        s.description = "a Friends-of-Friends (FOF) halo finder"
         
         s.add_argument("datasource", type=DataSource.from_config,
             help='`DataSource` objects to run FOF against; '
                  'run `nbkit.py --list-datasources` for all options')
         s.add_argument("linklength", type=float, 
-            help='the link length in terms of mean particle sep')
+            help='the linking length in either absolute or relative units')
         s.add_argument("absolute", type=bool,
-            help='If set, the linking length is in absolute units. '
-                 'The default is in relative to mean particle separation.')
+            help='If set, the linking length is in absolute units, '
+                'otherwise it is relative to the mean particle separation; default is `False`')
         s.add_argument("calculate_initial_position", type=bool,
-            help='If set, calculate initial position of halos based on the InitialPosition field of DataSource'
-                 )
+            help='If set, calculate the initial position of halos based on the '
+                'InitialPosition field of DataSource')
         s.add_argument("without_labels", type=bool, help='do not store labels')
         s.add_argument("nmin", type=int, help='minimum number of particles in a halo')
         

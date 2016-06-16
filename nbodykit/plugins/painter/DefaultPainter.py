@@ -13,6 +13,9 @@ class DefaultPainter(Painter):
     @classmethod
     def register(cls):
         s = cls.schema
+        s.description = "grid the density field of an input DataSource of objects, optionally "
+        s.description += "using a weight for each object"
+        
         s.add_argument("weight", help="the column giving the weight for each object")
 
     def paint(self, pm, datasource):

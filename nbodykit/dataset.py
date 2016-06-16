@@ -24,8 +24,8 @@ def bin_ndarray(ndarray, new_shape, weights=None, operation=numpy.mean):
     *   Number of output dimensions must match number of input dimensions.
     *   See https://gist.github.com/derricw/95eab740e1b08b78c03f
     
-    Example
-    -------
+    Examples
+    --------
     >>> m = numpy.arange(0,100,1).reshape((10,10))
     >>> n = bin_ndarray(m, new_shape=(5,5), operation=numpy.sum)
     >>> print(n)
@@ -344,13 +344,13 @@ class DataSet(object):
                 raise KeyError("`%s` is not a valid variable or coordinate name" %key)
             
         # indices to slice the data with
-        indices = [range(0, self.shape[i]) for i in range(len(self.dims))]
+        indices = [list(range(0, self.shape[i])) for i in range(len(self.dims))]
             
         # check for list/tuple of variable names
         # if so, return a DataSet with slice of columns
         if isinstance(key, (list, tuple)) and all(isinstance(x, str) for x in key):
             if all(k in self.variables for k in key):
-                return self.__finalize__(self.data[key], self.mask.copy(), indices)
+                return self.__finalize__(self.data[list(key)], self.mask.copy(), indices)
             else:
                 invalid = ', '.join("'%s'" %k for k in key if k not in self.variables)
                 raise KeyError("cannot slice variables -- invalid names: (%s)" %invalid)
@@ -373,7 +373,7 @@ class DataSet(object):
             elif isinstance(subkey, list):
                 indices[i] = subkey
             elif isinstance(subkey, slice):
-                indices[i] = range(*subkey.indices(self.shape[i]))
+                indices[i] = list(range(*subkey.indices(self.shape[i])))
                 
         # can't squeeze all dimensions!!
         if len(squeezed_dims) == len(self.dims):
@@ -494,7 +494,7 @@ class DataSet(object):
         >>> pkmu.sel(k_cen=slice(0.1, 0.4), mu_cen=0.5)
         <DataSet: dims: (k_cen: 30), variables: ('mu', 'k', 'power')>
         """
-        indices = [range(0, self.shape[i]) for i in range(len(self.dims))]
+        indices = [list(range(0, self.shape[i])) for i in range(len(self.dims))]
         squeezed_dims = []
         for dim in indexers:
             key = indexers[dim]
@@ -506,7 +506,7 @@ class DataSet(object):
                 new_slice = []
                 for name in ['start', 'stop']:
                     new_slice.append(self._get_index(dim, getattr(key, name), method=method))
-                indices[i] = range(*slice(*new_slice).indices(self.shape[i]))
+                indices[i] = list(range(*slice(*new_slice).indices(self.shape[i])))
             elif not numpy.isscalar(key):
                 raise IndexError("please index using a list, slice, or scalar value")
             else:
@@ -646,15 +646,15 @@ class DataSet(object):
         """
         spacing = (self.edges[dim][-1] - self.edges[dim][0])
         toret = self.reindex(dim, spacing, **kwargs)
-        toret = toret.sel(**{dim:toret.coords[dim][0]})
-        return toret.squeeze(dim)
+        return toret.sel(**{dim:toret.coords[dim][0]})
         
     def reindex(self, 
                     dim, 
                     spacing, 
                     weights=None, 
                     force=True, 
-                    return_spacing=False):
+                    return_spacing=False, 
+                    fields_to_sum=[]):
         """
         Reindex the dimension `dim` by averaging over multiple coordinate bins, 
         optionally weighting by `weights`. Return a new DataSet holding the 
@@ -665,7 +665,7 @@ class DataSet(object):
         *   We can only re-bin to an integral factor of the current 
             dimension size in order to inaccuracies when re-binning to 
             overlapping bins
-        *   Variables specified in :attr:`DataSet._fields_to_sum` will 
+        *   Variables specified in `fields_to_sum` will 
             be summed when re-indexing, instead of averaging
         
         
@@ -687,6 +687,9 @@ class DataSet(object):
         return_spacing : bool, optional
             If `True`, return the new spacing as the second return value. 
             Default is `False`.
+        fields_to_sum : list
+            the name of fields that will be summed when reindexing, instead
+            of averaging
             
         Returns
         -------
@@ -698,6 +701,7 @@ class DataSet(object):
             will be returned
         """        
         i = self.dims.index(dim)
+        fields_to_sum += self._fields_to_sum
         
         # determine the new binning
         old_spacings = numpy.diff(self.coords[dim])
@@ -710,7 +714,7 @@ class DataSet(object):
             raise ValueError("new spacing must be smaller than original spacing of %.2e" %old_spacing)
         if factor == 1:
             raise ValueError("closest binning size to input spacing is the same as current binning")
-        if old_spacing*factor != spacing and not force: 
+        if not numpy.allclose(old_spacing*factor, spacing) and not force: 
             raise ValueError("if `force = False`, new bin spacing must be an integral factor smaller than original")
         
         # make a copy of the data
@@ -723,6 +727,7 @@ class DataSet(object):
             weights = self.data[weights]
             
         edges = self.edges[dim]
+        new_shape = list(self.shape)
         
         # check if we need to discard bins from the end
         leftover = self.shape[i] % factor
@@ -735,10 +740,11 @@ class DataSet(object):
             data = data[sl]
             if weights is not None: weights = weights[sl]
             edges = edges[:-leftover]
+            new_shape[i] = new_shape[i] - leftover
             
         # new edges
-        new_shape = list(self.shape)
         new_shape[i] /= factor
+        new_shape[i] = int(new_shape[i])
         new_edges = numpy.linspace(edges[0], edges[-1], new_shape[i]+1)
         
         # the re-binned data
@@ -746,9 +752,9 @@ class DataSet(object):
         for name in self.variables:
             operation = numpy.nanmean
             weights_ = weights
-            if weights is not None or name in self._fields_to_sum:
+            if weights is not None or name in fields_to_sum:
                 operation = numpy.nansum
-                if name in self._fields_to_sum: weights_ = None
+                if name in fields_to_sum: weights_ = None
             new_data[name] = bin_ndarray(data[name], new_shape, weights=weights_, operation=operation)
         
         # the new mask

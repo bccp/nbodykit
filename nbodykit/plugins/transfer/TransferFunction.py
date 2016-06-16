@@ -14,7 +14,9 @@ class AnisotropicCIC(Transfer):
     
     @classmethod
     def register(cls):
-        pass
+        s = cls.schema
+        s.description = "divide by a Fourier-space kernel to account for the CIC gridding window function; "
+        s.description += "see Jing et al 2005 (arxiv:0409240)"
         
     def __call__(self, pm, complex):
         for wi in pm.w:
@@ -34,7 +36,9 @@ class AnisotropicTSC(Transfer):
     
     @classmethod
     def register(cls):
-        pass
+        s = cls.schema
+        s.description = "divide by a Fourier-space kernel to account for the TSC gridding window function; "
+        s.description += "see Jing et al 2005 (arxiv:0409240)"
         
     def __call__(self, pm, complex):
         for wi in pm.w:
@@ -45,7 +49,7 @@ class AnisotropicTSC(Transfer):
             
 class NormalizeDC(Transfer):
     """
-    Removes the DC amplitude in Fourier space, which effectively
+    Normalize by the DC amplitude in Fourier space, which effectively
     divides by the mean in configuration space
     """
     plugin_name = "NormalizeDC"
@@ -54,7 +58,9 @@ class NormalizeDC(Transfer):
     
     @classmethod
     def register(cls):
-        pass
+        s = cls.schema
+        s.description = "normalize the DC amplitude in Fourier space, which effectively divides "
+        s.description += "by the mean in configuration space"
 
     def __call__(self, pm, complex):
         ind = []
@@ -82,7 +88,9 @@ class RemoveDC(Transfer):
 
     @classmethod
     def register(cls):
-        pass
+        s = cls.schema
+        s.description = "remove the DC amplitude in Fourier space, which sets the mean of the "
+        s.description += "field in configuration space to zero"
 
     def __call__(self, pm, complex):
         ind = []

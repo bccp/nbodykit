@@ -16,9 +16,6 @@ import sys
 import os
 import shlex
 
-# run the apidoc.sh file first
-os.system("bash apidoc.sh")
-
 import mock
 MOCK_MODULES = ['mpsort', 'mpi4py', 'scipy', 'scipy.interpolate', 'h5py', 'bigfile', 
                 'kdcount', 'pmesh', 'pmesh.particlemesh', 'pmesh.domain']
@@ -43,11 +40,13 @@ import nbodykit
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.todo',
-    'sphinx.ext.pngmath',
+    'sphinx.ext.imgmath',
     'sphinx.ext.intersphinx',
     'sphinx.ext.extlinks',
     'sphinx.ext.autosummary',
     'numpydoc',
+    'IPython.sphinxext.ipython_directive',
+    'IPython.sphinxext.ipython_console_highlighting'
 ]
 
 autosummary_generate = True
@@ -78,7 +77,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'nbodykit'
-copyright = u'2015, Yu Feng, Nick Hand '
+copyright = u'2015-2016, Yu Feng, Nick Hand '
 author = u'Yu Feng, Nick Hand'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -106,7 +105,7 @@ language = None
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = ['_build']
+exclude_patterns = ['_build', 'plugins-ref']
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.
@@ -241,6 +240,8 @@ html_static_path = ['_static']
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'nbodykitdoc'
 
+ipython_savefig_dir = '.'
+
 # -- Options for LaTeX output ---------------------------------------------
 
 latex_elements = {
@@ -326,5 +327,6 @@ intersphinx_mapping = {
     'python': ('https://docs.python.org/2.7/', None),
     'pandas': ('http://pandas.pydata.org/pandas-docs/stable/', None),
     'numpy': ('http://docs.scipy.org/doc/numpy/', None),
-    'xarray': ('http://xarray.pydata.org/en/stable/', None)
+    'xarray': ('http://xarray.pydata.org/en/stable/', None),
+    'astropy': ('http://docs.astropy.org/en/stable/', None)
 }

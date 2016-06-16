@@ -73,7 +73,8 @@ class Cosmology(CosmologyBase):
     
     Notes
     -----
-    *   this class supports the `wCDM` and `FlatwCDM` classes from `astropy`,
+    *   this class supports the :class:`~astropy.cosmology.wCDM` and 
+        :class:`~astropy.cosmology.FlatwCDM` classes from `astropy`,
     *   additions to the fiducial `LCDM` model include the dark energy equation 
         of state `w0` and massive neutrinos
     *   if `flat = True`, the dark energy density is set automatically
