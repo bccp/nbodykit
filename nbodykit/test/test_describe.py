@@ -10,13 +10,10 @@ class RunDescribeAlgorithm(RunAlgorithm):
 class Test1(unittest.TestCase):
     param_file  = "test_describe.params"
     output_file = "test_describe.dat"
-    datasources = ['test_bianchi_randoms.dat']
+    datasources = ['test_bianchi_data.dat']
     
     def test_exit_code(self):
         asserts.test_exit_code(self)
     
     def test_exception(self):
         asserts.test_exception(self)  
-        
-    def test_result(self):
-        asserts.test_result_md5sum(self)
