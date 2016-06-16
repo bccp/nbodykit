@@ -1,4 +1,4 @@
-__version__ = "0.1.3.dev0"
+__version__ = "0.1.3"
 
 from nbodykit.pluginmanager import load_builtins
 import os
