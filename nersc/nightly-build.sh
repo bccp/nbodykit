@@ -19,16 +19,18 @@ update_tarball()
     mkdir build; cd build
 
     # untar and run the pip update
-    tar -xf $install_dir/$tarball
-    pkgdir=$(find . -name 'site-packages')
-    pip_output=$(MPICC=cc PYTHONPATH=$pkgdir $pip_cmd)
+    if [ -f $install_dir/$tarball ]; then 
+        tar -xf $install_dir/$tarball
+        pkgdir=$(find . -name 'site-packages')
+        pip_output=$(MPICC=cc PYTHONPATH=$pkgdir $pip_cmd)
+        echo "$pip_output"
+    fi
     
     # remake the tarball?
-    echo "$pip_output"
-    if [[ $pip_output == *"Installing collected packages"* ]]; then
+    if [[ $pip_output == *"Installing collected packages"* ]] || [ ! -f $install_dir/$tarball ]; then
         echo "remaking the tarball '$tarball'..."
         tar -cf $tarball lib
-        cp $tarball $HOME/test/$tarball
+        cp $tarball $install_dir/$tarball
     fi
     cd ..; rm -r build 
 }
@@ -38,7 +40,7 @@ $tarball=nbodykit-latest.tar.gz
 mkdir build; cd build
 
 bundle-pip $tarball git+https://github.com/bccp/nbodykit.git@master
-cp $tarball $HOME/test/$tarball
+cp $tarball $install_dir/$tarball
 cd ..; rm -r build
 
 # update the dependencies
