@@ -54,6 +54,8 @@ autosummary_generate = True
 numpydoc_show_class_members = True
 numpydoc_class_members_toctree = False
 
+ipython_savefig_dir = '_images'
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
