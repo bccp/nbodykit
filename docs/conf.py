@@ -147,10 +147,12 @@ if not on_rtd:
     import sphinx_rtd_theme
     html_theme = 'sphinx_rtd_theme'
     html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
+    ipython_savefig_dir = '.'
 else:
     
     # do the html setup
     os.system("make html-setup")
+
     
 #html_theme = 'nature'
 
@@ -245,8 +247,6 @@ html_static_path = ['_static']
 
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'nbodykitdoc'
-
-ipython_savefig_dir = './_static'
 
 # -- Options for LaTeX output ---------------------------------------------
 
