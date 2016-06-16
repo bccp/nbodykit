@@ -201,6 +201,7 @@ Below is an example job script that prints the help message of the
 :class:`FFTPower <nbodykit.plugins.algorithms.PeriodicBox.FFTPowerAlgorithm>` algorithm:
 
 .. literalinclude:: ../nersc/example.sh
+    :language: bash
 
 .. _`NERSC`: http://www.nersc.gov/systems/
 .. _`this tutorial`: https://github.com/rainwoodman/python-mpi-bcast/wiki/NERSC
