@@ -51,14 +51,14 @@ The reading and DataSet initialization can be performed in one step, taking adva
     from nbodykit import examples_dir
     
     # output file of 'examples/power/test_plaintext.params'
-    filename_2d = os.path.join(example_dir, 'output', 'test_power_plaintext.dat')
+    filename_2d = os.path.join(examples_dir, 'output', 'test_power_plaintext.dat')
     
     # load a 2D power result
     power_2d =  dataset.Power2dDataSet.from_nbkit(*files.Read2DPlainText(filename_2d))
     power_2d
     
     # output file of 'examples/power/test_cross_power.params'
-    filename_1d =  os.path.join(example_dir, 'output', 'test_power_cross.dat')
+    filename_1d =  os.path.join(examples_dir, 'output', 'test_power_cross.dat')
     
     # load a 1D power result
     power_1d =  dataset.Power1dDataSet.from_nbkit(*files.Read1DPlainText(filename_1d))
