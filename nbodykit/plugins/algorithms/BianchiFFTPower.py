@@ -10,6 +10,39 @@ class BianchiPowerAlgorithm(Algorithm):
     
     The algorithm used to compute the multipoles is detailed
     in Bianchi et al. 2015 (http://adsabs.harvard.edu/abs/2015MNRAS.453L..11B)
+    
+    
+    Notes
+    -----
+    The algorithm saves the power spectrum multipoles to a plaintext file, 
+    as well as the meta-data associted with the algorithm. The names of the
+    columns saved to file are:
+    
+        - k : 
+            the mean wavenumber for each multipole bin
+        - power_X.real, power_X.imag :
+            the real and imaginary components of the 'X' 
+            multipole (`0` for monopole, `2` for quadrupole, or
+            `4` for hexadecapole)
+        - modes : 
+            the number of Fourier modes averaged together in each
+            `k` bin
+    
+    The plaintext files also include meta-data associated with the algorithm:
+    
+        - Lx, Ly, Lz : 
+            the length of each side of the box used when computing FFTs
+        - volumne : 
+            the volume of the box; equal to ``Lx*Ly*Lz``
+        - N1 : 
+            the number of objects in the 1st catalog
+        - N2 : 
+            the number of objects in the 2nd catalog; equal to `N1`
+            if the power spectrum is an auto spectrum
+    
+    See :func:`nbodykit.files.Read1DPlainText` and 
+    :func:`nbodykit.dataset.Power1dDataSet.from_nbkit` for examples on how to read the
+    the plaintext file.
     """
     plugin_name = "BianchiFFTPower"
     logger = logging.getLogger(plugin_name)
