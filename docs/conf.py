@@ -49,8 +49,8 @@ extensions = [
     'sphinx.ext.extlinks',
     'sphinx.ext.autosummary',
     'numpydoc',
-    'IPython.sphinxext.ipython_directive',
-    'IPython.sphinxext.ipython_console_highlighting'
+    'ipython_directive',
+    'ipython_console_highlighting'
 ]
 
 autosummary_generate = True
