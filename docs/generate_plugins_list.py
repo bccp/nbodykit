@@ -1,7 +1,7 @@
 from nbodykit import extensionpoints
 import os
 
-dirname = 'plugins-ref'
+dirname = 'plugins-list'
 if not os.path.exists(dirname):
     os.makedirs(dirname)
     
