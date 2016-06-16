@@ -276,7 +276,7 @@ and load the nbodykit bundles.
     module load python/2.7-anaconda
     
     # activate python-mpi-bcast
-    source /usr/common/contrib/bccp/python-mpi/nersc/activate.sh
+    source /usr/common/contrib/bccp/python-mpi-bcast/nersc/activate.sh
     
     # go to the nbodykit source directory
     cd /path/to/nbodykit
