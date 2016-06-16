@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# shell script to either build the dependences or the source
+# if source is being built, the local git repo will be tarred
+# outputs: $NERSC_HOST/nbodykit-dep.tar.gz or $NERSC_HOST/nbodykit.tar.gz
+
 # print the usage
 while getopts ":h" opt; do
   case ${opt} in
@@ -19,23 +23,15 @@ while getopts ":h" opt; do
 done
 shift $((OPTIND -1))
 
+# make sure we are running from "nersc" directory
+if [ ! -f ../requirements.txt ] || [ $(basename "$PWD") != "nersc" ]; then
+    echo "please call this script from the 'nbodykit/nersc' directory"
+    exit 1
+fi
+
+
 # get the subcommand and shorten the argument list
 subcommand=$1; shift
-
-# get the current git branch
-curr_branch=$(git rev-parse --abbrev-ref HEAD)
-case "$curr_branch" in 
-    master )
-       version='stable'
-    ;;
-    develop )
-       version='latest'
-    ;;
-    * )
-       echo "when running build.sh, current git branch should be 'master' or 'develop'"
-       exit 1
-    ;;
-esac
 
 # make the build directory
 mkdir -p ${NERSC_HOST}
@@ -46,16 +42,16 @@ source /usr/common/contrib/bccp/python-mpi-bcast/activate.sh
 case "$subcommand" in
   all )
     MPICC=cc bundle-pip ${NERSC_HOST}/nbodykit-dep.tar.gz -r ../requirements.txt
-    bundle-pip ${NERSC_HOST}/nbodykit-${version}.tar.gz ..
+    bundle-pip ${NERSC_HOST}/nbodykit.tar.gz ..
   ;;
   source )
-    bundle-pip ${NERSC_HOST}/nbodykit-${version}.tar.gz ..
+    bundle-pip ${NERSC_HOST}/nbodykit.tar.gz ..
     ;;
   deps )
     MPICC=cc bundle-pip ${NERSC_HOST}/nbodykit-dep.tar.gz -r ../requirements.txt
     ;;
    * )
-    echo "invalid build choice -- choose from 'source' or 'deps'"
+    echo "invalid build choice -- choose from 'source', 'deps', 'all'"
     exit 1
 esac
 
