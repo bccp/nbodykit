@@ -43,7 +43,7 @@ class Describe(Algorithm):
                 import sys
                 output = sys.stdout
             else:
-                output = file(output, 'w')
-            output.write(template % 
-                (self.datasource.plugin_name, self.column, str(left), str(right)))
+                output = open(output, 'w')
+            args = (self.datasource.plugin_name, self.column, str(left), str(right))
+            output.write(template %args)
 
