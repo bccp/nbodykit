@@ -32,8 +32,8 @@ update_tarball()
     # remake the tarball?
     if [[ $pip_output == *"Installing collected packages"* ]] || [ ! -f $install_dir/$tarball ]; then
         echo "remaking the tarball '$tarball'..."
-        #tar -cf $tarball lib
-        #cp $tarball $install_dir/$tarball
+        tar -cf $tarball lib
+        cp $tarball $install_dir/$tarball
     fi
     cd ..; rm -r build 
 }
