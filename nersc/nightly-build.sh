@@ -25,9 +25,9 @@ update_tarball()
     if [ -f $install_dir/$tarball ]; then 
         tar -xf $install_dir/$tarball
         pkgdir=$(find . -name 'site-packages')
-        pip_output=$(MPICC=cc PYTHONPATH=$pkgdir $pip_cmd || exit 1)
+        pip_output=$(MPICC=cc PYTHONPATH=$pkgdir $pip_cmd)
     else
-        pip_output=$(MPICC=cc $pip_cmd || exit 1)
+        pip_output=$(MPICC=cc $pip_cmd)
     fi
     echo "$pip_output"
     
@@ -65,12 +65,13 @@ cd ..; rm -r build
 
 # update the dependencies
 tarball=nbodykit-dep.tar.gz
-pip_install='pip install -U --no-deps --install-option="--prefix=${tmpdir}" -r https://raw.githubusercontent.com/bccp/nbodykit/master/requirements.txt'
-update_tarball "${tarball}" "${pip_install}"
+pip_install="pip install -U --no-deps --install-option=--prefix=$tmpdir/build -r https://raw.githubusercontent.com/bccp/nbodykit/master/requirements.txt"
+update_tarball "${tarball}" "${pip_install}" || exit 1
 
 # update stable 
 tarball=nbodykit-stable.tar.gz
-pip_install='pip install -U --no-deps --install-option="--prefix=${tmpdir}" nbodykit'
-update_tarball "${tarball}" "${pip_install}"
+pip_install="pip install -U --no-deps --install-option=--prefix=$tmpdir/build nbodykit"
+echo $pip_install
+update_tarball "${tarball}" "${pip_install}" || exit 1
 
 
