@@ -6,6 +6,7 @@ install_dir=/usr/common/contrib/bccp/nbodykit/
 # change to a temporary directory
 tmpdir=$(mktemp -d)
 cd $tmpdir
+echo "temporary build directory: " $tmpdir
 
 # activate python-mpi-bcast
 source /usr/common/contrib/bccp/python-mpi-bcast/activate.sh
@@ -23,20 +24,22 @@ update_tarball()
         tar -xf $install_dir/$tarball
         pkgdir=$(find . -name 'site-packages')
         pip_output=$(MPICC=cc PYTHONPATH=$pkgdir $pip_cmd)
-        echo "$pip_output"
+    else
+        pip_output=$(MPICC=cc $pip_cmd)
     fi
+    echo "$pip_output"
     
     # remake the tarball?
     if [[ $pip_output == *"Installing collected packages"* ]] || [ ! -f $install_dir/$tarball ]; then
         echo "remaking the tarball '$tarball'..."
-        tar -cf $tarball lib
-        cp $tarball $install_dir/$tarball
+        #tar -cf $tarball lib
+        #cp $tarball $install_dir/$tarball
     fi
     cd ..; rm -r build 
 }
 
 # build the "latest" source from the HEAD of "master"
-$tarball=nbodykit-latest.tar.gz
+tarball=nbodykit-latest.tar.gz
 mkdir build; cd build
 
 bundle-pip $tarball git+https://github.com/bccp/nbodykit.git@master
