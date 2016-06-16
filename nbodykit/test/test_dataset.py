@@ -168,7 +168,7 @@ class TestDataSet(unittest.TestCase):
             pickle.dump(self.dataset, ff)
             filename = ff.name
         
-        new = pickle.load(open(filename, 'r'))
+        new = pickle.load(open(filename, 'rb'))
         for var in self.dataset.variables:
             numpy.testing.assert_array_equal(self.dataset[var], new[var])
             

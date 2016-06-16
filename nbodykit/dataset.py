@@ -344,7 +344,7 @@ class DataSet(object):
                 raise KeyError("`%s` is not a valid variable or coordinate name" %key)
             
         # indices to slice the data with
-        indices = [range(0, self.shape[i]) for i in range(len(self.dims))]
+        indices = [list(range(0, self.shape[i])) for i in range(len(self.dims))]
             
         # check for list/tuple of variable names
         # if so, return a DataSet with slice of columns
@@ -373,7 +373,7 @@ class DataSet(object):
             elif isinstance(subkey, list):
                 indices[i] = subkey
             elif isinstance(subkey, slice):
-                indices[i] = range(*subkey.indices(self.shape[i]))
+                indices[i] = list(range(*subkey.indices(self.shape[i])))
                 
         # can't squeeze all dimensions!!
         if len(squeezed_dims) == len(self.dims):
@@ -494,7 +494,7 @@ class DataSet(object):
         >>> pkmu.sel(k_cen=slice(0.1, 0.4), mu_cen=0.5)
         <DataSet: dims: (k_cen: 30), variables: ('mu', 'k', 'power')>
         """
-        indices = [range(0, self.shape[i]) for i in range(len(self.dims))]
+        indices = [list(range(0, self.shape[i])) for i in range(len(self.dims))]
         squeezed_dims = []
         for dim in indexers:
             key = indexers[dim]
@@ -506,7 +506,7 @@ class DataSet(object):
                 new_slice = []
                 for name in ['start', 'stop']:
                     new_slice.append(self._get_index(dim, getattr(key, name), method=method))
-                indices[i] = range(*slice(*new_slice).indices(self.shape[i]))
+                indices[i] = list(range(*slice(*new_slice).indices(self.shape[i])))
             elif not numpy.isscalar(key):
                 raise IndexError("please index using a list, slice, or scalar value")
             else:
