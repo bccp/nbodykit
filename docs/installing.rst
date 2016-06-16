@@ -16,7 +16,7 @@ with a suite of additional tools:
 - `astropy`_ : a community Python library for astronomy
 - `pfft-python`_  : a Python binding of `pfft`_, a massively parallel Fast Fourier Transform implementation with pencil domains
 - `pmesh`_     :  a particle mesh framework in Python
-- `kdcount`_   : pair-counting and friend-of-friend clustering with KD-Tree
+- `kdcount`_   : pair-counting and Friends-of-Friends clustering with KD-Tree
 - `bigfile`_   :  a reproducible, massively parallel IO library for hierarchical data
 - `MP-sort`_   : massively parallel sorting 
 - `sharedmem`_ : in-node parallelism with fork and copy-on-write
@@ -40,7 +40,7 @@ Optional dependencies
 For reading data using pandas
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- `pandas`_ and `pytables`_ are required to use the :class:`~nbodykit.plugins.datasource.Pandas` `DataSource`, which uses `pandas` for fast parsing of plain text files, as well as the `pandas` subset of HDF5.
+- `pandas`_ and `pytables`_ are required to use the :class:`~nbodykit.plugins.datasource.Pandas` DataSource, which uses `pandas` for fast parsing of plain text files, as well as the `pandas` subset of HDF5
 
 .. _pandas: http://pandas.pydata.org/
 .. _pytables: http://www.pytables.org
@@ -48,7 +48,8 @@ For reading data using pandas
 For creating data using a Halo Occupation Distribution
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- `halotools`_ is required to use the :class:`~nbodykit.plugins.datasource.Zheng07HOD` `DataSource`, which provides a general framework for populating halos with galaxies using Halo Occupation Distribution modeling.
+- `halotools`_ is required to use the :class:`~nbodykit.plugins.datasource.Zheng07HOD` DataSource, which provides a general framework for populating halos with galaxies using Halo Occupation Distribution modeling
+- Note that `halotools` is only compatible with Python 2 at the moment
 
 .. _halotools: http://halotools.readthedocs.io/en/latest/
 
@@ -67,8 +68,8 @@ source code via:
 Linux
 ~~~~~
 
-The steps listed below are intended for a commodity Linux based cluster 
-(e.g., a `Rocks cluster`_) or a Linux based workstation / laptop.
+The steps listed below are intended for a commodity Linux-based cluster 
+(e.g., a `Rocks cluster`_) or a Linux-based workstation / laptop.
 
 To install the main nbodykit package, as well as the external dependencies 
 listed above, into the default Python installation directory:
@@ -94,6 +95,7 @@ Using recent versions of MacPorts, we also need to tell ``mpicc`` to use ``gcc``
 rather than the default ``clang`` compiler, which doesn't compile ``fftw`` correctly 
 due to the lack of ``openmp`` support. Additionally, the ``LDSHARED`` 
 environment variable must be explicitly set. 
+
 In bash, the installation command is:
 
 .. code-block:: bash
@@ -152,11 +154,11 @@ Or try the scripts in the bin directory:
 .. code-block:: bash
 
     cd bin/
-    mpirun -n 4 python-mpi nbkit.py -h
+    mpirun -n 4 python nbkit.py -h
     
 To run the test suite after installing nbodykit, install `py.test`_ and 
-`pytest-pipeline`_ and run ``py.test nbodykit`` from the source code base
-directory:
+`pytest-pipeline`_ and run ``py.test nbodykit`` from the base directory
+of the source code:
 
 .. code-block:: bash
     
@@ -168,19 +170,20 @@ directory:
 .. _`pytest-pipeline`: `https://pypi.python.org/pypi/pytest-pipeline`
 
  
+.. _nbodykit-on-nersc:
+
 Using nbodykit on NERSC
 -----------------------
 
 In this section, we give instructions for using the latest stable build of nbodykit on `NERSC`_  
 machines (`Edison`_ and `Cori`_), which is provided ready-to-use and is recommended for first-time
 users. For more advanced users, we also provide instructions for performing active development of the 
-source code base on NERSC
+source code on NERSC.
 
-When using nbodykit on a  we need to ensure that 
-the Python environment is set up to work efficiently on the computing nodes. The default Python
-start-up time scales badly with the number of processes, so we employ the `python-mpi-bcast`_ tool
-to ensure fast and reliable start-up times when using nbodykit. This tool can be accessed
-on both Cori and Edison machines. 
+When using nbodykit on NERSC, we need to ensure that the Python environment is set up to work 
+efficiently on the computing nodes. The default Python start-up time scales badly with the number 
+of processes, so we employ the `python-mpi-bcast`_ tool to ensure fast and reliable start-up times 
+when using nbodykit. This tool can be accessed on both the Cori and Edison machines. 
 
 General Usage
 ~~~~~~~~~~~~~
@@ -248,7 +251,7 @@ directory in the source code tree.
 
     # build the dependencies into a bundle
     # this creates the file `$NERSC_HOST/nbodykit-dep.tar.gz`
-    bash build.sh deps --user
+    bash build.sh deps
     
     # build the source code into a separate bundle
     # this creates the file `$NERSC_HOST/nbodykit.tar.gz`

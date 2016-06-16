@@ -9,21 +9,20 @@ analysis of large-scale structure datasets.
 A major goal of the project is to provide a unified treatment of 
 both simulation and observational datasets, allowing nbodykit to 
 be used in the analysis of not only N-body simulations, but also
-survey data from current and future large-scale structure 
-experiments.
+data from current and future large-scale structure surveys.
 
 nbodykit implements a framework that
 insulates analysis algorithms from data containers by relying
 on **plugins** that interact with the core of the code base through
 distinct **extension points**. Such a framework allows the
 user to create plugins designed for a specific task,
-which can then be easily loaded by nbodykit, provided the 
+which can then be easily loaded by nbodykit, provided that the 
 plugin implements the minimal interface required by the 
 desired extension point.  
 
-We provide several built-in plugins for data containers and
-algorithms, as well as more-detailed instructions on how
-users can write their own plugins.
+We provide several built-in extension points and plugins, which we outline
+below. For more detailed instructions on how to add new plugins to 
+nbodykit, see :ref:`extending-nbodykit`.
 
 Extension Points
 ----------------
@@ -70,20 +69,22 @@ to handle a specific task, such as reading a certain type of data
 file, or computing a specific type of algorithm. 
 
 The core of the nbodykit functionality comes from the built-in plugins, of
-which there are numerous:
+which there are numerous. Below, we list each of the built-in plugins and
+a brief desciption of the class. For further details, the
+name of each plugin provides a link to the API reference for each class.
 
 1. **Algorithms**
 
-.. include:: plugins-ref/Algorithm.rst
+.. include:: plugins-list/Algorithm.rst
 
 2. **DataSource**
 
-.. include:: plugins-ref/DataSource.rst
+.. include:: plugins-list/DataSource.rst
 
 3. **Painter**
 
-.. include:: plugins-ref/Painter.rst
+.. include:: plugins-list/Painter.rst
 
 4. **Transfer**
 
-.. include:: plugins-ref/Transfer.rst
+.. include:: plugins-list/Transfer.rst

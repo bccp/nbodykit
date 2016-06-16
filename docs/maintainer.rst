@@ -2,17 +2,25 @@
 Maintainer's corner
 ===================
 
+Here, we outline notes intended for the maintainers of nbodykit, includuing details on running
+the unit test suite and tagging and uploading releases. 
+
 Dependency of tests
 -------------------
 
-- `pytest`
-- `pytest-pipeline`
-- `pytest-cov`
-- `coveralls`
+- `pytest`_
+- `pytest-pipeline`_
+- `pytest-cov`_
+- `coveralls`_
+
+.. _`pytest`: http://pytest.org/latest/
+.. _`pytest-pipeline`: https://github.com/bow/pytest-pipeline
+.. _`pytest-cov`: https://pytest-cov.readthedocs.io/en/latest/
+.. _`coveralls`: https://pypi.python.org/pypi/coveralls
 
 To run the tests use
 
-.. code::
+.. code:: 
 
     py.test nbodykit
 
