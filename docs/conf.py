@@ -11,6 +11,8 @@
 #
 # All configuration values have a default; values that are commented out
 # serve to show the default.
+import matplotlib as mpl
+mpl.use("Agg")
 
 import sys
 import os
@@ -28,6 +30,7 @@ for mod_name in MOCK_MODULES:
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(0, os.path.abspath('../nbodykit'))
+sys.path.insert(0, os.path.abspath('sphinxext'))
 import nbodykit
 
 # -- General configuration ------------------------------------------------
@@ -53,8 +56,6 @@ extensions = [
 autosummary_generate = True
 numpydoc_show_class_members = True
 numpydoc_class_members_toctree = False
-
-ipython_savefig_dir = '_images'
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -175,7 +176,7 @@ else:
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = []
+html_static_path = ['_static']
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied
