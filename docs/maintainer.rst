@@ -42,18 +42,14 @@ For a stable release
 
 2. Add a git commit, add the version tag, push to master.
 
-3. Reset the stable branch to the tag, do a forced push to replace the old stable branch
-   This will trigger a new nightly stable build. We may want to add a github hook to use
-   NIM service and trigger a rebuild on NERSC automatically.
+3. :code:`python setup.py sdist`
 
-4. :code:`python setup.py sdist`
+4. Upload the .tar.gz file in :code:`dist/` to pypi.
 
-5. Upload the .tar.gz file in :code:`dist/` to pip.
-
-6. Bump the version, in :code:`nbodykit/__init__.py`, raise the version number,
+5. Bump the version, in :code:`nbodykit/__init__.py`, raise the version number,
    add `.dev0` postfix
 
-7. Add a git commit, push to master.
+6. Add a git commit, push to master.
 
 
 For a development release
@@ -63,25 +59,14 @@ For a development release
 
 2. Add a git commit, add the version tag, push to master.
 
-3. Reset the unstable branch to the tag, do a forced push to replace the old unstable branch
-   This will trigger a new nightly unstable build. We may want to add a github hook to use
-   NIM service and trigger a rebuild on NERSC automatically.
+3. :code:`python setup.py sdist`
 
-4. :code:`python setup.py sdist`
+4. Add a git commit, push to master.
 
-5. Add a git commit, push to master.
+We shall have a nightly build on NERSC that builds three bundles in 
+``/usr/common/contrib/bccp/nbodykit``: 
 
-.. todo::
-
-    Add a git push / commit hook and scan for version bumps,
-    show this instruction if it looks like tagging a release.
-
-In the future we may want to use a version branch instead of a version tag;
-that means we will get rid of all developing branches from bccp/nbodykit,
-and strictly maintain to-merged branches on
-forks.
-
-Also we shall have a nightly build on NERSC that tracks master. So three versions on nersc,
-
-stable, unstable, nightly (master branch).
+    - ``nbodykit-latest.tar.gz`` : built from the HEAD of the master branch 
+    - ``nbodykit-stable.tar.gz`` : built from the latest version of nbodykit uploaded to pypi, which will only be built if the current bundle is out of date
+    - ``nbodykit-dep.tar.gz`` : build from the dependencies in ``requirements.txt``, which will only be built if one of the current dependencies is out of date
 
