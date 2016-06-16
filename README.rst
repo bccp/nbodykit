@@ -31,7 +31,7 @@ of nbodykit and its dependencies; see `Using nbodykit on NERSC <http://nbodykit.
 Build Status
 ------------
 
-We perform integrated tests for the toplevel executables in a
+We perform integrated tests of the code, including all built-in algorithms, in a
 miniconda environment for Python 2.7 and Python 3.4. 
 
 .. image:: https://api.travis-ci.org/bccp/nbodykit.svg
