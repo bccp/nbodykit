@@ -98,7 +98,7 @@ def download_data(github_url, cache_dir):
 
     # download the tarball locally
     tarball_link = os.path.join(github_url, 'tarball', 'master')
-    tarball_local = os.path.join(cache_dir, 'master.tar.gz')
+    tarball_local = os.path.join(cache_dir, 'master.tar') # just a .tar file
     _urlretrieve(tarball_link, tarball_local)
 
     # extract the tarball to the cache dir
