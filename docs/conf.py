@@ -30,7 +30,6 @@ for mod_name in MOCK_MODULES:
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(0, os.path.abspath('../nbodykit'))
-sys.path.insert(0, os.path.abspath('sphinxext'))
 import nbodykit
 
 # -- General configuration ------------------------------------------------
@@ -49,8 +48,8 @@ extensions = [
     'sphinx.ext.extlinks',
     'sphinx.ext.autosummary',
     'numpydoc',
-    'ipython_directive',
-    'ipython_console_highlighting'
+    'IPython.sphinxext.ipython_directive',
+    'IPython.sphinxext.ipython_console_highlighting'
 ]
 
 autosummary_generate = True
@@ -145,7 +144,9 @@ if not on_rtd:
 else:
     
     # do the html setup
+    cwd = os.getcwd()
     os.system("make html-setup")
+    os.chdir(cwd)
     
 #html_theme = 'nature'
 
