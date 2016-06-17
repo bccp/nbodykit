@@ -98,11 +98,14 @@ def download_data(github_url, cache_dir):
 
     # download the tarball locally
     tarball_link = os.path.join(github_url, 'tarball', 'master')
-    tarball_local = os.path.join(cache_dir, 'master.tar') # just a .tar file
+    tarball_local = os.path.join(cache_dir, 'master.tar.gz')
     _urlretrieve(tarball_link, tarball_local)
-
+    
+    if not tarfile.is_tarfile(tarball_local):
+        raise ValueError("downloaded tarball is not a tar.gz file")
+    
     # extract the tarball to the cache dir
-    with tarfile.open(tarball_local) as tar:
+    with tarfile.open(tarball_local, 'r:*') as tar:
 
         members = tar.getmembers()
         topdir = members[0].name
