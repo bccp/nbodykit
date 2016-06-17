@@ -11,9 +11,10 @@ dirname = 'plugins-list'
 if not os.path.exists(dirname):
     os.makedirs(dirname)
     
-valid = extensionpoints.__valid__
-for expoint in valid:
+valid = ['Algorithm', 'DataSource', 'Painter', 'Transfer']
+for expoint_str in valid:
     
+    expoint = extensionpoints.extensionpoints[expoint_str]
     name = expoint.__name__
     registry = vars(expoint.registry)
     
