@@ -18,7 +18,7 @@ class TraceHaloAlgorithm(Algorithm):
     @classmethod
     def register(cls):
         s = cls.schema
-        s.description = " Calculate the halo property based on a different set of halo labels."
+        s.description = " calculate the halo property based on a different set of halo labels."
 
         s.add_argument("dest", type=DataSource.from_config, help="type: DataSource")
         s.add_argument("source", type=DataSource.from_config, help="type: DataSource")

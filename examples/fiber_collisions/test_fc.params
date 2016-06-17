@@ -1,7 +1,7 @@
 datasource: 
     plugin: RaDecRedshift
-    path: ../data/test_bianchi_data.dat
+    path: ${NBKIT_CACHE}/data/test_bianchi_data.dat
     names: [ra, dec, z]
     usecols: [ra, dec, z]
     degrees: True
-output: ../output/test_fiber_collisions
+output: ${NBKIT_HOME}/examples/output/test_fiber_collisions

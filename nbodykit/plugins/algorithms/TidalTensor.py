@@ -24,6 +24,8 @@ class TidalTensor(Algorithm):
     @classmethod
     def register(cls):
         s = cls.schema
+        s.description = "compute the tidal force tensor"
+        
         s.add_argument("field", type=DataSource.from_config,
                 help="DataSource; run `nbkit.py --list-datasources` for all options")
         s.add_argument("points", type=DataSource.from_config,

@@ -3,5 +3,5 @@ Nmesh: 256
 
 field:
     DataSource:
-        TPMSnapshot: {path: ../data/tpm_1.0000.bin, BoxSize: 384}
-output: ../output/test_power_tpmsnapshot_2d.txt
+        TPMSnapshot: {path: ${NBKIT_CACHE}/data/tpm_1.0000.bin, BoxSize: 384}
+output: ${NBKIT_HOME}/examples/output/test_power_tpmsnapshot_2d.dat

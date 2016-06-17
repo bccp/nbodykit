@@ -1,0 +1,9 @@
+mode: 1d
+Nmesh: 128
+output: ${NBKIT_HOME}/examples/output/test_power_subsample_1d.dat
+
+field:
+    DataSource:
+       plugin: Subsample
+       path: ${NBKIT_CACHE}/data/subsample_1.0000.hdf5
+    Transfer: [NormalizeDC, RemoveDC, AnisotropicCIC]

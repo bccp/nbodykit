@@ -7,19 +7,19 @@ cosmo: {Om0: 0.27, H0: 100}
 field:
     DataSource:
         plugin: FastPM
-        path: ../data/fastpm_1.0000
+        path: ${NBKIT_CACHE}/data/fastpm_1.0000
     Painter: 
         DefaultPainter
     Transfer:
         [NormalizeDC, RemoveDC, AnisotropicCIC] 
 
-#the field to cross-correlate with
+# the second field to cross-correlate with
 other:
     # datasource
     DataSource:
-        plugin: FOFGroups
-        path: ../output/fof_ll0.200_1.0000.hdf5
-        m0: 10.0
+        FOFGroups:
+            path: ${NBKIT_CACHE}/data/fof_ll0.200_1.0000.hdf5
+            m0: 10.0
 
     # painter (can omit this and get same value)
     Painter: DefaultPainter
@@ -27,4 +27,4 @@ other:
     # transfers (can omit and get this sequence)
     Transfer: [NormalizeDC, RemoveDC, AnisotropicCIC]
 
-output: ../output/test_cross_power.txt
+output: ${NBKIT_HOME}/examples/output/test_power_cross.dat

@@ -24,13 +24,16 @@ distinguishes itself from other similar software packages
 
 - **deployment** and availability on large, super computing facilities
 
-All algorithms are parallel and run with Message Passing Interface (MPI).
+All algorithms are parallel and run with Message Passing Interface (MPI). 
 
+For users using the `NERSC`_ super-computers, we provide a ready-to-use tarball 
+of nbodykit and its dependencies; see :ref:`nbodykit-on-nersc` for more details.
 
 .. _nbodyshop: http://www-hpcc.astro.washington.edu/tools/tools.html
 .. _pynbody: https://github.com/pynbody/pynbody
 .. _yt: http://yt-project.org/
 .. _xi: http://github.com/bareid/xi
+.. _`NERSC`: http://www.nersc.gov/systems/
 
 Documentation
 -------------
@@ -38,11 +41,15 @@ Documentation
 .. toctree::
    :maxdepth: 1
 
-   why-nbodykit
-   examples
    installing
+   overview
+   running
+   dataset
+   extending
+   Plugins reference<api/plugins_ref.rst>
    api/modules
-   plugins/modules
+   maintainer
+  
 
 Get in touch
 ------------

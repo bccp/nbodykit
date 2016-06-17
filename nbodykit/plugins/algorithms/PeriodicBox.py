@@ -51,8 +51,42 @@ def FieldType(ns):
     
 class FFTPowerAlgorithm(Algorithm):
     """
-    Algorithm to compute the 1d or 2d power spectrum and multipoles
-    in a periodic box, using an FFT
+    Algorithm to compute the 1d or 2d power spectrum and/or multipoles
+    in a periodic box, using a Fast Fourier Transform (FFT)
+    
+    Notes
+    -----
+    The algorithm saves the power spectrum results to a plaintext file, 
+    as well as the meta-data associted with the algorithm. The names of the
+    columns saved to file are:
+    
+        - k : 
+            the mean value for each `k` bin
+        - mu : 2D power only
+            the mean value for each `mu` bin
+        - power.real, power.imag : 1D/2D power only
+            the real and imaginary components of 1D power
+        - power_X.real, power_X.imag : multipoles only
+            the real and imaginary components for the `X` multipole
+        - modes : 
+            the number of Fourier modes averaged together in each bin
+    
+    The plaintext files also include meta-data associated with the algorithm:
+    
+        - Lx, Ly, Lz : 
+            the length of each side of the box used when computing FFTs
+        - volumne : 
+            the volume of the box; equal to ``Lx*Ly*Lz``
+        - N1 : 
+            the number of objects in the 1st catalog
+        - N2 : 
+            the number of objects in the 2nd catalog; equal to `N1`
+            if the power spectrum is an auto spectrum
+    
+    See :func:`nbodykit.files.Read1DPlainText`, :func:`nbodykit.files.Read2DPlainText`
+    and :func:`nbodykit.dataset.Power1dDataSet.from_nbkit`
+    :func:`nbodykit.dataset.Power2dDataSet.from_nbkit` for examples on how to read the
+    the plaintext file.
     """
     plugin_name = "FFTPower"
     logger = logging.getLogger(plugin_name)
@@ -206,9 +240,46 @@ class FFTPowerAlgorithm(Algorithm):
 
 class FFTCorrelationAlgorithm(Algorithm):
     """
-    Algorithm to compute the 1d or 2d correlation function and multipoles
-    in a periodic box. This FFTs the measured power spectrum to compute
-    the correlation function
+    Algorithm to compute the 1d or 2d correlation function and/or multipoles
+    in a periodic box
+    
+    The algorithm simply takes the Fast Fourier Transform (FFT) of
+    the measured power spectrum, as computed by :class:`FFTPowerAlgorithm`, 
+    to compute the correlation function
+    
+    Notes
+    -----
+    The algorithm saves the correlation function result to a plaintext file, 
+    as well as the meta-data associted with the algorithm. The names of the
+    columns saved to file are:
+    
+        - r : 
+            the mean separation in each `r` bin
+        - mu : 2D corr only
+            the mean value for each `mu` bin
+        - corr : 
+            the correlation function value
+        - corr_X :
+            the `X` multipole of the correlation function
+        - modes : 
+            the number of Fourier modes averaged together in each bin
+    
+    The plaintext files also include meta-data associated with the algorithm:
+    
+        - Lx, Ly, Lz : 
+            the length of each side of the box used when computing FFTs
+        - volumne : 
+            the volume of the box; equal to ``Lx*Ly*Lz``
+        - N1 : 
+            the number of objects in the 1st catalog
+        - N2 : 
+            the number of objects in the 2nd catalog; equal to `N1`
+            if the power spectrum is an auto spectrum
+    
+    See :func:`nbodykit.files.Read1DPlainText`, :func:`nbodykit.files.Read2DPlainText`
+    and :func:`nbodykit.dataset.Corr1dDataSet.from_nbkit`
+    :func:`nbodykit.dataset.Corr2dDataSet.from_nbkit` for examples on how to read the
+    the plaintext file.
     """
     plugin_name = "FFTCorrelation"
     logger = logging.getLogger(plugin_name)

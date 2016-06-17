@@ -3,9 +3,9 @@ rbins: 'linspace: 0 120 20'
 
 field:
     plugin: MWhiteHaloFile
-    path: ../data/mwhite_halo.fofp
+    path: ${NBKIT_CACHE}/data/mwhite_halo.fofp
     BoxSize: 1380.
     rsd: z
     
-X: ../../contrib/MWhiteHaloFile.py
-output: ../output/test_corr_1d_mwhite_halo.dat
+X: ${NBKIT_HOME}/contrib/MWhiteHaloFile.py
+output: ${NBKIT_HOME}/examples/output/test_corr_mwhite_halo_1d.dat

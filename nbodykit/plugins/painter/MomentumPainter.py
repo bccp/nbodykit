@@ -13,6 +13,9 @@ class MomentumPainter(Painter):
     @classmethod
     def register(cls):
         s = cls.schema
+        s.description = "grid the velocity-weighted density field (momentum) field of an " 
+        s.description += "input DataSource of objects"
+        
         s.add_argument("velocity_component", type=str, choices='xyz',
             help="which velocity component to grid, either 'x', 'y', 'z'")
         s.add_argument("moment", type=int, 

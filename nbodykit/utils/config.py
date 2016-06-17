@@ -147,20 +147,33 @@ class ConstructorSchema(OrderedDict):
     
     Notes
     -----
-    *   you can test whether a full argument 'name' is in the schema
-        with the `contains` function
-            >> param_name = 'field.DataSource'
-            >> contains = schema.contains(param_name)
+    You can test whether a full argument 'name' is in the schema
+    with the `contains` function
+    
+    >> param_name = 'field.DataSource'
+    >> contains = schema.contains(param_name)
             
-    *   Arguments that are subfields can be accessed 
-        in a sequential dict-like fashion:
-            >> subarg = schema['field']['DataSource']
+    Arguments that are subfields can be accessed in a sequential 
+    dict-like fashion:
+    
+    >> subarg = schema['field']['DataSource']
     """  
     Argument = Argument 
               
     def __init__(self, description=""):
         super(ConstructorSchema, self).__init__()
         self.description = description
+    
+    def __repr__(self):
+        
+        size = len(self)
+        required = 0
+        for k in self:
+            arg = self[k]
+            if arg.required: required += 1
+            
+        args = (self.__class__.__name__, size, size-required)
+        return "<%s: %d parameters (%d optional)>" %args
     
     @staticmethod
     def cast(arg, value):
@@ -208,6 +221,23 @@ class ConstructorSchema(OrderedDict):
     def add_argument(self, name, type=None, default=None, choices=None, nargs=None, help=None, required=False):
         """
         Add an argument to the schema
+        
+        Parameters
+        ----------
+        name : str
+            the name of the parameter to add
+        type : callable, optional
+            a function that will cast the parsed value
+        default : optional
+            the default value for this parameter
+        choices : optional
+            the distinct values that the parameter can take
+        nargs : int, '*', '+', optional
+             the number of arguments that should be consumed for this parameter
+        help : str, optional
+            the help string
+        required : bool, optional
+            whether the parameter is required or not    
         """                
         # get the prefix
         split = name.split('.')
@@ -230,39 +260,66 @@ class ConstructorSchema(OrderedDict):
             obj[suffix] = obj[suffix]._replace(type=type, default=default, choices=choices, 
                                                 help=help, required=required, nargs=nargs)
      
-    def _arg_info(self, name, arg, indent=0):
+    def _arg_info(self, name, arg, level, subfield=False):
         """
         Internal helper function that returns the info string 
         for one argument, indenting to match a specific level
         
         Format: name: description (default=`default`)
-        """
-        space = "  " if indent == 0 else "   "*(1+indent)
-        info = "%s%-20s %s" %(space, name, arg.help)
+        """  
+        indent = " "*4
+        space = indent*level
+        
+        # determine the string representation of the type 
+        if arg.choices is not None:
+            type_str = "{ %s }" %", ".join(["'%s'" %str(s) for s in arg.choices])
+        else:     
+            type_str = arg.type.__name__ if arg.type is not None else ""
+            if hasattr(arg.type, '__self__'):
+                type_str = '.'.join([arg.type.__self__.__name__, arg.type.__name__])
+                
+            # don't use function names when it's a lambda function
+            if 'lambda' in type_str: type_str = ""
+        
+        # optional tag?
+        if not subfield and not arg.required:
+            if type_str: type_str += ", "
+            type_str += 'optional'
+            
+        # first line is name : type, indented `level` times
+        info = "%s%s : %s\n" %(space, name, type_str)
+        
+        # second line gives the description, indented `level+1` times
+        info += "%s%s" %(indent*(level+1), arg.help)
         if arg.default is not None:
             info += " (default: %s)" %arg.default
         return info
                      
-    def _parse_info(self, name, arg, level):
+    def _parse_info(self, name, arg, level, subfield=False):
         """
         Internal function to recursively parse a argument and any
         subfields, returning the full into string
         """
-        info = self._arg_info(name, arg, indent=level)
+        indent = " "*4
+        info = self._arg_info(name, arg, level, subfield=subfield)
         if not len(arg.subfields):
             return info
-            
+        
+        info += "\n" + indent*(level) + "    " + "The %d subfields are:" %(len(arg.subfields))
+        info += '\n'
         for k in arg.subfields:
             v = arg.subfields[k]
-            info += '\n'+self._parse_info(k, v, level+1)
+            info += '\n'+self._parse_info(k, v, level+2, subfield=True)
+        info += '\n'
              
-        return info+'\n'
+        return info
             
     def format_help(self):
         """
-        Return a string giving the help 
+        Return a string giving the help using the 
+        format preferred by the ``numpy`` documentation
         """
-        toret = ""
+        toret = """"""
         if getattr(self, 'description', ""):
             toret += self.description + '\n\n'
             
@@ -275,10 +332,8 @@ class ConstructorSchema(OrderedDict):
             else:
                 optional.append(info)
             
-        toret += "required arguments:\n%s\n" %('-'*18)
-        toret += "\n".join(required)
-        toret += "\n\noptional arguments:\n%s\n" %('-'*18)
-        toret += "\n".join(optional)
+        toret += "Parameters\n----------\n"
+        toret += "\n".join(required + optional)
         return toret
         
     __str__ = format_help

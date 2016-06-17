@@ -213,8 +213,8 @@ class TaskManager(object):
         the iteration number, followed by the `task` value as the 
         arguments
         
-        Parameter
-        ---------
+        Parameters
+        ----------
         tasks : list
             list of `task` items that will be pickled and set
             to each worker when computing the `ith` task

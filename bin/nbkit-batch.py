@@ -120,7 +120,7 @@ class BatchAlgorithmDriver(object):
         
         self.algorithm_name  = algorithm_name
         self.algorithm_class = getattr(algorithms, algorithm_name) 
-        self.template        = open(config, 'r').read()
+        self.template        = os.path.expandvars(open(config, 'r').read())
         self.cpus_per_worker = cpus_per_worker
         self.task_dims       = task_dims
         self.task_values     = task_values
@@ -218,7 +218,7 @@ class BatchAlgorithmDriver(object):
                 updated for each task, i.e., an input file could be specified 
                 as 'input/DataSource_box{box}.dat', if `box` were one of the task 
                 dimensions"""
-        required_named.add_argument('-c', '--config', type=str, help=h)
+        required_named.add_argument('-c', '--config', required=True, type=str, help=h)
     
         # read any extra string replacements from file
         h = """file providing extra string replaces, with lines of the form 

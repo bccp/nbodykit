@@ -1,0 +1,15 @@
+cosmo:
+    H0: 70
+    Om0: 0.286
+    flat: True
+
+datasource: 
+    plugin: RaDecRedshift
+    path: ${NBKIT_CACHE}/data/test_bianchi_randoms.dat
+    names: [ra, dec, z]
+    usecols: [ra, dec, z]
+    degrees: True
+    
+fsky : 0.005
+bins : numpy.linspace(0.43, 0.7, 10+1)
+output: ${NBKIT_HOME}/examples/output/test_zhist_1.dat

@@ -26,8 +26,29 @@ def binning_type(s):
 
 class PairCountCorrelationAlgorithm(Algorithm):
     """
-    Algorithm to compute the 1d or 2d correlation function and multipoles
+    Algorithm to compute the 1d or 2d correlation function and/or multipoles
     via direct pair counting
+    
+    Notes
+    -----
+    The algorithm saves the correlation function result to a plaintext file, 
+    as well as the meta-data associted with the algorithm. The names of the
+    columns saved to file are:
+    
+        - r : 
+            the mean separation in each `r` bin
+        - mu : 2D corr only
+            the mean value for each `mu` bin
+        - corr : 
+            the correlation function value
+        - corr_X :
+            the `X` multipole of the correlation function
+        - RR : 
+            the number of random-random pairs in each bin; used to 
+            properly normalize the correlation function
+        - N : 
+            the number of pairs averaged over in each bin to compute
+            the correlation function
     """
     plugin_name = "PairCountCorrelation"
 

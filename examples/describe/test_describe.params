@@ -1,0 +1,10 @@
+cosmo: {Om0: 0.26, flat: True}
+
+datasource: 
+    plugin: RaDecRedshift
+    path: ${NBKIT_CACHE}/data/test_bianchi_data.dat
+    names: [ra, dec, z]
+    usecols: [ra, dec, z]
+    degrees: True
+column: Position
+output: ${NBKIT_HOME}/examples/output/test_describe.dat

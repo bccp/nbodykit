@@ -1,6 +1,10 @@
 *.rst
 !index.rst
 !installing.rst
-!why-nbodykit.rst
-!examples.rst
+!running.rst
+!overview.rst
+!maintainer.rst
+!extending.rst
+!dataset.rst
+_static/dataset_pkmu_plot.png
 _build

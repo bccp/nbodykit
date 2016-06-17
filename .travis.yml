@@ -1,19 +1,15 @@
-
-# http://travis-ci.org/mpi4py/mpi4py
-
 language: python
 python:
     - 2.7
     - 3.4
 
 env:
-    - NUMPY_VERSION=1.9
+    - NUMPY_VERSION=1.11
 
 cache:
     directories:
         - $HOME/.cache/pip
         - $HOME/.conda
-        - $TRAVIS_BUILD_DIR/examples/data
 
 before_install:
     - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
@@ -26,13 +22,17 @@ install:
     - conda create --yes -n test python=$TRAVIS_PYTHON_VERSION
     - source activate test
     - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py h5py pandas scipy pytables pyyaml astropy numba
+    - pip install pytest pytest-cov pytest-pipeline coveralls
+    - if [ $TRAVIS_PYTHON_VERSION == 2.7 ]; then pip install halotools; fi # only python 2 compatible right now
     - if [ $TRAVIS_PYTHON_VERSION == 2.6 ]; then conda install --yes argparse; fi
     - pip install --pre pfft-python kdcount mpsort pmesh sharedmem bigfile --no-deps
-    - pip install --pre -r requirements.txt .
-    - if ! [ -f examples/data/tpm_1.0000.bin.00 ]; then (cd examples; bash get-data.sh); fi
-
+    - pip install --pre -r requirements.txt -e . # develop mode to track coverage of subproccess
+    
 script:
-    - bash runtests.sh
+    - py.test nbodykit --cov=nbodykit --cov-report term-missing
 
+after_success:
+    - coveralls
+    
 #notifications:
 #  email: false

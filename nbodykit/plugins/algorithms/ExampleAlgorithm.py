@@ -13,14 +13,12 @@ class Describe(Algorithm):
     @classmethod
     def register(cls):
         s = cls.schema
-        s.description = "describe a specific column of the data source"
+        s.description = "describe a specific column of the input DataSource"
         s.add_argument("datasource", type=DataSource.from_config, 
-            help='the DataSource plugin; run `nbkit.py --list-datasources` for all options')
-        s.add_argument("column", type=str, help='the column to describe')
+            help='the DataSource to describe; run `nbkit.py --list-datasources` for all options')
+        s.add_argument("column", type=str, 
+            help='the column in the DataSource to describe')
      
-    def finalize_attributes(self):
-        pass
-
     def run(self):
         """
         Run the algorithm, which does nothing
@@ -28,9 +26,9 @@ class Describe(Algorithm):
         left = []
         right = []
         with self.datasource.open() as stream:
-            for [pos] in stream.read([self.column]):
-                left.append(numpy.min(pos, axis=0))
-                right.append(numpy.max(pos, axis=0))
+            for [col] in stream.read([self.column]):
+                left.append(numpy.min(col, axis=0))
+                right.append(numpy.max(col, axis=0))
             left = numpy.min(left, axis=0)
             right = numpy.max(right, axis=0)
             left = numpy.min(self.comm.allgather(left), axis=0)
@@ -45,7 +43,7 @@ class Describe(Algorithm):
                 import sys
                 output = sys.stdout
             else:
-                output = file(output, 'w')
-            output.write(template % 
-                (self.datasource, self.column, str(left), str(right)))
+                output = open(output, 'w')
+            args = (self.datasource.plugin_name, self.column, str(left), str(right))
+            output.write(template %args)
 
