@@ -17,9 +17,6 @@ def download_cache():
     """
     Download the cache directory, overwriting any current cache
     """
-    # download data from `nbodykit-data`
-    github_url='https://github.com/bccp/nbodykit-data'
-
     # target directory
     targetdir = os.path.expanduser(cache_dir)
     
@@ -29,7 +26,7 @@ def download_cache():
         shutil.rmtree(targetdir)
 
     # download
-    download_data(github_url, targetdir)
+    download_data('bccp', 'nbodykit-data', targetdir)
     print("successfully downloaded `nbodykit-data` cache to '%s'" %targetdir)
     
 def remove_cache():
