@@ -102,7 +102,9 @@ def download_data(github_url, cache_dir):
     _urlretrieve(tarball_link, tarball_local)
     
     if not tarfile.is_tarfile(tarball_local):
-        raise ValueError("downloaded tarball is not a tar.gz file")
+        dir_exists = os.path.exists(os.path.dirname(tarball_local))
+        args = (tarball_local, str(dir_exists))
+        raise ValueError("downloaded tarball '%s' cannot be opened as a tar.gz file (directory exists: %s)" %args)
     
     # extract the tarball to the cache dir
     with tarfile.open(tarball_local, 'r:*') as tar:
