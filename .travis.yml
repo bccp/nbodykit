@@ -21,9 +21,8 @@ before_install:
 install:
     - conda create --yes -n test python=$TRAVIS_PYTHON_VERSION
     - source activate test
-    - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py h5py pandas scipy pytables pyyaml astropy numba
+    - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py h5py pandas scipy pytables pyyaml astropy numba halotools
     - pip install pytest pytest-cov pytest-pipeline coveralls
-    - if [ $TRAVIS_PYTHON_VERSION == 2.7 ]; then pip install halotools; fi # only python 2 compatible right now
     - if [ $TRAVIS_PYTHON_VERSION == 2.6 ]; then conda install --yes argparse; fi
     - pip install --pre pfft-python kdcount mpsort pmesh sharedmem bigfile --no-deps
     - pip install --pre -r requirements.txt -e . # develop mode to track coverage of subproccess
