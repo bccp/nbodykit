@@ -86,7 +86,7 @@ def download_results_file(filename, localdir,
         remote_path = os.path.join(github_url, 'raw', 'master', 'results', filename)
         _urlretrieve(remote_path, local_path)
     
-def download_data(github_url, cache_dir):
+def download_data(github_user, github_repo, cache_dir):
     """
     Download the github url tarball to the cache directory
     """
@@ -97,7 +97,7 @@ def download_data(github_url, cache_dir):
         os.makedirs(cache_dir)
 
     # download the tarball locally
-    tarball_link = "https://codeload.github.com/bccp/nbodykit-data/legacy.tar.gz/master"
+    tarball_link = "https://codeload.github.com/%s/%s/legacy.tar.gz/master" %(github_user, github_repo)
     tarball_local = os.path.join(cache_dir, 'master.tar.gz')
     _urlretrieve(tarball_link, tarball_local)
     
@@ -122,8 +122,7 @@ def download_data(github_url, cache_dir):
         os.remove(tarball_local)
 
 
-def verify_data_in_cache(name, cache_dir=cache_dir,
-                            github_url='https://github.com/bccp/nbodykit-data'):
+def verify_data_in_cache(name, cache_dir=cache_dir):
     """
     Load a dataset from the online repository (requires internet).
 
@@ -136,8 +135,6 @@ def verify_data_in_cache(name, cache_dir=cache_dir,
         ie. 'air_temperature'
     cache_dir : string, optional
         The directory in which to search for and write cached data.
-    github_url : string
-        Github repository where the data is stored
     """
     cache_dir = os.path.expanduser(cache_dir)
     longdir = os.path.join(cache_dir, 'data')
@@ -145,7 +142,7 @@ def verify_data_in_cache(name, cache_dir=cache_dir,
 
     # download and cache the nbodykit-data directory
     if not os.path.exists(localfile):
-        download_data(github_url, cache_dir)
+        download_data('bccp', 'nbodykit-data', cache_dir)
 
         # crash, if still no data
         if not os.path.exists(localfile):
