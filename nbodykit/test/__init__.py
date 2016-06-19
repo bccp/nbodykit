@@ -97,7 +97,7 @@ def download_data(github_url, cache_dir):
         os.makedirs(cache_dir)
 
     # download the tarball locally
-    tarball_link = os.path.join(github_url, 'tarball', 'master')
+    tarball_link = "https://codeload.github.com/bccp/nbodykit-data/legacy.tar.gz/master"
     tarball_local = os.path.join(cache_dir, 'master.tar.gz')
     _urlretrieve(tarball_link, tarball_local)
     
