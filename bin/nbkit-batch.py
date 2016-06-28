@@ -10,12 +10,38 @@ from nbodykit.extensionpoints import Algorithm, algorithms
 from nbodykit.utils.taskmanager import TaskManager
 
 # setup the logging
-rank = MPI.COMM_WORLD.rank
-name = MPI.Get_processor_name()
-logging.basicConfig(level=logging.DEBUG,
-                    format='rank %d on %s: '%(rank,name) + \
-                            '%(asctime)s %(name)-15s %(levelname)-8s %(message)s',
-                    datefmt='%m-%d %H:%M')
+
+def setup_logging(log_level):
+    """
+    Set the basic configuration of all loggers
+    """
+
+    # This gives:
+    #
+    # [ 000000.43 ]   0:waterfall 06-28 14:49  measurestats    INFO     Nproc = [2, 1, 1]
+    # [ 000000.43 ]   0:waterfall 06-28 14:49  measurestats    INFO     Rmax = 120
+
+    import time
+    logger = logging.getLogger();
+    t0 = time.time()
+
+    rank = MPI.COMM_WORLD.rank
+    name = MPI.Get_processor_name().split('.')[0]
+
+    class Formatter(logging.Formatter):
+        def format(self, record):
+            s1 = ('[ %09.2f ] % 3d:%s ' % (time.time() - t0, rank, name))
+            return s1 + logging.Formatter.format(self, record)
+
+    fmt = Formatter(fmt='%(asctime)s %(name)-15s %(levelname)-8s %(message)s',
+                    datefmt='%m-%d %H:%M ')
+
+    hdlr = logging.StreamHandler()
+    hdlr.setFormatter(fmt)
+    logger.addHandler(hdlr)
+    logger.setLevel(log_level)
+
+setup_logging(logging.DEBUG)
 logger = logging.getLogger('nbkit-batch')
 
 def replacements_from_file(value):
@@ -117,7 +143,7 @@ class BatchAlgorithmDriver(object):
             as well; default is `False`
         """
         logger.setLevel(log_level)
-        
+
         self.algorithm_name  = algorithm_name
         self.algorithm_class = getattr(algorithms, algorithm_name) 
         self.template        = os.path.expandvars(open(config, 'r').read())
