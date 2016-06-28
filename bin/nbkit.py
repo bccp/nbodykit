@@ -10,17 +10,35 @@ from nbodykit.extensionpoints import DataSource, Transfer, Painter
 from nbodykit.pluginmanager import ListPluginsAction, load
 
 # configure the logging
-rank = MPI.COMM_WORLD.rank
-name = MPI.Get_processor_name()
-
 def setup_logging(log_level):
     """
     Set the basic configuration of all loggers
     """
-    logging.basicConfig(level=log_level,
-                        format='rank %d on %s: '%(rank,name) + \
-                                '%(asctime)s %(name)-15s %(levelname)-8s %(message)s',
-                        datefmt='%m-%d %H:%M')
+
+    # This gives:
+    #
+    # [ 000000.43 ]   0:waterfall 06-28 14:49  measurestats    INFO     Nproc = [2, 1, 1]
+    # [ 000000.43 ]   0:waterfall 06-28 14:49  measurestats    INFO     Rmax = 120
+
+    import time
+    logger = logging.getLogger();
+    t0 = time.time()
+
+    rank = MPI.COMM_WORLD.rank
+    name = MPI.Get_processor_name().split('.')[0]
+
+    class Formatter(logging.Formatter):
+        def format(self, record):
+            s1 = ('[ %09.2f ] % 3d:%s ' % (time.time() - t0, rank, name))
+            return s1 + logging.Formatter.format(self, record)
+
+    fmt = Formatter(fmt='%(asctime)s %(name)-15s %(levelname)-8s %(message)s',
+                    datefmt='%m-%d %H:%M ')
+
+    hdlr = logging.StreamHandler()
+    hdlr.setFormatter(fmt)
+    logger.addHandler(hdlr)
+    logger.setLevel(log_level)
 
 class HelpAction(argparse.Action):
     """
