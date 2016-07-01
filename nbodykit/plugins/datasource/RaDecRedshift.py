@@ -130,10 +130,14 @@ class RaDecRedshiftDataSource(DataSource):
         # iterate through in parallel
         data = pd.read_csv(self.path, **kwargs)
 
-        # select based on input conditions
-        if self.select is not None:
-            mask = self.select.get_mask(data)
-            data = data[mask]
+        # create structured array to hold data
+        dtype = [('Position', ('f4', 3))]
+        dtype += [('Ra', 'f4'), ('Dec', 'f4'), ('Redshift', 'f4')]
+        if self.weight_col is not None:
+            dtype += [('Weight', 'f4')]
+        if self.nbar_col is not None:
+            dtype += [('Nbar', 'f4')]
+        new = numpy.empty(len(data), dtype=dtype)
 
         # rescale the angles
         if self.degrees:
@@ -143,18 +147,26 @@ class RaDecRedshiftDataSource(DataSource):
         cols = self.sky_cols + [self.z_col]
         pos = data[cols].values.astype('f4')
 
-        toret             = {}
-        toret['Ra']       = pos[:,0]
-        toret['Dec']      = pos[:,1]
-        toret['Redshift'] = pos[:,2]
-        toret['Position'] = self._to_cartesian(pos)
+        new['Ra']       = pos[:,0]
+        new['Dec']      = pos[:,1]
+        new['Redshift'] = pos[:,2]
+        new['Position'] = self._to_cartesian(pos)
 
         # optionally, return a weight
         if self.weight_col is not None:
-            toret['Weight'] = data[self.weight_col].values.astype('f4')
+            new['Weight'] = data[self.weight_col].values.astype('f4')
 
         # optionally, return nbar
         if self.nbar_col is not None:
-            toret['Nbar'] = data[self.nbar_col].values.astype('f4')
+            new['Nbar'] = data[self.nbar_col].values.astype('f4')
     
+        # select based on input conditions
+        if self.select is not None:
+            mask = self.select.get_mask(new)
+            new = new[mask]
+            
+        toret = {}
+        for name in new.dtype.names:
+            toret[name] = new[name].copy()
+            
         return toret

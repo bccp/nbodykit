@@ -1,6 +1,7 @@
-from nbodykit.extensionpoints import DataSource
 import numpy
 import logging
+
+from nbodykit.extensionpoints import DataSource
 from nbodykit.utils import selectionlanguage
 
 logger = logging.getLogger('Pandas')
@@ -29,7 +30,8 @@ class PandasDataSource(DataSource):
                     usecols=None, poscols=['x','y','z'], velcols=None, 
                     rsd=None, posf=1., velf=1., select=None, ftype='auto'):        
         pass
-    
+        
+        
     @classmethod
     def register(cls):
         """
@@ -65,8 +67,10 @@ class PandasDataSource(DataSource):
         """
         Read all available data, returning a dictionary
         
-        This provides ``Position`` and optionally ``Velocity`` columns
+        This provides ``Position`` and optionally ``Velocity`` columns, 
+        as well as any columns listed in ``names``
         """
+        from nbodykit.ndarray import append_to_dtype
         try:
             import pandas as pd
         except:
@@ -93,16 +97,21 @@ class PandasDataSource(DataSource):
             kwargs['usecols'] = self.usecols
             data = pd.read_csv(self.path, **kwargs)
 
+        # make sure 'Position' or 'Velocity' aren't columns already
+        if 'Position' in data.columns:
+            raise ValueError("'Position' should not be a named column in input data")
+        if 'Velocity' in data.columns:
+            raise ValueError("'Velocity' should not be a named column in input data")
+            
+        # objects read initially
         nobj = len(data)
-        
-        # select based on input conditions
-        if self.select is not None:
-            mask = self.select.get_mask(data)
-            data = data[mask]
-        logger.info("total number of objects selected is %d / %d" % (len(data), nobj))
 
-        toret = {}
-        
+        # copy the data
+        new_dtypes = [('Position', ('f4', len(self.poscols)))]
+        if self.velcols is not None or self.rsd is not None:
+            new_dtypes += [('Velocity', ('f4', len(self.velcols)))]
+        toret = append_to_dtype(data.to_records(), new_dtypes)
+                    
         # get position and velocity, if we have it
         pos = data[self.poscols].values.astype('f4')
         pos *= self.posf
@@ -111,6 +120,8 @@ class PandasDataSource(DataSource):
             vel *= self.velf
             toret['Velocity'] = vel
 
+        del data
+
         # shift position by RSD
         if self.rsd is not None:
             dir = "xyz".index(self.rsd)
@@ -118,5 +129,16 @@ class PandasDataSource(DataSource):
             pos[:, dir] %= self.BoxSize[dir]
         toret['Position'] = pos
         
-        return toret
+        
+        # select based on input conditions
+        if self.select is not None:
+            mask = self.select.get_mask(toret)
+            toret = toret[mask]
+        logger.info("total number of objects selected is %d / %d" % (len(toret), nobj))
+
+        toret_dict = {}
+        for name in toret.dtype.names:
+            toret_dict[name] = toret[name].copy()
+        
+        return toret_dict
 
