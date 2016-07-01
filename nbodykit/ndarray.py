@@ -6,6 +6,42 @@ These are really handy things if numpy had them.
 """
 import numpy
 
+def append_to_dtype(data, extra_dtypes):
+    """
+    Copy the input structured data to a new array, appending
+    the additional data types
+    
+    Parameters
+    ----------
+    data : array_like
+        a structured array 
+    extra_dtypes : list of (str, dtyple)
+        a list of data types, specified by the their name and data type
+    
+    Returns
+    -------
+    new : array_like
+        a copy of `data`, with the extra data type fields, initialized 
+        to zero
+    """
+    # copy the data
+    dtype = list(data.dtype.descr) # make copy
+    names = list(data.dtype.names) # make copy
+    
+    # make sure we aren't overwriting any named field
+    new_names = [dt[0] for dt in extra_dtypes]
+    if any(name in names for name in new_names):
+        raise ValueError("adding a new data type with name already present in input data")
+        
+    dtype += extra_dtypes
+
+    # add old variables
+    new = numpy.zeros(data.shape, dtype=dtype)
+    for col in names:
+        new[col] = data[col].copy()
+        
+    return new
+
 def equiv_class(labels, values, op, dense_labels=False, identity=None, minlength=None):
     """
     apply operation to equivalent classes by label, on values
