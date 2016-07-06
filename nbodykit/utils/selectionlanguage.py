@@ -1,30 +1,163 @@
 import numpy
+import operator
 
+_builtins = {}
+_builtins['nan'] = numpy.nan
+_builtins['inf'] = numpy.inf
+_builtins['log'] = numpy.log
+_builtins['log10'] = numpy.log10
+_builtins['exp'] = numpy.exp
+
+class SelectionError(Exception):
+    pass
+    
 # helper classes that are compiled at parse time
 # see http://pyparsing.wikispaces.com/file/view/simpleBool.py
 class CompOperand(object):
-    def __init__(self, t):
-        self.value = t[0]
+    """
+    Base class for comparison operands
+    """
+    def __init__(self, r):
+        """
+        Parameters
+        ----------
+        r : ParseResults
+            the ParseResults instance; must have unity length
+        """
+        self.value = r[0]
+    
     def eval(self, data):
+        """
+        The main function that does the work for each operand, given
+        input data array
+        
+        Parameters
+        ----------
+        data : array_like
+            array that has named fields, i.e., a structured array
+            or DataFrame
+        """
         raise NotImplementedError
+    
     def __str__(self):
-         return self.value
+         return str(self.value)
     __repr__ = __str__
     
 class LeftCompOperand(CompOperand):
-    def eval(self, data):
-        try: 
-            return data[self.value]
-        except Exception as e:
-            raise RuntimeError("left hand side of selection query must be column reference: %s" %str(e))
-
-class RightCompOperand(CompOperand):
+    """
+    The left operand that gives the name of the column. This 
+    class supports vector indexing syntax, similar to numpy.
     
-    def __init__(self, t):
-        self.value = self.concat(t[0])
+    This class is responsible for returning the specific column 
+    (possibly sliced) from the input data array    
+    
+    Examples
+    --------
+    >> "LogMass < 12"
+    >> "Position[:,0] < 1000.0"
+    >> log10(Mass) < 12
+    """
+    def __init__(self, r):
+        super(LeftCompOperand, self).__init__(r)
+        self.function = None
+        
+        # syntax of passed string was "function(column)" -- extract function
+        if len(self.value) > 2: 
+            if self.value[0] not in _builtins:
+                raise SelectionError("function '%s' operating on selected column not recognized" %self.value[0])
+            self.function = _builtins[self.value[0]]
+            self.value = self.value[2]
+            
+        self.column_name = self.value[0]
+        self.index = None if self.value[1].isempty() else self.value[1]
+            
+    def eval(self, data):
+        """
+        Return the named column from the input data
+        
+        Parameters
+        ----------
+        data : array_like
+            array that has named fields, i.e., a structured array
+            or DataFrame
+        
+        Returns
+        -------
+        array_like : 
+            the specific column of the input data
+        """
+        try:
+            
+            # first try to get the data to return
+            try:
+                toret = data[self.column_name]
+            except Exception as e:
+                args = (self.column_name, str(e))
+                raise SelectionError("cannot access column '%s' in input data array (%s)" %args)
+             
+            # now try to slice
+            if self.index is not None:
+                
+                # data should be multidimensional
+                if numpy.ndim(toret) == 1:
+                    raise SelectionError("array indexing should be used on multi-dimensional data columns")
+                    
+                # try to eval the index string
+                try:
+                    toret = eval("toret%s" %self.index, {'toret': toret})
+                except Exception as e:
+                    args = (self.index, str(e))
+                    raise SelectionError("cannot slice data using index '%s' (%s)" %args)
+
+            # check the dimension -- must be unity
+            if numpy.ndim(toret) != 1 or numpy.shape(data) != numpy.shape(toret):
+                raise SelectionError("shape mismatch between selection index and input data; maybe an indexing error?")
+
+            
+        except Exception as e:
+            msg = "failure to access column data for left hand side of selection query\n" + "-"*80 + "\n"
+            raise SelectionError(msg + "original exception: %s" %str(e))
+
+
+        # call the function, if it was passed
+        if self.function is not None:
+            toret = self.function(toret)
+            
+        return toret
+
+class ColumnSlice(object):
+    """
+    The optional column index for the left-hand side of the query
+    selection -- this will be applied by LeftCompOperand, if present
+    """
+    def __init__(self, r):
+        self.value = "".join(r)
+        
+    def isempty(self):
+        return self.value == ""
+        
+    def __str__(self):
+        return str(self.value)
+    __repr__ = __str__
+    
+class RightCompOperand(CompOperand):
+    """
+    The right operand that evaluates the comparison value. 
+    
+    This class is responsible for returning the evaluated value
+    of the comparison key, i.e., a string, float, etc.
+    
+    Note that `inf` and `nan` will be evaluated to their
+    numpy counterparts. 
+    """
+    def __init__(self, r):
+        super(RightCompOperand, self).__init__(r)
+        self.value = self.concat(self.value)
     
     def concat(self, s):
-        """concatenate parsed results into one string for eval'ing purposes"""
+        """
+        Concatenate parsed results into one string for eval'ing purposes
+        """
         if isinstance(s, basestring):
             return s
         else:
@@ -33,38 +166,55 @@ class RightCompOperand(CompOperand):
             return toret
                
     def eval(self, *args):
+        """
+        Evaluate the right side of the comparison using ``eval``
+        """
         try:
-            return eval(self.value, {'inf':numpy.inf, 'nan':numpy.nan})
+            return eval(self.value, _builtins)
         except Exception as e:
-            raise RuntimeError("right hand side of selection query cannot be eval'ed: %s" %str(e))
+            msg = "right hand side of selection query cannot be eval'ed\n" + "-"*80 + "\n"
+            raise SelectionError(msg + "original exception: %s" %str(e))
             
 class CompOperator(object):
-    import operator
+    """
+    Class to parse the comparison operator and
+    do the full comparison, joining the LeftCompOperand
+    and RightCompOperand instances
+    """
     def _is(a, b):
         if numpy.isnan(b):
             return numpy.isnan(a)
         else:
             return operator.eq(a, b)
 
+    def _isnot(a, b):
+        if numpy.isnan(b):
+            return numpy.logical_not(numpy.isnan(a))
+        else:
+            return operator.ne(a, b)
+    
     ops = {'<' : operator.lt, '<=' : operator.le, 
             '>' : operator.gt, '>=' : operator.ge, 
             '==' : operator.eq, '!=' : operator.ne,
-            'is' : _is }
+            'is' : _is, 'is not': _isnot}
                             
     def __init__(self, t):
         self.args = t[0][0::2]
         self.reprsymbol = t[0][1]
         
         if len(self.args) != 2 or self.reprsymbol not in self.ops.keys():
-            valid = ">=|<=|!=|>|<|==|is"
-            raise RuntimeError("comparison condition must be two strings separated by %s" %valid)
+            valid = ">=|<=|!=|>|<|==|is|is not"
+            raise SelectionError("comparison condition must be two strings separated by %s" %valid)
             
     def __str__(self):
         sep = " %s " % self.reprsymbol
         return "(" + sep.join(map(str,self.args)) + ")"
     
     def eval(self, *data):
+        
+        # the array of boolean values
         return self.ops[self.reprsymbol](*[a.eval(*data) for a in self.args])
+
     __repr__ = __str__
     
 
@@ -109,25 +259,32 @@ class Query(object):
         by a boolean operator (`and`, `or`, `not`). A comparison condition
         has the syntax: 
             
-        column_name comparison_operator value
+            `column_name`|`[index]` `comparison_operator` `value`
         
-        column_name : 
-            the name of a column in a data array. the values from the
-            data array with this column name are substituted into
-            the boolean expression
-        comparison_operator :
-            any of the following are valid: >, >=, <, <=, ==, !=, is.
+            column_name : 
+                the name of a column in a data array. the values from the
+                data array with this column name are substituted into
+                the boolean expression
+    
+            comparison_operator :
+                any of the following are valid: >, >=, <, <=, ==, !=, is, is not
             
-        value : 
-            This must be able to have `eval` called on it. Usually
-            a number or single-quoted string; nan and inf are also supported.
+            value : 
+                This must be able to have `eval` called on it. Usually
+                a number or single-quoted string; nan and inf are also supported.
 
-    *   nan is tested by "is nan".
+    *   if `column_name` refers to a vector, the index of the vector can be passed
+        as the index of the column, using the usual square bracket syntax
+    
+    *   `numpy.nan` and `numpy.inf` can be tested for by "is (not) nan" and "is (not) inf"
 
     *   As many `comparison conditions` as needed can be nested
         together, joined by `and`, `or`, or `not`
     
+    *   `log`, `exp`, and `log10` are mapped to their numpy functions
     
+    *   any of the above builtin functions can also be applied to the column names, i.e,,
+        "log10(Mass) > 14"
     """    
     def __init__(self, str_selection):
         """
@@ -137,14 +294,23 @@ class Query(object):
             the boolean expression as a string
         """
         # set up the regex for the individual terms
-        operator = Regex(">=|<=|!=|>|<|==|is")
-        number = Regex(r"[+-]?\d+(:?\.\d*)?(:?[eE][+-]?\d+)?")
-        special_number = Regex(r"(inf|nan)")
-        number = number | special_number
+        operator = Regex(r">=|<=|!=|>|<|==|is not|is")
+        number = Regex(r"[+-]?\d+(:?\.\d*)?(:?[eE][+-]?\d+)?") | Regex(r"(inf|nan)")
         quoted_str = QuotedString("'", unquoteResults=False)
         
-        # left hand side is just a wod
-        lhs = Word(alphanums, alphanums + "_")
+        # support for indexing, i.e., `[:,0]`
+        integer = Combine( Optional(Literal('-')) + Word(nums) )
+        lbracket = Literal("[")
+        rbracket = Literal("]")
+        index = Optional(lbracket + ZeroOrMore(integer|Literal(":")|Literal(",")) + rbracket)
+        index.setParseAction(ColumnSlice)
+        
+        # left hand side a word, or function on a word
+        varname = Word(alphanums, alphanums + "_")
+        column_name = Group(varname + index)
+        lhs_function_call = Group(varname + Literal("(") + column_name + Literal(")"))
+        #lhs_function_call.setParseAction(ColumnSlice)
+        lhs = lhs_function_call | column_name
         
         # RHS can be arithmetic expression of numbers or a quoted string
         expop = Literal('**')
@@ -155,8 +321,15 @@ class Query(object):
                                 (multop, 2, opAssoc.LEFT),
                                 (plusop, 2, opAssoc.LEFT),]
                                 )
-        
-        rhs = (arith_expr|quoted_str)
+        # add support for arithimetic expressions with function calls
+        rhs_function_call = Group(Word(alphanums, alphanums + "_") + Literal("(") + arith_expr + Literal(")"))
+        arith_expr_with_functions = operatorPrecedence(number|rhs_function_call,
+                                            [(expop, 2, opAssoc.RIGHT),
+                                             (multop, 2, opAssoc.LEFT),
+                                             (plusop, 2, opAssoc.LEFT),]
+                                             )
+
+        rhs = (arith_expr_with_functions|quoted_str)
         condition = Group(lhs + operator + rhs)
         
         # set parsing actions
@@ -184,7 +357,12 @@ class Query(object):
         Parse the input string condition
         """        
         self.string_selection = str_selection
-        self.selection = self.selection_expr.parseString(str_selection)[0]
+        try:
+            self.selection = self.selection_expr.parseString(str_selection)[0]
+        except ParseException as e:
+            msg = "failure to parse the selection query; see docstring for Query\n" + "-"*80 + "\n"
+            raise SelectionError(msg + "original exception: %s" %str(e))
+            
         
     def __call__(self, data):
         return self.get_mask(data)
@@ -214,10 +392,7 @@ def test():
     m = q.get_mask(data)
     assert m.sum() == 1
     assert m[0] == True
-
-#
-#----------------------------------------------------------
-# embeded pyparsing
+    
 # module pyparsing.py
 #
 # Copyright (c) 2003-2013  Paul T. McGuire

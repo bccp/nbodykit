@@ -9,6 +9,7 @@ field:
       BoxSize: 1380
       poscols: [x, y, z_redshift]
       ftype: text
+      select: (Position[:,0] < 1000.) and (is_sat == 1)
     Transfer: [NormalizeDC, RemoveDC, AnisotropicCIC]
     
 output: ${NBKIT_HOME}/examples/output/test_power_pandas_plaintext.dat

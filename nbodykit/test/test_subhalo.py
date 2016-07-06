@@ -18,5 +18,5 @@ class TestTPMSnapshot(unittest.TestCase):
         asserts.test_exception(self)    
     
     def test_result(self):
-        asserts.test_hdf_result(self, "Subhalos")
+        asserts.test_hdf_result(self, "Subhalos", rtol=1e-3, atol=1e-5)
 

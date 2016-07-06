@@ -8,6 +8,7 @@ field:
        names: [x, y, z, z_redshift, is_sat, N_sat, collided, resolved]
        BoxSize: 1380
        poscols: [x, y, z_redshift]
+       select: (is_sat == 0) and N_sat  < 2
     DefaultPainter:
     Transfer: [NormalizeDC, RemoveDC, AnisotropicCIC]
     
