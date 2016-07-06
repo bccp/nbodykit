@@ -1,6 +1,6 @@
 import numpy
 import operator
-from ..extern import pyparsing as pp
+from ..extern import six, pyparsing as pp
 
 _builtins = {}
 _builtins['nan'] = numpy.nan
@@ -159,7 +159,7 @@ class RightCompOperand(CompOperand):
         """
         Concatenate parsed results into one string for eval'ing purposes
         """
-        if isinstance(s, basestring):
+        if isinstance(s, six.string_types):
             return s
         else:
             toret = ""
