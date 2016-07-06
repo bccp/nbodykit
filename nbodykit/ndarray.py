@@ -24,7 +24,7 @@ def extend_dtype(data, extra_dtypes):
         to zero
     """
     # copy the data
-    existing_dtype = list(data.dtype.descr) # make copy
+    dtype = list(data.dtype.descr) # make copy
     existing_names = list(data.dtype.names) # make copy
     
     # make sure we aren't overwriting any named field
@@ -32,11 +32,11 @@ def extend_dtype(data, extra_dtypes):
     if any(name in existing_names for name in new_names):
         raise ValueError("adding a new data type with name already present in structured array")
         
-    existing_dtype += extra_dtypes
+    dtype += extra_dtypes
 
     # add old variables
     new = numpy.zeros(data.shape, dtype=dtype)
-    for col in names:
+    for col in existing_names:
         new[col][:] = data[col]
         
     return new
