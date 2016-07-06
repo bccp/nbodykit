@@ -52,7 +52,11 @@ update_tarball()
             --exclude='*.pyo' \
             $list
         ) || exit 1
-        cp $tarball $install_dir/$tarball || exit 1
+        echo $tarball
+        echo $install_dir/$tarball
+        (
+        install $tarball $install_dir/$tarball 
+        ) || exit 1
     fi
     cd ..; rm -r build 
 }
@@ -62,7 +66,7 @@ tarball=nbodykit-latest.tar.gz
 mkdir build; cd build
 
 bundle-pip $tarball git+https://github.com/bccp/nbodykit.git@master
-cp $tarball $install_dir/$tarball
+install $tarball $install_dir/$tarball
 cd ..; rm -r build
 
 # update the dependencies
@@ -73,7 +77,4 @@ update_tarball "${tarball}" "${pip_install}" || exit 1
 # update stable 
 tarball=nbodykit-stable.tar.gz
 pip_install="pip install -U --no-deps --install-option=--prefix=$tmpdir/build nbodykit"
-echo $pip_install
 update_tarball "${tarball}" "${pip_install}" || exit 1
-
-
