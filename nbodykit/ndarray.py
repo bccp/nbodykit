@@ -32,7 +32,7 @@ def extend_dtype(data, extra_dtypes):
     if any(name in existing_names for name in new_names):
         raise ValueError("adding a new data type with name already present in structured array")
         
-    exsiting_dtype += extra_dtypes
+    existing_dtype += extra_dtypes
 
     # add old variables
     new = numpy.zeros(data.shape, dtype=dtype)
