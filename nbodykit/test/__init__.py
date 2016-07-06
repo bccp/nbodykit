@@ -3,13 +3,7 @@ import sys
 import unittest
 import pytest
 
-# idea borrowed from xarray
-PY3 = sys.version_info[0] >= 3
-if PY3:
-    from urllib.request import urlretrieve as _urlretrieve
-else:
-    from urllib import urlretrieve as _urlretrieve
-
+from nbodykit.extern.six.moves.urllib import request
 from nbodykit import examples_dir
 
 def user_cache_dir(appname):
@@ -84,7 +78,7 @@ def download_results_file(filename, localdir,
     # download the file
     if not os.path.exists(local_path):
         remote_path = os.path.join(github_url, 'raw', 'master', 'results', filename)
-        _urlretrieve(remote_path, local_path)
+        request.urlretrieve(remote_path, local_path)
     
 def download_data(github_user, github_repo, cache_dir):
     """
@@ -99,7 +93,7 @@ def download_data(github_user, github_repo, cache_dir):
     # download the tarball locally
     tarball_link = "https://codeload.github.com/%s/%s/legacy.tar.gz/master" %(github_user, github_repo)
     tarball_local = os.path.join(cache_dir, 'master.tar.gz')
-    _urlretrieve(tarball_link, tarball_local)
+    request.urlretrieve(tarball_link, tarball_local)
     
     if not tarfile.is_tarfile(tarball_local):
         dir_exists = os.path.exists(os.path.dirname(tarball_local))
