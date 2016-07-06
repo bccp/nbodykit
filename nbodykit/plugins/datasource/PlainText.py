@@ -58,7 +58,7 @@ class PlainTextDataSource(DataSource):
         
         This provides ``Position`` and optionally ``Velocity`` columns
         """
-        from nbodykit.ndarray import append_to_dtype
+        from nbodykit.ndarray import extend_dtype
         
         # read in the plain text file as a recarray
         kwargs = {}
@@ -72,7 +72,7 @@ class PlainTextDataSource(DataSource):
         new_dtypes = [('Position', ('f4', len(self.poscols)))]
         if self.velcols is not None or self.rsd is not None:
             new_dtypes += [('Velocity', ('f4', len(self.velcols)))]
-        data = append_to_dtype(data, new_dtypes)
+        data = extend_dtype(data, new_dtypes)
            
         # get position and velocity, if we have it
         pos = numpy.vstack(data[k] for k in self.poscols).T.astype('f4')

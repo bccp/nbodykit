@@ -70,7 +70,7 @@ class PandasDataSource(DataSource):
         This provides ``Position`` and optionally ``Velocity`` columns, 
         as well as any columns listed in ``names``
         """
-        from nbodykit.ndarray import append_to_dtype
+        from nbodykit.ndarray import extend_dtype
         try:
             import pandas as pd
         except:
@@ -110,7 +110,7 @@ class PandasDataSource(DataSource):
         new_dtypes = [('Position', ('f4', len(self.poscols)))]
         if self.velcols is not None or self.rsd is not None:
             new_dtypes += [('Velocity', ('f4', len(self.velcols)))]
-        toret = append_to_dtype(data.to_records(), new_dtypes)
+        toret = extend_dtype(data.to_records(), new_dtypes)
                     
         # get position and velocity, if we have it
         pos = data[self.poscols].values.astype('f4')

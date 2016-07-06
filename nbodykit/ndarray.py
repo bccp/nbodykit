@@ -6,10 +6,9 @@ These are really handy things if numpy had them.
 """
 import numpy
 
-def append_to_dtype(data, extra_dtypes):
+def extend_dtype(data, extra_dtypes):
     """
-    Copy the input structured data to a new array, appending
-    the additional data types
+    Extend the data type of a structured array
     
     Parameters
     ----------
@@ -25,20 +24,20 @@ def append_to_dtype(data, extra_dtypes):
         to zero
     """
     # copy the data
-    dtype = list(data.dtype.descr) # make copy
-    names = list(data.dtype.names) # make copy
+    existing_dtype = list(data.dtype.descr) # make copy
+    existing_names = list(data.dtype.names) # make copy
     
     # make sure we aren't overwriting any named field
     new_names = [dt[0] for dt in extra_dtypes]
-    if any(name in names for name in new_names):
-        raise ValueError("adding a new data type with name already present in input data")
+    if any(name in existing_names for name in new_names):
+        raise ValueError("adding a new data type with name already present in structured array")
         
-    dtype += extra_dtypes
+    exsiting_dtype += extra_dtypes
 
     # add old variables
     new = numpy.zeros(data.shape, dtype=dtype)
     for col in names:
-        new[col] = data[col].copy()
+        new[col][:] = data[col]
         
     return new
 
