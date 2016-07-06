@@ -52,8 +52,6 @@ update_tarball()
             --exclude='*.pyo' \
             $list
         ) || exit 1
-        echo $tarball
-        echo $install_dir/$tarball
         (
         install $tarball $install_dir/$tarball 
         ) || exit 1
