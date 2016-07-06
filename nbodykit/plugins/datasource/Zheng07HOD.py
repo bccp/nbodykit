@@ -14,8 +14,8 @@ def set_random_seed(f, seed):
         kwargs['seed'] = seed
         return f(*args, **kwargs)
     
-    for a in f.func_dict:
-        setattr(wrapper, a, f.func_dict[a])
+    for a in f.__dict__:
+        setattr(wrapper, a, f.__dict__[a])
     return wrapper
     
     
