@@ -8,3 +8,4 @@
 !dataset.rst
 _static/dataset_pkmu_plot.png
 _build
+*.png
