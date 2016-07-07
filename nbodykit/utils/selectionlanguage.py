@@ -383,4 +383,9 @@ class Query(object):
         mask : list or array like
             the boolean mask corresponding to the selection string
         """
-        return self.selection.eval(data)
+        mask = self.selection.eval(data)
+        
+        # crash if mask selects no objects
+        if not mask.sum():
+            raise SelectionError("selection query selected no objects")
+        return mask
