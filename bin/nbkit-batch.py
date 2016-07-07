@@ -95,6 +95,35 @@ def tasks_parser(value):
 
     return [key, parsed]
 
+def SafeStringParse(formatter, s, keys):
+    """
+    A "safe" version :func:`string.Formatter.parse` that will 
+    only parse the input keys specified in ``keys``
+    
+    Parameters
+    ----------
+    formatter : string.Formatter
+        the string formatter class instance
+    s : str
+        the string we are formatting
+    keys : list of str
+        list of the keys to accept as valid
+    """
+    # the default list of keys
+    l = list(Formatter.parse(formatter, s))
+    
+    toret = []
+    for x in l:
+        if x[1] in keys:
+            toret.append(x)
+        else:
+            val = x[0]
+            if x[1] is not None:
+                fmt = "" if not x[2] else ":%s" %x[2]
+                val += "{%s%s}" %(x[1], fmt)
+            toret.append((val, None, None, None))
+    return iter(toret)
+
 class BatchAlgorithmDriver(object):
     """
     Class to facilitate running algorithms in batch mode
@@ -303,10 +332,6 @@ class BatchAlgorithmDriver(object):
         # if you are the pool's root, write out the temporary parameter file
         this_config = None
         if self.workers.subcomm.rank == 0:
-            
-            # extract the keywords that we need to format from template file
-            formatter = Formatter()
-            kwargs = [kw for _, kw, _, _ in formatter.parse(self.template) if kw]
                 
             # initialize a temporary file
             with tempfile.NamedTemporaryFile(delete=False) as ff:
@@ -325,9 +350,15 @@ class BatchAlgorithmDriver(object):
                     for k in self.extras:
                         possible_kwargs[k] = self.extras[k][itask]
                         
+                # use custom formatter that only formats the possible keys, ignoring other
+                # occurences of curly brackets
+                formatter = Formatter()
+                formatter.parse = lambda l: SafeStringParse(formatter, l, list(possible_kwargs))
+                kwargs = [kw for _, kw, _, _ in formatter.parse(self.template) if kw]
+                        
                 # do the string formatting if the key is present in template
                 valid = {k:possible_kwargs[k] for k in possible_kwargs if k in kwargs}
-                ff.write(self.template.format(**valid).encode())
+                ff.write(formatter.format(self.template, **valid).encode())
         
         # bcast the file name to all in the worker pool
         this_config = self.workers.subcomm.bcast(this_config, root=0)

@@ -1,3 +1,5 @@
+cosmo : {Om0: 0.28, H0: 70}
+
 mode: 1d
 Nmesh: 256
 field:
