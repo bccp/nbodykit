@@ -138,9 +138,9 @@ class TestSelection(unittest.TestCase):
         
     def test_compound_or(self):
         
-        data = numpy.zeros(10, dtype=[('mass', int), ('velocity', int)])
-        data['mass'] = numpy.random.choice([0, 1, 2], size=10)
-        data['velocity'] = numpy.random.choice([0, 1, 2], size=10)
+        data = numpy.zeros(100, dtype=[('mass', int), ('velocity', int)])
+        data['mass'] = numpy.random.choice([0, 1, 2], size=100)
+        data['velocity'] = numpy.random.choice([0, 1, 2], size=100)
         ans = (data['mass'] == 0)|(data['velocity'] != 1)
         
         q = Query("mass == 0 or velocity != 1")
@@ -153,9 +153,9 @@ class TestSelection(unittest.TestCase):
         
     def test_compound_andor(self):
         
-        data = numpy.zeros(10, dtype=[('mass', int), ('velocity', int)])
-        data['mass'] = numpy.random.choice([0, 1, 2], size=10)
-        data['velocity'] = numpy.random.choice([0, 1, 2], size=10)
+        data = numpy.zeros(100, dtype=[('mass', int), ('velocity', int)])
+        data['mass'] = numpy.random.choice([0, 1, 2], size=100)
+        data['velocity'] = numpy.random.choice([0, 1, 2], size=100)
         ans = (data['mass']==0)|((data['velocity'] != 1)&(data['mass'] < 1))
         
         q = Query("mass == 0 or velocity != 1 and mass < 1")
@@ -168,8 +168,8 @@ class TestSelection(unittest.TestCase):
         
     def test_not(self):
         
-        data = numpy.zeros(10, dtype=[('mass', int), ('velocity', int)])
-        data['mass'] = numpy.random.choice([0, 1, 2], size=10)
+        data = numpy.zeros(100, dtype=[('mass', int), ('velocity', int)])
+        data['mass'] = numpy.random.choice([0, 1, 2], size=100)
         ans = data['mass'] >= 1
         
         q = Query("not mass < 1")
@@ -182,9 +182,9 @@ class TestSelection(unittest.TestCase):
         
     def test_compound_andnot(self):
         
-        data = numpy.zeros(10, dtype=[('mass', int), ('velocity', int)])
-        data['mass'] = numpy.random.choice([0, 1, 2], size=10)
-        data['velocity'] = numpy.random.choice([0, 1, 2], size=10)
+        data = numpy.zeros(100, dtype=[('mass', int), ('velocity', int)])
+        data['mass'] = numpy.random.choice([0, 1, 2], size=100)
+        data['velocity'] = numpy.random.choice([0, 1, 2], size=100)
         ans = (data['mass']==0)&((data['velocity'] == 1))
         
         q = Query("mass == 0 and not velocity != 1")
@@ -193,8 +193,8 @@ class TestSelection(unittest.TestCase):
           
     def test_index(self):
         
-        data = numpy.zeros(10, dtype=[('Position', (float,3))])
-        data['Position'] = numpy.random.random(size=(10,3))
+        data = numpy.zeros(100, dtype=[('Position', (float,3))])
+        data['Position'] = numpy.random.random(size=(100,3))
         ans = (data['Position'][:,0]<0.5)&(data['Position'][:,-1] >= 0.7)
         
         q = Query("Position[:,0] < 0.5 and Position[:,-1] >= 0.7")
@@ -203,9 +203,9 @@ class TestSelection(unittest.TestCase):
         
     def test_compound_index(self):
         
-        data = numpy.zeros(10, dtype=[('Position', (float,3)), ('velocity', int)])
-        data['Position'] = numpy.random.random(size=(10,3))
-        data['velocity'] = numpy.random.choice([0, 1, 2], size=10)
+        data = numpy.zeros(100, dtype=[('Position', (float,3)), ('velocity', int)])
+        data['Position'] = numpy.random.random(size=(100,3))
+        data['velocity'] = numpy.random.choice([0, 1, 2], size=100)
         ans = (data['Position'][:,1]<0.5)|(data['velocity']==2)
         
         q = Query("Position[:,1] < 0.5 or velocity == 2")
@@ -214,8 +214,8 @@ class TestSelection(unittest.TestCase):
     
     def test_exp(self):
         
-        data = numpy.zeros(10, dtype=[('mass', float)])
-        data['mass'] = numpy.random.random(size=10)
+        data = numpy.zeros(100, dtype=[('mass', float)])
+        data['mass'] = numpy.random.random(size=100)
         ans = (data['mass'] < 0.25)
         
         q = Query("mass < 0.5**2")
@@ -224,8 +224,8 @@ class TestSelection(unittest.TestCase):
         
     def test_mult(self):
         
-        data = numpy.zeros(10, dtype=[('mass', float)])
-        data['mass'] = numpy.random.random(size=10)
+        data = numpy.zeros(100, dtype=[('mass', float)])
+        data['mass'] = numpy.random.random(size=100)
         ans = (data['mass'] < 0.25)
         
         q = Query("mass < 0.125*2")
@@ -234,8 +234,8 @@ class TestSelection(unittest.TestCase):
         
     def test_div(self):
         
-        data = numpy.zeros(10, dtype=[('mass', float)])
-        data['mass'] = numpy.random.random(size=10)
+        data = numpy.zeros(100, dtype=[('mass', float)])
+        data['mass'] = numpy.random.random(size=100)
         ans = (data['mass'] < 0.25)
         
         q = Query("mass < 0.5/2.")
@@ -244,8 +244,8 @@ class TestSelection(unittest.TestCase):
         
     def test_plus(self):
         
-        data = numpy.zeros(10, dtype=[('mass', float)])
-        data['mass'] = numpy.random.random(size=10)
+        data = numpy.zeros(100, dtype=[('mass', float)])
+        data['mass'] = numpy.random.random(size=100)
         ans = (data['mass'] < 0.25)
         
         q = Query("mass < 0.125+0.125")
@@ -254,8 +254,8 @@ class TestSelection(unittest.TestCase):
         
     def test_minus(self):
         
-        data = numpy.zeros(10, dtype=[('mass', float)])
-        data['mass'] = numpy.random.random(size=10)
+        data = numpy.zeros(100, dtype=[('mass', float)])
+        data['mass'] = numpy.random.random(size=100)
         ans = (data['mass'] < 0.25)
         
         q = Query("mass < 0.5-0.125-0.125")
@@ -264,8 +264,8 @@ class TestSelection(unittest.TestCase):
         
     def test_compound_log(self):
         
-        data = numpy.zeros(10, dtype=[('mass', float)])
-        data['mass'] = numpy.random.random(size=10)
+        data = numpy.zeros(100, dtype=[('mass', float)])
+        data['mass'] = numpy.random.random(size=100)
         ans = (data['mass'] < 0.5*numpy.log(2.))
         
         q = Query("mass < 0.5*log(2)")
@@ -274,8 +274,8 @@ class TestSelection(unittest.TestCase):
 
     def test_log(self):
         
-        data = numpy.zeros(10, dtype=[('mass', float)])
-        data['mass'] = numpy.random.random(size=10)
+        data = numpy.zeros(100, dtype=[('mass', float)])
+        data['mass'] = numpy.random.random(size=100)
         ans = (data['mass'] < numpy.log(2.))
         
         q = Query("mass < log(2)")
@@ -284,8 +284,8 @@ class TestSelection(unittest.TestCase):
         
     def test_log10(self):
         
-        data = numpy.zeros(10, dtype=[('mass', float)])
-        data['mass'] = numpy.random.random(size=10)
+        data = numpy.zeros(100, dtype=[('mass', float)])
+        data['mass'] = numpy.random.random(size=100)
         ans = (data['mass'] < numpy.log10(2.))
         
         q = Query("mass < log10(2)")
@@ -294,8 +294,8 @@ class TestSelection(unittest.TestCase):
         
     def test_exp(self):
         
-        data = numpy.zeros(10, dtype=[('mass', float)])
-        data['mass'] = numpy.random.random(size=10)
+        data = numpy.zeros(100, dtype=[('mass', float)])
+        data['mass'] = numpy.random.random(size=100)
         ans = (data['mass'] < numpy.exp(-0.9))
         
         q = Query("mass < exp(-0.9))")
@@ -304,8 +304,8 @@ class TestSelection(unittest.TestCase):
             
     def test_slice_index_fail(self):
         
-        data = numpy.zeros(10, dtype=[('Position', (float,3))])
-        data['Position'] = numpy.random.random(size=(10,3))
+        data = numpy.zeros(100, dtype=[('Position', (float,3))])
+        data['Position'] = numpy.random.random(size=(100,3))
         
         # output index must be 1D or same dimension as input
         with pytest.raises(SelectionError):
@@ -359,8 +359,8 @@ class TestSelection(unittest.TestCase):
             
     def test_column_log(self):
         
-        data = numpy.zeros(10, dtype=[('mass', float)])
-        data['mass'] = numpy.random.random(size=10)
+        data = numpy.zeros(100, dtype=[('mass', float)])
+        data['mass'] = numpy.random.random(size=100)
         ans = numpy.log(data['mass']) > -0.5
         
         q = Query("log(mass) > -0.5")
@@ -369,8 +369,8 @@ class TestSelection(unittest.TestCase):
         
     def test_column_log10(self):
         
-        data = numpy.zeros(10, dtype=[('mass', float)])
-        data['mass'] = numpy.random.random(size=10)
+        data = numpy.zeros(100, dtype=[('mass', float)])
+        data['mass'] = numpy.random.random(size=100)
         ans = numpy.log10(data['mass']) > -0.5
         
         q = Query("log10(mass) > -0.5")
