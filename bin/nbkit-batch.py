@@ -41,7 +41,6 @@ def setup_logging(log_level):
     logger.addHandler(hdlr)
     logger.setLevel(log_level)
 
-setup_logging(logging.DEBUG)
 logger = logging.getLogger('nbkit-batch')
 
 def replacements_from_file(value):
@@ -171,7 +170,7 @@ class BatchAlgorithmDriver(object):
             exactly `cpus_per_worker` ranks, instead including the remainder 
             as well; default is `False`
         """
-        logger.setLevel(log_level)
+        setup_logging(log_level)
 
         self.algorithm_name  = algorithm_name
         self.algorithm_class = getattr(algorithms, algorithm_name) 
