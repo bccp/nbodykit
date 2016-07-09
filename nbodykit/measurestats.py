@@ -236,9 +236,12 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
     # save volume for normalization purposes
     volume = pm.BoxSize.prod()
     
-    # store the A0, A2, A4 arrays
+    # store the A0, A2, A4 here
     result = []
-    result.append(pm.complex*volume) # this will make a copy
+    
+    # A0 is just FT of FKP density
+    A0 = pm.complex*volume
+    result.append(A0)
     
     # the x grid points (at point centers)
     cell_size = pm.BoxSize / pm.Nmesh
