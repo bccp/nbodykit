@@ -3,7 +3,6 @@ from mpi4py import MPI
 import logging
 from nbodykit.extensionpoints import Painter, Transfer
 import time
-import resource
 
 logger = logging.getLogger('measurestats')
 
@@ -224,7 +223,7 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
         
         # do the FKP painting
         stats = catalog.paint(pm)
-    
+
     # save the fkp density for later
     density = pm.real.copy()
     if rank == 0: logger.info('%s painting done' %paintbrush)
@@ -232,14 +231,15 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
     # compute the monopole, A0(k), and save
     pm.r2c()
     transfer(pm, pm.complex)
-    A0 = pm.complex.copy()
     if rank == 0: logger.info('ell = 0 done; 1 r2c completed')
     
     volume = pm.BoxSize.prod()
     
     # store the A0, A2, A4 arrays
     result = []
-    result.append(A0*volume)
+    result.append(pm.complex*volume)
+    
+    print asizeof.asized(density, detail=1).format()
     
     # the x grid points (at point centers)
     cell_size = pm.BoxSize / pm.Nmesh
@@ -275,7 +275,8 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
             
         # apply the gridding transfer and save
         transfer(pm, A_ell)
-        result.append(A_ell)
+        result.append(A_ell); del A_ell # appending to list makes copy
+        
         if rank == 0: 
             args = (ell, len(bianchi_transfers[iell][0]))
             logger.info('ell = %d done; %s r2c completed' %args)
