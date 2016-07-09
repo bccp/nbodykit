@@ -3,6 +3,7 @@ from mpi4py import MPI
 import logging
 from nbodykit.extensionpoints import Painter, Transfer
 import time
+import resource
 
 logger = logging.getLogger('measurestats')
 
@@ -175,12 +176,12 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
                 if k == i: xk = xi
                 elif k == j: xk = xj
                 else: xk = x[k][0] if k != 0 else x[k][islab]            
-                numpy.multiply(data[islab], xi**2 * xj * xk / norm**2, data[islab])
+                data[islab] = data[islab] * xi**2 * xj * xk / norm**2
                 data[islab, norm==0] = 0.
             else:
-                numpy.multiply(data[islab], xi * xj / norm, data[islab])
+                data[islab] = data[islab] * xi * xj / norm
                 data[islab, norm==0] = 0.
-    
+                
     # the rank
     rank = comm.rank
     
@@ -270,7 +271,7 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
             if rank == 0: logger.debug('...done')
             
             # and save
-            numpy.add(A_ell, amp*pm.complex*volume, A_ell)
+            A_ell[:] += amp*pm.complex[:]*volume
             
         # apply the gridding transfer and save
         transfer(pm, A_ell)
@@ -279,6 +280,9 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
             args = (ell, len(bianchi_transfers[iell][0]))
             logger.info('ell = %d done; %s r2c completed' %args)
         
+    # density no longer needed
+    del density
+    
     stop = time.time()
     if rank == 0:
         logger.info("higher order multipoles computed in elapsed time %s" %timer(start, stop))
