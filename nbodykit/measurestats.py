@@ -239,8 +239,6 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
     result = []
     result.append(pm.complex*volume)
     
-    print asizeof.asized(density, detail=1).format()
-    
     # the x grid points (at point centers)
     cell_size = pm.BoxSize / pm.Nmesh
     xgrid = [(ri+0.5)*cell_size[i] + offset[i] for i, ri in enumerate(pm.r)]
