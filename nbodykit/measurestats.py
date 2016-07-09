@@ -219,7 +219,7 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
         offset = catalog.mean_coordinate_offset
         
         # initialize the particle mesh
-        pm = ParticleMesh(catalog.BoxSize, Nmesh, paintbrush=paintbrush, dtype='f8', comm=comm)
+        pm = ParticleMesh(catalog.BoxSize, Nmesh, paintbrush=paintbrush, dtype='f4', comm=comm)
         
         # do the FKP painting
         stats = catalog.paint(pm)
