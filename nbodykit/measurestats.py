@@ -158,25 +158,42 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
             needed if the simulation box has an average offset 
             from the grid box in configuration-space
         """
-        # compute x**2
-        norm = sum((xi + offset[ii])**2 for ii, xi in enumerate(x))
-    
-        # get x_i, x_j
-        # if i == 'x' direction, it's just one value
-        xi = x[i] + offset[i]
-        xj = x[j] + offset[j]
-
-        # multiply the kernel
-        if k is not None:
-            xk = x[k] + offset[k]
-            data[:] *= xi**2 * xj * xk
-            idx = norm != 0.
-            data[idx] /= norm[idx]**2
         
-        else:
-            data[:] *= xi * xj
-            idx = norm != 0.
-            data[idx] /= norm[idx]
+        # loop over yz plane to save memory
+        for islab in range(len(x[0])):
+            
+            # now xslab stores x3d ** 2
+            norm = numpy.float64((x[0][islab] + offset[0])**2)
+            for ii, xi in enumerate(x[1:]):
+                norm = norm + (xi[0] + offset[ii+1])**2
+                            
+            # get x_i, x_j
+            # if i == 'x' direction, it's just one value
+            xi = x[i][0] + offset[i] if i != 0 else x[i][islab] + offset[i]
+            if j == i:
+                xj = xi
+            else:
+                xj = x[j][0] + offset[j] if j != 0 else x[j][islab] + offset[j]
+                
+            # multiply the kernel
+            if k is not None:
+                
+                # get xk
+                if k == i:
+                    xk = xi
+                elif k == j:
+                    xk = xj
+                else:
+                    xk = x[k][0] + offset[k] if k != 0 else x[k][islab] + offset[k]
+            
+                data[islab,...] = data[islab,...] * xi**2 * xj * xk
+                idx = norm != 0.
+                data[islab, idx] = data[islab, idx] / norm[idx]**2
+        
+            else:
+                data[islab,...] = data[islab,...] * xi * xj
+                idx = norm != 0.
+                data[islab, idx] = data[islab, idx] / norm[idx]
     
     # the rank
     rank = comm.rank
