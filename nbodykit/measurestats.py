@@ -233,11 +233,12 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
     transfer(pm, pm.complex)
     if rank == 0: logger.info('ell = 0 done; 1 r2c completed')
     
+    # save volume for normalization purposes
     volume = pm.BoxSize.prod()
     
     # store the A0, A2, A4 arrays
     result = []
-    result.append(pm.complex*volume)
+    result.append(pm.complex*volume) # this will make a copy
     
     # the x grid points (at point centers)
     cell_size = pm.BoxSize / pm.Nmesh
@@ -273,7 +274,8 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
             
         # apply the gridding transfer and save
         transfer(pm, A_ell)
-        result.append(A_ell); del A_ell # appending to list makes copy
+        result.append(A_ell) 
+        del A_ell # delete A_ell; appending to list makes copy
         
         if rank == 0: 
             args = (ell, len(bianchi_transfers[iell][0]))
@@ -321,10 +323,6 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
         # monopole
         P0[islab, ...] = norm * P0[islab] * P0_star
         
-    result = [P0]
-    if max_ell > 0: result.append(P2)
-    if max_ell > 2: result.append(P4)
-
     return pm, result, stats
 
 
