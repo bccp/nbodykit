@@ -21,18 +21,32 @@ class MeshSlab(object):
         symmetry_axis : int, optional
             if provided, the axis that has been compressed due to Hermitian symmetry
         """
-        self.index       = islab
+        self._index       = islab
         self.axis        = axis
         self.symmetry_axis = symmetry_axis
         self._coords     = coords
         
+        # make sure symmetry_axis > 0 (sanity check)
+        if self.hermitian_symmetric and self.symmetry_axis < 0:
+            raise ValueError("`symmetry_axis` in MeshSlab must be non-negative")
+                
     def __str__(self):
         name = self.__class__.__name__
-        return "<%s: axis=%d, index=%d>" %(name, self.axis, self.index)
+        return "<%s: axis=%d, index=%d>" %(name, self.axis, self._index)
         
     def __repr__(self):
         return self.__str__()
     
+    @property
+    def index(self):
+        """
+        Return an indexing list appropriate for selecting the slicing the 
+        appropriate slab out of a full 3D array of shape (Nx, Ny, Nz)
+        """
+        toret = [slice(None), slice(None), slice(None)]
+        toret[self.axis] = self._index
+        return toret
+        
     @property
     def meshshape(self):
         """
@@ -78,9 +92,9 @@ class MeshSlab(object):
             note about the shape of the return array for details
         """
         if i != self.axis:
-            return self._coords[i][self.axis]
+            return numpy.take(self._coords[i], 0, axis=self.axis)
         else:
-            return self._coords[i][self.index]
+            return numpy.take(self._coords[i], self._index, axis=self.axis)
             
     def norm2(self):    
         """
@@ -141,9 +155,12 @@ class MeshSlab(object):
             # one of slab dimensions is symmetry axis
             else:
                 
-                # return indices that have positive freq along symmetry axis
+                # get the indices that have positive freq along symmetry axis
                 nonsingular = numpy.squeeze(self._coords[self.symmetry_axis] > 0.)
-                idx[self.symmetry_axis-1] = nonsingular
+                
+                # set the appropriate dimension of the slab
+                i = max(0, self.symmetry_axis-1)
+                idx[i] = nonsingular
         
             self._nonsingular = idx
             return self._nonsingular
@@ -167,7 +184,7 @@ class MeshSlab(object):
             # iteration axis is symmetry axis
             elif self.axis == self.symmetry_axis:
                 toret = 1.
-                if numpy.float(self.coords[self.symmetry_axis]) > 0.:
+                if numpy.float(self.coords(self.symmetry_axis)) > 0.:
                     toret = 2.
             # only nonsingular plane gets factor of 2
             else:
@@ -197,8 +214,19 @@ def SlabIterator(coords, axis=0, symmetry_axis=None):
     if axis < 0: axis += 3
     if symmetry_axis is not None and symmetry_axis < 0: symmetry_axis += 3
     
+    # this will only work if shapes are: [(Nx, 1, 1), (1, Ny, 1), (1, 1, Nz)]
+    # mainly a sanity check to make sure things work
+    shapes = [numpy.shape(x) for x in coords]
+    if shapes[0][1] != 1 or shapes[0][2] != 1:
+        raise ValueError("1st coordinate array should have shape (Nx, 1, 1)")
+    if shapes[1][0] != 1 or shapes[1][2] != 1:
+        raise ValueError("2nd coordinate array should have shape (1, Ny, 1)")
+    if shapes[2][0] != 1 or shapes[2][1] != 1:
+        raise ValueError("3rd coordinate array should have shape (1, 1, Nz)")
+    
     # iterate over the specified axis, slab by slab
-    for islab in range(len(coords[axis])):
+    N = numpy.shape(coords[axis])[axis]
+    for islab in range(N):
         yield MeshSlab(islab, coords, axis, symmetry_axis)
 
     
