@@ -1,12 +1,18 @@
-import numpy
 from mpi4py import MPI
+import numpy
 import logging
-from nbodykit.extensionpoints import Painter, Transfer
 import time
+
+from nbodykit.extensionpoints import Painter, Transfer
+from nbodykit.utils.meshtools import MeshWorker
 
 logger = logging.getLogger('measurestats')
 
 def timer(start, end):
+    """
+    Function to format a start and end time, as returned
+    by :func:`time.time`
+    """
     hours, rem = divmod(end-start, 3600)
     minutes, seconds = divmod(rem, 60)
     return "{:0>2}:{:0>2}:{:05.2f}".format(int(hours),int(minutes),seconds)
@@ -200,15 +206,23 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
     
     # quadrupole kernels
     if max_ell > 0:
+        
+        # the (i,j) index values for each kernel
         k2 = [(0, 0), (1, 1), (2, 2), (0, 1), (0, 2), (1, 2)]
+        
+        # the amplitude of each kernel term
         a2 = [1.]*3 + [2.]*3
         bianchi_transfers.append((a2, k2))
     
     # hexadecapole kernels
     if max_ell > 2 and not factor_hexadecapole:
+        
+        # the (i,j,k) index values for each kernel
         k4 = [(0, 0, 0), (1, 1, 1), (2, 2, 2), (0, 0, 1), (0, 0, 2),
              (1, 1, 0), (1, 1, 2), (2, 2, 0), (2, 2, 1), (0, 1, 1),
              (0, 2, 2), (1, 2, 2), (0, 1, 2), (1, 0, 2), (2, 0, 1)]
+        
+        # the amplitude of each kernel term
         a4 = [1.]*3 + [4.]*6 + [6.]*3 + [12.]*3
         bianchi_transfers.append((a4, k4))
     
@@ -221,10 +235,10 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
         # initialize the particle mesh
         pm = ParticleMesh(catalog.BoxSize, Nmesh, paintbrush=paintbrush, dtype='f4', comm=comm)
         
-        # do the FKP painting
+        # paint the FKP density field to the mesh
         stats = catalog.paint(pm)
 
-    # save the fkp density for later
+    # save the FKP density for later
     density = pm.real.copy()
     if rank == 0: logger.info('%s painting done' %paintbrush)
     
@@ -239,22 +253,25 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
     # store the A0, A2, A4 here
     result = []
     
-    # A0 is just FT of FKP density
+    # monopole A0 is just FT of FKP density
     A0 = pm.complex*volume
     result.append(A0)
     
-    # the x grid points (at point centers)
+    # the x grid points, properly offset from [-L/2, L/2] to original positions in space
     cell_size = pm.BoxSize / pm.Nmesh
     xgrid = [(ri+0.5)*cell_size[i] + offset[i] for i, ri in enumerate(pm.r)]
     
+    # loop over the higher order multipoles (ell > 0)
     start = time.time()
-    for iell in range(len(bianchi_transfers)):
-        ell = ells[iell+1]
-        A_ell = numpy.zeros_like(pm.complex)
+    for iell, ell in enumerate(ells[1:]):
         
+        # temp array to hold sum of all of the terms in Fourier space
+        Aell_sum = numpy.zeros_like(pm.complex)
+        
+        # loop over each kernel term for this multipole
         for amp, integers in zip(*bianchi_transfers[iell]):
                         
-            # reset the 'pm.real' array to the original FKP density
+            # reset the realspace mesh to the original FKP density
             pm.real[:] = density[:]
         
             # apply the real-space transfer
@@ -272,19 +289,19 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
             bianchi_transfer(pm.complex, pm.k, *integers)
             if rank == 0: logger.debug('...done')
             
-            # and save
-            A_ell[:] += amp*pm.complex[:]*volume
+            # and this contribution to the total sum
+            Aell_sum[:] += amp*pm.complex[:]*volume
             
         # apply the gridding transfer and save
-        transfer(pm, A_ell)
-        result.append(A_ell) 
-        del A_ell # delete A_ell; appending to list makes copy
+        transfer(pm, Aell_sum)
+        result.append(Aell_sum) 
+        del Aell_sum # delete temp array; appending to list makes copy
         
         if rank == 0: 
             args = (ell, len(bianchi_transfers[iell][0]))
             logger.info('ell = %d done; %s r2c completed' %args)
         
-    # density no longer needed
+    # density array no longer needed
     del density
     
     stop = time.time()
@@ -298,12 +315,10 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
     
     # reuse memory for output
     P0 = result[0]
-    if max_ell > 0: P2 = result[1]
+    if max_ell > 0: 
+        P2 = result[1]
     if max_ell > 2:
-        if not factor_hexadecapole: 
-            P4 = result[2]
-        else:
-            P4 = numpy.empty_like(P2)
+        P4 = numpy.empty_like(P2) if factor_hexadecapole else result[2]
         
     # calculate the multipoles, islab by islab to save memory
     # see equations 6-8 of Bianchi et al. 2015
@@ -319,6 +334,7 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
                 P4[islab, ...] = norm * 9./8. * P0[islab] * (35.*(P4[islab]).conj() - 30.*P2_star + 3.*P0_star)
             else:
                 P4[islab, ...] = norm * 9./8. * ( 35.*P2[islab]*P2_star + 3.*P0[islab]*P0_star - 5./3.*(11.*P0[islab]*P2_star + 7.*P2[islab]*P0_star) )
+        
         # quadrupole
         if max_ell > 0:
             P2[islab, ...] = norm * 5./2. * P0[islab] * (3.*P2_star - P0_star)
@@ -512,7 +528,7 @@ def project_to_basis(comm, x3d, y3d, edges, los='z', poles=[], symmetric=True):
     
     Notes
     -----
-    *   the mu range extends from 0 to 1.0
+    *   the mu range extends from 0.0 to 1.0
     *   the mu bins are half-inclusive half-exclusive, except the last bin
         is inclusive on both ends (to include mu = 1.0)
     *   when Nmu == 1, the case reduces to the isotropic 1D binning
@@ -583,28 +599,34 @@ def project_to_basis(comm, x3d, y3d, edges, los='z', poles=[], symmetric=True):
     # need to count all modes with positive z frequency twice due to r2c FFTs
     nonsingular = numpy.squeeze(x3d[2] > 0.) # has length of Nz now
 
-    for islab in range(len(x3d[0])):
+    
+    def compute_binning(slab):
+        """
+        The main function where the binning computations are done
         
-        # now xslab stores x3d ** 2
-        xslab = numpy.float64(x3d[0][islab] ** 2)
-        for xi in x3d[1:]:
-            xslab = xslab + xi[0] ** 2
-
+        Parameters
+        ----------
+        slab : :class:`~nbodykit.utils.meshiterator.MeshSlab`
+            a `slab` instance, representing a specific y-z plane of the
+            mesh; the mesh slab knows about the mesh coordinate values
+            (i.e., `k`, `mu`) defined on the slab, as well as the `index`, 
+            which specifies which `x` coordinate value the y-z is fixed at
+        """
+        # x squared (either Fourier space k or configuraton space x)
+        xslab = slab.xsq()
+        
+        # if empty, do nothing
         if len(xslab.flat) == 0:
-            # no data
-            continue
+            return
 
+        # get the bin indices for x on the slab
         dig_x = numpy.digitize(xslab.flat, xedges2)
     
         # make xslab just x
         xslab **= 0.5
     
-        # store mu (keeping track of positive/negative)
-        with numpy.errstate(invalid='ignore'):
-            if los_index == 0:
-                mu = x3d[los_index][islab]/xslab
-            else:
-                mu = x3d[los_index][0]/xslab
+        # get the bin indices for mu on the slab
+        mu = slab.mu(los_index) # defined with respect to specified LOS
         dig_mu = numpy.digitize(abs(mu).flat, muedges)
         
         # make the multi-index
@@ -613,18 +635,19 @@ def project_to_basis(comm, x3d, y3d, edges, los='z', poles=[], symmetric=True):
         # count modes not in singular plane twice
         if symmetric: xslab[:, nonsingular] *= 2.
     
-        # the x sum
+        # sum up x in each bin
         xsum.flat += numpy.bincount(multi_index, weights=xslab.flat, minlength=xsum.size)
     
-        # count number of modes
+        # count number of modes in each bin
         Nslab = numpy.ones_like(xslab)
         if symmetric: Nslab[:, nonsingular] = 2. # count modes not in singular plane twice
         Nsum.flat += numpy.bincount(multi_index, weights=Nslab.flat, minlength=Nsum.size)
 
-        # weight P(k,mu) and sum for the poles
+        # compute multipoles by weighting by Legendre(ell, mu)
         for iell, ell in enumerate(poles_):
             
-            weighted_y3d = legpoly[iell](mu) * y3d[islab]
+            # weight the input 3D y array by the appropriate Legendre polynomial
+            weighted_y3d = legpoly[iell](mu) * y3d[slab.index]
 
             # add conjugate for this kx, ky, kz, corresponding to 
             # the (-kx, -ky, -kz) --> need to make mu negative for conjugate
@@ -642,15 +665,21 @@ def project_to_basis(comm, x3d, y3d, edges, los='z', poles=[], symmetric=True):
                     weighted_y3d.real[:, nonsingular] *= 2.
                     weighted_y3d.imag[:, nonsingular] = 0.
                     
+            # sum up the weighted y in each bin
             weighted_y3d *= (2.*ell + 1.)
             ysum[iell,...].real.flat += numpy.bincount(multi_index, weights=weighted_y3d.real.flat, minlength=Nsum.size)
             if numpy.iscomplexobj(ysum):
                 ysum[iell,...].imag.flat += numpy.bincount(multi_index, weights=weighted_y3d.imag.flat, minlength=Nsum.size)
         
-        # the mu sum
+        # sum up the absolute mag of mu in each bin
         if symmetric: mu[:, nonsingular] *= 2.
         musum.flat += numpy.bincount(multi_index, weights=abs(mu).flat, minlength=musum.size)
 
+    # apply the binning function to the mesh defined by `x3d`
+    worker = MeshWorker(x3d)
+    worker.apply(compute_binning)
+    
+    # sum across all ranks
     xsum  = comm.allreduce(xsum, MPI.SUM)
     musum = comm.allreduce(musum, MPI.SUM)
     ysum  = comm.allreduce(ysum, MPI.SUM)
