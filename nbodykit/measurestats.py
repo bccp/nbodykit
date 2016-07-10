@@ -4,65 +4,62 @@ import logging
 import time
 
 from nbodykit.extensionpoints import Painter, Transfer
-from nbodykit.utils.meshtools import MeshWorker
+from nbodykit.utils.meshtools import SlabIterator
 
 logger = logging.getLogger('measurestats')
 
-def timer(start, end):
-    """
-    Function to format a start and end time, as returned
-    by :func:`time.time`
-    """
-    hours, rem = divmod(end-start, 3600)
-    minutes, seconds = divmod(rem, 60)
-    return "{:0>2}:{:0>2}:{:05.2f}".format(int(hours),int(minutes),seconds)
-
+#------------------------------------------------------------------------------
+# Fourier space statistics
+#------------------------------------------------------------------------------
 def compute_3d_power(fields, pm, comm=None):
     """
     Compute and return the 3D power from two input fields
     
     Parameters
     ----------
-    fields : list of (``DataSource``, ``Painter``, ``Transfer``) tuples
+    fields : list of tuples of (DataSource, Painter, Transfer)
         the list of fields which the 3D power will be computed
-        
-    pm : ``ParticleMesh``
-        particle mesh object that handles the painting and FFTs
-                
+    pm : ParticleMesh
+        the particle mesh object that handles the painting and FFTs
     comm : MPI.Communicator, optional
-        the communicator to pass to the ``ParticleMesh`` object. If not
+        the communicator to pass to the ParticleMesh object. If not
         provided, ``MPI.COMM_WORLD`` is used
         
     Returns
     -------
-    p3d : array_like (real)
-        the 3D power spectrum, corresponding to the gridded input fields
-        
+    p3d : array_like (complex)
+        the 3D complex array holding the power spectrum
     stats1 : dict
-        dictionary holding the statistics of the first field, as returned
-        by the `Painter` used 
-        
+        statistics of the first field, as returned by the `Painter` 
     stats2 : dict
-        dictionary holding the statistics of the second field, as returned
-        by the `Painter` used
+        statistics of the second field, as returned by the `Painter`
     """
-    # some setup
     rank = comm.rank if comm is not None else MPI.COMM_WORLD.rank
     
-    # check that the painter was passed correctly
+    # extract lists of datasources, painters, and transfers separately
     datasources = [d for d, p, t in fields]
     painters    = [p for d, p, t in fields]
     transfers   = [t for d, p, t in fields]
     
-    # paint, FT field and filter field #1
+    # step 1: paint the density field to the mesh
     stats1 = painters[0].paint(pm, datasources[0])
     if rank == 0: logger.info('%s painting done' %pm.paintbrush)
+    
+    # step 2: Fourier transform density field using real to complex FFT
     pm.r2c()
     if rank == 0: logger.info('r2c done')
+    
+    # step 3: apply transfer function kernels to complex field
     pm.transfer(transfers[0])
-
-    # do the cross power if two fields supplied
-    if len(fields) > 1:
+  
+    # compute the auto power of single supplied field
+    if len(fields) == 1:
+        c1 = pm.complex
+        c2 = pm.complex
+        stats2 = stats1
+        
+    # compute the cross power of the two supplied fields
+    else:
                 
         # crash if box size isn't the same
         if not numpy.all(datasources[0].BoxSize == datasources[1].BoxSize):
@@ -71,24 +68,16 @@ def compute_3d_power(fields, pm, comm=None):
         # copy and store field #1's complex
         c1 = pm.complex.copy()
         
-        # paint, FT, and filter field #2
+        # apply painting, FFT, and transfer steps to second field
         stats2 = painters[1].paint(pm, datasources[1])
         if rank == 0: logger.info('%s painting 2 done' %pm.paintbrush)
         pm.r2c()
         if rank == 0: logger.info('r2c 2 done')
         pm.transfer(transfers[1])
         c2 = pm.complex
-  
-    # do the auto power
-    else:
-        c1 = pm.complex
-        c2 = pm.complex
-        stats2 = stats1
 
-    # reuse the memory in c1.real for the 3d power spectrum
+    # calculate the 3d power spectrum, slab-by-slab to save memory
     p3d = c1
-    
-    # calculate the 3d power spectrum, islab by islab to save memory
     for islab in range(len(c1)):
         p3d[islab, ...] = c1[islab]*c2[islab].conj()
 
@@ -98,98 +87,108 @@ def compute_3d_power(fields, pm, comm=None):
                 
     return p3d, stats1, stats2
     
-def compute_bianchi_poles(comm, max_ell, catalog, Nmesh, 
-                            factor_hexadecapole=False, 
-                            paintbrush='cic'):
+def apply_bianchi_kernel(data, x3d, i, j, k=None):
     """
-    Compute and return the 3D power multipoles (ell = [0, 2, 4]) from one 
-    input field, which contains non-trivial survey geometry.
+    Apply coordinate kernels to ``data`` necessary to compute the 
+    power spectrum multipoles via FFTs using the algorithm 
+    detailed in Bianchi et al. 2015.
     
-    The estimator uses the FFT algorithm outlined in Bianchi et al. 2015 to compute
+    This multiplies by one of two kernels:
+    
+        1. x_i * x_j / x**2 * data, if `k` is None
+        2. x_i**2 * x_j * x_k / x**4 * data, if `k` is not None
+    
+    See equations 10 (for quadrupole) and 12 (for hexadecapole)
+    of Bianchi et al 2015.
+    
+    Parameters
+    ----------
+    data : array_like
+        the array to rescale -- either the configuration-space 
+        `pm.real` or the Fourier-space `pm.complex`
+    x : array_like
+        the coordinate array -- either `pm.r` or `pm.k`
+    i, j, k : int
+        the integers specifying the coordinate axes; see the 
+        above description 
+    """        
+    # loop over yz slabs of the mesh
+    for slab in SlabIterator(x3d, axis=0):
+    
+        # normalization is norm squared of coordinate mesh
+        norm = slab.norm2()
+                        
+        # get coordinate arrays for indices i, j         
+        xi = slab.coords(i)
+        if j == i: xj = xi
+        else: xj = slab.coords(j)
+            
+        # handle third index j
+        if k is not None:
+            
+            # get coordinate array for index k
+            if k == i: xk = xi
+            elif k == j: xk = xj
+            else: xk = slab.coords(k)
+            
+            # weight data by xi**2 * xj * xj 
+            data[slab.index] = data[slab.index] * xi**2 * xj * xk / norm**2
+            data[slab.index, norm==0] = 0.
+        else:
+            # weight data by xi * xj
+            data[slab.index] = data[slab.index] * xi * xj / norm
+            data[slab.index, norm==0] = 0.
+                
+def compute_bianchi_poles(comm, max_ell, catalog, Nmesh, factor_hexadecapole=False, paintbrush='cic'):
+    """
+    Use the algorithm detailed in Bianchi et al. 2015 to compute and return the 3D 
+    power spectrum multipoles (`ell = [0, 2, 4]`) from one input field, which contains 
+    non-trivial survey geometry.
+    
+    The estimator uses the FFT algorithm outlined in Bianchi et al. 2015
+    (http://adsabs.harvard.edu/abs/2015arXiv150505341B) to compute
     the monopole, quadrupole, and hexadecapole
     
     Parameters
     ----------
-    max_ell : int
-        the maximum multipole number to compute up to (and including). Must be
-        one of [0, 2, 4]
-        
-    datasource : ``DataSource``
-        the DataSource which will be return the Cartesian coordinates of the
-        (ra, dec, z) survey
-        
-    pm : ``ParticleMesh``
-        particle mesh object that handles the painting and FFTs
-            
-    factor_hexadecapole: bool, optional
+    comm : MPI.Communicator
+        the communicator to pass to the ParticleMesh object
+    max_ell : int, {0, 2, 4}
+        the maximum multipole number to compute up to (inclusive)
+    catalog : :class:`~nbodykit.fkp.FKPCatalog`
+        the FKP catalog object that manipulates the data and randoms DataSource
+        objects and paints the FKP density
+    Nmesh : int
+        the number of cells (per side) in the gridded mesh
+    factor_hexadecapole : bool, optional
         if `True`, use the factored expression for the hexadecapole (ell=4) from
         eq. 27 of Scoccimarro 2015 (1506.02729); default is `False`
+    paintbrush : str, {'cic', 'tsc'}
+        the density assignment kernel to use when painting, either `cic` (2nd order) 
+        or `tsc` (3rd order); default is `cic`
     
     Returns
     -------
-    poles : list
-        list of the 3D power multipoles computed, up to and including `ell=max_ell`
-        
+    pm : ParticleMesh
+        the mesh object used to do painting, FFTs, etc
+    result : list of arrays
+        list of 3D complex arrays holding power spectrum multipoles; respectively, 
+        if `ell_max=0,2,4`, the list holds the monopole only, monopole and quadrupole, 
+        or the monopole, quadrupole, and hexadecapole
     stats : dict
-        dictionary holding the statistics of the input datasource, as returned
+        dict holding the statistics of the input fields, as returned
         by the `FKPPainter` painter
+    
+    References
+    ----------
+    * Bianchi, Davide et al., `Measuring line-of-sight-dependent Fourier-space clustering using FFTs`,
+      MNRAS, 2015
+    * Scoccimarro, Roman, `Fast estimators for redshift-space clustering`, Phys. Review D, 2015
     """
     from pmesh.particlemesh import ParticleMesh
-    
-    def bianchi_transfer(data, x, i, j, k=None):
-        """
-        Transfer functions necessary to compute the power spectrum  
-        multipoles via FFTs
-        
-        This multiplies by one of two kernels:
-        
-            1. x_i * x_j / x**2 * data, if `k` is None
-            2. x_i**2 * x_j * x_k / x**4 * data, if `k` is not None
-        
-        See equations 10 (for quadrupole) and 12 (for hexadecapole)
-        of Bianchi et al 2015.
-        
-        Parameters
-        ----------
-        data : array_like
-            the array to rescale -- either the configuration-space 
-            `pm.real` or the Fourier-space `pm.complex`
-        x : array_like
-            the coordinate array -- either `pm.r` or `pm.k`
-        i, j, k : int
-            the integers specifying the coordinate axes; see the 
-            above description 
-        """        
-        # loop over yz plane to save memory
-        for islab in range(len(x[0])):
-            
-            # now xslab stores x3d ** 2
-            norm = numpy.float64(x[0][islab]**2)
-            for xi in x[1:]:
-                norm = norm + xi[0]**2
-                            
-            # get x_i, x_j
-            # if i == 'x' direction, it's just one value            
-            xi = x[i][0] if i != 0 else x[i][islab]
-            if j == i: xj = xi
-            else: xj = x[j][0] if j != 0 else x[j][islab]
-                
-            # multiply the kernel
-            if k is not None:
-                
-                # get xk
-                if k == i: xk = xi
-                elif k == j: xk = xj
-                else: xk = x[k][0] if k != 0 else x[k][islab]            
-                data[islab] = data[islab] * xi**2 * xj * xk / norm**2
-                data[islab, norm==0] = 0.
-            else:
-                data[islab] = data[islab] * xi * xj / norm
-                data[islab, norm==0] = 0.
-                
-    # the rank
     rank = comm.rank
-    
+    bianchi_transfers = []
+
     # the painting kernel transfer
     if paintbrush == 'cic':
         transfer = Transfer.create('AnisotropicCIC')
@@ -198,13 +197,12 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
     else:
         raise ValueError("valid `paintbrush` values are: ['cic', 'tsc']")
 
-    # which transfers do we need
+    # determine which multipole values we are computing
     if max_ell not in [0, 2, 4]:
         raise ValueError("valid values for the maximum multipole number are [0, 2, 4]")
     ells = numpy.arange(0, max_ell+1, 2)
-    bianchi_transfers = []
     
-    # quadrupole kernels
+    # determine kernels needed to compute quadrupole
     if max_ell > 0:
         
         # the (i,j) index values for each kernel
@@ -214,7 +212,7 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
         a2 = [1.]*3 + [2.]*3
         bianchi_transfers.append((a2, k2))
     
-    # hexadecapole kernels
+    # determine kernels needed to compute hexadecapole
     if max_ell > 2 and not factor_hexadecapole:
         
         # the (i,j,k) index values for each kernel
@@ -226,38 +224,38 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
         a4 = [1.]*3 + [4.]*6 + [6.]*3 + [12.]*3
         bianchi_transfers.append((a4, k4))
     
-    # load the data/randoms and setup boxsize, etc
+    # load the data/randoms, setup boxsize, etc from the FKPCatalog
     with catalog:
         
-        # the mean coordinate offset
+        # the mean coordinate offset of the input data
         offset = catalog.mean_coordinate_offset
         
         # initialize the particle mesh
         pm = ParticleMesh(catalog.BoxSize, Nmesh, paintbrush=paintbrush, dtype='f4', comm=comm)
         
-        # paint the FKP density field to the mesh
+        # paint the FKP density field to the mesh (paints: data - randoms, essentially)
         stats = catalog.paint(pm)
 
-    # save the FKP density for later
+    # save the painted density field for later
     density = pm.real.copy()
     if rank == 0: logger.info('%s painting done' %paintbrush)
     
-    # compute the monopole, A0(k), and save
+    # FFT density field and apply the paintbrush window transfer kernel
     pm.r2c()
     transfer(pm, pm.complex)
     if rank == 0: logger.info('ell = 0 done; 1 r2c completed')
-    
-    # save volume for normalization purposes
+        
+    # monopole A0 is just the FFT of the FKP density field
     volume = pm.BoxSize.prod()
+    A0 = pm.complex*volume # normalize with a factor of volume
     
-    # store the A0, A2, A4 here
+    # store the A0, A2, A4 arrays here
     result = []
-    
-    # monopole A0 is just FT of FKP density
-    A0 = pm.complex*volume
     result.append(A0)
     
-    # the x grid points, properly offset from [-L/2, L/2] to original positions in space
+    # the real-space grid points
+    # the grid is properly offset from [-L/2, L/2] to the original positions in space
+    # this is the grid used when applying Bianchi kernels
     cell_size = pm.BoxSize / pm.Nmesh
     xgrid = [(ri+0.5)*cell_size[i] + offset[i] for i, ri in enumerate(pm.r)]
     
@@ -265,7 +263,7 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
     start = time.time()
     for iell, ell in enumerate(ells[1:]):
         
-        # temp array to hold sum of all of the terms in Fourier space
+        # temporary array to hold sum of all of the terms in Fourier space
         Aell_sum = numpy.zeros_like(pm.complex)
         
         # loop over each kernel term for this multipole
@@ -274,29 +272,29 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
             # reset the realspace mesh to the original FKP density
             pm.real[:] = density[:]
         
-            # apply the real-space transfer
+            # apply the real-space Bianchi kernel
             if rank == 0: logger.debug("applying real-space Bianchi transfer for %s..." %str(integers))
-            bianchi_transfer(pm.real, xgrid, *integers)
+            apply_bianchi_kernel(pm.real, xgrid, *integers)
             if rank == 0: logger.debug('...done')
     
-            # do the FT and apply the k-space kernel
+            # do the real-to-complex FFT
             if rank == 0: logger.debug("performing r2c...")
             pm.r2c()
             if rank == 0: logger.debug('...done')
             
-            # fourier space kernel
+            # apply the Fourier-space Bianchi kernel
             if rank == 0: logger.debug("applying Fourier-space Bianchi transfer for %s..." %str(integers))
-            bianchi_transfer(pm.complex, pm.k, *integers)
+            apply_bianchi_kernel(pm.complex, pm.k, *integers)
             if rank == 0: logger.debug('...done')
             
             # and this contribution to the total sum
             Aell_sum[:] += amp*pm.complex[:]*volume
             
-        # apply the gridding transfer and save
+        # apply the paintbrush window transfer function and save
         transfer(pm, Aell_sum)
-        result.append(Aell_sum) 
-        del Aell_sum # delete temp array; appending to list makes copy
+        result.append(Aell_sum); del Aell_sum # delete temp array since appending to list makes copy
         
+        # log the total number of FFTs computed for each ell
         if rank == 0: 
             args = (ell, len(bianchi_transfers[iell][0]))
             logger.info('ell = %d done; %s r2c completed' %args)
@@ -304,100 +302,109 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
     # density array no longer needed
     del density
     
+    # summarize how long it took
     stop = time.time()
     if rank == 0:
         logger.info("higher order multipoles computed in elapsed time %s" %timer(start, stop))
         if factor_hexadecapole:
             logger.info("using factorized hexadecapole estimator for ell=4")
     
-    # proper normalization: A_ran from equation 
+    # proper normalization: same as equation 49 of Scoccimarro et al. 2015 
     norm = 1.0 / stats['A_ran']
     
-    # reuse memory for output
+    # reuse memory for output arrays
     P0 = result[0]
     if max_ell > 0: 
         P2 = result[1]
     if max_ell > 2:
         P4 = numpy.empty_like(P2) if factor_hexadecapole else result[2]
         
-    # calculate the multipoles, islab by islab to save memory
-    # see equations 6-8 of Bianchi et al. 2015
+    # calculate the power spectrum multipoles, slab-by-slab to save memory
     for islab in range(len(P0)):
 
-        # save for reuse
+        # save arrays for reuse
         P0_star = (P0[islab]).conj()
         if max_ell > 0: P2_star = (P2[islab]).conj()
 
         # hexadecapole
         if max_ell > 2:
+            
+            # see equation 8 of Bianchi et al. 2015
             if not factor_hexadecapole:
                 P4[islab, ...] = norm * 9./8. * P0[islab] * (35.*(P4[islab]).conj() - 30.*P2_star + 3.*P0_star)
+            # see equation 48 of Scoccimarro et al; 2015
             else:
                 P4[islab, ...] = norm * 9./8. * ( 35.*P2[islab]*P2_star + 3.*P0[islab]*P0_star - 5./3.*(11.*P0[islab]*P2_star + 7.*P2[islab]*P0_star) )
         
-        # quadrupole
+        # quadrupole: equation 7 of Bianchi et al. 2015
         if max_ell > 0:
             P2[islab, ...] = norm * 5./2. * P0[islab] * (3.*P2_star - P0_star)
 
-        # monopole
+        # monopole: equation 6 of Bianchi et al. 2015
         P0[islab, ...] = norm * P0[islab] * P0_star
         
     return pm, result, stats
 
-
-def compute_brutal_corr(datasources, rbins, Nmu=0, comm=None, subsample=1, los='z', poles=[]):
-    """
-    Compute the correlation function by direct pair summation, projected
-    into either 1d `R` bins or 2d (`R`, `mu`) bins
+#------------------------------------------------------------------------------
+# configuration space statistics
+#------------------------------------------------------------------------------
+def compute_brutal_corr(datasources, redges, Nmu=0, comm=None, subsample=1, los='z', poles=[]):
+    r"""
+    Compute the correlation function by direct pair summation, either as a function
+    of separation (`R`) or as a function of separation and line-of-sight angle (`R`, `mu`)
+    
+    The estimator used to compute the correlation function is:
+    
+    .. math:: 
+        
+        \xi(r, \mu) = DD(r, \mu) / RR(r, \mu) - 1.
+    
+    where `DD` is the number of data-data pairs, and `RR` is the number of random-random pairs,
+    which is determined solely by the binning used, assuming a constant number density
     
     Parameters
     ----------
-    datasources : list of ``DataSource`` objects
-        the list of datasources from which the 3D correlation will be computed
-        
-    Rmax : float
-        the maximum R value to compute, in the same units as the input
-        datasources
-    
+    datasources : list of DataSource objects
+        the list of data instances from which the 3D correlation will be computed
+    redges : array_like
+        the bin edges for the `R` variable
     Nmu : int, optional
         the number of desired `mu` bins, where `mu` is the cosine 
-        of the angle from the line-of-sight. Default is 0, in 
-        which case the correlation function is binned as a function of 
-        `R` only
-        
+        of the angle from the line-of-sight. Default is `0`, in 
+        which case the correlation function is binned as a function of `R` only
     comm : MPI.Communicator, optional
         the communicator to pass to the ``ParticleMesh`` object. If not
         provided, ``MPI.COMM_WORLD`` is used
-        
     subsample : int, optional
-        Down-sample the input datasources by choosing 1 out of every N points. 
-        Default is `1`
-    
-    los : 'x', 'y', 'z', optional
-        the dimension to treat as the line-of-sight; default is 'z'
+        downsample the input datasources by choosing 1 out of every `N` points. 
+        Default is `1` (no subsampling).
+    los : str, {'x', 'y', 'z'}, optional
+        the dimension to treat as the line-of-sight; default is 'z'.
+    poles : list of int, optional
+        integers specifying the multipoles to compute from the 2D correlation function
         
     Returns
     -------
-    pc : ``correlate.paircount``
-        the ``kdcount`` pair counting instance
+    pc : :class:`kdcount.correlate.paircount`
+        the pair counting instance 
     xi : array_like
-        the correlation function
+        the correlation function result; if `poles` supplied, the shape is 
+        `(len(redges)-1, len(poles))`, otherwise, the shape is either `(len(redges)-1, )`
+        or `(len(redges)-1, Nmu)`
     RR : array_like
         the number of random-random pairs (used as normalization of the data-data pairs)
     """
     from pmesh.domain import GridND
     from kdcount import correlate
     
-    if los not in "xyz":
-        raise ValueError("the `los` must be one of `x`, `y`, or `z`")
-    los = "xyz".index(los)
+    # some setup
+    if los not in "xyz": raise ValueError("`los` must be `x`, `y`, or `z`")
+    los   = "xyz".index(los)
     poles = numpy.array(poles)
-    Rmax = rbins[-1]
-    
-    # the comm
+    Rmax  = redges[-1]
     if comm is None: comm = MPI.COMM_WORLD
     
-    # determine processors for grididng
+    # determine processor division for domain decomposition
     for Nx in range(int(comm.size**0.3333) + 1, 0, -1):
         if comm.size % Nx == 0: break
     else:
@@ -408,6 +415,8 @@ def compute_brutal_corr(datasources, rbins, Nmu=0, comm=None, subsample=1, los='
         Ny = 1
     Nz = comm.size // Nx // Ny
     Nproc = [Nx, Ny, Nz]
+    
+    # log some info
     if comm.rank == 0:
         logger.info('Nproc = %s' %str(Nproc))
         logger.info('Rmax = %g' %Rmax)
@@ -435,8 +444,7 @@ def compute_brutal_corr(datasources, rbins, Nmu=0, comm=None, subsample=1, los='
     # exchange field #1 positions    
     layout = domain.decompose(pos1, smoothing=0)
     pos1 = layout.exchange(pos1)
-    if comm.rank == 0:
-        logger.info('exchange pos1')
+    if comm.rank == 0: logger.info('exchange pos1')
         
     # exchange field #2 positions
     if Rmax > datasources[0].BoxSize[0] * 0.25:
@@ -444,26 +452,27 @@ def compute_brutal_corr(datasources, rbins, Nmu=0, comm=None, subsample=1, los='
     else:
         layout = domain.decompose(pos2, smoothing=Rmax)
         pos2 = layout.exchange(pos2)
-    if comm.rank == 0:
-        logger.info('exchange pos2')
+    if comm.rank == 0: logger.info('exchange pos2')
 
-    # initialize the points trees
+    # initialize the trees to hold the field points
     tree1 = correlate.points(pos1, boxsize=datasources[0].BoxSize)
     tree2 = correlate.points(pos2, boxsize=datasources[0].BoxSize)
 
+    # log the sizes of the trees
     logger.info('rank %d correlating %d x %d' %(comm.rank, len(tree1), len(tree2)))
-    if comm.rank == 0:
-        logger.info('all correlating %d x %d' %(N1, N2))
+    if comm.rank == 0: logger.info('all correlating %d x %d' %(N1, N2))
 
-    # the binning, either r or (r,mu)
+    # use multipole binning
     if len(poles):
-        bins = correlate.FlatSkyMultipoleBinning(rbins, poles, los, compute_mean_coords=True)
+        bins = correlate.FlatSkyMultipoleBinning(redges, poles, los, compute_mean_coords=True)
+    # use (R, mu) binning
     elif Nmu > 0:
-        bins = correlate.FlatSkyBinning(rbins, Nmu, los, compute_mean_coords=True)
+        bins = correlate.FlatSkyBinning(redges, Nmu, los, compute_mean_coords=True)
+    # use R binning
     else:
-        bins = correlate.RBinning(rbins, compute_mean_coords=True)
+        bins = correlate.RBinning(redges, compute_mean_coords=True)
 
-    # do the pair count
+    # do the pair counting
     # have to set usefast = False to get mean centers, or exception thrown
     pc = correlate.paircount(tree2, tree1, bins, np=0, usefast=False)
     pc.sum1[:] = comm.allreduce(pc.sum1)
@@ -489,20 +498,21 @@ def compute_brutal_corr(datasources, rbins, Nmu=0, comm=None, subsample=1, los='
     # return the correlation and the pair count object
     xi = (1. * pc.sum1 / RR) - 1.0
     if len(poles):
-        xi = xi.T # make ell the second axis 
-        xi[:,poles!=0] += 1.0 # only monopole gets minus one
+        xi = xi.T # makes ell the second axis 
+        xi[:,poles!=0] += 1.0 # only monopole gets the minus one
 
     return pc, xi, RR
 
 def compute_3d_corr(fields, pm, comm=None):
     """
-    Compute the 3d correlation function by Fourier transforming 
-    the 3d power spectrum
+    Compute the 3D correlation function by Fourier transforming 
+    the 3D power spectrum.
     
-    See documentation of `measurestats.compute_3d_power`
+    See the documentation for :func:`compute_3d_power` for details
+    of input parameters and return types.
     """
-
-    p3d, N1, N2 = compute_3d_power(fields, pm, comm=comm)
+    # the 3D power spectrum
+    p3d, stats1, stats2 = compute_3d_power(fields, pm, comm=comm)
     
     # directly transform dimensionless p3d
     # Note that L^3 cancels with dk^3.
@@ -511,116 +521,125 @@ def compute_3d_corr(fields, pm, comm=None):
     pm.c2r()
     xi3d = pm.real
     
-    return xi3d, N1, N2
+    return xi3d, stats1, stats2
 
-
-def project_to_basis(comm, x3d, y3d, edges, los='z', poles=[], symmetric=True):
+#------------------------------------------------------------------------------
+# general tools
+#------------------------------------------------------------------------------
+def project_to_basis(comm, x3d, y3d, edges, los='z', poles=[], hermitian_symmetric=False):
     """ 
-    Project a 3D statistic on to the specified basis. 
-
-    The projection will be onto 2d bins `(x, mu)`, where `x`
-    is separation `r` in configuration space or wavenumber `k` in 
-    Fourier space, and `mu` is the cosine of the angle to the 
-    line-of-sight. 
+    Project a 3D statistic on to the specified basis. The basis will be one 
+    of:
     
-    Optionally, the multipoles of the 2d `(x, mu)` bins are 
-    also returned, as specified by the multipole numbers in `poles`
+        - 2D (`x`, `mu`) bins: `mu` is the cosine of the angle to the line-of-sight
+        - 2D (`x`, `ell`) bins: `ell` is the multipole number, which specifies
+          the Legendre polynomial when weighting different `mu` bins
+    
+    .. note::
+    
+        The 2D (`x`, `mu`) bins will be computed only if `poles` is specified.
+        See return types for further details.
     
     Notes
     -----
-    *   the mu range extends from 0.0 to 1.0
-    *   the mu bins are half-inclusive half-exclusive, except the last bin
-        is inclusive on both ends (to include mu = 1.0)
-    *   when Nmu == 1, the case reduces to the isotropic 1D binning
+    *   the `mu` range extends from 0.0 to 1.0
+    *   the `mu` bins are half-inclusive half-exclusive, except the last bin
+        is inclusive on both ends (to include `mu = 1.0`)
     
     Parameters
     ----------
-    comm : MPI.Comm
-        the communicator for the decomposition of the power spectrum
-        
-    x3d  : list
-        The list of x values for each item in the `y3d` array. The items
-        must broadcast to the same shape of `y3d`.
-
-    y3d : array_like (real)
-        a 3D statistic, either a power spectrum (defined in Fourier space),
-        or a correlation function (defined in configuration space)
-
-    edges : array_like
-        an array specifying the edges of the `x` bins, where `x` is 
-        either Fourier space `k` or configuration space `r`
-
-    Nmu : int
-        the number of mu bins to use when binning in the 3d statistic
-    
-    los : str, {'x','y','z'}
-        the line-of-sight direction, which the angle `mu` is defined with
-        respect to. Default is `z`.
-        
+    comm : MPI.Communicatior
+        the MPI communicator
+    x3d  : list of array_like
+        list of coordinate values for each dimension of the `y3d` array; the 
+        items must able to be broadcasted to the same shape as `y3d`
+    y3d : array_like, real or complex
+        the 3D array holding the statistic to be projected to the specified basis
+    edges : list of arrays, (2,)
+        list of arrays specifying the edges of the desired `x` bins and `mu` bins
+    los : str, {'x','y','z'}, optional
+        the line-of-sight direction to use, which `mu` is defined with
+        respect to; default is `z`.
     poles : list of int, optional
         if provided, a list of integers specifying multipole numbers to
-        project the 2d `(x, mu)` on to
+        project the 2d `(x, mu)` bins on to  
+    hermitian_symmetric : bool, optional
+        Whether the input array `y3d` is Hermitian-symmetric, i.e., the negative 
+        frequency terms are just the complex conjugates of the corresponding 
+        positive-frequency terms; if ``True``, the positive frequency terms
+        will be explicitly double-counted to account for this symmetry
+    
+    Returns
+    -------
+    result : tuple
+        the 2D binned results; a tuple of ``(xmean_2d, mumean_2d, y2d, N_2d)``, where:
         
-    symmetric : bool, optional
-        If `True`, the `y3d` area is assumed to be symmetric about the `z = 0`
-        plane. If `y3d` is a power spectrum, this should be set to `True`, 
-        while if `y3d` is a correlation function, this should be `False`        
+        xmean_2d : array_like, (Nx, Nmu)
+            the mean `x` value in each 2D bin
+        mumean_2d : array_like, (Nx, Nmu)
+            the mean `mu` value in each 2D bin
+        y2d : array_like, (Nx, Nmu)
+            the mean `y3d` value in each 2D bin
+        N_2d : array_like, (Nx, Nmu)
+            the number of values averaged in each 2D bin
+    
+    pole_result : tuple or `None`
+        the multipole results; if `poles` supplied it is a tuple of ``(xmean_1d, poles, N_1d)``, 
+        where:
+    
+        xmean_1d : array_like, (Nx,)
+            the mean `x` value in each 1D multipole bin
+        poles : array_like, (Nell, Nx)
+            the mean multipoles value in each 1D bin
+        N_1d : array_like, (Nx,)
+            the number of values averaged in each 1D bin
     """
     from scipy.special import legendre
 
-    # bin edges
+    # setup the bin edges and number of bins
     xedges, muedges = edges
+    x2edges = xedges**2
     Nx = len(xedges) - 1 
     Nmu = len(muedges) - 1
     
-    # always measure make sure first ell is monopole, which
+    # always make sure first ell value is monopole, which
     # is just (x, mu) projection since legendre of ell=0 is 1
     do_poles = len(poles) > 0
-    poles_ = [0]+sorted(poles) if 0 not in poles else sorted(poles)
-    legpoly = [legendre(l) for l in poles_]
-    ell_idx = [poles_.index(l) for l in poles]
-    Nell = len(poles_)
+    _poles = [0]+sorted(poles) if 0 not in poles else sorted(poles)
+    legpoly = [legendre(l) for l in _poles]
+    ell_idx = [_poles.index(l) for l in poles]
+    Nell = len(_poles)
     
     # valid ell values
-    if any(ell < 0 for ell in poles_):
-        raise RuntimeError("multipole numbers must be nonnegative integers")
+    if any(ell < 0 for ell in _poles):
+        raise ValueError("in `project_to_basis`, multipole numbers must be non-negative integers")
 
-    # squared x bin edges
-    xedges2 = xedges ** 2
-
+    # initialize the binning arrays
     musum = numpy.zeros((Nx+2, Nmu+2))
     xsum = numpy.zeros((Nx+2, Nmu+2))
     ysum = numpy.zeros((Nell, Nx+2, Nmu+2), dtype=y3d.dtype) # extra dimension for multipoles
     Nsum = numpy.zeros((Nx+2, Nmu+2))
     
-    # los index
-    los_index = 'xyz'.index(los)
+    # the line-of-sight index
+    if los not in "xyz": raise ValueError("`los` must be `x`, `y`, or `z`")
+    los_index = "xyz".index(los)
     
-    # need to count all modes with positive z frequency twice due to r2c FFTs
-    nonsingular = numpy.squeeze(x3d[2] > 0.) # has length of Nz now
-
+    # if input array is Hermitian symmetric, only half of the last 
+    # axis is stored in `y3d`
+    symmetry_axis = -1 if hermitian_symmetric else None
     
-    def compute_binning(slab):
-        """
-        The main function where the binning computations are done
+    # iterate over y-z planes of the coordinate mesh
+    for slab in SlabIterator(x3d, axis=0, symmetry_axis=symmetry_axis):
         
-        Parameters
-        ----------
-        slab : :class:`~nbodykit.utils.meshiterator.MeshSlab`
-            a `slab` instance, representing a specific y-z plane of the
-            mesh; the mesh slab knows about the mesh coordinate values
-            (i.e., `k`, `mu`) defined on the slab, as well as the `index`, 
-            which specifies which `x` coordinate value the y-z is fixed at
-        """
-        # x squared (either Fourier space k or configuraton space x)
-        xslab = slab.xsq()
+        # the square of coordinate mesh norm 
+        # (either Fourier space k or configuraton space x)
+        xslab = slab.norm2()
         
         # if empty, do nothing
-        if len(xslab.flat) == 0:
-            return
+        if len(xslab.flat) == 0: continue
 
         # get the bin indices for x on the slab
-        dig_x = numpy.digitize(xslab.flat, xedges2)
+        dig_x = numpy.digitize(xslab.flat, x2edges)
     
         # make xslab just x
         xslab **= 0.5
@@ -631,22 +650,19 @@ def project_to_basis(comm, x3d, y3d, edges, los='z', poles=[], symmetric=True):
         
         # make the multi-index
         multi_index = numpy.ravel_multi_index([dig_x, dig_mu], (Nx+2,Nmu+2))
-    
-        # count modes not in singular plane twice
-        if symmetric: xslab[:, nonsingular] *= 2.
-    
-        # sum up x in each bin
+        
+        # sum up x in each bin (accounting for negative freqs)
+        xslab[:] *= slab.hermitian_weights
         xsum.flat += numpy.bincount(multi_index, weights=xslab.flat, minlength=xsum.size)
     
-        # count number of modes in each bin
-        Nslab = numpy.ones_like(xslab)
-        if symmetric: Nslab[:, nonsingular] = 2. # count modes not in singular plane twice
+        # count number of modes in each bin (accounting for negative freqs)
+        Nslab = numpy.ones_like(xslab) * slab.hermitian_weights
         Nsum.flat += numpy.bincount(multi_index, weights=Nslab.flat, minlength=Nsum.size)
 
         # compute multipoles by weighting by Legendre(ell, mu)
-        for iell, ell in enumerate(poles_):
+        for iell, ell in enumerate(_poles):
             
-            # weight the input 3D y array by the appropriate Legendre polynomial
+            # weight the input 3D array by the appropriate Legendre polynomial
             weighted_y3d = legpoly[iell](mu) * y3d[slab.index]
 
             # add conjugate for this kx, ky, kz, corresponding to 
@@ -657,13 +673,14 @@ def project_to_basis(comm, x3d, y3d, edges, los='z', poles=[], symmetric=True):
             # or 
             # weighted_y3d[:, nonsingular] += (-1)**ell * weighted_y3d[:, nonsingular].conj()
             # but numerically more accurate.
-            if symmetric:
+            if hermitian_symmetric:
+                
                 if ell % 2: # odd, real part cancels
-                    weighted_y3d.real[:, nonsingular] = 0.
-                    weighted_y3d.imag[:, nonsingular] *= 2.
+                    weighted_y3d.real[slab.nonsingular] = 0.
+                    weighted_y3d.imag[slab.nonsingular] *= 2.
                 else:  # even, imag part cancels
-                    weighted_y3d.real[:, nonsingular] *= 2.
-                    weighted_y3d.imag[:, nonsingular] = 0.
+                    weighted_y3d.real[slab.nonsingular] *= 2.
+                    weighted_y3d.imag[slab.nonsingular] = 0.
                     
             # sum up the weighted y in each bin
             weighted_y3d *= (2.*ell + 1.)
@@ -671,15 +688,11 @@ def project_to_basis(comm, x3d, y3d, edges, los='z', poles=[], symmetric=True):
             if numpy.iscomplexobj(ysum):
                 ysum[iell,...].imag.flat += numpy.bincount(multi_index, weights=weighted_y3d.imag.flat, minlength=Nsum.size)
         
-        # sum up the absolute mag of mu in each bin
-        if symmetric: mu[:, nonsingular] *= 2.
+        # sum up the absolute mag of mu in each bin (accounting for negative freqs)
+        mu[:] *= slab.hermitian_weights
         musum.flat += numpy.bincount(multi_index, weights=abs(mu).flat, minlength=musum.size)
-
-    # apply the binning function to the mesh defined by `x3d`
-    worker = MeshWorker(x3d)
-    worker.apply(compute_binning)
     
-    # sum across all ranks
+    # sum binning arrays across all ranks
     xsum  = comm.allreduce(xsum, MPI.SUM)
     musum = comm.allreduce(musum, MPI.SUM)
     ysum  = comm.allreduce(ysum, MPI.SUM)
@@ -696,7 +709,7 @@ def project_to_basis(comm, x3d, y3d, edges, los='z', poles=[], symmetric=True):
     sl = slice(1, -1)
     with numpy.errstate(invalid='ignore'):
         
-        # projected results
+        # 2D binned results
         y2d       = (ysum[0,...] / Nsum)[sl,sl] # ell=0 is first index
         xmean_2d  = (xsum / Nsum)[sl,sl]
         mumean_2d = (musum / Nsum)[sl, sl]
@@ -709,8 +722,28 @@ def project_to_basis(comm, x3d, y3d, edges, los='z', poles=[], symmetric=True):
             poles    = ysum[:, sl,sl].sum(axis=-1) / N_1d
             poles    = poles[ell_idx,...]
     
-    # return just y(x,mu) or y(x,mu) + multipoles
+    # return y(x,mu) + (possibly empty) multipoles
     result = (xmean_2d, mumean_2d, y2d, N_2d)
     pole_result = (xmean_1d, poles, N_1d) if do_poles else None
-    
     return result, pole_result
+
+def timer(start, end):
+    """
+    Utility function to return a string representing the elapsed time, 
+    as computed from the input start and end times
+    
+    Parameters
+    ----------
+    start : int
+        the start time in seconds
+    end : int
+        the end time in seconds
+    
+    Returns
+    -------
+    str : 
+        the elapsed time as a string, using the format `hours:minutes:seconds`
+    """
+    hours, rem = divmod(end-start, 3600)
+    minutes, seconds = divmod(rem, 60)
+    return "{:0>2}:{:0>2}:{:05.2f}".format(int(hours),int(minutes),seconds)
