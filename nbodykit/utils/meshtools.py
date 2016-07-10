@@ -2,41 +2,69 @@ import numpy
 
 class MeshSlab(object):
     """
-    A convenience class to represent a specific y-z plane of a mesh, 
+    A convenience class to represent a specific slab of a mesh, 
     which is denoted as a ``slab``
     """
-    def __init__(self, islab, x):
+    def __init__(self, islab, coords, axis, symmetry_axis):
         """
         Parameters
         ----------
         islab : int, [0, x[0].shape[0]]
             the index of the slab, which indexes the first dimension of 
             the mesh (the `x` coordinate), thus producing a y-z plane
-        x : list of arrays
+        coords : list of arrays
             the coordinate arrays of the mesh, with proper 3D shapes
             for easy broadcasting; if the mesh has size (Nx, Ny, Nz), 
             then the shapes of `x` are: [(Nx, 1, 1), (1, Ny, 1), (1, 1, Nz)]
+        axis : int, {0, 1, 2}
+            the index of the mesh axis to iterate over
+        symmetry_axis : int, optional
+            if provided, the axis that has been compressed due to Hermitian symmetry
         """
-        self.index = islab
-        self._x = x
+        self.index       = islab
+        self.axis        = axis
+        self.symmetry_axis = symmetry_axis
+        self._coords     = coords
         
     def __str__(self):
         name = self.__class__.__name__
-        return "<%s: index=%d>" %(name, self.index)
+        return "<%s: axis=%d, index=%d>" %(name, self.axis, self.index)
         
     def __repr__(self):
         return self.__str__()
     
-    def xi(self, i):
+    @property
+    def meshshape(self):
         """
-        Return the ``x`` array for dimension ``i`` on this slab, 
+        Return the local shape of the mesh on this rank, as determined
+        by the input coordinates array
+        """
+        return [numpy.shape(self._coords[i])[i] for i in [0, 1, 2]]
+    
+    @property
+    def shape(self):
+        """
+        Return the shape of the slab
+        """
+        return [s for i, s in enumerate(self.meshshape) if i != self.axis]
+
+    @property
+    def hermitian_symmetric(self):
+        """
+        Whether the slab is Hermitian-symmetric
+        """
+        return self.symmetry_axis is not None
+    
+    def coords(self, i):
+        """
+        Return the coordinate array for dimension ``i`` on this slab, 
         
         .. note:: 
             
             The return value will be properly squeezed for easy
-            broadcasting, i.e., if `i` is 0, then an array of shape `(1,1)`
-            array is returned, otherwise, the shape is `(Ny, 1)` or
-            `(1, Nz)`
+            broadcasting, i.e., if `i` is `self.axis`, then an array of 
+            shape `(1,1)` array is returned, otherwise, the shape is 
+            `(N_i, 1)` or `(1, N_i)`
         
         Parameters
         ----------
@@ -45,53 +73,35 @@ class MeshSlab(object):
         
         Returns
         -------
-        x : array_like
+        array_like
             the coordinate array for dimension `i` on the slab; see the 
             note about the shape of the return array for details
         """
-        return self._x[i][0] if i != 0 else self._x[i][self.index]
-    
-    def x(self):
+        if i != self.axis:
+            return self._coords[i][self.axis]
+        else:
+            return self._coords[i][self.index]
+            
+    def norm2(self):    
         """
-        The `x` value defined at each point on the slab, where 
-        `x` defines the three coordinate arrays of the mesh 
-        
-        Returns
-        -------
-        x : array_like, (Ny, Nz)
-            the `x` value at each point in the slab
-        """
-        return self.xsq()**0.5
-        
-    def xsq(self):    
-        """
-        The square of :func:`x` defined at each point on the slab. 
+        The square of coordinate grid norm defined at each 
+        point on the slab. 
         
         This broadcasts the coordinate arrays along each dimension
-        to return the square of `x` at each point in the plane:
-        
-        ..code:: 
-            
-            xsq = slab.xi(0)**2 + slab.xi(1)**2 + slab.xi(2)**2
-        
+        to compute the norm at each point in the slab.
+                
         Returns
         -------
-        xsq : array_like, (Ny, Nz)
-            the square of `x` at each point in the slab
+        array_like, (slab.shape)
+            the square of coordinate mesh at each point in the slab
         """
-        return self.xi(0)**2 + self.xi(1)**2 + self.xi(2)**2
-
+        return self.coords(0)**2 + self.coords(1)**2 + self.coords(2)**2
 
     def mu(self, los_index):
         """
         The `mu` value defined at each point on the slab for the
         specified line-of-sight index
         
-        This is defined such that it returns:
-        
-        ..code:: 
-            
-            mu = slab.xi(los_index) / slab.x()
         
         Parameters
         ----------
@@ -101,59 +111,94 @@ class MeshSlab(object):
         
         Returns
         -------
-        mu : array_like, (Ny, Nz)
+        array_like, (slab.shape)
             the `mu` value at each point in the slab
         """
         with numpy.errstate(invalid='ignore'):            
-            return self.xi(los_index) / self.x()
+            return self.coords(los_index) / self.norm2()**0.5
 
+    @property
+    def nonsingular(self):
+        """
+        Return the indices on the slab of the positive frequencies
+        along the dimension specified by `symmetry_axis`
+        """
+        try: 
+            return self._nonsingular
+        except AttributeError:
+            
+            # initially, return slice that includes all elements 
+            all_slice = slice(None); empty_slice = slice(0, 0)
+            idx = [all_slice, all_slice]
+            
+            # iteration axis is symmetry axis
+            if self.symmetry_axis == self.axis:
+                
+                # check if current iteration value is positive
+                if numpy.float(self.coords(self.axis)) <= 0.:
+                    idx = [empty_slice, empty_slice] 
+                       
+            # one of slab dimensions is symmetry axis
+            else:
+                
+                # return indices that have positive freq along symmetry axis
+                nonsingular = numpy.squeeze(self._coords[self.symmetry_axis] > 0.)
+                idx[self.symmetry_axis-1] = nonsingular
+        
+            self._nonsingular = idx
+            return self._nonsingular
 
-class MeshWorker(object):
+    @property
+    def hermitian_weights(self):
+        """
+        Weights to be applied to quantities on the slab in order
+        to account for Hermitian symmetry
+        
+        These weights double-count the positive frequencies along
+        the `symmetry_axis`. 
+        """
+        try:
+            return self._weights
+        except AttributeError:
+            
+            # if not Hermitian symmetric, weights are 1
+            if not self.hermitian_symmetric:
+                toret = 1.
+            # iteration axis is symmetry axis
+            elif self.axis == self.symmetry_axis:
+                toret = 1.
+                if numpy.float(self.coords[self.symmetry_axis]) > 0.:
+                    toret = 2.
+            # only nonsingular plane gets factor of 2
+            else:
+                toret = numpy.ones(self.shape, dtype='f4')
+                toret[self.nonsingular] = 2.
+            
+            self._weights = toret
+            return self._weights
+        
+def SlabIterator(coords, axis=0, symmetry_axis=None):
     """
-    A helper class to iterate over a coordinate mesh, applying a specified
-    function slab-by-slab while iterating
+    Iterate over the specified dimension of the coordinate mesh,
+    returning a :class:`MeshSlab` for each iteration
     
-    The class is iterable and returns a `MeshSlab` for each index in the
-    first dimension of the mesh, i.e.,
-    
-    ..code:: 
-    
-        for slab in MeshWorker(x):
-            ...
+    Parameters
+    ----------
+    coords : list of arrays
+        the coordinate arrays of the mesh, with proper 3D shapes
+        for easy broadcasting; if the mesh has size (Nx, Ny, Nz), 
+        then the shapes of `x3d` should be: ``[(Nx, 1, 1), (1, Ny, 1), (1, 1, Nz)]``
+    axis : int, optional
+        the index of the mesh axis to iterate over
+    symmetry_axis : int, optional
+        if provided, the axis that has been compressed due to Hermitian symmetry
     """        
-    def __init__(self, x):
-        """
-        Parameters
-        ----------
-        x : list of arrays
-            the coordinate arrays of the mesh, with proper 3D shapes
-            for easy broadcasting; if the mesh has size (Nx, Ny, Nz), 
-            then the shapes of `x` are: [(Nx, 1, 1), (1, Ny, 1), (1, 1, Nz)]
-        """    
-        self.x = x
-        
-    def __iter__(self):
-        """
-        Iterate over the mesh, returning a :class:`MeshSlab` instance
-        for each index in the 1st dimension of the mesh
-        """
-        for islab in range(len(self.x[0])):
-            yield MeshSlab(islab, self.x)
-            
-    def apply(self, f):
-        """
-        Apply the input function to the mesh, by iterating over
-        each slab in the mesh and calling `f`
-        
-        While iterating, the `MeshSlab` instance will be passed
-        to the function `f`
-        
-        Parameters
-        ----------
-        f : callable
-            a function that should take a MeshSlab instance as its only 
-            positional argument
-        """
-        for slab in self: f(slab)
-            
+    # account for negative axes
+    if axis < 0: axis += 3
+    if symmetry_axis is not None and symmetry_axis < 0: symmetry_axis += 3
+    
+    # iterate over the specified axis, slab by slab
+    for islab in range(len(coords[axis])):
+        yield MeshSlab(islab, coords, axis, symmetry_axis)
+
     
