@@ -130,7 +130,7 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
     """
     from pmesh.particlemesh import ParticleMesh
     
-    def bianchi_transfer(data, x, i, j, k=None, offset=[0., 0., 0.]):
+    def bianchi_transfer(data, x, i, j, k=None):
         """
         Transfer functions necessary to compute the power spectrum  
         multipoles via FFTs
@@ -153,31 +153,34 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
         i, j, k : int
             the integers specifying the coordinate axes; see the 
             above description 
-        offset : array_like
-            add an average offset to the `x` component arrays; 
-            needed if the simulation box has an average offset 
-            from the grid box in configuration-space
-        """
-        # compute x**2
-        norm = sum((xi + offset[ii])**2 for ii, xi in enumerate(x))
-    
-        # get x_i, x_j
-        # if i == 'x' direction, it's just one value
-        xi = x[i] + offset[i]
-        xj = x[j] + offset[j]
-
-        # multiply the kernel
-        if k is not None:
-            xk = x[k] + offset[k]
-            data[:] *= xi**2 * xj * xk
-            idx = norm != 0.
-            data[idx] /= norm[idx]**2
-        
-        else:
-            data[:] *= xi * xj
-            idx = norm != 0.
-            data[idx] /= norm[idx]
-    
+        """        
+        # loop over yz plane to save memory
+        for islab in range(len(x[0])):
+            
+            # now xslab stores x3d ** 2
+            norm = numpy.float64(x[0][islab]**2)
+            for xi in x[1:]:
+                norm = norm + xi[0]**2
+                            
+            # get x_i, x_j
+            # if i == 'x' direction, it's just one value            
+            xi = x[i][0] if i != 0 else x[i][islab]
+            if j == i: xj = xi
+            else: xj = x[j][0] if j != 0 else x[j][islab]
+                
+            # multiply the kernel
+            if k is not None:
+                
+                # get xk
+                if k == i: xk = xi
+                elif k == j: xk = xj
+                else: xk = x[k][0] if k != 0 else x[k][islab]            
+                data[islab] = data[islab] * xi**2 * xj * xk / norm**2
+                data[islab, norm==0] = 0.
+            else:
+                data[islab] = data[islab] * xi * xj / norm
+                data[islab, norm==0] = 0.
+                
     # the rank
     rank = comm.rank
     
@@ -216,11 +219,11 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
         offset = catalog.mean_coordinate_offset
         
         # initialize the particle mesh
-        pm = ParticleMesh(catalog.BoxSize, Nmesh, paintbrush=paintbrush, dtype='f8', comm=comm)
+        pm = ParticleMesh(catalog.BoxSize, Nmesh, paintbrush=paintbrush, dtype='f4', comm=comm)
         
         # do the FKP painting
         stats = catalog.paint(pm)
-    
+
     # save the fkp density for later
     density = pm.real.copy()
     if rank == 0: logger.info('%s painting done' %paintbrush)
@@ -228,18 +231,21 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
     # compute the monopole, A0(k), and save
     pm.r2c()
     transfer(pm, pm.complex)
-    A0 = pm.complex.copy()
     if rank == 0: logger.info('ell = 0 done; 1 r2c completed')
     
+    # save volume for normalization purposes
     volume = pm.BoxSize.prod()
     
-    # store the A0, A2, A4 arrays
+    # store the A0, A2, A4 here
     result = []
-    result.append(A0*volume)
+    
+    # A0 is just FT of FKP density
+    A0 = pm.complex*volume
+    result.append(A0)
     
     # the x grid points (at point centers)
     cell_size = pm.BoxSize / pm.Nmesh
-    xgrid = [(ri+0.5)*cell_size[i] for i, ri in enumerate(pm.r)]
+    xgrid = [(ri+0.5)*cell_size[i] + offset[i] for i, ri in enumerate(pm.r)]
     
     start = time.time()
     for iell in range(len(bianchi_transfers)):
@@ -253,7 +259,7 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
         
             # apply the real-space transfer
             if rank == 0: logger.debug("applying real-space Bianchi transfer for %s..." %str(integers))
-            bianchi_transfer(pm.real, xgrid, *integers, offset=offset)
+            bianchi_transfer(pm.real, xgrid, *integers)
             if rank == 0: logger.debug('...done')
     
             # do the FT and apply the k-space kernel
@@ -271,11 +277,16 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
             
         # apply the gridding transfer and save
         transfer(pm, A_ell)
-        result.append(A_ell)
+        result.append(A_ell) 
+        del A_ell # delete A_ell; appending to list makes copy
+        
         if rank == 0: 
             args = (ell, len(bianchi_transfers[iell][0]))
             logger.info('ell = %d done; %s r2c completed' %args)
         
+    # density no longer needed
+    del density
+    
     stop = time.time()
     if rank == 0:
         logger.info("higher order multipoles computed in elapsed time %s" %timer(start, stop))
@@ -315,10 +326,6 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh,
         # monopole
         P0[islab, ...] = norm * P0[islab] * P0_star
         
-    result = [P0]
-    if max_ell > 0: result.append(P2)
-    if max_ell > 2: result.append(P4)
-
     return pm, result, stats
 
 
