@@ -117,7 +117,7 @@ def apply_bianchi_kernel(data, x3d, i, j, k=None):
     
         # normalization is norm squared of coordinate mesh
         norm = slab.norm2()
-                        
+                    
         # get coordinate arrays for indices i, j         
         xi = slab.coords(i)
         if j == i: xj = xi
@@ -133,11 +133,11 @@ def apply_bianchi_kernel(data, x3d, i, j, k=None):
             
             # weight data by xi**2 * xj * xj 
             data[slab.index] = data[slab.index] * xi**2 * xj * xk / norm**2
-            data[slab.index, norm==0] = 0.
+            data[slab.index][norm==0] = 0.
         else:
             # weight data by xi * xj
             data[slab.index] = data[slab.index] * xi * xj / norm
-            data[slab.index, norm==0] = 0.
+            data[slab.index][norm==0] = 0.
                 
 def compute_bianchi_poles(comm, max_ell, catalog, Nmesh, factor_hexadecapole=False, paintbrush='cic'):
     """
@@ -650,7 +650,7 @@ def project_to_basis(comm, x3d, y3d, edges, los='z', poles=[], hermitian_symmetr
         
         # make the multi-index
         multi_index = numpy.ravel_multi_index([dig_x, dig_mu], (Nx+2,Nmu+2))
-        
+
         # sum up x in each bin (accounting for negative freqs)
         xslab[:] *= slab.hermitian_weights
         xsum.flat += numpy.bincount(multi_index, weights=xslab.flat, minlength=xsum.size)
