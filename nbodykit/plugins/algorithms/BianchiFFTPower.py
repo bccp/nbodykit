@@ -160,7 +160,7 @@ class BianchiPowerAlgorithm(Algorithm):
         for p in poles:
             
             # result is (k, mu, power, modes)
-            result, _ = measurestats.project_to_basis(pm.comm, k3d, p, edges, symmetric=True)
+            result, _ = measurestats.project_to_basis(pm.comm, k3d, p, edges, hermitian_symmetric=True)
             poles_final.append(numpy.squeeze(result[2]))
             
         # return (k, poles, modes)
