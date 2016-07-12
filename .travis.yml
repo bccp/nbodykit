@@ -28,6 +28,7 @@ before_install:
     - export PATH=$HOME/miniconda/bin:$PATH
     - conda update --yes conda
     - ldconfig -p | grep fortran
+    - ls /usr/lib/gcc/x86_64-linux-gnu/4.8/
 
 install:
     - conda create --yes -n test python=$TRAVIS_PYTHON_VERSION
@@ -35,7 +36,7 @@ install:
     - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py h5py pandas scipy pytables pyyaml astropy numba
     - pip install pytest pytest-cov pytest-pipeline coveralls
     - pip install halotools # test optional halotools packages
-    -  CC=gcc-4.8 CXX=g++-4.8 FC=gfortran-4.8 pip -vvv install --no-binary ':all:' classylss # test optional Zeldovich data source
+    - CC=gcc-4.8 CXX=g++-4.8 F77=gfortran-4.8 pip -vvv install --no-binary ':all:' classylss # test optional Zeldovich data source
     - if [ $TRAVIS_PYTHON_VERSION == 2.6 ]; then conda install --yes argparse; fi
     - pip install --pre pfft-python kdcount mpsort pmesh sharedmem bigfile --no-deps
     - pip install --pre -r requirements.txt -e . # develop mode to track coverage of subproccess
