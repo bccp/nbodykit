@@ -1,0 +1,18 @@
+mode: 2d
+Nmesh: 128
+los: z
+
+cosmo: {Om0: 0.31, flat: True}
+
+field:
+    DataSource:
+      plugin: ZeldovichSim
+      nbar: 3e-5
+      redshift: 0.
+      BoxSize: 512.
+      Nmesh: 128
+      rsd: z
+      seed: 42
+    Transfer: [NormalizeDC, RemoveDC, AnisotropicCIC]
+    
+output: ${NBKIT_HOME}/examples/output/test_power_zeldovich_pkmu.dat

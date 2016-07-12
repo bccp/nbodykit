@@ -1,0 +1,16 @@
+mode: 1d
+Nmesh: 128
+
+cosmo: {Om0: 0.31, flat: True}
+
+field:
+    DataSource:
+      plugin: ZeldovichSim
+      nbar: 3e-5
+      redshift: 0.
+      BoxSize: 512.
+      Nmesh: 128
+      seed: 42
+    Transfer: [NormalizeDC, RemoveDC, AnisotropicCIC]
+    
+output: ${NBKIT_HOME}/examples/output/test_power_zeldovich_pk.dat
