@@ -3,6 +3,13 @@ python:
     - 2.7
     - 3.4
 
+addons:
+    apt:
+        packages:
+        - g++-4.8
+        - swig
+        - gfortran
+
 env:
     - NUMPY_VERSION=1.11
 
@@ -19,8 +26,6 @@ before_install:
     - conda update --yes conda
 
 install:
-    - sudo apt-get install swig
-    - sudo apt-get install gfortran
     - conda create --yes -n test python=$TRAVIS_PYTHON_VERSION
     - source activate test
     - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py h5py pandas scipy pytables pyyaml astropy numba
