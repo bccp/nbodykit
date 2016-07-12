@@ -73,8 +73,9 @@ class Cosmology(CosmologyBase):
     
     Notes
     -----
-    *   this class supports the :class:`~astropy.cosmology.wCDM` and 
-        :class:`~astropy.cosmology.FlatwCDM` classes from `astropy`,
+    *   this class supports the :class:`~astropy.cosmology.LambdaCDM` and 
+        :class:`~astropy.cosmology.wCDM` classes from `astropy` (and their
+        flat equivalents)
     *   additions to the fiducial `LCDM` model include the dark energy equation 
         of state `w0` and massive neutrinos
     *   if `flat = True`, the dark energy density is set automatically
@@ -88,20 +89,31 @@ class Cosmology(CosmologyBase):
     @attribute('Tcmb0', type=float, help="temperature of the CMB in K at z=0")
     @attribute('w0', type=float, help="dark energy equation of state")
     @attribute('Ode0', type=float, help="dark energy density/critical density at z=0")
+    @attribute('Ob0', type=float, help="baryon density/critical density at z=0")
     @attribute('Om0', type=float, help="matter density/critical density at z=0")
     @attribute('H0', type=float, help="the Hubble constant at z=0, in km/s/Mpc")
-    def __init__(self, H0=67.6, Om0=0.31, Ode0=0.69, w0=-1., Tcmb0=2.7255, 
+    def __init__(self, H0=67.6, Om0=0.31, Ob0=0.0486, Ode0=0.69, w0=-1., Tcmb0=2.7255, 
                     Neff=3.04, m_nu=0., flat=False):
 
         # convert neutrino mass to a astropy `Quantity`
         self.m_nu = units.Quantity(self.m_nu, 'eV')
         
-        # initialize the cosmology object
-        kw = {k:getattr(self,k) for k in ['w0', 'Tcmb0', 'Neff', 'm_nu']}
-        if not self.flat:
-            self.engine = cosmology.wCDM(self.H0, self.Om0, self.Ode0, **kw)
+        # the astropy keywords
+        kws = {k:getattr(self,k) for k in ['w0', 'Tcmb0', 'Neff', 'm_nu', 'Ob0']}
+        
+        # determine the astropy class
+        if self.w0 == -1.0: # cosmological constant
+            cls = 'LambdaCDM'
+            kws.pop('w0')
         else:
-            self.engine = cosmology.FlatwCDM(self.H0, self.Om0, **kw)
+            cls = 'wCDM'
+        if self.flat: cls = 'Flat' + cls
+        
+        # initialize the cosmology object
+        if not self.flat:
+            self.engine = getattr(cosmology, cls)(self.H0, self.Om0, self.Ode0, **kws)
+        else:
+            self.engine = getattr(cosmology, cls)(self.H0, self.Om0, **kws)
             self.Ode0 = self.engine.Ode0 # set this automatically
     
     def comoving_distance(self, z):
