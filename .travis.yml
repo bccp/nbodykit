@@ -31,7 +31,7 @@ before_install:
     - ls /usr/lib/gcc/x86_64-linux-gnu/4.8/
     - export CC=gcc-4.8 
     - export CXX=g++-4.8 
-    - export F77=gfortran-4.8 
+    - export F77=gfortran-4.8; export F90=gfortran-4.8
     - export LDFLAGS="-L/usr/lib/gcc/x86_64-linux-gnu/4.8/"
 
 install:
