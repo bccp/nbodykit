@@ -1,4 +1,4 @@
-sudo: required
+sudo: false
 dist: precise
 
 language: python
@@ -17,7 +17,6 @@ addons:
 
 env:
     - NUMPY_VERSION=1.11
-    - CXX=g++-5
 
 cache:
     directories:
@@ -30,6 +29,7 @@ before_install:
     - ./miniconda.sh -b -p $HOME/miniconda
     - export PATH=$HOME/miniconda/bin:$PATH
     - conda update --yes conda
+    - export CXX="g++-5"
 
 install:
     - conda create --yes -n test python=$TRAVIS_PYTHON_VERSION
