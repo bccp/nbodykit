@@ -5,6 +5,7 @@ import time
 
 from nbodykit.extensionpoints import Painter, Transfer
 from nbodykit.utils.meshtools import SlabIterator
+from nbodykit.utils import timer
 
 logger = logging.getLogger('measurestats')
 
@@ -726,24 +727,3 @@ def project_to_basis(comm, x3d, y3d, edges, los='z', poles=[], hermitian_symmetr
     result = (xmean_2d, mumean_2d, y2d, N_2d)
     pole_result = (xmean_1d, poles, N_1d) if do_poles else None
     return result, pole_result
-
-def timer(start, end):
-    """
-    Utility function to return a string representing the elapsed time, 
-    as computed from the input start and end times
-    
-    Parameters
-    ----------
-    start : int
-        the start time in seconds
-    end : int
-        the end time in seconds
-    
-    Returns
-    -------
-    str : 
-        the elapsed time as a string, using the format `hours:minutes:seconds`
-    """
-    hours, rem = divmod(end-start, 3600)
-    minutes, seconds = divmod(rem, 60)
-    return "{:0>2}:{:0>2}:{:05.2f}".format(int(hours),int(minutes),seconds)
