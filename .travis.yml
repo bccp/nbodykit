@@ -30,9 +30,9 @@ before_install:
     - export PATH=$HOME/miniconda/bin:$PATH
     - conda update --yes conda
     - export CXX="g++-5"
-    - printenv
+    - export LDFLAGS="-L/usr/lib/gcc/x86_64-linux-gnu/5"
     - ldconfig -p | grep fortran
-    - ls -lth /usr/lib/gcc/x86_64-linux-gnu
+    - ls -lth /usr/lib/gcc/x86_64-linux-gnu/5
 
 install:
     - conda create --yes -n test python=$TRAVIS_PYTHON_VERSION
