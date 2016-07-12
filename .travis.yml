@@ -17,6 +17,7 @@ addons:
 
 env:
     - NUMPY_VERSION=1.11
+    - CXX=g++-5
 
 cache:
     directories:
