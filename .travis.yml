@@ -30,7 +30,7 @@ before_install:
     - ./miniconda.sh -b -p $HOME/miniconda
     - export PATH=$HOME/miniconda/bin:$PATH
     - conda update --yes conda
-    - export CXX="g++-5"
+    - export CXX="g++-4.9"
     - ldconfig -p | grep fortran
 
 install:
