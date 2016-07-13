@@ -1,9 +1,6 @@
 from nbodykit.extensionpoints import DataSource
 from nbodykit.utils import selectionlanguage
 import numpy
-import logging
-
-logger = logging.getLogger('PlainText')
 
 class PlainTextDataSource(DataSource):
     """
@@ -93,7 +90,7 @@ class PlainTextDataSource(DataSource):
         if self.select is not None:
             mask = self.select.get_mask(data)
             data = data[mask]
-        logger.info("total number of objects selected is %d / %d" % (len(data), nobj))
+        self.logger.info("total number of objects selected is %d / %d" % (len(data), nobj))
         
         toret = {}
         for name in data.dtype.names:

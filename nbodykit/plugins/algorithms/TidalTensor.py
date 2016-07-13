@@ -1,21 +1,10 @@
-from nbodykit.extensionpoints import Algorithm
-import logging
+from nbodykit.extensionpoints import Algorithm, DataSource, painters
 import numpy
-from itertools import product
-
-# for output
-import h5py
-import bigfile
-import mpsort
-
-from mpi4py import MPI
-
-import nbodykit
-from pmesh.particlemesh import ParticleMesh
-from nbodykit.extensionpoints import DataSource, painters
-
 
 class TidalTensor(Algorithm):
+    """
+    Compute and save the tidal force tensor
+    """
     plugin_name = "TidalTensor"
     
     def __init__(self, field, points, Nmesh, smoothing=None):
@@ -49,6 +38,8 @@ class TidalTensor(Algorithm):
         """ removes the DC amplitude. This effectively
             divides by the mean
         """
+        from mpi4py import MPI
+        
         w = pm.w
         comm = pm.comm
         ind = []
@@ -83,6 +74,12 @@ class TidalTensor(Algorithm):
         return TidalTensor
 
     def run(self):
+        """
+        Run the TidalTensor Algorithm
+        """
+        from pmesh.particlemesh import ParticleMesh
+        from itertools import product
+         
         pm = ParticleMesh(self.field.BoxSize, self.Nmesh, dtype='f4', comm=self.comm)
         if self.smoothing is None:
             self.smoothing = self.field.BoxSize[0] / self.Nmesh
@@ -104,7 +101,7 @@ class TidalTensor(Algorithm):
 
         for u, v in product(range(3), range(3)):
             if self.comm.rank == 0:
-                logging.info("Working on tensor element (%d, %d)" % (u, v))
+                self.logger.info("Working on tensor element (%d, %d)" % (u, v))
             pm.push()
             pm.transfer([self.TidalTensor(u, v)])
             pm.c2r()
@@ -120,7 +117,8 @@ class TidalTensor(Algorithm):
         self.write_hdf5(data, output)
 
     def write_hdf5(self, data, output):
-
+        
+        import h5py
         size = self.comm.allreduce(len(data))
         offset = sum(self.comm.allgather(len(data))[:self.comm.rank])
 

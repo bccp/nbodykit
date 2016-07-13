@@ -1,8 +1,5 @@
 from nbodykit.extensionpoints import Painter
 import numpy
-import logging
-
-logger = logging.getLogger('MomentumPainter')
 
 class MomentumPainter(Painter):
     plugin_name = "MomentumPainter"

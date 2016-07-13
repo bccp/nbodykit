@@ -1,8 +1,6 @@
 from nbodykit.extensionpoints import Algorithm, DataSource
 from nbodykit.distributedarray import GatherArray
-
 import numpy
-import logging
 
 def scotts_bin_width(data):
     """
@@ -49,7 +47,6 @@ class RedshiftHistogramAlgorithm(Algorithm):
     function of redshift ``n(z)`` for the input ``DataSource``
     """
     plugin_name = "RedshiftHistogram"
-    logger = logging.getLogger(plugin_name)
 
     def __init__(self, datasource, bins=None, fsky=1.0):
         

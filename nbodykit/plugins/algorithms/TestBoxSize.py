@@ -1,7 +1,6 @@
 from nbodykit.extensionpoints import Algorithm, DataSource
 from nbodykit.distributedarray import GatherArray
 import numpy
-import logging
 
 class TestBoxSizeAlgorithm(Algorithm):
     """
@@ -9,7 +8,6 @@ class TestBoxSizeAlgorithm(Algorithm):
     if all particles are within the specified BoxSize 
     """
     plugin_name = "TestBoxSize"
-    logger = logging.getLogger(plugin_name)
 
     def __init__(self, datasource, BoxSize):
         pass

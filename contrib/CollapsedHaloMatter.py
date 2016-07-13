@@ -2,9 +2,6 @@ from nbodykit.extensionpoints import DataSource
 from nbodykit import files
 from itertools import izip
 import numpy
-import logging
-
-logger = logging.getLogger('CollapsedHalo')
     
 class CollapsedHaloDataSource(DataSource):
     plugin_name = "CollapsedHaloMatter"
@@ -35,7 +32,7 @@ class CollapsedHaloDataSource(DataSource):
             logmass = numpy.log10(halomass)
             halomask = logmass > self.logMmin
             halomask &= logmass < self.logMmax
-            logger.info("total number of halos in mass range is %d" % halomask.sum())
+            self.logger.info("total number of halos in mass range is %d" % halomask.sum())
         else:
             halopos = None
             halomask = None
@@ -51,7 +48,7 @@ class CollapsedHaloDataSource(DataSource):
                     )):
             mask = PL['Label'] != 0
             mask &= halomask[PL['Label']]
-            logger.info("Number of particles in halos is %d" % mask.sum())
+            self.logger.info("Number of particles in halos is %d" % mask.sum())
 
             P['Position'][mask] = halopos[PL['Label'][mask]]
 
@@ -64,7 +61,7 @@ class CollapsedHaloDataSource(DataSource):
             P['Velocity'] *= self.BoxSize
 
             if comm.rank == 0:
-                logger.info('round %d, nread %d' % (round, nread))
+                self.logger.info('round %d, nread %d' % (round, nread))
 
             yield [P.get(key, None) for key in columns]
 

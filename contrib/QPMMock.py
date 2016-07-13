@@ -1,9 +1,6 @@
 from nbodykit.extensionpoints import DataSource
 import numpy
-import logging
 import pandas as pd
-         
-logger = logging.getLogger('QPMMock')
 
 class QPMMockDataSource(DataSource):
     """
@@ -77,7 +74,7 @@ class QPMMockDataSource(DataSource):
         data = pd.read_csv(self.path, **kwargs)
         nobj = len(data)
         
-        logger.info("total number of objects read is %d" %nobj)
+        self.logger.info("total number of objects read is %d" %nobj)
         
         # get position 
         pos = data[['x', 'y', 'z']].values.astype('f4')
@@ -92,13 +89,13 @@ class QPMMockDataSource(DataSource):
         
         # rescale by AP factor
         if self.scaled:
-            logger.info("multiplying by qperp = %.5f" %self.qperp)
+            self.logger.info("multiplying by qperp = %.5f" %self.qperp)
  
             # rescale positions and volume
             if self.rsd is None:
                 pos *= self.qperp
             else:
-                logger.info("multiplying by qpar = %.5f" %self.qpar)
+                self.logger.info("multiplying by qpar = %.5f" %self.qpar)
                 for i in [0,1,2]:
                     if i == dir:
                         pos[:,i] *= self.qpar

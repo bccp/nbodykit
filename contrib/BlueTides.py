@@ -1,10 +1,7 @@
 from nbodykit.extensionpoints import DataSource
 from nbodykit.utils import selectionlanguage
 import numpy
-import logging
 import bigfile
-
-logger = logging.getLogger('BlueTides')
 
 def ptypes_type(value):
     choices = ['0', '1', '2', '3', '4', '5', 'FOFGroups']

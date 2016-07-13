@@ -1,9 +1,6 @@
 from nbodykit.extensionpoints import DataSource
-import numpy
-import logging
 from nbodykit.utils import selectionlanguage
-
-logger = logging.getLogger('MWhiteHaloFile')
+import numpy
 
 class MWhiteHaloFile(object):
     """
@@ -99,7 +96,7 @@ class MWhiteHaloFileDataSource(DataSource):
         if self.select is not None:
             mask = self.select.get_mask(P)
             P = P[mask]
-        logger.info("total number of halos in mass range is %d / %d" % (len(P), nhalo))
+        self.logger.info("total number of halos in mass range is %d / %d" % (len(P), nhalo))
 
         P['Position'][:] *= self.BoxSize
         P['Velocity'][:] *= self.BoxSize

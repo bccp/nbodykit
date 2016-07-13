@@ -1,9 +1,7 @@
 from nbodykit.extensionpoints import DataSource
 import numpy
-import logging
 import bigfile
 
-logger = logging.getLogger('FastPM')
 
 class FastPMDataSource(DataSource):
     """
@@ -22,14 +20,14 @@ class FastPMDataSource(DataSource):
         self.size = f['Position'].size
 
         if self.comm.rank == 0:
-            logger.info("File has boxsize of %s Mpc/h" % str(BoxSize))
-            logger.info("Mass of a particle is %g Msun/h" % self.M0)
+            self.logger.info("File has boxsize of %s Mpc/h" % str(BoxSize))
+            self.logger.info("Mass of a particle is %g Msun/h" % self.M0)
 
         if self.BoxSize is None:
             self.BoxSize = BoxSize
         else:
             if self.comm.rank == 0:
-                logger.info("Overriding boxsize as %s" % str(self.BoxSize))
+                self.logger.info("Overriding boxsize as %s" % str(self.BoxSize))
         
     
     @classmethod

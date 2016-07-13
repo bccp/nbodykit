@@ -1,8 +1,5 @@
 from nbodykit.extensionpoints import Painter
 import numpy
-import logging
-
-logger = logging.getLogger('DefaultPainter')
 
 class DefaultPainter(Painter):
     plugin_name = "DefaultPainter"
