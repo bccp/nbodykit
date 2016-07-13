@@ -45,7 +45,7 @@ install:
     
     # test optional Zeldovich data source
     - conda install --yes "swig>=3.0"
-    - pip install classylss
+    - pip install -I --no-deps classylss # ignore cache due to binaries
 
     # nbodykit and requirements
     - pip install --pre pfft-python kdcount mpsort pmesh sharedmem bigfile --no-deps
