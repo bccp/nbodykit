@@ -4,4 +4,6 @@ datasource:
     names: [ra, dec, z]
     usecols: [ra, dec, z]
     degrees: True
+
+seed: 42
 output: ${NBKIT_HOME}/examples/output/test_fiber_collisions

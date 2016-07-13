@@ -2,9 +2,9 @@ datasource:
   plugin: TPMSnapshot
   path: ${NBKIT_CACHE}/data/tpm_1.0000.bin
   BoxSize: 384
-
+ 
 Nmesh: 256
-seed: 12345
+seed: 42
 smoothing: 20.0
 ratio: 0.01
 format: mwhite
