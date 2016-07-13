@@ -1,9 +1,6 @@
 from nbodykit.extensionpoints import DataSource
-
 import numpy
-import logging
 
-logger = logging.getLogger('Zheng07Hod')
 
 def set_random_seed(f, seed):
     """
@@ -174,13 +171,13 @@ class Zheng07HodDataSource(DataSource):
         if not len(data):
             raise ValueError("cannot log statistics of an empty galaxy catalog")
             
-        logger.info("populated %d galaxies into halo catalog" %len(data))
+        self.logger.info("populated %d galaxies into halo catalog" %len(data))
         fsat = 1.*(data['gal_type'] == 'satellites').sum()/len(data)
-        logger.info("  satellite fraction: %.2f" %fsat)
+        self.logger.info("  satellite fraction: %.2f" %fsat)
         
         logmass = numpy.log10(data['halo_mvir'])
-        logger.info("  mean log10 halo mass: %.2f" %logmass.mean())
-        logger.info("  std log10 halo mass: %.2f" %logmass.std())
+        self.logger.info("  mean log10 halo mass: %.2f" %logmass.mean())
+        self.logger.info("  std log10 halo mass: %.2f" %logmass.std())
     
     def update_and_populate(self, **params):
         """

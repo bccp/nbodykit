@@ -1,10 +1,6 @@
-import logging
-import numpy
-
 from nbodykit.extensionpoints import Algorithm, DataSource
 from nbodykit import fof, utils
-
-logger = logging.getLogger('FiberCollisions')
+import numpy
 
 def RaDecDataSource(d):
     source = DataSource.registry.RaDecRedshift
@@ -35,7 +31,7 @@ class FiberCollisionsAlgorithm(Algorithm):
         # store collision radius in radians
         self._collision_radius_rad = self.collision_radius * numpy.pi/180.
         if self.comm.rank == 0: 
-            logger.info("collision radius in degrees = %.4f" %collision_radius)
+            self.logger.info("collision radius in degrees = %.4f" %collision_radius)
             
         # create the random state from the global seed and comm size
         if self.seed is not None:
@@ -97,9 +93,9 @@ class FiberCollisionsAlgorithm(Algorithm):
         # print out some info
         if self.comm.rank == 0:
 
-            logger.info("population 1 (clean) size = %d" %N_pop1)
-            logger.info("population 2 (collided) size = %d" %N_pop2)
-            logger.info("collision fraction = %.4f" %f)
+            self.logger.info("population 1 (clean) size = %d" %N_pop1)
+            self.logger.info("population 2 (collided) size = %d" %N_pop2)
+            self.logger.info("collision fraction = %.4f" %f)
 
         # return a structured array
         d = list(zip(['Label', 'Collided', 'NeighborID'], [labels, collided, neighbors]))
@@ -155,8 +151,8 @@ class FiberCollisionsAlgorithm(Algorithm):
         PIG2.sort(order=['Label'])
         
         if self.comm.rank == 0:
-            logger.info('total number of collision groups = %d', Nhalo-1)
-            logger.info("Started fiber assignment")
+            self.logger.info('total number of collision groups = %d', Nhalo-1)
+            self.logger.info("Started fiber assignment")
 
         # loop over unique group ids
         for group_id in numpy.unique(PIG2['Label']):
@@ -178,7 +174,7 @@ class FiberCollisionsAlgorithm(Algorithm):
                 PIG2['NeighborID'][start:end] = -1
                 PIG2['NeighborID'][start:end][collided==1] = PIG2['Index'][start+nearest][:]
 
-        if self.comm.rank == 0: logger.info("Finished fiber assignment")
+        if self.comm.rank == 0: self.logger.info("Finished fiber assignment")
     
         # return to the order specified by the global unique index
         mpsort.sort(PIG2, orderby='Index', out=PIG)
@@ -265,7 +261,7 @@ class FiberCollisionsAlgorithm(Algorithm):
             _, ext = os.path.splitext(output)
             if 'hdf' not in ext: output += '.hdf5'
             
-            logger.info("saving (Label, Collided, NeighborID) as Pandas HDF with name %s" %output)
+            self.logger.info("saving (Label, Collided, NeighborID) as Pandas HDF with name %s" %output)
         
             result = numpy.concatenate(result, axis=0)
             df = pd.DataFrame.from_records(result)

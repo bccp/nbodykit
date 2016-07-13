@@ -1,10 +1,6 @@
-import numpy
-import logging
-
 from nbodykit.extensionpoints import DataSource
 from nbodykit.utils import selectionlanguage
-
-logger = logging.getLogger('Pandas')
+import numpy
          
 class PandasDataSource(DataSource):
     """
@@ -134,7 +130,7 @@ class PandasDataSource(DataSource):
         if self.select is not None:
             mask = self.select.get_mask(toret)
             toret = toret[mask]
-        logger.info("total number of objects selected is %d / %d" % (len(toret), nobj))
+        self.logger.info("total number of objects selected is %d / %d" % (len(toret), nobj))
 
         toret_dict = {}
         for name in toret.dtype.names:

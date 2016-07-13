@@ -1,10 +1,6 @@
-import numpy
-import logging
-
 from nbodykit.extensionpoints import DataSource
 from nbodykit import utils
-
-logger = logging.getLogger('UniformBox')
+import numpy
          
 class UniformBoxDataSource(DataSource):
     """

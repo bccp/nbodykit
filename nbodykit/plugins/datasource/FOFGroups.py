@@ -1,9 +1,6 @@
 from nbodykit.extensionpoints import DataSource
-import numpy
-import logging
 from nbodykit.utils import selectionlanguage
-
-logger = logging.getLogger('FOFGroups')
+import numpy
 
 class FOFDataSource(DataSource):
     """
@@ -27,14 +24,14 @@ class FOFDataSource(DataSource):
         if self.comm.rank == 0:
             dataset = h5py.File(self.path, mode='r')[self.dataset]
             BoxSize[:] = dataset.attrs['BoxSize']
-            logger.info("Boxsize from file is %s" % str(BoxSize))
+            self.logger.info("Boxsize from file is %s" % str(BoxSize))
         BoxSize = self.comm.bcast(BoxSize)
 
         if self.BoxSize is None:
             self.BoxSize = BoxSize
         else:
             if self.comm.rank == 0:
-                logger.info("Overriding BoxSize as %s" % str(self.BoxSize))
+                self.logger.info("Overriding BoxSize as %s" % str(self.BoxSize))
         
     @classmethod
     def register(cls):
@@ -81,7 +78,7 @@ class FOFDataSource(DataSource):
 
         nobj = (len(data2), len(data))
 
-        logger.info("total number of objects selected is %d / %d" % nobj)
+        self.logger.info("total number of objects selected is %d / %d" % nobj)
 
         if self.rsd is not None:
             dir = "xyz".index(self.rsd)

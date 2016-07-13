@@ -1,11 +1,6 @@
 from nbodykit.extensionpoints import DataSource
 from nbodykit.utils import selectionlanguage
-import logging
 import numpy
-import itertools
-
-logger = logging.getLogger('RaDecRedshift')
-
     
 class RaDecRedshiftDataSource(DataSource):
     """

@@ -1,9 +1,6 @@
 from nbodykit.extensionpoints import DataSource
 import numpy
-import logging
 import bigfile
-
-logger = logging.getLogger('HaloLabel')
 
 class HaloLabel(DataSource):
     """

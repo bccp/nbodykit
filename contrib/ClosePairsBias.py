@@ -1,11 +1,8 @@
 from nbodykit.extensionpoints import DataSource
 import numpy
-import logging
 from nbodykit.utils import selectionlanguage
 from scipy.spatial import cKDTree as KDTree
 import mpsort
-
-logger = logging.getLogger('CPB')
 
 def append_fields(data, dict):
     def guessdtype(data):
@@ -92,7 +89,7 @@ class ClosePairBiasing(DataSource):
 
             massive = data[self.massive.get_mask(data)]
 
-            logger.info("Selected %d 'massive halos'" % len(massive))
+            self.logger.info("Selected %d 'massive halos'" % len(massive))
             if len(massive) == 0: 
                 raise ValueError("too few massive halos. Check the 'massive' selection clause.")
             
@@ -102,17 +99,17 @@ class ClosePairBiasing(DataSource):
             data = None
 
         if self.comm.rank == 0:
-            logger.info("load balancing ")
+            self.logger.info("load balancing ")
         data = self.comm.scatter(data)
         massive = self.comm.bcast(massive)
 
         if self.comm.rank == 0:
-            logger.info("Querying KDTree")
+            self.logger.info("Querying KDTree")
         tree = KDTree(massive['Position'])
 
         nobjs = self.comm.allreduce(len(data))
         if self.comm.rank == 0:
-            logger.info("total number of objects is %d" % nobjs)
+            self.logger.info("total number of objects is %d" % nobjs)
 
         # select based on input conditions
         if self.select1 is not None:
@@ -120,7 +117,7 @@ class ClosePairBiasing(DataSource):
             data = data[mask]
             nobjs1 = self.comm.allreduce(len(data))
             if self.comm.rank == 0:
-                logger.info("selected (1) number of objects is %d" % (nobjs1 ))
+                self.logger.info("selected (1) number of objects is %d" % (nobjs1 ))
 
         d, i = tree.query(data['Position'], k=2)
 
@@ -136,20 +133,20 @@ class ClosePairBiasing(DataSource):
 
         if self.comm.rank == 0:
             for p1, p2, h in zip(list(pbins), list(pbins[1:]) + [numpy.inf], h):
-                logger.info("Proximity: [%g - %g] Halos %d" % (p1, p2, h))
+                self.logger.info("Proximity: [%g - %g] Halos %d" % (p1, p2, h))
 
         if self.select2 is not None:
             mask = self.select2.get_mask(data)
             data = data[mask]
             nobjs2 = self.comm.allreduce(len(data))
             if self.comm.rank == 0:
-                logger.info("selected (2) number of objects is %d (%g %%)" % (nobjs2, 100.0 * nobjs2 / nobjs1))
+                self.logger.info("selected (2) number of objects is %d (%g %%)" % (nobjs2, 100.0 * nobjs2 / nobjs1))
 
         meanmass = self.comm.allreduce(data['Mass'].sum(dtype='f8')) \
                  / self.comm.allreduce(len(data))
 
         if self.comm.rank == 0:
-            logger.info("mean mass of selected objects is %g (log10 = %g)" 
+            self.logger.info("mean mass of selected objects is %g (log10 = %g)" 
                 % (meanmass, numpy.log10(meanmass)))
 
         pos = data['Position']

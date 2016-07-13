@@ -1,9 +1,6 @@
 from nbodykit.extensionpoints import DataSource, DataStream
 import numpy
-import logging
 
-logger = logging.getLogger('ShiftedObserved')
-         
 class ShiftedObserverDataSource(DataSource):
     """
     Class to shift the observer using periodic box data

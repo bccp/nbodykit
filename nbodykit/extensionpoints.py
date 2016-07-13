@@ -24,6 +24,7 @@ import numpy
 from argparse import Namespace
 import functools
 import weakref
+import logging
 
 # MPI will be required because
 # a plugin instance will be created for a MPI communicator.
@@ -98,7 +99,7 @@ class PluginMount(type):
     """ 
     Metaclass for an extension point that provides the 
     methods to manage plugins attached to the extension point
-    """
+    """ 
     def __init__(cls, name, bases, attrs):
 
         # we need to avoid plugin initialization on
@@ -131,6 +132,9 @@ class PluginMount(type):
             # add a schema
             init.schema = ConstructorSchema()
             cls.schema = cls.__init__.schema
+            
+            # add a logger
+            cls.logger = logging.getLogger(cls.plugin_name)
 
             # track names of classes
             setattr(cls.registry, cls.plugin_name, cls)
@@ -141,7 +145,7 @@ class PluginMount(type):
             # configure the class __init__, attaching the comm, and optionally cosmo
             attach_cosmo = issubclass(cls, DataSourceBase)
             cls.__init__ = autoassign(init, attach_cosmo=attach_cosmo)
-
+        
     def create(cls, plugin_name, use_schema=False, **kwargs):
         """
         Instantiate a plugin from this extension point,

@@ -2,9 +2,6 @@ import numpy
 from nbodykit.extensionpoints import DataSource
 from nbodykit.utils import selectionlanguage
 import os.path
-import logging
-
-logger = logging.getLogger('MBIIDMO')
 
 class DataSourcePlugin(DataSource):
     plugin_name = "MBIIDMO"
@@ -69,7 +66,7 @@ class DataSourcePlugin(DataSource):
             if self.select is not None:
                 mask = self.select.get_mask(data)
                 data = data[mask]
-            logger.info("total number of galaxies selected is %d / %d" % (len(data), len(pos)))
+            self.logger.info("total number of galaxies selected is %d / %d" % (len(data), len(pos)))
 
             data['Position'] *= self.posf
             data['Velocity'] *= self.velf

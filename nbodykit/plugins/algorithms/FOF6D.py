@@ -1,14 +1,11 @@
 from nbodykit.extensionpoints import Algorithm, DataSource
-import logging
 import numpy
-
-# for output
-import h5py
-import mpsort
-from mpi4py import MPI
 from kdcount import cluster
 
 class FOF6DAlgorithm(Algorithm):
+    """
+    An algorithm to find subhalos from FOF groups; a variant of FOF6D
+    """
     plugin_name = "FOF6D"
 
     def __init__(self, datasource, halolabel, linklength=0.078, vfactor=0.368, nmin=32):
@@ -31,6 +28,12 @@ class FOF6DAlgorithm(Algorithm):
         s.add_argument("nmin", type=int, help='minimum number of particles in a halo')
 
     def run(self):
+        """
+        Run the FOF6D Algorithm
+        """
+        import mpsort
+        from mpi4py import MPI
+        
         comm = self.comm
         offset = 0
         
@@ -75,7 +78,7 @@ class FOF6DAlgorithm(Algorithm):
 
         PIG2.sort(order=['Label'])
 
-        logging.info('halos = %d', Nhalo)
+        self.logger.info('halos = %d', Nhalo)
         cat = []
         for haloid in numpy.unique(PIG2['Label']):
             hstart = PIG2['Label'].searchsorted(haloid, side='left')
@@ -92,6 +95,11 @@ class FOF6DAlgorithm(Algorithm):
         return cat, Ntot
 
     def save(self, output, data):
+        """
+        Save the result
+        """
+        import h5py
+        
         comm = self.comm
         cat, Ntot = data
         cat = comm.gather(cat)

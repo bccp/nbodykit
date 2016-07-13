@@ -1,8 +1,5 @@
 from nbodykit.extensionpoints import Painter
 import numpy
-import logging
-
-logger = logging.getLogger('GridPainter')
 
 class GridPainter(Painter):
     """

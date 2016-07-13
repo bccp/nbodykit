@@ -1,13 +1,5 @@
-import logging
-
-import h5py
-
-from nbodykit import files
-from nbodykit import halos
-
-import numpy
-import mpsort
 from nbodykit.extensionpoints import Algorithm, DataSource
+import numpy
 
 class TraceHaloAlgorithm(Algorithm):
     plugin_name = "TraceHalo"
@@ -26,6 +18,12 @@ class TraceHaloAlgorithm(Algorithm):
             help='DataSource of the source halo label files, the Label column is used.')
 
     def run(self):
+        """
+        Run the TraceHalo Algorithm
+        """
+        import mpsort
+        from nbodykit import halos
+        
         comm = self.comm
 
         with self.source.open() as source:
@@ -69,10 +67,15 @@ class TraceHaloAlgorithm(Algorithm):
         return hpos, hvel, N, Ntot
 
     def save(self, output, data): 
+        """
+        Save the result
+        """
+        import h5py
+        
         hpos, hvel, N, Ntot = data
         if self.comm.rank == 0:
-            logging.info("Total number of halos: %d" % len(N))
-            logging.info("N %s" % str(N))
+            self.logger.info("Total number of halos: %d" % len(N))
+            self.logger.info("N %s" % str(N))
             N[0] = 0
             with h5py.File(output, 'w') as ff:
                 data = numpy.empty(shape=(len(N),), 
@@ -97,5 +100,5 @@ class TraceHaloAlgorithm(Algorithm):
                 dataset.attrs['sourcelabel'] = self.sourcelabel.string
                 dataset.attrs['dest'] = self.dest.string
 
-            logging.info("Written %s" % output)
+            self.logger.info("Written %s" % output)
 

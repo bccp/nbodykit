@@ -1,7 +1,5 @@
 from nbodykit.extensionpoints import Algorithm, DataSource, Painter
 from nbodykit import utils
-
-import logging
 import numpy
 
 class Subsample(Algorithm):

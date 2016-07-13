@@ -1,10 +1,7 @@
 from nbodykit.extensionpoints import DataSource
 from nbodykit import utils
-
 import numpy
-import logging
 
-logger = logging.getLogger('ZeldovichSim')
          
 class ZeldovichSimDataSource(DataSource):
     """

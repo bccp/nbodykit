@@ -1,5 +1,4 @@
 from nbodykit.extensionpoints import Algorithm, DataSource
-import logging
 import numpy
 
 # for output

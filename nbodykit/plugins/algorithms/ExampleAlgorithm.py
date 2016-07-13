@@ -1,11 +1,13 @@
 from nbodykit.extensionpoints import Algorithm, DataSource
-
 import numpy
-import logging
+
 
 class Describe(Algorithm):
+    """
+    A simple example Algorithm that loads a specific column
+    from a DataSource and prints the min/max of the column
+    """
     plugin_name = "Describe"
-    logger = logging.getLogger(plugin_name)
 
     def __init__(self, datasource, column='Position'):
         pass

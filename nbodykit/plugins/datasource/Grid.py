@@ -1,7 +1,4 @@
 from nbodykit.extensionpoints import DataSource
-import logging
-
-logger = logging.getLogger('Grid')
 
 class GridDataSource(DataSource):
     """
