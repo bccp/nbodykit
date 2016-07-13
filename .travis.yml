@@ -3,6 +3,16 @@ python:
     - 2.7
     - 3.4
 
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - gcc-4.8
+      - g++-4.8
+      - gfortran-4.8
+      - swig
+
 env:
     - NUMPY_VERSION=1.11
 
@@ -17,14 +27,27 @@ before_install:
     - ./miniconda.sh -b -p $HOME/miniconda
     - export PATH=$HOME/miniconda/bin:$PATH
     - conda update --yes conda
+    
+    # set the c++ and fortran compilers 
+    - export CXX=g++-4.8 
+    - export F90=gfortran-4.8
 
 install:
     - conda create --yes -n test python=$TRAVIS_PYTHON_VERSION
     - source activate test
+    
+    # base python setup
     - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py h5py pandas scipy pytables pyyaml astropy numba
     - pip install pytest pytest-cov pytest-pipeline coveralls
-    - pip install halotools # test optional halotools packages
-    - if [ $TRAVIS_PYTHON_VERSION == 2.6 ]; then conda install --yes argparse; fi
+    
+    # test optional HOD data sources
+    - pip install halotools 
+    
+    # test optional Zeldovich data source
+    - conda install --yes "swig>=3.0"
+    - pip install --no-cache-dir classylss # ignore cache due to binaries
+
+    # nbodykit and requirements
     - pip install --pre pfft-python kdcount mpsort pmesh sharedmem bigfile --no-deps
     - pip install --pre -r requirements.txt -e . # develop mode to track coverage of subproccess
     

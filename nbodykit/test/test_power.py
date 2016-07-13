@@ -3,8 +3,12 @@ from . import os, asserts, unittest, pytest
 from .. import examples_dir
 
 # import halotools for HOD power tests
-try: import halotools; missing_halotools=False
+try: import halotools; missing_halotools = False
 except: missing_halotools = True
+
+# import classylss for Zeldovich power tests
+try: import classylss; missing_classylss = False
+except: missing_classylss = True
     
 class RunPowerAlgorithm(RunAlgorithm):
     run_dir = os.path.join(examples_dir, 'power')
@@ -248,3 +252,35 @@ class TestSubsample1D(unittest.TestCase):
 
     def test_result(self):
         asserts.test_dataset_result(self, '1d', 'power')
+        
+@pytest.mark.skipif(missing_classylss, reason="requires `classylss` package")
+@add_run_fixture(__name__, RunPowerAlgorithm, 'FFTPower')
+class TestZeldovich1D(unittest.TestCase):
+    param_file  = "test_zeldovich_pk.params"
+    output_file = "test_power_zeldovich_pk.dat"
+    datasources = []
+    
+    def test_exit_code(self):
+        asserts.test_exit_code(self)
+    
+    def test_exception(self):
+        asserts.test_exception(self) 
+    
+    def test_result(self):
+        asserts.test_dataset_result(self, '1d', 'power')
+        
+@pytest.mark.skipif(missing_classylss, reason="requires `classylss` package")
+@add_run_fixture(__name__, RunPowerAlgorithm, 'FFTPower')
+class TestZeldovich2D(unittest.TestCase):
+    param_file  = "test_zeldovich_pkmu.params"
+    output_file = "test_power_zeldovich_pkmu.dat"
+    datasources = []
+    
+    def test_exit_code(self):
+        asserts.test_exit_code(self)
+    
+    def test_exception(self):
+        asserts.test_exception(self) 
+    
+    def test_result(self):
+        asserts.test_dataset_result(self, '2d', 'power')
