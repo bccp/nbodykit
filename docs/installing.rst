@@ -49,9 +49,16 @@ For creating data using a Halo Occupation Distribution
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - `halotools`_ is required to use the :class:`~nbodykit.plugins.datasource.Zheng07HOD` DataSource, which provides a general framework for populating halos with galaxies using Halo Occupation Distribution modeling
-- Note that `halotools` is only compatible with Python 2 at the moment
 
 .. _halotools: http://halotools.readthedocs.io/en/latest/
+
+For generating simulated data from linear power spectra
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- `classylss`_, a python binding of the Boltzmann code `CLASS`_, is required to use the :class:`~nbodykit.plugins.datasource.ZeldovichSim` DataSource, which computes a simulated data catalog using the Zel'dovich approximation (from a linear power spectrum computed with CLASS)
+
+.. _classylss: https://github.com/nickhand/classylss
+.. _CLASS: https://github.com/lesgourg/class_public
 
 Instructions
 ------------
