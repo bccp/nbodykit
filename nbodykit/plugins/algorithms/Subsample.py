@@ -1,20 +1,14 @@
-from nbodykit.extensionpoints import Algorithm
+from nbodykit.extensionpoints import Algorithm, DataSource, Painter
+from nbodykit import utils
+
 import logging
 import numpy
 
-# for output
-import h5py
-import bigfile
-import mpsort
-
-from mpi4py import MPI
-
-import nbodykit
-from pmesh.particlemesh import ParticleMesh
-from nbodykit.extensionpoints import DataSource, Painter
-
-
 class Subsample(Algorithm):
+    """
+    Algorithm to create a subsample from a DataSource, and evaluate
+    the density (1 + delta), smoothed at the given scale
+    """
     plugin_name = "Subsample"
     
     def __init__(self, datasource, Nmesh, seed=12345, ratio=0.01, smoothing=None, format='hdf5'):
@@ -40,6 +34,12 @@ class Subsample(Algorithm):
         s.add_argument("format", choices=['hdf5', 'mwhite'], help='the format of the output')
 
     def run(self):
+        """
+        Run the Subsample algorithm
+        """
+        from pmesh.particlemesh import ParticleMesh
+        from mpi4py import MPI
+        import mpsort
         
         pm = ParticleMesh(self.datasource.BoxSize, self.Nmesh, dtype='f4', comm=self.comm)
         if self.smoothing is None:
@@ -84,10 +84,8 @@ class Subsample(Algorithm):
             pm.transfer([Smoothing, NormalizeDC])
             pm.c2r()
             columns = ['Position', 'ID', 'Velocity']
-            rng = numpy.random.RandomState(self.Nmesh)
-            seedtable = rng.randint(1024*1024*1024, size=self.comm.size)
-            rngtable = [numpy.random.RandomState(seed) for seed in seedtable]
-
+            random_state = utils.local_random_state(self.seed, self.comm)
+        
             dtype = numpy.dtype([
                     ('Position', ('f4', 3)),
                     ('Velocity', ('f4', 3)),
@@ -99,7 +97,7 @@ class Subsample(Algorithm):
 
             with self.datasource.open() as stream:
                 for Position, ID, Velocity in stream.read(columns):
-                    u = rngtable[self.comm.rank].uniform(size=len(ID))
+                    u = random_state.uniform(size=len(ID))
                     keep = u < self.ratio
                     Nkeep = keep.sum()
                     if Nkeep == 0: continue 
@@ -131,7 +129,8 @@ class Subsample(Algorithm):
             self.write_hdf5(data, output)
 
     def write_hdf5(self, subsample, output):
-
+        import h5py
+        
         size = self.comm.allreduce(len(subsample))
         offset = sum(self.comm.allgather(len(subsample))[:self.comm.rank])
 
