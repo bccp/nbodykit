@@ -174,13 +174,14 @@ class ConstructorSchema(OrderedDict):
             
         args = (self.__class__.__name__, size, size-required)
         return "<%s: %d parameters (%d optional)>" %args
-    
+
     @staticmethod
     def cast(arg, value):
         """
         Convenience function to cast values based
-        on the `type` stored in `schema`
-        
+        on the `type` stored in `schema`. If `type` is a tuple, each
+        type will be attempted in order.
+
         Parameters
         ----------
         arg : Argument
@@ -195,16 +196,30 @@ class ConstructorSchema(OrderedDict):
         if isinstance(arg.nargs, int) and len(value) != arg.nargs:
             raise ValueError("'%s' requires exactly %d arguments" %(arg.name, arg.nargs))
         if arg.nargs == '+' and len(value) == 0:
-            raise ValueError("'%s' requires at least one argument" %arg.name) 
-        
+            raise ValueError("'%s' requires at least one argument" %arg.name)
+
+        def cast1(cast):
+            if cast is not None: 
+                if arg.nargs is not None:
+                    r = [cast(v) for v in value]
+                else:
+                    r = cast(value)
+            return r
+
         cast = arg.type
-        if cast is not None: 
-            if arg.nargs is not None:
-                value = [cast(v) for v in value]
-            else:
-                value = cast(value)
-        return value
-                    
+        if not isinstance(arg.type, tuple):
+            casts = (cast,)
+        else:
+            casts = arg.type
+
+        for cast in casts[:-1]:
+            try:
+                return cast1(cast)
+            except Exception as e:
+                pass
+
+        return cast1(casts[-1])
+
     def contains(self, key):
         """
         Check if the schema contains the full argument name, using
