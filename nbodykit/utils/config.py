@@ -288,14 +288,23 @@ class ConstructorSchema(OrderedDict):
         # determine the string representation of the type 
         if arg.choices is not None:
             type_str = "{ %s }" %", ".join(["'%s'" %str(s) for s in arg.choices])
-        else:     
-            type_str = arg.type.__name__ if arg.type is not None else ""
-            if hasattr(arg.type, '__self__'):
-                type_str = '.'.join([arg.type.__self__.__name__, arg.type.__name__])
-                
-            # don't use function names when it's a lambda function
-            if 'lambda' in type_str: type_str = ""
-        
+        else:
+            if isinstance(arg.type, tuple):
+                casts = arg.type
+            else:
+                casts = (arg.type,)
+
+            type_str = []
+            for cast in casts:
+                cstr = cast.__name__ if arg.type is not None else ""
+                if hasattr(cast, '__self__'):
+                    cstr = '.'.join([cast.__self__.__name__, cast.__name__])
+
+                # don't use function names when it's a lambda function
+                if 'lambda' in cstr: cstr = ""
+                type_str.append(cstr)
+            type_str = ', '.join(type_str)
+
         # optional tag?
         if not subfield and not arg.required:
             if type_str: type_str += ", "
