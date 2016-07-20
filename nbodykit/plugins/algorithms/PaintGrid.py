@@ -1,5 +1,5 @@
 from nbodykit.extensionpoints import Algorithm
-from nbodykit.extensionpoints import DataSource, Painter
+from nbodykit.extensionpoints import DataSource, GridSource, Painter
 import os
 import numpy
 
@@ -74,23 +74,23 @@ class PaintGridAlgorithm(Algorithm):
         import numpy
         import mpsort
         pm = result
-        x3d = pm.real
+        x3d = pm.real.copy()
         istart = pm.partition.local_i_start
-        data = numpy.empty(x3d.size, dtype=[('value', 'f4'), ('ind', 'i8')])
-
-        data['value'] = x3d.flat
-        data['ind'] = 0
-        ind = data['ind'].reshape(x3d.shape)
+        ind = numpy.zeros(x3d.shape, dtype='i8')
         for d in range(3):
             i = numpy.arange(istart[d], istart[d] + x3d.shape[d])
             i = i.reshape([-1 if dd == d else 1 for dd in range(3)])
             ind[...] *= pm.Nmesh
             ind[...] += i
 
-        mpsort.sort(data, orderby='ind', comm=self.comm)
+        x3d = x3d.ravel()
+        ind = ind.ravel()
+        mpsort.sort(x3d, orderby=ind, comm=self.comm)
         if self.comm.rank == 0:
             self.logger.info("writing to %s" % output)
+
         f = bigfile.BigFileMPI(self.comm, output, create=True)
-        b = f.create_from_array('PaintGrid', data['value'], Nfile=1)
+        b = f.create_from_array('PaintGrid', x3d, Nfile=1)
         b.attrs['ndarray.shape'] = numpy.array([self.Nmesh, self.Nmesh, self.Nmesh], dtype='i8')
         b.attrs['BoxSize'] = numpy.array(self.datasource.BoxSize, dtype='f8')
+        b.attrs['Nmesh'] = self.Nmesh
