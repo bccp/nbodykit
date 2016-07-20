@@ -68,13 +68,10 @@ def fill_namespace(ns, arg, config, missing):
     # the name of the parameter
     name = arg.name.split('.')[-1]
     
-    # names of parameters present in parsed config (lowered)
-    config_names = [k.lower() for k in config]
-    
     # no subfields
     if not len(arg.subfields): 
-         
-        if config is not None and name.lower() in config_names:
+    
+        if config is not None and name.lower() in [k.lower() for k in config]:
             value = config.pop(name)
             try:
                 setattr(ns, name, ConstructorSchema.cast(arg, value))
