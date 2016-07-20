@@ -36,6 +36,39 @@ def ordered_load(stream, Loader=yaml.SafeLoader, object_pairs_hook=OrderedDict):
     return yaml.load(stream, OrderedLoader)
 
 
+def case_insensitive_name_match(schema_name, config):
+    """
+    Do case-insensitive name matching between the ConstructorSchema
+    and the parsed configuration file
+    
+    Parameters
+    ----------
+    schema_name : str
+        the name of the parameter, as given in the ConstructorSchema
+    config : dict
+        the parsed YAML dictionary from the configuration file
+    
+    Returns
+    -------
+    config_name : {str, None}
+        return the key of `config` that matches `schema_name`; 
+        otherwise, return `None`
+    """
+    # names from the parsed config file
+    config_names = list(config.keys())
+    lowered_config_names = [k.lower() for k in config_names]
+    
+    # lowered schema name
+    lowered_schema_name = schema_name.lower()
+    
+    # return the name of the parameter in the configuration file
+    if lowered_schema_name in lowered_config_names:
+        index = lowered_config_names.index(lowered_schema_name)
+        return config_names[index]
+        
+    return None
+    
+
 def fill_namespace(ns, arg, config, missing):
     """
     Recursively fill the input namespace from a dictionary parsed
@@ -72,15 +105,22 @@ def fill_namespace(ns, arg, config, missing):
     if not len(arg.subfields): 
     
         # check if the schema argument is present in configuration file
-        if config is not None and schema_name.lower() in [k.lower() for k in config]:
-            value = config.pop(schema_name)
-            try:
-                setattr(ns, schema_name, ConstructorSchema.cast(arg, value))
-            except Exception as e:
-                raise ConfigurationError("unable to cast '%s' value: %s" %(arg.name, str(e)))
-        else:
-            if arg.required:
-                missing.append(arg.name)
+        
+        if config is not None:
+            
+            # the name of the parameter match in the configuration file
+            # or None, if no match
+            config_match = case_insensitive_name_match(schema_name, config)
+            
+            if config_match is not None:
+                value = config.pop(config_match)
+                try:
+                    setattr(ns, schema_name, ConstructorSchema.cast(arg, value))
+                except Exception as e:
+                    raise ConfigurationError("unable to cast '%s' value: %s" %(arg.name, str(e)))
+            else:
+                if arg.required:
+                    missing.append(arg.name)
     else:
         subns = Namespace()
         subconfig = config.pop(schema_name, None)
