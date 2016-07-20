@@ -60,7 +60,7 @@ class HelpAction(argparse.Action):
 
     def __call__(self, parser, namespace, values, option_string=None):
         name = getattr(namespace, 'algorithm_name')
-        if rank == 0:
+        if MPI.COMM_WORLD.rank == 0:
             if name is not None:
                 print(Algorithm.format_help(name))
             else:
