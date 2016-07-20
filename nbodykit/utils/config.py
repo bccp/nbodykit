@@ -4,16 +4,24 @@ from collections import namedtuple, OrderedDict
 import yaml
 from argparse import Namespace
 
-class ConfigurationError(Exception):   
+class ConfigurationError(Exception): 
+    """
+    General exception for when configuration parsing fails
+    """  
     pass
 
-class PluginParsingError(Exception):   
+class PluginParsingError(ConfigurationError):   
+    """
+    Specific parsing error when the plugin fails to load from 
+    the configuration file
+    """
     pass
  
 def ordered_load(stream, Loader=yaml.SafeLoader, object_pairs_hook=OrderedDict):
     """
-    Load from yaml into OrderedDict to preserve the ordering used 
-    by the user
+    A wrapper of :func:`yaml.load` that will load the YAML file into a
+    :class:`~collections.OrderedDict` rather than a normal :class:`dict` to 
+    preserve the ordering used by the user
     
     see: http://stackoverflow.com/questions/5121931/
     """
@@ -28,33 +36,101 @@ def ordered_load(stream, Loader=yaml.SafeLoader, object_pairs_hook=OrderedDict):
     return yaml.load(stream, OrderedLoader)
 
 
+def case_insensitive_name_match(schema_name, config):
+    """
+    Do case-insensitive name matching between the ConstructorSchema
+    and the parsed configuration file
+    
+    Parameters
+    ----------
+    schema_name : str
+        the name of the parameter, as given in the ConstructorSchema
+    config : dict
+        the parsed YAML dictionary from the configuration file
+    
+    Returns
+    -------
+    config_name : {str, None}
+        return the key of `config` that matches `schema_name`; 
+        otherwise, return `None`
+    """
+    # names from the parsed config file
+    config_names = list(config.keys())
+    lowered_config_names = [k.lower() for k in config_names]
+    
+    # lowered schema name
+    lowered_schema_name = schema_name.lower()
+    
+    # return the name of the parameter in the configuration file
+    if lowered_schema_name in lowered_config_names:
+        index = lowered_config_names.index(lowered_schema_name)
+        return config_names[index]
+        
+    return None
+    
+
 def fill_namespace(ns, arg, config, missing):
     """
-    Recursively fill a namespace from a configuration file
-    such that arguments with subfields get their own namespaces, etc
-    """
-    name = arg.name.split('.')[-1]
+    Recursively fill the input namespace from a dictionary parsed
+    from configuration file using YAML
     
-    if not len(arg.subfields):  
-        if config is not None and name in config:
-            value = config.pop(name)
-            try:
-                setattr(ns, name, ConstructorSchema.cast(arg, value))
-            except Exception as e:
-                raise ConfigurationError("unable to cast '%s' value: %s" %(arg.name, str(e)))
-        else:
-            if arg.required:
-                missing.append(arg.name)
+    Notes
+    -----
+    *   Fields that have subfields will be returned as sub-namespaces, such that
+        the subfields can be accessed from the parent field with the same
+        ``parent.subfield`` syntax
+    *   Comparison of names between and configuration file and schema are 
+        done in a case-insensitive manner
+    *   Before adding to the namespace the values will be case according
+        to the `cast` function specified via `arg`
+    
+    Parameters
+    ----------
+    ns : argparse.Namespace
+        the namespace to fill with the configuration 
+    arg : Argument
+        the Argument instance that we are adding to the namespace; this
+        holds the details about casting, sub-fields, etc
+    config : OrderedDict
+        an ordered dictionary of parsed YAML holding the input 
+        configuration parameters
+    missing : list
+        a list to add arguments that are missing, i.e., required and not
+        present in the input configuration files
+    """
+    # the name of the parameter (as taken from the schema)
+    schema_name = arg.name.split('.')[-1]
+    
+    # no subfields
+    if not len(arg.subfields): 
+    
+        # check if the schema argument is present in configuration file
+        
+        if config is not None:
+            
+            # the name of the parameter match in the configuration file
+            # or None, if no match
+            config_match = case_insensitive_name_match(schema_name, config)
+            
+            if config_match is not None:
+                value = config.pop(config_match)
+                try:
+                    setattr(ns, schema_name, ConstructorSchema.cast(arg, value))
+                except Exception as e:
+                    raise ConfigurationError("unable to cast '%s' value: %s" %(arg.name, str(e)))
+            else:
+                if arg.required:
+                    missing.append(arg.name)
     else:
         subns = Namespace()
-        subconfig = config.pop(name, None)
+        subconfig = config.pop(schema_name, None)
     
         for k in arg.subfields:
             fill_namespace(subns, arg[k], subconfig, missing)
             
         if len(vars(subns)):
             try:
-                setattr(ns, name, ConstructorSchema.cast(arg, subns))
+                setattr(ns, schema_name, ConstructorSchema.cast(arg, subns))
             except Exception as e:
                 raise ConfigurationError("unable to cast '%s' value: %s" %(arg.name, str(e)))
             
@@ -68,6 +144,22 @@ def ReadConfigFile(config_stream, schema):
         * check if parameter values are consistent with `choices`
         * infer the `type` of each parameter
         * check if any required parameters are missing
+    
+    Parameters
+    ----------
+    stream : open file object, str
+        an open file object or the string returned by calling `read`
+    schema : ConstructorSchema
+        the schema which tells the parser which holds the relevant 
+        information about the necessary parameters
+    
+    Returns
+    -------
+    ns : argparse.Namespace
+        the namespace holding the parsed configuration file
+    unknown : argparse.Namespace
+        a namespace holding any parsed parameters not present
+        in the scema
     """
     from nbodykit.cosmology import Cosmology
     from nbodykit.extensionpoints import set_nbkit_cosmo
