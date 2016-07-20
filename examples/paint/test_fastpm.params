@@ -1,4 +1,4 @@
-Nmesh: 256
+Nmesh: 64
 output: ${NBKIT_HOME}/examples/output/test_paint_fastpm
 
 DataSource:

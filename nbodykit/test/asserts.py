@@ -104,6 +104,32 @@ def test_hdf_result(self, dataset, rtol=1e-5, atol=1e-8):
     except Exception as e:
         raise _make_exc(self, str(e))
 
+def test_bigfile_result(self, dataset, rtol=1e-5, atol=1e-8):
+    """
+    Test that the HDF5 result file is the same as the reference
+    result file, using ``h5py``
+
+    Parameters
+    ----------
+    dataset : str
+        the name of the HDF5 dataset to load
+    rtol : float, optional
+        the relative tolerance; default is 1e-5
+    atol : float, optional
+        the absolute tolerance; default is 1e-8
+    """
+    try:
+
+        this, ref = results.get_result_paths(self.output_file)
+
+        # data
+        this = results.load_bigfile(this, dataset)
+        ref = results.load_bigfile(ref, dataset)
+
+        assert_numpy_allclose(this, ref, rtol=rtol, atol=atol)
+    except Exception as e:
+        raise _make_exc(self, str(e))
+
 def test_dataset_result(self, dim, stat, rtol=1e-2, atol=1e-5, skip_imaginary=True):
     """
     Test that the ``DataSet`` result file is the same as the reference

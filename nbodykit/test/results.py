@@ -85,7 +85,24 @@ def load_hdf(filename, dataset):
     """
     import h5py
     return h5py.File(filename, mode='r')[dataset][...]
+
+def load_bigfile(filename, dataset):
+    """
+    Load a bigfile using ``bigfile``, returning a ``numpy`` array
     
+    Parameters
+    ----------
+    dataset : str
+        the name of the HDF5 dataset to load
+
+    Returns
+    -------
+    array_like :
+        the loaded data
+    """
+    import bigfile
+    return bigfile.BigFile(filename)[dataset][...]
+
 def get_dataset_loader(dim, stat):
     """
     Load a ``Dataset`` object from file
