@@ -65,16 +65,17 @@ def fill_namespace(ns, arg, config, missing):
         a list to add arguments that are missing, i.e., required and not
         present in the input configuration files
     """
-    # the name of the parameter
-    name = arg.name.split('.')[-1]
+    # the name of the parameter (as taken from the schema)
+    schema_name = arg.name.split('.')[-1]
     
     # no subfields
     if not len(arg.subfields): 
     
-        if config is not None and name.lower() in [k.lower() for k in config]:
-            value = config.pop(name)
+        # check if the schema argument is present in configuration file
+        if config is not None and schema_name.lower() in [k.lower() for k in config]:
+            value = config.pop(schema_name)
             try:
-                setattr(ns, name, ConstructorSchema.cast(arg, value))
+                setattr(ns, schema_name, ConstructorSchema.cast(arg, value))
             except Exception as e:
                 raise ConfigurationError("unable to cast '%s' value: %s" %(arg.name, str(e)))
         else:
@@ -82,14 +83,14 @@ def fill_namespace(ns, arg, config, missing):
                 missing.append(arg.name)
     else:
         subns = Namespace()
-        subconfig = config.pop(name, None)
+        subconfig = config.pop(schema_name, None)
     
         for k in arg.subfields:
             fill_namespace(subns, arg[k], subconfig, missing)
             
         if len(vars(subns)):
             try:
-                setattr(ns, name, ConstructorSchema.cast(arg, subns))
+                setattr(ns, schema_name, ConstructorSchema.cast(arg, subns))
             except Exception as e:
                 raise ConfigurationError("unable to cast '%s' value: %s" %(arg.name, str(e)))
             
