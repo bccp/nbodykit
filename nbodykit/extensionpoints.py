@@ -564,8 +564,8 @@ class DataSourceBase(object):
     pass
 
 @ExtensionPoint(datasources)
-class GridDataSource(DataSourceBase):
-    def read(self, ix, iy):
+class GridSource(DataSourceBase):
+    def read(self, pm):
         pass
 
 @ExtensionPoint(datasources)
