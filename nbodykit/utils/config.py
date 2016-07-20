@@ -4,16 +4,24 @@ from collections import namedtuple, OrderedDict
 import yaml
 from argparse import Namespace
 
-class ConfigurationError(Exception):   
+class ConfigurationError(Exception): 
+    """
+    General exception for when configuration parsing fails
+    """  
     pass
 
-class PluginParsingError(Exception):   
+class PluginParsingError(ConfigurationError):   
+    """
+    Specific parsing error when the plugin fails to load from 
+    the configuration file
+    """
     pass
  
 def ordered_load(stream, Loader=yaml.SafeLoader, object_pairs_hook=OrderedDict):
     """
-    Load from yaml into OrderedDict to preserve the ordering used 
-    by the user
+    A wrapper of :func:`yaml.load` that will load the YAML file into a
+    :class:`~collections.OrderedDict` rather than a normal :class:`dict` to 
+    preserve the ordering used by the user
     
     see: http://stackoverflow.com/questions/5121931/
     """
@@ -30,13 +38,43 @@ def ordered_load(stream, Loader=yaml.SafeLoader, object_pairs_hook=OrderedDict):
 
 def fill_namespace(ns, arg, config, missing):
     """
-    Recursively fill a namespace from a configuration file
-    such that arguments with subfields get their own namespaces, etc
+    Recursively fill the input namespace from a dictionary parsed
+    from configuration file using YAML
+    
+    Notes
+    -----
+    *   Fields that have subfields will be returned as sub-namespaces, such that
+        the subfields can be accessed from the parent field with the same
+        ``parent.subfield`` syntax
+    *   Comparison of names between and configuration file and schema are 
+        done in a case-insensitive manner
+    *   Before adding to the namespace the values will be case according
+        to the `cast` function specified via `arg`
+    
+    Parameters
+    ----------
+    ns : argparse.Namespace
+        the namespace to fill with the configuration 
+    arg : Argument
+        the Argument instance that we are adding to the namespace; this
+        holds the details about casting, sub-fields, etc
+    config : OrderedDict
+        an ordered dictionary of parsed YAML holding the input 
+        configuration parameters
+    missing : list
+        a list to add arguments that are missing, i.e., required and not
+        present in the input configuration files
     """
+    # the name of the parameter
     name = arg.name.split('.')[-1]
     
-    if not len(arg.subfields):  
-        if config is not None and name in config:
+    # names of parameters present in parsed config (lowered)
+    config_names = [k.lower() for k in config]
+    
+    # no subfields
+    if not len(arg.subfields): 
+         
+        if config is not None and name.lower() in config_names:
             value = config.pop(name)
             try:
                 setattr(ns, name, ConstructorSchema.cast(arg, value))
@@ -68,6 +106,22 @@ def ReadConfigFile(config_stream, schema):
         * check if parameter values are consistent with `choices`
         * infer the `type` of each parameter
         * check if any required parameters are missing
+    
+    Parameters
+    ----------
+    stream : open file object, str
+        an open file object or the string returned by calling `read`
+    schema : ConstructorSchema
+        the schema which tells the parser which holds the relevant 
+        information about the necessary parameters
+    
+    Returns
+    -------
+    ns : argparse.Namespace
+        the namespace holding the parsed configuration file
+    unknown : argparse.Namespace
+        a namespace holding any parsed parameters not present
+        in the scema
     """
     from nbodykit.cosmology import Cosmology
     from nbodykit.extensionpoints import set_nbkit_cosmo
