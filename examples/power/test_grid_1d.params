@@ -1,0 +1,10 @@
+mode: 1d
+Nmesh: 64
+output: ${NBKIT_HOME}/examples/output/test_power_grid_1d.dat
+
+field:
+    DataSource:
+       plugin: BigFileGrid
+       path: ${NBKIT_CACHE}/data/bigfile_grid
+       dataset: PaintGrid
+    Transfer: [NormalizeDC, RemoveDC, AnisotropicCIC]
