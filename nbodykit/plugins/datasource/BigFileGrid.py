@@ -20,6 +20,7 @@ class BigFileGridSource(GridSource):
         with f[self.dataset] as d:
             self.BoxSize = d.attrs['BoxSize']
             self.Nmesh = d.attrs['Nmesh'][0]
+            self.Ntot = d.attrs['Ntot'][0]
 
     @classmethod
     def register(cls):

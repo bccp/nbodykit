@@ -284,3 +284,19 @@ class TestZeldovich2D(unittest.TestCase):
     
     def test_result(self):
         asserts.test_dataset_result(self, '2d', 'power')
+
+@add_run_fixture(__name__, RunPowerAlgorithm, 'FFTPower')
+class TestGrid1D(unittest.TestCase):
+    param_file  = "test_grid_1d.params"
+    output_file = "test_power_grid_1d.dat"
+    datasources = ['bigfile_grid']
+
+    def test_exit_code(self):
+        asserts.test_exit_code(self)
+
+    def test_exception(self):
+        asserts.test_exception(self)
+
+    def test_result(self):
+        asserts.test_dataset_result(self, '1d', 'power')
+

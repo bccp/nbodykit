@@ -1,4 +1,4 @@
-from nbodykit.extensionpoints import Painter
+from nbodykit.extensionpoints import Painter, DataSource, GridSource
 import numpy
 
 class DefaultPainter(Painter):
@@ -6,46 +6,50 @@ class DefaultPainter(Painter):
 
     def __init__(self, weight=None):
         pass
-        
+
     @classmethod
     def register(cls):
         s = cls.schema
         s.description = "grid the density field of an input DataSource of objects, optionally "
         s.description += "using a weight for each object"
-        
+
         s.add_argument("weight", help="the column giving the weight for each object")
 
     def paint(self, pm, datasource):
         """
         Paint the ``DataSource`` specified by ``input`` onto the 
         ``ParticleMesh`` specified by ``pm``
-    
+
         Parameters
         ----------
         pm : ``ParticleMesh``
             particle mesh object that does the painting
         datasource : ``DataSource``
             the data source object representing the field to paint onto the mesh
-            
+
         Returns
         -------
         stats : dict
             dictionary of statistics, usually only containing `Ntot`
         """
-        pm.real[:] = 0
         stats = {}
-        
-        # open the datasource stream (with no defaults)
-        with datasource.open() as stream:
 
-            Nlocal = 0
-            if self.weight is None:
-                for [position] in stream.read(['Position']):
-                    Nlocal += self.basepaint(pm, position)
-            else:
-                for position, weight in stream.read(['Position', self.weight]):
-                    Nlocal += self.basepaint(pm, position, weight)
-        
-        stats['Ntot'] = self.comm.allreduce(Nlocal)
+        if isinstance(datasource, DataSource):
+            pm.real[:] = 0
+
+            # open the datasource stream (with no defaults)
+            with datasource.open() as stream:
+
+                Nlocal = 0
+                if self.weight is None:
+                    for [position] in stream.read(['Position']):
+                        Nlocal += self.basepaint(pm, position)
+                else:
+                    for position, weight in stream.read(['Position', self.weight]):
+                        Nlocal += self.basepaint(pm, position, weight)
+
+            stats['Ntot'] = self.comm.allreduce(Nlocal)
+        elif isinstance(datasource, GridSource):
+            datasource.read(pm)
+            stats['Ntot'] = datasource.Ntot
         return stats
-            

@@ -57,12 +57,10 @@ class PaintGridAlgorithm(Algorithm):
         pm = ParticleMesh(self.datasource.BoxSize, self.Nmesh, 
                             paintbrush=self.paintbrush, dtype='f4', comm=self.comm)
 
-        if isinstance(self.datasource, DataSource):
-            self.painter.paint(pm, self.datasource)
-        if isinstance(self.datasource, GridSource):
-            self.datasource.read(pm)
+        stats = self.painter.paint(pm, self.datasource)
+
         # return all the necessary results
-        return pm
+        return pm, stats
 
     def save(self, output, result):
         """
@@ -79,7 +77,7 @@ class PaintGridAlgorithm(Algorithm):
         import bigfile
         import numpy
         import mpsort
-        pm = result
+        pm, stats = result
         x3d = pm.real.copy()
         istart = pm.partition.local_i_start
         ind = numpy.zeros(x3d.shape, dtype='i8')
@@ -100,3 +98,4 @@ class PaintGridAlgorithm(Algorithm):
         b.attrs['ndarray.shape'] = numpy.array([self.Nmesh, self.Nmesh, self.Nmesh], dtype='i8')
         b.attrs['BoxSize'] = numpy.array(self.datasource.BoxSize, dtype='f8')
         b.attrs['Nmesh'] = self.Nmesh
+        b.attrs['Ntot'] = stats['Ntot']

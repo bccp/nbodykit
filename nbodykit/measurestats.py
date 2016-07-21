@@ -15,7 +15,7 @@ logger = logging.getLogger('measurestats')
 def compute_3d_power(fields, pm, comm=None):
     """
     Compute and return the 3D power from two input fields
-    
+
     Parameters
     ----------
     fields : list of tuples of (DataSource, Painter, Transfer)
@@ -25,7 +25,7 @@ def compute_3d_power(fields, pm, comm=None):
     comm : MPI.Communicator, optional
         the communicator to pass to the ParticleMesh object. If not
         provided, ``MPI.COMM_WORLD`` is used
-        
+
     Returns
     -------
     p3d : array_like (complex)
@@ -36,39 +36,39 @@ def compute_3d_power(fields, pm, comm=None):
         statistics of the second field, as returned by the `Painter`
     """
     rank = comm.rank if comm is not None else MPI.COMM_WORLD.rank
-    
+
     # extract lists of datasources, painters, and transfers separately
     datasources = [d for d, p, t in fields]
     painters    = [p for d, p, t in fields]
     transfers   = [t for d, p, t in fields]
-    
+
     # step 1: paint the density field to the mesh
     stats1 = painters[0].paint(pm, datasources[0])
     if rank == 0: logger.info('%s painting done' %pm.paintbrush)
-    
+
     # step 2: Fourier transform density field using real to complex FFT
     pm.r2c()
     if rank == 0: logger.info('r2c done')
-    
+
     # step 3: apply transfer function kernels to complex field
     pm.transfer(transfers[0])
-  
+
     # compute the auto power of single supplied field
     if len(fields) == 1:
         c1 = pm.complex
         c2 = pm.complex
         stats2 = stats1
-        
+
     # compute the cross power of the two supplied fields
     else:
-                
+
         # crash if box size isn't the same
         if not numpy.all(datasources[0].BoxSize == datasources[1].BoxSize):
             raise ValueError("mismatch in box sizes for cross power measurement")
-        
+
         # copy and store field #1's complex
         c1 = pm.complex.copy()
-        
+
         # apply painting, FFT, and transfer steps to second field
         stats2 = painters[1].paint(pm, datasources[1])
         if rank == 0: logger.info('%s painting 2 done' %pm.paintbrush)
@@ -85,9 +85,9 @@ def compute_3d_power(fields, pm, comm=None):
     # the complex field is dimensionless; power is L^3
     # ref to http://icc.dur.ac.uk/~tt/Lectures/UA/L4/cosmology.pdf
     p3d[...] *= pm.BoxSize.prod() 
-                
+
     return p3d, stats1, stats2
-    
+
 def apply_bianchi_kernel(data, x3d, i, j, k=None):
     """
     Apply coordinate kernels to ``data`` necessary to compute the 
