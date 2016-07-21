@@ -37,7 +37,7 @@ class TraceHaloAlgorithm(Algorithm):
         mpsort.sort(label, orderby=ID, comm=self.comm)
         del ID
 
-        data = numpy.empty(lenlabel, dtype=[
+        data = numpy.empty(len(label), dtype=[
                     ('ID', ('i8')), 
                     ('Position', ('f4', 3)), 
                     ('Velocity', ('f4', 3)), 
