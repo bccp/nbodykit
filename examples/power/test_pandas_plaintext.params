@@ -2,7 +2,7 @@ mode: 2d
 Nmesh: 256
 
 field:
-    DataSource:
+    datasource:
       plugin: Pandas
       path: ${NBKIT_CACHE}/data/plaintext_data.txt
       names: [x, y, z, z_redshift, is_sat, N_sat, collided, resolved]
