@@ -14,12 +14,13 @@ class PaintGridAlgorithm(Algorithm):
     """
     plugin_name = "PaintGrid"
     
-    def __init__(self, Nmesh, DataSource, Painter=None, paintbrush='cic'):
+    def __init__(self, Nmesh, DataSource, Painter=None, paintbrush='cic', dataset='PaintGrid'):
         # combine the two fields
         self.datasource = DataSource
         if Painter is None:
             Painter = Painter.create("DefaultPainter")
         self.painter = Painter
+        self.dataset = dataset
 
     @classmethod
     def register(cls):
@@ -31,10 +32,12 @@ class PaintGridAlgorithm(Algorithm):
             help='the number of cells in the gridded mesh')
 
         # the first field
-        s.add_argument('DataSource', type=DataSource.from_config, required=True,
-            help="first data field; a tuple of (DataSource, Painter, Transfer)")
+        s.add_argument('DataSource', type=(DataSource.from_config, GridSource.from_config),
+            required=True, help="DataSource)")
         s.add_argument('Painter', type=Painter.from_config, required=False, 
             help='the Painter; run `nbkit.py --list-painters` for all options')
+
+        s.add_argument('dataset', help="name of dataset to write to")
 
         s.add_argument('paintbrush', type=lambda x: x.lower(), choices=['cic', 'tsc'],
             help='the density assignment kernel to use when painting; '
@@ -54,7 +57,10 @@ class PaintGridAlgorithm(Algorithm):
         pm = ParticleMesh(self.datasource.BoxSize, self.Nmesh, 
                             paintbrush=self.paintbrush, dtype='f4', comm=self.comm)
 
-        self.painter.paint(pm, self.datasource)
+        if isinstance(self.datasource, DataSource):
+            self.painter.paint(pm, self.datasource)
+        if isinstance(self.datasource, GridSource):
+            self.datasource.read(pm)
         # return all the necessary results
         return pm
 
@@ -90,7 +96,7 @@ class PaintGridAlgorithm(Algorithm):
             self.logger.info("writing to %s" % output)
 
         f = bigfile.BigFileMPI(self.comm, output, create=True)
-        b = f.create_from_array('PaintGrid', x3d, Nfile=1)
+        b = f.create_from_array(self.dataset, x3d, Nfile=1)
         b.attrs['ndarray.shape'] = numpy.array([self.Nmesh, self.Nmesh, self.Nmesh], dtype='i8')
         b.attrs['BoxSize'] = numpy.array(self.datasource.BoxSize, dtype='f8')
         b.attrs['Nmesh'] = self.Nmesh
