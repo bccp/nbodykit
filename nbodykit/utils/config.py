@@ -41,7 +41,8 @@ def fill_namespace(ns, arg, config, missing):
             try:
                 setattr(ns, name, ConstructorSchema.cast(arg, value))
             except Exception as e:
-                raise ConfigurationError("unable to cast '%s' value: %s" %(arg.name, str(e)))
+                import traceback
+                raise ConfigurationError("unable to cast '%s' value: %s" %(arg.name, traceback.format_exc()))
         else:
             if arg.required:
                 missing.append(arg.name)
@@ -199,11 +200,11 @@ class ConstructorSchema(OrderedDict):
             raise ValueError("'%s' requires at least one argument" %arg.name)
 
         def cast1(cast):
-            if cast is not None: 
-                if arg.nargs is not None:
-                    r = [cast(v) for v in value]
-                else:
-                    r = cast(value)
+            if cast is None: return value
+            if arg.nargs is not None:
+                r = [cast(v) for v in value]
+            else:
+                r = cast(value)
             return r
 
         cast = arg.type
