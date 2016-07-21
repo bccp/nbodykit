@@ -116,7 +116,7 @@ class Subsample(Algorithm):
                     subsample.append(data)
         
         subsample = numpy.concatenate(subsample)
-        mpsort.sort(subsample, orderby='ID')
+        mpsort.sort(subsample, orderby='ID', comm=self.comm)
         
         return subsample
 

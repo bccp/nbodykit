@@ -71,7 +71,7 @@ class FOF6DAlgorithm(Algorithm):
 
         PIG2 = numpy.empty(Nlocal, PIG.dtype)
 
-        mpsort.sort(PIG, orderby='Rank', out=PIG2)
+        mpsort.sort(PIG, orderby='Rank', out=PIG2, comm=self.comm)
         del PIG
 
         assert (PIG2['Rank'] == comm.rank).all()
@@ -177,6 +177,9 @@ def subfof(pos, vel, ll, vfactor, haloid, Ntot, boxsize):
         output['R1200'][i] = so(center, data, output['R200'][i] * 0.5, nbar, 1200.)
         output['R2400'][i] = so(center, data, output['R1200'][i] * 0.5, nbar, 2400.)
         output['R6000'][i] = so(center, data, output['R2400'][i] * 0.5, nbar, 6000.)
+    output.sort(order=['Length', 'Position'])
+    print(output)
+    output = output[::-1]
     return output
 
 def so(center, data, r1, nbar, thresh=200):
