@@ -1,5 +1,5 @@
 from nbodykit.extensionpoints import Algorithm
-from nbodykit.extensionpoints import DataSource, Transfer, Painter
+from nbodykit.extensionpoints import DataSource, GridSource, Transfer, Painter
 import os
 import numpy
 
@@ -112,7 +112,7 @@ class FFTPowerAlgorithm(Algorithm):
         # the first field
         s.add_argument('field', type=FieldType,
             help="first data field; a tuple of (DataSource, Painter, Transfer)")
-        s.add_argument('field.DataSource', type=DataSource.from_config, required=True,
+        s.add_argument('field.DataSource', type=(DataSource.from_config, GridSource.from_config), required=True,
             help='the 1st DataSource; run `nbkit.py --list-datasources` for all options')
         s.add_argument('field.Painter', type=Painter.from_config, required=False, 
             help='the 1st Painter; run `nbkit.py --list-painters` for all options')
@@ -122,7 +122,7 @@ class FFTPowerAlgorithm(Algorithm):
         # the other field
         s.add_argument('other', type=FieldType, required=False,
             help="the other data field; a tuple of (DataSource, Painter, Transfer)")
-        s.add_argument('other.DataSource', type=DataSource.from_config, required=False,
+        s.add_argument('other.DataSource', type=(DataSource.from_config, GridSource.from_config), required=False,
             help='the 2nd DataSource; run `nbkit.py --list-datasources` for all options')
         s.add_argument('other.Painter',  type=Painter.from_config, required=False, 
             help='the 2nd Painter; run `nbkit.py --list-painters` for all options')

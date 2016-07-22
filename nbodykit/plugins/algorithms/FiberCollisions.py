@@ -146,7 +146,7 @@ class FiberCollisionsAlgorithm(Algorithm):
 
         # sort by rank and then label
         PIG2 = numpy.empty(Nlocal, PIG.dtype)
-        mpsort.sort(PIG, orderby='Rank', out=PIG2)
+        mpsort.sort(PIG, orderby='Rank', out=PIG2, comm=self.comm)
         assert (PIG2['Rank'] == comm.rank).all()
         PIG2.sort(order=['Label'])
         
@@ -177,7 +177,7 @@ class FiberCollisionsAlgorithm(Algorithm):
         if self.comm.rank == 0: self.logger.info("Finished fiber assignment")
     
         # return to the order specified by the global unique index
-        mpsort.sort(PIG2, orderby='Index', out=PIG)
+        mpsort.sort(PIG2, orderby='Index', out=PIG, comm=self.comm)
         
         # return arrays including the objects not in any groups
         collided = numpy.zeros(size[comm.rank], dtype='i4')

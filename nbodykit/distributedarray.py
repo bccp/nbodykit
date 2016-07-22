@@ -273,7 +273,7 @@ class DistributedArray(object):
         Due to a limitation of mpsort, self[orderby] must be u8.
 
         """
-        mpsort.sort(self.local, orderby)
+        mpsort.sort(self.local, orderby, comm=self.comm)
 
     def __getitem__(self, key):
         return DistributedArray(self.local[key], self.comm)

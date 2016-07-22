@@ -564,8 +564,8 @@ class DataSourceBase(object):
     pass
 
 @ExtensionPoint(datasources)
-class GridDataSource(DataSourceBase):
-    def read(self, ix, iy):
+class GridSource(DataSourceBase):
+    def read(self, pm):
         pass
 
 @ExtensionPoint(datasources)
@@ -1008,7 +1008,7 @@ def isplugin(name):
     Return `True`, if `name` is a registered plugin for
     any extension point
     """
-    for extname, ext in extensionpoints:
+    for extname, ext in extensionpoints.items():
         if name in ext.registry: return True
     
     return False

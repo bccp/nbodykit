@@ -100,41 +100,42 @@ def fill_namespace(ns, arg, config, missing):
     """
     # the name of the parameter (as taken from the schema)
     schema_name = arg.name.split('.')[-1]
-    
+
     # no subfields
-    if not len(arg.subfields): 
-    
+    if not len(arg.subfields):
+
         # check if the schema argument is present in configuration file
-        
+
         if config is not None:
-            
+
             # the name of the parameter match in the configuration file
             # or None, if no match
             config_match = case_insensitive_name_match(schema_name, config)
-            
+
             if config_match is not None:
                 value = config.pop(config_match)
                 try:
                     setattr(ns, schema_name, ConstructorSchema.cast(arg, value))
                 except Exception as e:
-                    raise ConfigurationError("unable to cast '%s' value: %s" %(arg.name, str(e)))
+                    import traceback
+                    raise ConfigurationError("unable to cast '%s' value: %s" %(arg.name, traceback.format_exc()))
             else:
                 if arg.required:
                     missing.append(arg.name)
     else:
         subns = Namespace()
         subconfig = config.pop(schema_name, None)
-    
+
         for k in arg.subfields:
             fill_namespace(subns, arg[k], subconfig, missing)
-            
+
         if len(vars(subns)):
             try:
                 setattr(ns, schema_name, ConstructorSchema.cast(arg, subns))
             except Exception as e:
                 raise ConfigurationError("unable to cast '%s' value: %s" %(arg.name, str(e)))
-            
- 
+
+
 def ReadConfigFile(config_stream, schema):
     """
     Read parameters from a file using YAML syntax
@@ -266,13 +267,14 @@ class ConstructorSchema(OrderedDict):
             
         args = (self.__class__.__name__, size, size-required)
         return "<%s: %d parameters (%d optional)>" %args
-    
+
     @staticmethod
     def cast(arg, value):
         """
         Convenience function to cast values based
-        on the `type` stored in `schema`
-        
+        on the `type` stored in `schema`. If `type` is a tuple, each
+        type will be attempted in order.
+
         Parameters
         ----------
         arg : Argument
@@ -287,16 +289,30 @@ class ConstructorSchema(OrderedDict):
         if isinstance(arg.nargs, int) and len(value) != arg.nargs:
             raise ValueError("'%s' requires exactly %d arguments" %(arg.name, arg.nargs))
         if arg.nargs == '+' and len(value) == 0:
-            raise ValueError("'%s' requires at least one argument" %arg.name) 
-        
-        cast = arg.type
-        if cast is not None: 
+            raise ValueError("'%s' requires at least one argument" %arg.name)
+
+        def cast1(cast):
+            if cast is None: return value
             if arg.nargs is not None:
-                value = [cast(v) for v in value]
+                r = [cast(v) for v in value]
             else:
-                value = cast(value)
-        return value
-                    
+                r = cast(value)
+            return r
+
+        cast = arg.type
+        if not isinstance(arg.type, tuple):
+            casts = (cast,)
+        else:
+            casts = arg.type
+
+        for cast in casts[:-1]:
+            try:
+                return cast1(cast)
+            except Exception as e:
+                pass
+
+        return cast1(casts[-1])
+
     def contains(self, key):
         """
         Check if the schema contains the full argument name, using
@@ -365,14 +381,23 @@ class ConstructorSchema(OrderedDict):
         # determine the string representation of the type 
         if arg.choices is not None:
             type_str = "{ %s }" %", ".join(["'%s'" %str(s) for s in arg.choices])
-        else:     
-            type_str = arg.type.__name__ if arg.type is not None else ""
-            if hasattr(arg.type, '__self__'):
-                type_str = '.'.join([arg.type.__self__.__name__, arg.type.__name__])
-                
-            # don't use function names when it's a lambda function
-            if 'lambda' in type_str: type_str = ""
-        
+        else:
+            if isinstance(arg.type, tuple):
+                casts = arg.type
+            else:
+                casts = (arg.type,)
+
+            type_str = []
+            for cast in casts:
+                cstr = cast.__name__ if arg.type is not None else ""
+                if hasattr(cast, '__self__'):
+                    cstr = '.'.join([cast.__self__.__name__, cast.__name__])
+
+                # don't use function names when it's a lambda function
+                if 'lambda' in cstr: cstr = ""
+                type_str.append(cstr)
+            type_str = ', '.join(type_str)
+
         # optional tag?
         if not subfield and not arg.required:
             if type_str: type_str += ", "
