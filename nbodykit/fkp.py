@@ -117,7 +117,7 @@ class FKPCatalog(object):
         Return a dictionary of the default columns to be read from the :attr:`data`
         and :attr:`randoms` attributes. 
         """
-        return {'Redshift':-1., 'Nbar':-1., 'FKPWeight':1., 'CompWeight':1.}
+        return {'Redshift':-1., 'Nbar':-1., 'FKPWeight':1., 'Weight':1.}
     
     @property
     def fsky(self):
@@ -188,7 +188,7 @@ class FKPCatalog(object):
             \alpha = \sum_\mathrm{gal} w_{c,i} / \sum_\mathrm{ran} w_{c,i}
         
         where :math:`w_{c,i}` is the completeness weight for the ith galaxy. This
-        is specified via the ``CompWeight`` column, and has a default value of 1.
+        is specified via the ``Weight`` column, and has a default value of 1.
         """
         try:
             return self._alpha
@@ -200,13 +200,13 @@ class FKPCatalog(object):
                 
             # the sum comp weights for data
             W_data = 0.
-            for [comp_weight] in self.data_stream.read(['CompWeight'], full=False):
+            for [comp_weight] in self.data_stream.read(['Weight'], full=False):
                 W_data += comp_weight.sum()
             W_data = self.comm.allreduce(W_data)
               
             # sum comp weights for randoms
             W_ran = 0.
-            for [comp_weight] in self.randoms_stream.read(['CompWeight'], full=False):
+            for [comp_weight] in self.randoms_stream.read(['Weight'], full=False):
                 W_ran += comp_weight.sum()
             W_ran = self.comm.allreduce(W_ran) 
             
@@ -301,7 +301,7 @@ class FKPCatalog(object):
         to compute the n(z) from the randoms catalog
         
         When computing the histogram, it uses the completeness weights, as specified
-        by the ``CompWeight`` column, which defaults to unity. 
+        by the ``Weight`` column, which defaults to unity. 
         """
         # only need to compute this if nbar wasn't provided
         if self.nbar is None:
@@ -310,7 +310,7 @@ class FKPCatalog(object):
             # run with fsky = 1.0, if no fsky is given because we might not 
             # need this n(z)
             fsky = 1. if not hasattr(self, 'fsky') else self.fsky
-            nz_computer = algorithms.RedshiftHistogram(self.randoms, weight_col='CompWeight', fsky=fsky)
+            nz_computer = algorithms.RedshiftHistogram(self.randoms, weight_col='Weight', fsky=fsky)
             
             # run the algorithm
             # exceptions might not be fatal, if Nbar is provided in 
@@ -574,7 +574,7 @@ class FKPCatalog(object):
             raise ValueError("stream name for %s must be 'data' or 'randoms'" %cls)
     
         # read from the stream
-        columns0 = ['Position', 'Redshift', 'Nbar', 'FKPWeight', 'CompWeight']
+        columns0 = ['Position', 'Redshift', 'Nbar', 'FKPWeight', 'Weight']
         for [coords, redshift, nbar, fkp_weight, comp_weight] in stream.read(columns0, full=full):
         
             # re-centered cartesian coordinates (between -BoxSize/2 and BoxSize/2)
@@ -600,11 +600,11 @@ class FKPCatalog(object):
                 fkp_weight = 1. / (1. + nbar*self.P0_fkp)
             
             P = {}
-            P['Position']   = pos
-            P['Nbar']       = nbar
-            P['Redshift']   = redshift
-            P['FKPWeight']  = fkp_weight
-            P['CompWeight'] = comp_weight
+            P['Position']  = pos
+            P['Nbar']      = nbar
+            P['Redshift']  = redshift
+            P['FKPWeight'] = fkp_weight
+            P['Weight']    = comp_weight
             
             yield [P[key] for key in columns]
             
@@ -635,11 +635,12 @@ class FKPCatalog(object):
             raise ValueError("'paint' operation on a closed FKPCatalog")
             
         # setup
-        columns = ['Position', 'Nbar', 'FKPWeight', 'CompWeight']
+        columns = ['Position', 'Nbar', 'FKPWeight', 'Weight']
         stats = {}
         A_ran = A_data = 0.
         S_ran = S_data = 0.
-        N_ran = N_data = 0
+        N_ran = N_data = 0.
+        W_ran = W_data = 0.
         
         # clear the density mesh
         pm.clear()
@@ -658,10 +659,12 @@ class FKPCatalog(object):
             A_ran += (nbar*comp_weight*fkp_weight**2).sum()
             N_ran += Nlocal
             S_ran += (weight**2).sum()
+            W_ran += comp_weight.sum()
 
         A_ran = self.comm.allreduce(A_ran)
         N_ran = self.comm.allreduce(N_ran)
         S_ran = self.comm.allreduce(S_ran)
+        W_ran = self.comm.allreduce(W_ran)
 
         # paint the data
         for [position, nbar, fkp_weight, comp_weight] in self.read('data', columns):
@@ -674,13 +677,16 @@ class FKPCatalog(object):
             A_data += (nbar*comp_weight*fkp_weight**2).sum()
             N_data += Nlocal 
             S_data += (weight**2).sum()
+            W_data += comp_weight.sum()
             
         A_data = self.comm.allreduce(A_data)
         N_data = self.comm.allreduce(N_data)
         S_data = self.comm.allreduce(S_data)
+        W_data = self.comm.allreduce(W_data)
 
         # store the stats (see equations 13-15 of Beutler et al 2013)
         # see equations 13-15 of Beutler et al 2013
+        stats['W_data'] = W_data; stats['W_ran'] = W_ran
         stats['N_data'] = N_data; stats['N_ran'] = N_ran
         stats['A_data'] = A_data; stats['A_ran'] = A_ran
         stats['S_data'] = S_data; stats['S_ran'] = S_ran
