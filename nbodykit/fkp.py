@@ -374,7 +374,7 @@ class FKPCatalog(object):
             self.mean_coordinate_offset = None
             
         # broadcast the results that rank 0 computed
-        if self.BoxSize is None: self.BoxSize = self.comm.bcast(self.BoxSize)
+        self.BoxSize                = self.comm.bcast(self.BoxSize)
         self.mean_coordinate_offset = self.comm.bcast(self.mean_coordinate_offset)
     
         # log some info
