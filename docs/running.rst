@@ -9,10 +9,22 @@ of the script in the usual way:
 
     python bin/nbkit.py -h
     
+The intended usage is:
+
+.. code-block:: bash
+
+    python bin/nbkit.py AlgorithmName ConfigFilename
+    
 The first argument gives the name of the algorithm plugin that the user wishes to execute, 
 while the second argument gives the name of the file to read configuration parameters
 from (if no file name is given, the script will read from standard input). For a
 discussion of the parsing of configuration files, see `Writing configuration files`_.
+
+.. note::
+    
+    If no configuration file is supplied to ``nbkit.py``, the code will attempt to 
+    read the configuration file from standard input. See `Reading configuration from stdin`_
+    for further details.
 
 The ``nbkit.py`` script also provides an interface for getting help on extension points
 and individual plugins. A list of the configuration parameters for the built-in plugins of 
@@ -181,6 +193,20 @@ arguments are:
     help(Cosmology.__init__)
     
 
+Reading configuration from stdin
+-----------------------------------------
+
+If no configuration file name is supplied to ``nbkit.py``, the code will attempt
+to read the configuration from standard input. Note that the syntax for passing 
+information via standard input varies by operating system and shell type, and 
+may not be supported for all operating systems. 
+
+An example of such a usage is given in the ``examples/batch`` directory and is listed below:
+
+.. literalinclude:: ../examples/batch/test_stdin.sh
+    :language: bash
+
+
 Running in batch mode
 ---------------------
 
@@ -201,6 +227,12 @@ The idea here is that a "template" configuration file can be passed to ``nbkit-b
 and this file should contain special keys that will be formatted using :meth:`str.format` syntax when iterating
 through a set of configuration files. The names of these keys and the desired values for the 
 keys to take when iterating can be specified by the ``-i`` option. 
+
+.. note::
+
+    The configuration template file in "batch" mode using ``nbkit-batch.py`` should be passed 
+    explicitly with a ``-c`` option, while for normal usage of ``nbkit.py``, the configuration
+    file should be passed as the second positional argument.
 
 By example
 ~~~~~~~~~~
