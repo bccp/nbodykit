@@ -9,7 +9,14 @@ class ConfigurationError(Exception):
     General exception for when configuration parsing fails
     """  
     pass
-
+    
+class EmptyConfigurationError(ConfigurationError):
+    """
+    Specific parsing error when the YAML loader does not
+    find any valid keys
+    """
+    pass
+    
 class PluginParsingError(ConfigurationError):   
     """
     Specific parsing error when the plugin fails to load from 
@@ -172,8 +179,14 @@ def ReadConfigFile(config_stream, schema):
     # read the yaml config file
     try:
         config = ordered_load(config_stream)
+        
+        # if the YAML loader returns a string or None
+        # then it failed to find any valid keys
         if isinstance(config, (str, type(None))):
-            raise Exception("no valid keys found")
+            raise EmptyConfigurationError("no valid keys found")
+    
+    except EmptyConfigurationError:
+        raise # just re-raise this type of error
     except Exception as e:
         raise ConfigurationError("error parsing YAML file: %s" %str(e))
     

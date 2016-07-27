@@ -8,6 +8,7 @@ from mpi4py import MPI
 from nbodykit.extensionpoints import Algorithm, algorithms
 from nbodykit.extensionpoints import DataSource, Transfer, Painter
 from nbodykit.pluginmanager import ListPluginsAction, load
+from nbodykit.utils.config import EmptyConfigurationError
 
 # configure the logging
 def setup_logging(log_level):
@@ -114,8 +115,9 @@ def main():
     # setup logging
     setup_logging(ns.log_level)
         
-    # configuration file passed via -c
-    if ns.config is not None:
+    # configuration file parsing
+    have_config_file = ns.config is not None
+    if have_config_file:
         # ns.config is a file object
         stream = ns.config.read()
     else:
@@ -127,10 +129,18 @@ def main():
         # on some systems, the stdin is only redirected to the root rank.
         stream = MPI.COMM_WORLD.bcast(stream)
     
-    
     # expand environment variables in the input stream
     stream = os.path.expandvars(stream)
-    params, extra = Algorithm.parse_known_yaml(alg_name, stream)
+    
+    # parse the configuration file
+    # print a useful message when no valid configuration was found
+    try:
+        params, extra = Algorithm.parse_known_yaml(alg_name, stream)
+    except EmptyConfigurationError:
+        raise EmptyConfigurationError(("no configuration present; the user has two options for specifying configuration:\n"
+                                       "\t1) pass the name of the configuration file as the second positional argument\n"
+                                       "\t2) do not pass a second positional argument and the code will read the configuration from STDIN\n"
+                                       "run \"python bin/nbkit.py -h\" for further details"))
         
     # output is required
     if not hasattr(extra, 'output'):
