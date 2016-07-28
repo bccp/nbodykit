@@ -14,7 +14,7 @@ class PaintGridAlgorithm(Algorithm):
     """
     plugin_name = "PaintGrid"
     
-    def __init__(self, Nmesh, DataSource, Painter=None, paintbrush='cic', dataset='PaintGrid', Nfile=1):
+    def __init__(self, Nmesh, DataSource, Painter=None, paintbrush='cic', dataset='PaintGrid', Nfile=0):
         # combine the two fields
         self.datasource = DataSource
         if Painter is None:
@@ -91,11 +91,17 @@ class PaintGridAlgorithm(Algorithm):
         x3d = x3d.ravel()
         ind = ind.ravel()
         mpsort.sort(x3d, orderby=ind, comm=self.comm)
+        if self.Nfile == 0:
+            chunksize = 1024 * 1024 * 512
+            Nfile = (self.Nmesh * self.Nmesh * self.Nmesh + chunksize - 1)// chunksize
+        else:
+            Nfile = self.Nfile
+
         if self.comm.rank == 0:
-            self.logger.info("writing to %s/%s in %d parts" % (output, self.dataset, self.Nfile))
+            self.logger.info("writing to %s/%s in %d parts" % (output, self.dataset, Nfile))
 
         f = bigfile.BigFileMPI(self.comm, output, create=True)
-        b = f.create_from_array(self.dataset, x3d, Nfile=self.Nfile)
+        b = f.create_from_array(self.dataset, x3d, Nfile=Nfile)
         b.attrs['ndarray.shape'] = numpy.array([self.Nmesh, self.Nmesh, self.Nmesh], dtype='i8')
         b.attrs['BoxSize'] = numpy.array(self.datasource.BoxSize, dtype='f8')
         b.attrs['Nmesh'] = self.Nmesh
