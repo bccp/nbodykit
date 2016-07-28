@@ -14,7 +14,7 @@ class PaintGridAlgorithm(Algorithm):
     """
     plugin_name = "PaintGrid"
     
-    def __init__(self, Nmesh, DataSource, Painter=None, paintbrush='cic', dataset='PaintGrid'):
+    def __init__(self, Nmesh, DataSource, Painter=None, paintbrush='cic', dataset='PaintGrid', Nfile=1):
         # combine the two fields
         self.datasource = DataSource
         if Painter is None:
@@ -38,6 +38,7 @@ class PaintGridAlgorithm(Algorithm):
             help='the Painter; run `nbkit.py --list-painters` for all options')
 
         s.add_argument('dataset', help="name of dataset to write to")
+        s.add_argument('Nfile', required=False, help="number of files")
 
         s.add_argument('paintbrush', type=lambda x: x.lower(), choices=['cic', 'tsc'],
             help='the density assignment kernel to use when painting; '
@@ -91,10 +92,10 @@ class PaintGridAlgorithm(Algorithm):
         ind = ind.ravel()
         mpsort.sort(x3d, orderby=ind, comm=self.comm)
         if self.comm.rank == 0:
-            self.logger.info("writing to %s" % output)
+            self.logger.info("writing to %s/%s in %d parts" % (output, self.dataset, self.Nfile))
 
         f = bigfile.BigFileMPI(self.comm, output, create=True)
-        b = f.create_from_array(self.dataset, x3d, Nfile=1)
+        b = f.create_from_array(self.dataset, x3d, Nfile=self.Nfile)
         b.attrs['ndarray.shape'] = numpy.array([self.Nmesh, self.Nmesh, self.Nmesh], dtype='i8')
         b.attrs['BoxSize'] = numpy.array(self.datasource.BoxSize, dtype='f8')
         b.attrs['Nmesh'] = self.Nmesh
