@@ -33,11 +33,9 @@ class FiberCollisionsAlgorithm(Algorithm):
         if self.comm.rank == 0: 
             self.logger.info("collision radius in degrees = %.4f" %collision_radius)
             
-        # create the random state from the global seed and comm size
-        if self.seed is not None:
-            self.random_state = utils.local_random_state(self.seed, self.comm)
-        else:
-            self.random_state = numpy.random
+        # create the local random seed from the global seed and comm size
+        self.local_seed = utils.local_random_seed(self.seed, self.comm)
+        self.logger.info("local_seed = %d" %self.local_seed)
         
     @classmethod
     def register(cls):
@@ -73,6 +71,7 @@ class FiberCollisionsAlgorithm(Algorithm):
                     on the sky (0-indexed), else it is set to -1
         """
         from nbodykit import fof
+        from astropy.utils.misc import NumpyRNGContext
         
         # open a persistent cache
         with self.datasource.keep_cache():
@@ -83,7 +82,8 @@ class FiberCollisionsAlgorithm(Algorithm):
             labels = fof.fof(self.datasource, self._collision_radius_rad, 1, comm=self.comm)
 
             # assign the fibers (in parallel)
-            collided, neighbors = self._assign_fibers(labels)
+            with NumpyRNGContext(self.local_seed):
+                collided, neighbors = self._assign_fibers(labels)
     
         # all reduce to get summary statistics
         N_pop1 = self.comm.allreduce((collided^1).sum())
@@ -163,7 +163,10 @@ class FiberCollisionsAlgorithm(Algorithm):
             
             # pairs (random selection)
             if N == 2:
-                which = self.random_state.choice([0,1])
+                
+                # randomly choose, with fixed local seed
+                which = numpy.random.choice([0,1])
+                    
                 indices = [start+which, start+(which^1)]
                 PIG2['Collided'][indices] = [1, 0]
                 PIG2['NeighborID'][indices] = [PIG2['Index'][start+(which^1)], -1]
@@ -219,7 +222,9 @@ class FiberCollisionsAlgorithm(Algorithm):
             # remove object that has most # of collisions 
             # and those colliding objects have least # of collisions
             idx = numpy.where(n_collisions == n_collisions.max())[0]
-            ii = self.random_state.choice(numpy.where(n_other[idx] == n_other[idx].min())[0])
+            
+            # choose randomly, with a fixed local seed
+            ii = numpy.random.choice(numpy.where(n_other[idx] == n_other[idx].min())[0])
             collided_index = idx[ii]  
     
             # make the collided galaxy and remove from group
