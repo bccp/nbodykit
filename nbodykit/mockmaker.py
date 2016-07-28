@@ -1,7 +1,7 @@
 import numpy
 from nbodykit.utils.meshtools import SlabIterator
-
-def make_gaussian_fields(pm, linear_power, compute_displacement=False, random_state=None):
+        
+def make_gaussian_fields(pm, linear_power, compute_displacement=False):
     r"""
     Make a Gaussian realization of a overdensity field, :math:`\delta(x)`
     
@@ -54,8 +54,6 @@ def make_gaussian_fields(pm, linear_power, compute_displacement=False, random_st
     compute_displacement : bool, optional
         if ``True``, also return the linear Zel'dovich displacement field; 
         default is ``False``
-    random_state : numpy.random.RandomState, optional
-        the random state used to draw normally distributed random variates
     
     Returns
     -------
@@ -63,11 +61,9 @@ def make_gaussian_fields(pm, linear_power, compute_displacement=False, random_st
         the real-space Gaussian overdensity field
     disp : array_like or ``None``
         if requested, the Gaussian displacement field
-    """  
-    if random_state is None: random_state = numpy.random
-              
+    """            
     # assign Gaussian rvs with mean 0 and unit variance
-    pm.real[:] = random_state.normal(size=pm.real.shape)
+    pm.real[:] = numpy.random.normal(size=pm.real.shape)
     
     # initialize the displacement field arrays
     if compute_displacement:
@@ -150,7 +146,7 @@ def lognormal_transform(density, bias=1.):
     return toret
     
     
-def poisson_sample_to_points(delta, displacement, pm, nbar, rsd=None, f=0., bias=1., random_state=None):
+def poisson_sample_to_points(delta, displacement, pm, nbar, rsd=None, f=0., bias=1.):
     """
     Poisson sample the linear delta and displacement fields to points. 
     
@@ -180,16 +176,12 @@ def poisson_sample_to_points(delta, displacement, pm, nbar, rsd=None, f=0., bias
         strength of the RSD; default is 0. (no RSD)
     bias : float, optional
         apply a linear bias to the overdensity field (default is 1.)
-    random_state : numpy.random.RandomState, optional
-        the random state used to perform the Poisson sampling
     
     Returns
     -------
     pos : array_like, (N, 3)
         the Cartesian positions of the particles in the box     
     """
-    if random_state is None: random_state = numpy.random
-    
     # apply the lognormal transformatiom to the initial conditions density
     # this creates a positive-definite delta (necessary for Poisson sampling)
     lagrangian_bias = bias - 1.
@@ -203,7 +195,7 @@ def poisson_sample_to_points(delta, displacement, pm, nbar, rsd=None, f=0., bias
     cellmean = delta*overallmean
     
     # number of objects in each cell
-    N = random_state.poisson(cellmean)
+    N = numpy.random.poisson(cellmean)
     Ntot = N.sum()
     pts = N.nonzero() # indices of nonzero points
     
@@ -229,9 +221,9 @@ def poisson_sample_to_points(delta, displacement, pm, nbar, rsd=None, f=0., bias
     z += offset[2]
     
     # coordinates of each object (placed randomly in each cell)
-    x = numpy.repeat(x, N[pts]) + random_state.uniform(0, H[0], size=Ntot)
-    y = numpy.repeat(y, N[pts]) + random_state.uniform(0, H[1], size=Ntot)
-    z = numpy.repeat(z, N[pts]) + random_state.uniform(0, H[2], size=Ntot)
+    x = numpy.repeat(x, N[pts]) + numpy.random.uniform(0, H[0], size=Ntot)
+    y = numpy.repeat(y, N[pts]) + numpy.random.uniform(0, H[1], size=Ntot)
+    z = numpy.repeat(z, N[pts]) + numpy.random.uniform(0, H[2], size=Ntot)
     
     # enforce periodic and stack
     x %= pm.BoxSize[0]

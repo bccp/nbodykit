@@ -3,9 +3,9 @@ General utility functions
 """
 import numpy
 
-def local_random_state(seed, comm):
+def local_random_seed(seed, comm):
     """
-    Return a random state for the local rank, 
+    Return a random seed for the local rank, 
     which is seeded by the global `seed`
     
     Notes
@@ -19,12 +19,17 @@ def local_random_state(seed, comm):
     
     Parameters
     ----------
-    seed : int
+    seed : int, None
         the global seed, used to seed the local random state
     comm : MPI.Communicator
         the MPI communicator
+    
+    Returns
+    -------
+    int : 
+        a integer appropriate for seeding the local random state
     """ 
-    # create the global random state
+    # create a global random state
     rng = numpy.random.RandomState(seed)
     
     # use the global seed to seed all ranks
@@ -32,7 +37,7 @@ def local_random_state(seed, comm):
     seeds = rng.randint(0, 4294967295, size=comm.size)
     
     # choose the right local seed for this rank
-    return numpy.random.RandomState(seeds[comm.rank])
+    return seeds[comm.rank]
     
 def timer(start, end):
     """

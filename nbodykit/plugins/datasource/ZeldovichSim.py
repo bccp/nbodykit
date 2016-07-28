@@ -18,11 +18,8 @@ class ZeldovichSimDataSource(DataSource):
     
     def __init__(self, nbar, redshift, BoxSize, Nmesh, bias=2., rsd=None, seed=None):        
         
-        # create the random state from the global seed and comm size
-        if self.seed is not None:
-            self.random_state = utils.local_random_state(self.seed, self.comm)
-        else:
-            self.random_state = numpy.random
+        # create the local random seed from the global seed and comm size
+        self.local_seed = utils.local_random_seed(self.seed, self.comm)
         
         # crash if no cosmology provided
         if self.cosmo is None:
@@ -64,6 +61,7 @@ class ZeldovichSimDataSource(DataSource):
         # the other imports
         from nbodykit import mockmaker
         from pmesh.particlemesh import ParticleMesh
+        from astropy.utils.misc import NumpyRNGContext
         
         # initialize the CLASS parameters 
         pars = classylss.ClassParams.from_astropy(self.cosmo.engine)
@@ -79,13 +77,16 @@ class ZeldovichSimDataSource(DataSource):
         # the particle mesh for gridding purposes
         pm = ParticleMesh(self.BoxSize, self.Nmesh, dtype='f4', comm=self.comm)
         
-        # compute the linear overdensity and displacement fields
-        delta, disp = mockmaker.make_gaussian_fields(pm, Plin, random_state=self.random_state, compute_displacement=True)
+        # generate initialize fields and Poisson sample with fixed local seed
+        with NumpyRNGContext(self.local_seed):
         
-        # sample to Poisson points
-        f = cosmo.f_z(self.redshift) # growth rate to do RSD in the Zel'dovich approx
-        kws = {'rsd':self.rsd, 'f':f, 'bias':self.bias, 'random_state':self.random_state}
-        pos = mockmaker.poisson_sample_to_points(delta, disp, pm, self.nbar, **kws)
+            # compute the linear overdensity and displacement fields
+            delta, disp = mockmaker.make_gaussian_fields(pm, Plin, compute_displacement=True)
+        
+            # sample to Poisson points
+            f = cosmo.f_z(self.redshift) # growth rate to do RSD in the Zel'dovich approx
+            kws = {'rsd':self.rsd, 'f':f, 'bias':self.bias}
+            pos = mockmaker.poisson_sample_to_points(delta, disp, pm, self.nbar, **kws)
 
         # yield position
         yield [pos if col == 'Position' else None for col in columns]

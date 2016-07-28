@@ -15,12 +15,9 @@ class UniformBoxDataSource(DataSource):
     
     def __init__(self, N, BoxSize, max_speed=500., mu_logM=13.5, sigma_logM=0.5, seed=None):        
         
-        # create the random state from the global seed and comm size
-        if self.seed is not None:
-            self.random_state = utils.local_random_state(self.seed, self.comm)
-        else:
-            self.random_state = numpy.random
-            
+        # create the local random seed from the global seed and comm size
+        self.local_seed = utils.local_random_seed(self.seed, self.comm)
+
     @classmethod
     def register(cls):
         
@@ -47,14 +44,22 @@ class UniformBoxDataSource(DataSource):
             `Velocity` : uniformly distributed between ``+/- max_speed``
             `LogMass`  : normally distributed with mean `mu_logM` and std dev `sigma_logM`
             `Mass`     : values corresponding to 10**`LogMass` 
-        """            
+        """   
+        # helpful astropy random number utility
+        from astropy.utils.misc import NumpyRNGContext
+
+        # the return dictionary and shape
         toret = {}
         shape = (self.N, 3)
-        
-        toret['Position'] = self.random_state.uniform(size=shape) * self.BoxSize
-        toret['Velocity'] = 2*self.max_speed * self.random_state.uniform(size=shape) - self.max_speed
-        toret['LogMass']  = self.random_state.normal(loc=self.mu_logM, scale=self.sigma_logM, size=self.N)
-        toret['Mass']     = 10**(toret['LogMass'])
+
+        # ensure that each call to readall generates random numbers
+        # seeded by `local_seed`
+        with NumpyRNGContext(self.local_seed):
+            
+            toret['Position'] = numpy.random.uniform(size=shape) * self.BoxSize
+            toret['Velocity'] = 2*self.max_speed * numpy.random.uniform(size=shape) - self.max_speed
+            toret['LogMass']  = numpy.random.normal(loc=self.mu_logM, scale=self.sigma_logM, size=self.N)
+            toret['Mass']     = 10**(toret['LogMass'])
         
         return toret
 

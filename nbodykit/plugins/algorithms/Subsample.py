@@ -38,6 +38,7 @@ class Subsample(Algorithm):
         from pmesh.particlemesh import ParticleMesh
         from mpi4py import MPI
         import mpsort
+        from astropy.utils.misc import NumpyRNGContext
         
         pm = ParticleMesh(self.datasource.BoxSize, self.Nmesh, dtype='f4', comm=self.comm)
         if self.smoothing is None:
@@ -82,7 +83,7 @@ class Subsample(Algorithm):
             pm.transfer([Smoothing, NormalizeDC])
             pm.c2r()
             columns = ['Position', 'ID', 'Velocity']
-            random_state = utils.local_random_state(self.seed, self.comm)
+            local_seed = utils.local_random_seed(self.seed, self.comm)
         
             dtype = numpy.dtype([
                     ('Position', ('f4', 3)),
@@ -95,7 +96,9 @@ class Subsample(Algorithm):
 
             with self.datasource.open() as stream:
                 for Position, ID, Velocity in stream.read(columns):
-                    u = random_state.uniform(size=len(ID))
+                    
+                    with NumpyRNGContext(local_seed):
+                        u = numpy.random.uniform(size=len(ID))
                     keep = u < self.ratio
                     Nkeep = keep.sum()
                     if Nkeep == 0: continue 
