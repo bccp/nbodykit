@@ -1,7 +1,7 @@
 from pytest_pipeline import PipelineRun, mark
-from . import os, sys, pytest
-from . import verify_data_in_cache, cache_dir
-from .. import bin_dir, pkg_dir
+from .. import verify_data_in_cache, cache_dir
+from .. import os, sys, pytest
+from ... import bin_dir, pkg_dir
 import platform
 
 def skip_fedora(test):

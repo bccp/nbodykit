@@ -1,4 +1,5 @@
-from . import os, asserts, unittest, pytest, download_results_file
+from . import os, unittest, pytest, download_results_file
+from .utils import asserts
 from .. import pkg_dir
 import numpy
         

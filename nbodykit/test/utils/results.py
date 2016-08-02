@@ -1,5 +1,5 @@
-from . import os, cache_dir
-from .. import pkg_dir
+from .. import os, cache_dir
+from ... import pkg_dir
 
 def get_result_paths(output_file):
     """
