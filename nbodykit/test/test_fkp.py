@@ -169,7 +169,7 @@ class TestFKP(unittest.TestCase):
         
         # wrong number of columns
         with tempfile.NamedTemporaryFile() as ff:
-            ff.write("0 0 0 0 0 0 0\n0 0 0 0 0 0 0\n"); ff.seek(0)
+            ff.write(("0 0 0 0 0 0 0\n0 0 0 0 0 0 0\n").encode()); ff.seek(0)
             with pytest.raises(ValueError):
                 catalog = FKPCatalog(data, randoms, nbar=ff.name)
                 
