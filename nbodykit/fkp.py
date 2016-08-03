@@ -1,13 +1,22 @@
+import os
 import numpy
 import logging
-import os
+import warnings
 from contextlib import contextmanager
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 
+from nbodykit.extern import six
 from nbodykit.extensionpoints import DataSource, Painter, algorithms
 from nbodykit.distributedarray import GatherArray
 
 logger = logging.getLogger('FKPCatalog')
+
+def is_float(s):
+    """
+    Determine if a string can be cast safely to a float
+    """
+    try: float(s); return True
+    except ValueError: return False
 
 class FKPCatalog(object):
     """
@@ -133,7 +142,7 @@ class FKPCatalog(object):
         """
         try:
             return self._fsky
-        except:
+        except AttributeError:
             cls = self.__class__.__name__
             raise AttributeError("'%s' object has no attribute 'fsky'" %cls)
             
@@ -151,12 +160,8 @@ class FKPCatalog(object):
         Explicitly keep track of the `data` DataSource, in order to track 
         the total number of objects
         """
-        try:
-            return self._data
-        except:
-            cls = self.__class__.__name__
-            raise AttributeError("'%s' object has no attribute 'data'" %cls)
-        
+        return self._data
+
     @data.setter
     def data(self, val):
         """
@@ -173,6 +178,9 @@ class FKPCatalog(object):
                     self.data_stream.close()
                     del self.data_stream
                     del self.alpha
+                    
+                self._data = val
+                self.data_stream = self._data.open(defaults=self.default_columns)
             else:
                 self._data = val
     
@@ -227,14 +235,9 @@ class FKPCatalog(object):
         """
         if not hasattr(self, 'data_stream'):
             return True
-        elif self.data_stream.closed:
-            return True
-            
         if not hasattr(self, 'randoms_stream'):
             return True
-        elif self.randoms_stream.closed:
-            return True
-        
+            
         return False
         
     @property
@@ -259,8 +262,8 @@ class FKPCatalog(object):
         if val is not None:
             
             # input is an existing file
-            if isinstance(val, str) and os.path.exists(val):
-                
+            if isinstance(val, six.string_types) and os.path.exists(val):
+                    
                 # read from the file
                 try:
                     d = numpy.loadtxt(val)
@@ -268,16 +271,22 @@ class FKPCatalog(object):
                     # columns are z, n(z)
                     if d.shape[1] == 2:
                         self._nbar = spline(d[:,0], d[:,1])
-                    
+                
                     # columns are z_min, z_max, z_cen, n(z)
                     elif d.shape[1] == 4:
                         self._nbar = spline(d[:,-2], d[:,-1])
-                    self._nbar.need_redshift = True
+                    
+                    # wrong number of columns
+                    else:
+                        raise
                 except:
-                    raise ValueError("cannot initialize `n(z)` spline from file '%s'" %val)
+                    raise ValueError("n(z) file should specify either: [z, n(z)] or [z_min, z_max, z_cen, n(z)]")
+            
+                # redshift is required for the n(z) spline
+                self._nbar.need_redshift = True
             
             # input is a float, specifying the constant nbar
-            elif numpy.isscalar(val):
+            elif isinstance(val, six.string_types) and is_float(val) or numpy.isscalar(val):
                 val = float(val)
                 
                 def constant_nbar(redshift):
@@ -289,7 +298,7 @@ class FKPCatalog(object):
             else:
                 msg = ("error setting ``nbar`` parameter from input value; should "
                        " be either the name of a file, or a float value if n(z) is constant")
-                raise ValueError(msg)
+                raise TypeError(msg)
         else:
             self._nbar = None
                      
@@ -321,7 +330,9 @@ class FKPCatalog(object):
             except DataSource.MissingColumn:
                 self.randoms_nbar = None
             except Exception as e:
-                logger.warning("an exception occurred while computing randoms n(z)")
+                warn = "an exception occurred while computing randoms n(z)"
+                logger.warning(warn)
+                warnings.warn(warn, RuntimeWarning)
                 self.randoms_nbar = None
     
     def _put_randoms_in_box(self):
@@ -420,11 +431,10 @@ class FKPCatalog(object):
         if self.nbar is not None:
             
             # fail if we need redshift and don't have it
-            if self.nbar.need_redshift:
-                if default_z:
-                    cls = self.__class__.__name__
-                    raise ValueError("`n(z)` calculation requires redshift "
-                                     "but '%s' DataSource in %s does not support `Redshift` column" %(name, cls))
+            if self.nbar.need_redshift and default_z:
+                cls = self.__class__.__name__
+                raise DataSource.MissingColumn("`n(z)` calculation requires redshift "
+                                                "but '%s' DataSource in %s does not support `Redshift` column" %(name, cls))
             
             # get the array of nbar (len == len(redshift))
             nbar = self.nbar(redshift)
@@ -435,8 +445,8 @@ class FKPCatalog(object):
             # crash if we don't have redshift
             if default_z:
                 cls = self.__class__.__name__
-                raise ValueError("`n(z)` calculation requires redshift "
-                                 "but '%s' DataSource in %s does not support `Redshift` column" %(name, cls))
+                raise DataSource.MissingColumn("`n(z)` calculation requires redshift "
+                                                "but '%s' DataSource in %s does not support `Redshift` column" %(name, cls))
         
             # need an explicit 'fsky' to compute the volume in n(z)
             if not hasattr(self, 'fsky'):
@@ -557,7 +567,10 @@ class FKPCatalog(object):
         -------
         list of arrays
             the list of the data arrays for each column in ``columns``
-        """   
+        """ 
+        if self.closed:
+            raise ValueError("'read' operation on a closed FKPCatalog")
+              
         # check valid columns
         valid = ['Position'] + list(self.default_columns.keys())
         if any(col not in valid for col in columns):
@@ -585,10 +598,11 @@ class FKPCatalog(object):
             if lim.any():
                 out_of_bounds = lim.any(axis=1).sum()
                 args = (out_of_bounds, name, self.BoxSize)
-                errmsg = ("%d '%s' particles have positions outside of the box when using a BoxSize of %s" %args)
-                logger.warning(errmsg)
+                warn = ("%d '%s' particles have positions outside of the box when using a BoxSize of %s" %args)
+                logger.warning(warn)
                 logger.warning(("the positions of out-of-bounds particles are periodically wrapped into "
                                  "the box domain -- the resulting behavior is undefined"))
+                warnings.warn(warn, RuntimeWarning)
 
             # get the number density array
             nbar = self._get_nbar_array(name, stream, redshift, nbar)
