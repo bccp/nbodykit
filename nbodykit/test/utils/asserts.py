@@ -1,4 +1,4 @@
-from . import os, cache_dir
+from .. import os, cache_dir
 from . import results
 
 def assert_numpy_allclose(this, ref, **kws):

@@ -48,7 +48,7 @@ class RedshiftHistogramAlgorithm(Algorithm):
     """
     plugin_name = "RedshiftHistogram"
 
-    def __init__(self, datasource, bins=None, fsky=1.0):
+    def __init__(self, datasource, bins=None, fsky=1.0, weight_col='Weight'):
         
         # set the cosmology
         self.cosmo = datasource.cosmo
@@ -68,6 +68,8 @@ class RedshiftHistogramAlgorithm(Algorithm):
             help=('the input redshift bins, specified as either as an integer or sequence of floats'))
         s.add_argument('fsky', type=float, 
             help='the sky area fraction, used in the volume calculation for `n(z)`')
+        s.add_argument('weight_col', type=str, 
+            help='the name of the column to use as a weight')
                                 
     def run(self):
         """
@@ -82,18 +84,21 @@ class RedshiftHistogramAlgorithm(Algorithm):
         nz : array_like
             the n(z_cen) value
         """        
-        # read the `Redshift` column
-        redshift = []
-        with self.datasource.open() as stream:
-            for [z] in stream.read(['Redshift'], full=False):
+        # read the `Redshift` and `Weight` columns
+        redshift = []; weights = []
+        with self.datasource.open(defaults={self.weight_col:1.}) as stream:
+            
+            for [z, weight] in stream.read(['Redshift', self.weight_col], full=False):
                 if len(z):
                     if not stream.isdefault('Redshift', z):
                         redshift += list(z)
+                        weights += list(weight)
                     else:
                         raise DataSource.MissingColumn("no ``Redshift`` column in input DataSource")
         
         # gather to root and avoid MPI pickling limits
         redshift = GatherArray(numpy.array(redshift), self.comm, root=0)
+        weights  = GatherArray(numpy.array(weights), self.comm, root=0)
         
         # root computes n(z)
         if self.comm.rank == 0:
@@ -107,8 +112,9 @@ class RedshiftHistogramAlgorithm(Algorithm):
             else:
                 zbins = self.bins
                 
+            # do the bin count, using the specified weight values
             dig = numpy.searchsorted(zbins, redshift, "right")
-            N = numpy.bincount(dig, minlength=len(zbins)+1)[1:-1]
+            N = numpy.bincount(dig, weights=weights, minlength=len(zbins)+1)[1:-1]
         
             # compute the volume
             R_hi = self.cosmo.comoving_distance(zbins[1:])

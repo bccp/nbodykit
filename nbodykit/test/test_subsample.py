@@ -1,5 +1,6 @@
-from .pipeline import RunAlgorithm, add_run_fixture
-from . import os, asserts, unittest, results
+from .utils.pipeline import RunAlgorithm, add_run_fixture
+from .utils import asserts, results
+from . import os, unittest
 from .. import examples_dir
 
 class RunSubsampleAlgorithm(RunAlgorithm):

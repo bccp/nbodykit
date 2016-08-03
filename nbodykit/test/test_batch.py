@@ -1,5 +1,6 @@
-from .pipeline import RunAlgorithm, add_run_fixture, skip_fedora
-from . import os, asserts, unittest
+from .utils.pipeline import RunAlgorithm, add_run_fixture, skip_fedora
+from .utils import asserts
+from . import os, unittest
 from .. import examples_dir, bin_dir
 
 class RunBatchAlgorithm(RunAlgorithm):
