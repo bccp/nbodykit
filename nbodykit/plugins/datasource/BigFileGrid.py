@@ -46,12 +46,12 @@ class BigFileGridSource(GridSource):
                 [ numpy.arange(s, s + n)
                   for s, n in zip(pm.partition.local_i_start,
                                 pm.real.shape)
-                ], [Nmesh, Nmesh, Nmesh])
+                ], [self.Nmesh, self.Nmesh, self.Nmesh])
 
         with f[self.dataset] as ds:
-            start, end = mpsort.globalrange(ind, self.comm)
+            start, end = mpsort.globalrange(ind.flat, self.comm)
             data = ds[start:end]
-            mpsort.permute(data, ind.flat, out=pm.real.flat, self.comm)
+            mpsort.permute(data, ind.flat, self.comm, out=pm.real.flat)
 
     def resampleread(self, pm):
         oldpm = ParticleMesh(self.BoxSize, self.Nmesh, dtype='f4', comm=self.comm)
