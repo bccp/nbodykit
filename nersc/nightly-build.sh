@@ -25,7 +25,7 @@ update_tarball()
     if [ -f $install_dir/$tarball ]; then 
         tar -xf $install_dir/$tarball
         pkgdir=$(find . -name 'site-packages')
-        pip_output=$(MPICC=cc PYTHONPATH=$pkgdir PYTHONUSERBASE=$pkgdir $pip_cmd)
+        pip_output=$(MPICC=cc PYTHONPATH=$pkgdir:$PYTHONPATH PYTHONUSERBASE=$pkgdir $pip_cmd)
     else
         # no tarball so ignore any installed packages with additional -I flag
         pip_output=$(MPICC=cc $pip_cmd -I)
