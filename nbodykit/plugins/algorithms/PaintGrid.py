@@ -16,15 +16,15 @@ class PaintGridAlgorithm(Algorithm):
     """
     plugin_name = "PaintGrid"
     
-    def __init__(self, Nmesh, DataSource, Painter=None, paintbrush='cic', outputNmesh=None, dataset='PaintGrid', Nfile=0, writeFourier=False):
+    def __init__(self, Nmesh, DataSource, Painter=None, paintbrush='cic', paintNmesh=None, dataset='PaintGrid', Nfile=0, writeFourier=False):
         # combine the two fields
         self.datasource = DataSource
         if Painter is None:
             Painter = Painter.create("DefaultPainter")
         self.painter = Painter
         self.dataset = dataset
-        if outputNmesh is None:
-            self.outputNmesh = self.Nmesh
+        if paintNmesh is None:
+            self.paintNmesh = self.Nmesh
 
     @classmethod
     def register(cls):
@@ -44,8 +44,8 @@ class PaintGridAlgorithm(Algorithm):
         s.add_argument('dataset', help="name of dataset to write to")
         s.add_argument('Nfile', required=False, help="number of files")
         s.add_argument('writeFourier', type=bool, required=False, help="Write complex Fourier modes instead?")
-        s.add_argument('outputNmesh', type=int, required=False,
-                    help="The output Nmesh. The grid will be Fourier resampled. Missing modes filled with zero. Extra modes truncated.")
+        s.add_argument('paintNmesh', type=int, required=False,
+                    help="The painting Nmesh. The grid will be Fourier resampled to Nmesh before output. A value larger than Nmesh can reduce grid artifacts.")
         s.add_argument('paintbrush', type=lambda x: x.lower(), choices=['cic', 'tsc'],
             help='the density assignment kernel to use when painting; '
                  'CIC (2nd order) or TSC (3rd order)')
@@ -61,7 +61,7 @@ class PaintGridAlgorithm(Algorithm):
             self.logger.info('importing done')
 
         # setup the particle mesh object, taking BoxSize from the painters
-        pm = ParticleMesh(self.datasource.BoxSize, self.Nmesh, 
+        pm = ParticleMesh(self.datasource.BoxSize, self.paintNmesh,
                             paintbrush=self.paintbrush, dtype='f4', comm=self.comm)
 
         stats = self.painter.paint(pm, self.datasource)
@@ -96,7 +96,7 @@ class PaintGridAlgorithm(Algorithm):
 
         f = bigfile.BigFileMPI(self.comm, output, create=True)
 
-        array = resampler.write(pm, self.outputNmesh, self.writeFourier)
+        array = resampler.write(pm, self.Nmesh, self.writeFourier)
 
         b = f.create_from_array(self.dataset, array, Nfile=Nfile)
 
