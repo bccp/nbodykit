@@ -6,9 +6,10 @@ DataSource:
    plugin: BigFileGrid
    path: ${NBKIT_CACHE}/data/bigfile_grid
    dataset: PaintGrid
+
+Painter:
+   plugin: DefaultPainter
    normalize : true
    fk : exp(- 0.5 * (k * 8) ** 2)
    frho : (rho - 1) ** 2
-Painter:
-   plugin: DefaultPainter
 
