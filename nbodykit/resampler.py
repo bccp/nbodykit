@@ -33,6 +33,8 @@ def read(pm, ds, Nmesh, isfourier):
             downsample(pmsrc, pm)
         else:
             upsample(pmsrc, pm)
+
+        pm.c2r()
     else:
         directread(pm, ds, Nmesh, isfourier)
 
@@ -77,7 +79,6 @@ def write(pm, Nmesh, isfourier):
 
 def directread(pm, ds, Nmesh, isfourier):
     assert Nmesh == pm.Nmesh
-
     if isfourier:
         ind = build_index(
                 [ numpy.arange(s, s + n)
