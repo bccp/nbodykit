@@ -62,7 +62,7 @@ class BigFileGridSource(GridSource):
 
         oldpm.r2c()
 
-        if self.Nmesh >= pm.Nmesh:
+        if self.Nmesh > pm.Nmesh:
             downsample(oldpm, pm)
         else:
             upsample(oldpm, pm)
@@ -72,6 +72,15 @@ class BigFileGridSource(GridSource):
 def upsample(pmsrc, pmdest):
     import mpsort
     assert pmdest.Nmesh >= pmsrc.Nmesh
+
+    ind = build_index(
+            [ numpy.arange(s, s + n)
+              for s, n in zip(pmsrc.partition.local_o_start,
+                            pmsrc.complex.shape)
+            ], [pmsrc.Nmesh, pmsrc.Nmesh, pmsrc.Nmesh // 2 + 1])
+
+    mpsort.sort(pmsrc.complex.flat, orderby=ind.flat, comm=pmsrc.comm)
+
     # indtable stores the index in pmsrc for the mode in pmdest
     # since pmdest > pmsrc, some items are -1
     indtable = reindex(pmsrc.Nmesh, pmdest.Nmesh)
