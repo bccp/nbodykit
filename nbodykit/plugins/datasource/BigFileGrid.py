@@ -20,8 +20,17 @@ class BigFileGridSource(GridSource):
         self.path = path
         with f[self.dataset] as d:
             self.BoxSize = d.attrs['BoxSize']
-            self.Nmesh = d.attrs['Nmesh'][0]
-            self.Ntot = d.attrs['Ntot'][0]
+            self.Nmesh = int(d.attrs['Nmesh'][0])
+            if 'Ntot' in d.attrs:
+                self.Ntot = d.attrs['Ntot'][0]
+            else:
+                self.Ntot = 0
+
+            # Is this a complex field or a real field?
+            if d.dtype.kind == 'c':
+                self.isfourier = True
+            else:
+                self.isfourier = False
 
     @classmethod
     def register(cls):
@@ -44,24 +53,36 @@ class BigFileGridSource(GridSource):
         import mpsort
         f = bigfile.BigFileMPI(self.comm, self.path)
 
-        ind = build_index(
-                [ numpy.arange(s, s + n)
-                  for s, n in zip(pm.partition.local_i_start,
-                                pm.real.shape)
-                ], [self.Nmesh, self.Nmesh, self.Nmesh])
-
-        with f[self.dataset] as ds:
+        if self.isfourier:
+            ind = build_index(
+                    [ numpy.arange(s, s + n)
+                      for s, n in zip(pm.partition.local_o_start,
+                                    pm.complex.shape)
+                    ], [self.Nmesh, self.Nmesh, self.Nmesh // 2 + 1])
             start, end = mpsort.globalrange(ind.flat, self.comm)
-            data = ds[start:end]
+            with f[self.dataset] as ds:
+                data = ds[start:end]
+            mpsort.permute(data, ind.flat, self.comm, out=pm.complex.flat)
+            # regardless, always ensure PM holds a real field.
+            pm.c2r()
+        else:
+            ind = build_index(
+                    [ numpy.arange(s, s + n)
+                      for s, n in zip(pm.partition.local_i_start,
+                                    pm.real.shape)
+                    ], [self.Nmesh, self.Nmesh, self.Nmesh])
+
+            start, end = mpsort.globalrange(ind.flat, self.comm)
+            with f[self.dataset] as ds:
+                data = ds[start:end]
             mpsort.permute(data, ind.flat, self.comm, out=pm.real.flat)
 
     def resampleread(self, pm):
-        oldpm = ParticleMesh(self.BoxSize, self.Nmesh, dtype='f4', comm=self.comm)
+        oldpm = ParticleMesh(self.BoxSize, self.Nmesh, dtype='f8', comm=self.comm)
 
         self.directread(oldpm)
 
         oldpm.r2c()
-
         if self.Nmesh > pm.Nmesh:
             downsample(oldpm, pm)
         else:
