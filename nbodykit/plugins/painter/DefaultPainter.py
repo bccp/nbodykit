@@ -16,7 +16,7 @@ class DefaultPainter(Painter):
         s.add_argument("weight", help="the column giving the weight for each object")
 
         s.add_argument("frho", type=str, help="A python expresion for transforming the real space density field. variables: rho. example: 1 + (rho - 1)**2")
-        s.add_argument("fk", type=str, help="A python expresion for transforming the fourier space density field. variables: k. example: exp(-(k * 0.5)**2). applied before frho ")
+        s.add_argument("fk", type=str, help="A python expresion for transforming the fourier space density field. variables: k, kx, ky, kz. example: exp(-(k * 0.5)**2). applied before frho ")
         s.add_argument("normalize", type=bool, help="Normalize the field to set mean == 1. Applied before fk.")
 
     def paint(self, pm, datasource):
