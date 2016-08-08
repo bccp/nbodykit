@@ -1,4 +1,5 @@
 Nmesh: 64
+paintNmesh : 128
 output: ${NBKIT_HOME}/examples/output/test_paint_grid
 nfile : 4
 DataSource:

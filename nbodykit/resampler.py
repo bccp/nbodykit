@@ -26,7 +26,7 @@ def read(pm, ds, Nmesh, isfourier):
     if Nmesh != pm.Nmesh:
         pmsrc = ParticleMesh(pm.BoxSize, Nmesh, dtype='f4', comm=pm.comm)
 
-        directread(pmsrc, ds, Nmesh, isfouier)
+        directread(pmsrc, ds, Nmesh, isfourier)
         pmsrc.r2c()
 
         if Nmesh > pm.Nmesh:
@@ -60,12 +60,14 @@ def write(pm, Nmesh, isfourier):
     """
     if Nmesh != pm.Nmesh:
         pmdest = ParticleMesh(pm.BoxSize, Nmesh, dtype='f4', comm=pm.comm)
+        pm.r2c()
 
         if Nmesh > pm.Nmesh:
-            downsample(pm, pmdest)
-        else:
             upsample(pm, pmdest)
+        else:
+            downsample(pm, pmdest)
 
+        pmdest.c2r()
         return directwrite(pmdest, Nmesh, isfourier)
     else:
         return directwrite(pm, Nmesh, isfourier)
@@ -111,7 +113,7 @@ def directwrite(pm, Nmesh, isfourier):
                                 pm.complex.shape)
                 ], [Nmesh, Nmesh, Nmesh // 2 + 1])
         start, end = mpsort.globalrange(ind.flat, pm.comm)
-        array = numpy.empty(end - start, dtype='complex64')
+        array = numpy.empty(end - start, dtype=pm.complex.dtype)
         mpsort.sort(pm.complex.flat, ind.flat, pm.comm, out=array.flat)
     else:
         ind = build_index(
@@ -120,7 +122,7 @@ def directwrite(pm, Nmesh, isfourier):
                                 pm.real.shape)
                 ], [Nmesh, Nmesh, Nmesh])
         start, end = mpsort.globalrange(ind.flat, pm.comm)
-        array = numpy.empty(end - start, dtype='float32')
+        array = numpy.empty(end - start, dtype=pm.real.dtype)
         mpsort.sort(pm.real.flat, ind.flat, comm=pm.comm, out=array.flat)
     return array
 

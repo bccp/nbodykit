@@ -35,13 +35,15 @@ class BigFileGridSource(GridSource):
     @classmethod
     def register(cls):
         s = cls.schema
-        s.description = "read gridded field data from a binary file"
+        s.description = "read gridded field data from a binary file. Fourier resampling is applied if necessary."
 
         s.add_argument("path", type=str, help="the file path to load the data from")
         s.add_argument("dataset", type=str, help="the file path to load the data from")
 
     def read(self, pm):
         import bigfile
+        if self.comm.rank == 0:
+            self.logger.info("Reading from Nmesh = %d to Nmesh = %d" %(self.Nmesh, pm.Nmesh))
 
         f = bigfile.BigFileMPI(self.comm, self.path)
         with f[self.dataset] as ds:

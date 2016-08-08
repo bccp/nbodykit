@@ -26,6 +26,11 @@ class PaintGridAlgorithm(Algorithm):
         if paintNmesh is None:
             self.paintNmesh = self.Nmesh
 
+        if self.Nfile == 0:
+            chunksize = 1024 * 1024 * 512
+            self.Nfile = (self.Nmesh * self.Nmesh * self.Nmesh + chunksize - 1)// chunksize
+
+
     @classmethod
     def register(cls):
         s = cls.schema
@@ -59,7 +64,8 @@ class PaintGridAlgorithm(Algorithm):
 
         if self.comm.rank == 0:
             self.logger.info('importing done')
-
+            self.logger.info('Resolution Nmesh : %d' % self.paintNmesh)
+            self.logger.info('paintbrush : %s' % self.paintbrush)
         # setup the particle mesh object, taking BoxSize from the painters
         pm = ParticleMesh(self.datasource.BoxSize, self.paintNmesh,
                             paintbrush=self.paintbrush, dtype='f4', comm=self.comm)
@@ -85,22 +91,19 @@ class PaintGridAlgorithm(Algorithm):
         import numpy
         pm, stats = result
 
-        if self.Nfile == 0:
-            chunksize = 1024 * 1024 * 512
-            Nfile = (self.Nmesh * self.Nmesh * self.Nmesh + chunksize - 1)// chunksize
-        else:
-            Nfile = self.Nfile
-
         if self.comm.rank == 0:
-            self.logger.info("writing to %s/%s in %d parts" % (output, self.dataset, Nfile))
+            self.logger.info('Output Nmesh : %d' % self.Nmesh)
+            self.logger.info("writing to %s/%s in %d parts" % (output, self.dataset, self.Nfile))
 
         f = bigfile.BigFileMPI(self.comm, output, create=True)
 
         array = resampler.write(pm, self.Nmesh, self.writeFourier)
 
-        b = f.create_from_array(self.dataset, array, Nfile=Nfile)
+        b = f.create_from_array(self.dataset, array, Nfile=self.Nfile)
 
         b.attrs['ndarray.shape'] = numpy.array([self.Nmesh, self.Nmesh, self.Nmesh], dtype='i8')
         b.attrs['BoxSize'] = numpy.array(self.datasource.BoxSize, dtype='f8')
         b.attrs['Nmesh'] = self.Nmesh
+        b.attrs['paintNmesh'] = self.paintNmesh
+        b.attrs['paintbrush'] = self.paintbrush
         b.attrs['Ntot'] = stats['Ntot']
