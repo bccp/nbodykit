@@ -1,5 +1,7 @@
 from nbodykit.extensionpoints import GridSource
 import numpy
+from pmesh.particlemesh import ParticleMesh
+
 class BigFileGridSource(GridSource):
     """
     Class to read field gridded data from a binary file
@@ -68,16 +70,17 @@ class BigFileGridSource(GridSource):
         pm.c2r()
 
 def upsample(pmsrc, pmdest):
+    import mpsort
     assert pmdest.Nmesh >= pmsrc.Nmesh
     # indtable stores the index in pmsrc for the mode in pmdest
     # since pmdest > pmsrc, some items are -1
-    indtable = reindex(pmdest, pmsrc)
+    indtable = reindex(pmsrc.Nmesh, pmdest.Nmesh)
 
     ind = build_index(
             [ indtable[numpy.arange(s, s + n)]
-              for s, n in zip(pm.partition.local_o_start,
-                            pm.complex.shape)
-            ], [Nmesh, Nmesh, Nmesh // 2 + 1])
+              for s, n in zip(pmdest.partition.local_o_start,
+                            pmdest.complex.shape)
+            ], [pmsrc.Nmesh, pmsrc.Nmesh, pmsrc.Nmesh // 2 + 1])
 
     pmdest.complex[:] = 0
 
@@ -91,16 +94,17 @@ def upsample(pmsrc, pmdest):
     pmdest.complex[mask] = data
 
 def downsample(pmsrc, pmdest):
+    import mpsort
     assert pmdest.Nmesh <= pmsrc.Nmesh
     # indtable stores the index in pmsrc for the mode in pmdest
     # since pmdest < pmsrc, all items are alright.
-    indtable = reindex(pmdest, pmsrc)
+    indtable = reindex(pmsrc.Nmesh, pmdest.Nmesh)
 
     ind = build_index(
             [ indtable[numpy.arange(s, s + n)]
-              for s, n in zip(pm.partition.local_o_start,
-                            pm.complex.shape)
-            ], [Nmesh, Nmesh, Nmesh // 2 + 1])
+              for s, n in zip(pmdest.partition.local_o_start,
+                            pmdest.complex.shape)
+            ], [pmsrc.Nmesh, pmsrc.Nmesh, pmsrc.Nmesh // 2 + 1])
 
     mpsort.take(pmsrc.complex.flat, ind.flat, pmsrc.comm, out=pmdest.flat)
 
@@ -130,12 +134,15 @@ def build_index(indices, fullshape):
         ind[...] *= fullshape[d]
         ind[...] += i
 
+    mask = numpy.zeros(localshape, dtype='?')
+
     # now mask out bad points by -1
     for d in range(len(indices)):
         i = indices[d]
         i = i.reshape([-1 if dd == d else 1 for dd in range(ndim)])
-        ind[i == -1] = -1
+        mask |= i == -1
 
+    ind[mask] = -1
     return ind
 
 def reindex(Nsrc, Ndest):
@@ -153,5 +160,5 @@ def reindex(Nsrc, Ndest):
     """
     reindex = numpy.arange(Ndest)
     reindex[Ndest // 2:] = numpy.arange(Nsrc - Ndest // 2, Nsrc, 1)
-    reindex[Nsrc // 2: -Nsrc //2] = -1
+    reindex[Nsrc // 2 + 1: -Nsrc //2] = -1
     return reindex
