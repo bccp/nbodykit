@@ -106,7 +106,8 @@ def downsample(pmsrc, pmdest):
                             pmdest.complex.shape)
             ], [pmsrc.Nmesh, pmsrc.Nmesh, pmsrc.Nmesh // 2 + 1])
 
-    mpsort.take(pmsrc.complex.flat, ind.flat, pmsrc.comm, out=pmdest.flat)
+    ind = ind.ravel()
+    mpsort.take(pmsrc.complex.flat, ind, pmsrc.comm, out=pmdest.complex.flat)
 
 def build_index(indices, fullshape):
     """
@@ -153,12 +154,12 @@ def reindex(Nsrc, Ndest):
 
         Example:
         >>> reindex(8, 4)
-        >>> array([0, 1, 6, 7])
+        >>> array([0, 1, 2, 7])
         >>> reindex(4, 8)
-        >>> array([ 0,  1, -1, -1, -1, -1,  2,  3])
+        >>> array([ 0,  1,  2, -1, -1, -1,  -1,  3])
 
     """
     reindex = numpy.arange(Ndest)
-    reindex[Ndest // 2:] = numpy.arange(Nsrc - Ndest // 2, Nsrc, 1)
-    reindex[Nsrc // 2 + 1: -Nsrc //2] = -1
+    reindex[Ndest // 2 + 1:] = numpy.arange(Nsrc - Ndest // 2 + 1, Nsrc, 1)
+    reindex[Nsrc // 2 + 1: Ndest -Nsrc //2 + 1] = -1
     return reindex
