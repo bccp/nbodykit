@@ -36,3 +36,18 @@ class TestPaintGrid(unittest.TestCase):
 
     def test_result(self):
         asserts.test_bigfile_result(self, 'PaintGrid')
+
+@add_run_fixture(__name__, RunPaintAlgorithm, 'PaintGrid')
+class TestPaintGrid(unittest.TestCase):
+    param_file  = "test_gridk.params"
+    output_file = "test_paint_gridk"
+    datasources = ['bigfile_gridk']
+
+    def test_exit_code(self):
+        asserts.test_exit_code(self)
+
+    def test_exception(self):
+        asserts.test_exception(self)
+
+    def test_result(self):
+        asserts.test_bigfile_result(self, 'PaintGrid')
