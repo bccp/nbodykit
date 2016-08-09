@@ -230,6 +230,10 @@ def from_binary(f, columns, chunksize=None):
         the number of particles per chunk in axis 0; if `None`, the
         memory limitations are used to infer a value
     """
+    # make sure columns is a list
+    if isinstance(columns, string_types):
+        columns = [columns]
+        
     # get default chunksize based on memory and itemsize
     if chunksize is None:
         chunksize = AUTO_BLOCKSIZE // f.dtype.itemsize
@@ -238,14 +242,12 @@ def from_binary(f, columns, chunksize=None):
     partitions = []
     start = 0; stop = chunksize
     while start < f.size:
-    
         partitions.append(delayed(f.read)(columns, start, stop))        
         start = stop
         stop = min(start+chunksize, f.size)
         
-    
     # make a dask array for all of the chunks with same size
-    dtype = [(name, f.dtype[name].subdtype) for name in f.dtype.names]
+    dtype = [(name, f.dtype[name].subdtype) for name in f.dtype.names if name in columns]
     N = f.size // chunksize
     chunks = [da.from_delayed(part, (N,), dtype) for part in partitions[:-1]]
     
