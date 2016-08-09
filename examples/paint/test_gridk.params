@@ -1,0 +1,11 @@
+Nmesh: 64
+paintNmesh : 128
+output: ${NBKIT_HOME}/examples/output/test_paint_gridk
+nfile : 4
+DataSource:
+   plugin: BigFileGrid
+   path: ${NBKIT_CACHE}/data/bigfile_gridk
+   dataset: LinearDensityK
+Painter:
+   plugin: DefaultPainter
+

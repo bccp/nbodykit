@@ -1,0 +1,10 @@
+Nmesh: 128
+output: ${NBKIT_HOME}/examples/output/test_paint_grid_128
+nfile : 4
+DataSource:
+   plugin: BigFileGrid
+   path: ${NBKIT_CACHE}/data/bigfile_grid
+   dataset: PaintGrid
+Painter:
+   plugin: DefaultPainter
+
