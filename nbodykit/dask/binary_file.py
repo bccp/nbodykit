@@ -248,8 +248,7 @@ def from_binary(f, columns, chunksize=None):
         
     # make a dask array for all of the chunks with same size
     dtype = [(name, f.dtype[name].subdtype) for name in f.dtype.names if name in columns]
-    N = f.size // chunksize
-    chunks = [da.from_delayed(part, (N,), dtype) for part in partitions[:-1]]
+    chunks = [da.from_delayed(part, (chunksize,), dtype) for part in partitions[:-1]]
     
     # add the last remainder chunk 
     N = f.size % chunksize
