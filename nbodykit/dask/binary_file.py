@@ -2,10 +2,10 @@ from glob import glob
 import os
 import numpy
 from six import string_types
-                      
+
 import dask.array as da
 from dask.delayed import delayed
-    
+  
 def getsize(filename, header_size, rowsize):
     """
     The default method to determine the size of the binary file
@@ -196,7 +196,7 @@ class BinaryFile(object):
 
         return toret[columns]
         
-    def partition(self, columns, N):
+    def partition(self, columns, chunksize):
         """
         Return a (structured) dask.array from a `BinaryFile` instance, 
         which holds the specified columns
@@ -210,28 +210,34 @@ class BinaryFile(object):
             with dask.delayed and does the heavy IO lifting
         columns : str, list of str
             a string or list of strings specifying the columns to read
-        N : int, optional
-            the number of chunks to return
+        chunksize : int, optional
+            the number of particles per chunk in axis 0; if `None`, the
+            memory limitations are used to infer a value
         """
         # make sure columns is a list
         if isinstance(columns, string_types):
             columns = [columns]
             
-        Neach_section, extras = divmod(self.size, N)
-        section_sizes = extras * [Neach_section+1] + (N-extras) * [Neach_section]
-         
         # get the delayed read function for each partition
         partitions = []
-        start = stop = 0
-        for size in section_sizes:
+        start = 0; stop = chunksize
+        while start < self.size:
+            partitions.append(delayed(self.read)(columns, start, stop))        
             start = stop
-            stop += size
-            partitions.append(delayed(self.read)(columns, start, stop))
+            stop = min(start+chunksize, self.size)
         
         # make a dask array for all of the chunks with same size
         dtype = [(name, self.dtype[name].subdtype) for name in self.dtype.names if name in columns]
-        return [da.from_delayed(part, (size,), dtype) for part, size in zip(partitions, section_sizes)]
+        chunks = [da.from_delayed(part, (chunksize,), dtype) for part in partitions[:-1]]
     
+        # add the last remainder chunk 
+        N = self.size % chunksize
+        if N > 0:
+            chunks += [da.from_delayed(partitions[-1], (N,), dtype)]
+    
+        # return the concatenate of all of the partitions
+        return chunks
+            
 if __name__ == '__main__':
     
     # file path
