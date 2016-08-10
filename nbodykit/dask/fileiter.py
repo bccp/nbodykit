@@ -13,10 +13,14 @@ AUTO_BLOCKSIZE = auto_blocksize(TOTAL_MEM, CPU_COUNT)
 def FileIterator(f, columns, chunksize=None, comm=None):
     """
     Iterate through a file
+    
+    FIXME: no load balancing here -- only works well
+    when the file size is much larger
     """
     # get default chunksize based on memory and itemsize
     if chunksize is None:
-        chunksize = AUTO_BLOCKSIZE // f.dtype.itemsize
+        itemsize = sum(f.dtype[col].itemsize for col in columns)
+        chunksize = AUTO_BLOCKSIZE // itemsize
         
     # the comm
     if comm is None: comm = MPI.COMM_WORLD
@@ -24,7 +28,7 @@ def FileIterator(f, columns, chunksize=None, comm=None):
     # partitions
     partitions = f.partition(columns, chunksize)
 
-    # yield the paritions across all ranks
+    # yield the partitions across all ranks
     for i in range(comm.rank, len(partitions), comm.size):
         yield partitions[i]     
 
