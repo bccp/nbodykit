@@ -31,10 +31,17 @@ def FileIterator(f, columns, chunksize=None, comm=None):
     # the comm
     if comm is None: comm = MPI.COMM_WORLD
         
-    # find the local size
-    N = get_Nlocal(f.size, comm.size, comm.rank)
+    # get the local partition and its size
+    partition = f.partition(columns, comm.size)[comm.rank]
+    N = len(partition)
     
-    for chunk in f.to_chunks(columns, comm.size):
+    # yield chunks of the local partition in chunksize units
+    start = 0; stop = chunksize
+    while start < N:
+        yield partition[start:stop]     
+        start = stop
+        stop = min(start+chunksize, N)
+        
         
         
     

@@ -217,8 +217,8 @@ class BinaryFile(object):
         if isinstance(columns, string_types):
             columns = [columns]
             
-        Neach_section, extras = divmod(N, self.size)
-        section_sizes = extras * [Neach_section+1] + (self.size-extras) * [Neach_section]
+        Neach_section, extras = divmod(self.size, N)
+        section_sizes = extras * [Neach_section+1] + (N-extras) * [Neach_section]
          
         # get the delayed read function for each partition
         partitions = []
@@ -230,15 +230,7 @@ class BinaryFile(object):
         
         # make a dask array for all of the chunks with same size
         dtype = [(name, self.dtype[name].subdtype) for name in self.dtype.names if name in columns]
-        chunks = [da.from_delayed(part, (chunksize,), dtype) for part in partitions[:-1]]
-    
-        # add the last remainder chunk 
-        N = self.size % chunksize
-        if N > 0:
-            chunks += [da.from_delayed(partitions[-1], (N,), dtype)]
-    
-        return chunks
-
+        return [da.from_delayed(part, (size,), dtype) for part, size in zip(partitions, section_sizes)]
     
 if __name__ == '__main__':
     
