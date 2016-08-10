@@ -9,7 +9,7 @@ def auto_blocksize(total_memory, cpu_count):
 TOTAL_MEM = psutil.virtual_memory().total
 CPU_COUNT = psutil.cpu_count()
 AUTO_BLOCKSIZE = auto_blocksize(TOTAL_MEM, CPU_COUNT)
-     
+
 def FileIterator(f, columns, chunksize=None, comm=None):
     """
     Iterate through a file
@@ -24,13 +24,18 @@ def FileIterator(f, columns, chunksize=None, comm=None):
         
     # the comm
     if comm is None: comm = MPI.COMM_WORLD
-        
-    # partitions
-    partitions = f.partition(columns, chunksize)
+    
+    # get the local partition and its size
+    partition = f.partition(columns, comm.size, chunksize=chunkszie)[comm.rank]
+    
+    # yield the chunks of this partition
+    start = stop = 0
+    for size in partition.chunks[0]:
+        start = stop
+        stop += size
+        yield partition[start:stop]
 
-    # yield the partitions across all ranks
-    for i in range(comm.rank, len(partitions), comm.size):
-        yield partitions[i]     
+ 
 
         
         

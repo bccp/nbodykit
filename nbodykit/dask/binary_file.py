@@ -196,12 +196,12 @@ class BinaryFile(object):
 
         return toret[columns]
         
-    def partition(self, columns, chunksize):
+    def partition(self, columns, N, chunksize=None):
         """
-        Return a (structured) dask.array from a `BinaryFile` instance, 
-        which holds the specified columns
-    
-        The dask array is chunked along axis 0 according to `chunksize`
+        Parition the binary file, returning a dask.array 
+        for each partition
+        
+        The dask array is chunked along axis 0 in `N` partitions
     
         Parameters
         ----------
@@ -218,25 +218,28 @@ class BinaryFile(object):
         if isinstance(columns, string_types):
             columns = [columns]
             
+        Neach_section, extras = divmod(self.size, N)
+        section_sizes = extras * [Neach_section+1] + (N-extras) * [Neach_section]
+         
         # get the delayed read function for each partition
         partitions = []
-        start = 0; stop = chunksize
-        while start < self.size:
-            partitions.append(delayed(self.read)(columns, start, stop))        
+        start = stop = 0
+        for size in section_sizes:
             start = stop
-            stop = min(start+chunksize, self.size)
+            stop += size
+            partitions.append(delayed(self.read)(columns, start, stop))
         
         # make a dask array for all of the chunks with same size
         dtype = [(name, self.dtype[name].subdtype) for name in self.dtype.names if name in columns]
-        chunks = [da.from_delayed(part, (chunksize,), dtype) for part in partitions[:-1]]
-    
-        # add the last remainder chunk 
-        N = self.size % chunksize
-        if N > 0:
-            chunks += [da.from_delayed(partitions[-1], (N,), dtype)]
-    
-        # return the concatenate of all of the partitions
-        return chunks
+        partitions = [da.from_delayed(part, (size,), dtype) for part, size in zip(partitions, section_sizes)]
+        
+        # rechunk each partition by chunksize
+        if chunksize is not None:
+            for i in range(N):
+                parititions[i] = da.rechunk(parititions[i], chunksize)
+        
+        return partitions
+                
             
 if __name__ == '__main__':
     
