@@ -196,44 +196,46 @@ class BinaryFile(object):
 
         return toret[columns]
         
-    def get_partition(self, i, columns, N, chunksize):
+    def get_partition(self, columns, start, stop, chunksize=None):
         """
-        Parition the binary file, returning a dask.array 
-        for each partition
+        Parition the binary file from `start` to `stop`, returning a 
+        list of dask arrays for each sub-chunk in the partition
         
-        The dask array is chunked along axis 0 in `N` partitions
+        The partition will be chunked according to `chunksize`
     
         Parameters
         ----------
-        f : BinaryFile
-            the binary file instance -- the `read` function is wrapped
-            with dask.delayed and does the heavy IO lifting
         columns : str, list of str
             a string or list of strings specifying the columns to read
+        start : int
+            the start position in particles, ranging from 0 to :attr:`size`
+        stop : int 
+            the stop position in particiles, ranging from 0 to :attr:`size`
         chunksize : int, optional
-            the number of particles per chunk in axis 0; if `None`, the
-            memory limitations are used to infer a value
+            the number of particles per chunk in axis 0; if `None`, 
+            the full partition is returned
         """
         # make sure columns is a list
         if isinstance(columns, string_types):
             columns = [columns]
             
-        Neach_part, extras = divmod(self.size, N)
-        part_sizes = numpy.zeros(N+1, dtype='i8')
-        part_sizes[1:] = numpy.cumsum(extras * [Neach_part+1] + (N-extras) * [Neach_part])        
-         
+        # the data type of returning columns
+        dtype = [(name, self.dtype[name].subdtype) for name in self.dtype.names if name in columns]
+        
+        # no chunksize --> return the whole delayed read
+        if chunksize is None:
+            part = delayed(self.read)(columns, start, stop)
+            return [da.from_delayed(part, (stop-start,), dtype)]
+            
         # get the delayed read function for each partition
         subparts = []; subpart_sizes = []
-        start = stop = part_sizes[i]
-        while stop < part_sizes[i+1]:
-            start = stop
-            stop = min(stop+chunksize, part_sizes[i+1])
-            
-            subpart_sizes.append(stop-start)
-            subparts.append(delayed(self.read)(columns, start, stop))
+        istart = istop = start
+        while istop < stop:
+            istart = istop; istop = min(istop+chunksize, stop)
+            subpart_sizes.append(istop-istart)
+            subparts.append(delayed(self.read)(columns, istart, istop))
         
         # make a dask array for all of the chunks with same size
-        dtype = [(name, self.dtype[name].subdtype) for name in self.dtype.names if name in columns]
         return [da.from_delayed(part, (size,), dtype) for part, size in zip(subparts, subpart_sizes)]
                             
 if __name__ == '__main__':
