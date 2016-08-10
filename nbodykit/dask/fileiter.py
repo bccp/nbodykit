@@ -26,7 +26,7 @@ def FileIterator(f, columns, chunksize=None, comm=None):
     if comm is None: comm = MPI.COMM_WORLD
     
     # get the local partition and its size
-    partition = f.partition(columns, comm.size, chunksize=chunkszie)[comm.rank]
+    partition = f.partition(columns, comm.size, chunksize=chunksize)[comm.rank]
     
     # yield the chunks of this partition
     start = stop = 0
