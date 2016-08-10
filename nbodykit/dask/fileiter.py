@@ -1,5 +1,6 @@
 import psutil
 from mpi4py import MPI
+import numpy
 
 def auto_blocksize(total_memory, cpu_count):
     memory_factor = 10
