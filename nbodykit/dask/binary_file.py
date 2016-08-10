@@ -196,7 +196,7 @@ class BinaryFile(object):
 
         return toret[columns]
         
-    def partition(self, columns, N, chunksize=None):
+    def get_partition(self, i, columns, N, chunksize):
         """
         Parition the binary file, returning a dask.array 
         for each partition
@@ -218,29 +218,24 @@ class BinaryFile(object):
         if isinstance(columns, string_types):
             columns = [columns]
             
-        Neach_section, extras = divmod(self.size, N)
-        section_sizes = extras * [Neach_section+1] + (N-extras) * [Neach_section]
+        Neach_part, extras = divmod(self.size, N)
+        part_sizes = numpy.zeros(N+1, dtype='i8')
+        part_sizes[1:] = numpy.cumsum(extras * [Neach_part+1] + (N-extras) * [Neach_part])        
          
         # get the delayed read function for each partition
-        partitions = []
-        start = stop = 0
-        for size in section_sizes:
+        subparts = []; subpart_sizes = []
+        start = stop = part_sizes[i]
+        while stop < part_sizes[i+1]:
             start = stop
-            stop += size
-            partitions.append(delayed(self.read)(columns, start, stop))
+            stop = min(stop+chunksize, part_sizes[i+1])
+            
+            subpart_sizes.append(stop-start)
+            subparts.append(delayed(self.read)(columns, start, stop))
         
         # make a dask array for all of the chunks with same size
         dtype = [(name, self.dtype[name].subdtype) for name in self.dtype.names if name in columns]
-        partitions = [da.from_delayed(part, (size,), dtype) for part, size in zip(partitions, section_sizes)]
-        
-        # rechunk each partition by chunksize
-        if chunksize is not None:
-            for i in range(N):
-                parititions[i] = da.rechunk(parititions[i], chunksize)
-        
-        return partitions
-                
-            
+        return [da.from_delayed(part, (size,), dtype) for part, size in zip(subparts, subpart_sizes)]
+                            
 if __name__ == '__main__':
     
     # file path

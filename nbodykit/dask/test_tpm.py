@@ -1,4 +1,3 @@
-from nbodykit.extensionpoints import DataSource
 from binary_file import BinaryFile
 from fileiter import FileIterator
 from dask.delayed import delayed
@@ -6,7 +5,7 @@ from dask import compute
 
 import numpy
 
-class DaskTPMSnapshot(DataSource):
+class DaskTPMSnapshot(object):
     """
     DataSource to read snapshot files from Martin White's TPM simulations
     """
