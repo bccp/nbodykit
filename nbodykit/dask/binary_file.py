@@ -2,6 +2,9 @@ from glob import glob
 import os
 import numpy
 from six import string_types
+                      
+import dask.array as da
+from dask.delayed import delayed
     
 def getsize(filename, header_size, rowsize):
     """
@@ -43,10 +46,6 @@ class BinaryFile(object):
     """
     A file object to handle the reading of columns of data from 
     a binary file
-    
-    This sort of behaves like a dictionary, with the keys()
-    and __iter__ functions, and read returns dictionaries of the
-    read columns
     
     FIXME: This assumes the chunk size for each column is the size
     of the binary file. We could also implement the alternative format, 
@@ -196,67 +195,50 @@ class BinaryFile(object):
             global_start += diff # update where we start slicing return array
 
         return toret[columns]
+        
+    def partition(self, columns, N):
+        """
+        Return a (structured) dask.array from a `BinaryFile` instance, 
+        which holds the specified columns
+    
+        The dask array is chunked along axis 0 according to `chunksize`
+    
+        Parameters
+        ----------
+        f : BinaryFile
+            the binary file instance -- the `read` function is wrapped
+            with dask.delayed and does the heavy IO lifting
+        columns : str, list of str
+            a string or list of strings specifying the columns to read
+        N : int, optional
+            the number of chunks to return
+        """
+        # make sure columns is a list
+        if isinstance(columns, string_types):
+            columns = [columns]
             
-import dask.dataframe as dd            
-import pandas as pd
-import psutil
-import dask.array as da
-from dask.delayed import delayed
-
-def auto_blocksize(total_memory, cpu_count):
-    memory_factor = 10
-    blocksize = int(total_memory // cpu_count / memory_factor)
-    return min(blocksize, int(64e6))
-
-TOTAL_MEM = psutil.virtual_memory().total
-CPU_COUNT = psutil.cpu_count()
-AUTO_BLOCKSIZE = auto_blocksize(TOTAL_MEM, CPU_COUNT)
-    
-def from_binary(f, columns, chunksize=None):
-    """
-    Return a (structured) dask.array from a `BinaryFile` instance, 
-    which holds the specified columns
-    
-    The dask array is chunked along axis 0 according to `chunksize`
-    
-    Parameters
-    ----------
-    f : BinaryFile
-        the binary file instance -- the `read` function is wrapped
-        with dask.delayed and does the heavy IO lifting
-    columns : str, list of str
-        a string or list of strings specifying the columns to read
-    chunksize : int, optional
-        the number of particles per chunk in axis 0; if `None`, the
-        memory limitations are used to infer a value
-    """
-    # make sure columns is a list
-    if isinstance(columns, string_types):
-        columns = [columns]
+        Neach_section, extras = divmod(N, self.size)
+        section_sizes = extras * [Neach_section+1] + (self.size-extras) * [Neach_section]
+         
+        # get the delayed read function for each partition
+        partitions = []
+        start = stop = 0
+        for size in section_sizes:
+            start = stop
+            stop += size
+            partitions.append(delayed(self.read)(columns, start, stop))
         
-    # get default chunksize based on memory and itemsize
-    if chunksize is None:
-        chunksize = AUTO_BLOCKSIZE // f.dtype.itemsize
+        # make a dask array for all of the chunks with same size
+        dtype = [(name, self.dtype[name].subdtype) for name in self.dtype.names if name in columns]
+        chunks = [da.from_delayed(part, (chunksize,), dtype) for part in partitions[:-1]]
     
-    # get the delayed read function for each partition
-    partitions = []
-    start = 0; stop = chunksize
-    while start < f.size:
-        partitions.append(delayed(f.read)(columns, start, stop))        
-        start = stop
-        stop = min(start+chunksize, f.size)
-        
-    # make a dask array for all of the chunks with same size
-    dtype = [(name, f.dtype[name].subdtype) for name in f.dtype.names if name in columns]
-    chunks = [da.from_delayed(part, (chunksize,), dtype) for part in partitions[:-1]]
+        # add the last remainder chunk 
+        N = self.size % chunksize
+        if N > 0:
+            chunks += [da.from_delayed(partitions[-1], (N,), dtype)]
     
-    # add the last remainder chunk 
-    N = f.size % chunksize
-    chunks += [da.from_delayed(partitions[-1], (N,), dtype)]
-    
-    # return the concatenate of all of the partitions
-    return da.concatenate(chunks, axis=0)
-    
+        return chunks
+
     
 if __name__ == '__main__':
     
