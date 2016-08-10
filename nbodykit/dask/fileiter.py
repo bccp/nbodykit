@@ -26,7 +26,7 @@ def FileIterator(f, columns, chunksize=None, comm=None):
 
     # yield the paritions across all ranks
     for i in range(comm.rank, len(partitions), comm.size):
-        yield partition[i]     
+        yield partitions[i]     
 
         
         
