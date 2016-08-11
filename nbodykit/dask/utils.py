@@ -7,8 +7,8 @@ def consecutive_view_slices(start, stop, step, sizes):
     total_size = sizes.sum()
     nfiles     = len(sizes)
     
-    if start < 0: start += size
-    if stop < 0: stop += size
+    if start < 0: start += total_size
+    if stop < 0: stop += total_size
     
     # determine the file numbers of start/stop from cumulative sizes
     cumsum = numpy.zeros(nfiles+1, dtype=sizes.dtype)
@@ -21,6 +21,6 @@ def consecutive_view_slices(start, stop, step, sizes):
                     
         # normalize the global start/stop to the per file values     
         start_size = cumsum[fnum] 
-        this_slice = (max(start-start_size, 0), min(stop-start_size, self.sizes[fnum]), step)
+        this_slice = (max(start-start_size, 0), min(stop-start_size, sizes[fnum]), step)
 
         yield fnum, this_slice

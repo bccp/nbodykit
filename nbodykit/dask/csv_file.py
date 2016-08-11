@@ -2,7 +2,8 @@ import numpy
 import pandas as pd
 import os
 from six import string_types
-  
+from utils import consecutive_view_slices
+
 def get_partition_sizes(filename, blocksize):
     """
     From a filename and preferred blocksize in bytes, 
@@ -33,7 +34,7 @@ def infer_dtype(path, names, config):
     data type
     """
     # read the first line to get the the dtype
-    df = dd.read_csv(path, nrows=1, names=names, **config)
+    df = pd.read_csv(path, nrows=1, names=names, **config)
     
     toret = {}
     for name in names:
@@ -53,7 +54,7 @@ class CSVFile(object):
         This assumes the delimiter for separate lines is the newline
         character.
     """
-    def __init__(self, path, names, blocksize=4*1024*1024, dtype={}, delim_whitespace=True, header=None, **config):
+    def __init__(self, path, names, blocksize=32*1024*1024, dtype={}, delim_whitespace=True, header=None, **config):
         """
         Parameters
         ----------
@@ -71,6 +72,7 @@ class CSVFile(object):
         """
         self.path = path
         self._names = names
+        self.blocksize = blocksize
         
         # set the read_csv defaults
         if 'sep' in config or 'delimiter' in config:
@@ -110,7 +112,9 @@ class CSVFile(object):
     def keys(self):
         return list(self._names)
 
-    
+    def __len__(self):
+        return self.size
+        
     @property
     def shape(self):
         return (self.size,)
@@ -151,8 +155,13 @@ class CSVFile(object):
         except: 
             import dask.dataframe as dd       
             
-            dtype = dict(self.dtype)
-            self._dask_data = dd.read_csv(self.path, names=self.keys(), dtype=dtype, **self._config)
+            kws = self._config.copy()
+            kws['dtype'] = dict(self.dtype)
+            kws['names'] = self.keys()
+            kws['blocksize'] = self.blocksize
+            self._dask_data = dd.read_csv(self.path, **kws)
+            if self._dask_data.npartitions != len(self.sizes):
+                raise ValueError("bad bad bad")
             return self._dask_data
         
     def _read_block(self, cols, fnum, start, stop, step=1):
@@ -173,7 +182,7 @@ class CSVFile(object):
             the stop position in particiles, ranging from 0 to 
             the size of the open file
         """
-        get = getattr(self._data, 'get_partition', 'get_division')
+        get = getattr(self._data, 'get_partition', getattr(self._data, 'get_division'))
         data = get(fnum).compute()
         return data.to_records(index=False)[start:stop:step]
             
@@ -194,12 +203,12 @@ class CSVFile(object):
         
         # loop over slices
         global_start = 0 
-        for partnum, sl in consecutive_view_slices(start, stop, step, self.sizes)
+        for partnum, sl in consecutive_view_slices(start, stop, step, self.sizes):
             
             # do the reading
             tmp = self._read_block(columns, partnum, *sl)
             for col in columns:
-                toret[col][global_start:None] = tmp[col][:]
+                toret[col][global_start:global_start+len(tmp)] = tmp[col][:]
             
             global_start += len(tmp) # update where we start slicing return array
 
