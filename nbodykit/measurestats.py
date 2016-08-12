@@ -44,7 +44,7 @@ def compute_3d_power(fields, pm, comm=None):
 
     # step 1: paint the density field to the mesh
 
-    stats1, real = painters[0].paint(pm, datasources[0])
+    real, stats1 = painters[0].paint(pm, datasources[0])
     if rank == 0: logger.info('Painting done')
 
     # step 2: Fourier transform density field using real to complex FFT
@@ -64,19 +64,20 @@ def compute_3d_power(fields, pm, comm=None):
 
     # compute the cross power of the two supplied fields
     else:
+        c1 = complex
 
         # crash if box size isn't the same
         if not numpy.all(datasources[0].BoxSize == datasources[1].BoxSize):
             raise ValueError("mismatch in box sizes for cross power measurement")
 
         # apply painting, FFT, and transfer steps to second field
-        stats2, real = painters[1].paint(pm, datasources[1])
-        if rank == 0: logger.info('%s painting 2 done' %pm.paintbrush)
+        real, stats2 = painters[1].paint(pm, datasources[1])
+        if rank == 0: logger.info('Painting 2 done')
         c2 = real.r2c()
         del real
         if rank == 0: logger.info('r2c 2 done')
 
-        for t in transfers[1]: t(pm, complex)
+        for t in transfers[1]: t(pm, c2)
 
     # calculate the 3d power spectrum, slab-by-slab to save memory
     p3d = c1
@@ -509,20 +510,18 @@ def compute_3d_corr(fields, pm, comm=None):
     """
     Compute the 3D correlation function by Fourier transforming 
     the 3D power spectrum.
-    
+
     See the documentation for :func:`compute_3d_power` for details
     of input parameters and return types.
     """
     # the 3D power spectrum
     p3d, stats1, stats2 = compute_3d_power(fields, pm, comm=comm)
-    
+
     # directly transform dimensionless p3d
     # Note that L^3 cancels with dk^3.
-    pm.complex[:] = p3d.copy()
-    pm.complex[:] *= 1.0 / pm.BoxSize.prod()
-    pm.c2r()
-    xi3d = pm.real
-    
+    p3d[...] *= 1.0 / pm.BoxSize.prod()
+    xi3d = p3d.c2r()
+
     return xi3d, stats1, stats2
 
 #------------------------------------------------------------------------------

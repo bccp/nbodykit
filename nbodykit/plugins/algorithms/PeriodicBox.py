@@ -172,8 +172,7 @@ class FFTPowerAlgorithm(Algorithm):
         if self.mode == "1d": self.Nmu = 1
 
         # measure
-        y3d, stats1, stats2 = measurestats.compute_3d_power(self.fields, pm, comm=self.comm)
-        x3d = pm.k
+        y3d, stats1, stats2 = measurestats.compute_3d_power(self.fields, self.pm, comm=self.comm)
 
         # get the number of objects (in a safe manner)
         N1 = stats1.get('Ntot', -1)
@@ -181,19 +180,19 @@ class FFTPowerAlgorithm(Algorithm):
 
         # binning in k out to the minimum nyquist frequency 
         # (accounting for possibly anisotropic box)
-        dk = 2*numpy.pi/pm.BoxSize.min() if self.dk is None else self.dk
-        kedges = numpy.arange(self.kmin, numpy.pi*pm.Nmesh/pm.BoxSize.max() + dk/2, dk)
+        dk = 2*numpy.pi/y3d.BoxSize.min() if self.dk is None else self.dk
+        kedges = numpy.arange(self.kmin, numpy.pi*y3d.Nmesh.min()/y3d.BoxSize.max() + dk/2, dk)
 
         # project on to the desired basis
         muedges = numpy.linspace(0, 1, self.Nmu+1, endpoint=True)
         edges = [kedges, muedges]
-        result, pole_result = measurestats.project_to_basis(pm.comm, x3d, y3d, edges, 
+        result, pole_result = measurestats.project_to_basis(self.comm, y3d.x, y3d, edges, 
                                                             poles=self.poles, 
                                                             los=self.los,
                                                             hermitian_symmetric=True)
 
         # compute the metadata to return
-        Lx, Ly, Lz = pm.BoxSize
+        Lx, Ly, Lz = y3d.BoxSize
         meta = {'Lx':Lx, 'Ly':Ly, 'Lz':Lz, 'volume':Lx*Ly*Lz, 'N1':N1, 'N2':N2}
 
         # return all the necessary results
@@ -293,56 +292,66 @@ class FFTCorrelationAlgorithm(Algorithm):
     def __init__(self, mode, Nmesh, field, other=None, los='z', Nmu=5, 
                     dk=None, kmin=0., quiet=False, poles=[], paintbrush='cic'):
             
+        from pmesh.pm import ParticleMesh
+
         # combine the two fields
         self.fields = [self.field]
+
         if self.other is not None:
             self.fields.append(self.other)
 
+        # FIXME: fix up the paint brush if it is None
+        for ds, painter, transfer in self.fields:
+            if painter.paintbrush is None:
+                painter.paintbrush = paintbrush
+
+        if self.comm.rank == 0: self.logger.info('importing done')
+
+        # setup the particle mesh object, taking BoxSize from the painters
+        pm = ParticleMesh(BoxSize=field[0].BoxSize,
+                    Nmesh=(self.Nmesh, self.Nmesh, self.Nmesh),
+                    dtype='f4', comm=self.comm)
+        self.pm = pm
+
     @classmethod
     def register(cls):
-        
+
         cls.schema.description = "correlation spectrum calculator via FFT in a periodic box"
         for name in FFTPowerAlgorithm.schema:
             cls.schema[name] = FFTPowerAlgorithm.schema[name]
-            
+
     def run(self):
         """
         Run the algorithm, which computes and returns the correlation function
         """
         from nbodykit import measurestats
-        from pmesh.particlemesh import ParticleMesh
 
         if self.comm.rank == 0: self.logger.info('importing done')
-
-        # setup the particle mesh object, taking BoxSize from the painters
-        pm = ParticleMesh(self.fields[0][0].BoxSize, self.Nmesh, 
-                            paintbrush=self.paintbrush, dtype='f4', comm=self.comm)
 
         # only need one mu bin if 1d case is requested
         if self.mode == "1d": self.Nmu = 1
 
         # measure
-        y3d, stats1, stats2 = measurestats.compute_3d_corr(self.fields, pm, comm=self.comm)
-        x3d = pm.x
-        
+        y3d, stats1, stats2 = measurestats.compute_3d_corr(self.fields, self.pm, comm=self.comm)
+
         # get the number of objects (in a safe manner)
         N1 = stats1.get('Ntot', -1)
         N2 = stats2.get('Ntot', -1)
 
         # make the bin edges
-        dr = pm.BoxSize[0] / pm.Nmesh
-        redges = numpy.arange(0, pm.BoxSize[0] + dr * 0.5, dr)
+        dr = y3d.BoxSize[0] / y3d.Nmesh[0]
+        redges = numpy.arange(0, y3d.BoxSize[0] + dr * 0.5, dr)
 
         # project on to the desired basis
         muedges = numpy.linspace(0, 1, self.Nmu+1, endpoint=True)
         edges = [redges, muedges]
-        result, pole_result = measurestats.project_to_basis(pm.comm, x3d, y3d, edges,
+        result, pole_result = measurestats.project_to_basis(self.comm, y3d.x, y3d, edges,
                                                             poles=self.poles,
                                                             los=self.los,
                                                             hermitian_symmetric=False)
 
         # compute the metadata to return
-        Lx, Ly, Lz = pm.BoxSize
+        Lx, Ly, Lz = y3d.BoxSize
         meta = {'Lx':Lx, 'Ly':Ly, 'Lz':Lz, 'volume':Lx*Ly*Lz, 'N1':N1, 'N2':N2}
 
         # return all the necessary results
