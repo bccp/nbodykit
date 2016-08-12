@@ -43,20 +43,23 @@ def compute_3d_power(fields, pm, comm=None):
     transfers   = [t for d, p, t in fields]
 
     # step 1: paint the density field to the mesh
-    stats1 = painters[0].paint(pm, datasources[0])
-    if rank == 0: logger.info('%s painting done' %pm.paintbrush)
+
+    stats1, real = painters[0].paint(pm, datasources[0])
+    if rank == 0: logger.info('Painting done')
 
     # step 2: Fourier transform density field using real to complex FFT
-    pm.r2c()
+    complex = real.r2c()
+    del real
+
     if rank == 0: logger.info('r2c done')
 
     # step 3: apply transfer function kernels to complex field
-    pm.transfer(transfers[0])
+    for t in transfers[0]: t(pm, complex)
 
     # compute the auto power of single supplied field
     if len(fields) == 1:
-        c1 = pm.complex
-        c2 = pm.complex
+        c1 = complex
+        c2 = complex
         stats2 = stats1
 
     # compute the cross power of the two supplied fields
@@ -66,21 +69,19 @@ def compute_3d_power(fields, pm, comm=None):
         if not numpy.all(datasources[0].BoxSize == datasources[1].BoxSize):
             raise ValueError("mismatch in box sizes for cross power measurement")
 
-        # copy and store field #1's complex
-        c1 = pm.complex.copy()
-
         # apply painting, FFT, and transfer steps to second field
-        stats2 = painters[1].paint(pm, datasources[1])
+        stats2, real = painters[1].paint(pm, datasources[1])
         if rank == 0: logger.info('%s painting 2 done' %pm.paintbrush)
-        pm.r2c()
+        c2 = real.r2c()
+        del real
         if rank == 0: logger.info('r2c 2 done')
-        pm.transfer(transfers[1])
-        c2 = pm.complex
+
+        for t in transfers[1]: t(pm, complex)
 
     # calculate the 3d power spectrum, slab-by-slab to save memory
     p3d = c1
-    for islab in range(len(c1)):
-        p3d[islab, ...] = c1[islab]*c2[islab].conj()
+    for (s0, s1, s2) in zip(p3d.slabs, c1.slabs, c2.slabs):
+        s0[...] = s1 * s2.conj()
 
     # the complex field is dimensionless; power is L^3
     # ref to http://icc.dur.ac.uk/~tt/Lectures/UA/L4/cosmology.pdf

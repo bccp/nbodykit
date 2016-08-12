@@ -4,7 +4,7 @@ import numpy
 class DefaultPainter(Painter):
     plugin_name = "DefaultPainter"
 
-    def __init__(self, weight=None, frho=None, fk=None, normalize=False, setMean=None):
+    def __init__(self, weight=None, frho=None, fk=None, normalize=False, setMean=None, paintbrush=None):
         pass
 
     @classmethod
@@ -19,6 +19,7 @@ class DefaultPainter(Painter):
         s.add_argument("fk", type=str, help="A python expresion for transforming the fourier space density field. variables: k, kx, ky, kz. example: exp(-(k * 0.5)**2). applied before frho ")
         s.add_argument("normalize", type=bool, help="Normalize the field to set mean == 1. Applied before fk.")
         s.add_argument("setMean", type=float, help="Set the mean. Applied after normalize.")
+        s.add_argument("paintbrush", type=str, default=None, "select a paint brush. Default is to defer to the choice of the algorithm that uses the painter.")
 
     def paint(self, pm, datasource):
         """
@@ -38,41 +39,42 @@ class DefaultPainter(Painter):
             dictionary of statistics, usually only containing `Ntot`
         """
         stats = {}
+        real = RealField(pm)
 
         if isinstance(datasource, DataSource):
-            pm.real[:] = 0
-
             # open the datasource stream (with no defaults)
             with datasource.open() as stream:
 
                 Nlocal = 0
                 if self.weight is None:
                     for [position] in stream.read(['Position']):
-                        Nlocal += self.basepaint(pm, position)
+                        self.basepaint(real, position, paintbrush=self.paintbrush)
+                        Nlocal += len(position)
                 else:
                     for position, weight in stream.read(['Position', self.weight]):
-                        Nlocal += self.basepaint(pm, position, weight)
+                        self.basepaint(real, position, weight=weight, paintbrush=self.paintbrush)
+                        Nlocal += len(position)
 
             stats['Ntot'] = self.comm.allreduce(Nlocal)
         elif isinstance(datasource, GridSource):
-            datasource.read(pm)
+            datasource.read(real)
             stats['Ntot'] = datasource.Ntot
 
         # apply the filters.
 
-        mean = self.comm.allreduce(pm.real.sum(dtype='f8')) / pm.Nmesh ** 3.
+        mean = self.comm.allreduce(real.sum(dtype='f8')) / real.Nmesh.prod()
 
         if self.comm.rank == 0:
             self.logger.info("Mean = %g" % mean)
 
         if self.normalize:
-            pm.real *= 1. / mean
-            mean = self.comm.allreduce(pm.real.sum(dtype='f8')) / pm.Nmesh ** 3.
+            real[...] *= 1. / mean
+            mean = self.comm.allreduce(real.sum(dtype='f8')) / real.Nmesh.prod()
             if self.comm.rank == 0:
                 self.logger.info("Renormalized mean = %g" % mean)
 
         if self.setMean is not None:
-            pm.real += (self.setMean - mean)
+            real[...] += (self.setMean - mean)
 
         if self.fk:
             if self.comm.rank == 0:
@@ -81,10 +83,11 @@ class DefaultPainter(Painter):
             def function(k, kx, ky, kz):
                 from numpy import exp, sin, cos
                 return eval(self.fk)
-            pm.r2c()
-            k = (pm.k[0] ** 2 + pm.k[1] ** 2 + pm.k[2] ** 2) ** 0.5
-            pm.complex[...] *= function(k, pm.k[0], pm.k[1], pm.k[2])
-            pm.c2r()
+            complex = real.r2c()
+            for kk, slab in zip(complex.slabiter.x, complex.slabiter):
+                k = sum([k ** 2 for k in kk]) ** 0.5
+                slab[...] *= function(k, kk[0], kk[1], kk[2])
+            complex.c2r(real)
 
         if self.frho:
             if self.comm.rank == 0:
@@ -93,8 +96,10 @@ class DefaultPainter(Painter):
             def function(rho):
                 return eval(self.frho)
             if self.comm.rank == 0:
-                self.logger.info("example value before frho %g" % pm.real.flat[0])
-            pm.real[...] = function(pm.real)
+                self.logger.info("example value before frho %g" % real.flat[0])
+            for slab in real.slabiter:
+                slab[...] = function(slab)
             if self.comm.rank == 0:
-                self.logger.info("example value after frho %g" % pm.real.flat[0])
+                self.logger.info("example value after frho %g" % real.flat[0])
+
         return stats
