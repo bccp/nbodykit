@@ -19,8 +19,9 @@ class TestFKP(unittest.TestCase):
         logging.basicConfig()
 
         # initialize a particle mesh object
-        from pmesh.particlemesh import ParticleMesh
-        self.pm = ParticleMesh(2.0, 128)
+        from pmesh.pm import ParticleMesh
+        from mpi4py import MPI
+        self.pm = ParticleMesh(Nmesh=[128]*3, BoxSize=2.0, comm=MPI.COMM_WORLD)
 
         # a cosmology
         self.cosmo = Cosmology()
@@ -364,5 +365,5 @@ class TestFKP(unittest.TestCase):
         # this should work fine
         catalog = FKPCatalog(data, randoms, fsky=1.0)
         with catalog:
-            stats = catalog.paint(self.pm)
+            real, stats = catalog.paint(self.pm)
             self.assertTrue(stats['alpha'] == 0.01)
