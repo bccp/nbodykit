@@ -1,6 +1,6 @@
 from nbodykit.extensionpoints import Algorithm
 from nbodykit.extensionpoints import DataSource, GridSource, Painter
-from nbodykit import resampler
+from pmesh.pm import ParticleMesh, RealField, ComplexField
 
 import os
 import numpy
@@ -21,6 +21,10 @@ class PaintGridAlgorithm(Algorithm):
         self.datasource = DataSource
         if Painter is None:
             Painter = Painter.create("DefaultPainter")
+
+        if Painter.paintbrush is None:
+            self.Painter.paintbrush = paintbrush
+
         self.painter = Painter
         self.dataset = dataset
         if paintNmesh is None:
@@ -57,23 +61,35 @@ class PaintGridAlgorithm(Algorithm):
 
     def run(self):
         """
-        Run the algorithm, which computes and returns the grid
+        Run the algorithm, which computes and returns the grid in C_CONTIGUOUS order partitioned by ranks.
         """
         from nbodykit import measurestats
-        from pmesh.particlemesh import ParticleMesh
 
         if self.comm.rank == 0:
             self.logger.info('importing done')
             self.logger.info('Resolution Nmesh : %d' % self.paintNmesh)
-            self.logger.info('paintbrush : %s' % self.paintbrush)
-        # setup the particle mesh object, taking BoxSize from the painters
-        pm = ParticleMesh(self.datasource.BoxSize, self.paintNmesh,
-                            paintbrush=self.paintbrush, dtype='f4', comm=self.comm)
+            self.logger.info('paintbrush : %s' % self.Painter.paintbrush)
 
-        stats = self.painter.paint(pm, self.datasource)
+        # setup the particle mesh object, taking BoxSize from the painters
+        pmpaint = ParticleMesh(BoxSize=self.datasource.BoxSize, Nmesh=[self.paintNmesh] * 3, dtype='f4', comm=self.comm)
+        pm = ParticleMesh(BoxSize=self.datasource.BoxSize, Nmesh=[self.Nmesh] * 3, dtype='f4', comm=self.comm)
+
+        real, stats = self.painter.paint(pmpaint, self.datasource)
+
+        if self.writeFourier:
+            result = ComplexField(pm)
+        else:
+            result = RealField(pm)
+        real.resample(result)
+
+        # reuses the memory
+        result.sort()
+
+        # flatten the array for output
+        result = result.ravel()
 
         # return all the necessary results
-        return pm, stats
+        return result, stats
 
     def save(self, output, result):
         """
@@ -89,7 +105,8 @@ class PaintGridAlgorithm(Algorithm):
         """
         import bigfile
         import numpy
-        pm, stats = result
+
+        result, stats = result
 
         if self.comm.rank == 0:
             self.logger.info('Output Nmesh : %d' % self.Nmesh)
@@ -97,9 +114,7 @@ class PaintGridAlgorithm(Algorithm):
 
         f = bigfile.BigFileMPI(self.comm, output, create=True)
 
-        array = resampler.write(pm, self.Nmesh, self.writeFourier)
-
-        b = f.create_from_array(self.dataset, array, Nfile=self.Nfile)
+        b = f.create_from_array(self.dataset, result, Nfile=self.Nfile)
 
         b.attrs['ndarray.shape'] = numpy.array([self.Nmesh, self.Nmesh, self.Nmesh], dtype='i8')
         b.attrs['BoxSize'] = numpy.array(self.datasource.BoxSize, dtype='f8')

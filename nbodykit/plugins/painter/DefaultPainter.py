@@ -1,4 +1,5 @@
 from nbodykit.extensionpoints import Painter, DataSource, GridSource
+from pmesh.pm import RealField, ComplexField, ParticleMesh
 import numpy
 
 class DefaultPainter(Painter):
@@ -19,7 +20,7 @@ class DefaultPainter(Painter):
         s.add_argument("fk", type=str, help="A python expresion for transforming the fourier space density field. variables: k, kx, ky, kz. example: exp(-(k * 0.5)**2). applied before frho ")
         s.add_argument("normalize", type=bool, help="Normalize the field to set mean == 1. Applied before fk.")
         s.add_argument("setMean", type=float, help="Set the mean. Applied after normalize.")
-        s.add_argument("paintbrush", type=str, default=None, "select a paint brush. Default is to defer to the choice of the algorithm that uses the painter.")
+        s.add_argument("paintbrush", type=str, default=None, help="select a paint brush. Default is to defer to the choice of the algorithm that uses the painter.")
 
     def paint(self, pm, datasource):
         """
@@ -40,6 +41,8 @@ class DefaultPainter(Painter):
         """
         stats = {}
         real = RealField(pm)
+
+        real[:] = 0
 
         if isinstance(datasource, DataSource):
             # open the datasource stream (with no defaults)
@@ -102,4 +105,4 @@ class DefaultPainter(Painter):
             if self.comm.rank == 0:
                 self.logger.info("example value after frho %g" % real.flat[0])
 
-        return stats
+        return real, stats

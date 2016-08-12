@@ -42,7 +42,7 @@ class BigFileGridSource(GridSource):
     def read(self, real):
         import bigfile
         if self.comm.rank == 0:
-            self.logger.info("Reading from Nmesh = %d to Nmesh = %d" %(self.Nmesh, pm.Nmesh))
+            self.logger.info("Reading from Nmesh = %d to Nmesh = %d" %(self.Nmesh, real.Nmesh[0]))
 
         if any(real.Nmesh != self.Nmesh):
             pmread = ParticleMesh(BoxSize=real.BoxSize, Nmesh=(self.Nmesh, self.Nmesh, self.Nmesh),
