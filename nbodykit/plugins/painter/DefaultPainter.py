@@ -5,7 +5,7 @@ import numpy
 class DefaultPainter(Painter):
     plugin_name = "DefaultPainter"
 
-    def __init__(self, weight=None, frho=None, fk=None, normalize=False, setMean=None, paintbrush=None):
+    def __init__(self, weight=None, frho=None, fk=None, normalize=False, setMean=None, paintbrush='cic'):
         pass
 
     @classmethod
@@ -20,7 +20,7 @@ class DefaultPainter(Painter):
         s.add_argument("fk", type=str, help="A python expresion for transforming the fourier space density field. variables: k, kx, ky, kz. example: exp(-(k * 0.5)**2). applied before frho ")
         s.add_argument("normalize", type=bool, help="Normalize the field to set mean == 1. Applied before fk.")
         s.add_argument("setMean", type=float, help="Set the mean. Applied after normalize.")
-        s.add_argument("paintbrush", type=str, default=None, help="select a paint brush. Default is to defer to the choice of the algorithm that uses the painter.")
+        s.add_argument("paintbrush", type=str, help="select a paint brush. Default is to defer to the choice of the algorithm that uses the painter.")
 
     def paint(self, pm, datasource):
         """
