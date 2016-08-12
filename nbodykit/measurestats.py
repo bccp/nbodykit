@@ -188,7 +188,8 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh, factor_hexadecapole=Fal
       MNRAS, 2015
     * Scoccimarro, Roman, `Fast estimators for redshift-space clustering`, Phys. Review D, 2015
     """
-    from pmesh.particlemesh import ParticleMesh
+    from pmesh.pm import ParticleMesh, RealField
+    
     rank = comm.rank
     bianchi_transfers = []
 
@@ -234,23 +235,23 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh, factor_hexadecapole=Fal
         offset = catalog.mean_coordinate_offset
         
         # initialize the particle mesh
-        pm = ParticleMesh(catalog.BoxSize, Nmesh, paintbrush=paintbrush, dtype='f4', comm=comm)
+        pm = ParticleMesh(BoxSize=catalog.BoxSize, Nmesh=[Nmesh]*3, dtype='f4', comm=comm)
         
         # paint the FKP density field to the mesh (paints: data - randoms, essentially)
-        stats = catalog.paint(pm)
+        real, stats = catalog.paint(pm, paintbrush=paintbrush)
 
     # save the painted density field for later
-    density = pm.real.copy()
+    density = real.copy()
     if rank == 0: logger.info('%s painting done' %paintbrush)
     
     # FFT density field and apply the paintbrush window transfer kernel
-    pm.r2c()
-    transfer(pm, pm.complex)
+    complex = real.r2c()
+    transfer(pm, complex)
     if rank == 0: logger.info('ell = 0 done; 1 r2c completed')
         
     # monopole A0 is just the FFT of the FKP density field
     volume = pm.BoxSize.prod()
-    A0 = pm.complex*volume # normalize with a factor of volume
+    A0 = complex[:]*volume # normalize with a factor of volume
     
     # store the A0, A2, A4 arrays here
     result = []
@@ -267,31 +268,31 @@ def compute_bianchi_poles(comm, max_ell, catalog, Nmesh, factor_hexadecapole=Fal
     for iell, ell in enumerate(ells[1:]):
         
         # temporary array to hold sum of all of the terms in Fourier space
-        Aell_sum = numpy.zeros_like(pm.complex)
+        Aell_sum = numpy.zeros_like(complex)
         
         # loop over each kernel term for this multipole
         for amp, integers in zip(*bianchi_transfers[iell]):
                         
             # reset the realspace mesh to the original FKP density
-            pm.real[:] = density[:]
+            real[:] = density[:]
         
             # apply the real-space Bianchi kernel
             if rank == 0: logger.debug("applying real-space Bianchi transfer for %s..." %str(integers))
-            apply_bianchi_kernel(pm.real, xgrid, *integers)
+            apply_bianchi_kernel(real, xgrid, *integers)
             if rank == 0: logger.debug('...done')
     
             # do the real-to-complex FFT
             if rank == 0: logger.debug("performing r2c...")
-            pm.r2c()
+            real.r2c(out=complex)
             if rank == 0: logger.debug('...done')
             
             # apply the Fourier-space Bianchi kernel
             if rank == 0: logger.debug("applying Fourier-space Bianchi transfer for %s..." %str(integers))
-            apply_bianchi_kernel(pm.complex, pm.k, *integers)
+            apply_bianchi_kernel(complex, pm.k, *integers)
             if rank == 0: logger.debug('...done')
             
             # and this contribution to the total sum
-            Aell_sum[:] += amp*pm.complex[:]*volume
+            Aell_sum[:] += amp*complex[:]*volume
             
         # apply the paintbrush window transfer function and save
         transfer(pm, Aell_sum)
