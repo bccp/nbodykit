@@ -8,13 +8,14 @@ class TidalTensor(Algorithm):
     plugin_name = "TidalTensor"
     
     def __init__(self, field, points, Nmesh, smoothing=None):
-        pass
+        from pmesh.pm import ParticleMesh
+        self.pm = ParticleMesh(BoxSize=self.field.BoxSize, Nmesh=[self.Nmesh]*3, dtype='f4', comm=self.comm)
 
     @classmethod
     def register(cls):
         s = cls.schema
         s.description = "compute the tidal force tensor"
-        
+
         s.add_argument("field", type=DataSource.from_config,
                 help="DataSource; run `nbkit.py --list-datasources` for all options")
         s.add_argument("points", type=DataSource.from_config,
@@ -26,7 +27,7 @@ class TidalTensor(Algorithm):
                 help='Smoothing Length in distance units. '
                       'It has to be greater than the mesh resolution. '
                       'Otherwise the code will die. Default is the mesh resolution.')
-                      
+
     def Smoothing(self, pm, complex):
         k = pm.k
         k2 = 0
@@ -38,8 +39,7 @@ class TidalTensor(Algorithm):
         """ removes the DC amplitude. This effectively
             divides by the mean
         """
-        from mpi4py import MPI
-        
+
         w = pm.w
         comm = pm.comm
         ind = []
@@ -53,7 +53,7 @@ class TidalTensor(Algorithm):
         if found:
             ind = tuple(ind)
             value = numpy.abs(complex[ind])
-        value = comm.allreduce(value, MPI.SUM)
+        value = comm.allreduce(value)
         complex[:] /= value
 
     def TidalTensor(self, u, v):
@@ -77,47 +77,45 @@ class TidalTensor(Algorithm):
         """
         Run the TidalTensor Algorithm
         """
-        from pmesh.particlemesh import ParticleMesh
         from itertools import product
          
-        pm = ParticleMesh(self.field.BoxSize, self.Nmesh, dtype='f4', comm=self.comm)
         if self.smoothing is None:
             self.smoothing = self.field.BoxSize[0] / self.Nmesh
         elif (self.field.BoxSize / self.Nmesh > self.smoothing).any():
             raise ValueError("smoothing is too small")
      
-        painter = painters.DefaultPainter(weight="Mass")
-        painter.paint(pm, self.field)
-        pm.r2c()
+        painter = painters.DefaultPainter(weight="Mass", paintbrush="cic")
+        real, stats = painter.paint(self.pm, self.field)
+        complex = real.r2c()
 
-        pm.transfer([self.Smoothing, self.NormalizeDC])
+        for t in [self.Smoothing, self.NormalizeDC]:
+            t(complex.pm, complex)
 
         with self.points.open() as stream:
             [[Position ]] = stream.read(['Position'], full=True)
 
-        layout = pm.decompose(Position)
+        layout = self.pm.decompose(Position)
         pos1 = layout.exchange(Position)
         value = numpy.empty((3, 3, len(Position)))
 
         for u, v in product(range(3), range(3)):
             if self.comm.rank == 0:
                 self.logger.info("Working on tensor element (%d, %d)" % (u, v))
-            pm.push()
-            pm.transfer([self.TidalTensor(u, v)])
-            pm.c2r()
-            v1 = pm.readout(pos1)
+            c2 = complex.copy()
+
+            self.TidalTensor(u, v)(c2.pm, c2)
+            c2.c2r(real)
+            v1 = real.readout(pos1)
             v1 = layout.gather(v1)
-            pm.pop()
 
             value[u, v] = v1
-             
+
         return value.transpose((2, 0, 1))
 
     def save(self, output, data):
         self.write_hdf5(data, output)
 
     def write_hdf5(self, data, output):
-        
         import h5py
         size = self.comm.allreduce(len(data))
         offset = sum(self.comm.allgather(len(data))[:self.comm.rank])
@@ -134,7 +132,7 @@ class TidalTensor(Algorithm):
         for i in range(self.comm.size):
             self.comm.barrier()
             if i != self.comm.rank: continue
-                 
+
             with h5py.File(output, 'r+') as ff:
                 dataset = ff['TidalTensor']
                 dataset[offset:len(data) + offset] = data
