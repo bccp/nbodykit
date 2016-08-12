@@ -149,7 +149,7 @@ class BianchiPowerAlgorithm(Algorithm):
         # binning in k out to the minimum nyquist frequency
         # (accounting for possibly anisotropic box)
         dk = 2*numpy.pi/pm.BoxSize.min() if self.dk is None else self.dk
-        kedges = numpy.arange(self.kmin, numpy.pi*pm.Nmesh/pm.BoxSize.max() + dk/2, dk)
+        kedges = numpy.arange(self.kmin, numpy.pi*pm.Nmesh.min()/pm.BoxSize.max() + dk/2, dk)
 
         # project on to 1d k basis
         muedges = numpy.linspace(0, 1, 2, endpoint=True)
