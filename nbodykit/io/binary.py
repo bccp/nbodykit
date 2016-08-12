@@ -1,8 +1,9 @@
 from glob import glob
 import os
 import numpy
-from six import string_types
-  
+from ..extern.six import string_types
+from .filetype import FileTypeBase
+
 def getsize(filename, header_size, rowsize):
     """
     The default method to determine the size of the binary file
@@ -39,7 +40,7 @@ def getsize(filename, header_size, rowsize):
     return size
     
 
-class BinaryFile(object):
+class BinaryFile(FileTypeBase):
     """
     A file object to handle the reading of columns of data from 
     a binary file

@@ -16,7 +16,7 @@ To define a plugin:
 3.  Define a `plugin_name` class attribute
 4.  Define the functions relevant for that extension point interface.
 """
-from nbodykit.utils.config import autoassign, ConstructorSchema, ReadConfigFile, PluginParsingError
+from nbodykit.config.config import autoassign, ConstructorSchema, ReadConfigFile, PluginParsingError
 from nbodykit.distributedarray import ScatterArray
 from nbodykit.extern import six
 
@@ -37,6 +37,7 @@ algorithms  = Namespace()
 datasources = Namespace()
 painters    = Namespace()
 transfers   = Namespace()
+filetypes   = Namespace()
 
 # private variable to store global MPI communicator 
 # that all plugins are initialized with

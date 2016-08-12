@@ -1,8 +1,11 @@
 import numpy
 import pandas as pd
 import os
-from six import string_types
-from utils import consecutive_view_slices
+
+from .filetype import FileTypeBase
+from ..extern.six import string_types
+from .utils import consecutive_view_slices
+from .filetype import FileTypeBase
 
 def get_partition_sizes(filename, blocksize):
     """
@@ -41,7 +44,8 @@ def infer_dtype(path, names, config):
         toret[name] = df[name].dtype
     return toret
 
-class CSVFile(object):
+
+class CSVFile(FileTypeBase):
     """
     A file object to handle the reading of columns of data from 
     a CSV file
@@ -54,6 +58,8 @@ class CSVFile(object):
         This assumes the delimiter for separate lines is the newline
         character.
     """
+    plugin_name = 'CSVFile'
+    
     def __init__(self, path, names, blocksize=32*1024*1024, dtype={}, delim_whitespace=True, header=None, **config):
         """
         Parameters
@@ -101,6 +107,14 @@ class CSVFile(object):
                 dt = inferred_dtype[col]
             self.dtype.append((col, dt))
     
+    @property
+    def dtype(self):
+        return self._dtype
+    
+    @dtype.setter
+    def dtype(self, val):
+        self._dtype = val
+        
     def __getitem__(self, s):
         if isinstance(s, tuple): s = s[0]
         start, stop, step = s.indices(self.size)

@@ -3,6 +3,33 @@ import functools
 from collections import namedtuple, OrderedDict
 import yaml
 from argparse import Namespace
+import logging
+
+def make_configurable(cls):
+    
+    # if class has abstract 
+    if cls.__init__.__isabstractmethod__:
+        raise ValueError("please define an __init__ method for '%s'" %cls.__name__)
+
+    # in python 2, __func__ needed to attach attributes to the real function; 
+    # __func__ removed in python 3, so just attach to the function
+    init = cls.__init__
+    if hasattr(init, '__func__'): init = init.__func__
+    
+    # add a schema
+    init.schema = ConstructorSchema()
+    cls.schema = cls.__init__.schema
+    
+    if hasattr(cls, 'register'):
+        cls.register()
+    
+    # add a logger
+    name = getattr(cls, 'plugin_name', '__name__')
+    cls.logger = logging.getLogger(name)
+
+    # configure the class __init__, attaching the comm, and optionally cosmo
+    cls.__init__ = autoassign(init, attach_cosmo=False)
+    
 
 class ConfigurationError(Exception): 
     """

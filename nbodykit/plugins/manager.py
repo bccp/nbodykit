@@ -7,21 +7,21 @@ from sys import modules
 from types import ModuleType
 
 # import the parent modules
-import nbodykit.core
-import nbodykit.core.algorithms
-import nbodykit.core.datasource
-import nbodykit.core.painter
-import nbodykit.core.transfer
-import nbodykit.core.user
+import nbodykit.plugins
+import nbodykit.plugins.algorithms
+import nbodykit.plugins.datasource
+import nbodykit.plugins.painter
+import nbodykit.plugins.transfer
+import nbodykit.plugins.user
 
 def load(filename):
-    return load2(filename, qualifiedprefix='nbodykit.core.user')
+    return load2(filename, qualifiedprefix='nbodykit.plugins.user')
 
 def load_builtins():
     path = os.path.abspath(os.path.dirname(__file__))
-    return load2(os.path.join(path, 'core'), qualifiedprefix='nbodykit')
+    return load2(os.path.join(path, 'plugins'), qualifiedprefix='nbodykit')
 
-def load2(filename, qualifiedprefix='nbodykit.core.user'):
+def load2(filename, qualifiedprefix='nbodykit.plugins.user'):
     """ load a plugin from filename.
 
         Parameters
