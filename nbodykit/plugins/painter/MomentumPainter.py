@@ -1,10 +1,11 @@
 from nbodykit.extensionpoints import Painter
 import numpy
+from pmesh.pm import RealField
 
 class MomentumPainter(Painter):
     plugin_name = "MomentumPainter"
     
-    def __init__(self, velocity_component, moment=1):
+    def __init__(self, velocity_component, moment=1, paintbrush='cic'):
         self._comp_index = "xyz".index(self.velocity_component)
 
     @classmethod
@@ -18,7 +19,8 @@ class MomentumPainter(Painter):
         s.add_argument("moment", type=int, 
             help="the moment of the velocity field to paint, i.e., "
                  "`moment=1` paints density*velocity, `moment=2` paints density*velocity^2")
-
+        s.add_argument("paintbrush", type=str, help="select a paint brush. Default is to defer to the choice of the algorithm that uses the painter.")
+        
     def paint(self, pm, datasource):
         """
         Paint the ``DataSource`` specified by ``input`` onto the 
@@ -36,7 +38,9 @@ class MomentumPainter(Painter):
         stats : dict
             dictionary of statistics, usually only containing `Ntot`
         """
-        pm.clear()
+        real = RealField(pm)
+        real[:] = 0
+        
         stats = {}
         Nlocal = 0
         
@@ -46,18 +50,21 @@ class MomentumPainter(Painter):
             # just paint density as usual
             if self.moment == 0: 
                 for [position] in stream.read(['Position']):
-                    Nlocal += self.basepaint(pm, position)
+                    self.basepaint(real, position, paintbrush=self.paintbrush)
+                    Nlocal += len(position)
             # paint density-weighted velocity moments
             else:
                 for position, velocity in stream.read(['Position', 'Velocity']):
-                    Nlocal += self.basepaint(pm, position, velocity[:,self._comp_index]**self.moment)
+                    self.basepaint(real, position, weight=velocity[:,self._comp_index]**self.moment, paintbrush=self.paintbrush)
+                    Nlocal += len(position)
     
         # total N
         stats['Ntot'] = self.comm.allreduce(Nlocal)
         
         # normalize config-space velocity field by mean number density
-        norm = 1.*stats['Ntot']/pm.BoxSize.prod()
-        pm.real[:] /= norm
+        # this is (Nmesh**3 / V) / (Ntot / V)
+        norm = pm.Nmesh.prod() / (stats['Ntot'])
+        real[:] *= norm
 
-        return stats
+        return real, stats
             
