@@ -622,7 +622,7 @@ class FKPCatalog(object):
             
             yield [P[key] for key in columns]
             
-    def paint(self, pm):
+    def paint(self, pm, paintbrush='cic'):
         """
         Paint the FKP weighted density field: ``data - alpha*randoms`` using
         the input `ParticleMesh`
@@ -645,6 +645,8 @@ class FKPCatalog(object):
             a dictionary of FKP statistics, including total number, normalization,
             and shot noise parameters (see equations 13-15 of Beutler et al. 2013)
         """  
+        from pmesh.pm import RealField
+        
         if self.closed:
             raise ValueError("'paint' operation on a closed FKPCatalog")
             
@@ -657,11 +659,12 @@ class FKPCatalog(object):
         W_ran = W_data = 0.
         
         # clear the density mesh
-        pm.clear()
+        real = RealField(pm)
+        real[:] = 0
         
         # alpha determined from completeness weights
         alpha = self.alpha
-        
+                
         # paint -1.0*alpha*N_randoms
         for [position, nbar, fkp_weight, comp_weight] in self.read('randoms', columns):
             
@@ -669,11 +672,14 @@ class FKPCatalog(object):
             # weight and completeness weight
             weight = fkp_weight * comp_weight
             
-            Nlocal = self.painter.basepaint(pm, position, -alpha*weight)
+            self.painter.basepaint(real, position, weight=weight, paintbrush=paintbrush)
             A_ran += (nbar*comp_weight*fkp_weight**2).sum()
-            N_ran += Nlocal
+            N_ran += len(position)
             S_ran += (weight**2).sum()
             W_ran += comp_weight.sum()
+            
+        # randoms get -alpha factor
+        real[:] *= -alpha
 
         A_ran = self.comm.allreduce(A_ran)
         N_ran = self.comm.allreduce(N_ran)
@@ -687,9 +693,9 @@ class FKPCatalog(object):
             # weight and completeness weight
             weight = fkp_weight * comp_weight
             
-            Nlocal = self.painter.basepaint(pm, position, weight)
+            self.painter.basepaint(real, position, weight=weight, paintbrush=paintbrush)
             A_data += (nbar*comp_weight*fkp_weight**2).sum()
-            N_data += Nlocal 
+            N_data += len(position) 
             S_data += (weight**2).sum()
             W_data += comp_weight.sum()
             
@@ -710,6 +716,9 @@ class FKPCatalog(object):
         stats['S_ran'] *= alpha**2
         stats['shot_noise'] = (stats['S_ran'] + stats['S_data'])/stats['A_ran'] # the final shot noise estimate for monopole
         
-        return stats
+        # go from number to number density
+        real[:] *= numpy.product(pm.Nmesh/pm.BoxSize)
+        
+        return real, stats
     
         
