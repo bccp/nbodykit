@@ -1,40 +1,79 @@
 from ..core import core_extension_points
-import os
-import inspect
-import traceback
-import sys
-from collections import defaultdict, OrderedDict
 from ..extern.six import string_types
+
+import os
+import sys
+import inspect
+from types import ModuleType
+from collections import defaultdict, OrderedDict
 
 class PluginManager(object):
     """
-    Loads and unloads core plugins.
+    A class to manage the loading of plugins in :mod:`nbodykit`.
+    
+    .. note::
+    
+        This class uses the ingleton pattern, so only one
+        instance exists when :mod:`nbodykit` is loaded
+    
+        It should be accessed using the :func:`get` function.
     """
     _instance = None # for using singleton pattern
     supported_types = core_extension_points()
 
     @classmethod
-    def get(cls, *search_dirs):
+    def get(cls, paths, qualprefix="nbodykit.core.user"):
         """
-        Return a PluginManager instance. 
+        Return a PluginManager instance
         
         Uses the singleton pattern to ensure that only one
         plugin manager exists
+        
+        Parameters
+        ----------
+        paths : tuple of str
+            the search paths to look for the core plugins
+        qualprefix : str, optional
+            the prefix to build a qualified name in ``sys.modules``. 
+            This is used to load the builtin plugins in :mod:`nbodykit.core`
         """
         if not cls._instance:
-            PluginManager._instance = cls(*search_dirs)
+            PluginManager._instance = cls(paths, qualprefix=qualprefix)
         return cls._instance
 
-    def __init__(self, *search_dirs):
+    def __init__(self, paths, qualprefix="nbodykit.core.user"):
         """
-        This should not be called by the user
+        Initialize a new PluginManager from the specified 
+        search paths
+        
+        The user should use :func:`get` to get the instance
+        of the PluginManager
         """
-        pluginclasses, _ = self.gather_plugins(search_dirs)
+        # inititalize the dict to store the plugins
+        # this is a dict of OrderedDicts for each supported type
         self.__plugins = defaultdict(OrderedDict)
-        for plugin_type, p in pluginclasses:
-            self.__plugins[plugin_type][p.plugin_name] = p
+        
+        # load the plugins
+        for p in paths:
+            self._load(p, qualprefix=qualprefix)
 
+    def __len__(self):
+        """
+        Return the number of loaded plugins
+        """
+        return sum(len(self.__plugins[k]) for k in self.supported_types)
+    
+    def __repr__(self):
+        args = (self.__class__.__name__, len(self))
+        return "<%s: %d loaded plugins>" %args
+        
     def __contains__(self, name):
+        """
+        Check if a plugin name has been loaded by the 
+        PluginManager
+        """
+        if not isinstance(name, string_types):
+            return False
         
         plugin = None
         try: 
@@ -45,12 +84,16 @@ class PluginManager(object):
         return plugin is not None
             
     def __iter__(self):
-        
+        """
+        Yield tuples of (extension type, dict of plugins)
+        """
         for extension_type in self.supported_types:
             yield extension_type, self.__plugins[extension_type]
     
     def __getitem__(self, key):
-        
+        """
+        Return the dict of plugins for the input extension type
+        """
         valid = list(self.supported_types)
         if isinstance(key, string_types):
             if key in valid:
@@ -64,109 +107,130 @@ class PluginManager(object):
             
         raise KeyError("key should be a string or list of strings from %s" %str(valid))
     
-    
-    def find_plugins(self, path):
+    def _load(self, fn, qualprefix):
+        """ 
+        Load plugins from the specified filename
+
+        Parameters
+        ----------
+        fn : string
+            path to the .py file
+        qualprefix: string
+            a prefix to build a qualified name in sys.modules. This
+            is used to load the built-in plugins in nbodykit.plugins
         """
-        Return a list with all plugins found in path
-        """
-        ext = os.extsep+'py'
-        if os.path.isfile(path):
-            if not path.endswith(ext):
-                raise ValueError("file path for plugins should end in '%s'" %ext)
-            files = [path]
-        else:
-            files = []
-            for (dirpath, dirnames, filenames) in os.walk(path):
-                files.extend([os.path.join(dirpath, x) for x in filenames if x.endswith(ext)])
+        # load the directory tree
+        if os.path.isdir(fn):
+            
+            # get the qualified module (importing if we need to)
+            root = fn.rstrip(os.sep)
+            qualname = '.'.join([qualprefix, os.path.basename(root)])
+            if qualname not in sys.modules:
+                __import__(qualname)
+            module = sys.modules[qualname]
+            
+            # loop over files in the root directory
+            for fn in sorted(os.listdir(root)):
                 
-        plugins = []; modules = []
-        for f in files:
-            try:
-                mod = self._import_file(f)
-            except Exception:
-                tb = traceback.format_exc()
-                print("Importing plugin from %s failed!\n%s" % (f, tb))
-                continue
-            # get all classes in the imported file
-            members = inspect.getmembers(mod, lambda x: inspect.isclass(x))
-            # only get classes which are defined, not imported, in mod
-            classes = [m[1] for m in members if m[1].__module__ == mod.__name__]
-            for c in classes:
-                # if the class is derived from a supported type append it
-                # we test if it is a subclass of a supported type but not a supported type itself
-                # because that might be the abstract class
-                for supported_name in self.supported_types:
+                fullfn = os.path.join(root, fn)
+                basename = os.path.splitext(os.path.basename(fn))[0]
+                
+                # skip __init__
+                if basename.startswith('__'):
+                    continue
                     
-                    supported = self.supported_types[supported_name]
-                    if issubclass(c, supported) and c not in self.supported_types.values():
-                        plugins.append((supported.__name__, c))
-                        modules.append(mod)
-                        
-                        # qualify the module name that is loaded by the extension type
-                        # this should avoid name collisions
-                        if mod.__name__ in sys.modules:
-                            sys.modules.pop(mod.__name__)
-                        sys.modules['%s.%s' %(supported_name, mod.__name__)] = mod
-        return plugins, modules
+                # recursively load plugins in the directory
+                # and add them to the module
+                if os.path.isdir(fullfn) or fn.endswith(os.path.extsep + 'py'):
+                    mod = self._load(fullfn, qualprefix=qualname)
+                    self._extract_plugins(mod)
+                    module.__dict__[basename] = mod
+            return module
+        
+        # load the normal file into a module
+        basename, ext = os.path.splitext(os.path.basename(fn))
+        qualname = '.'.join([qualprefix, basename])
+        module = ModuleType(qualname)
 
-    def gather_plugins(self, paths):
-        """
-        Return all plugins that are found in the plugin paths
-        """
-        plugins = []; modules = []
-        # first find built-ins then the ones in the config, then the one from the environment
-        # so user plugins can override built-ins
-        for p in reversed(paths):
-            if p and os.path.exists(p):  # in case of an empty string, we do not search!
-                more_plugins, more_modules = self.find_plugins(p)
-                plugins += more_plugins; modules += more_modules
-        return plugins, modules
+        # execute the code
+        with open(fn, 'r') as f:
+            code = compile(f.read(), fn, 'exec')
+            exec(code, module.__dict__)
 
-    def _import_file(self, f):
-        """
-        Import the specified file and return the imported module
-        """
-        directory, module_name = os.path.split(f)
-        module_name = os.path.splitext(module_name)[0]
-
-        sys.path.insert(0, directory)
-        module = __import__(module_name)
+        sys.modules[qualname] = module
+        self._extract_plugins(module)
         return module
+        
+    def _extract_plugins(self, mod):
+        """
+        Given a module, extract the relevant plugin classes and
+        save them to the PluginManager
+        
+        Parameters
+        ----------
+        mod : module
+            the module to search for classes
+        """
+        # get classes defined in this module
+        members = inspect.getmembers(mod, lambda x: inspect.isclass(x))
+        classes = [m[1] for m in members if m[1].__module__ == mod.__name__]
+
+        # save classes that are subclasses of a supported type
+        s = self.supported_types
+        for c in classes:
+            for name in s:
+                supported = s[name]
+                if issubclass(c, supported) and c not in s.values():
+                    self.__plugins[name][c.plugin_name] = c        
 
     def add_user_plugin(self, *paths):
         """
-        Dynamically load a user plugin and add it to the specified
-        module
+        Dynamically load user plugins, adding each plugin
+        to :mod:`nbodykit.core.user`
+        
+        .. note::
+            
+            At the moment, loaded plugins must be a subclass
+            of one of the classes defined in :attr:`supported_types`
+        
+        Parameters
+        ----------
+        paths : tuple of str
+            the file paths to search for plugins to load
         """
-        module = "nbodykit.core.user"
-        
-        # try to import user module
-        try:        
-            user_mod = __import__(module, fromlist=module.split('.'))
-        except Exception:
-            raise ImportError("error trying to import destination user module '%s'" %module)
-        
-        # try to gather user plugins
-        plugins, modules = self.gather_plugins(paths)
-        for  (plugin_type, p), mod in zip(plugins, modules):
-            self.__plugins[plugin_type][p.plugin_name] = p
-            setattr(user_mod, mod.__name__, mod)
+        for p in paths:
+            self._load(p, qualprefix='nbodykit.core.user')
     
-    def get_plugin(self, plugin, type=None):
+    def get_plugin(self, name, type=None):
         """
         Return the plugin instance for the given plugin name
+        
+        Parameters
+        ----------
+        name : str
+            the name of the plugin to load
+        type : str, optional
+            the extension type (one of :attr:`supported_types`);
+            in the case of name collisions across different 
+            extension types, this parameter must be given, otherwise,
+            an exception will be raised
+        
+        Returns
+        -------
+        cls
+            the plugin class corresponding to `name`
         """
         matches = []
         for extension_type in self.__plugins:
             plugins = self.__plugins[extension_type]
-            if plugin in plugins:
+            if name in plugins:
                 if type is not None and type != extension_type:
                     continue
-                matches.append(plugins[plugin])
+                matches.append(plugins[name])
                 
         if len(matches) == 1:
             return matches[0]
         elif len(matches) > 1 and type is None:
-            raise ValueError("name collision for plugin '%s'; please specify 'type'" %plugin)
+            raise ValueError("name collision for plugin '%s'; please specify 'type'" %name)
         else:
-            raise ValueError("plugin with name '%s' not found" %plugin)
+            raise ValueError("plugin with name '%s' not found" %name)
