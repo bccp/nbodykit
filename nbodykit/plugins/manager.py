@@ -9,16 +9,6 @@ from ..extern.six import string_types
 class PluginManager(object):
     """
     Loads and unloads core plugins.
-
-    A plugin manager scans a set of directories for plugins.
-    Only plugins types that are supported can be loaded.
-    If you need special plugins for a software, subclass JB_Plugin.
-    Then create a subclass of this plugin manager and override
-    supportedTypes. Core plugins should always be supported.
-
-    The gathering of plugins is done during initialisation.
-    To load the plugins, call load_plugins(). This will load
-    all found plugins.
     """
     _instance = None # for using singleton pattern
     supported_types = core_extension_points()
@@ -26,26 +16,18 @@ class PluginManager(object):
     @classmethod
     def get(cls, *search_dirs):
         """
-        Return a PluginManager Instance.
-
-        This will always return the same instance. If the instance is not available
-        it will be created and returned.
-        There should only be one pluginmanager at a time. If you create a PluginManager with get()
-        and use get() on for example a MayaPluginManager,
-        the PluginManager instance is returned (not a MayaPluginManager).
-
-        :returns: always the same PluginManager
-        :rtype: PluginManager
-        :raises: None
+        Return a PluginManager instance. 
+        
+        Uses the singleton pattern to ensure that only one
+        plugin manager exists
         """
         if not cls.instance:
             PluginManager._instance = cls(*search_dirs)
         return cls._instance
 
     def __init__(self, *search_dirs):
-        """Constructs a new PluginManager, use the get method in 99% of cases!
-
-        :raises: None
+        """
+        This should not be called by the user
         """
         pluginclasses, _ = self.gather_plugins(search_dirs)
         self.__plugins = defaultdict(OrderedDict)
@@ -84,13 +66,8 @@ class PluginManager(object):
     
     
     def find_plugins(self, path):
-        """Return a list with all plugins found in path
-
-        :param path: the directory with plugins
-        :type path: str
-        :returns: list of JB_Plugin subclasses
-        :rtype: list
-        :raises: None
+        """
+        Return a list with all plugins found in path
         """
         ext = os.extsep+'py'
         if os.path.isfile(path):
@@ -133,11 +110,8 @@ class PluginManager(object):
         return plugins, modules
 
     def gather_plugins(self, paths):
-        """Return all plugins that are found in the plugin paths
-
-        :returns:
-        :rtype:
-        :raises:
+        """
+        Return all plugins that are found in the plugin paths
         """
         plugins = []; modules = []
         # first find built-ins then the ones in the config, then the one from the environment
@@ -149,13 +123,8 @@ class PluginManager(object):
         return plugins, modules
 
     def _import_file(self, f):
-        """Import the specified file and return the imported module
-
-        :param f: the file to import
-        :type f: str
-        :returns: The imported module
-        :rtype: module
-        :raises: None
+        """
+        Import the specified file and return the imported module
         """
         directory, module_name = os.path.split(f)
         module_name = os.path.splitext(module_name)[0]
@@ -182,13 +151,8 @@ class PluginManager(object):
             setattr(user_mod, mod.__name__, mod)
     
     def get_plugin(self, plugin, type=None):
-        """Return the plugin instance for the given pluginname
-
-        :param plugin: Name of the plugin class
-        :type plugin: str
-        :returns: the plugin that matches the name
-        :rtype: JB_Plugin like
-        :raises: None
+        """
+        Return the plugin instance for the given plugin name
         """
         matches = []
         for extension_type in self.__plugins:
