@@ -2,14 +2,36 @@ import inspect
 import functools
 from collections import namedtuple, OrderedDict
 import yaml
-from argparse import Namespace
+from argparse import Namespace, Action, SUPPRESS
 import logging
+
+def ListPluginsAction(extensionpoint):
+    class ListPluginsAction(Action):
+        def __init__(self,
+                     option_strings,
+                     dest=SUPPRESS,
+                     default=SUPPRESS,
+                     help=None, 
+                     nargs=None,
+                     metavar=None):
+            Action.__init__(self, 
+                option_strings=option_strings,
+                dest=dest,
+                default=default,
+                nargs=nargs,
+                help=help,
+                metavar=metavar)
+        
+        def __call__(self, parser, namespace, values, option_string=None):
+            parser.exit(0, extensionpoint.format_help(*values))
+            
+    return ListPluginsAction
 
 def make_configurable(cls):
     
     # if class has abstract 
-    if cls.__init__.__isabstractmethod__:
-        raise ValueError("please define an __init__ method for '%s'" %cls.__name__)
+    #if cls.__init__.__isabstractmethod__:
+    #    raise ValueError("please define an __init__ method for '%s'" %cls.__name__)
 
     # in python 2, __func__ needed to attach attributes to the real function; 
     # __func__ removed in python 3, so just attach to the function
@@ -24,13 +46,14 @@ def make_configurable(cls):
         cls.register()
     
     # add a logger
-    name = getattr(cls, 'plugin_name', '__name__')
+    name = getattr(cls, 'plugin_name', cls.__name__)
     cls.logger = logging.getLogger(name)
 
     # configure the class __init__, attaching the comm, and optionally cosmo
-    cls.__init__ = autoassign(init, attach_cosmo=False)
+    basenames = [c.__name__ for c in cls.__bases__]
+    attach_cosmo = any(c in ['DataSource', 'GridSource'] for c in basenames)
+    cls.__init__ = autoassign(init, attach_cosmo=attach_cosmo)
     
-
 class ConfigurationError(Exception): 
     """
     General exception for when configuration parsing fails
@@ -198,7 +221,7 @@ def ReadConfigFile(config_stream, schema):
     """
     from nbodykit.cosmology import Cosmology
     from nbodykit.extensionpoints import set_nbkit_cosmo
-    from nbodykit.pluginmanager import load
+    from nbodykit import plugin_manager
 
     # make a new namespace
     ns, unknown = Namespace(), Namespace()
@@ -223,7 +246,7 @@ def ReadConfigFile(config_stream, schema):
         plugins = config['X']
         if isinstance(plugins, str):
             plugins = [plugins]
-        for plugin in plugins: load(plugin)
+        plugin_manager.add_user_plugin(*plugins)
         config.pop('X')
     
     # now load cosmology
