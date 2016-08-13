@@ -1,4 +1,4 @@
-from nbodykit.extensionpoints import Painter, DataSource, GridSource
+from nbodykit.core import Painter, DataSource, GridSource
 from pmesh.pm import RealField, ComplexField, ParticleMesh
 import numpy
 

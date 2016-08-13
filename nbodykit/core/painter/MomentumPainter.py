@@ -1,4 +1,4 @@
-from nbodykit.extensionpoints import Painter
+from nbodykit.core import Painter
 import numpy
 from pmesh.pm import RealField
 
