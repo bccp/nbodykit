@@ -1,4 +1,4 @@
-from nbodykit.utils.config import autoassign, attribute
+from nbodykit.plugins.config import autoassign, attribute
 from astropy import cosmology, units
 
 class CosmologyBase(object):
