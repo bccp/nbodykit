@@ -1,5 +1,7 @@
 from nbodykit.extensionpoints import Algorithm
 from nbodykit.extensionpoints import DataSource, GridSource, Painter
+from pmesh.pm import ParticleMesh, RealField, ComplexField
+
 import os
 import numpy
 
@@ -14,13 +16,24 @@ class PaintGridAlgorithm(Algorithm):
     """
     plugin_name = "PaintGrid"
     
-    def __init__(self, Nmesh, DataSource, Painter=None, paintbrush='cic', dataset='PaintGrid', Nfile=0):
+    def __init__(self, Nmesh, DataSource, Painter=None, paintbrush='cic', paintNmesh=None, dataset='PaintGrid', Nfile=0, writeFourier=False):
         # combine the two fields
         self.datasource = DataSource
         if Painter is None:
             Painter = Painter.create("DefaultPainter")
+
+        if Painter.paintbrush is None:
+            self.Painter.paintbrush = paintbrush
+
         self.painter = Painter
         self.dataset = dataset
+        if paintNmesh is None:
+            self.paintNmesh = self.Nmesh
+
+        if self.Nfile == 0:
+            chunksize = 1024 * 1024 * 512
+            self.Nfile = (self.Nmesh * self.Nmesh * self.Nmesh + chunksize - 1)// chunksize
+
 
     @classmethod
     def register(cls):
@@ -39,29 +52,44 @@ class PaintGridAlgorithm(Algorithm):
 
         s.add_argument('dataset', help="name of dataset to write to")
         s.add_argument('Nfile', required=False, help="number of files")
-
+        s.add_argument('writeFourier', type=bool, required=False, help="Write complex Fourier modes instead?")
+        s.add_argument('paintNmesh', type=int, required=False,
+                    help="The painting Nmesh. The grid will be Fourier resampled to Nmesh before output. A value larger than Nmesh can reduce grid artifacts.")
         s.add_argument('paintbrush', type=lambda x: x.lower(), choices=['cic', 'tsc'],
             help='the density assignment kernel to use when painting; '
                  'CIC (2nd order) or TSC (3rd order)')
 
     def run(self):
         """
-        Run the algorithm, which computes and returns the grid
+        Run the algorithm, which computes and returns the grid in C_CONTIGUOUS order partitioned by ranks.
         """
         from nbodykit import measurestats
-        from pmesh.particlemesh import ParticleMesh
 
         if self.comm.rank == 0:
             self.logger.info('importing done')
+            self.logger.info('Resolution Nmesh : %d' % self.paintNmesh)
+            self.logger.info('paintbrush : %s' % self.Painter.paintbrush)
 
         # setup the particle mesh object, taking BoxSize from the painters
-        pm = ParticleMesh(self.datasource.BoxSize, self.Nmesh, 
-                            paintbrush=self.paintbrush, dtype='f4', comm=self.comm)
+        pmpaint = ParticleMesh(BoxSize=self.datasource.BoxSize, Nmesh=[self.paintNmesh] * 3, dtype='f4', comm=self.comm)
+        pm = ParticleMesh(BoxSize=self.datasource.BoxSize, Nmesh=[self.Nmesh] * 3, dtype='f4', comm=self.comm)
 
-        stats = self.painter.paint(pm, self.datasource)
+        real, stats = self.painter.paint(pmpaint, self.datasource)
+
+        if self.writeFourier:
+            result = ComplexField(pm)
+        else:
+            result = RealField(pm)
+        real.resample(result)
+
+        # reuses the memory
+        result.sort()
+
+        # flatten the array for output
+        result = result.ravel()
 
         # return all the necessary results
-        return pm, stats
+        return result, stats
 
     def save(self, output, result):
         """
@@ -77,32 +105,20 @@ class PaintGridAlgorithm(Algorithm):
         """
         import bigfile
         import numpy
-        import mpsort
-        pm, stats = result
-        x3d = pm.real.copy()
-        istart = pm.partition.local_i_start
-        ind = numpy.zeros(x3d.shape, dtype='i8')
-        for d in range(3):
-            i = numpy.arange(istart[d], istart[d] + x3d.shape[d])
-            i = i.reshape([-1 if dd == d else 1 for dd in range(3)])
-            ind[...] *= pm.Nmesh
-            ind[...] += i
 
-        x3d = x3d.ravel()
-        ind = ind.ravel()
-        mpsort.sort(x3d, orderby=ind, comm=self.comm)
-        if self.Nfile == 0:
-            chunksize = 1024 * 1024 * 512
-            Nfile = (self.Nmesh * self.Nmesh * self.Nmesh + chunksize - 1)// chunksize
-        else:
-            Nfile = self.Nfile
+        result, stats = result
 
         if self.comm.rank == 0:
-            self.logger.info("writing to %s/%s in %d parts" % (output, self.dataset, Nfile))
+            self.logger.info('Output Nmesh : %d' % self.Nmesh)
+            self.logger.info("writing to %s/%s in %d parts" % (output, self.dataset, self.Nfile))
 
         f = bigfile.BigFileMPI(self.comm, output, create=True)
-        b = f.create_from_array(self.dataset, x3d, Nfile=Nfile)
+
+        b = f.create_from_array(self.dataset, result, Nfile=self.Nfile)
+
         b.attrs['ndarray.shape'] = numpy.array([self.Nmesh, self.Nmesh, self.Nmesh], dtype='i8')
         b.attrs['BoxSize'] = numpy.array(self.datasource.BoxSize, dtype='f8')
         b.attrs['Nmesh'] = self.Nmesh
+        b.attrs['paintNmesh'] = self.paintNmesh
+        b.attrs['paintbrush'] = self.paintbrush
         b.attrs['Ntot'] = stats['Ntot']

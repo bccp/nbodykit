@@ -10,7 +10,9 @@ class Subsample(Algorithm):
     plugin_name = "Subsample"
     
     def __init__(self, datasource, Nmesh, seed=12345, ratio=0.01, smoothing=None, format='hdf5'):
-        pass
+        from pmesh.pm import ParticleMesh
+
+        self.pm = ParticleMesh(BoxSize=self.datasource.BoxSize, Nmesh=[self.Nmesh] * 3, dtype='f4', comm=self.comm)
 
     @classmethod
     def register(cls):
@@ -35,14 +37,11 @@ class Subsample(Algorithm):
         """
         Run the Subsample algorithm
         """
-        from pmesh.particlemesh import ParticleMesh
-        from mpi4py import MPI
         import mpsort
         from astropy.utils.misc import NumpyRNGContext
-        
-        pm = ParticleMesh(self.datasource.BoxSize, self.Nmesh, dtype='f4', comm=self.comm)
+
         if self.smoothing is None:
-            self.smoothing = self.datasource.BoxSize[0] / self.Nmesh
+            self.smoothing = self.datasource.BoxSize[0] / self.Nmesh[0]
         elif (self.datasource.BoxSize / self.Nmesh > self.smoothing).any():
             raise ValueError("smoothing is too small")
      
@@ -51,7 +50,7 @@ class Subsample(Algorithm):
             k2 = 0
             for ki in k:
                 ki2 = ki ** 2
-                complex *= numpy.exp(-0.5 * ki2 * self.smoothing ** 2)
+                complex[:] *= numpy.exp(-0.5 * ki2 * self.smoothing ** 2)
 
         def NormalizeDC(pm, complex):
             """ removes the DC amplitude. This effectively
@@ -70,33 +69,35 @@ class Subsample(Algorithm):
             if found:
                 ind = tuple(ind)
                 value = numpy.abs(complex[ind])
-            value = comm.allreduce(value, MPI.SUM)
+            value = comm.allreduce(value)
             complex[:] /= value
-            
+
         # open the datasource and keep the cache
         with self.datasource.keep_cache():
-     
-            painter = Painter.create("DefaultPainter")
-            painter.paint(pm, self.datasource)
-            pm.r2c()
-        
-            pm.transfer([Smoothing, NormalizeDC])
-            pm.c2r()
+
+            painter = Painter.create("DefaultPainter", paintbrush='cic')
+            real, stats = painter.paint(self.pm, self.datasource)
+            complex = real.r2c()
+
+            for t in [Smoothing, NormalizeDC]: t(self.pm, complex)
+
+            complex.c2r(real)
+
             columns = ['Position', 'ID', 'Velocity']
             local_seed = utils.local_random_seed(self.seed, self.comm)
-        
+
             dtype = numpy.dtype([
                     ('Position', ('f4', 3)),
                     ('Velocity', ('f4', 3)),
                     ('ID', 'u8'),
                     ('Density', 'f4'),
-                    ]) 
+                    ])
 
             subsample = [numpy.empty(0, dtype=dtype)]
 
             with self.datasource.open() as stream:
                 for Position, ID, Velocity in stream.read(columns):
-                    
+
                     with NumpyRNGContext(local_seed):
                         u = numpy.random.uniform(size=len(ID))
                     keep = u < self.ratio
@@ -104,12 +105,12 @@ class Subsample(Algorithm):
                     if Nkeep == 0: continue 
                     data = numpy.empty(Nkeep, dtype=dtype)
                     data['Position'][:] = Position[keep]
-                    data['Velocity'][:] = Velocity[keep]       
-                    data['ID'][:] = ID[keep] 
+                    data['Velocity'][:] = Velocity[keep]
+                    data['ID'][:] = ID[keep]
 
-                    layout = pm.decompose(data['Position'])
+                    layout = self.pm.decompose(data['Position'])
                     pos1 = layout.exchange(data['Position'])
-                    density1 = pm.readout(pos1)
+                    density1 = real.readout(pos1)
                     density = layout.gather(density1)
 
                     # normalize the position after reading out density!
@@ -117,10 +118,10 @@ class Subsample(Algorithm):
                     data['Velocity'][:] /= self.datasource.BoxSize
                     data['Density'][:] = density
                     subsample.append(data)
-        
+
         subsample = numpy.concatenate(subsample)
         mpsort.sort(subsample, orderby='ID', comm=self.comm)
-        
+
         return subsample
 
     def save(self, output, data):
