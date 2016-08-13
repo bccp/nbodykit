@@ -1,4 +1,4 @@
-from nbodykit.extensionpoints import DataSource
+from nbodykit.core import DataSource
 import numpy
 
 class SubsampleDataSource(DataSource):

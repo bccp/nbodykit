@@ -1,4 +1,4 @@
-from nbodykit.extensionpoints import DataSource, DataStream
+from nbodykit.core import DataSource, DataStream
 import numpy
 
 class ShiftedObserverDataSource(DataSource):

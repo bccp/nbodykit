@@ -1,4 +1,4 @@
-from nbodykit.extensionpoints import DataSource
+from nbodykit.core import DataSource
 from nbodykit import files 
 import numpy
 

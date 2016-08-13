@@ -1,4 +1,4 @@
-from nbodykit.extensionpoints import GridSource
+from nbodykit.core import GridSource
 import numpy
 from pmesh.pm import ParticleMesh, RealField, ComplexField
 
