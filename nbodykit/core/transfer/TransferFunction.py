@@ -1,4 +1,4 @@
-from nbodykit.extensionpoints import Transfer
+from nbodykit.core import Transfer
 import numpy
 
 class AnisotropicCIC(Transfer):
