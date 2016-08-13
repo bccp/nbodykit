@@ -220,8 +220,7 @@ def ReadConfigFile(config_stream, schema):
         in the scema
     """
     from nbodykit.cosmology import Cosmology
-    from nbodykit.extensionpoints import set_nbkit_cosmo
-    from nbodykit import plugin_manager
+    from nbodykit import plugin_manager, GlobalCosmology
 
     # make a new namespace
     ns, unknown = Namespace(), Namespace()
@@ -253,7 +252,7 @@ def ReadConfigFile(config_stream, schema):
     cosmo = None
     if 'cosmo' in config:
        cosmo = Cosmology(**config.pop('cosmo'))
-       set_nbkit_cosmo(cosmo)
+       GlobalCosmology.set(cosmo)
                 
     # fill the namespace, recursively 
     missing = []
@@ -572,13 +571,13 @@ def autoassign(init, attach_comm=True, attach_cosmo=False):
         
         # attach the global communicator
         if attach_comm:
-            from nbodykit.extensionpoints import get_nbkit_comm
-            self.comm = get_nbkit_comm()
+            from nbodykit import GlobalComm
+            self.comm = GlobalComm.get()
 
         # attach the global cosmology
         if attach_cosmo:
-            from nbodykit.extensionpoints import get_nbkit_cosmo
-            self.cosmo = get_nbkit_cosmo()
+            from nbodykit import GlobalCosmology
+            self.cosmo = GlobalCosmology.get()
         
         # handle extra allowed keywords (that aren't in signature)
         for k in allowed:

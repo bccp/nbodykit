@@ -18,3 +18,56 @@ algorithms  = Namespace(**plugin_manager['Algorithm'])
 datasources = Namespace(**plugin_manager['DataSource'])
 transfers   = Namespace(**plugin_manager['Transfer'])
 painters    = Namespace(**plugin_manager['Painter'])
+
+
+class GlobalComm(object):
+    """
+    The global MPI communicator
+    """
+    _instance = None
+    
+    @classmethod
+    def get(cls):
+        """
+        Get the communicator, return ``MPI.COMM_WORLD``
+        if the comm has not be explicitly set yet
+        """
+        # initialize MPI and set the comm if we need to
+        if not cls._instance:
+            from mpi4py import MPI
+            comm = MPI.COMM_WORLD
+            cls._instance = comm
+            
+        return cls._instance
+        
+    @classmethod
+    def set(cls, comm):
+        """
+        Set the communicator to the input value
+        """
+        cls._instance = comm
+        
+class GlobalCosmology(object):
+    """
+    The global :class:`~nbodykit.cosmology.Cosmology` instance
+    """
+    _instance = None 
+    
+    @classmethod
+    def get(cls):
+        """
+        Get the communicator, return ``MPI.COMM_WORLD``
+        if the comm has not be explicitly set yet
+        """
+        return cls._instance
+        
+    @classmethod
+    def set(cls, cosmo):
+        """
+        Set the communicator to the input value
+        """
+        cls._instance = cosmo
+
+
+            
+        

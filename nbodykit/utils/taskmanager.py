@@ -4,7 +4,7 @@ import logging
 import numpy
 
 from mpi4py import MPI
-from nbodykit.extensionpoints import set_nbkit_comm
+from nbodykit import GlobalComm
 
 def split_ranks(N_ranks, N, include_all=False):
     """
@@ -148,7 +148,7 @@ class TaskManager(object):
         self.subcomm = self.comm.Split(color, 0)
         
         # set the global extension point comm
-        set_nbkit_comm(self.subcomm)
+        GlobalComm.set(self.subcomm)
         
     def is_master(self):
         """
