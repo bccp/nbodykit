@@ -1,6 +1,6 @@
 from nbodykit.extensionpoints import GridSource
-from nbodykit import resampler
 import numpy
+from pmesh.pm import ParticleMesh, RealField, ComplexField
 
 class BigFileGridSource(GridSource):
     """
@@ -39,12 +39,28 @@ class BigFileGridSource(GridSource):
         s.add_argument("path", type=str, help="the file path to load the data from")
         s.add_argument("dataset", type=str, help="the file path to load the data from")
 
-    def read(self, pm):
+    def read(self, real):
         import bigfile
         if self.comm.rank == 0:
-            self.logger.info("Reading from Nmesh = %d to Nmesh = %d" %(self.Nmesh, pm.Nmesh))
+            self.logger.info("Reading from Nmesh = %d to Nmesh = %d" %(self.Nmesh, real.Nmesh[0]))
+
+        if any(real.Nmesh != self.Nmesh):
+            pmread = ParticleMesh(BoxSize=real.BoxSize, Nmesh=(self.Nmesh, self.Nmesh, self.Nmesh),
+                    dtype='f4', comm=self.comm)
+        else:
+            pmread = real.pm
 
         f = bigfile.BigFileMPI(self.comm, self.path)
-        with f[self.dataset] as ds:
-            resampler.read(pm, ds, self.Nmesh, self.isfourier)
 
+        with f[self.dataset] as ds:
+            start = self.comm.rank * ds.size // self.comm.size
+            end = (self.comm.rank + 1)* ds.size // self.comm.size
+
+            if self.isfourier:
+                complex2 = ComplexField(pmread)
+                complex2.unsort(ds[start:end])
+                complex2.resample(real)
+            else:
+                real2 = RealField(pmread)
+                real2.unsort(ds[start:end])
+                real2.resample(real)
