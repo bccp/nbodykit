@@ -102,8 +102,7 @@ class FFTPowerAlgorithm(Algorithm):
 
         # FIXME: fix up the paint brush if it is None
         for ds, painter, transfer in self.fields:
-            if painter.paintbrush is None:
-                painter.paintbrush = paintbrush
+            painter.paintbrush = paintbrush
 
         if self.comm.rank == 0: self.logger.info('importing done')
 

@@ -43,9 +43,8 @@ def compute_3d_power(fields, pm, comm=None):
     transfers   = [t for d, p, t in fields]
 
     # step 1: paint the density field to the mesh
-
     real, stats1 = painters[0].paint(pm, datasources[0])
-    if rank == 0: logger.info('Painting done')
+    if rank == 0: logger.info('%s painting done' %painters[0].paintbrush)
 
     # step 2: Fourier transform density field using real to complex FFT
     complex = real.r2c()
@@ -72,7 +71,7 @@ def compute_3d_power(fields, pm, comm=None):
 
         # apply painting, FFT, and transfer steps to second field
         real, stats2 = painters[1].paint(pm, datasources[1])
-        if rank == 0: logger.info('Painting 2 done')
+        if rank == 0: logger.info('%s painting 2 done' %painters[1].paintbrush)
         c2 = real.r2c()
         del real
         if rank == 0: logger.info('r2c 2 done')
