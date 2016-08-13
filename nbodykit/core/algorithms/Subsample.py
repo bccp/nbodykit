@@ -1,4 +1,4 @@
-from nbodykit.extensionpoints import Algorithm, DataSource, Painter
+from nbodykit.core import Algorithm, DataSource, Painter
 from nbodykit import utils
 import numpy
 
@@ -145,7 +145,7 @@ class Subsample(Algorithm):
                 dataset.attrs['Seed'] = self.seed
                 dataset.attrs['Smoothing'] = self.smoothing
                 dataset.attrs['Nmesh'] = self.Nmesh
-                dataset.attrs['Original'] = self.datasource.string
+                dataset.attrs['Original'] = id(self.datasource)
                 dataset.attrs['BoxSize'] = self.datasource.BoxSize
 
         for i in range(self.comm.size):

@@ -1,9 +1,9 @@
-from nbodykit.extensionpoints import Algorithm, DataSource
+from nbodykit.core import Algorithm, DataSource
 from nbodykit import fof, utils
 import numpy
 
 def RaDecDataSource(d):
-    source = DataSource.registry.RaDecRedshift
+    source = DataSource.registry()['RaDecRedshift']
     d['unit_sphere'] = True
     return source.from_config(d)
             

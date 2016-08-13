@@ -1,4 +1,4 @@
-from nbodykit.extensionpoints import Algorithm, DataSource, painters
+from nbodykit.core import Algorithm, DataSource, Painter
 import numpy
 
 class TidalTensor(Algorithm):
@@ -84,7 +84,7 @@ class TidalTensor(Algorithm):
         elif (self.field.BoxSize / self.Nmesh > self.smoothing).any():
             raise ValueError("smoothing is too small")
      
-        painter = painters.DefaultPainter(weight="Mass", paintbrush="cic")
+        painter = Painter.create("DefaultPainter", weight="Mass", paintbrush="cic")
         real, stats = painter.paint(self.pm, self.field)
         complex = real.r2c()
 
@@ -126,7 +126,7 @@ class TidalTensor(Algorithm):
                         dtype=data.dtype, shape=(size, 3, 3))
                 dataset.attrs['Smoothing'] = self.smoothing
                 dataset.attrs['Nmesh'] = self.Nmesh
-                dataset.attrs['Original'] = self.field.string
+                dataset.attrs['Original'] = id(self.field)
                 dataset.attrs['BoxSize'] = self.field.BoxSize
 
         for i in range(self.comm.size):

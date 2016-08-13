@@ -1,4 +1,4 @@
-from nbodykit.extensionpoints import Algorithm, DataSource
+from nbodykit.core import Algorithm, DataSource
 import numpy
 
 class TraceHaloAlgorithm(Algorithm):
@@ -86,9 +86,9 @@ class TraceHaloAlgorithm(Algorithm):
                     )
                 dataset.attrs['Ntot'] = Ntot
                 dataset.attrs['BoxSize'] = self.source.BoxSize
-                dataset.attrs['source'] = self.source.string
-                dataset.attrs['sourcelabel'] = self.sourcelabel.string
-                dataset.attrs['dest'] = self.dest.string
+                dataset.attrs['source'] = id(self.source)
+                dataset.attrs['sourcelabel'] = id(self.sourcelabel)
+                dataset.attrs['dest'] = id(self.dest)
 
             self.logger.info("Written %s" % output)
 

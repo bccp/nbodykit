@@ -1,4 +1,4 @@
-from nbodykit.extensionpoints import Algorithm, DataSource
+from nbodykit.core import Algorithm, DataSource
 from nbodykit.fkp import FKPCatalog
 import numpy
 

@@ -1,5 +1,4 @@
-from nbodykit.extensionpoints import Algorithm
-from nbodykit.extensionpoints import DataSource, GridSource, Transfer, Painter
+from nbodykit.core import Algorithm, DataSource, GridSource, Transfer, Painter
 import os
 import numpy
 
