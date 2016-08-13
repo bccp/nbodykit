@@ -133,11 +133,13 @@ class PluginManager(object):
         module = __import__(module_name)
         return module
 
-    def add_user_plugin(self, *paths, module="nbodykit.core.user"):
+    def add_user_plugin(self, *paths):
         """
         Dynamically load a user plugin and add it to the specified
         module
         """
+        module = "nbodykit.core.user"
+        
         # try to import user module
         try:        
             user_mod = __import__(module, fromlist=module.split('.'))
