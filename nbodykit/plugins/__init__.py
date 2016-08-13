@@ -1,4 +1,4 @@
-from abc import ABCMeta, abstractclassmethod, abstractmethod
+from abc import ABCMeta, abstractmethod
 from ..extern.six import add_metaclass
 from nbodykit.plugins.config import PluginParsingError, make_configurable
 import argparse 
@@ -18,7 +18,6 @@ class PluginBase(object):
     """
     A plugin that can be loaded from an input configuration file
     """
-    #@abstractmethod
     def __init__(self, *args, **kwargs):
         pass
     
@@ -28,16 +27,11 @@ class PluginBase(object):
         for c in cls.__subclasses__():
             name = getattr(c, 'plugin_name', c.__name__)
             toret[name] = c
-            
-        # for base in cls.__bases__:
-        #     if hasattr(base, 'registry'):
-        #         registry = base.registry()
-        #         for name in registry:
-        #             if name not in toret:
-        #                 toret[name] = registry[name]
+
         return toret
     
-    @abstractclassmethod
+    @classmethod
+    @abstractmethod
     def register(cls):
         pass
     
