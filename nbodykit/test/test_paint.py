@@ -20,7 +20,7 @@ class TestPaint(unittest.TestCase):
         asserts.test_exception(self)
 
     def test_result(self):
-        asserts.test_bigfile_result(self, 'PaintGrid')
+        asserts.test_bigfile_result(self, 'PaintGrid', rtol=1e-3, atol=1e-3)
 
 @add_run_fixture(__name__, RunPaintAlgorithm, 'PaintGrid')
 class TestPaintGrid(unittest.TestCase):
@@ -35,7 +35,7 @@ class TestPaintGrid(unittest.TestCase):
         asserts.test_exception(self)
 
     def test_result(self):
-        asserts.test_bigfile_result(self, 'PaintGrid')
+        asserts.test_bigfile_result(self, 'PaintGrid', rtol=1e-3, atol=1e-3)
 
 @add_run_fixture(__name__, RunPaintAlgorithm, 'PaintGrid')
 class TestPaintGrid(unittest.TestCase):
@@ -50,4 +50,4 @@ class TestPaintGrid(unittest.TestCase):
         asserts.test_exception(self)
 
     def test_result(self):
-        asserts.test_bigfile_result(self, 'PaintGrid')
+        asserts.test_bigfile_result(self, 'PaintGrid', rtol=1e-3, atol=1e-3)
