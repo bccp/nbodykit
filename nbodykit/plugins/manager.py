@@ -1,91 +1,206 @@
+from ..core import core_extension_points
 import os
-import os.path
-import glob
+import inspect
 import traceback
-from argparse import Action, SUPPRESS
-from sys import modules
-from types import ModuleType
+import sys
+from collections import defaultdict, OrderedDict
+from ..extern.six import string_types
 
-# import the parent modules
-import nbodykit.plugins
-import nbodykit.plugins.algorithms
-import nbodykit.plugins.datasource
-import nbodykit.plugins.painter
-import nbodykit.plugins.transfer
-import nbodykit.plugins.user
-
-def load(filename):
-    return load2(filename, qualifiedprefix='nbodykit.plugins.user')
-
-def load_builtins():
-    path = os.path.abspath(os.path.dirname(__file__))
-    return load2(os.path.join(path, 'plugins'), qualifiedprefix='nbodykit')
-
-def load2(filename, qualifiedprefix='nbodykit.plugins.user'):
-    """ load a plugin from filename.
-
-        Parameters
-        ----------
-        filename : string
-            path to the .py file
-        qualifiedprefix: string
-            a prefix to build a qualified name in sys.modules. This
-            is used to load the built-in plugins in nbodykit.plugins
-
-        Returns
-        -------
-        namespace : dict
-            modified global namespace of the plugin script.
+class PluginManager(object):
     """
-    if os.path.isdir(filename):
-        root = filename.rstrip('/')
-        qualname = '.'.join([qualifiedprefix, os.path.basename(root)])
-        if qualname not in modules:
-            __import__(qualname)
-        module = modules[qualname]
-        for filename in sorted(os.listdir(root)):
-            fullfilename = os.path.join(root, filename)
-            basename = os.path.splitext(os.path.basename(filename))[0]
-            add = False
-            if os.path.isdir(fullfilename):
-                add = True
-            if filename.endswith('.py'):
-                add = True
-            if basename.startswith('__'):
-                continue
+    Loads and unloads core plugins.
 
-            if add:
-                module.__dict__[basename] = load2(fullfilename, qualifiedprefix=qualname)
-        return module
-    basename, ext = os.path.splitext(os.path.basename(filename))
-    qualname = '.'.join([qualifiedprefix, basename])
-    module = ModuleType(qualname)
+    A plugin manager scans a set of directories for plugins.
+    Only plugins types that are supported can be loaded.
+    If you need special plugins for a software, subclass JB_Plugin.
+    Then create a subclass of this plugin manager and override
+    supportedTypes. Core plugins should always be supported.
 
-    with open(filename, 'r') as f:
-        code = compile(f.read(), filename, 'exec')
-        exec(code, module.__dict__)
+    The gathering of plugins is done during initialisation.
+    To load the plugins, call load_plugins(). This will load
+    all found plugins.
+    """
+    _instance = None # for using singleton pattern
+    supported_types = core_extension_points()
 
-    modules[qualname] = module
-    return module
+    @classmethod
+    def get(cls, *search_dirs):
+        """
+        Return a PluginManager Instance.
 
-def ListPluginsAction(extensionpoint):
-    class ListPluginsAction(Action):
-        def __init__(self,
-                     option_strings,
-                     dest=SUPPRESS,
-                     default=SUPPRESS,
-                     help=None, 
-                     nargs=None,
-                     metavar=None):
-            Action.__init__(self, 
-                option_strings=option_strings,
-                dest=dest,
-                default=default,
-                nargs=nargs,
-                help=help,
-                metavar=metavar)
+        This will always return the same instance. If the instance is not available
+        it will be created and returned.
+        There should only be one pluginmanager at a time. If you create a PluginManager with get()
+        and use get() on for example a MayaPluginManager,
+        the PluginManager instance is returned (not a MayaPluginManager).
+
+        :returns: always the same PluginManager
+        :rtype: PluginManager
+        :raises: None
+        """
+        if not cls.instance:
+            PluginManager._instance = cls(*search_dirs)
+        return cls._instance
+
+    def __init__(self, *search_dirs):
+        """Constructs a new PluginManager, use the get method in 99% of cases!
+
+        :raises: None
+        """
+        pluginclasses, _ = self.gather_plugins(search_dirs)
+        self.__plugins = defaultdict(OrderedDict)
+        for plugin_type, p in pluginclasses:
+            self.__plugins[plugin_type][p.plugin_name] = p
+
+    def __contains__(self, name):
         
-        def __call__(self, parser, namespace, values, option_string=None):
-            parser.exit(0, extensionpoint.format_help(*values))
+        plugin = None
+        try: 
+            for extension_type in self.supported_types:
+                plugin = self.get_plugin(name, type=extension_type)
+        except: 
+            pass
+        return plugin is not None
             
-    return ListPluginsAction
+    def __iter__(self):
+        
+        for extension_type in self.supported_types:
+            yield extension_type, self.__plugins[extension_type]
+    
+    def __getitem__(self, key):
+        
+        valid = list(self.supported_types)
+        if isinstance(key, string_types):
+            if key in valid:
+                return self.__plugins[key]
+        elif isinstance(key, list):
+            if all(k in valid for k in key):
+                toret = OrderedDict()
+                for k in key: 
+                    toret.update(**self.__plugins[k])
+            return toret
+            
+        raise KeyError("key should be a string or list of strings from %s" %str(valid))
+    
+    
+    def find_plugins(self, path):
+        """Return a list with all plugins found in path
+
+        :param path: the directory with plugins
+        :type path: str
+        :returns: list of JB_Plugin subclasses
+        :rtype: list
+        :raises: None
+        """
+        ext = os.extsep+'py'
+        if os.path.isfile(path):
+            if not path.endswith(ext):
+                raise ValueError("file path for plugins should end in '%s'" %ext)
+            files = [path]
+        else:
+            files = []
+            for (dirpath, dirnames, filenames) in os.walk(path):
+                files.extend([os.path.join(dirpath, x) for x in filenames if x.endswith(ext)])
+                
+        plugins = []; modules = []
+        for f in files:
+            try:
+                mod = self._import_file(f)
+            except Exception:
+                tb = traceback.format_exc()
+                print("Importing plugin from %s failed!\n%s" % (f, tb))
+                continue
+            # get all classes in the imported file
+            members = inspect.getmembers(mod, lambda x: inspect.isclass(x))
+            # only get classes which are defined, not imported, in mod
+            classes = [m[1] for m in members if m[1].__module__ == mod.__name__]
+            for c in classes:
+                # if the class is derived from a supported type append it
+                # we test if it is a subclass of a supported type but not a supported type itself
+                # because that might be the abstract class
+                for supported_name in self.supported_types:
+                    
+                    supported = self.supported_types[supported_name]
+                    if issubclass(c, supported) and c not in self.supported_types.values():
+                        plugins.append((supported.__name__, c))
+                        modules.append(mod)
+                        
+                        # qualify the module name that is loaded by the extension type
+                        # this should avoid name collisions
+                        if mod.__name__ in sys.modules:
+                            sys.modules.pop(mod.__name__)
+                        sys.modules['%s.%s' %(supported_name, mod.__name__)] = mod
+        return plugins, modules
+
+    def gather_plugins(self, paths):
+        """Return all plugins that are found in the plugin paths
+
+        :returns:
+        :rtype:
+        :raises:
+        """
+        plugins = []; modules = []
+        # first find built-ins then the ones in the config, then the one from the environment
+        # so user plugins can override built-ins
+        for p in reversed(paths):
+            if p and os.path.exists(p):  # in case of an empty string, we do not search!
+                more_plugins, more_modules = self.find_plugins(p)
+                plugins += more_plugins; modules += more_modules
+        return plugins, modules
+
+    def _import_file(self, f):
+        """Import the specified file and return the imported module
+
+        :param f: the file to import
+        :type f: str
+        :returns: The imported module
+        :rtype: module
+        :raises: None
+        """
+        directory, module_name = os.path.split(f)
+        module_name = os.path.splitext(module_name)[0]
+
+        sys.path.insert(0, directory)
+        module = __import__(module_name)
+        return module
+
+    def add_user_plugin(self, *paths, module="nbodykit.core.user"):
+        """
+        Dynamically load a user plugin and add it to the specified
+        module
+        """
+        # try to import user module
+        try:        
+            user_mod = __import__(module, fromlist=module.split('.'))
+        except Exception:
+            raise ImportError("error trying to import destination user module '%s'" %module)
+        
+        # try to gather user plugins
+        plugins, modules = self.gather_plugins(paths)
+        for  (plugin_type, p), mod in zip(plugins, modules):
+            self.__plugins[plugin_type][p.plugin_name] = p
+            setattr(user_mod, mod.__name__, mod)
+    
+    def get_plugin(self, plugin, type=None):
+        """Return the plugin instance for the given pluginname
+
+        :param plugin: Name of the plugin class
+        :type plugin: str
+        :returns: the plugin that matches the name
+        :rtype: JB_Plugin like
+        :raises: None
+        """
+        matches = []
+        for extension_type in self.__plugins:
+            plugins = self.__plugins[extension_type]
+            if plugin in plugins:
+                if type is not None and type != extension_type:
+                    continue
+                matches.append(plugins[plugin])
+                
+        if len(matches) == 1:
+            return matches[0]
+        elif len(matches) > 1 and type is None:
+            raise ValueError("name collision for plugin '%s'; please specify 'type'" %plugin)
+        else:
+            raise ValueError("plugin with name '%s' not found" %plugin)
