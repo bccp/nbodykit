@@ -21,7 +21,7 @@ class PluginManager(object):
         Uses the singleton pattern to ensure that only one
         plugin manager exists
         """
-        if not cls.instance:
+        if not cls._instance:
             PluginManager._instance = cls(*search_dirs)
         return cls._instance
 
