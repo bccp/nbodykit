@@ -1,12 +1,16 @@
 from abc import ABCMeta, abstractclassmethod, abstractmethod
 from ..extern.six import add_metaclass
-from nbodykit.utils.config import PluginParsingError, make_configurable
+from nbodykit.plugins.config import PluginParsingError, make_configurable
 import argparse 
     
 def ABCMetaWithHooks(*hooks):
     class wrapped(ABCMeta):
         def __init__(cls, name, bases, attrs):
-            for hook in hooks: hook(cls)    
+            try:
+                for hook in hooks: hook(cls)
+            except Exception as e:
+                raise
+                pass
     return wrapped
 
 @add_metaclass(ABCMetaWithHooks(make_configurable))
@@ -14,17 +18,24 @@ class PluginBase(object):
     """
     A plugin that can be loaded from an input configuration file
     """
-    @abstractmethod
+    #@abstractmethod
     def __init__(self, *args, **kwargs):
         pass
     
     @classmethod
     def registry(cls):
-        ns = argparse.Namespace()
+        toret = {}
         for c in cls.__subclasses__():
-            name = getattr(c, 'plugin_name', '__name__')
-            setattr(ns, name, c)
-        return ns
+            name = getattr(c, 'plugin_name', c.__name__)
+            toret[name] = c
+            
+        # for base in cls.__bases__:
+        #     if hasattr(base, 'registry'):
+        #         registry = base.registry()
+        #         for name in registry:
+        #             if name not in toret:
+        #                 toret[name] = registry[name]
+        return toret
     
     @abstractclassmethod
     def register(cls):
@@ -55,10 +66,15 @@ class PluginBase(object):
         plugin : 
             the initialized instance of `plugin_name`
         """
-        if plugin_name not in cls.registry():
-            raise ValueError("'%s' does not match the names of any loaded plugins" %plugin_name)
+        registry = cls.registry()
+        name = getattr(cls, 'plugin_name', cls.__name__)
+        if plugin_name != name and plugin_name not in registry:
+            raise ValueError("'%s' does not match the names of any loaded plugins for '%s' class" %(plugin_name, str(cls)))
             
-        klass = getattr(cls.registry, plugin_name)
+        if name == plugin_name:
+            klass = cls
+        else:
+            klass = registry[plugin_name]
         
         # cast the input values, using the class schema
         if use_schema:
@@ -140,8 +156,11 @@ class PluginBase(object):
         Return a string specifying the `help` for each of the plugins
         specified, or all if none are specified
         """
+        # dict (name, cls) for each registered plugins of this class type
+        registry = cls.registry()
+        
         if not len(plugins):
-            plugins = list(vars(cls.registry).keys())
+            plugins = list(registry)
             
         s = []
         for k in plugins:
@@ -150,9 +169,16 @@ class PluginBase(object):
             header = "Plugin : %s  ExtensionPoint : %s" % (k, cls.__name__)
             s.append(header)
             s.append("=" * (len(header)))
-            s.append(getattr(cls.registry, k).schema.format_help())
+            s.append(registry[k].schema.format_help())
 
         if not len(s):
             return "No available plugins registered at %s" %cls.__name__
         else:
             return '\n'.join(s) + '\n'
+            
+def isplugin(name):
+    """
+    Return `True`, if `name` is a registered plugin for
+    any extension point
+    """
+    return name in PluginBase.registry()
