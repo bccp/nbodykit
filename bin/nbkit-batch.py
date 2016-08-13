@@ -5,8 +5,9 @@ import os
 import tempfile
 from string import Formatter
 
+from nbodykit import algorithms
 from mpi4py import MPI
-from nbodykit.extensionpoints import Algorithm, algorithms
+from nbodykit.core import Algorithm
 from nbodykit.utils.taskmanager import TaskManager
 
 # setup the logging
@@ -173,7 +174,7 @@ class BatchAlgorithmDriver(object):
         setup_logging(log_level)
 
         self.algorithm_name  = algorithm_name
-        self.algorithm_class = getattr(algorithms, algorithm_name) 
+        self.algorithm_class = getattr(algorithms, algorithm_name)
         self.template        = os.path.expandvars(open(config, 'r').read())
         self.cpus_per_worker = cpus_per_worker
         self.task_dims       = task_dims
@@ -239,7 +240,7 @@ class BatchAlgorithmDriver(object):
         
         # first argument is the algorithm name
         h = 'the name of the `Algorithm` to run in batch mode'
-        valid_algorithms = list(vars(algorithms).keys())  
+        valid_algorithms = list(vars(algorithms))
         parser.add_argument(dest='algorithm_name', choices=valid_algorithms, help=h)  
         
         # the number of independent workers
