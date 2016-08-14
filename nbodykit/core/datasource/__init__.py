@@ -1,5 +1,8 @@
-from ...plugins import PluginBase
+from ...plugins import PluginBase, PluginBaseMeta, MetaclassWithHooks
+from ...plugins.hooks import attach_cosmo
 from ...distributedarray import ScatterArray
+from ...extern.six import add_metaclass
+
 from abc import abstractmethod
 import numpy
 import weakref
@@ -238,6 +241,11 @@ class DataCache(object):
     def __repr__(self):
         return 'DataCache(%s)' %str(self.columns)
         
+
+# attach the cosmology to data sources
+DataSourceMeta = MetaclassWithHooks(PluginBaseMeta, attach_cosmo)
+
+@add_metaclass(DataSourceMeta)
 class DataSourceBase(PluginBase):
 
     @staticmethod

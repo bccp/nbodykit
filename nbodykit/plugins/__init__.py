@@ -1,28 +1,63 @@
-from abc import ABCMeta, abstractmethod
 from ..extern.six import add_metaclass
-from nbodykit.plugins.config import PluginParsingError, make_configurable
-import argparse 
+from .fromfile import PluginParsingError, EmptyConfigurationError
+from . import hooks
+
+from abc import ABCMeta, abstractmethod
+   
+def MetaclassWithHooks(meta, *hooks):
+    """
+    Function to return a subclass of the metaclass `meta`,
+    that optionally applies a series of `hooks` when 
+    initializing the metaclass
     
-def ABCMetaWithHooks(*hooks):
-    class wrapped(ABCMeta):
+    The hooks operate on the parent class of the metaclass,
+    allowing the hook functions a method of dynamically modifying
+    the parent class 
+    
+    Parameters
+    ----------
+    meta : type
+        the metaclass that we will subclass
+    hooks : list of callables
+        functions taking a single argument (the class), which
+        can be used to modify the class definition dynamically
+    
+    Returns
+    -------
+    wrapped : metaclass
+        a subclass of `meta` that applies the specified hooks
+    """
+    if not len(hooks): return meta
+    hooks = getattr(meta, 'hooks', []) + list(hooks)
+    
+    class wrapped(meta):
         def __init__(cls, name, bases, attrs):
-            try:
-                for hook in hooks: hook(cls)
-            except Exception as e:
-                raise
-                pass
+            for hook in hooks: hook(cls)
+ 
+    wrapped.hooks = hooks
     return wrapped
 
-@add_metaclass(ABCMetaWithHooks(make_configurable))
+# default hooks: add logger, add schema, use autoassign, attach comm
+default_hooks = [hooks.add_logger, hooks.add_schema,  hooks.autoassign, hooks.attach_comm]
+PluginBaseMeta = MetaclassWithHooks(ABCMeta, *default_hooks)
+
+@add_metaclass(PluginBaseMeta)
 class PluginBase(object):
     """
     A plugin that can be loaded from an input configuration file
     """
+    @abstractmethod
     def __init__(self, *args, **kwargs):
         pass
     
     @classmethod
     def registry(cls):
+        """
+        A dict holding the registered subclasses of this class
+        
+        The keys are the `plugin_name` for each subclass, and
+        the values are the class instances
+        """
         toret = {}
         for c in cls.__subclasses__():
             name = getattr(c, 'plugin_name', c.__name__)
@@ -33,6 +68,15 @@ class PluginBase(object):
     @classmethod
     @abstractmethod
     def register(cls):
+        """
+        The class method responsible for declaring the relevant 
+        initialization parameters, which allows the class to be 
+        initialized from a configuration file.
+        
+        This should call :func:`~nbodykit.utils.config.ConstructorSchema.add_argument` 
+        of the class's :class:`~nbodykit.utils.config.ConstructorSchema`, 
+        which is stored as the :attr:`schema` attribute
+        """
         pass
     
     @classmethod
@@ -60,13 +104,17 @@ class PluginBase(object):
         plugin : 
             the initialized instance of `plugin_name`
         """
+        # `plugin_name` must either refer `cls` or a subclass of `cls`
         registry = cls.registry()
         name = getattr(cls, 'plugin_name', cls.__name__)
         if plugin_name != name and plugin_name not in registry:
-            raise ValueError("'%s' does not match the names of any loaded plugins for '%s' class" %(plugin_name, str(cls)))
-            
+            args = (plugin_name, cls.__name__)
+            raise ValueError("'%s' does not match the names of any loaded plugins for '%s' class" %args)
+           
+        # plugin_name refers to cls 
         if name == plugin_name:
             klass = cls
+        # plugin_name refers to subclass of cls
         else:
             klass = registry[plugin_name]
         
@@ -176,3 +224,37 @@ def isplugin(name):
     any extension point
     """
     return name in PluginBase.registry()
+    
+    
+def ListPluginsAction(extension_type):
+    """
+    Return a :class:`argparse.Action` that prints
+    the help message for the class specified
+    by `extension_type`
+    
+    This action can take any number of arguments. If
+    no arguments are provided, it prints the help 
+    for all registered plugins of type `extension_type`
+    """
+    from argparse import Action, SUPPRESS
+    
+    class ListPluginsAction(Action):
+        def __init__(self,
+                     option_strings,
+                     dest=SUPPRESS,
+                     default=SUPPRESS,
+                     help=None, 
+                     nargs=None,
+                     metavar=None):
+            Action.__init__(self, 
+                option_strings=option_strings,
+                dest=dest,
+                default=default,
+                nargs=nargs,
+                help=help,
+                metavar=metavar)
+        
+        def __call__(self, parser, namespace, values, option_string=None):
+            parser.exit(0, extension_type.format_help(*values))
+            
+    return ListPluginsAction
