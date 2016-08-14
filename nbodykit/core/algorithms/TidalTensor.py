@@ -126,7 +126,7 @@ class TidalTensor(Algorithm):
                         dtype=data.dtype, shape=(size, 3, 3))
                 dataset.attrs['Smoothing'] = self.smoothing
                 dataset.attrs['Nmesh'] = self.Nmesh
-                dataset.attrs['Original'] = id(self.field)
+                dataset.attrs['Original'] = self.field.string
                 dataset.attrs['BoxSize'] = self.field.BoxSize
 
         for i in range(self.comm.size):

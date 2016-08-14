@@ -84,11 +84,11 @@ class TraceHaloAlgorithm(Algorithm):
                 dataset = ff.create_dataset(
                     name='TracedFOFGroups', data=data
                     )
-                dataset.attrs['Ntot'] = Ntot
-                dataset.attrs['BoxSize'] = self.source.BoxSize
-                dataset.attrs['source'] = id(self.source)
-                dataset.attrs['sourcelabel'] = id(self.sourcelabel)
-                dataset.attrs['dest'] = id(self.dest)
+                dataset.attrs['Ntot']        = Ntot
+                dataset.attrs['BoxSize']     = self.source.BoxSize
+                dataset.attrs['source']      = self.source.string
+                dataset.attrs['sourcelabel'] = self.sourcelabel.string
+                dataset.attrs['dest']        = self.dest.string
 
             self.logger.info("Written %s" % output)
 

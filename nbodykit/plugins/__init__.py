@@ -3,7 +3,7 @@ from .fromfile import PluginParsingError, EmptyConfigurationError
 from . import hooks
 
 from abc import ABCMeta, abstractmethod
-   
+
 def MetaclassWithHooks(meta, *hooks):
     """
     Function to return a subclass of the metaclass `meta`,
@@ -35,8 +35,8 @@ def MetaclassWithHooks(meta, *hooks):
             for hook in hooks: hook(cls)
  
     wrapped.hooks = hooks
-    return wrapped
-
+    return wrapped      
+ 
 # default hooks: add logger, add schema, use autoassign, attach comm
 default_hooks = [hooks.add_logger, hooks.add_schema,  hooks.autoassign, hooks.attach_comm]
 PluginBaseMeta = MetaclassWithHooks(ABCMeta, *default_hooks)
@@ -44,11 +44,23 @@ PluginBaseMeta = MetaclassWithHooks(ABCMeta, *default_hooks)
 @add_metaclass(PluginBaseMeta)
 class PluginBase(object):
     """
-    A plugin that can be loaded from an input configuration file
+    A base class for plugins, designed to be subclassed to implement
+    user plugins
+    
+    The functionality here allows the plugins to be able
+    to be loaded from YAML configuration files
     """
     @abstractmethod
     def __init__(self, *args, **kwargs):
         pass
+        
+    @property
+    def string(self):
+        """
+        A unique identifier for the plugin, using the :func:`id`
+        function
+        """
+        return id(self)
     
     @classmethod
     def registry(cls):
@@ -224,7 +236,6 @@ def isplugin(name):
     any extension point
     """
     return name in PluginBase.registry()
-    
     
 def ListPluginsAction(extension_type):
     """
