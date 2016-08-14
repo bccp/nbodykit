@@ -1,8 +1,7 @@
-from glob import glob
 import os
 import numpy
 from ..extern.six import string_types
-from .filetype import FileTypeBase
+from . import FileType
 
 def getsize(filename, header_size, rowsize):
     """
@@ -40,7 +39,7 @@ def getsize(filename, header_size, rowsize):
     return size
     
 
-class BinaryFile(FileTypeBase):
+class BinaryFile(FileType):
     """
     A file object to handle the reading of columns of data from 
     a binary file
@@ -49,79 +48,53 @@ class BinaryFile(FileTypeBase):
         
         This assumes the data is stored in a column-major format
     """
+    plugin_name = "BinaryFile"
+    
     def __init__(self, path, dtype, header_size=0, peek_size=None):
-        """
-        Parameters
-        ----------
-        path : str, list of str
-            either a list of filenames, a single filename, or a 
-            glob-like pattern to match files on
-        dtype : list of tuples, numpy.dtype
-            the data types of the data stored in the binary file
-        header_size : int, optional
-            the size of the header of each file in bytes
-        peek_size : callable, optional
-            a function taking a single argument, the name of the file, 
-            and returns the number of true "size" of each file
-        """
-        # save the list of relevant files
-        if isinstance(path, list):
-            self.filenames = path
-        elif isinstance(path, string_types):
+                
+        # function to determine the size
+        if self.peek_size is None:
+            self.peek_size = lambda fn: getsize(fn, self.header_size, self.dtype.itemsize)
         
-            if '*' in path:
-                self.filenames = list(map(os.path.abspath, sorted(glob(path))))
-            else:
-                if not os.path.exists(path):
-                    raise FileNotFoundError(path)
-                self.filenames = [os.path.abspath(path)]
-        else:
-            raise ValueError("'path' should be a string or a list of strings")
-            
-        # construct the dtype
-        self.dtype = dtype
-        if not isinstance(self.dtype, numpy.dtype):
-            self.dtype = numpy.dtype(dtype)
-    
-        # determine the sizes
-        if peek_size is None:
-            peek_size = lambda fn: getsize(fn, header_size, self.dtype.itemsize)
-        self.sizes = numpy.array([peek_size(fn) for fn in self.filenames])
+    @classmethod
+    def register(cls):
+        s = cls.schema
+        s.description = "a binary file reader"
         
-        # header size    
-        self.header_size = header_size
-    
-    def __getitem__(self, s):
-        if isinstance(s, tuple): s = s[0]
-        start, stop, step = s.indices(self.size)
-        return self.read(self.keys(), start, stop, step)   
-    
-    def __iter__(self):
-        return iter(self.keys())
-    
-    def keys(self):
-        return list(self.dtype.names)
-
+        s.add_argument("path", type=str, 
+            help='the name of the binary file to load')
+        s.add_argument("dtype", nargs='+', type=tuple, 
+            help='list of tuples of (name, dtype) to be converted to a numpy.dtype')
+        s.add_argument("header_size", type=int,
+            help='the size of the header of the in bytes')
+        s.add_argument("peek_size", 
+            help=("a function taking a single argument, the name of the file, "
+                  "and returns the true size of each file"))
+                    
     @property
-    def shape(self):
-        return (self.size,)
+    def dtype(self):
+        """The data type"""
+        return self._dtype
         
-    @property
-    def ncols(self):
-        return len(self.dtype)
-    
-    @property
-    def nfiles(self):
-        return len(self.filenames)
+    @dtype.setter
+    def dtype(self, val):
+        self._dtype = val
+        if not isinstance(self._dtype, numpy.dtype):
+            self._dtype = numpy.dtype(self._dtype)
         
     @property
     def size(self):
-        return self.sizes.sum()
+        """The size of the file"""
+        try:
+            return self._size
+        except AttributeError:
+            self._size = self.peek_size(self.path)
+            return self._size
         
-    def _offset(self, fnum, col):
+    def _offset(self, col):
         """
-        Internal function to return the offset (per file) in bytes
-        for the specified file number and column name
+        Internal function to return the offset in bytes
+        for the column name
         
         This assumes consecutive storage of columns, so the offset
         for the second column is the size of the full array of the 
@@ -131,12 +104,12 @@ class BinaryFile(FileTypeBase):
         cols = self.keys()
         i = 0
         while i < cols.index(col):
-            offset += self.sizes[fnum]*self.dtype[cols[i]].itemsize
+            offset += self.size*self.dtype[cols[i]].itemsize
             i += 1
         
         return offset
         
-    def _read_block(self, col, fnum, start, stop, step=1):
+    def _read_block(self, col, start, stop, step=1):
         """
         Internal read function that reads the specified block
         of bytes and formats appropriately
@@ -145,8 +118,6 @@ class BinaryFile(FileTypeBase):
         ----------
         col : str
             the name of the column we are reading
-        fnum : int
-            the file number to open
         start : int
             the start position in particles, ranging from 0 to the
             size of the open file
@@ -154,13 +125,12 @@ class BinaryFile(FileTypeBase):
             the stop position in particiles, ranging from 0 to 
             the size of the open file
         """
-        with open(self.filenames[fnum], 'rb') as ff:
-            offset = self._offset(fnum, col)
+        with open(self.path, 'rb') as ff:
+            offset = self._offset(col)
             dtype = self.dtype[col]
             ff.seek(offset, 0)
             ff.seek(start * dtype.itemsize, 1)
             return numpy.fromfile(ff, count=stop - start, dtype=dtype)[::step]
-        
         
     def read(self, columns, start, stop, step=1):
         """
@@ -175,57 +145,18 @@ class BinaryFile(FileTypeBase):
         # make the slices positive
         if start < 0: start += self.size
         if stop < 0: stop += self.size
-        
-        # determine the file numbers of start/stop from cumulative sizes
-        cumsum = numpy.zeros(self.nfiles+1, dtype=self.sizes.dtype)
-        cumsum[1:] = self.sizes.cumsum()
-        fnums = numpy.searchsorted(cumsum[1:], [start, stop])
-          
+                  
         # initialize the return array
         N, remainder = divmod(stop-start, step)
         if remainder: N += 1
         toret = numpy.empty(N, dtype=self.dtype)
-          
-        # loop over necessary files to get requested range
-        global_start = 0
-        for fnum in range(fnums[0], fnums[1]+1):
-                        
-            # normalize the global start/stop to the per file values     
-            start_size = cumsum[fnum] 
-            this_slice = (max(start-start_size, 0), min(stop-start_size, self.sizes[fnum]), step)
             
-            # do the reading
-            for col in columns:
-                tmp = self._read_block(col, fnum, *this_slice)
-                toret[col][global_start:None] = tmp[:]
+        # do the reading
+        for col in columns:
+            tmp = self._read_block(col, start, stop, step)
+            toret[col][start:start+len(tmp)] = tmp[:]
                 
-            global_start += len(tmp) # update where we start slicing return array
-
         return toret[columns]
-                                    
-if __name__ == '__main__':
-    
-    import os
-    import dask.array as da
-    
-    # file path
-    if 'cori' in os.environ['HOSTNAME']:
-        path = "/global/cscratch1/sd/nhand/Data/RunPBDM/PB00/tpmsph_0.5000.bin.*"
-    else:
-        path = "/scratch2/scratchdirs/nhand/Data/RunPBDM/PB00/tpmsph_0.5000.bin.*"
-    
-    # dtype of files
-    dtypes = [('Position', ('f4', 3)), ('Velocity', ('f4', 3)), ('ID', 'u8')]
-    
-    # open the binary file
-    f = BinaryFile(path, dtypes, header_size=28)
-    
-    # get the dask array straight from file (this is awesome)
-    data = da.from_array(f, chunks=1024*1024)
-    
-    # mean out mean of first 1000 particles
-    meanop = data[:1000]['Position'].mean(axis=0)
-    print(meanop.compute())
     
             
         

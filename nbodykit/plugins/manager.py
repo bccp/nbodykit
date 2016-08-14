@@ -1,4 +1,5 @@
 from ..core import core_extension_points
+from ..io import io_extension_points
 from ..extern.six import string_types
 
 import os
@@ -20,6 +21,7 @@ class PluginManager(object):
     """
     _instance = None # for using singleton pattern
     supported_types = core_extension_points()
+    supported_types.update(**io_extension_points())
 
     @classmethod
     def get(cls, paths, qualprefix="nbodykit.core.user"):
