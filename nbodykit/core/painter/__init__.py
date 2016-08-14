@@ -21,6 +21,10 @@ class Painter(PluginBase):
         A method that performs the painting of the field.
     """    
     @abstractmethod
+    def __init__(self, paintbrush):
+        self.paintbrush = paintbrush
+    
+    @abstractmethod
     def paint(self, pm, datasource):
         """ 
         Paint the DataSource specified to a mesh

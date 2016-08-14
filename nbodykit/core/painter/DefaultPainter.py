@@ -6,7 +6,9 @@ class DefaultPainter(Painter):
     plugin_name = "DefaultPainter"
 
     def __init__(self, weight=None, frho=None, fk=None, normalize=False, setMean=None, paintbrush='cic'):
-        pass
+     
+        # initialize the baseclass with the paintbrush
+        super(DefaultPainter, self).__init__(paintbrush)
 
     @classmethod
     def register(cls):

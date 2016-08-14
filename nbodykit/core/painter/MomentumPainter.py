@@ -3,9 +3,17 @@ import numpy
 from pmesh.pm import RealField
 
 class MomentumPainter(Painter):
+    """
+    A class to paint the mass-weighted velocity field (momentum) 
+    """
     plugin_name = "MomentumPainter"
     
     def __init__(self, velocity_component, moment=1, paintbrush='cic'):
+        
+        # initialize the baseclass with the paintbrush
+        super(MomentumPainter, self).__init__(paintbrush)
+        
+        # the index of the velocity component
         self._comp_index = "xyz".index(self.velocity_component)
 
     @classmethod
