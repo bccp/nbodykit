@@ -73,7 +73,7 @@ class Algorithm(PluginBase):
             namespace holding the values that are not in the 
             algorithm's schema
         """
-        from nbodykit.plugins.config import ReadConfigFile
+        from nbodykit.plugins.fromfile import ReadConfigFile
         
         # get the class for this algorithm name
         klass = kls.registry()[name]

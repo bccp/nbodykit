@@ -8,7 +8,7 @@ from mpi4py import MPI
 from nbodykit import plugin_manager, algorithms
 from nbodykit.core import Algorithm
 from nbodykit.core import DataSource, Transfer, Painter
-from nbodykit.plugins.config import ListPluginsAction, EmptyConfigurationError
+from nbodykit.plugins import ListPluginsAction, EmptyConfigurationError
 
 
 # configure the logging
