@@ -14,6 +14,10 @@ class UnitTestDataSource(DataSource):
     def __init__(self, N, dtype, seed=None):        
         from astropy.utils.misc import NumpyRNGContext
         
+        self.N     = N
+        self.dtype = dtype
+        self.seed  = seed
+        
         # generate the data with a fixed seed
         with NumpyRNGContext(self.seed):
             
@@ -23,7 +27,7 @@ class UnitTestDataSource(DataSource):
                 self.data[name] = numpy.random.random(size=self.data[name].shape)
         
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         
         s = cls.schema
         s.description = "data source for unit testing purposes, returning random numbers"
