@@ -16,9 +16,19 @@ def validate_choices(schema, args_dict):
       
 def validate_required_attributes(plugin):
     """
-    Validate that the plugin has the required attributes
+    Validate that the plugin has the required attributes, where
+    `plugin` has already been initialized
+    
+    This looks for the :attr`required_attributes` class attribute
+    of plugin.
+    
+    Parameters
+    ---------
+    plugin : 
+        the initialized plugin instance
     """
     required = getattr(plugin.__class__, 'required_attributes', [])
+    
     missing = []
     for name in required:
         if not hasattr(plugin, name):
@@ -27,7 +37,7 @@ def validate_required_attributes(plugin):
     if len(missing):
         cls = plugin.__class__
         name = getattr(cls, 'plugin_name', cls.__name__)
-        args = (name, str(name))
+        args = (name, str(missing))
         raise AttributeError("%s plugin cannot be initialized with missing attributes: %s" %args)
 
 def validate__init__(init):
@@ -38,8 +48,8 @@ def validate__init__(init):
     Parameters
     ----------
     init : callable
-        the function we are decorating
-    """
+        the __init__ function we are decorating
+    """    
     # inspect the function signature
     attrs, varargs, varkw, defaults = inspect.getargspec(init)
     if defaults is None: defaults = []
@@ -59,7 +69,7 @@ def validate__init__(init):
                             
         # call the __init__ to confirm proper initialization
         try:
-            plugin = init(self, *args, **kwargs)
+            init(self, *args, **kwargs)
         except Exception as e:
             
             # get the error message
@@ -76,10 +86,8 @@ def validate__init__(init):
             raise
                 
         # validate required attributes
-        validate_required_attributes(plugin)
-        
-        return plugin
-            
+        validate_required_attributes(self)
+    
     return wrapper
     
 def validate__init__signature(func, attrs, defaults):
