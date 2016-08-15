@@ -1,6 +1,5 @@
 import os
 import numpy
-from ..extern.six import string_types
 from . import FileType
 
 def getsize(filename, header_size, rowsize):
@@ -109,55 +108,27 @@ class BinaryFile(FileType):
         
         return offset
         
-    def _read_block(self, col, start, stop, step=1):
-        """
-        Internal read function that reads the specified block
-        of bytes and formats appropriately
-        
-        Parameters
-        ----------
-        col : str
-            the name of the column we are reading
-        start : int
-            the start position in particles, ranging from 0 to the
-            size of the open file
-        stop : int 
-            the stop position in particiles, ranging from 0 to 
-            the size of the open file
-        """
-        with open(self.path, 'rb') as ff:
-            offset = self._offset(col)
-            dtype = self.dtype[col]
-            ff.seek(offset, 0)
-            ff.seek(start * dtype.itemsize, 1)
-            return numpy.fromfile(ff, count=stop - start, dtype=dtype)[::step]
-        
-    def read(self, columns, start, stop, step=1):
+    def read_chunk(self, columns, start, stop, step=1):
         """
         Read the specified column(s) over the given range, 
         as a dictionary
         
         'start' and 'stop' should be between 0 and :attr:`size`,
         which is the total size of the binary file (in particles)
-        """
-        if isinstance(columns, string_types): columns = [columns]
+        """ 
+        dt = [(col, self.dtype[col]) for col in columns]
+        toret = numpy.empty(self._slice_size(start, stop, step), dtype=dt)
+               
+        with open(self.path, 'rb') as ff:
             
-        # make the slices positive
-        if start < 0: start += self.size
-        if stop < 0: stop += self.size
-                  
-        # initialize the return array
-        N, remainder = divmod(stop-start, step)
-        if remainder: N += 1
-        toret = numpy.empty(N, dtype=self.dtype)
-            
-        # do the reading
-        for col in columns:
-            tmp = self._read_block(col, start, stop, step)
-            toret[col][start:start+len(tmp)] = tmp[:]
-                
-        return toret[columns]
+            for col in columns:
+                offset = self._offset(col)
+                dtype = self.dtype[col]
+                ff.seek(offset, 0)
+                ff.seek(start * dtype.itemsize, 1)
+                toret[col][:] = numpy.fromfile(ff, count=stop - start, dtype=dtype)[::step]
     
+        yield toret
             
         
         

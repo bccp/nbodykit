@@ -65,7 +65,8 @@ def autoassign(init):
         if kwargs:
             for attr,val in kwargs.items():
                 check_choices(init.schema, attr, val)
-                setattr(self, attr, val)
+                try: setattr(self, attr, val)
+                except: pass
         
         # call the __init__ to confirm proper initialization
         try:

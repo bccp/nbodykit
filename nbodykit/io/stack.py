@@ -40,6 +40,29 @@ class FileStack(FileType):
         s.add_argument("filetype", 
             help='the file type class')
                     
+    @classmethod
+    def from_files(cls, files, sizes=[]):
+        
+        stack = object.__new__(cls)
+        stack.files = files
+        if len(sizes):
+            if len(sizes) != len(stack.files):
+                raise ValueError("length mismatch: `sizes` should specify the size")
+            stack.sizes = numpy.asarray(sizes, dtype='i8')
+        else:
+            stack.sizes = numpy.array([len(f) for f in stack.files], dtype='i8')
+        
+        return stack
+            
+        
+    @property
+    def dtype(self):
+        return self.files[0].dtype
+        
+    @property
+    def size(self):
+        return self.cumsizes[-1]
+        
     @property
     def cumsizes(self):
         """
@@ -55,8 +78,7 @@ class FileStack(FileType):
     @property
     def nfiles(self):
         return len(self.files)
-    
-    
+
     def _file_range(self, start, stop):
         """
         Convert global to local indices
@@ -71,7 +93,7 @@ class FileStack(FileType):
         start_size = self.cumsizes[fnum] 
         return (max(start-start_size, 0), min(stop-start_size, self.sizes[fnum]))
         
-    def read(self, columns, start, stop, step=1):
+    def read_chunk(self, columns, start, stop, step=1):
         """
         Read the specified column(s) over the given range,
         as a dictionary
@@ -79,28 +101,16 @@ class FileStack(FileType):
         'start' and 'stop' should be between 0 and :attr:`size`,
         which is the total size of the file (in particles)
         """
-        if isinstance(columns, string_types): columns = [columns]
-
-        # initialize the return array
-        N, remainder = divmod(stop-start, step)
-        if remainder: N += 1
-        toret = numpy.empty(N, dtype=self.dtype)
-
-        # loop over slices
-        global_start = 0
+        # loop over the files we need to read from
         for fnum in self._file_range(start, stop):
 
-            # the slice
+            # the local slice
             sl = self._normalized_slice(start, stop, fnum)
             
-            # do the reading
-            tmp = self.files[fnum].read(column, sl[0], sl[1], step)
-            for col in columns:
-                toret[col][global_start:global_start+len(tmp)] = tmp[col][:]
+            # yield this chunk
+            return self.files[fnum].read_chunk(columns, sl[0], sl[1], step)
 
-            global_start += len(tmp) # update where we start slicing return array
-            
-        return toret[columns]
+
     
             
         
