@@ -49,34 +49,3 @@ class Algorithm(PluginBase):
             the tuple of results returned by :func:`Algorithm.run`
         """
         pass
-    
-    @classmethod
-    def parse_known_yaml(kls, name, stream):
-        """
-        Parse the known (and unknown) attributes from a YAML 
-        configuration file, where `known` arguments must be part
-        of the ConstructorSchema instance
-        
-        Parameters
-        ----------
-        name : str
-            the name of the Algorithm 
-        stream : str, file object
-            the stream to read from
-        
-        Returns
-        -------
-        known : Namespace
-            namespace holding the parsed values corresponding
-            to the attributes of the specified algorithm's schema
-        unknown : Namespace
-            namespace holding the values that are not in the 
-            algorithm's schema
-        """
-        from nbodykit.plugins.fromfile import ReadConfigFile
-        
-        # get the class for this algorithm name
-        klass = kls.registry()[name]
-        
-        # get the namespace from the config file
-        return ReadConfigFile(stream, klass.schema)

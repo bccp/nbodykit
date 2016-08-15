@@ -5,10 +5,11 @@ import os
 import tempfile
 from string import Formatter
 
-from nbodykit import algorithms
 from mpi4py import MPI
 from nbodykit.core import Algorithm
+from nbodykit import algorithms
 from nbodykit.utils.taskmanager import TaskManager
+from nbodykit.plugins.fromfile import ReadConfigFile
 
 # setup the logging
 
@@ -364,7 +365,7 @@ class BatchAlgorithmDriver(object):
         this_config = self.workers.subcomm.bcast(this_config, root=0)
 
         # configuration file passed via -c
-        params, extra = Algorithm.parse_known_yaml(self.algorithm_name, open(this_config, 'r').read())
+        params, extra = ReadConfigFile(open(this_config, 'r').read(), self.algorithm_class.schema)
         
         # output is required
         output = getattr(extra, 'output', None)
