@@ -5,6 +5,26 @@ from ..extern.six import string_types
 fields = ['name', 'required', 'type', 'default', 'choices', 'nargs', 'help', 'subfields']
 ArgumentBase = namedtuple('Argument', fields)
 
+def attribute(name, **kwargs):
+    """
+    A function decorator that adds an argument to the 
+    class's schema
+    
+    See :func:`ConstructorSchema.add_argument` for further details
+    
+    Parameters
+    ----------
+    name : the name of the argument to add
+    **kwargs : dict
+        the additional keyword values to pass to ``add_argument``
+    """
+    def _argument(func):
+        if not hasattr(func, 'schema'):
+            func.schema = ConstructorSchema()
+        func.schema.add_argument(name, **kwargs)
+        return func
+    return _argument
+
 class Argument(ArgumentBase):
     """
     Class to represent an argument in the `ConstructorSchema`
@@ -122,14 +142,16 @@ class ConstructorSchema(OrderedDict):
             casts = (casts,)
         
         # try each cast
+        exceptions = []
         for cast in casts:
             try:
                 return _cast(cast)
-            except:
-                pass
+            except Exception as e:
+                exceptions.append(str(e))
 
         # if we get here, no casts worked
-        raise ValueError("unable to successfully cast parameter '%s'" %arg.name)
+        msg = "\n".join("\t%d) %s" %(i+1,e) for i,e in enumerate(exceptions))
+        raise ValueError("unable to successfully cast parameter '%s'; exceptions:\n%s" %(arg.name, msg))
         
     def contains(self, key):
         """
