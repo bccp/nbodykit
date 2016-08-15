@@ -920,7 +920,7 @@ class Painter:
 
         """
         assert real.pm.comm == self.comm # pm must be from the same communicator!
-        layout = real.pm.decompose(position)
+        layout = real.pm.decompose(position, smoothing=paintbrush)
 
         position = layout.exchange(position)
         if weight is not None:
