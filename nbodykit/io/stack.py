@@ -31,7 +31,7 @@ class FileStack(FileType):
         self.sizes = numpy.array([len(f) for f in self.files], dtype='i8')
                 
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         s = cls.schema
         s.description = "a consecutive view of a stack of files"
         

@@ -51,12 +51,27 @@ class BinaryFile(FileType):
     
     def __init__(self, path, dtype, header_size=0, peek_size=None):
                 
-        # function to determine the size
-        if self.peek_size is None:
-            self.peek_size = lambda fn: getsize(fn, self.header_size, self.dtype.itemsize)
+        # the file path
+        self.path = path
+        
+        # set the data type
+        self.dtype = dtype
+        if not isinstance(self.dtype, numpy.dtype):
+            self.dtype = numpy.dtype(self.dtype)
+                    
+        # size of header in bytes
+        self.header_size = header_size
+            
+        # determine the size
+        if peek_size is None:
+            peek_size = lambda fn: getsize(fn, self.header_size, self.dtype.itemsize)
+        self.size = peek_size(self.path)
+        
+        # for returning views of the file
+        self.base = None
         
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         s = cls.schema
         s.description = "a binary file reader"
         
@@ -69,26 +84,6 @@ class BinaryFile(FileType):
         s.add_argument("peek_size", 
             help=("a function taking a single argument, the name of the file, "
                   "and returns the true size of each file"))
-                    
-    @property
-    def dtype(self):
-        """The data type"""
-        return self._dtype
-        
-    @dtype.setter
-    def dtype(self, val):
-        self._dtype = val
-        if not isinstance(self._dtype, numpy.dtype):
-            self._dtype = numpy.dtype(self._dtype)
-        
-    @property
-    def size(self):
-        """The size of the file"""
-        try:
-            return self._size
-        except AttributeError:
-            self._size = self.peek_size(self.path)
-            return self._size
         
     def _offset(self, col):
         """

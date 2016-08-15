@@ -77,6 +77,10 @@ class CSVFile(FileType):
         **kwargs: dict
             options to pass down to :func:`pandas.read_csv`
         """
+        self.path      = path
+        self.names     = names
+        self.blocksize = blocksize
+        
         # set the read_csv defaults
         if 'sep' in config or 'delimiter' in config:
             delim_whitespace = False
@@ -84,6 +88,26 @@ class CSVFile(FileType):
         config.setdefault('header', header)
         config.setdefault('engine', 'c')
         self._config = config
+        
+        # dtype can also be a string --> apply to all columns
+        if isinstance(dtype, string_types):
+            dtype = {col:dtype for col in self.names}
+
+        # infer the data type?
+        if not all(col in dtype for col in self.names):
+            inferred_dtype = infer_dtype(self.path, self.names, self._config)
+
+        # store the dtype as a list
+        self.dtype = []
+        for col in self.names:
+            if col in dtype:
+                dt = dtype[col]
+                if not isinstance(dt, numpy.dtype):
+                    dt = numpy.dtype(dt)
+            else:
+                dt = inferred_dtype[col]
+            self.dtype.append((col, dt))
+        self.dtype = numpy.dtype(self.dtype)
         
         # initialize the underlying dask partitions
         kws = self._config.copy()
@@ -95,9 +119,11 @@ class CSVFile(FileType):
         sizes = get_partition_sizes(self.path, self.blocksize)
         self.stack = FileStack.from_files(files, sizes=sizes)
         
+        # size is the sum of the size of each partition
+        self.size = sum(self.stack.sizes)
 
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         s = cls.schema
         s.description = "a csv file reader"
         
@@ -114,68 +140,6 @@ class CSVFile(FileType):
             help='set to True if the input file is space-separated')
         s.add_argument("header",
             help="the type of header in the CSV file; if no header, set to None")
-    
-    
-    @property
-    def dtype(self):
-        dtype = self._dtype
-        
-        # dtype can also be a string --> apply to all columns
-        if isinstance(dtype, string_types):
-            dtype = {col:dtype for col in self.names}
-
-        if isinstance(dtype, dict):
-
-            # infer the data type?
-            if not all(col in dtype for col in self.names):
-                inferred_dtype = infer_dtype(self.path, self.names, self._config)
-
-            # store the dtype as a list
-            self._dtype = []
-            for col in self.names:
-                if col in dtype:
-                    dt = dtype[col]
-                    if not isinstance(dt, numpy.dtype):
-                        dt = numpy.dtype(dt)
-                else:
-                    dt = inferred_dtype[col]
-                self._dtype.append((col, dt))
-        
-            self._dtype = numpy.dtype(self._dtype)
-        return self._dtype
-        
-
-    @dtype.setter
-    def dtype(self, val):
-        self._dtype = val
-
-    def __iter__(self):
-        return iter(self.keys())
-
-    def keys(self):
-        return list(self.names)
-
-    def __len__(self):
-        return self.size
-
-    @property
-    def shape(self):
-        return (self.size,)
-
-    @property
-    def ncols(self):
-        """
-        The total number of columns in the file
-        """
-        return len(self.dtype)
-
-    @property
-    def size(self):
-        """
-        The total size of the file (equivalent to the total
-        number of rows)
-        """
-        return sum(self.stack.sizes)
 
     def _read_block(self, cols, fnum, start, stop, step=1):
         """
