@@ -38,7 +38,7 @@ def MetaclassWithHooks(meta, *hooks):
     return wrapped      
  
 # default hooks: add logger, add schema, use autoassign, attach comm
-default_hooks = [hooks.add_logger, hooks.add_schema,  hooks.autoassign, hooks.attach_comm]
+default_hooks = [hooks.add_logger, hooks.add_and_validate_schema, hooks.attach_comm]
 PluginBaseMeta = MetaclassWithHooks(ABCMeta, *default_hooks)
 
 @add_metaclass(PluginBaseMeta)
@@ -79,15 +79,17 @@ class PluginBase(object):
     
     @classmethod
     @abstractmethod
-    def register(cls):
+    def fill_schema(cls):
         """
-        The class method responsible for declaring the relevant 
-        initialization parameters, which allows the class to be 
-        initialized from a configuration file.
+        The class method responsible fill the class's schema with
+        the relevant parameters from the :func:`__init__` signature.
+        
+        The schema allows the plugin to be initialized properly from
+        a configuration file, validating the proper __init__ signatue. 
         
         This should call :func:`~nbodykit.utils.config.ConstructorSchema.add_argument` 
         of the class's :class:`~nbodykit.utils.config.ConstructorSchema`, 
-        which is stored as the :attr:`schema` attribute
+        which is stored as the :attr:`schema` class attribute
         """
         pass
     

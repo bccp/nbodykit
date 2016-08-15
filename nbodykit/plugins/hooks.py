@@ -86,13 +86,14 @@ def add_logger(cls):
     cls.logger = logging.getLogger(name)
 
 
-def add_schema(cls):
+def add_and_validate_schema(cls):
     """
     A hook to add a ConstructorSchema to the input class
-    and call the :func:`register` class method, if 
+    and call the :func:`fill_schema` class method, if 
     available
     """
     from .schema import ConstructorSchema
+    from .validate import validate__init__
     
     # get the __init__
     init = _get_init(cls)
@@ -102,27 +103,9 @@ def add_schema(cls):
     init.schema = ConstructorSchema()
     cls.schema = cls.__init__.schema
     
-    # call the register function
-    if hasattr(cls, 'register'):
-        cls.register()
+    # call the fill_schema function
+    if hasattr(cls, 'fill_schema'):
+        cls.fill_schema()
         
-        
-def autoassign(cls):
-    """
-    A hook to call the `autoassign` decorator on the 
-    input class's :func:`__init__` function
-    
-    The `autoassign` decorator reads the signature of
-    the :func:`__init__` function and automatically
-    sets the input attributes before calling the
-    :func:`__init__` function
-    """
-    from .autoassign import autoassign as decorator
-    
-    # get the __init__
-    init = _get_init(cls)
-    if init is None: return
-
-    # configure the class __init__
-    cls.__init__ = decorator(init)
-    
+    # validate
+    cls.__init__ = validate__init__(init)    
