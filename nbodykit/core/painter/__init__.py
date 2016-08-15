@@ -19,7 +19,9 @@ class Painter(PluginBase):
 
     paint : method
         A method that performs the painting of the field.
-    """    
+    """   
+    required_attributes = ['paintbrush']
+     
     @abstractmethod
     def __init__(self, paintbrush):
         self.paintbrush = paintbrush
