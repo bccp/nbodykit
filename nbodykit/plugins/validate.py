@@ -2,32 +2,38 @@ import inspect
 import functools
 
 from .schema import ConstructorSchema
-       
-def attribute(name, **kwargs):
+
+def validate_choices(schema, args_dict):
     """
-    A function decorator that adds an argument to the 
-    class's schema
-    
-    See :func:`ConstructorSchema.add_argument` for further details
-    
-    Parameters
-    ----------
-    name : the name of the argument to add
-    **kwargs : dict
-        the additional keyword values to pass to ``add_argument``
+    Verify that the input values are consistent
+    with the `choices`, using the schema
     """
-    def _argument(func):
-        if not hasattr(func, 'schema'):
-            func.schema = ConstructorSchema()
-        func.schema.add_argument(name, **kwargs)
-        return func
-    return _argument
-    
-def autoassign(init):
+    for attr, val in args_dict.items():
+        if attr in schema and schema[attr].choices is not None:
+            arg = schema[attr]
+            if val not in arg.choices:
+                raise ValueError("valid choices for '%s' are: '%s'" %(arg.name, str(arg.choices)))
+      
+def validate_required_attributes(plugin):
     """
-    Verify the schema attached to the input `init` function,
-    automatically set the input arguments, and then finally
-    call `init`
+    Validate that the plugin has the required attributes
+    """
+    required = getattr(plugin.__class__, 'required_attributes', [])
+    missing = []
+    for name in required:
+        if not hasattr(plugin, name):
+            missing.append(name)
+            
+    if len(missing):
+        cls = plugin.__class__
+        name = getattr(cls, 'plugin_name', cls.__name__)
+        args = (name, str(name))
+        raise AttributeError("%s plugin cannot be initialized with missing attributes: %s" %args)
+
+def validate__init__(init):
+    """
+    Validate the input arguments to :func:`__init__` using
+    the class schema
     
     Parameters
     ----------
@@ -39,42 +45,25 @@ def autoassign(init):
     if defaults is None: defaults = []
              
     # verify the schema
-    update_schema(init, attrs, defaults)
+    validate__init__signature(init, attrs, defaults)
          
     @functools.wraps(init)
     def wrapper(self, *args, **kwargs):
-                        
-        # handle default values
-        for attr, val in zip(reversed(attrs), reversed(defaults)):
-            setattr(self, attr, val)
+            
+        # validate "choices" for positional arguments
+        args_dict = dict(zip(attrs[1:], args))
+        validate_choices(self.schema, args_dict)    
         
-        # handle positional arguments
-        positional_attrs = attrs[1:]
-        posargs = {}            
-        for attr, val in zip(positional_attrs, args):
-            check_choices(init.schema, attr, val)
-            posargs[attr] = val
-            setattr(self, attr, val)
-    
-        # handle varargs
-        if varargs:
-            remaining_args = args[len(positional_attrs):]
-            setattr(self, varargs, remaining_args)            
-        
-        # handle varkw
-        if kwargs:
-            for attr,val in kwargs.items():
-                check_choices(init.schema, attr, val)
-                try: setattr(self, attr, val)
-                except: pass
-        
+        # validate "choices" for keyword arguments 
+        validate_choices(self.schema, kwargs)   
+                            
         # call the __init__ to confirm proper initialization
         try:
-            return init(self, *args, **kwargs)
+            plugin = init(self, *args, **kwargs)
         except Exception as e:
             
             # get the error message
-            errmsg = get_init_errmsg(init.schema, posargs, kwargs)
+            errmsg = get_init_errmsg(init.schema, args_dict, kwargs)
             
             # format the total message
             args = (self.__class__.__name__,)
@@ -85,10 +74,15 @@ def autoassign(init):
             msg += '-'*75 + '\n'
             e.args = (msg, )
             raise
+                
+        # validate required attributes
+        validate_required_attributes(plugin)
+        
+        return plugin
             
     return wrapper
     
-def update_schema(func, attrs, defaults):
+def validate__init__signature(func, attrs, defaults):
     """
     Update the schema, which is attached to `func`,
     using information gathered from the function's signature, 
@@ -148,17 +142,7 @@ def update_schema(func, attrs, defaults):
     else:
         func.__doc__ = func.schema.format_help()
 
-def check_choices(schema, attr, val):
-    """
-    Verify that the input values are consistent
-    with the `choices`, using the schema
-    """
-    if attr in schema:
-        arg = schema[attr]
-        if arg.choices is not None:
-            if val not in arg.choices:
-                raise ValueError("valid choices for '%s' are: '%s'" %(arg.name, str(arg.choices)))
-                
+     
 def get_init_errmsg(schema, posargs, kwargs):
     """
     Return a reasonable error message, accounting for:
