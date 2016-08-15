@@ -5,10 +5,13 @@ class TraceHaloAlgorithm(Algorithm):
     plugin_name = "TraceHalo"
     
     def __init__(self, dest, source, sourcelabel):
-        pass
+        
+        self.dest        = dest
+        self.source      = source
+        self.sourcelabel = sourcelabel
     
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         s = cls.schema
         s.description = " calculate the halo property based on a different set of halo labels."
 

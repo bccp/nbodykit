@@ -61,10 +61,14 @@ class MWhiteHaloFileDataSource(DataSource):
     plugin_name = "MWhiteHaloFile"
     
     def __init__(self, path, BoxSize, rsd=None, select=None):
-        pass
+        
+        self.path    = path
+        self.BoxSize = BoxSize
+        self.rsd     = rsd
+        self.select  = select
         
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         
         s = cls.schema
         s.add_argument("path", help="the path to the file to read")

@@ -71,7 +71,26 @@ class BianchiPowerAlgorithm(Algorithm):
                     fsky=None,
                     factor_hexadecapole=False,
                     keep_cache=False):
-                           
+        
+        # positional arguments
+        self.data    = data
+        self.randoms = randoms
+        self.Nmesh   = Nmesh
+        self.max_ell = max_ell
+        
+        # keyword arguments
+        self.paintbrush          = paintbrush
+        self.dk                  = dk
+        self.kmin                = kmin
+        self.BoxSize             = BoxSize
+        self.BoxPad              = BoxPad
+        self.compute_fkp_weights = compute_fkp_weights
+        self.P0_fkp              = P0_fkp
+        self.nbar                = nbar
+        self.fsky                = fsky
+        self.factor_hexadecapole = factor_hexadecapole
+        self.keep_cache          = keep_cache
+        
         # initialize the FKP catalog (unopened)
         kws = {}
         kws['BoxSize'] = self.BoxSize
@@ -83,7 +102,7 @@ class BianchiPowerAlgorithm(Algorithm):
         self.catalog = FKPCatalog(self.data, self.randoms, **kws)
         
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         
         s = cls.schema
         s.description = "power spectrum multipoles using FFTs for a data survey with \n"

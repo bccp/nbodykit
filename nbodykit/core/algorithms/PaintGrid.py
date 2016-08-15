@@ -15,27 +15,32 @@ class PaintGridAlgorithm(Algorithm):
     """
     plugin_name = "PaintGrid"
     
-    def __init__(self, Nmesh, DataSource, Painter=None, paintbrush='cic', paintNmesh=None, dataset='PaintGrid', Nfile=0, writeFourier=False):
-        # combine the two fields
+    def __init__(self, Nmesh, DataSource, Painter=None, paintbrush='cic', paintNmesh=None, 
+                    dataset='PaintGrid', Nfile=0, writeFourier=False):
+                    
+        # set the  input
+        self.Nmesh      = Nmesh
         self.datasource = DataSource
+        self.dataset    = dataset
+        self.writeFourier = writeFourier 
+        
+        # set the painter
         if Painter is None:
-            Painter = Painter.create("DefaultPainter")
-
-        if Painter.paintbrush is None:
-            self.Painter.paintbrush = paintbrush
-
+            Painter = Painter.create("DefaultPainter", paintbrush=paintbrush)
         self.painter = Painter
-        self.dataset = dataset
+        
+        # Nmesh for the painter
         if paintNmesh is None:
-            self.paintNmesh = self.Nmesh
+            paintNmesh = self.Nmesh
+        self.paintNmesh = paintNmesh
 
+        self.Nfile = Nfile
         if self.Nfile == 0:
             chunksize = 1024 * 1024 * 512
             self.Nfile = (self.Nmesh * self.Nmesh * self.Nmesh + chunksize - 1)// chunksize
 
-
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         s = cls.schema
         s.description = "periodic power spectrum calculator via FFT"
 
@@ -67,7 +72,7 @@ class PaintGridAlgorithm(Algorithm):
         if self.comm.rank == 0:
             self.logger.info('importing done')
             self.logger.info('Resolution Nmesh : %d' % self.paintNmesh)
-            self.logger.info('paintbrush : %s' % self.Painter.paintbrush)
+            self.logger.info('paintbrush : %s' % self.painter.paintbrush)
 
         # setup the particle mesh object, taking BoxSize from the painters
         pmpaint = ParticleMesh(BoxSize=self.datasource.BoxSize, Nmesh=[self.paintNmesh] * 3, dtype='f4', comm=self.comm)
@@ -119,5 +124,5 @@ class PaintGridAlgorithm(Algorithm):
         b.attrs['BoxSize'] = numpy.array(self.datasource.BoxSize, dtype='f8')
         b.attrs['Nmesh'] = self.Nmesh
         b.attrs['paintNmesh'] = self.paintNmesh
-        b.attrs['paintbrush'] = self.paintbrush
+        b.attrs['paintbrush'] = self.painter.paintbrush
         b.attrs['Ntot'] = stats['Ntot']

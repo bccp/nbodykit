@@ -10,6 +10,10 @@ class TPMLabel(DataSource):
     plugin_name = "TPMLabel"
     
     def __init__(self, path, bunchsize=4*1024*1024):
+        
+        self.path      = path
+        self.bunchsize = bunchsize
+        
         if self.comm.rank == 0:
             datastorage = files.DataStorage(self.path, files.HaloLabelFile)
         else:
@@ -18,7 +22,7 @@ class TPMLabel(DataSource):
         self.size = sum(datastorage.npart)
     
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         
         s = cls.schema
         s.description = "read file of halo labels as generated from Martin White's TPM"

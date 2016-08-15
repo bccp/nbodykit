@@ -18,6 +18,14 @@ class ZeldovichSimDataSource(DataSource):
     
     def __init__(self, nbar, redshift, BoxSize, Nmesh, bias=2., rsd=None, seed=None):        
         
+        self.nbar     = nbar
+        self.redshift = redshift
+        self.BoxSize  = BoxSize
+        self.Nmesh    = Nmesh
+        self.bias     = bias
+        self.rsd      = rsd
+        self.seed     = seed
+        
         # create the local random seed from the global seed and comm size
         self.local_seed = utils.local_random_seed(self.seed, self.comm)
         
@@ -26,7 +34,7 @@ class ZeldovichSimDataSource(DataSource):
             raise ValueError("a cosmology must be specified via the `cosmo` keyword to use %s" %self.plugin_name)
             
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         
         s = cls.schema
         s.description = "simulated particles using the Zel'dovich approximation"

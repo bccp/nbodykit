@@ -10,10 +10,12 @@ class TestBoxSizeAlgorithm(Algorithm):
     plugin_name = "TestBoxSize"
 
     def __init__(self, datasource, BoxSize):
-        pass
+        
+        self.datasource = datasource
+        self.BoxSize    = BoxSize
         
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         
         s = cls.schema
         s.description = "test if all objects in a DataSource fit within a specified BoxSize"

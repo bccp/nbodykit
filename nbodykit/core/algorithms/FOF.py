@@ -11,10 +11,17 @@ class FOFAlgorithm(Algorithm):
     def __init__(self, datasource, linklength, 
                     absolute=False, without_labels=False, 
                     nmin=32, calculate_initial_position=False):
-        pass
+        
+        # set the input parameters
+        self.datasource                 = datasource
+        self.linklength                 = linklength
+        self.absolute                   = absolute
+        self.without_labels             = without_labels
+        self.nmin                       = nmin
+        self.calculate_initial_position = calculate_initial_position
     
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         s = cls.schema
         s.description = "a Friends-of-Friends (FOF) halo finder"
         

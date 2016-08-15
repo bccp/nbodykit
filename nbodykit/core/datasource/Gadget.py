@@ -10,10 +10,23 @@ class GadgetDataSource(DataSource):
     
     def __init__(self, path, BoxSize, ptype=[], posdtype='f4', veldtype='f4', 
                     iddtype='u8', massdtype='f4', rsd=None, bunchsize=4*1024*1024):
-        pass
+        
+        # positional arguments
+        self.path = path
+        self.BoxSize = BoxSize
+        
+        # keywords
+        self.ptype     = ptype
+        self.posdtype  = posdtype
+        self.veldtype  = veldtype
+        self.iddtype   = iddtype
+        self.massdtype = massdtype
+        self.rsd       = rsd
+        self.bunchsize = bunchsize
+        
     
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         
         s = cls.schema
         s.description = "read a flavor of Gadget 2 files (experimental)"
@@ -90,10 +103,21 @@ class GadgetGroupTabDataSource(DataSource):
     
     def __init__(self, path, BoxSize, mpch=1000., posdtype='f4', veldtype='f4', 
                     massdtype='f4', rsd=None, bunchsize=4*1024*1024):
-        pass
+                    
+        # positional arguments
+        self.path = path
+        self.BoxSize = BoxSize
+        
+        # keywords
+        self.mpch      = mpch
+        self.posdtype  = posdtype
+        self.veldtype  = veldtype
+        self.massdtype = massdtype
+        self.rsd       = rsd
+        self.bunchsize = bunchsize
     
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         
         s = cls.schema
         s.description = "read a flavor of Gadget 2 FOF catalogs (experimental)"

@@ -55,13 +55,25 @@ class PairCountCorrelationAlgorithm(Algorithm):
     def __init__(self, mode, rbins, field, other=None, subsample=1, 
                     los='z', Nmu=10, poles=[]):
                     
+        # positional arguments
+        self.mode      = mode
+        self.rbins     = rbins
+        self.field     = field
+        
+        # keyword arguments
+        self.other     = other
+        self.subsample = subsample
+        self.los       = los
+        self.Nmu       = Nmu
+        self.poles     = poles
+        
         # construct the input fields list
         self.inputs = [self.field]
         if self.other is not None:
             self.inputs.append(self.other)
         
     @classmethod
-    def register(cls):  
+    def fill_schema(cls):  
         s = cls.schema
         s.description = "correlation function calculator via pair counting"
     

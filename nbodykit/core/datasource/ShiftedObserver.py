@@ -11,11 +11,15 @@ class ShiftedObserverDataSource(DataSource):
     
     def __init__(self, datasource, translate, rsd=False):        
         
+        self.datasource = datasource
+        self.translate  = translate
+        self.rsd        = rsd
+        
         # make it an array
         self.translate = numpy.array(self.translate)
     
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         
         s = cls.schema
         s.description = "establish an explicit observer (outside the box) for a periodic box"

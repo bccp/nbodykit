@@ -10,10 +10,12 @@ class Describe(Algorithm):
     plugin_name = "Describe"
 
     def __init__(self, datasource, column='Position'):
-        pass
+        
+        self.datasource = datasource
+        self.column     = column
 
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         s = cls.schema
         s.description = "describe a specific column of the input DataSource"
         s.add_argument("datasource", type=DataSource.from_config, 

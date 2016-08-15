@@ -12,10 +12,17 @@ class Subsample(Algorithm):
     def __init__(self, datasource, Nmesh, seed=12345, ratio=0.01, smoothing=None, format='hdf5'):
         from pmesh.pm import ParticleMesh
 
+        self.datasource = datasource
+        self.Nmesh      = Nmesh
+        self.seed       = seed
+        self.ratio      = ratio
+        self.smoothing  = smoothing
+        self.format     = format
+
         self.pm = ParticleMesh(BoxSize=self.datasource.BoxSize, Nmesh=[self.Nmesh] * 3, dtype='f4', comm=self.comm)
 
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         
         s = cls.schema
         s.description = "create a subsample from a DataSource, and evaluate density \n"

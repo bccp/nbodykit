@@ -28,6 +28,11 @@ class FiberCollisionsAlgorithm(Algorithm):
     
     def __init__(self, datasource, collision_radius=62/60./60., seed=None):
         
+        # set the input parameters
+        self.datasource       = datasource
+        self.collision_radius = collision_radius
+        self.seed             = seed
+        
         # store collision radius in radians
         self._collision_radius_rad = self.collision_radius * numpy.pi/180.
         if self.comm.rank == 0: 
@@ -38,7 +43,7 @@ class FiberCollisionsAlgorithm(Algorithm):
         self.logger.info("local_seed = %d" %self.local_seed)
         
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
 
         s = cls.schema
         s.description = "the application of fiber collisions to a galaxy survey"

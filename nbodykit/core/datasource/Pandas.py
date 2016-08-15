@@ -25,11 +25,24 @@ class PandasDataSource(DataSource):
     def __init__(self, path, names, BoxSize, 
                     usecols=None, poscols=['x','y','z'], velcols=None, 
                     rsd=None, posf=1., velf=1., select=None, ftype='auto'):        
-        pass
         
+        # positional arguments
+        self.path    = path
+        self.names   = names
+        self.BoxSize = BoxSize
         
+        # keywords
+        self.usecols = usecols
+        self.poscols = poscols
+        self.velcols = velcols
+        self.rsd     = rsd
+        self.posf    = posf
+        self.velf    = velf
+        self.select  = select
+        self.ftype   = ftype
+
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         """
         Fill the attribute schema associated with this class
         """

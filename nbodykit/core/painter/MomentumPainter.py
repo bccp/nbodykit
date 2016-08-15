@@ -10,6 +10,10 @@ class MomentumPainter(Painter):
     
     def __init__(self, velocity_component, moment=1, paintbrush='cic'):
         
+        self.velocity_component = velocity_component
+        self.moment             = moment
+        self.paintbrush         = paintbrush
+        
         # initialize the baseclass with the paintbrush
         super(MomentumPainter, self).__init__(paintbrush)
         
@@ -17,7 +21,7 @@ class MomentumPainter(Painter):
         self._comp_index = "xyz".index(self.velocity_component)
 
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         s = cls.schema
         s.description = "grid the velocity-weighted density field (momentum) field of an " 
         s.description += "input DataSource of objects"

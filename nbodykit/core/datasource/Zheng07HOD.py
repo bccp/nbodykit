@@ -62,6 +62,17 @@ class Zheng07HodDataSource(DataSource):
         """
         from nbodykit.distributedarray import GatherArray
         
+        self.halocat    = halocat
+        self.redshift   = redshift 
+        self.logMmin    = logMmin
+        self.sigma_logM = sigma_logM
+        self.alpha      = alpha
+        self.logM0      = logM0
+        self.logM1      = logM1
+        self.rsd        = rsd
+        self.seed       = seed
+        
+        
         # load halotools
         try:
             from halotools import sim_manager
@@ -139,7 +150,7 @@ class Zheng07HodDataSource(DataSource):
             self._halotools_cat   = sim_manager.UserSuppliedHaloCatalog(**cols)
             
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         
         s = cls.schema
         s.description = "populate an input halo catalog with galaxies using the Zheng et al. 2007 HOD"

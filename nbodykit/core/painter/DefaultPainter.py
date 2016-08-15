@@ -6,12 +6,19 @@ class DefaultPainter(Painter):
     plugin_name = "DefaultPainter"
 
     def __init__(self, weight=None, frho=None, fk=None, normalize=False, setMean=None, paintbrush='cic'):
-     
+        
+        self.weight     = weight
+        self.frho       = frho
+        self.fk         = fk
+        self.normalize  = normalize
+        self.setMean    = setMean
+        self.paintbrush = paintbrush
+        
         # initialize the baseclass with the paintbrush
         super(DefaultPainter, self).__init__(paintbrush)
 
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         s = cls.schema
         s.description = "grid the density field of an input DataSource of objects, optionally "
         s.description += "using a weight for each object. "
@@ -89,7 +96,7 @@ class DefaultPainter(Painter):
                 from numpy import exp, sin, cos
                 return eval(self.fk)
             complex = real.r2c()
-            for kk, slab in zip(complex.slabiter.x, complex.slabiter):
+            for kk, slab in zip(complex.slabs.x, complex.slabs):
                 k = sum([k ** 2 for k in kk]) ** 0.5
                 slab[...] *= function(k, kk[0], kk[1], kk[2])
             complex.c2r(real)
@@ -102,7 +109,7 @@ class DefaultPainter(Painter):
                 return eval(self.frho)
             if self.comm.rank == 0:
                 self.logger.info("example value before frho %g" % real.flat[0])
-            for slab in real.slabiter:
+            for slab in real.slabs:
                 slab[...] = function(slab)
             if self.comm.rank == 0:
                 self.logger.info("example value after frho %g" % real.flat[0])

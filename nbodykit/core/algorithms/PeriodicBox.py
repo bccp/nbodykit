@@ -91,6 +91,21 @@ class FFTPowerAlgorithm(Algorithm):
     def __init__(self, mode, Nmesh, field, other=None, los='z', Nmu=5, 
                     dk=None, kmin=0., quiet=False, poles=[], paintbrush='cic'):
 
+        # positional arguments
+        self.mode  = mode
+        self.Nmesh = Nmesh
+        self.field = field
+        
+        # keyword arguments
+        self.other      = other
+        self.los        = los
+        self.Nmu        = Nmu
+        self.dk         = dk
+        self.kmin       = kmin 
+        self.quiet      = quiet
+        self.poles      = poles
+        self.paintbrush = paintbrush
+        
         from pmesh.pm import ParticleMesh
 
         # combine the two fields
@@ -112,7 +127,7 @@ class FFTPowerAlgorithm(Algorithm):
         self.pm = pm
 
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
 
         s = cls.schema
         s.description = "periodic power spectrum calculator via FFT"
@@ -291,6 +306,21 @@ class FFTCorrelationAlgorithm(Algorithm):
                     dk=None, kmin=0., quiet=False, poles=[], paintbrush='cic'):
             
         from pmesh.pm import ParticleMesh
+        
+        # positional arguments
+        self.mode  = mode
+        self.Nmesh = Nmesh
+        self.field = field
+        
+        # keyword arguments
+        self.other      = other
+        self.los        = los
+        self.Nmu        = Nmu
+        self.dk         = dk
+        self.kmin       = kmin 
+        self.quiet      = quiet
+        self.poles      = poles
+        self.paintbrush = paintbrush
 
         # combine the two fields
         self.fields = [self.field]
@@ -312,7 +342,7 @@ class FFTCorrelationAlgorithm(Algorithm):
         self.pm = pm
 
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
 
         cls.schema.description = "correlation spectrum calculator via FFT in a periodic box"
         for name in FFTPowerAlgorithm.schema:

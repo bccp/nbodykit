@@ -50,13 +50,18 @@ class RedshiftHistogramAlgorithm(Algorithm):
 
     def __init__(self, datasource, bins=None, fsky=1.0, weight_col='Weight'):
         
+        self.datasource = datasource
+        self.bins       = bins
+        self.fsky       = fsky
+        self.weight_col = weight_col
+        
         # set the cosmology
         self.cosmo = datasource.cosmo
         if self.cosmo is None:
             raise ValueError("`%s` algorithm requires a cosmology" %self.plugin_name)
         
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         
         s = cls.schema
         s.description = "compute n(z) from the input DataSource"

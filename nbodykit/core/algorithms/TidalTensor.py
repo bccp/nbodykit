@@ -9,10 +9,16 @@ class TidalTensor(Algorithm):
     
     def __init__(self, field, points, Nmesh, smoothing=None):
         from pmesh.pm import ParticleMesh
+        
+        self.field     = field
+        self.points    = points
+        self.Nmesh     = Nmesh
+        self.smoothing = smoothing
+        
         self.pm = ParticleMesh(BoxSize=self.field.BoxSize, Nmesh=[self.Nmesh]*3, dtype='f4', comm=self.comm)
 
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         s = cls.schema
         s.description = "compute the tidal force tensor"
 

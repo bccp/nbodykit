@@ -9,10 +9,17 @@ class FOF6DAlgorithm(Algorithm):
     plugin_name = "FOF6D"
 
     def __init__(self, datasource, halolabel, linklength=0.078, vfactor=0.368, nmin=32):
-        pass
+        
+        # set the input parameters
+        self.datasource = datasource
+        self.halolabel  = halolabel
+        self.linklength = linklength
+        self.vfactor    = vfactor
+        self.nmin       = nmin
+        
 
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
 
         s = cls.schema
         s.description = "finding subhalos from FOF groups; a variant of FOF6D"

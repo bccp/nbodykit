@@ -10,6 +10,11 @@ class TPMSnapshotDataSource(DataSource):
     
     def __init__(self, path, BoxSize, rsd=None, bunchsize=4*1024*1024):
         
+        self.path = path
+        self.BoxSize = BoxSize
+        self.rsd = rsd
+        self.bunchsize = bunchsize
+        
         if self.comm.rank == 0:
             datastorage = files.DataStorage(self.path, files.TPMSnapshotFile)
             size = sum(datastorage.npart)
@@ -18,7 +23,7 @@ class TPMSnapshotDataSource(DataSource):
         self.size = self.comm.bcast(size)
 
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         
         s = cls.schema
         s.description = "read snapshot files from Martin White's TPM"

@@ -19,6 +19,20 @@ class RaDecRedshiftDataSource(DataSource):
                     usecols=None, sky_cols=['ra','dec'], z_col='z', 
                     weight_col=None, degrees=False, select=None, nbar_col=None):       
 
+        # positional arguments
+        self.path = path 
+        self.names = names
+        
+        # keywords
+        self.unit_sphere = unit_sphere
+        self.usecols     = usecols 
+        self.sky_cols    = sky_cols
+        self.z_col       = z_col
+        self.weight_col  = weight_col
+        self.degrees     = degrees
+        self.select      = select
+        self.nbar_col    = nbar_col
+        
         # setup the cosmology
         if not self.unit_sphere:
             if self.cosmo is None:
@@ -32,7 +46,7 @@ class RaDecRedshiftDataSource(DataSource):
 
   
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         
         s = cls.schema
         s.description = "read (ra, dec, z) from a plaintext file, returning Cartesian coordinates"

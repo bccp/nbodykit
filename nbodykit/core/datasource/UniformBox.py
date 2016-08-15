@@ -15,11 +15,18 @@ class UniformBoxDataSource(DataSource):
     
     def __init__(self, N, BoxSize, max_speed=500., mu_logM=13.5, sigma_logM=0.5, seed=None):        
         
+        self.N          = N
+        self.BoxSize    = BoxSize
+        self.max_speed  = max_speed
+        self.mu_logM    = mu_logM
+        self.sigma_logM = sigma_logM
+        self.seed       = seed
+        
         # create the local random seed from the global seed and comm size
         self.local_seed = utils.local_random_seed(self.seed, self.comm)
 
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         
         s = cls.schema
         s.description = "data particles with uniform positions and velocities"

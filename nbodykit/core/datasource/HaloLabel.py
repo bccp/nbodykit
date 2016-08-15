@@ -10,11 +10,15 @@ class HaloLabel(DataSource):
     plugin_name = "HaloLabel"
     
     def __init__(self, path, bunchsize=4*1024*1024):
+        
+        self.path = path
+        self.bunchsize = bunchsize 
+        
         f = bigfile.BigFileMPI(self.comm, self.path)
         self.size = f['Label'].size
     
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         
         s = cls.schema
         s.description = "read a file of halo labels (halo id per particle), as generated the FOF algorithm"

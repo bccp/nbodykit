@@ -11,6 +11,11 @@ class FastPMDataSource(DataSource):
     
     def __init__(self, path, BoxSize=None, bunchsize=4*1024*1024, rsd=None):
         
+        self.path      = path
+        self.BoxSize   = BoxSize
+        self.bunchsize = bunchsize
+        self.rsd       = rsd
+        
         BoxSize = numpy.empty(3, dtype='f8')
         f = bigfile.BigFileMPI(self.comm, self.path)
         header = f['header']
@@ -31,7 +36,7 @@ class FastPMDataSource(DataSource):
         
     
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         """
         Fill the attribute schema associated with this class
         """

@@ -14,6 +14,10 @@ class BigFileGridSource(GridSource):
     plugin_name = "BigFileGrid"
 
     def __init__(self, path, dataset):
+        
+        self.path = path
+        self.dataset = dataset
+        
         import bigfile
         f = bigfile.BigFileMPI(self.comm, self.path)
 
@@ -32,7 +36,7 @@ class BigFileGridSource(GridSource):
                 self.isfourier = False
 
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         s = cls.schema
         s.description = "read gridded field data from a binary file. Fourier resampling is applied if necessary."
 

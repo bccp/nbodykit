@@ -18,6 +18,11 @@ class SubsampleDataSource(DataSource):
             name = self.__class__.__name__
             raise ImportError("h5py must be installed to use '%s' reader" %name)
 
+        self.path = path
+        self.dataset = dataset
+        self.BoxSize = BoxSize
+        self.rsd = rsd
+        
         BoxSize = numpy.empty(3, dtype='f8')
         if self.comm.rank == 0:
             dataset = h5py.File(self.path, mode='r')[self.dataset]
@@ -32,7 +37,7 @@ class SubsampleDataSource(DataSource):
                 self.logger.info("Overriding BoxSize as %s" % str(self.BoxSize))
 
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         s = cls.schema
         s.description = "read data from a HDF5 Subsample file"
 
