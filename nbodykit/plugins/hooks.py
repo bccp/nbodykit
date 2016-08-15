@@ -88,9 +88,12 @@ def add_logger(cls):
 
 def add_and_validate_schema(cls):
     """
-    A hook to add a ConstructorSchema to the input class
-    and call the :func:`fill_schema` class method, if 
-    available
+    A hook that: 
+    
+        1.  adds a ConstructorSchema to the input class
+        2.  calls the :func:`fill_schema` class method, if available
+        3.  decorates __init__ to validate arguments at the time of 
+            intialization
     """
     from .schema import ConstructorSchema
     from .validate import validate__init__
@@ -107,5 +110,5 @@ def add_and_validate_schema(cls):
     if hasattr(cls, 'fill_schema'):
         cls.fill_schema()
         
-    # validate
+    # validate the __init__ arguments
     cls.__init__ = validate__init__(init)    
