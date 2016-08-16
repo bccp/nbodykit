@@ -43,15 +43,15 @@ def getsize(filename, header_size, rowsize):
 class BinaryFile(FileType):
     """
     A file object to handle the reading of columns of data from 
-    a binary file
-    
+    a binary file. 
+        
     .. warning::
         
         This assumes the data is stored in a column-major format
     """
     plugin_name = "BinaryFile"
     
-    def __init__(self, path, dtype, header_size=0, peek_size=None):
+    def __init__(self, path, dtype, offsets=None, header_size=0, size=None):
                 
         # the file path
         self.path = path
@@ -60,14 +60,31 @@ class BinaryFile(FileType):
         self.dtype = dtype
         if not isinstance(self.dtype, numpy.dtype):
             self.dtype = numpy.dtype(self.dtype)
-                    
-        # size of header in bytes
-        self.header_size = header_size
+                                
+        # determine the size (either an int or a function)
+        if size is None:
+            size = lambda fn: getsize(fn, header_size, self.dtype.itemsize)
+        if callable(size):
+            self.size = size(self.path)
+        elif ininstance(size, int):
+            self.size = size
+        else:
+            raise TypeError("`size` keyword should be a callable or integer")
+        
+        # use the input offsets dict
+        if offsets is not None:
+            if not isinstance(offsets, dict):
+                raise TypeError("`offsets` keyword should be a dict")
+            self.offsets = offsets.copy()
             
-        # determine the size
-        if peek_size is None:
-            peek_size = lambda fn: getsize(fn, self.header_size, self.dtype.itemsize)
-        self.size = peek_size(self.path)
+            # make sure each column in dtype is in the offsets table
+            if not all(col in self.offsets for col in self):
+                raise ValueError("missing some dtype columns in the input `offsets` dict")
+        # create the dictionary of offsets
+        else:            
+            self.offsets = {}
+            for col in self:
+                self.offsets[col] = self._default_byte_offset(col, header_size=header_size)
         
         # for returning views of the file
         self.base = None
@@ -83,11 +100,13 @@ class BinaryFile(FileType):
             help='list of tuples of (name, dtype) to be converted to a numpy.dtype')
         s.add_argument("header_size", type=int,
             help='the size of the header of the in bytes')
-        s.add_argument("peek_size", 
-            help=("a function taking a single argument, the name of the file, "
-                  "and returns the true size of each file"))
+        s.add_argument("size",
+            help=("an int giving the file size or a function that takes a single argument, "
+                  "the name of the file, and returns the size"))
+        s.add_argument("offsets", type=dict,
+            help='a dictionary giving the byte offsets for each column in the file')
         
-    def _offset(self, col):
+    def _default_byte_offset(self, col, header_size=0):
         """
         Internal function to return the offset in bytes
         for the column name
@@ -96,7 +115,7 @@ class BinaryFile(FileType):
         for the second column is the size of the full array of the 
         first column (plus header size)
         """
-        offset = self.header_size
+        offset = header_size
         cols = self.keys()
         i = 0
         while i < cols.index(col):
@@ -121,7 +140,7 @@ class BinaryFile(FileType):
         with open(self.path, 'rb') as ff:
             
             for col in columns:
-                offset = self._offset(col)
+                offset = self.offsets[col]
                 dtype = self.dtype[col]
                 ff.seek(offset, 0)
                 ff.seek(start * dtype.itemsize, 1)
