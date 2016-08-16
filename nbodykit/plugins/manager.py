@@ -144,23 +144,34 @@ class PluginManager(object):
                 # recursively load plugins in the directory
                 # and add them to the module
                 if os.path.isdir(fullfn) or fn.endswith(os.path.extsep + 'py'):
-                    mod = self._load(fullfn, qualprefix=qualname)
+                    mod = self._load(fullfn, qualname)
                     self._extract_plugins(mod)
                     module.__dict__[basename] = mod
+
             return module
         
         # load the normal file into a module
         basename, ext = os.path.splitext(os.path.basename(fn))
         qualname = '.'.join([qualprefix, basename])
-        module = ModuleType(qualname)
-
-        # execute the code
-        with open(fn, 'r') as f:
-            code = compile(f.read(), fn, 'exec')
-            exec(code, module.__dict__)
-
-        sys.modules[qualname] = module
-        self._extract_plugins(module)
+        
+        # only add the new module if its not there
+        # strange behavior in python 2 if you overwrite modules
+        # see http://goo.gl/vMIU3v
+        if qualname not in sys.modules:
+            
+            # make the new module object
+            module = ModuleType(qualname)
+            
+            # execute the code
+            with open(fn, 'r') as f:
+                code = compile(f.read(), fn, 'exec')
+                exec(code, module.__dict__)
+           
+            sys.modules[qualname] = module
+            self._extract_plugins(module)
+        else:
+            module = sys.modules[qualname]
+            
         return module
         
     def _extract_plugins(self, mod):
