@@ -1,12 +1,11 @@
-import numpy
 import pandas as pd
 import os
 import dask.dataframe as dd
+import numpy
 
-from ..extern.six import string_types
-from .utils import consecutive_view_slices
-from . import FileType
-from .stack import FileStack
+from nbodykit.extern.six import string_types
+from nbodykit.io import FileType
+from nbodykit.io.stack import FileStack
 
 def get_partition_sizes(filename, blocksize):
     """
@@ -116,7 +115,7 @@ class CSVFile(FileType):
         kws['blocksize'] = self.blocksize
         kws['collection'] = False
         files = dd.read_csv(self.path, **kws)
-        sizes = get_partition_sizes(self.path, self.blocksize)
+        sizes = get_partition_sizes(self.path, self.blocksize)        
         self.stack = FileStack.from_files(files, sizes=sizes)
         
         # size is the sum of the size of each partition
@@ -163,7 +162,7 @@ class CSVFile(FileType):
         data = get(fnum).compute()
         return data.to_records(index=False)[start:stop:step]
 
-    def read_chunk(self, columns, start, stop, step=1):
+    def read(self, columns, start, stop, step=1):
         """
         Read the specified column(s) over the given range,
         as a dictionary
@@ -171,13 +170,17 @@ class CSVFile(FileType):
         'start' and 'stop' should be between 0 and :attr:`size`,
         which is the total size of the file (in particles)
         """
-        # loop over the files we need to read from
+        if isinstance(columns, string_types): columns = [columns]
+        
+        toret = []
         for fnum in self.stack._file_range(start, stop):
 
             # the local slice
             sl = self.stack._normalized_slice(start, stop, fnum)
             
-            # yield this chunk
-            data = (self.stack.files[fnum][sl[0]:sl[1]:step]).compute()
+            # dataframe to structured array
+            data = (self.stack.files[fnum][sl[0]:sl[1]]).compute()
             data = data[columns]
-            yield data.to_records(index=False)
+            toret.append(data.to_records(index=False))
+            
+        return numpy.concatenate(toret, axis=0)[::step]

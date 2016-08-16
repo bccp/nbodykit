@@ -1,6 +1,8 @@
-import os
 import numpy
-from . import FileType
+import os
+
+from . import FileType, get_slice_size
+from ..extern.six import string_types
 
 def getsize(filename, header_size, rowsize):
     """
@@ -103,7 +105,7 @@ class BinaryFile(FileType):
         
         return offset
         
-    def read_chunk(self, columns, start, stop, step=1):
+    def read(self, columns, start, stop, step=1):
         """
         Read the specified column(s) over the given range, 
         as a dictionary
@@ -111,8 +113,10 @@ class BinaryFile(FileType):
         'start' and 'stop' should be between 0 and :attr:`size`,
         which is the total size of the binary file (in particles)
         """ 
+        if isinstance(columns, string_types): columns = [columns]
+        
         dt = [(col, self.dtype[col]) for col in columns]
-        toret = numpy.empty(self._slice_size(start, stop, step), dtype=dt)
+        toret = numpy.empty(get_slice_size(start, stop, step), dtype=dt)
                
         with open(self.path, 'rb') as ff:
             
@@ -121,9 +125,9 @@ class BinaryFile(FileType):
                 dtype = self.dtype[col]
                 ff.seek(offset, 0)
                 ff.seek(start * dtype.itemsize, 1)
-                toret[col][:] = numpy.fromfile(ff, count=stop - start, dtype=dtype)[::step]
+                toret[col][:] = numpy.fromfile(ff, count=stop-start, dtype=dtype)[::step]
     
-        yield toret
+        return toret
             
         
         

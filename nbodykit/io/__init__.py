@@ -1,38 +1,61 @@
-from abc import abstractmethod, abstractproperty
-import numpy
 from ..extern.six import string_types
 from ..plugins import PluginBase
+
+import numpy
+from abc import abstractmethod, abstractproperty
+
+def get_slice_size(start, stop, step):
+    """
+    Return the size of an array slice
+    
+    Parameters
+    ----------
+    start : int
+        the beginning of the slice
+    stop : int
+        the end of the slice
+    step : int
+        the slice step size
+    
+    Returns
+    -------
+    N : int
+        the total size of the slice
+    """
+    N, remainder = divmod(stop-start, step)
+    if remainder: N += 1
+    return N
 
 class FileType(PluginBase):
     """
     Abstract base class representing a file object
     """ 
     required_attributes = ['size', 'dtype'] 
-        
+    
     @abstractmethod
-    def read_chunk(self, columns, start, stop, step=1):
+    def read(self, columns, start, stop, step=1):
         """
-        Read the specified columns from the file from 
-        `start` to `stop` with a stepsize of `step`
-        
+        Read the specified column(s) over the given range,
+        returning a structured numpy array
+
         Parameters
         ----------
         columns : str, list of str
-            the columns to be read
+            the name of the column(s) to return
         start : int
             the row integer to start reading at
         stop : int
             the row integer to stop reading at
         step : int, optional
             the step size to use when reading; default is 1
-        
+
         Returns
         -------
         data : array_like
             a numpy structured array holding the requested data
         """
         pass
-    
+        
     @property
     def ncol(self):
         """
@@ -55,17 +78,25 @@ class FileType(PluginBase):
         return iter(self.keys())
     
     def keys(self):
+        """
+        Return the list of the fields in :attr:`dtype`
+        """
         return [k for k in self.dtype.names]
-        
-    def _slice_size(self, start, stop, step):
-        N, remainder = divmod(stop-start, step)
-        if remainder: N += 1
-        return N
-    
+            
     def __getitem__(self, s):
         """
-        Return a slice of the data, indexed in 
-        array-like fashion
+        This function provides numpy-like array indexing
+        
+        It supports:
+        
+            1.  integer, slice-indexing similar to arrays
+            2.  string indexing providing names in :func:`keys`
+        
+        .. note::
+        
+            If a single column is being returned, a numpy array 
+            holding the data is returned, rather than a structured
+            array with only a single field.
         """
         if isinstance(s, string_types): s = [s]
         
@@ -89,6 +120,7 @@ class FileType(PluginBase):
         
         # input is integer
         if isinstance(s, int):
+            if s < 0: s += self.size
             start, stop, step = s, s+1, 1
         # input is a slice
         elif isinstance(s, slice):
@@ -98,37 +130,21 @@ class FileType(PluginBase):
         
         # if we don't own memory, return from base
         if getattr(self, 'base', None) is None:
-            return self.read(self.keys(), start, stop, step)
+            toret = self.read(self.keys(), start, stop, step)
         else:
-            return self.base.read(self.keys(), start, stop, step)
-        
-    def read(self, columns, start, stop, step=1):
-        """
-        Read the specified column(s) over the given range,
-        as a dictionary
-
-        'start' and 'stop' should be between 0 and :attr:`size`,
-        which is the total size of the file (in particles)
-        """
-        # columns should be a list
-        if isinstance(columns, string_types): columns = [columns]
-
-        # initialize the return array
-        N, remainder = divmod(stop-start, step)
-        if remainder: N += 1
-        dtype = [(col, self.dtype[col]) for col in columns]
-        toret = numpy.empty(N, dtype=dtype)
-
-        # return each column requested
-        i = 0
-        for chunk in self.read_chunk(columns, start, stop, step=step):
-            N = len(chunk)
-            for column in columns:
-                toret[column][i:i+N] = chunk[column][:]
-            i += N 
+            toret = self.base.read(self.keys(), start, stop, step)
+            
+        # if structured array only has single field, return
+        # the numpy array for that field
+        if len(toret.dtype) == 1:
+            toret = toret[toret.dtype.names[0]]
             
         return toret
 
 def io_extension_points():
+    """
+    Return a dictionary of the extension points for :mod:`io`
     
+    This returns only the :class:`FileType` class
+    """
     return {'FileType' : FileType}

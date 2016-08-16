@@ -1,8 +1,9 @@
+from nbodykit.extern.six import string_types
+from nbodykit.io import FileType, get_slice_size
+
+import numpy
 from glob import glob
 import os
-import numpy
-from ..extern.six import string_types
-from . import FileType
 
 class FileStack(FileType):
     """
@@ -29,11 +30,15 @@ class FileStack(FileType):
             
         self.files = [filetype(fn, **kwargs) for fn in filenames]
         self.sizes = numpy.array([len(f) for f in self.files], dtype='i8')
+        
+        # set dtype and size
+        self.dtype = self.files[0].dtype
+        self.size  = self.sizes.sum()
                 
     @classmethod
     def fill_schema(cls):
         s = cls.schema
-        s.description = "a consecutive view of a stack of files"
+        s.description = "a continuous view of a stack of files"
         
         s.add_argument("path", type=str, nargs='*',
             help='a list of files or a glob-like pattern')
@@ -42,7 +47,10 @@ class FileStack(FileType):
                     
     @classmethod
     def from_files(cls, files, sizes=[]):
-        
+        """
+        Create a FileStack from an existing list of files
+        and optionally a list of the sizes of those files
+        """
         stack = object.__new__(cls)
         stack.files = files
         if len(sizes):
@@ -53,15 +61,6 @@ class FileStack(FileType):
             stack.sizes = numpy.array([len(f) for f in stack.files], dtype='i8')
         
         return stack
-            
-        
-    @property
-    def dtype(self):
-        return self.files[0].dtype
-        
-    @property
-    def size(self):
-        return self.cumsizes[-1]
         
     @property
     def cumsizes(self):
@@ -77,6 +76,9 @@ class FileStack(FileType):
         
     @property
     def nfiles(self):
+        """
+        The number of files in the FileStack
+        """
         return len(self.files)
 
     def _file_range(self, start, stop):
@@ -93,7 +95,7 @@ class FileStack(FileType):
         start_size = self.cumsizes[fnum] 
         return (max(start-start_size, 0), min(stop-start_size, self.sizes[fnum]))
         
-    def read_chunk(self, columns, start, stop, step=1):
+    def read(self, columns, start, stop, step=1):
         """
         Read the specified column(s) over the given range,
         as a dictionary
@@ -101,14 +103,18 @@ class FileStack(FileType):
         'start' and 'stop' should be between 0 and :attr:`size`,
         which is the total size of the file (in particles)
         """
-        # loop over the files we need to read from
+        if isinstance(columns, string_types): columns = [columns]
+        
+        toret = []
         for fnum in self._file_range(start, stop):
 
             # the local slice
             sl = self._normalized_slice(start, stop, fnum)
             
-            # yield this chunk
-            return self.files[fnum].read_chunk(columns, sl[0], sl[1], step)
+            # read this chunk
+            toret.append(self.files[fnum].read(columns, sl[0], sl[1], step=1))
+            
+        return numpy.concatenate(toret, axis=0)[::step]
 
 
     
