@@ -28,6 +28,7 @@ class PaintGridAlgorithm(Algorithm):
         if Painter is None:
             Painter = Painter.create("DefaultPainter", paintbrush=paintbrush)
         self.painter = Painter
+        self.painter.paintbrush = paintbrush
         
         # Nmesh for the painter
         if paintNmesh is None:
