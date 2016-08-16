@@ -1,4 +1,4 @@
-from .. import os
+from .. import os, pytest
 import numpy
      
 class IOTestBase(object):
@@ -94,17 +94,17 @@ class IOTestBase(object):
 
     def test_list_of_strings_index(self):
         """
-        Test that indexing the file with a list of strings returns a 
+        Test that indexing the file with a list of strings returns a
         view of only the requested columns
         """
         # grab only the first two columns
         columns = list(self.data.dtype.names[:2])
         ff = self.file[columns]
-        
+
         # dtype and data should only return those of the 2 columns we wanted
         self.assertTrue(ff.dtype == self.data[columns].dtype)
         numpy.testing.assert_array_equal(ff[:], self.data[columns])
-        
+
     def test_string_index(self):
         """
         Test that indexing with a single string index returns a
@@ -113,10 +113,74 @@ class IOTestBase(object):
         # grab a view of only the first column
         column = self.data.dtype.names[0]
         ff = self.file[column]
-        
+
         # this should return the data for the requested column
-        self.assertTrue(ff.dtype[column] == self.data.dtype[column])
+        self.assertTrue(ff.dtype == self.data[column].dtype)
         numpy.testing.assert_array_equal(ff[:], self.data[column])
+        
+    def test_asarray(self):
+        """
+        Test that :func:`asarray` properly stacks the columns
+        """
+        # grab columns that are not vectors
+        columns = [col for col in self.file if not len(self.file.dtype[col].shape)]
+        
+        if len(columns):    
+            ff = self.file[columns].asarray()
+            data = numpy.vstack([self.data[col] for col in columns]).T
+            numpy.testing.assert_array_equal(ff[:], data)
+            
+    def test_invalid_column(self):
+        """
+        Test that an exception is raised when an invalid column name
+        is requested
+        """
+        with pytest.raises(IndexError):
+            ff = self.file["INVALID"]
+                
+    def test_invalid_list_index(self):
+        """
+        Test that an exception is raised when a list index is passed
+        and it does not contain strings
+        """
+        with pytest.raises(IndexError):
+            ff = self.file[[0, 1, 2]]
+            
+    def test_single_tuple_index(self):
+        """
+        Test indexing the file with a tuple of length one
+        """
+        ff = self.file[(slice(0, 10),)]
+        numpy.testing.assert_array_equal(ff[:], self.data[:10])
+        
+    def test_wrong_tuple_shape(self):
+        """
+        Test indexing the file with a tuple of too many dimensions
+        raises an exception
+        """
+        with pytest.raises(IndexError):
+            index = (slice(0, 10), slice(0, 10))
+            ff = self.file[index]
+        
+    def test_multiple_tuple_index(self):
+        """
+        Test indexing the file with a tuple of length two, after :func:`asarray`
+        has been called on the file
+        """
+        # grab columns that are not vectors
+        columns = [col for col in self.file if not len(self.file.dtype[col].shape)]
+        if len(columns):
+            ff = self.file[columns].asarray()
+            data = numpy.vstack([self.data[col] for col in columns]).T
+        else:
+            column = self.file.columns[0]
+            ff = self.file[column]
+            data = self.data[column]
+            
+        numpy.testing.assert_array_equal(ff[:,0], data[:,0])
+        
+            
+    
         
     
         

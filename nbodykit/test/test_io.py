@@ -32,7 +32,9 @@ class TestCSVFile(IOTestBase, unittest.TestCase):
         
     def load_data(self):
         
-        from nbodykit.io.csv import CSVFile
+        from nbodykit import plugin_manager
+        
+        CSVFile = plugin_manager.get_plugin('CSVFile')
         names = ['x', 'y', 'z', 'vx', 'vy', 'vz']
         return CSVFile(self.path, names, dtype='f4', delim_whitespace=True, header=None, blocksize=5000)
         
@@ -69,7 +71,9 @@ class TestBinaryFile(IOTestBase, unittest.TestCase):
         
     def load_data(self):
         
-        from nbodykit.io.binary import BinaryFile
+        from nbodykit import plugin_manager
+        
+        BinaryFile = plugin_manager.get_plugin('BinaryFile')
         return BinaryFile(self.path, self.dtype, header_size=self.header_size)
         
 class TestFileStack(IOTestBase, unittest.TestCase):
@@ -105,8 +109,10 @@ class TestFileStack(IOTestBase, unittest.TestCase):
         
     def load_data(self):
         
-        from nbodykit.io.stack import FileStack
-        from nbodykit.io.binary import BinaryFile
+        from nbodykit import plugin_manager
+        
+        FileStack = plugin_manager.get_plugin('FileStack')
+        BinaryFile = plugin_manager.get_plugin('BinaryFile')
         
         # read the same data twice, stacked together
         path = [self.path]*2
