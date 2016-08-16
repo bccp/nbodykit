@@ -136,6 +136,11 @@ class FileType(PluginBase):
             # must be a list of str
             if not all(isinstance(k, string_types) for k in s):
                 raise IndexError("string keys should be one of %s" %str(self.keys()))
+            
+            # crash if the dtype has no fields
+            if self.dtype.names is None:
+                raise IndexError(("cannot access view of specific columns after `asarray()` " 
+                                  "has been called; use integer array indexing instead"))
                 
             # all strings must be valid column names
             if not all(ss in self.keys() for ss in s):
