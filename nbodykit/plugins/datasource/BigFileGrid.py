@@ -59,8 +59,6 @@ class BigFileGridSource(GridSource):
                 start = sum(self.comm.allgather(complex2.size)[:self.comm.rank])
                 end = start + complex2.size
                 complex2.unsort(ds[start:end])
-                r = complex2.c2r()
-                print r.mean()
                 complex2.resample(real)
             else:
                 real2 = RealField(pmread)
