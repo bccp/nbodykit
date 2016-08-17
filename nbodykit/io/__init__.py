@@ -125,8 +125,11 @@ class FileType(PluginBase):
             holding the data is returned, rather than a structured
             array with only a single field.
         """
-        # make a single string index into a list
-        if isinstance(s, string_types): s = [s]
+        # dont call asarray unless we have a single string index
+        asarray = False
+        if isinstance(s, string_types): 
+            s = [s]
+            asarray = True
         
         # if index is a list, it should contain a series of column names
         # this will return a "view" of the file, slicing the data type
@@ -160,7 +163,7 @@ class FileType(PluginBase):
             
             # return the single numpy array if only a 
             # single column was asked for
-            if len(s) == 1: obj = obj.asarray()
+            if len(s) == 1 and asarray: obj = obj.asarray()
             
             return obj
         
