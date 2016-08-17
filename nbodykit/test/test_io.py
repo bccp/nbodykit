@@ -1,3 +1,4 @@
+from nbodykit import plugin_manager
 from . import unittest
 from .utils.iobase import IOTestBase        
 
@@ -23,16 +24,13 @@ class TestCSVFile(IOTestBase, unittest.TestCase):
         
     def write_to_disk(self):
         
-        ff = tempfile.NamedTemporaryFile(delete=False)
-        filename = ff.name
-        ff.close()
-        
-        numpy.savetxt(filename, self.data)
+        with tempfile.NamedTemporaryFile(delete=False, mode='wb') as ff:
+            filename = ff.name
+            numpy.savetxt(ff, self.data)
+            
         return filename
         
     def load_data(self):
-        
-        from nbodykit import plugin_manager
         
         CSVFile = plugin_manager.get_plugin('CSVFile')
         names = ['x', 'y', 'z', 'vx', 'vy', 'vz']
@@ -54,24 +52,24 @@ class TestBinaryFile(IOTestBase, unittest.TestCase):
         
     def write_to_disk(self):
         
-        # open the temporary file
-        ff = tempfile.NamedTemporaryFile(delete=False)
-        filename = ff.name
+        # open the temporary file (don't delete it yet)
+        with tempfile.NamedTemporaryFile(delete=False, mode='wb') as ff:
+            
+            # store the filename
+            filename = ff.name
         
-        # write a fake header
-        header = numpy.ones(10, dtype='i4')
-        header.tofile(ff)
-        self.header_size = header.nbytes
-        
-        # write each column, consecutively
-        for col in ['Position', 'Velocity']:
-            self.data[col].tofile(ff)
-        ff.close()
+            # write a fake header
+            header = numpy.ones(10, dtype='i4')
+            self.header_size = header.nbytes
+            ff.write(header.tobytes())
+            
+            # write each column, consecutively
+            for col in ['Position', 'Velocity']:
+                ff.write(self.data[col].tobytes())
+                
         return filename
         
     def load_data(self):
-        
-        from nbodykit import plugin_manager
         
         BinaryFile = plugin_manager.get_plugin('BinaryFile')
         return BinaryFile(self.path, self.dtype, header_size=self.header_size)
@@ -93,23 +91,23 @@ class TestFileStack(IOTestBase, unittest.TestCase):
     def write_to_disk(self):
         
         # open the temporary file
-        ff = tempfile.NamedTemporaryFile(delete=False)
-        filename = ff.name
+        with tempfile.NamedTemporaryFile(delete=False, mode='wb') as ff:
+
+            # store the filename
+            filename = ff.name
         
-        # write a fake header
-        header = numpy.ones(10, dtype='i4')
-        header.tofile(ff)
-        self.header_size = header.nbytes
+            # write a fake header
+            header = numpy.ones(10, dtype='i4')
+            self.header_size = header.nbytes
+            ff.write(header.tobytes())
+            
+            # write each column, consecutively
+            for col in ['Position', 'Velocity']:
+                ff.write(self.data[col].tobytes())
         
-        # write each column, consecutively
-        for col in ['Position', 'Velocity']:
-            self.data[col].tofile(ff)
-        ff.close()
         return filename
         
     def load_data(self):
-        
-        from nbodykit import plugin_manager
         
         FileStack = plugin_manager.get_plugin('FileStack')
         BinaryFile = plugin_manager.get_plugin('BinaryFile')
