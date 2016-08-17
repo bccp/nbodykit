@@ -38,7 +38,7 @@ class TestPaintGrid(unittest.TestCase):
         asserts.test_bigfile_result(self, 'PaintGrid', rtol=1e-3, atol=1e-3)
 
 @add_run_fixture(__name__, RunPaintAlgorithm, 'PaintGrid')
-class TestPaintGrid(unittest.TestCase):
+class TestPaintGridK(unittest.TestCase):
     param_file  = "test_gridk.params"
     output_file = "test_paint_gridk"
     datasources = ['bigfile_gridk']

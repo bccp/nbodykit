@@ -19,9 +19,9 @@ class PaintGridAlgorithm(Algorithm):
                     dataset='PaintGrid', Nfile=0, writeFourier=False):
                     
         # set the  input
-        self.Nmesh      = Nmesh
-        self.datasource = DataSource
-        self.dataset    = dataset
+        self.Nmesh        = Nmesh
+        self.datasource   = DataSource
+        self.dataset      = dataset
         self.writeFourier = writeFourier 
         
         # set the painter
