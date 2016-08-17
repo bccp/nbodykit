@@ -91,7 +91,9 @@ class DefaultPainter(Painter):
                 k = sum([k ** 2 for k in kk]) ** 0.5
                 slab[...] *= function(k, kk[0], kk[1], kk[2])
             complex.c2r(real)
-
+            mean = self.comm.allreduce(real.sum(dtype='f8')) / real.Nmesh.prod()
+            if self.comm.rank == 0:
+                self.logger.info("after fk, mean = %g" % mean)
         if self.frho:
             if self.comm.rank == 0:
                 self.logger.info("applying transformation frho %s" % self.frho)
@@ -104,5 +106,8 @@ class DefaultPainter(Painter):
                 slab[...] = function(slab)
             if self.comm.rank == 0:
                 self.logger.info("example value after frho %g" % real.flat[0])
+            mean = self.comm.allreduce(real.sum(dtype='f8')) / real.Nmesh.prod()
+            if self.comm.rank == 0:
+                self.logger.info("after frho, mean = %g" % mean)
 
         return real, stats
