@@ -87,7 +87,7 @@ class DefaultPainter(Painter):
                 from numpy import exp, sin, cos
                 return eval(self.fk)
             complex = real.r2c()
-            for kk, slab in zip(complex.slabiter.x, complex.slabiter):
+            for kk, slab in zip(complex.slabs.x, complex.slabs):
                 k = sum([k ** 2 for k in kk]) ** 0.5
                 slab[...] *= function(k, kk[0], kk[1], kk[2])
             complex.c2r(real)
@@ -100,7 +100,7 @@ class DefaultPainter(Painter):
                 return eval(self.frho)
             if self.comm.rank == 0:
                 self.logger.info("example value before frho %g" % real.flat[0])
-            for slab in real.slabiter:
+            for slab in real.slabs:
                 slab[...] = function(slab)
             if self.comm.rank == 0:
                 self.logger.info("example value after frho %g" % real.flat[0])
