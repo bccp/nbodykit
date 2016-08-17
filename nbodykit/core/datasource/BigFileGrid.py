@@ -57,14 +57,16 @@ class BigFileGridSource(GridSource):
         f = bigfile.BigFileMPI(self.comm, self.path)
 
         with f[self.dataset] as ds:
-            start = self.comm.rank * ds.size // self.comm.size
-            end = (self.comm.rank + 1)* ds.size // self.comm.size
-
             if self.isfourier:
                 complex2 = ComplexField(pmread)
+                assert self.comm.allreduce(complex2.size) == ds.size
+                start = sum(self.comm.allgather(complex2.size)[:self.comm.rank])
+                end = start + complex2.size
                 complex2.unsort(ds[start:end])
                 complex2.resample(real)
             else:
                 real2 = RealField(pmread)
+                start = sum(self.comm.allgather(real2.size)[:self.comm.rank])
+                end = start + real2.size
                 real2.unsort(ds[start:end])
                 real2.resample(real)
