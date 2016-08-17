@@ -104,6 +104,9 @@ class FileType(PluginBase):
     def __iter__(self):
         return iter(self.keys())
     
+    def __repr__(self):
+        return "<%s of shape %s>" %(self.__class__.__name__, self.shape)
+    
     def keys(self):
         """
         Aliased function to return :attr:`columns`
