@@ -1,5 +1,5 @@
-from nbodykit.extern.six import string_types
-from nbodykit.io import FileType, get_slice_size
+from ..extern.six import string_types
+from . import FileType, get_slice_size
 
 import numpy
 from glob import glob

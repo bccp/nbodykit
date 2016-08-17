@@ -3,9 +3,9 @@ import os
 import dask.dataframe as dd
 import numpy
 
-from nbodykit.extern.six import string_types
-from nbodykit.io import FileType
-from nbodykit.io.stack import FileStack
+from ..extern.six import string_types
+from . import FileType
+from .stack import FileStack
 
 def get_partition_sizes(filename, blocksize):
     """
