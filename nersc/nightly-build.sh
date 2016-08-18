@@ -20,11 +20,29 @@ update_tarball()
 
     # make a build directory
     mkdir build; cd build
-
+    
     # untar and run the pip update
     if [ -f $install_dir/$tarball ]; then 
         tar -xf $install_dir/$tarball
-        pkgdir=$(find . -name 'site-packages')
+        
+        # find the right package directory
+        case "$LOADEDMODULES" in
+          *2.7-anaconda* )
+            pkgdir="./lib/python2.7/site-packages"
+            ;;
+          *3.4-anaconda* )
+            pkgdir="./lib/python3.4/site-packages"
+            ;;
+          *3.5-anaconda* )
+            pkgdir="./lib/python3.5/site-packages"
+            ;;
+          * )
+            echo "cannot find correct package directorys"
+            exit 1
+          ;;
+        esac;
+        
+        # run the pip command        
         pip_output=$(MPICC=cc PYTHONPATH=$pkgdir:$PYTHONPATH PYTHONUSERBASE=$pkgdir $pip_cmd)
     else
         # no tarball so ignore any installed packages with additional -I flag
@@ -59,20 +77,47 @@ update_tarball()
     cd ..; rm -r build 
 }
 
-# build the "latest" source from the HEAD of "master"
-tarball=nbodykit-latest.tar.gz
-mkdir build; cd build
+load_anaconda() 
+{
+    version=$1
+    module unload python
+    echo "loading python/$version-anaconda..."
+    case "$version" in
+      "2.7" )
+       module load python/2.7-anaconda
+        ;;
+      "3.4" )
+        module load python/3.4-anaconda
+        ;;
+      "3.5" )
+        module load python/3.5-anaconda
+        ;;
+      * )
+        echo "supported python anaconda modules are 2.7, 3.4, 3.5"
+        exit 1
+      ;;
+    esac;
+}
 
-bundle-pip $tarball git+https://github.com/bccp/nbodykit.git@master
-install $tarball $install_dir/$tarball
-cd ..; rm -r build
+for version in "2.7" "3.4" "3.5"; do
+    
+    # load the right anaconda version
+    load_anaconda $version
+    
+    # build the "latest" source from the HEAD of "master"
+    tarball=nbodykit-latest.tar.gz
+    master="git+https://github.com/bccp/nbodykit.git@master"
+    pip_install="pip install -U --no-deps --install-option=--prefix=$tmpdir/build $master"
+    update_tarball "${tarball}" "${pip_install}" || exit 1
 
-# update the dependencies
-tarball=nbodykit-dep.tar.gz
-pip_install="pip install -U --no-deps --install-option=--prefix=$tmpdir/build -r https://raw.githubusercontent.com/bccp/nbodykit/master/requirements.txt"
-update_tarball "${tarball}" "${pip_install}" || exit 1
+    # update the dependencies
+    tarball=nbodykit-dep.tar.gz
+    reqs="https://raw.githubusercontent.com/bccp/nbodykit/master/requirements.txt"
+    pip_install="pip install -U --no-deps --install-option=--prefix=$tmpdir/build -r $reqs"
+    update_tarball "${tarball}" "${pip_install}" || exit 1
 
-# update stable 
-tarball=nbodykit-stable.tar.gz
-pip_install="pip install -U --no-deps --install-option=--prefix=$tmpdir/build nbodykit"
-update_tarball "${tarball}" "${pip_install}" || exit 1
+    # update stable
+    tarball=nbodykit-stable.tar.gz
+    pip_install="pip install -U --no-deps --install-option=--prefix=$tmpdir/build nbodykit"
+    update_tarball "${tarball}" "${pip_install}" || exit 1
+done
