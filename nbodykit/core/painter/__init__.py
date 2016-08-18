@@ -85,7 +85,7 @@ class Painter(PluginBase):
         # interlacing is shifted, thus we create a bigger buffer region
         smoothing = smoothing + shift
 
-        shifted = real1.affine.shift(shift)
+        shifted = real1.pm.affine.shift(shift)
 
         layout = real1.pm.decompose(position, smoothing=smoothing)
 

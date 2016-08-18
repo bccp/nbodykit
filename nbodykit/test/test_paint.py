@@ -23,6 +23,21 @@ class TestPaint(unittest.TestCase):
         asserts.test_bigfile_result(self, 'PaintGrid', rtol=1e-3, atol=1e-3)
 
 @add_run_fixture(__name__, RunPaintAlgorithm, 'PaintGrid')
+class TestInterlacedPaint(unittest.TestCase):
+    param_file  = "test_fastpm_interlaced.params"
+    output_file = "test_paint_fastpm_interlaced"
+    datasources = ['fastpm_1.0000']
+
+    def test_exit_code(self):
+        asserts.test_exit_code(self)
+
+    def test_exception(self):
+        asserts.test_exception(self)
+
+    def test_result(self):
+        asserts.test_bigfile_result(self, 'PaintGrid', rtol=1e-3, atol=1e-3)
+
+@add_run_fixture(__name__, RunPaintAlgorithm, 'PaintGrid')
 class TestPaintGrid(unittest.TestCase):
     param_file  = "test_grid.params"
     output_file = "test_paint_grid"

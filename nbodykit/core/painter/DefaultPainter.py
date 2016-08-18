@@ -13,6 +13,7 @@ class DefaultPainter(Painter):
         self.normalize  = normalize
         self.setMean    = setMean
         self.paintbrush = paintbrush
+        self.interlaced = interlaced
 
         # initialize the baseclass with the paintbrush
         super(DefaultPainter, self).__init__(paintbrush)
@@ -68,19 +69,19 @@ class DefaultPainter(Painter):
                         if not self.interlaced:
                             self.basepaint(real, position, paintbrush=self.paintbrush)
                         else:
-                            self.interlaced_paint(real, real2, position, paintbrush=self.paintbrush)
+                            self.shiftedpaint(real, real2, position, paintbrush=self.paintbrush)
                         Nlocal += len(position)
                 else:
                     for position, weight in stream.read(['Position', self.weight]):
                         if not self.interlaced:
                             self.basepaint(real, position, weight=weight, paintbrush=self.paintbrush)
                         else:
-                            self.interlaced_paint(real, real2, position, weight=weight, paintbrush=self.paintbrush)
+                            self.shiftedpaint(real, real2, position, weight=weight, paintbrush=self.paintbrush)
                         Nlocal += len(position)
             c1 = real.r2c()
             c2 = real2.r2c()
-            H = self.pm.BoxSize / self.pm.Nmesh
 
+            H = pm.BoxSize / pm.Nmesh
             for k, s1, s2 in zip(c1.slabs.x, c1.slabs, c2.slabs):
                 kH = sum(k[i] * H[i] for i in range(3))
                 s1[...] += s2[...] * 0.5 * numpy.exp(0.5 * 1j * kH)
