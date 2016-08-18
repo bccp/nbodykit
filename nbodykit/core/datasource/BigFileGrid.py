@@ -58,6 +58,8 @@ class BigFileGridSource(GridSource):
 
         with f[self.dataset] as ds:
             if self.isfourier:
+                if self.comm.rank == 0:
+                    self.logger.info("reading complex field")
                 complex2 = ComplexField(pmread)
                 assert self.comm.allreduce(complex2.size) == ds.size
                 start = sum(self.comm.allgather(complex2.size)[:self.comm.rank])
@@ -65,6 +67,8 @@ class BigFileGridSource(GridSource):
                 complex2.unsort(ds[start:end])
                 complex2.resample(real)
             else:
+                if self.comm.rank == 0:
+                    self.logger.info("reading real field")
                 real2 = RealField(pmread)
                 start = sum(self.comm.allgather(real2.size)[:self.comm.rank])
                 end = start + real2.size
