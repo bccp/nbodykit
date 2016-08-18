@@ -83,9 +83,7 @@ class PaintGridAlgorithm(Algorithm):
         real.resample(result)
 
         # reuses the memory
-        result.sort()
-
-        # flatten the array for output
+        result.sort(out=result)
         result = result.ravel()
 
         # return all the necessary results
