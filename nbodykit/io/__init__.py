@@ -105,7 +105,8 @@ class FileType(PluginBase):
         return iter(self.keys())
     
     def __repr__(self):
-        return "<%s of shape %s>" %(self.__class__.__name__, self.shape)
+        args = (self.__class__.__name__, self.ncol, self.shape)
+        return "<%s with %d column(s) and shape %s>" %args
     
     def keys(self):
         """
