@@ -99,7 +99,16 @@ load_anaconda()
     esac;
 }
 
-for version in "2.7" "3.4" "3.5"; do
+if [ "$NERSC_HOST" == "edison" ]
+then
+    versions=("2.7" "3.4" "3.5")
+
+elif [ "$NERSC_HOST" == "cori" ]
+then
+     versions=("2.7" "3.5")
+fi
+
+for version in "${versions[@]}"; do
     
     # load the right anaconda version
     load_anaconda $version
