@@ -5,15 +5,16 @@ import numpy
 class DefaultPainter(Painter):
     plugin_name = "DefaultPainter"
 
-    def __init__(self, weight=None, frho=None, fk=None, normalize=False, setMean=None, paintbrush='cic'):
-        
+    def __init__(self, weight=None, frho=None, fk=None, normalize=False, setMean=None, paintbrush='cic', interlaced=False):
+
         self.weight     = weight
         self.frho       = frho
         self.fk         = fk
         self.normalize  = normalize
         self.setMean    = setMean
         self.paintbrush = paintbrush
-        
+        self.interlaced = interlaced
+
         # initialize the baseclass with the paintbrush
         super(DefaultPainter, self).__init__(paintbrush)
 
@@ -30,6 +31,7 @@ class DefaultPainter(Painter):
         s.add_argument("normalize", type=bool, help="Normalize the field to set mean == 1. Applied before fk.")
         s.add_argument("setMean", type=float, help="Set the mean. Applied after normalize.")
         s.add_argument("paintbrush", type=str, help="select a paint brush. Default is to defer to the choice of the algorithm that uses the painter.")
+        s.add_argument("interlaced", type=bool, help="interlaced.")
 
     def paint(self, pm, datasource):
         """
@@ -55,17 +57,36 @@ class DefaultPainter(Painter):
 
         if isinstance(datasource, DataSource):
             # open the datasource stream (with no defaults)
+            if self.interlaced:
+                real2 = RealField(pm)
+                real2[...] = 0
+
             with datasource.open() as stream:
 
                 Nlocal = 0
                 if self.weight is None:
                     for [position] in stream.read(['Position']):
-                        self.basepaint(real, position, paintbrush=self.paintbrush)
+                        if not self.interlaced:
+                            self.basepaint(real, position, paintbrush=self.paintbrush)
+                        else:
+                            self.shiftedpaint(real, real2, position, paintbrush=self.paintbrush)
                         Nlocal += len(position)
                 else:
                     for position, weight in stream.read(['Position', self.weight]):
-                        self.basepaint(real, position, weight=weight, paintbrush=self.paintbrush)
+                        if not self.interlaced:
+                            self.basepaint(real, position, weight=weight, paintbrush=self.paintbrush)
+                        else:
+                            self.shiftedpaint(real, real2, position, weight=weight, paintbrush=self.paintbrush)
                         Nlocal += len(position)
+            c1 = real.r2c()
+            c2 = real2.r2c()
+
+            H = pm.BoxSize / pm.Nmesh
+            for k, s1, s2 in zip(c1.slabs.x, c1.slabs, c2.slabs):
+                kH = sum(k[i] * H[i] for i in range(3))
+                s1[...] = s1[...] * 0.5 + s2[...] * 0.5 * numpy.exp(0.5 * 1j * kH)
+
+            c1.c2r(real)
 
             stats['Ntot'] = self.comm.allreduce(Nlocal)
         elif isinstance(datasource, GridSource):

@@ -72,3 +72,30 @@ class Painter(PluginBase):
             real.paint(position, weight, method=paintbrush, hold=True)
         else:
             real.paint(position, method=paintbrush, hold=True)
+
+    def shiftedpaint(self, real1, real2, position, paintbrush, weight=None, shift=0.5):
+        """
+            paint to two real fields for interlacing
+        """
+        assert real1.pm.comm == self.comm # pm must be from the same communicator!
+        assert real2.pm.comm == self.comm # pm must be from the same communicator!
+
+        from pmesh import window
+        smoothing = window.methods[paintbrush].support * 0.5
+        # interlacing is shifted, thus we create a bigger buffer region
+        smoothing = smoothing + shift
+
+        shifted = real1.pm.affine.shift(shift)
+
+        layout = real1.pm.decompose(position, smoothing=smoothing)
+
+        position = layout.exchange(position)
+
+        if weight is not None:
+            weight = layout.exchange(weight)
+            real1.paint(position, weight, method=paintbrush, hold=True)
+            real2.paint(position, weight, method=paintbrush, hold=True, transform=shifted)
+        else:
+            real1.paint(position, method=paintbrush, hold=True)
+            real2.paint(position, method=paintbrush, hold=True, transform=shifted)
+
