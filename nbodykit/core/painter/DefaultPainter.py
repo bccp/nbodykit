@@ -84,7 +84,7 @@ class DefaultPainter(Painter):
             H = pm.BoxSize / pm.Nmesh
             for k, s1, s2 in zip(c1.slabs.x, c1.slabs, c2.slabs):
                 kH = sum(k[i] * H[i] for i in range(3))
-                s1[...] += s2[...] * 0.5 * numpy.exp(0.5 * 1j * kH)
+                s1[...] = s1[...] * 0.5 + s2[...] * 0.5 * numpy.exp(0.5 * 1j * kH)
 
             c1.c2r(real)
 
