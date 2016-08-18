@@ -1,4 +1,4 @@
-from nbodykit.utils.config import autoassign, attribute
+from nbodykit.plugins.schema import attribute
 from astropy import cosmology, units
 
 class CosmologyBase(object):
@@ -81,8 +81,6 @@ class Cosmology(CosmologyBase):
     *   if `flat = True`, the dark energy density is set automatically
     *   the underlying astropy class is stored as the `engine` attribute
     """  
-    
-    @autoassign
     @attribute('flat', type=bool, help="if `True`, automatically set `Ode0` such that `Ok0` is zero")
     @attribute('m_nu', type=neutrino_mass, help="mass of neutrino species in eV")
     @attribute('Neff', type=float, help="effective number of neutrino species")
@@ -95,8 +93,18 @@ class Cosmology(CosmologyBase):
     def __init__(self, H0=67.6, Om0=0.31, Ob0=0.0486, Ode0=0.69, w0=-1., Tcmb0=2.7255, 
                     Neff=3.04, m_nu=0., flat=False):
 
+        # set the parameters
+        self.H0   = H0
+        self.Om0  = Om0
+        self.Ob0  = Ob0
+        self.Ode0 = Ode0
+        self.w0 = w0
+        self.Tcmb0 = Tcmb0
+        self.Neff = Neff
+        self.flat = flat
+        
         # convert neutrino mass to a astropy `Quantity`
-        self.m_nu = units.Quantity(self.m_nu, 'eV')
+        self.m_nu = units.Quantity(m_nu, 'eV')
         
         # the astropy keywords
         kws = {k:getattr(self,k) for k in ['w0', 'Tcmb0', 'Neff', 'm_nu', 'Ob0']}

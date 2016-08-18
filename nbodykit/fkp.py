@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 
 from nbodykit.extern import six
-from nbodykit.extensionpoints import DataSource, Painter, algorithms
+from nbodykit.core import DataSource, Painter, Algorithm
 from nbodykit.distributedarray import GatherArray
 
 logger = logging.getLogger('FKPCatalog')
@@ -319,7 +319,7 @@ class FKPCatalog(object):
             # run with fsky = 1.0, if no fsky is given because we might not 
             # need this n(z)
             fsky = 1. if not hasattr(self, 'fsky') else self.fsky
-            nz_computer = algorithms.RedshiftHistogram(self.randoms, weight_col='Weight', fsky=fsky)
+            nz_computer = Algorithm.create('RedshiftHistogram', datasource=self.randoms, weight_col='Weight', fsky=fsky)
             
             # run the algorithm
             # exceptions might not be fatal, if Nbar is provided in 

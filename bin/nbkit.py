@@ -5,10 +5,11 @@ import logging
 import os, sys
 from mpi4py import MPI
 
-from nbodykit.extensionpoints import Algorithm, algorithms
-from nbodykit.extensionpoints import DataSource, Transfer, Painter
-from nbodykit.pluginmanager import ListPluginsAction, load
-from nbodykit.utils.config import EmptyConfigurationError
+from nbodykit import plugin_manager, algorithms
+from nbodykit.core import Algorithm
+from nbodykit.core import DataSource, Transfer, Painter
+from nbodykit.plugins import ListPluginsAction, EmptyConfigurationError
+from nbodykit.plugins.fromfile import ReadConfigFile
 
 # configure the logging
 def setup_logging(log_level):
@@ -70,7 +71,8 @@ class HelpAction(argparse.Action):
         
 def main():
     
-    valid_algorithms = list(vars(algorithms).keys())
+    # list of valid Algorithm plugin names
+    valid_algorithms = list(vars(algorithms))
 
     # initialize the main parser
     desc = "Invoke an `nbodykit` algorithm with the given parameters. \n\n"
@@ -88,7 +90,8 @@ def main():
                         help='the name of the file to read parameters from using YAML syntax; '
                              'if not provided, stdin is read from')
     parser.add_argument('-h', '--help', action=HelpAction, help='help for a specific algorithm')
-    parser.add_argument("-X", type=load, action="append", help="add a directory or file to load plugins from")
+    parser.add_argument("-X", type=plugin_manager.add_user_plugin, action="append", 
+                        help="add a directory or file to load plugins from")
     parser.add_argument('-v', '--verbose', action="store_const", dest="log_level", 
                         const=logging.DEBUG, default=logging.INFO, 
                         help="run in 'verbose' mode, with increased logging output")
@@ -135,7 +138,8 @@ def main():
     # parse the configuration file
     # print a useful message when no valid configuration was found
     try:
-        params, extra = Algorithm.parse_known_yaml(alg_name, stream)
+        alg_class = getattr(algorithms, alg_name)
+        params, extra = ReadConfigFile(stream, alg_class.schema)
     except EmptyConfigurationError:
         raise EmptyConfigurationError(("no configuration present; the user has two options for specifying configuration:\n"
                                        "\t1) pass the name of the configuration file as the second positional argument\n"
@@ -153,8 +157,7 @@ def main():
         ignored = "[ %s ]" % ", ".join(["'%s'" %k for k in extra.keys()])
         logging.warning("the following keywords to `nbkit.py` have been ignored: %s" %ignored)
             
-    # initialize the algorithm and run
-    alg_class = getattr(algorithms, alg_name)
+    # initialize the algorithm with params from file
     alg = alg_class(**vars(params))
 
     # run and save

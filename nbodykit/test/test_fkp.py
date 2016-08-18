@@ -231,7 +231,7 @@ class TestFKP(unittest.TestCase):
         Test that when calling ``read`` that both the stream name and the column
         names are valid
         """
-        from nbodykit.extensionpoints import DataSource
+        from nbodykit.core import DataSource
         
         data    = UnitTestDataSource(self.N, [('Position', (float, 3))], cosmo=self.cosmo)
         randoms = UnitTestDataSource(self.N*100, [('Position', (float, 3))], cosmo=self.cosmo)
@@ -254,7 +254,7 @@ class TestFKP(unittest.TestCase):
         Test the calculation of FKP weights in FKPCatalog -- must specify :attr:`P0_fkp`
         if we want to compute n(z)
         """
-        from nbodykit.extensionpoints import DataSource
+        from nbodykit.core import DataSource
         
         data    = UnitTestDataSource(self.N, [('Position', (float, 3))], cosmo=self.cosmo)
         randoms = UnitTestDataSource(self.N*100, [('Position', (float, 3))], cosmo=self.cosmo)
@@ -277,7 +277,7 @@ class TestFKP(unittest.TestCase):
         in the input data sources
         """
         import tempfile
-        from nbodykit.extensionpoints import DataSource
+        from nbodykit.core import DataSource
         
         data    = UnitTestDataSource(self.N, [('Position', (float, 3))], cosmo=self.cosmo)
         randoms = UnitTestDataSource(self.N*100, [('Position', (float, 3))], cosmo=self.cosmo)

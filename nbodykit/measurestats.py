@@ -3,7 +3,7 @@ import numpy
 import logging
 import time
 
-from nbodykit.extensionpoints import Painter, Transfer
+from nbodykit.core import Painter, Transfer
 from nbodykit.utils.meshtools import SlabIterator
 from nbodykit.utils import timer
 
