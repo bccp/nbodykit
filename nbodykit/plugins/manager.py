@@ -24,7 +24,7 @@ class PluginManager(object):
     supported_types.update(**io_extension_points())
 
     @classmethod
-    def get(cls, paths, qualprefix="nbodykit.core.user"):
+    def get(cls, paths=[], qualprefix="nbodykit.core.user"):
         """
         Return a PluginManager instance
         
@@ -40,6 +40,8 @@ class PluginManager(object):
             This is used to load the builtin plugins in :mod:`nbodykit.core`
         """
         if not cls._instance:
+            if not len(paths):
+                raise ValueError("please provide a list of paths to search for plugins")
             PluginManager._instance = cls(paths, qualprefix=qualprefix)
         return cls._instance
 
