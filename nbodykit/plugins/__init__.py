@@ -63,21 +63,6 @@ class PluginBase(object):
         return id(self)
     
     @classmethod
-    def registry(cls):
-        """
-        A dict holding the registered subclasses of this class
-        
-        The keys are the `plugin_name` for each subclass, and
-        the values are the class instances
-        """
-        toret = {}
-        for c in cls.__subclasses__():
-            name = getattr(c, 'plugin_name', c.__name__)
-            toret[name] = c
-
-        return toret
-    
-    @classmethod
     @abstractmethod
     def fill_schema(cls):
         """
@@ -96,7 +81,7 @@ class PluginBase(object):
     @classmethod
     def create(cls, plugin_name, use_schema=False, **config):
         """
-        Instantiate a plugin from this extension point,
+        Instantiate a plugin from this extension type,
         based on the name/value pairs passed as keywords.
 
         Optionally, cast the keywords values, using the types
@@ -118,10 +103,11 @@ class PluginBase(object):
         plugin : 
             the initialized instance of `plugin_name`
         """
-        # `plugin_name` must either refer `cls` or a subclass of `cls`
-        registry = cls.registry()
+        from nbodykit import plugin_manager
         name = getattr(cls, 'plugin_name', cls.__name__)
-        if plugin_name != name and plugin_name not in registry:
+        
+        # `plugin_name` must either refer `cls` or a subclass of `cls`
+        if plugin_name != name and cls.__name__ not in plugin_manager.supported_types:
             args = (plugin_name, cls.__name__)
             raise ValueError("'%s' does not match the names of any loaded plugins for '%s' class" %args)
            
@@ -130,6 +116,7 @@ class PluginBase(object):
             klass = cls
         # plugin_name refers to subclass of cls
         else:
+            registry = plugin_manager[cls.__name__]
             klass = registry[plugin_name]
         
         # cast the input values, using the class schema
@@ -206,40 +193,8 @@ class PluginBase(object):
         except:
             raise
             
-    @classmethod 
-    def format_help(cls, *plugins):
-        """
-        Return a string specifying the `help` for each of the plugins
-        specified, or all if none are specified
-        """
-        # dict (name, cls) for each registered plugins of this class type
-        registry = cls.registry()
-        
-        if not len(plugins):
-            plugins = list(registry)
-            
-        s = []
-        for k in plugins:
-            if not isplugin(k):
-                raise ValueError("'%s' is not a valid plugin name" %k)
-            header = "Plugin : %s  ExtensionPoint : %s" % (k, cls.__name__)
-            s.append(header)
-            s.append("=" * (len(header)))
-            s.append(registry[k].schema.format_help())
-
-        if not len(s):
-            return "No available plugins registered at %s" %cls.__name__
-        else:
-            return '\n'.join(s) + '\n'
-            
-def isplugin(name):
-    """
-    Return `True`, if `name` is a registered plugin for
-    any extension point
-    """
-    return name in PluginBase.registry()
-    
-def ListPluginsAction(extension_type):
+                
+def ListPluginsAction(extension_type, comm):
     """
     Return a :class:`argparse.Action` that prints
     the help message for the class specified
@@ -268,6 +223,10 @@ def ListPluginsAction(extension_type):
                 metavar=metavar)
         
         def __call__(self, parser, namespace, values, option_string=None):
-            parser.exit(0, extension_type.format_help(*values))
+            if comm.rank != 0:
+                parser.exit(0)
+                
+            from nbodykit import plugin_manager
+            parser.exit(0, plugin_manager.format_help(extension_type, *values))
             
     return ListPluginsAction

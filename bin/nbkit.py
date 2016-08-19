@@ -5,9 +5,7 @@ import logging
 import os, sys
 from mpi4py import MPI
 
-from nbodykit import plugin_manager, algorithms
-from nbodykit.core import Algorithm
-from nbodykit.core import DataSource, Transfer, Painter
+from nbodykit import plugin_manager
 from nbodykit.plugins import ListPluginsAction, EmptyConfigurationError
 from nbodykit.plugins.fromfile import ReadConfigFile
 
@@ -62,17 +60,18 @@ class HelpAction(argparse.Action):
 
     def __call__(self, parser, namespace, values, option_string=None):
         name = getattr(namespace, 'algorithm_name')
-        if MPI.COMM_WORLD.rank == 0:
-            if name is not None:
-                print(Algorithm.format_help(name))
-            else:
-                parser.print_help()
-        parser.exit()
+        if MPI.COMM_WORLD.rank != 0:
+            parser.exit()
+        
+        if name is not None:
+            parser.exit(0, plugin_manager.format_help('Algorithm', name))
+        else:
+            parser.exit(0, parser.format_help())
         
 def main():
     
     # list of valid Algorithm plugin names
-    valid_algorithms = list(vars(algorithms))
+    valid_algorithms = list(plugin_manager['Algorithm'])
 
     # initialize the main parser
     desc = "Invoke an `nbodykit` algorithm with the given parameters. \n\n"
@@ -96,15 +95,11 @@ def main():
                         const=logging.DEBUG, default=logging.INFO, 
                         help="run in 'verbose' mode, with increased logging output")
     
-    # help arguments
-    parser.add_argument('--list-datasources', nargs='*', action=ListPluginsAction(DataSource), 
-        metavar='DataSource', help='list DataSource options')
-    parser.add_argument('--list-algorithms',  nargs='*', action=ListPluginsAction(Algorithm), 
-        metavar='Algorithm', help='list Algorithm options')
-    parser.add_argument('--list-painters',  nargs='*', action=ListPluginsAction(Painter), 
-        metavar='Painter', help='list Painter options')
-    parser.add_argument('--list-transfers',  nargs='*', action=ListPluginsAction(Transfer), 
-        metavar='Transfer', help='list Transfer options')
+    # add help arguments for extensions
+    for extension in ['DataSource', 'Algorithm', 'Painter', 'Transfer']:
+        arg = '--list-%ss' %extension.lower()
+        parser.add_argument(arg, nargs='*', action=ListPluginsAction(extension, MPI.COMM_WORLD), 
+                        metavar=extension, help='list help messages for %s plugins' %extension)
 
     # configure printing
     parser.usage = parser.format_usage()[6:-1] + " ... \n"
@@ -138,7 +133,7 @@ def main():
     # parse the configuration file
     # print a useful message when no valid configuration was found
     try:
-        alg_class = getattr(algorithms, alg_name)
+        alg_class = plugin_manager['Algorithm'][alg_name]
         params, extra = ReadConfigFile(stream, alg_class.schema)
     except EmptyConfigurationError:
         raise EmptyConfigurationError(("no configuration present; the user has two options for specifying configuration:\n"
