@@ -13,12 +13,12 @@ class FileStack(FileType):
     plugin_name = "FileStack"
     
     def __init__(self, path, filetype, **kwargs):
-        
+
         # save the list of relevant files
         if isinstance(path, list):
             filenames = path
         elif isinstance(path, string_types):
-        
+
             if '*' in path:
                 filenames = list(map(os.path.abspath, sorted(glob(path))))
             else:
@@ -27,14 +27,14 @@ class FileStack(FileType):
                 filenames = [os.path.abspath(path)]
         else:
             raise ValueError("'path' should be a string or a list of strings")
-            
+
         self.files = [filetype(fn, **kwargs) for fn in filenames]
         self.sizes = numpy.array([len(f) for f in self.files], dtype='i8')
-        
+
         # set dtype and size
         self.dtype = self.files[0].dtype
         self.size  = self.sizes.sum()
-                
+
     @classmethod
     def fill_schema(cls):
         s = cls.schema
