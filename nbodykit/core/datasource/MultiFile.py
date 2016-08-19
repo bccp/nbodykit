@@ -14,6 +14,9 @@ class MultiFileDataSource(DataSource):
         self.cat = FileStack(path, filetype, **args)
         self.transform = transform
         self.enable_dask = enable_dask
+        self.attrs = self.cat.attrs
+
+        self.logger.info("attrs = %s" % self.attrs)
         if enable_dask:
             import dask
 

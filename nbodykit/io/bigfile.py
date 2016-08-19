@@ -40,7 +40,11 @@ class BigFile(FileType):
         # XXX: important to hold the header block open
         # since attrs probably doesn't hold a reference (I believe).
         self.header = self.file[header]
-        self.attrs = self.header.attrs
+        self.attrs = {}
+        attrs = self.header.attrs
+
+        for k in attrs.keys():
+            self.attrs[k] = attrs[k]
 
     @classmethod
     def fill_schema(cls):

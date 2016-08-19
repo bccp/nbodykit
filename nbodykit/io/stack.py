@@ -35,6 +35,13 @@ class FileStack(FileType):
         self.dtype = self.files[0].dtype
         self.size  = self.sizes.sum()
 
+    @property
+    def attrs(self):
+        if hasattr(self.files[0], 'attrs'):
+            return self.files[0].attrs
+        else:
+            return {}
+
     @classmethod
     def fill_schema(cls):
         s = cls.schema
