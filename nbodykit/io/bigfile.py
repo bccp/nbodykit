@@ -6,6 +6,7 @@ import numpy
 
 from . import FileType
 from ..extern.six import string_types
+import os
 
 class BigFile(FileType):
     """
@@ -17,18 +18,29 @@ class BigFile(FileType):
     """
     plugin_name = "FileType.BigFile"
 
-    def __init__(self, path, exclude=['header']):
+    def __init__(self, path, exclude=['header'], header='.', root='./'):
+        if not root.endswith('/'): root = root + '/'
+
+        self.logger.info("Fetching header from %s" % header)
+        self.logger.info("Chroot to %s" % root)
+
         import bigfile
         # the file path
         self.file = bigfile.BigFileMPI(filename=path, comm=self.comm)
-        columns = self.file.blocks
+        self.root = root
+
+        columns = self.file[self.root].blocks
         columns = list(set(columns) - set(exclude))
 
-        ds = bigfile.BigData(self.file, columns)
+        ds = bigfile.BigData(self.file[self.root], columns)
 
         # set the data type
         self.dtype = ds.dtype
         self.size = ds.size
+        # XXX: important to hold the header block open
+        # since attrs probably doesn't hold a reference (I believe).
+        self.header = self.file[header]
+        self.attrs = self.header.attrs
 
     @classmethod
     def fill_schema(cls):
@@ -39,6 +51,10 @@ class BigFile(FileType):
             help='the name of the binary file to load')
         s.add_argument("exclude", type=str, nargs="+",
             help='columns to exclude')
+        s.add_argument("header", type=str,
+            help='block to look for the meta data attributes')
+        s.add_argument("root", type=str,
+            help='block to look for the meta data attributes')
 
     def read(self, columns, start, stop, step=1):
         """
@@ -51,6 +67,6 @@ class BigFile(FileType):
         import bigfile
         if isinstance(columns, string_types): columns = [columns]
 
-        ds = bigfile.BigData(self.file, columns)
+        ds = bigfile.BigData(self.file[self.root], columns)
 
         return ds[start:stop][::step]

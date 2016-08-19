@@ -10,6 +10,7 @@ class MultiFileDataSource(DataSource):
 
         from nbodykit import plugin_manager
         filetype = plugin_manager.get_plugin(filetype)
+        self.logger.info("Extra arguments to FileType: %s " % args)
         self.cat = FileStack(path, filetype, **args)
         self.transform = transform
         self.enable_dask = enable_dask

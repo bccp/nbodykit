@@ -2,6 +2,8 @@ datasource:
     plugin: MultiFile
     path: ${NBKIT_CACHE}/data/fastpm_1.0000
     filetype: FileType.BigFile
+    args :
+        header : header
     transform :
         Position : ds['Position'] * 100.
         RSDPosition : (ds['Position'] + ds['Velocity'] * [0, 0, 1]) * 100
