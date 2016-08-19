@@ -24,12 +24,17 @@ class PluginManager(object):
     supported_types.update(**io_extension_points())
 
     @classmethod
-    def get(cls, paths=[], qualprefix="nbodykit.core.user"):
+    def create(cls, paths, qualprefix="nbodykit.core.user"):
         """
-        Return a PluginManager instance
+        Create the PluginManager instance
         
         Uses the singleton pattern to ensure that only one
         plugin manager exists
+        
+        Raises
+        ------
+        ValueError : 
+            if the PluginManager already exists
         
         Parameters
         ----------
@@ -39,10 +44,24 @@ class PluginManager(object):
             the prefix to build a qualified name in ``sys.modules``. 
             This is used to load the builtin plugins in :mod:`nbodykit.core`
         """
+        if cls._instance:
+            raise ValueError("PluginManager instance already exists; use PluginManager.get() to access")
+        
+        PluginManager._instance = cls(paths, qualprefix=qualprefix)
+        return cls._instance
+        
+    @classmethod
+    def get(cls):
+        """
+        Return the PluginManager
+        
+        Raises
+        ------
+        ValueError : 
+            if the PluginManager has not been created yet
+        """
         if not cls._instance:
-            if not len(paths):
-                raise ValueError("please provide a list of paths to search for plugins")
-            PluginManager._instance = cls(paths, qualprefix=qualprefix)
+            raise ValueError("PluginManager instance has not been created yet; see PluginManager.create()")
         return cls._instance
 
     def __init__(self, paths, qualprefix="nbodykit.core.user"):
