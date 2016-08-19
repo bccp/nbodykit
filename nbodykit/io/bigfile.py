@@ -1,6 +1,8 @@
 from __future__ import absolute_import
+# the future import is important. or in python 2.7 we try to 
+# import this module itself. Due to the unfortnate name conflict!
+
 import numpy
-import os
 
 from . import FileType
 from ..extern.six import string_types
