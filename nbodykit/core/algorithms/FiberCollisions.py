@@ -3,7 +3,8 @@ from nbodykit import fof, utils
 import numpy
 
 def RaDecDataSource(d):
-    source = DataSource.registry()['RaDecRedshift']
+    from nbodykit import plugin_manager
+    source = plugin_manager.get_plugin('RaDecRedshift')
     d['unit_sphere'] = True
     return source.from_config(d)
             

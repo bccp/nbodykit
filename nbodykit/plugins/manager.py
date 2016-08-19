@@ -247,3 +247,48 @@ class PluginManager(object):
             raise ValueError("name collision for plugin '%s'; please specify 'type'" %name)
         else:
             raise ValueError("plugin with name '%s' not found" %name)
+            
+    def format_help(self, extension, *plugins):
+        """
+        Return a string specifying the `help` for each of the plugins
+        specified of extension type `extension`
+        
+        If no `plugins` are specified, format the help message for 
+        all plugins registered as subclasses of `extension`
+        
+        Parameters
+        ----------
+        extension : str
+            the string specifying the extension type; should be in 
+            :attr:`PluginManager.supported_types`
+        plugins : list of str
+            strings specifying the names of plugins of the specified type
+            to format together
+        
+        Returns
+        -------
+        help_msg : str
+            the formatted help message string for the specified plugins
+        """
+        if extension not in self.supported_types:
+            raise ValueError("`extension` argument should be one of %s" %list(self.supported_types))
+        
+        registry = self[extension]
+        if not len(plugins):
+            plugins = list(registry)
+            
+        s = []
+        for k in plugins:
+            
+            if k not in registry:
+                raise ValueError("'%s' is not a valid plugin name for type '%s'" %(k, extension))
+            
+            header = "Plugin : %s  Extension Type : %s" % (k, extension)
+            s.append(header)
+            s.append("=" * (len(header)))
+            s.append(registry[k].schema.format_help() + "\n")
+
+        if not len(s):
+            return "No available plugins registered for type '%s'" %extension
+        else:
+            return '\n'.join(s) + '\n'
