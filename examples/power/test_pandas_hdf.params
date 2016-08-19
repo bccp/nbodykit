@@ -13,6 +13,6 @@ field:
         posf: 1380.0
         velf: 1380.0
         rsd: z
-    Transfer: [NormalizeDC, RemoveDC, AnisotropicCIC]
+    Transfer: [NormalizeDC, RemoveDC, AnisotropicTSC]
 
 output: ${NBKIT_HOME}/examples/output/test_power_pandas_hdf.dat  # output
