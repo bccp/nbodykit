@@ -5,7 +5,7 @@ datasource:
     transform :
         Position : ds['Position'] * 100.
         RSDPosition : (ds['Position'] + ds['Velocity'] * [0, 0, 1]) * 100
-    enable_dask : true
+    enable_dask : false
 
 column: RSDPosition
 output: "-"
