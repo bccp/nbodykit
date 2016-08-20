@@ -78,15 +78,17 @@ class DefaultPainter(Painter):
                         else:
                             self.shiftedpaint(real, real2, position, weight=weight, paintbrush=self.paintbrush)
                         Nlocal += len(position)
-            c1 = real.r2c()
-            c2 = real2.r2c()
+            
+            if self.interlaced:
+                c1 = real.r2c()
+                c2 = real2.r2c()
 
-            H = pm.BoxSize / pm.Nmesh
-            for k, s1, s2 in zip(c1.slabs.x, c1.slabs, c2.slabs):
-                kH = sum(k[i] * H[i] for i in range(3))
-                s1[...] = s1[...] * 0.5 + s2[...] * 0.5 * numpy.exp(0.5 * 1j * kH)
+                H = pm.BoxSize / pm.Nmesh
+                for k, s1, s2 in zip(c1.slabs.x, c1.slabs, c2.slabs):
+                    kH = sum(k[i] * H[i] for i in range(3))
+                    s1[...] = s1[...] * 0.5 + s2[...] * 0.5 * numpy.exp(0.5 * 1j * kH)
 
-            c1.c2r(real)
+                c1.c2r(real)
 
             stats['Ntot'] = self.comm.allreduce(Nlocal)
         elif isinstance(datasource, GridSource):
