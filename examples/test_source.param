@@ -1,7 +1,7 @@
 cosmo: {Om0: 0.26, flat: True}
 
 source:
-    plugin: Source.NBKit
+    plugin: Source.Particle
 #    path: ${NBKIT_CACHE}/data/tpm_1.0000.bin.*
 #    filetype: FileType.TPM
 
