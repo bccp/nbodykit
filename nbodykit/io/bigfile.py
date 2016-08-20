@@ -21,8 +21,9 @@ class BigFile(FileType):
     def __init__(self, path, exclude=['header'], header='.', root='./'):
         if not root.endswith('/'): root = root + '/'
 
-        self.logger.info("Fetching header from %s" % header)
-        self.logger.info("Chroot to %s" % root)
+        if self.comm.rank == 0:
+            self.logger.info("Fetching header from %s" % header)
+            self.logger.info("Chroot to %s" % root)
 
         import bigfile
         # the file path
