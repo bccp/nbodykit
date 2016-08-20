@@ -16,8 +16,6 @@ class ParticleSource(Source):
         from nbodykit import plugin_manager
         filetype = plugin_manager.get_plugin(filetype)
 
-        self.logger.info("Extra arguments to FileType: %s " % args)
-
         self.cat = FileStack(path, filetype, **args)
 
         self._attrs = {}
@@ -27,11 +25,13 @@ class ParticleSource(Source):
         for key in self.attrs.keys():
             self.attrs[key] = numpy.asarray(self.attrs[key])
 
+        if self.comm.rank == 0:
+            self.logger.info("Extra arguments to FileType: %s " % args)
+            self.logger.info("attrs = %s" % self.attrs)
+
         self.transform = transform
         self.enable_dask = enable_dask
         self.painter = painter
-        self.logger.info("attrs = %s" % self.attrs)
-
         if enable_dask:
             import dask
 

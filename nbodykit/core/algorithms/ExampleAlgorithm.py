@@ -46,7 +46,7 @@ class Play(Algorithm):
             if self.comm.rank == 0:
                 self.logger.info("Column %s: %s - %s" % (column, left, right))
 
-        pm = ParticleMesh(BoxSize=self.source.attrs['BoxSize'], Nmesh=[128] * 3, dtype='f4', comm=self.comm)
+        pm = ParticleMesh(BoxSize=self.source.BoxSize, Nmesh=[128] * 3, dtype='f4', comm=self.comm)
 
         real = self.source.paint(pm)
 

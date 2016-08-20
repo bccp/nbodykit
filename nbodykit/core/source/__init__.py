@@ -11,6 +11,12 @@ SourceMeta = MetaclassWithHooks(PluginBaseMeta, attach_cosmo)
 @add_metaclass(SourceMeta)
 class Source(PluginBase):
 
+    @property
+    def BoxSize(self):
+        BoxSize = numpy.array([1, 1, 1.], dtype='f8')
+        BoxSize[:] = self.attrs['BoxSize']
+        return BoxSize
+
     @abstractproperty
     def columns(self):
         return []
