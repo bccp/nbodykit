@@ -123,9 +123,5 @@ class FileStack(FileType):
             
         return numpy.concatenate(toret, axis=0)[::step]
 
-
-    
-            
-        
-        
-        
+    def __contains__(self, key):
+        return key in self.dtype
