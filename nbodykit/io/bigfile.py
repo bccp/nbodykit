@@ -72,6 +72,6 @@ class BigFile(FileType):
         import bigfile
         if isinstance(columns, string_types): columns = [columns]
 
-        ds = bigfile.BigData(self.file[self.root], columns)
-
-        return ds[start:stop][::step]
+        with self.file[self.root] as f:
+            ds = bigfile.BigData(f, columns)
+            return ds[start:stop][::step]

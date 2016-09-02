@@ -4,12 +4,12 @@ from nbodykit.core.source import Painter
 from nbodykit.io.stack import FileStack
 import numpy
 from pmesh import window
+import dask.array as da
 
 class ParticleSource(Source):
     plugin_name = "Source.Particle"
 
-    def __init__(self, filetype, path, args={}, transform={}, attrs={}, painter=Painter(),
-        enable_dask=False):
+    def __init__(self, filetype, path, args={}, transform={}, attrs={}, painter=Painter()):
 
         # cannot do this in the module because the module file is ran before plugin_manager
         # is init.
@@ -29,11 +29,15 @@ class ParticleSource(Source):
             self.logger.info("Extra arguments to FileType: %s " % args)
             self.logger.info("attrs = %s" % self.attrs)
 
-        self.transform = transform
-        self.enable_dask = enable_dask
+        self.transform = {
+                "Selection" : "da.ones(cat.size, dtype='?', chunks=10000)",
+                "Weight" : "da.ones(cat.size, dtype='f4', chunks=10000)",
+        }
+
+        self.transform.update(transform)
         self.painter = painter
-        if enable_dask:
-            import dask
+
+        self.ds = dict([(column, self.cat.get_dask(column)) for column in self.cat.dtype.names])
 
     @property
     def columns(self):
@@ -53,8 +57,6 @@ class ParticleSource(Source):
         s.add_argument("transform", type=dict, help="data transformation")
         s.add_argument("attrs", type=dict, help="override attributes from the file")
 
-        s.add_argument("enable_dask", type=bool, help="use dask")
-
         s.add_argument("painter", type=Painter.from_config, help="painter parameters")
 
         # XXX for painting needs some refactoring
@@ -69,32 +71,17 @@ class ParticleSource(Source):
         # XXX: make this a iterator? 
         start = self.comm.rank * self.cat.size // self.comm.size
         end = (self.comm.rank  + 1) * self.cat.size // self.comm.size
-        if self.enable_dask:
-            import dask.array as da
-            ds = da.from_array(self.cat, 1024 * 32)
 
-            def ev(column):
-                if column in self.transform:
-                    g = {'ds' : ds, 'attrs' : self.attrs}
-                    return eval(self.transform[column], g)[start:end]
-                elif column in ds:
-                    return ds[column][start:end]
-                else:
-                    return None
+        def ev(column):
+            if column in self.transform:
+                g = {'ds' : self.ds, 'attrs' : self.attrs, 'cat' : self.cat, 'da' : da}
+                return eval(self.transform[column], g)[start:end]
+            elif column in self.ds:
+                return self.ds[column][start:end]
+            else:
+                raise KeyError("column `%s` is neither provided as a transformed column nor in the file" % column)
 
-            yield da.compute(*[ev(key) for key in columns])
-        else:
-            ds = self.cat[start:end]
-            def ev(column):
-                if column in self.transform:
-                    g = {'ds' : ds, 'attrs' : self.attrs}
-                    return eval(self.transform[column], g)
-                elif column in ds.dtype.names:
-                    return ds[column]
-                else:
-                    return None
-
-            yield [ev(key) for key in columns]
+        return [ev(key) for key in columns]
 
     def paint(self, pm):
         if self.painter is None:

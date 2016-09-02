@@ -1,6 +1,7 @@
 __version__ = "0.1.4.dev0"
 
 import os
+
 from nbodykit.plugins.manager import PluginManager
 from argparse import Namespace
 

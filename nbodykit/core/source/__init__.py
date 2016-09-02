@@ -5,12 +5,26 @@ from ...extern.six import add_metaclass
 from abc import abstractmethod, abstractproperty
 import numpy
 
+import dask.array as da
+import dask
+
 # attach the cosmology to data sources
 SourceMeta = MetaclassWithHooks(PluginBaseMeta, attach_cosmo)
 
 @add_metaclass(SourceMeta)
 class Source(PluginBase):
 
+    @staticmethod
+    def compute(*variables, **kwargs):
+        # Eventually we want our own optimizer.
+        # The dask default optimizer induces too many IOs
+        # XXX find a better place for this function.
+
+        kwargs.setdefault('optimize_graph', False)
+        kwargs['optimize_graph'] = True
+        return dask.compute(*variables, optimize_graph=False)
+
+    
     @property
     def BoxSize(self):
         BoxSize = numpy.array([1, 1, 1.], dtype='f8')
@@ -61,9 +75,15 @@ class Painter(object):
             real2[...] = 0
 
         Nlocal = 0
-        for chunk in stream.read(['Position', 'Weight', 'Selection']):
 
-            [position, weight, selection] = chunk
+        Position, Weight, Selection = stream.read(['Position', 'Weight', 'Selection'])
+
+        N = len(Position)
+        chunksize = 1024 ** 2
+        for i in range(0, N, chunksize):
+
+            s = slice(i, i + chunksize)
+            position, weight, selection = da.compute(Position[s],  Weight[s], Selection[s])
 
             if weight is None:
                 weight = numpy.ones(len(position))

@@ -31,18 +31,24 @@ class Play(Algorithm):
         """
         result = {}
 
-        for column in self.columns:
-            left = []
-            right = []
-            for [col] in self.source.read([column]):
-                left.append(numpy.min(col, axis=0))
-                right.append(numpy.max(col, axis=0))
+        self.logger.info(self.columns)
+        mins = map(lambda x : x.min(axis=0), self.source.read(self.columns))
+        maxes = map(lambda x : x.max(axis=0), self.source.read(self.columns))
 
-            left = numpy.min(left, axis=0)
-            right = numpy.max(right, axis=0)
+        x = []
+        for min, max in zip(mins, maxes):
+            x.append(min)
+            x.append(max)
+
+        peaks = Source.compute(*x)
+
+        for column, left, right in zip(self.columns, peaks[::2], peaks[1::2]):
+
             left = numpy.min(self.comm.allgather(left), axis=0)
             right = numpy.max(self.comm.allgather(right), axis=0)
+
             result[column] = (left, right)
+
             if self.comm.rank == 0:
                 self.logger.info("Column %s: %s - %s" % (column, left, right))
 

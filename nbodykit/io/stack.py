@@ -4,6 +4,7 @@ from . import FileType, get_slice_size
 import numpy
 from glob import glob
 import os
+import dask.array as da
 
 class FileStack(FileType):
     """
@@ -111,17 +112,22 @@ class FileStack(FileType):
         which is the total size of the file (in particles)
         """
         if isinstance(columns, string_types): columns = [columns]
-        
+
         toret = []
         for fnum in self._file_range(start, stop):
 
             # the local slice
             sl = self._normalized_slice(start, stop, fnum)
-            
+
             # read this chunk
             toret.append(self.files[fnum].read(columns, sl[0], sl[1], step=1))
-            
+
+        self.logger.debug("Reading column %s [%d:%d] from file %s" % (columns, sl[0], sl[1], self))
+
         return numpy.concatenate(toret, axis=0)[::step]
+
+    def get_dask(self, column):
+        return da.from_array(self[column], chunks=100000)
 
     def __contains__(self, key):
         return key in self.dtype
