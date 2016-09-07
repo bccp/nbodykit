@@ -159,5 +159,7 @@ def main():
     result = alg.run()
     alg.save(output, result) 
        
+import dask
+dask.set_options(get=dask.get)
 if __name__ == '__main__':
     main()

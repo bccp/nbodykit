@@ -1,0 +1,16 @@
+cosmo: {Om0: 0.26, flat: True}
+
+source:
+    plugin: Source.Grid
+
+    path: ${NBKIT_CACHE}/data/bigfile_grid
+    dataset : PaintGrid
+
+#    attrs :
+#        BoxSize : 384.0
+
+    painter :
+        paintbrush : lanczos2
+
+output: "-"
+    #${NBKIT_HOME}/examples/output/test_describe.dat
