@@ -1,0 +1,12 @@
+datasource:
+    plugin: MultiFile
+    path: ${NBKIT_CACHE}/data/tpm_1.0000.bin.*
+    filetype: FileType.TPM
+    transform :
+        Position : ds['Position'] * 100.
+        RSDPosition : (ds['Position'] + ds['Velocity'] * [0, 0, 1]) * 100
+    enable_dask : false
+
+column: RSDPosition
+output: "-"
+# ${NBKIT_HOME}/examples/output/test_describe.dat

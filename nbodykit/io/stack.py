@@ -4,6 +4,7 @@ from . import FileType, get_slice_size
 import numpy
 from glob import glob
 import os
+import dask.array as da
 
 class FileStack(FileType):
     """
@@ -13,12 +14,12 @@ class FileStack(FileType):
     plugin_name = "FileStack"
     
     def __init__(self, path, filetype, **kwargs):
-        
+
         # save the list of relevant files
         if isinstance(path, list):
             filenames = path
         elif isinstance(path, string_types):
-        
+
             if '*' in path:
                 filenames = list(map(os.path.abspath, sorted(glob(path))))
             else:
@@ -27,14 +28,21 @@ class FileStack(FileType):
                 filenames = [os.path.abspath(path)]
         else:
             raise ValueError("'path' should be a string or a list of strings")
-            
+
         self.files = [filetype(fn, **kwargs) for fn in filenames]
         self.sizes = numpy.array([len(f) for f in self.files], dtype='i8')
-        
+
         # set dtype and size
         self.dtype = self.files[0].dtype
         self.size  = self.sizes.sum()
-                
+
+    @property
+    def attrs(self):
+        if hasattr(self.files[0], 'attrs'):
+            return self.files[0].attrs
+        else:
+            return {}
+
     @classmethod
     def fill_schema(cls):
         s = cls.schema
@@ -104,21 +112,22 @@ class FileStack(FileType):
         which is the total size of the file (in particles)
         """
         if isinstance(columns, string_types): columns = [columns]
-        
+
         toret = []
         for fnum in self._file_range(start, stop):
 
             # the local slice
             sl = self._normalized_slice(start, stop, fnum)
-            
+
             # read this chunk
             toret.append(self.files[fnum].read(columns, sl[0], sl[1], step=1))
-            
+
+        self.logger.debug("Reading column %s [%d:%d] from file %s" % (columns, sl[0], sl[1], self))
+
         return numpy.concatenate(toret, axis=0)[::step]
 
+    def get_dask(self, column):
+        return da.from_array(self[column], chunks=100000)
 
-    
-            
-        
-        
-        
+    def __contains__(self, key):
+        return key in self.dtype
