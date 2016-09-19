@@ -1,6 +1,7 @@
 import numpy
 import mpsort
 from mpi4py import MPI
+import logging
 
 def GatherArray(data, comm, root=0):
     """
@@ -34,6 +35,10 @@ def GatherArray(data, comm, root=0):
     # check dtypes and shapes
     shapes = comm.gather(data.shape, root=root)
     dtypes = comm.gather(data.dtype, root=root)
+    
+    # crash if we have object dtype
+    if any(dtype == "object" for dtype in dtypes):
+        raise ValueError("dtype 'object' not supported when scattering; please specify specific data type")
     
     if comm.rank == root:
         if any(s[1:] != shapes[0][1:] for s in shapes):
@@ -105,6 +110,11 @@ def ScatterArray(data, comm, root=0):
         # need C-contiguous order
         if not data.flags['C_CONTIGUOUS']:
             data = numpy.ascontiguousarray(data)
+            
+        # "object" data type cannot be scattered properly
+        if data.dtype == 'object':
+            raise ValueError("dtype 'object' not supported when scattering; please specify specific data type")
+    
         shape_and_dtype = (data.shape, data.dtype)
     else:
         shape_and_dtype = None
