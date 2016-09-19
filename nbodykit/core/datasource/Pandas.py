@@ -125,7 +125,8 @@ class PandasDataSource(DataSource):
         for i, (col, dt) in enumerate(dtype):
             if dt == 'object': 
                 self.logger.warning("converting column '%s' from object type to unicode type" %col)
-                dtype[i] = (col, 'U')
+                dt = data[col].values.astype('U').dtype
+                dtype[i] = (col, dt)
         
         # create the structured array from the DataFrame
         toret = numpy.empty(len(data), dtype=dtype)
