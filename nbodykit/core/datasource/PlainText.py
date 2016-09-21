@@ -90,7 +90,7 @@ class PlainTextDataSource(DataSource):
         if self.velcols is not None or self.rsd is not None:
             vel = numpy.vstack(data[k] for k in self.velcols).T.astype('f4')
             vel *= self.velf
-            data['Velocity'] = Velocity
+            data['Velocity'] = vel
 
         # do RSD
         if self.rsd is not None:
