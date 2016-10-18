@@ -1,0 +1,15 @@
+mode: 1d
+Nmesh: 256
+
+cosmo: {Om0: 0.307494, H0: 100, flat: True}
+
+output: /home/matej/docs/fastpm/out/nbkit/test_power_fastpm_1d.dat
+
+field:
+    DataSource: 
+       plugin: FastPM
+       lightcone: True
+       potentialRSD: True
+       rsd: z
+       path: /home/matej/docs/fastpm/out/lightcone
+    Transfer: [NormalizeDC, RemoveDC, AnisotropicCIC]
