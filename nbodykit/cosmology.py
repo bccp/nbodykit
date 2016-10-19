@@ -65,20 +65,6 @@ def neutrino_mass(value):
         elif len(value) != 3:
             raise ValueError("either a single neutrino mass, or a mass for each of the 3 species must be provided")
     return value
-
-def interpMake(f, xmin, xmax, steps):
-        xi = []
-        fi = []
-        delta = (xmax - xmin)/steps
-        
-        for i in range(0, steps):
-            t = xmin + i * delta
-            fi.append(f(t).value)
-            xi.append(t)
-        
-        def finterp(x):
-            return np.interp(x, xi, fi)
-        return finterp
     
 class Cosmology(CosmologyBase):
     """
@@ -138,12 +124,9 @@ class Cosmology(CosmologyBase):
             self.engine = getattr(cosmology, cls)(self.H0, self.Om0, **kws)
             self.Ode0 = self.engine.Ode0 # set this automatically
     
-        self.comoving_distance_interp = interpMake(self.engine.comoving_distance, 0, 20000, 20000)
-    
     def comoving_distance(self, z):
         """
         Returns the comoving distance to z in units of `Mpc/h`
         """
         
-        #return self.engine.comoving_distance(z).value * self.engine.h
-        return self.comoving_distance_interp(z) * self.engine.h
+        return self.engine.comoving_distance(z).value * self.engine.h

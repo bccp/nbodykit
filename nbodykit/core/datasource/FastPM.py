@@ -2,6 +2,19 @@ from nbodykit.core import DataSource
 import numpy
 import bigfile
 
+def interpMake(f, xmin, xmax, steps):
+        xi = []
+        fi = []
+        delta = (xmax - xmin)/steps
+        
+        for i in range(0, steps):
+            t = xmin + i * delta
+            fi.append(f(t).value)
+            xi.append(t)
+        
+        def finterp(x):
+            return numpy.interp(x, xi, fi)
+        return finterp
 
 class FastPMDataSource(DataSource):
     """
@@ -40,6 +53,7 @@ class FastPMDataSource(DataSource):
             if self.comm.rank == 0:
                 self.logger.info("Overriding boxsize as %s" % str(self.BoxSize))
         
+        self.H_interp = interpMake(self.cosmo.engine.H, 0, 20, 8000)
     
     @classmethod
     def fill_schema(cls):
@@ -125,7 +139,8 @@ class FastPMDataSource(DataSource):
                     P['Velocity'] *= RSD
                 else:
                     redshift = 1/(P['Aemit']) - 1
-                    H = self.cosmo.engine.H(redshift) / self.cosmo.engine.h
+                    #H = self.cosmo.engine.H(redshift) / self.cosmo.engine.h
+                    H = self.H_interp(redshift)/self.cosmo.engine.h
                     factor = 1./(P['Aemit']*H)          
                     P['Velocity'] *= factor[:, None]
                     
