@@ -52,8 +52,6 @@ class FastPMDataSource(DataSource):
         else:
             if self.comm.rank == 0:
                 self.logger.info("Overriding boxsize as %s" % str(self.BoxSize))
-        
-        self.H_interp = interpMake(self.cosmo.engine.H, 0, 20, 8000)
     
     @classmethod
     def fill_schema(cls):
@@ -75,6 +73,9 @@ class FastPMDataSource(DataSource):
         s.add_argument("potentialRSD", type=bool, help="potential included in file")
                 
     def parallel_read(self, columns, full=False):
+        
+        self.H_interp = interpMake(self.cosmo.engine.H, 0, 20, 8000)
+        
         f = bigfile.BigFileMPI(self.comm, self.path)
         try:
             header = f['.']
