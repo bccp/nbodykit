@@ -73,9 +73,6 @@ class FastPMDataSource(DataSource):
         s.add_argument("potentialRSD", type=bool, help="potential included in file")
                 
     def parallel_read(self, columns, full=False):
-        
-        self.H_interp = interpMake(self.cosmo.engine.H, 0, 20, 8000)
-        
         f = bigfile.BigFileMPI(self.comm, self.path)
         try:
             header = f['.']
@@ -134,15 +131,18 @@ class FastPMDataSource(DataSource):
                 data = dataset[column][bunchstart:bunchend]
                 P[column] = data
             
-            
             if 'Velocity' in P:
                 if not self.lightcone:
                     P['Velocity'] *= RSD
                 else:
-                    redshift = 1/(P['Aemit']) - 1
                     #H = self.cosmo.engine.H(redshift) / self.cosmo.engine.h
-                    H = self.H_interp(redshift)/self.cosmo.engine.h
+                    
+                    H_interp = interpMake(self.cosmo.engine.H, 0, 20, 8192) # bounds from 0 to 20 with 8000 steps
+                    
+                    redshift = 1/(P['Aemit']) - 1
+                    H = H_interp(redshift)/self.cosmo.engine.h
                     factor = 1./(P['Aemit']*H)          
+                    
                     P['Velocity'] *= factor[:, None]
                     
                     if self.potentialRSD:
