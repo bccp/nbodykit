@@ -2,6 +2,19 @@ from nbodykit.core import DataSource
 import numpy
 import bigfile
 
+def interpMake(f, xmin, xmax, steps):
+        xi = []
+        fi = []
+        delta = (xmax - xmin)/steps
+        
+        for i in range(0, steps):
+            t = xmin + i * delta
+            fi.append(f(t).value)
+            xi.append(t)
+        
+        def finterp(x):
+            return numpy.interp(x, xi, fi)
+        return finterp
 
 class FastPMDataSource(DataSource):
     """
@@ -9,12 +22,14 @@ class FastPMDataSource(DataSource):
     """
     plugin_name = "FastPM"
     
-    def __init__(self, path, BoxSize=None, bunchsize=4*1024*1024, rsd=None):
+    def __init__(self, path, BoxSize=None, bunchsize=4*1024*1024, rsd=None, lightcone=False, potentialRSD=False):
         
         self.path      = path
         self.BoxSize   = BoxSize
         self.bunchsize = bunchsize
         self.rsd       = rsd
+        self.lightcone = lightcone
+        self.potentialRSD = potentialRSD
         
         BoxSize = numpy.empty(3, dtype='f8')
         f = bigfile.BigFileMPI(self.comm, self.path)
@@ -37,7 +52,6 @@ class FastPMDataSource(DataSource):
         else:
             if self.comm.rank == 0:
                 self.logger.info("Overriding boxsize as %s" % str(self.BoxSize))
-        
     
     @classmethod
     def fill_schema(cls):
@@ -55,6 +69,8 @@ class FastPMDataSource(DataSource):
             help="direction to do redshift distortion")
         s.add_argument("bunchsize", type=int, 
             help="number of particles to read per rank in a bunch")
+        s.add_argument("lightcone", type=bool, help="potential and velocity displacement for lightcone")
+        s.add_argument("potentialRSD", type=bool, help="potential included in file")
                 
     def parallel_read(self, columns, full=False):
         f = bigfile.BigFileMPI(self.comm, self.path)
@@ -70,6 +86,11 @@ class FastPMDataSource(DataSource):
         readcolumns = set(columns)
         if self.rsd is not None:
             readcolumns = set(columns + ['Velocity'])
+        if self.lightcone:
+            if self.potentialRSD:
+                readcolumns = set(columns + ['Velocity', 'Potential', 'Aemit'])
+            else:
+                readcolumns = set(columns + ['Velocity', 'Aemit'])
         if 'InitialPosition' in columns:
             readcolumns.add('ID')
             readcolumns.remove('InitialPosition')
@@ -109,9 +130,23 @@ class FastPMDataSource(DataSource):
             for column in readcolumns:
                 data = dataset[column][bunchstart:bunchend]
                 P[column] = data
-
+            
             if 'Velocity' in P:
-                P['Velocity'] *= RSD
+                if not self.lightcone:
+                    P['Velocity'] *= RSD
+                else:
+                    #H = self.cosmo.engine.H(redshift) / self.cosmo.engine.h
+                    
+                    H_interp = interpMake(self.cosmo.engine.H, 0, 20, 8192) # bounds from 0 to 20 with 8000 steps
+                    
+                    redshift = 1/(P['Aemit']) - 1
+                    H = H_interp(redshift)/self.cosmo.engine.h
+                    factor = 1./(P['Aemit']*H)          
+                    
+                    P['Velocity'] *= factor[:, None]
+                    
+                    if self.potentialRSD:
+                        P['Potential']*= factor*3*(10**5)
 
             if 'Mass' in columns:
                 P['Mass'] = numpy.ones(bunchend - bunchstart, dtype='u1') * self.M0
@@ -119,7 +154,12 @@ class FastPMDataSource(DataSource):
             if self.rsd is not None:
                 dir = "xyz".index(self.rsd)
                 P['Position'][:, dir] += P['Velocity'][:, dir]
+                
+                if self.potentialRSD:
+                    P['Position'][:, dir] += P['Potential']
+                
                 P['Position'][:, dir] %= self.BoxSize[dir]
+                
             if 'InitialPosition' in columns:
                 P['InitialPosition'] = numpy.empty((len(P['ID']), 3), 'f4')
                 nc = int(self.size ** (1. / 3) + 0.5)
