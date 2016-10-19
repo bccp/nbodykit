@@ -117,6 +117,11 @@ class DefaultPainter(Painter):
 
             def function(k, kx, ky, kz):
                 from numpy import exp, sin, cos
+                def tophat(x):
+                    rt = 3 * (sin(x) / x - cos(x)) / x ** 2
+                    rt[x == 0] = 1
+                    return rt
+
                 return eval(self.fk)
             complex = real.r2c()
             for kk, slab in zip(complex.slabs.x, complex.slabs):
