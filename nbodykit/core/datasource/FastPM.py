@@ -22,7 +22,7 @@ class FastPMDataSource(DataSource):
     """
     plugin_name = "FastPM"
     
-    def __init__(self, path, BoxSize=None, bunchsize=4*1024*1024, rsd=None, lightcone=False, potentialRSD=False):
+    def __init__(self, path, BoxSize=None, bunchsize=4*1024*1024, rsd=None, lightcone=False, potentialRSD=False, velocityRSD=False):
         
         self.path      = path
         self.BoxSize   = BoxSize
@@ -30,6 +30,7 @@ class FastPMDataSource(DataSource):
         self.rsd       = rsd
         self.lightcone = lightcone
         self.potentialRSD = potentialRSD
+        self.velocityRSD = velocityRSD
         
         BoxSize = numpy.empty(3, dtype='f8')
         f = bigfile.BigFileMPI(self.comm, self.path)
@@ -69,8 +70,9 @@ class FastPMDataSource(DataSource):
             help="direction to do redshift distortion")
         s.add_argument("bunchsize", type=int, 
             help="number of particles to read per rank in a bunch")
-        s.add_argument("lightcone", type=bool, help="potential and velocity displacement for lightcone")
+        s.add_argument("lightcone", type=bool, help="potential displacement for lightcone")
         s.add_argument("potentialRSD", type=bool, help="potential included in file")
+        s.add_argument("velocityRSD", type=bool, help="velocity included in file")
                 
     def parallel_read(self, columns, full=False):
         f = bigfile.BigFileMPI(self.comm, self.path)
@@ -153,11 +155,10 @@ class FastPMDataSource(DataSource):
 
             if self.rsd is not None:
                 dir = "xyz".index(self.rsd)
-                P['Position'][:, dir] += P['Velocity'][:, dir]
-                
+                if self.velocityRSD:
+                    P['Position'][:, dir] += P['Velocity'][:, dir]
                 if self.potentialRSD:
                     P['Position'][:, dir] += P['Potential']
-                
                 P['Position'][:, dir] %= self.BoxSize[dir]
                 
             if 'InitialPosition' in columns:
