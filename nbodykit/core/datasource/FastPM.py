@@ -22,7 +22,7 @@ class FastPMDataSource(DataSource):
     """
     plugin_name = "FastPM"
     
-    def __init__(self, path, BoxSize=None, bunchsize=4*1024*1024, rsd=None, lightcone=False, potentialRSD=False, velocityRSD=False):
+    def __init__(self, path, BoxSize=None, bunchsize=4*1024*1024, rsd=None, lightcone=False, potentialRSD=False, velocityRSD=True):
         
         self.path      = path
         self.BoxSize   = BoxSize
