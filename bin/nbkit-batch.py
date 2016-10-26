@@ -331,14 +331,12 @@ class BatchAlgorithmDriver(object):
             a tuple of values representing this task value
         """
         # if you are the pool's root, write out the temporary parameter file
-        this_config = None
+        config_stream = None
         if self.workers.subcomm.rank == 0:
                 
             # initialize a temporary file
-            with tempfile.NamedTemporaryFile(delete=False) as ff:
-                
-                this_config = ff.name
-                logger.debug("creating temporary file: %s" %this_config)
+            with tempfile.TemporaryFile() as ff:
+                logger.debug("creating temporary file: %s" %ff.name)
                 
                 # key/values for this task 
                 if len(self.task_dims) == 1:
@@ -360,12 +358,16 @@ class BatchAlgorithmDriver(object):
                 # do the string formatting if the key is present in template
                 valid = {k:possible_kwargs[k] for k in possible_kwargs if k in kwargs}
                 ff.write(formatter.format(self.template, **valid).encode())
+                
+                # read temp file as config stream
+                ff.seek(0)
+                config_stream = ff.read()
         
-        # bcast the file name to all in the worker pool
-        this_config = self.workers.subcomm.bcast(this_config, root=0)
+        # bcast the file stream to all in the worker pool
+        config_stream = self.workers.subcomm.bcast(config_stream, root=0)
 
         # configuration file passed via -c
-        params, extra = ReadConfigFile(open(this_config, 'r').read(), self.algorithm_class.schema)
+        params, extra = ReadConfigFile(config_stream, self.algorithm_class.schema)
         
         # output is required
         output = getattr(extra, 'output', None)
@@ -379,9 +381,9 @@ class BatchAlgorithmDriver(object):
 
         # remove temporary files
         if self.workers.subcomm.rank == 0:
-            if os.path.exists(this_config): 
-                logger.debug("removing temporary file: %s" %this_config)
-                os.remove(this_config)
+            if os.path.exists(ff.name): 
+                logger.debug("removing temporary file: %s" %ff.name)
+                os.remove(ff.name)
                 
         return 0
 
