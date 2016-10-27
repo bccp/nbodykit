@@ -152,14 +152,15 @@ class FastPMDataSource(DataSource):
 
             if 'Mass' in columns:
                 P['Mass'] = numpy.ones(bunchend - bunchstart, dtype='u1') * self.M0
-
-            if self.rsd is not None:
-                dir = "xyz".index(self.rsd)
-                if self.velocityRSD:
-                    P['Position'][:, dir] += P['Velocity'][:, dir]
-                if self.potentialRSD:
-                    P['Position'][:, dir] += P['Potential']
-                P['Position'][:, dir] %= self.BoxSize[dir]
+                
+            if 'Position' in columns:
+                if self.rsd is not None:
+                    dir = "xyz".index(self.rsd)
+                    if self.velocityRSD:
+                        P['Position'][:, dir] += P['Velocity'][:, dir]
+                    if self.potentialRSD:
+                        P['Position'][:, dir] += P['Potential']
+                    P['Position'][:, dir] %= self.BoxSize[dir]
                 
             if 'InitialPosition' in columns:
                 P['InitialPosition'] = numpy.empty((len(P['ID']), 3), 'f4')
