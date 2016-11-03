@@ -331,38 +331,31 @@ class BatchAlgorithmDriver(object):
             a tuple of values representing this task value
         """
         # if you are the pool's root, write out the temporary parameter file
-        config_stream = None
         if self.workers.subcomm.rank == 0:
                 
-            # initialize a temporary file (deleted after closing)
-            with tempfile.TemporaryFile() as ff:
-                logger.debug("creating temporary file: %s" %ff.name)
+            # key/values for this task 
+            if len(self.task_dims) == 1:
+                possible_kwargs = {self.task_dims[0] : task}
+            else:
+                possible_kwargs = dict(zip(self.task_dims, task))
                 
-                # key/values for this task 
-                if len(self.task_dims) == 1:
-                    possible_kwargs = {self.task_dims[0] : task}
-                else:
-                    possible_kwargs = dict(zip(self.task_dims, task))
+            # any extra key/value pairs for this tasks
+            if self.extras is not None:
+                for k in self.extras:
+                    possible_kwargs[k] = self.extras[k][itask]
                     
-                # any extra key/value pairs for this tasks
-                if self.extras is not None:
-                    for k in self.extras:
-                        possible_kwargs[k] = self.extras[k][itask]
-                        
-                # use custom formatter that only formats the possible keys, ignoring other
-                # occurences of curly brackets
-                formatter = Formatter()
-                formatter.parse = lambda l: SafeStringParse(formatter, l, list(possible_kwargs))
-                kwargs = [kw for _, kw, _, _ in formatter.parse(self.template) if kw]
-                        
-                # do the string formatting if the key is present in template
-                valid = {k:possible_kwargs[k] for k in possible_kwargs if k in kwargs}
-                ff.write(formatter.format(self.template, **valid).encode())
-                
-                # read temp file as config stream
-                ff.seek(0)
-                config_stream = ff.read()
-        
+            # use custom formatter that only formats the possible keys, ignoring other
+            # occurences of curly brackets
+            formatter = Formatter()
+            formatter.parse = lambda l: SafeStringParse(formatter, l, list(possible_kwargs))
+            kwargs = [kw for _, kw, _, _ in formatter.parse(self.template) if kw]
+                    
+            # do the string formatting if the key is present in template
+            valid = {k:possible_kwargs[k] for k in possible_kwargs if k in kwargs}
+            config_stream = formatter.format(self.template, **valid)
+        else:
+            config_stream = None
+
         # bcast the file stream to all in the worker pool
         config_stream = self.workers.subcomm.bcast(config_stream, root=0)
 
