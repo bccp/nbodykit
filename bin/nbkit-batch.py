@@ -334,7 +334,7 @@ class BatchAlgorithmDriver(object):
         config_stream = None
         if self.workers.subcomm.rank == 0:
                 
-            # initialize a temporary file
+            # initialize a temporary file (deleted after closing)
             with tempfile.TemporaryFile() as ff:
                 logger.debug("creating temporary file: %s" %ff.name)
                 
@@ -378,12 +378,6 @@ class BatchAlgorithmDriver(object):
         alg = self.algorithm_class(**vars(params))
         result = alg.run()
         alg.save(output, result)
-
-        # remove temporary files
-        if self.workers.subcomm.rank == 0:
-            if os.path.exists(ff.name): 
-                logger.debug("removing temporary file: %s" %ff.name)
-                os.remove(ff.name)
                 
         return 0
 
