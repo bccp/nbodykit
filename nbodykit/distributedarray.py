@@ -115,7 +115,8 @@ def ScatterArray(data, comm, root=0):
     
     # initialize empty data on non-root ranks
     if comm.rank != root:
-        data = numpy.empty(0, dtype=(dtype, shape[1:]))
+        dtype = numpy.dtype((dtype, shape[1:]))
+        data = numpy.empty(0, dtype=dtype)
     
     # setup the custom dtype 
     duplicity = numpy.product(numpy.array(shape[1:], 'intp'))
@@ -366,8 +367,8 @@ class DistributedArray(object):
 
 def test():
     comm = MPI.COMM_WORLD
-    local = numpy.empty((comm.rank), 
-            dtype=[('key', 'u8'), ('value', 'u8'), ('rank', 'i8')])
+    dtype = numpy.dtype([('key', 'u8'), ('value', 'u8'), ('rank', 'i8')])
+    local = numpy.empty((comm.rank), dtype=dtype)
     d = DistributedArray(local)
     local['key'] = numpy.arange(len(local))
     local['value'] = d.comm.rank * 10 + local['key']

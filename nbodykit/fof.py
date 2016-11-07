@@ -39,10 +39,11 @@ def fof_halo_label(minid, comm, thresh):
         particles that are in halos that contain less than thresh particles.
     
     """
-    data = numpy.empty(len(minid), dtype=[
+    dtype = numpy.dtype([
             ('origind', 'u8'), 
             ('fofid', 'u8'),
             ])
+    data = numpy.empty(len(minid), dtype=dtype)
     # assign origind for recovery of ordering, since
     # we need to work in sorted fofid 
     data['fofid'] = minid
@@ -242,10 +243,10 @@ def fof_catalogue(datasource, label, comm, calculate_initial=False):
             does not correspond to any halo.
  
     """
-    dtype=[
+    dtype=numpy.dtype([
         ('Position', ('f4', 3)),
         ('Velocity', ('f4', 3)),
-        ('Length', 'i4')]
+        ('Length', 'i4')])
 
     N = halos.count(label, comm=comm)
     

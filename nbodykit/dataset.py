@@ -177,8 +177,8 @@ class DataSet(object):
             self.coords[dim] = 0.5 * (edges[i][1:] + edges[i][:-1])
             
         # store variables as a structured array
-        dtypes = [(name, variables[name].dtype) for name in variables]            
-        self.data = numpy.empty(self.shape, dtype=numpy.dtype(dtypes))
+        dtypes = numpy.dtype([(name, variables[name].dtype) for name in variables])
+        self.data = numpy.empty(self.shape, dtype=dtypes)
         for name in variables:
             self.data[name] = variables[name]
             
@@ -304,6 +304,7 @@ class DataSet(object):
         dtype += [(key, data.dtype.type)]
         
         # add old variables
+        dtype = numpy.dtype(dtype)
         new = numpy.zeros(self.data.shape, dtype=dtype)
         for col in names:
             new[col] = self.data[col]
