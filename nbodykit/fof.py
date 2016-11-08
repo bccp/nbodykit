@@ -243,10 +243,9 @@ def fof_catalogue(datasource, label, comm, calculate_initial=False):
             does not correspond to any halo.
  
     """
-    dtype=numpy.dtype([
-        ('Position', ('f4', 3)),
+    dtype=[('Position', ('f4', 3)),
         ('Velocity', ('f4', 3)),
-        ('Length', 'i4')])
+        ('Length', 'i4')]
 
     N = halos.count(label, comm=comm)
     
@@ -280,6 +279,7 @@ def fof_catalogue(datasource, label, comm, calculate_initial=False):
     if comm.rank == 0: logger.info("Length = %s " % N[1:])
     if comm.rank == 0: logger.info("%d particles not in halo" % N[0])
 
+    dtype = numpy.dtype(dtype)
     if comm.rank == 0:
         catalogue = numpy.empty(shape=len(N), dtype=dtype)
 

@@ -115,8 +115,8 @@ def ScatterArray(data, comm, root=0):
     
     # initialize empty data on non-root ranks
     if comm.rank != root:
-        dtype = numpy.dtype((dtype, shape[1:]))
-        data = numpy.empty(0, dtype=dtype)
+        np_dtype = numpy.dtype((dtype, shape[1:]))
+        data = numpy.empty(0, dtype=np_dtype)
     
     # setup the custom dtype 
     duplicity = numpy.product(numpy.array(shape[1:], 'intp'))
