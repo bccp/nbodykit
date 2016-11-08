@@ -105,7 +105,7 @@ class FiberCollisionsAlgorithm(Algorithm):
 
         # return a structured array
         d = list(zip(['Label', 'Collided', 'NeighborID'], [labels, collided, neighbors]))
-        dtype = [(col, x.dtype) for col, x in d]
+        dtype = numpy.dtype([(col, x.dtype) for col, x in d])
         result = numpy.empty(len(labels), dtype=dtype)
         for col, x in d: result[col] = x
         return result
@@ -121,7 +121,7 @@ class FiberCollisionsAlgorithm(Algorithm):
         
         comm = self.comm
         mask = Label != 0
-        PIG = numpy.empty(mask.sum(), dtype=[
+        dtype = numpy.dtype([
                 ('Position', ('f4', 3)),  
                 ('Label', ('i4')), 
                 ('Rank', ('i4')), 
@@ -129,6 +129,7 @@ class FiberCollisionsAlgorithm(Algorithm):
                 ('Collided', ('i4')),
                 ('NeighborID', ('i4'))
                 ])
+        PIG = numpy.empty(mask.sum(), dtype=dtype)
         PIG['Label'] = Label[mask]
         size = len(Label)
         size = comm.allgather(size)

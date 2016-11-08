@@ -129,7 +129,8 @@ class PandasDataSource(DataSource):
                 dtype[i] = (col, dt)
         
         # create the structured array from the DataFrame
-        toret = numpy.empty(len(data), dtype=dtype)
+        np_dtype = numpy.dtype(dtype)
+        toret = numpy.empty(len(data), dtype=np_dtype)
         for i, col in enumerate(data.columns):
             toret[col] = data[col].values.astype(dtype[i][1])
         toret = extend_dtype(toret, new_dtypes)

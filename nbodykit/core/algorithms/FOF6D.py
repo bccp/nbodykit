@@ -47,12 +47,13 @@ class FOF6DAlgorithm(Algorithm):
         with self.halolabel.open() as stream:
             [[Label]] = stream.read(['Label'], full=True)
         mask = Label != 0
-        PIG = numpy.empty(mask.sum(), dtype=[
+        dtype = numpy.dtype([
                 ('Position', ('f4', 3)), 
                 ('Velocity', ('f4', 3)), 
                 ('Label', ('i4')), 
                 ('Rank', ('i4')), 
                 ])
+        PIG = numpy.empty(mask.sum(), dtype=dtype)
         PIG['Label'] = Label[mask]
         del Label
         with self.datasource.open() as stream:
@@ -150,7 +151,7 @@ def subfof(pos, vel, ll, vfactor, haloid, Ntot, boxsize):
         thresh *= 0.9
     # if nothing is found then assume this FOF group is a fluke.
  
-    output = numpy.empty(Nsub, dtype=[
+    dtype = numpy.dtype([
         ('Position', ('f4', 3)),
         ('Velocity', ('f4', 3)),
         ('LinkingLength', 'f4'),
@@ -162,6 +163,7 @@ def subfof(pos, vel, ll, vfactor, haloid, Ntot, boxsize):
         ('Length', 'i4'),
         ('HaloID', 'i4'),
         ])
+    output = numpy.empty(Nsub, dtype=dtype)
 
     output['Position'][...] = fof.center()[:Nsub, :3]
     output['Length'][...] = fof.length[:Nsub]
