@@ -41,7 +41,7 @@ class ParticleSource(Source):
 
     @property
     def columns(self):
-        return sorted(set(self.cat.dtype.names) + set(self.transform.keys()))
+        return sorted(set( list(self.cat.dtype.names) + list(self.transform.keys()) ))
 
     @property
     def attrs(self):
@@ -68,6 +68,7 @@ class ParticleSource(Source):
         s.add_argument("painter.interlaced", type=bool, help="interlaced.")
 
     def read(self, columns):
+        
         # XXX: make this a iterator? 
         start = self.comm.rank * self.cat.size // self.comm.size
         end = (self.comm.rank  + 1) * self.cat.size // self.comm.size
