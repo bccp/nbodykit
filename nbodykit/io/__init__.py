@@ -4,28 +4,6 @@ from ..plugins import PluginBase
 import numpy
 from abc import abstractmethod, abstractproperty
 
-def get_slice_size(start, stop, step):
-    """
-    Return the size of an array slice
-    
-    Parameters
-    ----------
-    start : int
-        the beginning of the slice
-    stop : int
-        the end of the slice
-    step : int
-        the slice step size
-    
-    Returns
-    -------
-    N : int
-        the total size of the slice
-    """
-    N, remainder = divmod(stop-start, step)
-    if remainder: N += 1
-    return N
-
 class FileType(PluginBase):
     """
     Abstract base class representing a file object
@@ -108,6 +86,9 @@ class FileType(PluginBase):
         args = (self.__class__.__name__, self.ncol, self.shape)
         return "<%s with %d column(s) and shape %s>" %args
     
+    def __contains__(self, col):
+        return col in self.columns
+        
     def keys(self):
         """
         Aliased function to return :attr:`columns`
@@ -301,6 +282,34 @@ class FileType(PluginBase):
             obj.base = self
            
         return obj
+        
+    def get_dask(self, column, blocksize=100000):
+        """
+        Return the specified column as a dask array, which
+        delays the explicit reading of the data until
+        :func:`dask.compute` is called
+        
+        The dask array is chunked into blocks of size `blocksize`
+        
+        Parameters
+        ----------
+        column : str
+            the name of the column to return
+        blocksize : int, optional
+            the size of the chunks in the dask array
+
+        Returns
+        -------
+        dask.array :
+            the dask array holding the column, which computes the 
+            necessary functions to read the data, but delays evaluating
+            until the user specifies
+        """
+        if column not in self:
+            raise ValueError("'%s' is not a valid column; run keys() for valid options" %column)
+        
+        import dask.array as da
+        return da.from_array(self[column], chunks=blocksize)
         
 
 def io_extension_points():
