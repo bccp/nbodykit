@@ -1,58 +1,25 @@
-import pandas as pd
-import os
-import dask.dataframe as dd
 import numpy
 
 from ..extern.six import string_types
-from . import FileType
-from .stack import FileStack
-
-def get_partition_sizes(filename, blocksize):
-    """
-    From a filename and preferred blocksize in bytes,
-    return the number of rows in each partition
-
-    This divides the input file into partitions with size
-    roughly equal to blocksize, reads the bytes, and counts
-    the number of delimiter
-    """
-    from dask.bytes.local import read_block_from_file
-
-    # search for lines separated by newline char
-    delimiter = "\n".encode()
-
-    # size in bytes and byte offsets of each partition
-    size = os.path.getsize(filename)
-    offsets = list(range(0, size, int(blocksize)))
-
-    nrows = []
-    for offset in offsets:
-        block = read_block_from_file(filename, offset, blocksize, delimiter, False)
-        nrows.append(block.count(delimiter))
-    return nrows
-
-def infer_dtype(path, names, config):
-    """
-    Read the first few lines of the CSV to determine the
-    data type
-    """
-    # read the first line to get the the dtype
-    df = pd.read_csv(path, nrows=1, names=names, **config)
-
-    toret = {}
-    for name in names:
-        toret[name] = df[name].dtype
-    return toret
-
+from . import FileType, tools
 
 class CSVFile(FileType):
     """
     A file object to handle the reading of columns of data from
     a CSV file
 
-    Internally, this class uses :func:`pandas.read_csv` and supports
-    all of the keyword arguments.
-
+    Internally, this class uses :func:`dask.dataframe.read_csv` 
+    (which uses func:`pandas.read_csv`) to partition the CSV file
+    into chunks, and data is only read from the relevant chunks 
+    of the file. 
+    
+    This setup provides a significant speed-up when reading
+    from the end of the file, since the entirety of the data
+    does not need to be read first.
+    
+    The class supports any of the configuration keywords that can be 
+    passed to :func:`pandas.read_csv`
+    
     .. warning::
 
         This assumes the delimiter for separate lines is the newline
@@ -60,22 +27,12 @@ class CSVFile(FileType):
     """
     plugin_name = 'CSVFile'
 
-    def __init__(self, path, names, blocksize=32*1024*1024, dtype={}, delim_whitespace=True, header=None, **config):
-        """
-        Parameters
-        ----------
-        path : str
-            the name of the file we are reading from
-        names : list of str
-            list of the names of each column in the file to read
-        dtype : {str, dict}, optional
-            the data type of individual columns; if not provided, the
-            data types are inferred directly from the data
-        delim_whitespace : bool, optional
-            set to `True` if the CSV file is space-separated
-        **kwargs: dict
-            options to pass down to :func:`pandas.read_csv`
-        """
+    def __init__(self, path, names, blocksize=32*1024*1024, dtype={}, 
+                    delim_whitespace=True, header=None, **config):
+                    
+        # used to read partitions of the file
+        import dask.dataframe as dd
+        
         self.path      = path
         self.names     = names
         self.blocksize = blocksize
@@ -94,7 +51,7 @@ class CSVFile(FileType):
 
         # infer the data type?
         if not all(col in dtype for col in self.names):
-            inferred_dtype = infer_dtype(self.path, self.names, self._config)
+            inferred_dtype = tools.infer_csv_dtype(self.path, self.names, **self._config)
 
         # store the dtype as a list
         self.dtype = []
@@ -114,12 +71,11 @@ class CSVFile(FileType):
         kws['names'] = names
         kws['blocksize'] = self.blocksize
         kws['collection'] = False
-        files = dd.read_csv(self.path, **kws)
-        sizes = get_partition_sizes(self.path, self.blocksize)        
-        self.stack = FileStack.from_files(files, sizes=sizes)
-        
+        self.partitions = dd.read_csv(self.path, **kws)
+         
         # size is the sum of the size of each partition
-        self.size = sum(self.stack.sizes)
+        self._sizes = tools.csv_partition_sizes(self.path, self.blocksize)       
+        self.size = sum(self._sizes)
 
     @classmethod
     def fill_schema(cls):
@@ -173,13 +129,13 @@ class CSVFile(FileType):
         if isinstance(columns, string_types): columns = [columns]
         
         toret = []
-        for fnum in self.stack._file_range(start, stop):
+        for fnum in tools.get_file_slice(self._sizes, start, stop):
 
             # the local slice
-            sl = self.stack._normalized_slice(start, stop, fnum)
+            sl = tools.global_to_local_slice(self._sizes, start, stop, fnum)
             
             # dataframe to structured array
-            data = (self.stack.files[fnum][sl[0]:sl[1]]).compute()
+            data = (self.partitions[fnum][sl[0]:sl[1]]).compute()
             data = data[columns]
             toret.append(data.to_records(index=False))
             
