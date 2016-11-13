@@ -1,6 +1,28 @@
 import numpy
 import os
 
+def get_slice_size(start, stop, step):
+    """
+    Utility function to return the size of an array slice
+    
+    Parameters
+    ----------
+    start : int
+        the beginning of the slice
+    stop : int
+        the end of the slice
+    step : int
+        the slice step size
+    
+    Returns
+    -------
+    N : int
+        the total size of the slice
+    """
+    N, remainder = divmod(stop-start, step)
+    if remainder: N += 1
+    return N
+
 def csv_partition_sizes(filename, blocksize, delimiter="\n"):
     """
     From a filename and preferred blocksize in bytes,
