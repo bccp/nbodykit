@@ -68,6 +68,10 @@ class FileStack(FileType):
         else:
             stack.sizes = numpy.array([len(f) for f in stack.files], dtype='i8')
         
+        # set dtype and size
+        stack.dtype = stack.files[0].dtype
+        stack.size  = stack.sizes.sum()
+        
         return stack
         
     @property
