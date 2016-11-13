@@ -1,7 +1,7 @@
 import numpy
 import os
 
-from . import FileType, get_slice_size
+from . import FileType, tools
 from ..extern.six import string_types
 
 def getsize(filename, header_size, rowsize):
@@ -135,7 +135,7 @@ class BinaryFile(FileType):
         if isinstance(columns, string_types): columns = [columns]
         
         dt = [(col, self.dtype[col]) for col in columns]
-        toret = numpy.empty(get_slice_size(start, stop, step), dtype=dt)
+        toret = numpy.empty(tools.get_slice_size(start, stop, step), dtype=dt)
                
         with open(self.path, 'rb') as ff:
             
@@ -147,7 +147,3 @@ class BinaryFile(FileType):
                 toret[col][:] = numpy.fromfile(ff, count=stop-start, dtype=dtype)[::step]
     
         return toret
-            
-        
-        
-        
