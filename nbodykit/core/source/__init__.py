@@ -21,8 +21,7 @@ class Source(PluginBase):
         # XXX find a better place for this function.
 
         kwargs.setdefault('optimize_graph', False)
-        kwargs['optimize_graph'] = True
-        return dask.compute(*variables, optimize_graph=False)
+        return dask.compute(*variables, **kwargs)
 
     
     @property
@@ -51,7 +50,10 @@ from pmesh import window
 from pmesh.pm import RealField, ComplexField
 
 class Painter(object):
-    """ Painter object helps to Sources to convert results from Source.read to a RealField """
+    """
+    Painter object helps to Sources to convert results from Source.read to a RealField 
+    """
+    
     @classmethod
     def from_config(self, d):
         return Painter(**d)
