@@ -1,10 +1,9 @@
 from ..extern.six import string_types
-from . import FileType, get_slice_size
+from . import FileType, tools
 
 import numpy
 from glob import glob
 import os
-import dask.array as da
 
 class FileStack(FileType):
     """
@@ -14,6 +13,10 @@ class FileStack(FileType):
     plugin_name = "FileStack"
     
     def __init__(self, path, filetype, **kwargs):
+
+        # check that filetype is subclass of FileType
+        if not issubclass(filetype, FileType):
+            raise ValueError("the stack of `filetype` objects must be subclasses of `FileType`")
 
         # save the list of relevant files
         if isinstance(path, list):
@@ -75,38 +78,12 @@ class FileStack(FileType):
         return stack
         
     @property
-    def cumsizes(self):
-        """
-        Cumulative size counts across all files
-        """
-        try:
-            return self._cumsizes
-        except AttributeError:
-            self._cumsizes = numpy.zeros(self.nfiles+1, dtype=self.sizes.dtype)
-            self._cumsizes[1:] = self.sizes.cumsum()
-            return self._cumsizes
-        
-    @property
     def nfiles(self):
         """
         The number of files in the FileStack
         """
         return len(self.files)
-
-    def _file_range(self, start, stop):
-        """
-        Convert global to local indices
-        """
-        fnums = numpy.searchsorted(self.cumsizes[1:], [start, stop])
-        return list(range(fnums[0], fnums[1]+1))
-        
-    def _normalized_slice(self, start, stop, fnum):
-        """
-        Convert global to local indices
-        """
-        start_size = self.cumsizes[fnum] 
-        return (max(start-start_size, 0), min(stop-start_size, self.sizes[fnum]))
-        
+                
     def read(self, columns, start, stop, step=1):
         """
         Read the specified column(s) over the given range,
@@ -118,10 +95,10 @@ class FileStack(FileType):
         if isinstance(columns, string_types): columns = [columns]
 
         toret = []
-        for fnum in self._file_range(start, stop):
+        for fnum in tools.get_file_slice(self.sizes, start, stop):
 
             # the local slice
-            sl = self._normalized_slice(start, stop, fnum)
+            sl = tools.global_to_local_slice(self.sizes, start, stop, fnum)
 
             # read this chunk
             toret.append(self.files[fnum].read(columns, sl[0], sl[1], step=1))
@@ -129,9 +106,3 @@ class FileStack(FileType):
         self.logger.debug("Reading column %s [%d:%d] from file %s" % (columns, sl[0], sl[1], self))
 
         return numpy.concatenate(toret, axis=0)[::step]
-
-    def get_dask(self, column):
-        return da.from_array(self[column], chunks=100000)
-
-    def __contains__(self, key):
-        return key in self.dtype
