@@ -6,15 +6,14 @@ import numpy
 
 from . import FileType
 from ..extern.six import string_types
-import os
 
 class BigFile(FileType):
     """
     A file object to handle the reading of columns of data from 
-    a bigfile file. bigfile is the default format of FastPM and MP-Gadget.
-
-       https://github.com/rainwoodman/bigfile
-
+    a ``bigfile`` file. ``bigfile`` is the default format of 
+    FastPM and MP-Gadget.
+    
+    https://github.com/rainwoodman/bigfile
     """
     plugin_name = "FileType.BigFile"
 
@@ -35,25 +34,27 @@ class BigFile(FileType):
 
         ds = bigfile.BigData(self.file[self.root], columns)
 
-        # set the data type
+        # set the data type and size
         self.dtype = ds.dtype
         self.size = ds.size
+        
         # XXX: important to hold the header block open
         # since attrs probably doesn't hold a reference (I believe).
         self.header = self.file[header]
+        
+        # store the attributes
         self.attrs = {}
         attrs = self.header.attrs
-
         for k in attrs.keys():
             self.attrs[k] = attrs[k]
 
     @classmethod
     def fill_schema(cls):
         s = cls.schema
-        s.description = "a binary file reader"
+        s.description = "A class to read columns of data stored in the `bigfile` format"
 
         s.add_argument("path", type=str, 
-            help='the name of the binary file to load')
+            help='the name of the file to load')
         s.add_argument("exclude", type=str, nargs="+",
             help='columns to exclude')
         s.add_argument("header", type=str,
