@@ -1,3 +1,4 @@
+import traceback
 from collections import namedtuple, OrderedDict
 from ..extern.six import string_types
 
@@ -147,7 +148,7 @@ class ConstructorSchema(OrderedDict):
             try:
                 return _cast(cast)
             except Exception as e:
-                exceptions.append(str(e))
+                exceptions.append(str(e) + traceback.format_exc())
 
         # if we get here, no casts worked
         msg = "\n".join("\t%d) %s" %(i+1,e) for i,e in enumerate(exceptions))

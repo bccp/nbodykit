@@ -33,7 +33,8 @@ def split_ranks(N_ranks, N, include_all=False):
     else:
         for i in range(total//N):
             yield i, available[i*N:(i+1)*N]
-    
+
+        i = total // N
         if extra_ranks and extra_ranks >= N//2:
             remove = extra_ranks % 2 # make it an even number
             ranks = available[-extra_ranks:]

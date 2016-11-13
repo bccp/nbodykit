@@ -331,41 +331,36 @@ class BatchAlgorithmDriver(object):
             a tuple of values representing this task value
         """
         # if you are the pool's root, write out the temporary parameter file
-        this_config = None
         if self.workers.subcomm.rank == 0:
                 
-            # initialize a temporary file
-            with tempfile.NamedTemporaryFile(delete=False) as ff:
+            # key/values for this task 
+            if len(self.task_dims) == 1:
+                possible_kwargs = {self.task_dims[0] : task}
+            else:
+                possible_kwargs = dict(zip(self.task_dims, task))
                 
-                this_config = ff.name
-                logger.debug("creating temporary file: %s" %this_config)
-                
-                # key/values for this task 
-                if len(self.task_dims) == 1:
-                    possible_kwargs = {self.task_dims[0] : task}
-                else:
-                    possible_kwargs = dict(zip(self.task_dims, task))
+            # any extra key/value pairs for this tasks
+            if self.extras is not None:
+                for k in self.extras:
+                    possible_kwargs[k] = self.extras[k][itask]
                     
-                # any extra key/value pairs for this tasks
-                if self.extras is not None:
-                    for k in self.extras:
-                        possible_kwargs[k] = self.extras[k][itask]
-                        
-                # use custom formatter that only formats the possible keys, ignoring other
-                # occurences of curly brackets
-                formatter = Formatter()
-                formatter.parse = lambda l: SafeStringParse(formatter, l, list(possible_kwargs))
-                kwargs = [kw for _, kw, _, _ in formatter.parse(self.template) if kw]
-                        
-                # do the string formatting if the key is present in template
-                valid = {k:possible_kwargs[k] for k in possible_kwargs if k in kwargs}
-                ff.write(formatter.format(self.template, **valid).encode())
-        
-        # bcast the file name to all in the worker pool
-        this_config = self.workers.subcomm.bcast(this_config, root=0)
+            # use custom formatter that only formats the possible keys, ignoring other
+            # occurences of curly brackets
+            formatter = Formatter()
+            formatter.parse = lambda l: SafeStringParse(formatter, l, list(possible_kwargs))
+            kwargs = [kw for _, kw, _, _ in formatter.parse(self.template) if kw]
+                    
+            # do the string formatting if the key is present in template
+            valid = {k:possible_kwargs[k] for k in possible_kwargs if k in kwargs}
+            config_stream = formatter.format(self.template, **valid)
+        else:
+            config_stream = None
+
+        # bcast the file stream to all in the worker pool
+        config_stream = self.workers.subcomm.bcast(config_stream, root=0)
 
         # configuration file passed via -c
-        params, extra = ReadConfigFile(open(this_config, 'r').read(), self.algorithm_class.schema)
+        params, extra = ReadConfigFile(config_stream, self.algorithm_class.schema)
         
         # output is required
         output = getattr(extra, 'output', None)
@@ -376,12 +371,6 @@ class BatchAlgorithmDriver(object):
         alg = self.algorithm_class(**vars(params))
         result = alg.run()
         alg.save(output, result)
-
-        # remove temporary files
-        if self.workers.subcomm.rank == 0:
-            if os.path.exists(this_config): 
-                logger.debug("removing temporary file: %s" %this_config)
-                os.remove(this_config)
                 
         return 0
 

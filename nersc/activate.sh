@@ -29,7 +29,15 @@ NBKITROOT=`dirname ${_SCRIPT_LOCATION}`
 NBKITROOT=`readlink -f $NBKITROOT`
 
 # load default python
-module load python/2.7-anaconda
+case "$LOADEDMODULES" in
+    *python* )
+        # python is loaded
+    ;;
+
+    * )
+        module load python/3.5-anaconda
+    ;;
+esac;
 
 # activate python-mpi-bcast
 source /usr/common/contrib/bccp/python-mpi-bcast/nersc/activate.sh

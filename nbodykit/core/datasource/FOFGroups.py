@@ -30,9 +30,14 @@ class FOFDataSource(DataSource):
         
         BoxSize = numpy.empty(3, dtype='f8')
         if self.comm.rank == 0:
-            dataset = h5py.File(self.path, mode='r')[self.dataset]
-            BoxSize[:] = dataset.attrs['BoxSize']
-            self.logger.info("Boxsize from file is %s" % str(BoxSize))
+            self.logger.info("using %s : %s" % (self.path, self.dataset))
+            try:
+                dataset = h5py.File(self.path, mode='r')[self.dataset]
+                BoxSize[:] = dataset.attrs['BoxSize']
+                self.logger.info("Boxsize from file is %s" % str(BoxSize))
+            except:
+                self.logger.info("Boxsize not set in file")
+                
         BoxSize = self.comm.bcast(BoxSize)
 
         if self.BoxSize is None:
@@ -62,8 +67,7 @@ class FOFDataSource(DataSource):
         dataset = h5py.File(self.path, mode='r')[self.dataset]
         data = dataset[...]
 
-        data2 = numpy.empty(len(data),
-            dtype=[
+        dtype = numpy.dtype([
                 ('Position', ('f4', 3)),
                 ('Velocity', ('f4', 3)),
                 ('Mass', 'f4'),
@@ -71,6 +75,7 @@ class FOFDataSource(DataSource):
                 ('Length', 'i4'),
                 ('Rank', 'i4'),
                 ('LogMass', 'f4')])
+        data2 = numpy.empty(len(data),dtype=dtype)
 
         data2['Mass'] = data['Length'] * self.m0
         data2['Weight'] = 1.0

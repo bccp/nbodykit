@@ -146,6 +146,7 @@ class RaDecRedshiftDataSource(DataSource):
             dtype += [('Weight', 'f4')]
         if self.nbar_col is not None:
             dtype += [('Nbar', 'f4')]
+        dtype = numpy.dtype(dtype)
         new = numpy.empty(len(data), dtype=dtype)
 
         # rescale the angles

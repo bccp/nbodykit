@@ -1,3 +1,4 @@
+import traceback
 import inspect
 import functools
 
@@ -79,7 +80,7 @@ def validate__init__(init):
             args = (self.__class__.__name__,)
             msg = '\n' + '-'*75 + '\n'
             msg += "error initializing __init__ for '%s':\n" %self.__class__.__name__
-            msg += "\t%-25s: '%s'\n" %("original error message", str(e))
+            msg += "\t%-25s: '%s'\n %s \n" %("original error message", str(e), traceback.format_exc())
             if len(errmsg): msg += "%s\n" %errmsg
             msg += '-'*75 + '\n'
             e.args = (msg, )

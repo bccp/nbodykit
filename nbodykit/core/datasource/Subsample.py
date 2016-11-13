@@ -54,11 +54,11 @@ class SubsampleDataSource(DataSource):
         dataset = h5py.File(self.path, mode='r')[self.dataset]
         data = dataset[...]
 
-        data2 = numpy.empty(len(data),
-            dtype=[
+        dtype = numpy.dtype([
                 ('Position', ('f4', 3)),
                 ('Velocity', ('f4', 3))
                 ])
+        data2 = numpy.empty(len(data),dtype=dtype)
 
         data2['Position'] = data['Position'] * self.BoxSize
         data2['Velocity'] = data['Velocity'] * self.BoxSize

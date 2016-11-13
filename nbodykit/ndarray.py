@@ -34,6 +34,9 @@ def extend_dtype(data, extra_dtypes):
         
     dtype += extra_dtypes
 
+    # work around numpy dtype reference counting bugs.
+    dtype = numpy.dtype(dtype)
+
     # add old variables
     new = numpy.zeros(data.shape, dtype=dtype)
     for col in existing_names:
@@ -96,7 +99,12 @@ def equiv_class(labels, values, op, dense_labels=False, identity=None, minlength
     if minlength is None:
         minlength = len(N)
 
-    result = numpy.empty(minlength, dtype=(values.dtype, values.shape[1:]))
+    # work around numpy dtype reference counting bugs
+    # be a simple man and never steal anything.
+
+    dtype = numpy.dtype((values.dtype, values.shape[1:]))
+
+    result = numpy.empty(minlength, dtype=dtype)
     result[:len(N)] = op.reduceat(values[arg], offsets)
 
     if (N == 0).any():

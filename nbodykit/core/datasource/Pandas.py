@@ -114,13 +114,27 @@ class PandasDataSource(DataSource):
             
         # objects read initially
         nobj = len(data)
-
-        # copy the data
+        
+        # new data types to add
         new_dtypes = [('Position', ('f4', len(self.poscols)))]
         if self.velcols is not None or self.rsd is not None:
             new_dtypes += [('Velocity', ('f4', len(self.velcols)))]
-        toret = extend_dtype(data.to_records(), new_dtypes)
-                    
+            
+        # convert any "object" fields to Unicode strings
+        dtype = [(col, data.dtypes[col]) for col in data.columns]
+        for i, (col, dt) in enumerate(dtype):
+            if dt == 'object': 
+                self.logger.warning("converting column '%s' from object type to unicode type" %col)
+                dt = data[col].values.astype('U').dtype
+                dtype[i] = (col, dt)
+        
+        # create the structured array from the DataFrame
+        np_dtype = numpy.dtype(dtype)
+        toret = numpy.empty(len(data), dtype=np_dtype)
+        for i, col in enumerate(data.columns):
+            toret[col] = data[col].values.astype(dtype[i][1])
+        toret = extend_dtype(toret, new_dtypes)
+
         # get position and velocity, if we have it
         pos = data[self.poscols].values.astype('f4')
         pos *= self.posf

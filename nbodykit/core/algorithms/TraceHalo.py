@@ -40,11 +40,12 @@ class TraceHaloAlgorithm(Algorithm):
         mpsort.sort(label, orderby=ID, comm=self.comm)
         del ID
 
-        data = numpy.empty(len(label), dtype=[
+        dtype = numpy.dtype([
                     ('ID', ('i8')), 
                     ('Position', ('f4', 3)), 
                     ('Velocity', ('f4', 3)), 
                     ])
+        data = numpy.empty(len(label), dtype=dtype)
         with self.dest.open() as dest:
             [[data['Position'][...]]] = dest.read(['Position'], full=True)
             [[data['Velocity'][...]]] = dest.read(['Velocity'], full=True)
@@ -71,12 +72,12 @@ class TraceHaloAlgorithm(Algorithm):
             self.logger.info("N %s" % str(N))
             N[0] = 0
             with h5py.File(output, 'w') as ff:
-                data = numpy.empty(shape=(len(N),), 
-                    dtype=[
+                
+                dtype = numpy.dtype([
                     ('Position', ('f4', 3)),
                     ('Velocity', ('f4', 3)),
                     ('Length', 'i4')])
-                
+                data = numpy.empty(shape=(len(N),), dtype=dtype)
                 data['Position'] = hpos
                 data['Velocity'] = hvel
                 data['Length'] = N
