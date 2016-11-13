@@ -68,7 +68,7 @@ class ZeldovichSimDataSource(DataSource):
         
         # the other imports
         from nbodykit import mockmaker
-        from pmesh.particlemesh import ParticleMesh
+        from pmesh.pm import ParticleMesh
         from astropy.utils.misc import NumpyRNGContext
         
         # initialize the CLASS parameters 
@@ -83,13 +83,13 @@ class ZeldovichSimDataSource(DataSource):
         Plin = classylss.power.LinearPS(cosmo, z=self.redshift)
         
         # the particle mesh for gridding purposes
-        pm = ParticleMesh(self.BoxSize, self.Nmesh, dtype='f4', comm=self.comm)
+        pm = ParticleMesh(BoxSize=self.BoxSize, Nmesh=[self.Nmesh]*3, dtype='f4', comm=self.comm)
         
         # generate initialize fields and Poisson sample with fixed local seed
         with NumpyRNGContext(self.local_seed):
         
             # compute the linear overdensity and displacement fields
-            delta, disp = mockmaker.make_gaussian_fields(pm, Plin, compute_displacement=True)
+            delta, disp = mockmaker.gaussian_real_fields(pm, Plin, compute_displacement=True)
         
             # sample to Poisson points
             f = cosmo.f_z(self.redshift) # growth rate to do RSD in the Zel'dovich approx
