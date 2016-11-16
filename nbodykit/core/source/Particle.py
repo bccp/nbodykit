@@ -4,7 +4,6 @@ from nbodykit.core.source import Painter
 from nbodykit.io.stack import FileStack
 import numpy
 from pmesh import window
-import dask.array as da
 
 class ParticleSource(Source):
     plugin_name = "Source.Particle"
@@ -39,6 +38,9 @@ class ParticleSource(Source):
 
         self.ds = dict([(column, self.cat.get_dask(column)) for column in self.cat.dtype.names])
 
+    def __contains__(self, col):
+        return col in self.columns
+    
     @property
     def columns(self):
         return sorted(set( list(self.cat.dtype.names) + list(self.transform.keys()) ))
@@ -56,16 +58,7 @@ class ParticleSource(Source):
         s.add_argument("args", type=dict, help="the file path to load the data from")
         s.add_argument("transform", type=dict, help="data transformation")
         s.add_argument("attrs", type=dict, help="override attributes from the file")
-
         s.add_argument("painter", type=Painter.from_config, help="painter parameters")
-
-        # XXX for painting needs some refactoring
-        s.add_argument("painter.paintbrush", choices=list(window.methods.keys()), help="paintbrush")
-        s.add_argument("painter.frho", type=str, help="A python expresion for transforming the real space density field. variables: rho. example: 1 + (rho - 1)**2")
-        s.add_argument("painter.fk", type=str, help="A python expresion for transforming the fourier space density field. variables: k, kx, ky, kz. example: exp(-(k * 0.5)**2). applied before frho ")
-        s.add_argument("painter.normalize", type=bool, help="Normalize the field to set mean == 1. Applied before fk.")
-        s.add_argument("painter.setMean", type=float, help="Set the mean. Applied after normalize.")
-        s.add_argument("painter.interlaced", type=bool, help="interlaced.")
 
     def read(self, columns):
         
