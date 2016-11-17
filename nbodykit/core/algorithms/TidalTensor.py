@@ -39,7 +39,7 @@ class TidalTensor(Algorithm):
         k2 = 0
         for ki in k:
             ki2 = ki ** 2
-            complex *= numpy.exp(-0.5 * ki2 * self.smoothing ** 2)
+            complex[:] *= numpy.exp(-0.5 * ki2 * self.smoothing ** 2)
 
     def NormalizeDC(self, pm, complex):
         """ removes the DC amplitude. This effectively
@@ -65,17 +65,15 @@ class TidalTensor(Algorithm):
     def TidalTensor(self, u, v):
         # k_u k_v / k **2
         def TidalTensor(pm, complex):
-            k = pm.k
-
-            for row in range(complex.shape[0]):
-                k2 = k[0][row] ** 2
-                for ki in k[1:]:
-                    k2 = k2 + ki[0] ** 2
+            # iterate over slabs
+            for kk, slab in zip(complex.slabs.x, complex.slabs):
+            
+                k2 = kk[0]**2 + kk[1]**2 + kk[2]**2
                 k2[k2 == 0] = numpy.inf
-                complex[row] /= k2
-
-            complex *= k[u]
-            complex *= k[v]
+                slab[:] /= k2
+                
+                slab[:] *= kk[u]
+                slab[:] *= kk[v]
 
         return TidalTensor
 
@@ -84,26 +82,31 @@ class TidalTensor(Algorithm):
         Run the TidalTensor Algorithm
         """
         from itertools import product
-         
+        
+        # determine smoothing
         if self.smoothing is None:
             self.smoothing = self.field.BoxSize[0] / self.Nmesh
         elif (self.field.BoxSize / self.Nmesh > self.smoothing).any():
             raise ValueError("smoothing is too small")
-     
+            
+        # paint the field and FFT
         painter = Painter.create("DefaultPainter", weight="Mass", paintbrush="cic")
         real, stats = painter.paint(self.pm, self.field)
         complex = real.r2c()
 
+        # apply transfers
         for t in [self.Smoothing, self.NormalizeDC]:
             t(complex.pm, complex)
 
+        # read the points
         with self.points.open() as stream:
-            [[Position ]] = stream.read(['Position'], full=True)
+            [[Position]] = stream.read(['Position'], full=True)
 
         layout = self.pm.decompose(Position)
         pos1 = layout.exchange(Position)
         value = numpy.empty((3, 3, len(Position)))
 
+        # do tidal tensor calculation
         for u, v in product(range(3), range(3)):
             if self.comm.rank == 0:
                 self.logger.info("Working on tensor element (%d, %d)" % (u, v))
