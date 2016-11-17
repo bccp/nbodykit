@@ -186,8 +186,8 @@ def lognormal_transform(density, bias=1.):
         the real field holding the transformed density field
     """
     toret = density.copy()
-    toret[:] = numpy.exp(bias * density)
-    toret /= toret.mean()
+    toret[:] = numpy.exp(bias * density.value)
+    toret[:] /= numpy.mean(toret)
     return toret
     
     
