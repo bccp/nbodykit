@@ -89,7 +89,7 @@ class PaintGridAlgorithm(Algorithm):
 
         # reuses the memory
         result.sort(out=result)
-        result = result.ravel()
+        result = result.value.ravel()
 
         # return all the necessary results
         return result, stats
