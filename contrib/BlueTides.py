@@ -1,4 +1,4 @@
-from nbodykit.extensionpoints import DataSource
+from nbodykit.core import DataSource
 from nbodykit.utils import selectionlanguage
 import numpy
 import bigfile
@@ -12,24 +12,30 @@ def ptypes_type(value):
 class BlueTidesDataSource(DataSource):
     plugin_name = "BlueTides"
     
-    def __init__(self, path, BoxSize, ptypes=None, load=[], 
+    def __init__(self, path, boxsize, ptypes=["0", "1", "4", "5"], load=[], 
                     subsample=False, bunchsize=4*1024*1024, select=None):
-        pass
-    
+        self.path = path
+        self.BoxSize = boxsize
+        self.ptypes = ptypes
+        self.load = load
+        self.subsample = subsample
+        self.bunchsize = bunchsize
+        self.select = select
+
     @classmethod
-    def register(cls):
+    def fill_schema(cls):
         
         s = cls.schema
         s.description = "read from the BlueTides simulation"
         
         s.add_argument("path", help="path to file")
-        s.add_argument("BoxSize", type=cls.BoxSizeParser,
+        s.add_argument("boxsize", type=cls.BoxSizeParser,
             help="the size of the isotropic box, or the sizes of the 3 box dimensions")
         s.add_argument("ptypes", type=ptypes_type, help="type of particle to read")
         s.add_argument("load", type=list, help="extra columns to load")
         s.add_argument("subsample", type=bool, help="this is a subsample file")
         s.add_argument("bunchsize", type=int, help="number of particle to read in a bunch")
-        s.add_argument("-select", type=selectionlanguage.Query,
+        s.add_argument("select", type=selectionlanguage.Query,
             help='row selection e.g. Mass > 1e3 and Mass < 1e5')
     
     def parallel_read(self, columns, full=False):
@@ -37,7 +43,7 @@ class BlueTidesDataSource(DataSource):
         f = bigfile.BigFile(self.path)
         header = f['header']
         boxsize = header.attrs['BoxSize'][0]
-
+        
         ptypes = self.ptypes
         readcolumns = []
         for column in columns:
@@ -87,7 +93,6 @@ class BlueTidesDataSource(DataSource):
                 if self.subsample:
                     if ptype in ("0", "1"):
                         read_column = read_column + '.sample'
-
                 if ptype == 'FOFGroups':
                     if column == 'Position':
                         read_column = 'MassCenterPosition'

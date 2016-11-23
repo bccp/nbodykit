@@ -87,38 +87,33 @@ class LeftCompOperand(CompOperand):
         array_like : 
             the specific column of the input data
         """
+        
+        # first try to get the data to return
         try:
-            
-            # first try to get the data to return
-            try:
-                toret = data[self.column_name]
-            except Exception as e:
-                args = (self.column_name, str(e))
-                raise SelectionError("cannot access column '%s' in input data array (%s)" %args)
-             
-            # now try to slice
-            if self.index is not None:
-                
-                # data should be multidimensional
-                if numpy.ndim(toret) == 1:
-                    raise SelectionError("array indexing should be used on multi-dimensional data columns")
-                    
-                # try to eval the index string
-                try:
-                    toret = eval("toret%s" %self.index, {'toret': toret})
-                except Exception as e:
-                    args = (self.index, str(e))
-                    raise SelectionError("cannot slice data using index '%s' (%s)" %args)
-
-            # check the dimension -- must be unity
-            if numpy.ndim(toret) != 1 or numpy.shape(data) != numpy.shape(toret):
-                raise SelectionError("shape mismatch between selection index and input data; maybe an indexing error?")
-
-            
+            toret = data[self.column_name]
         except Exception as e:
-            msg = "failure to access column data for left hand side of selection query\n" + "-"*80 + "\n"
-            raise SelectionError(msg + "original exception: %s" %str(e))
+            args = (self.column_name, str(e))
+            raise SelectionError("Left access : cannot access column '%s' in input data array (%s)" %args)
+         
+        # now try to slice
+        if self.index is not None:
+            # data should be multidimensional
+            if numpy.ndim(toret) == 1:
+                raise SelectionError("Left access : array indexing should be used on multi-dimensional data columns")
+                
+            # try to eval the index string
+            try:
+                toret = eval("toret%s" %self.index, {'toret': toret})
+            except Exception as e:
+                args = (self.index, str(e))
+                raise SelectionError("Left access cannot slice data using index '%s' (%s)" %args)
 
+        # check the dimension -- must be unity
+        if numpy.ndim(toret) != 1:
+            raise SelectionError("Left access : result is not 1-dimensional")
+        if hasattr(data, 'shape') and \
+            data.shape[0] != toret.size:
+            raise SelectionError("Left access : length mismatch between selection index and input data; maybe an indexing error?")
 
         # call the function, if it was passed
         if self.function is not None:
