@@ -1,0 +1,24 @@
+cosmo: {Om0: 0.26, flat: True}
+
+source:
+    plugin: Source.Particle
+
+    path: ${NBKIT_CACHE}/data/fastpm_1.0000
+    filetype: FileType.BigFile
+
+    args :
+        header : 'header'
+
+    transform :
+        Position : ds['Position'] # * attrs['BoxSize']
+        RSDPosition : (ds['Position'] + attrs['RSDFactor'] * ds['Velocity'] * [0, 0, 1]) # * attrs['BoxSize']
+        Velocity : ds['Velocity']
+
+    painter :
+        paintbrush : lanczos2
+columns:
+    - Velocity
+    - Position
+    - RSDPosition
+
+output: "-"

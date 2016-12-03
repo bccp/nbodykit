@@ -125,3 +125,4 @@ class PaintGridAlgorithm(Algorithm):
         b.attrs['paintNmesh'] = self.paintNmesh
         b.attrs['paintbrush'] = self.painter.paintbrush
         b.attrs['Ntot'] = stats['Ntot']
+
