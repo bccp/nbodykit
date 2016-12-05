@@ -1,12 +1,18 @@
 from mpi4py_test import MPIWorld
+
 from nbodykit.lab import *
+
+from nbodykit import setup_logging
+
+# debug logging
+
+setup_logging("debug")
 
 @MPIWorld(NTask=[1, 4])
 def test_fftpower(comm):
-    cosmo = cosmology.default_cosmology.get()
+    cosmo = cosmology.Planck15
 
-    # debug logging
-    setup_logging(logging.DEBUG)
+    CurrentMPIComm.set(comm)
 
     # zeldovich particles
     source = Source.ZeldovichParticles(comm, cosmo, nbar=3e-4, redshift=0.55, BoxSize=1380., Nmesh=8, rsd='z', seed=42)
@@ -19,14 +25,13 @@ def test_fftpower(comm):
     output = "./test_zeldovich.pickle"
     result = alg.save(output, edges=edges, pkmu=pkmu, poles=poles)
 
-
 @MPIWorld(NTask=[2, 4], required=[2, 4])
 def test_taskmanager(comm):
-    # debug logging
-    setup_logging(logging.DEBUG)
 
     # cosmology
-    cosmo = cosmology.default_cosmology.get()
+    cosmo = cosmology.Planck15 
+
+    CurrentMPIComm.set(comm)
 
     cpus_per_task = 2
 
