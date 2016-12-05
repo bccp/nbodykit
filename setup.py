@@ -6,8 +6,6 @@ import re
 import sys
 import warnings
 
-
-
 def read(*parts):
     # intentionally *not* adding an encoding option to open, See:
     #   https://github.com/pypa/virtualenv/issues/201#issuecomment-3145690
@@ -31,11 +29,8 @@ setup(name="nbodykit",
       url="http://github.com/bccp/nbodykit",
       zip_safe=False,
       package_dir = {'nbodykit': 'nbodykit'},
-      package_data = {'nbodykit': list(glob('nbodykit/plugins/*/*.py'))},
-      include_package_data=True,
       packages = find_packages(),
       install_requires=['numpy'],
-      requires=['sharedmem', 'pmesh', 'pfft', 'kdcount', 'mpsort', 'scipy', 'bigfile'],
-      scripts=['bin/nbkit.py', 'bin/nbkit-batch.py'],
+      requires=['sharedmem', 'pmesh', 'pfft', 'kdcount', 'mpsort', 'scipy', 'bigfile']
 )
 
