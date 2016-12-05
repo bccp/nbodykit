@@ -2,6 +2,8 @@ import os
 import numpy
 import logging
 
+from nbodykit import CurrentMPIComm
+
 class FFTPower(object):
     """
     Algorithm to compute the 1d or 2d power spectrum and/or multipoles
@@ -43,7 +45,8 @@ class FFTPower(object):
     """
     logger = logging.getLogger('FFTPower')
     
-    def __init__(self, comm, first, mode, Nmesh, second=None, los='z', Nmu=5, dk=None, kmin=0., poles=[]):
+    @CurrentMPIComm.enable
+    def __init__(self, first, mode, Nmesh, second=None, los='z', Nmu=5, dk=None, kmin=0., poles=[], comm=None):
         """
         Parameters
         ----------

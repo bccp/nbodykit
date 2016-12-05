@@ -1,14 +1,15 @@
 from nbodykit.io.stack import FileStack
 from nbodykit.base.particles import ParticleSource
 from nbodykit.base.painter import Painter
-
+from nbodykit import CurrentMPIComm
 import numpy
 
 class ParticlesFromNumpy(ParticleSource):
     """
     A source of particles from numpy array
     """
-    def __init__(self, comm, data, **kwargs):
+    @CurrentMPIComm.enable
+    def __init__(self, data, comm=None, **kwargs):
         """
         Parameters
         ----------

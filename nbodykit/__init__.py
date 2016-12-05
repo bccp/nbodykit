@@ -8,6 +8,17 @@ class CurrentMPIComm(object):
     """
     _instance = None
 
+    @staticmethod
+    def enable(func):
+        import functools
+        functools.wraps(func)
+        def wrapped(*args, **kwargs):
+            kwargs.setdefault('comm', None)
+            if kwargs['comm'] is None:
+                kwargs['comm'] = CurrentMPIComm.get()
+            return func(*args, **kwargs)
+        return wrapped
+
     @classmethod
     def get(cls):
         """

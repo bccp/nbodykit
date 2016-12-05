@@ -15,17 +15,17 @@ def test_fftpower(comm):
     CurrentMPIComm.set(comm)
 
     # zeldovich particles
-    source = Source.ZeldovichParticles(comm, cosmo, nbar=3e-4, redshift=0.55, BoxSize=1380., Nmesh=8, rsd='z', seed=42)
+    source = Source.ZeldovichParticles(cosmo, nbar=3e-4, redshift=0.55, BoxSize=1380., Nmesh=8, rsd='z', seed=42)
 
     # compute P(k,mu) and multipoles
-    alg = algorithms.FFTPower(comm, source, mode='2d', Nmesh=8, poles=[0,2,4])
+    alg = algorithms.FFTPower(source, mode='2d', Nmesh=8, poles=[0,2,4])
     edges, pkmu, poles = alg.run()
 
     # and save
     output = "./test_zeldovich.pickle"
     result = alg.save(output, edges=edges, pkmu=pkmu, poles=poles)
 
-@MPIWorld(NTask=[2, 4], required=[2, 4])
+@MPIWorld(NTask=[3], required=[3])
 def test_taskmanager(comm):
 
     # cosmology
@@ -40,10 +40,10 @@ def test_taskmanager(comm):
         for seed in tm.iterate([0, 1, 2]):
 
             # zeldovich particles
-            source = Source.ZeldovichParticles(tm.comm, cosmo, nbar=3e-4, redshift=0.55, BoxSize=1380., Nmesh=8, rsd='z', seed=seed)
+            source = Source.ZeldovichParticles(cosmo, nbar=3e-4, redshift=0.55, BoxSize=1380., Nmesh=8, rsd='z', seed=seed, comm=tm.comm)
 
             # compute P(k,mu) and multipoles
-            alg = algorithms.FFTPower(tm.comm, source, mode='2d', Nmesh=8, poles=[0,2,4])
+            alg = algorithms.FFTPower(source, mode='2d', Nmesh=8, poles=[0,2,4], comm=tm.comm)
             edges, pkmu, poles = alg.run()
 
             # and save

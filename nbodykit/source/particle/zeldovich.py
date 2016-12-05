@@ -2,13 +2,16 @@ from nbodykit.io.stack import FileStack
 from nbodykit.base.particles import ParticleSource
 from nbodykit.base.painter import Painter
 
+from nbodykit import CurrentMPIComm
+
 import numpy
 
 class ZeldovichParticles(ParticleSource):
     """
     A source of particles Poisson-sampled from density fields in the Zel'dovich approximation
     """
-    def __init__(self, comm, cosmo, nbar, redshift, BoxSize, Nmesh, bias=2., rsd=None, seed=None):
+    @CurrentMPIComm.enable
+    def __init__(self, cosmo, nbar, redshift, BoxSize, Nmesh, bias=2., rsd=None, seed=None, comm=None):
         
         # communicator and cosmology
         self.comm    = comm
