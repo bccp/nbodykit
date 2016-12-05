@@ -3,6 +3,7 @@ import traceback
 import logging
 import numpy
 from mpi4py import MPI
+from nbodykit import CurrentMPIComm
 
 def split_ranks(N_ranks, N, include_all=False):
     """
@@ -63,6 +64,7 @@ class TaskManager(object):
     """
     logger = logging.getLogger('TaskManager')
     
+    @CurrentMPIComm.enable
     def __init__(self, cpus_per_task, 
                        comm=None, 
                        debug=False, 
@@ -142,7 +144,9 @@ class TaskManager(object):
         
         # split the comm between the workers
         self.comm = self.basecomm.Split(color, 0)
-        
+        self.original_comm = CurrentMPIComm.get()
+        CurrentMPIComm.set(self.comm)
+
         return self
                            
     def is_master(self):
@@ -281,6 +285,8 @@ class TaskManager(object):
         
         if self.is_master():
             self.logger.info("master is finished; terminating")
+
+        CurrentMPIComm.set(self.original_comm)
         
         if self.comm is not None:
             self.comm.Free()
