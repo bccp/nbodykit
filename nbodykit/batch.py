@@ -116,14 +116,16 @@ class TaskManager(object):
         chain_ranks = []
         color = 0
         total_ranks = 0
-        
+        nworkers = 0
+
         # split the ranks
         for i, ranks in split_ranks(self.size, self.cpus_per_task, include_all=self.use_all_cpus):
             chain_ranks.append(ranks[0])
             if self.rank in ranks: color = i+1
             total_ranks += len(ranks)
-        
-        self.workers = i+1 # store the total number of workers
+            nworkers = nworkers + 1
+        self.workers = nworkers # store the total number of workers
+
         leftover = (self.size - 1) - total_ranks
         if leftover and self.rank == 0:
             args = (self.cpus_per_task, self.size-1, leftover)
