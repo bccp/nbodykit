@@ -3,8 +3,10 @@ import numpy
 import logging
 
 from nbodykit import CurrentMPIComm
+from nbodykit.base.algorithm import Algorithm
 
-class FFTPower(object):
+# touch the file
+class FFTPower(Algorithm):
     """
     Algorithm to compute the 1d or 2d power spectrum and/or multipoles
     in a periodic box, using a Fast Fourier Transform (FFT)
@@ -104,17 +106,8 @@ class FFTPower(object):
         self.pm = ParticleMesh(BoxSize=self.fields[0].BoxSize, Nmesh=[self.attrs['Nmesh']]*3,
                                 dtype='f4', comm=self.comm)
 
-    @property
-    def attrs(self):
-        """
-        Dictionary storing relevant meta-data
-        """
-        try:
-            return self._attrs
-        except AttributeError:
-            self._attrs = {}
-            return self._attrs
-            
+        Algorithm.__init__(self, comm)
+
     @property
     def transfers(self):
         """
@@ -148,7 +141,7 @@ class FFTPower(object):
         Set the transfer functions applied to the Fourier-space field
         """
         self._transfers = transfers
-    
+
     def run(self):
         """
         Run the algorithm, which computes and returns the power spectrum
@@ -208,29 +201,10 @@ class FFTPower(object):
             poles = numpy.empty(result[0].shape, dtype=dtype)
             for icol, col in enumerate(cols):
                 poles[col][:] = result[icol]
-    
-        # return all the necessary results
-        return edges, power, poles
 
-    def save(self, output, **results):
-        """
-        Save the power spectrum results to the specified output file
+        # set all the necessary results
 
-        Parameters
-        ----------
-        output : str
-            the string specifying the file to save
-        data : array_like
-            the tuple returned by `run()` -- first argument specifies the bin
-            edges and the second is a dictionary holding the data results
-        """
-        # only the master rank writes
-        if self.comm.rank == 0:
-            import pickle
-            
-            self.logger.info('measurement done; saving result to %s' %output)
-            if 'attrs'not in results:
-                results['attrs'] = self.attrs
-            
-            with open(output, 'wb') as ff:
-                pickle.dump(results, ff) 
+        self.results.edges = edges
+        self.results.power = power
+        self.results.poles = poles
+
