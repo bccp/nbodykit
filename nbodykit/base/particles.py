@@ -14,6 +14,21 @@ class ParticleSource(object):
     """
     logger = logging.getLogger('ParticleSource')
 
+    # called by the subclasses
+    def __init__(self, comm):
+        # ensure self.comm is set, though usually already set by the child.
+
+        self.comm = comm
+
+        # set the collective size
+        self._csize = self.comm.allreduce(self.size)
+
+        self.logger.debug("local number of particles = %d" % self.size)
+
+        if self.comm.rank == 0:
+            self.logger.info("total number of particles = %d" % self.csize)
+            self.logger.info("attrs = %s" % self.attrs)
+
     @staticmethod
     def compute(*args, **kwargs):
         """
@@ -124,19 +139,27 @@ class ParticleSource(object):
             self._attrs = {}
             return self._attrs
 
-    @abc.abstractproperty
+    @property
     def columns(self):
         """
-        The names of the data fields defined for each particle
+        The names of the data fields defined for each particle, including transformed columns
+        """
+        return sorted(set(list(self.hcolumns) + list(self.transform)))
+
+    @abc.abstractproperty
+    def hcolumns(self):
+        """
+        The names of the hard data fields defined for each particle.
+        hard means it is not a transformed field.
         """
         return []
         
-    @abc.abstractproperty
+    @property
     def csize(self):
         """
         The collective size of the source, i.e., summed across all ranks
         """
-        return 0
+        return self._csize
 
     @abc.abstractproperty
     def size(self):
@@ -153,24 +176,29 @@ class ParticleSource(object):
         
         Columns are returned as dask arrays
         """
-        pass
-    
-    @abc.abstractmethod
+        if col in self.transform:
+            return self.transform[col](self)
+        else:
+            raise KeyError("column `%s` is not a valid column name" %col)
+
     def read(self, columns):
         """
-        Return the requested data columns for the particles 
-        in the source
+        Return the requested columns as dask arrays
         
-        This can return either dask arrays or regular numpy
-        arrays
+        Currently, this returns a dask array holding the total amount
+        of data for each rank, divided equally amongst the available ranks
         """
-        return []
+        return [self[col] for col in columns]
 
-    @abc.abstractmethod
     def paint(self, pm):
         """
         paint : (verb) 
             interpolate the `Position` column to the particle mesh
             specified by ``pm``
         """
-        pass
+
+        # paint and apply any transformations to the real field
+        real = self.painter(self, pm)
+        self.painter.transform(self, real)
+
+        return real

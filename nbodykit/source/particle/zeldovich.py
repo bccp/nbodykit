@@ -25,41 +25,31 @@ class ZeldovichParticles(ParticleSource):
         self.attrs['bias']     = bias
         self.attrs['rsd']      = rsd
         self.attrs['seed']     = seed
-        
-        if self.comm.rank == 0:
-            self.logger.info("attrs = %s" % self.attrs)
-            
-        # generate the data and set the collective size
-        self._csize = self.comm.allreduce(len(self._source))
-            
+
+        ParticleSource.__init__(self, comm)
+
     def __getitem__(self, col):
         """
         Return a column from the underlying file source
         
         Columns are returned as dask arrays
         """
-        if col in self.transform:
-            return self.transform[col](self)
-        elif col in self._source.dtype.names:
+        if col in self._source.dtype.names:
             import dask.array as da
             return da.from_array(self._source[col], chunks=100000)
-        else:
-            raise KeyError("column `%s` is not a valid column name" %col)
-        
+
+        return ParticleSource.__getitem__(self, col)
+
     @property
     def size(self):
         return len(self._source)
-        
+
     @property
-    def csize(self):
-        return self._csize
-        
-    @property
-    def columns(self):
+    def hcolumns(self):
         """
         The union of the columns in the file and any transformed columns
         """
-        return sorted(set(list(self._source.dtype.names) + list(self.transform)))
+        return list(self._source.dtype.names)
 
     @property
     def _source(self):
@@ -104,32 +94,7 @@ class ZeldovichParticles(ParticleSource):
                 kws = {'rsd':self.attrs['rsd'], 'f':f, 'bias':self.attrs['bias']}
                 pos = mockmaker.poisson_sample_to_points(delta, disp, pm, self.attrs['nbar'], **kws)
             
-            # logging
-            self.logger.debug("local number of Zeldovich particles = %d" %len(pos))
-            size = self.comm.allreduce(len(pos))
-            if self.comm.rank == 0:
-                self.logger.info("total number of Zeldovich particles = %d" %size)
-            
             dtype = numpy.dtype([('Position', (pos.dtype.str,3))])
             self._pos = numpy.empty(len(pos), dtype=dtype)
             self._pos['Position'][:] = pos[:]
             return self._pos
-    
-    def read(self, columns):
-        """
-        Return the requested columns as dask arrays
-        
-        Currently, this returns a dask array holding the total amount
-        of data for each rank, divided equally amongst the available ranks
-        """
-        return [self[col] for col in columns]
-
-    def paint(self, pm):
-        """
-        Paint to the mesh
-        """
-        # paint and apply any transformations to the real field
-        real = self.painter(self, pm)
-        self.painter.transform(self, real)
-        
-        return real
