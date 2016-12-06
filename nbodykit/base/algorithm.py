@@ -20,7 +20,7 @@ class Result(object):
 
     def save(self, output):
         """
-        Save the power spectrum results to the specified output file
+        Save the results to the specified output file, as a pickle
 
         Parameters
         ----------
