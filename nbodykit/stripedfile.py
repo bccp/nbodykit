@@ -3,7 +3,7 @@ import logging
 
 class StripeFile:
     @classmethod
-    def enum(filetype, basename, args):
+    def enum(filetype, basename, args={}):
         """
         Iterate over all files of the type
         """
