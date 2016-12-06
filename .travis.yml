@@ -1,0 +1,48 @@
+language: python
+python:
+    - 2.7
+    - 3.5
+
+env:
+    - NUMPY_VERSION=1.11
+
+cache:
+    directories:
+        - $HOME/.cache/pip
+        - $HOME/.conda
+
+before_install:
+    - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
+    - chmod +x miniconda.sh
+    - ./miniconda.sh -b -p $HOME/miniconda
+    - export PATH=$HOME/miniconda/bin:$PATH
+    - conda update --yes conda
+# set the c++ and fortran compilers 
+#    - export CXX=g++-4.8 
+#    - export F90=gfortran-4.8
+    - conda install --yes gcc swig>=3.0
+
+install:
+    - conda create --yes -n test python=$TRAVIS_PYTHON_VERSION
+    - source activate test
+    
+    # base python setup
+    - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py
+    - conda install --yes h5py pandas scipy pytables pyyaml astropy numba dask
+    #
+    # test optional HOD data sources
+    # - pip install halotools 
+    #
+    # test optional Zeldovich data source
+    - pip install --no-cache-dir classylss # ignore cache due to binaries
+
+    - pip install .
+
+script:
+    - python runtests.py --mpirun='mpirun -np 4'
+
+#after_success:
+#    - coveralls
+    
+#notifications:
+#  email: false
