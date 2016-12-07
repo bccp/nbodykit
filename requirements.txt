@@ -4,3 +4,4 @@ pfft-python
 kdcount
 mpsort
 bigfile
+git+git://github.com/dask/dask.git@master#egg=dask
