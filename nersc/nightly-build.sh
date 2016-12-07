@@ -124,6 +124,10 @@ for version in "${versions[@]}"; do
     reqs="https://raw.githubusercontent.com/bccp/nbodykit/master/requirements.txt"
     pip_install="pip install -U --no-deps --install-option=--prefix=$tmpdir/build -r $reqs"
     update_tarball "${tarball}" "${pip_install}" || exit 1
+    
+    # add latest dask from master branch (until v0.12 gets tagged)
+    pip_install="pip install -I --no-deps --install-option=--prefix=$tmpdir/build git+git://github.com/dask/dask.git@master"
+    update_tarball "${tarball}" "${pip_install}" || exit 1
 
     # update stable
     tarball=nbodykit-stable.tar.gz
