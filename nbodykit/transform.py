@@ -50,3 +50,7 @@ def SkyToCartesion(ra, dec, redshift, degrees=True, cosmo=None, unit_sphere=Fals
         pos *= r
     
     return pos.T
+
+def PackXYZ(source):
+    return da.vstack([source['x'], source['y'], source['z']]).T
+
