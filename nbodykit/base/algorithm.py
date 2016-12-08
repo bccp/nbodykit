@@ -28,7 +28,7 @@ class Result(object):
             the string specifying the file to save
         """
         # only the master rank writes
-        if self.comm.rank != 0:
+        if self.comm.rank == 0:
             import pickle
 
             self.logger.info('measurement done; saving result to %s' % output)
