@@ -72,6 +72,7 @@ class CSVFile(FileType):
         kws['blocksize'] = self.blocksize
         kws['collection'] = False
         self.partitions = dd.read_csv(self.path, **kws)
+        self.partitions_cache = {}
          
         # size is the sum of the size of each partition
         self._sizes = tools.csv_partition_sizes(self.path, self.blocksize)       
@@ -135,7 +136,13 @@ class CSVFile(FileType):
             sl = tools.global_to_local_slice(self._sizes, start, stop, fnum)
             
             # dataframe to structured array
-            data = (self.partitions[fnum][sl[0]:sl[1]]).compute()
+            if fnum in self.partitions_cache:
+                data = self.partitions_cache[fnum]
+            else:
+                data = self.partitions[fnum].compute()
+                self.partitions_cache[fnum] = data
+
+            data = data[sl[0]:sl[1]]
             data = data[columns]
             toret.append(data.to_records(index=False))
             

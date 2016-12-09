@@ -204,7 +204,7 @@ class FFTPower(Algorithm):
 
         # set all the necessary results
 
-        self.results.edges = edges
-        self.results.power = power
-        self.results.poles = poles
+        self.result.edges = edges
+        self.result.power = power
+        self.result.poles = poles
 

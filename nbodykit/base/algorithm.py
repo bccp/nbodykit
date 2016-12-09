@@ -28,7 +28,7 @@ class Result(object):
             the string specifying the file to save
         """
         # only the master rank writes
-        if self.comm.rank != 0:
+        if self.comm.rank == 0:
             import pickle
 
             self.logger.info('measurement done; saving result to %s' % output)
@@ -49,11 +49,12 @@ class Algorithm(object):
     logger = logging.getLogger('Algorithm')
 
     # called by the subclasses
-    def __init__(self, comm):
+    def __init__(self, comm, result_type=Result):
 
         # ensure self.comm is set, though usually already set by the child.
 
         self.comm = comm
+        self._result = result_type(self)
 
     @property
     def attrs(self):
@@ -67,15 +68,11 @@ class Algorithm(object):
             return self._attrs
 
     @property
-    def results(self):
+    def result(self):
         """
             result of the algorithm
         """
-        try:
-            return self._results
-        except AttributeError:
-            self._results = Result(self)
-            return self._results
+        return self._result
         
     @abc.abstractmethod
     def run(self):
