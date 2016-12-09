@@ -2,18 +2,29 @@ from ..extern.six import string_types
 from . import FileType, tools
 
 import numpy
-from glob import glob
 import os
 
 class FileStack(FileType):
     """
-    A class that offers a continuous view of a stack of 
+    A file object that offers a continuous view of a stack of 
     subclasses of :class:`FileType` instances
-    """
-    plugin_name = "FileStack"
     
+    This allows data to be accessed across multiple files from
+    a single file object
+    """    
     def __init__(self, path, filetype, **kwargs):
-
+        """
+        Parameters
+        ----------
+        path : str
+            list of file names, or string specifying single file or
+            containing a glob-like '*' pattern
+        filetype : FileType subclass
+            the type of file class 
+        **kwargs : 
+            arguments passed to ``filetype`` when initializing each file in 
+            the stack
+        """
         # check that filetype is subclass of FileType
         if not issubclass(filetype, FileType):
             raise ValueError("the stack of `filetype` objects must be subclasses of `FileType`")
@@ -22,8 +33,8 @@ class FileStack(FileType):
         if isinstance(path, list):
             filenames = path
         elif isinstance(path, string_types):
-
             if '*' in path:
+                from glob import glob
                 filenames = list(map(os.path.abspath, sorted(glob(path))))
             else:
                 if not os.path.exists(path):
@@ -41,42 +52,14 @@ class FileStack(FileType):
 
     @property
     def attrs(self):
+        """
+        Dictionary of meta-data for the stack
+        """
         if hasattr(self.files[0], 'attrs'):
             return self.files[0].attrs
         else:
             return {}
-
-    @classmethod
-    def fill_schema(cls):
-        s = cls.schema
-        s.description = "a continuous view of a stack of files"
-        
-        s.add_argument("path", type=str, nargs='*',
-            help='a list of files or a glob-like pattern')
-        s.add_argument("filetype", 
-            help='the file type class')
                     
-    @classmethod
-    def from_files(cls, files, sizes=[]):
-        """
-        Create a FileStack from an existing list of files
-        and optionally a list of the sizes of those files
-        """
-        stack = object.__new__(cls)
-        stack.files = files
-        if len(sizes):
-            if len(sizes) != len(stack.files):
-                raise ValueError("length mismatch: `sizes` should specify the size")
-            stack.sizes = numpy.asarray(sizes, dtype='i8')
-        else:
-            stack.sizes = numpy.array([len(f) for f in stack.files], dtype='i8')
-        
-        # set dtype and size
-        stack.dtype = stack.files[0].dtype
-        stack.size  = stack.sizes.sum()
-        
-        return stack
-        
     @property
     def nfiles(self):
         """
@@ -87,10 +70,23 @@ class FileStack(FileType):
     def read(self, columns, start, stop, step=1):
         """
         Read the specified column(s) over the given range,
-        as a dictionary
+        returning a structured numpy array
 
-        'start' and 'stop' should be between 0 and :attr:`size`,
-        which is the total size of the file (in particles)
+        Parameters
+        ----------
+        columns : str, list of str
+            the name of the column(s) to return
+        start : int
+            the row integer to start reading at
+        stop : int
+            the row integer to stop reading at
+        step : int, optional
+            the step size to use when reading; default is 1
+
+        Returns
+        -------
+        data : array_like
+            a numpy structured array holding the requested data
         """
         if isinstance(columns, string_types): columns = [columns]
 
@@ -104,5 +100,4 @@ class FileStack(FileType):
             toret.append(self.files[fnum].read(columns, sl[0], sl[1], step=1))
 
         self.logger.debug("Reading column %s [%d:%d] from file %s" % (columns, sl[0], sl[1], self))
-
         return numpy.concatenate(toret, axis=0)[::step]

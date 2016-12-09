@@ -213,8 +213,7 @@ class CSVFile(FileType):
 
     def read(self, columns, start, stop, step=1):
         """
-        Read the specified column(s) over the given range,
-        as a dictionary
+        Read the specified column(s) over the given range
 
         'start' and 'stop' should be between 0 and :attr:`size`,
         which is the total size of the file (in particles)
@@ -229,6 +228,12 @@ class CSVFile(FileType):
             the row integer to stop reading at
         step : int, optional
             the step size to use when reading; default is 1
+        
+        Returns
+        -------
+        numpy.array
+            structured array holding the requested columns over
+            the specified range of rows
         """
         if isinstance(columns, string_types): columns = [columns]
         
