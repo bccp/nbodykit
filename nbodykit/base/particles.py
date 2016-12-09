@@ -20,6 +20,9 @@ class ParticleSource(object):
 
         self.comm = comm
 
+        from .painter import Painter
+        self._painter = Painter()
+
         # set the collective size
         self._csize = self.comm.allreduce(self.size)
 
@@ -121,12 +124,7 @@ class ParticleSource(object):
         """
         The painter class
         """
-        try:
-            return self._painter
-        except AttributeError:
-            from .painter import Painter
-            self._painter = Painter()
-            return self._painter
+        return self._painter
     
     @property
     def attrs(self):

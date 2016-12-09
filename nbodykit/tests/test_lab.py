@@ -23,10 +23,35 @@ def test_fftpower(comm):
     alg.run()
 
     # and save
-    output = "./test_zeldovich.pickle"
-    alg.results.save(output)
+    output = "./test_zeldovich-%d.pickle" % comm.size
+    alg.result.save(output)
 
-@MPIWorld(NTask=[2, 3, 4], required=[2, 3, 4])
+@MPIWorld(NTask=[1, 4])
+def test_paint(comm):
+    cosmo = cosmology.Planck15
+
+    CurrentMPIComm.set(comm)
+    from nbodykit.base.painter import Painter
+
+    # zeldovich particles
+    source = Source.ZeldovichParticles(cosmo, nbar=3e-7, redshift=0.55, BoxSize=1380., Nmesh=32, rsd='z', seed=42)
+
+    source.set_painter(
+            Painter(interlaced=True,
+                    paintbrush='tsc',
+                    set_mean=0,
+                    normalize=True))
+
+    # compute P(k,mu) and multipoles
+    alg = algorithms.Paint(source, Nmesh=128)
+
+    alg.run()
+
+    # and save
+    output = "./test_paint-%d.bigfile" % comm.size
+    alg.result.save(output)
+
+@MPIWorld(NTask=[2, 3, 4])
 def test_taskmanager(comm):
 
     # cosmology
@@ -50,7 +75,7 @@ def test_taskmanager(comm):
 
                 # and save
                 output = "./test_batch_zeldovich_seed%d.pickle" % seed
-                alg.results.save(output)
+                alg.result.save(output)
         except Exception as e:
             print(e)
             raise

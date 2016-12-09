@@ -99,20 +99,22 @@ class Painter(object):
                 lay = pm.decompose(position, smoothing=0.5 * paintbrush.support)
                 p = lay.exchange(position)
                 w = lay.exchange(weight)
-                real.paint(position, mass=weight, method=paintbrush)
+                real.paint(position, mass=weight, method=paintbrush, hold=True)
             else:
                 lay = pm.decompose(position, smoothing=1.0 * paintbrush.support)
                 p = lay.exchange(position)
                 w = lay.exchange(weight)
 
-                shifted = pm.affine.shift(shift)
+                H = pm.BoxSize / pm.Nmesh
 
-                real.paint(position, mass=weight, method=paintbrush)
-                real2.paint(position, mass=weight, method=paintbrush, transform=shifted)
+                # in mesh units
+                shifted = pm.affine.shift(0.5)
+
+                real.paint(position, mass=weight, method=paintbrush, hold=True)
+                real2.paint(position, mass=weight, method=paintbrush, transform=shifted, hold=True)
                 c1 = real.r2c()
                 c2 = real2.r2c()
 
-                H = pm.BoxSize / pm.Nmesh
                 for k, s1, s2 in zip(c1.slabs.x, c1.slabs, c2.slabs):
                     kH = sum(k[i] * H[i] for i in range(3))
                     s1[...] = s1[...] * 0.5 + s2[...] * 0.5 * numpy.exp(0.5 * 1j * kH)
@@ -143,6 +145,8 @@ class Painter(object):
         # explicity set the mean
         if self.set_mean is not None:
             real[...] += (self.set_mean - mean)
+            mean = real.cmean()
+            if comm.rank == 0: logger.info("Renormalized mean = %g" % mean)
 
         # apply transformation in Fourier space
         if self.fk:
