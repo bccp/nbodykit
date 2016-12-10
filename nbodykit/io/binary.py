@@ -80,7 +80,7 @@ class BinaryFile(FileType):
             size = lambda fn: getsize(fn, header_size, self.dtype.itemsize)
         if callable(size):
             self.size = size(self.path)
-        elif ininstance(size, int):
+        elif isinstance(size, int):
             self.size = size
         else:
             raise TypeError("`size` keyword should be a callable or integer")
