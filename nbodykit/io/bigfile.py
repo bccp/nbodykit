@@ -16,10 +16,13 @@ class BigFile(FileType):
     https://github.com/rainwoodman/bigfile
     """
 
-    def __init__(self, path, exclude=['header'], header='.', dataset='./'):
+    def __init__(self, path, exclude=None, header='.', dataset='./'):
         if not dataset.endswith('/'): dataset = dataset + '/'
 
         import bigfile
+        if exclude is None:
+            exclude = [header]
+
         self.dataset = dataset
         self.path = path
 
