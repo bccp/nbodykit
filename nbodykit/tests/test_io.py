@@ -30,6 +30,13 @@ def test_csv(comm):
         for i, name in enumerate(names):
             assert_almost_equal(data[:,i], f[names[i]][:], err_msg="error reading column '%s'" %names[i])
 
+        s = pickle.dumps(f)
+        f2 = pickle.loads(s)
+
+        # check values of each column
+        for i, name in enumerate(names):
+            assert_almost_equal(data[:,i], f2[names[i]][:], err_msg="error reading column '%s'" %names[i])
+
 def test_bigfile_pickle():
     from nbodykit.io.bigfile import BigFile
     import bigfile
