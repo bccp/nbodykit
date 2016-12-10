@@ -3,6 +3,7 @@ import numpy
 import tempfile
 import shutil
 import pickle
+import os
 from numpy.testing import assert_almost_equal
 
 @MPIWorld(NTask=[1])
@@ -37,7 +38,7 @@ def test_csv(comm):
         for i, name in enumerate(names):
             assert_almost_equal(data[:,i], f2[names[i]][:], err_msg="error reading column '%s'" %names[i])
 
-def test_bigfile_pickle():
+def test_bigfile():
     from nbodykit.io.bigfile import BigFile
     import bigfile
     tmpdir = tempfile.mkdtemp()
@@ -67,3 +68,26 @@ def test_bigfile_pickle():
     assert_almost_equal(vel, ff2.read(['Velocity'], 0, 1024)['Velocity'])
     shutil.rmtree(tmpdir)
 
+def test_binary():
+    from nbodykit.io.binary import BinaryFile
+
+    pos = numpy.random.random(size=(1024, 3))
+    vel = numpy.random.random(size=(1024, 3))
+
+    tmpfile = tempfile.mkstemp()[1]
+
+    with open(tmpfile , 'wb') as ff:
+        pos.tofile(ff)
+        vel.tofile(ff)
+
+    f = BinaryFile(tmpfile, [('Position', ('f8', 3)), ('Velocity', ('f8', 3))], size=1024)
+
+    numpy.testing.assert_equal(f.size, 1024)
+
+    s = pickle.dumps(f)
+    f2 = pickle.loads(s)
+
+    assert_almost_equal(pos, f2.read(['Position'], 0, 1024)['Position'])
+    assert_almost_equal(vel, f2.read(['Velocity'], 0, 1024)['Velocity'])
+
+    os.unlink(tmpfile)
