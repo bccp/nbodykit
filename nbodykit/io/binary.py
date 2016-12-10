@@ -48,12 +48,26 @@ class BinaryFile(FileType):
     .. warning::
         
         This assumes the data is stored in a column-major format
-    """
-    plugin_name = "BinaryFile"
-    
+    """    
     def __init__(self, path, dtype, offsets=None, header_size=0, size=None):
-                
-        # the file path
+        """
+        Parameters
+        ----------
+        path : str
+            the name of the binary file to load
+        dtype : numpy.dtype or list of tuples
+            the dtypes of the columns to load; this should be either a ``numpy.dtype``
+            or be able to be converted to one via a :func:`numpy.dtype` call
+        offsets : dict, optional
+            a dictionay specifying the byte offsets of each column in the binary
+            file; if not supplied, the offsets are inferred from the dtype size
+            of each column, assuming a fixed header size, and contiguous storage
+        header_size : int, optional
+            the size of the header in bytes
+        size : int, optional
+            the number of objects in the binary file; if not provided, the value
+            is inferred from the dtype and the total size of the file in bytes
+        """
         self.path = path
         
         # set the data type
@@ -85,27 +99,7 @@ class BinaryFile(FileType):
             self.offsets = {}
             for col in self:
                 self.offsets[col] = self._default_byte_offset(col, header_size=header_size)
-        
-        # for returning views of the file
-        self.base = None
-        
-    @classmethod
-    def fill_schema(cls):
-        s = cls.schema
-        s.description = "a binary file reader"
-        
-        s.add_argument("path", type=str, 
-            help='the name of the binary file to load')
-        s.add_argument("dtype", nargs='+', type=tuple, 
-            help='list of tuples of (name, dtype) to be converted to a numpy.dtype')
-        s.add_argument("header_size", type=int,
-            help='the size of the header of the in bytes')
-        s.add_argument("size",
-            help=("an int giving the file size or a function that takes a single argument, "
-                  "the name of the file, and returns the size"))
-        s.add_argument("offsets", type=dict,
-            help='a dictionary giving the byte offsets for each column in the file')
-        
+            
     def _default_byte_offset(self, col, header_size=0):
         """
         Internal function to return the offset in bytes
@@ -126,11 +120,27 @@ class BinaryFile(FileType):
         
     def read(self, columns, start, stop, step=1):
         """
-        Read the specified column(s) over the given range, 
-        as a dictionary
+        Read the specified column(s) over the given range
         
         'start' and 'stop' should be between 0 and :attr:`size`,
         which is the total size of the binary file (in particles)
+        
+        Parameters
+        ----------
+        columns : str, list of str
+            the name of the column(s) to return
+        start : int
+            the row integer to start reading at
+        stop : int
+            the row integer to stop reading at
+        step : int, optional
+            the step size to use when reading; default is 1
+        
+        Returns
+        -------
+        numpy.array
+            structured array holding the requested columns over
+            the specified range of rows
         """ 
         if isinstance(columns, string_types): columns = [columns]
         

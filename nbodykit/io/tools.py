@@ -1,5 +1,4 @@
 import numpy
-import os
 
 def get_slice_size(start, stop, step):
     """
@@ -21,79 +20,7 @@ def get_slice_size(start, stop, step):
     """
     N, remainder = divmod(stop-start, step)
     if remainder: N += 1
-    return N
-
-def csv_partition_sizes(filename, blocksize, delimiter="\n"):
-    """
-    From a filename and preferred blocksize in bytes,
-    return the number of rows in each partition
-
-    This divides the input file into partitions with size
-    roughly equal to blocksize, reads the bytes, and counts
-    the number of delimiters
-    
-    Parameters
-    ----------
-    filename : str
-        the name of the CSV file to load
-    blocksize : int
-        the desired number of bytes per block 
-    delimiter : str, optional
-        the character separating lines; default is
-        the newline character
-    
-    Returns
-    -------
-    nrows : list of int
-        the list of the number of rows in each block
-    """
-    from dask.bytes.local import read_block_from_file
-
-    # search for lines separated by newline char
-    delimiter = delimiter.encode()
-
-    # size in bytes and byte offsets of each partition
-    size = os.path.getsize(filename)
-    offsets = list(range(0, size, int(blocksize)))
-
-    nrows = []
-    for offset in offsets:
-        block = read_block_from_file(filename, offset, blocksize, delimiter, False)
-        nrows.append(block.count(delimiter))
-    return nrows
-
-def infer_csv_dtype(path, names, nrows=10, **config):
-    """
-    Read the first few lines of the specified CSV file to determine 
-    the data type
-    
-    Parameters
-    ----------
-    path : str
-        the name of the CSV file to load
-    names : list of str
-        the list of the names of the columns in the CSV file
-    nrows : int, optional
-        the number of rows to read from the file in order
-        to infer the data type; default is 10
-    **config : key, value pairs
-        additional keywords to pass to :func:`pandas.read_csv`
-    
-    Returns
-    -------
-    dtype : dict
-        dictionary holding the dtype for each name in `names`
-    """
-    from pandas import read_csv 
-    
-    # read the first few lines to get the the dtype
-    df = read_csv(path, nrows=nrows, names=names, **config)
-
-    toret = {}
-    for name in names:
-        toret[name] = df[name].dtype
-    return toret
-    
+    return N    
 
 def global_to_local_slice(sizes, start, stop, fnum):
     """

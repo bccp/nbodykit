@@ -1,11 +1,8 @@
 from mpi4py_test import MPIWorld
-
 from nbodykit.lab import *
-
 from nbodykit import setup_logging
 
 # debug logging
-
 setup_logging("debug")
 
 @MPIWorld(NTask=[1, 4])
@@ -51,7 +48,7 @@ def test_paint(comm):
     output = "./test_paint-%d.bigfile" % comm.size
     alg.result.save(output)
 
-@MPIWorld(NTask=[2, 3, 4])
+@MPIWorld(NTask=[2, 3, 4], required=2)
 def test_taskmanager(comm):
 
     # cosmology
