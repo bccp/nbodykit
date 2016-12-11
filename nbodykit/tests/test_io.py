@@ -6,10 +6,9 @@ import pickle
 import os
 from numpy.testing import assert_almost_equal
 
-@MPIWorld(NTask=[1])
-def test_csv(comm):
+def test_csv():
     """
-    Test reading data using ``CSVFile``
+    Test :class:`nbodykit.io.csv.CSVFile`
     """
     from nbodykit.io.csv import CSVFile
     
@@ -39,6 +38,9 @@ def test_csv(comm):
             assert_almost_equal(data[:,i], f2[names[i]][:], err_msg="error reading column '%s'" %names[i])
 
 def test_bigfile():
+    """
+    Test :class:`nbodykit.io.bigfile.BigFile`
+    """
     from nbodykit.io.bigfile import BigFile
     import bigfile
     tmpdir = tempfile.mkdtemp()
@@ -69,6 +71,9 @@ def test_bigfile():
     shutil.rmtree(tmpdir)
 
 def test_binary():
+    """
+    Test :class:`nbodykit.io.binary.BinaryFile`
+    """
     from nbodykit.io.binary import BinaryFile
 
     pos = numpy.random.random(size=(1024, 3))
@@ -90,4 +95,55 @@ def test_binary():
     assert_almost_equal(pos, f2.read(['Position'], 0, 1024)['Position'])
     assert_almost_equal(vel, f2.read(['Velocity'], 0, 1024)['Velocity'])
 
+    os.unlink(tmpfile)
+    
+def test_hdf():
+    """
+    Test :class:`nbodykit.io.hdf.HDFFile`
+    """
+    from nbodykit.io.hdf import HDFFile
+    import h5py
+
+    # fake structured array
+    dset = numpy.empty(1024, dtype=[('Position', ('f8', 3)), ('Mass', 'f8')])
+    dset['Position'] = numpy.random.random(size=(1024, 3))
+    dset['Mass'] = numpy.random.random(size=1024)
+
+    tmpfile = tempfile.mkstemp()[1]
+    
+    with h5py.File(tmpfile , 'w') as ff:
+        ff.create_dataset('X', data=dset) # store structured array as dataset
+        grp = ff.create_group('Y')
+        grp.create_dataset('Position', data=dset['Position']) # column as dataset
+        grp.create_dataset('Mass', data=dset['Mass']) # column as dataset
+
+    f = HDFFile(tmpfile)
+    
+    # check columns
+    cols = ['X/Mass', 'X/Position', 'Y/Mass', 'Y/Position']
+    assert(all(col in cols for col in f.columns))
+    for col in cols:
+        field = col.rsplit('/', 1)[-1]
+        assert_almost_equal(dset[field], f[col][:])
+    
+    # check size
+    numpy.testing.assert_equal(f.size, 1024)
+
+    # pickle test
+    s = pickle.dumps(f)
+    f2 = pickle.loads(s)
+    for col in cols:
+        field = col.rsplit('/', 1)[-1]
+        assert_almost_equal(dset[field], f2[col][:])
+    
+    # non-zero root
+    f = HDFFile(tmpfile, root='Y')
+    cols = ['Mass', 'Position']
+    assert(all(col in cols for col in f.columns))
+    
+    # non-zero exclude
+    f = HDFFile(tmpfile, exclude=['Y'])
+    cols = ['Mass', 'Position']
+    assert(all(col in cols for col in f.columns))
+    
     os.unlink(tmpfile)
