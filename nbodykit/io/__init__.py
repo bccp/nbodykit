@@ -9,8 +9,7 @@ class FileType(object):
     Abstract base class representing a file object
     """ 
     logger = logging.getLogger("FileType")
-    required_attributes = ['size', 'dtype'] 
-    
+        
     @abstractmethod
     def read(self, columns, start, stop, step=1):
         """
@@ -77,6 +76,37 @@ class FileType(object):
     def shape(self, val):
         self._shape = val
     
+    @property
+    def size(self):
+        """
+        The size of the file, i.e., number of objects
+        """
+        try:
+            return self._size
+        except:
+            name = self.__class__.__name__
+            raise AttributeError("please set the ``size`` attribute when initializing the '%s' class" %name)
+        
+    @size.setter
+    def size(self, val):
+        self._size = val
+        
+    @property
+    def dtype(self):
+        """
+        A ``numpy.dtype`` object holding the data types of each
+        column in the file
+        """
+        try:
+            return self._dtype
+        except:
+            name = self.__class__.__name__
+            raise AttributeError("please set the ``dtype`` attribute when initializing the '%s' class" %name)
+            
+    @dtype.setter
+    def dtype(self, val):
+        self._dtype = val
+        
     def __len__(self):
         return self.size
       
@@ -121,6 +151,10 @@ class FileType(object):
         # this will return a "view" of the file, slicing the data type
         # to include only the requested columns
         if isinstance(s, list):
+            
+            # empty slice
+            if not len(s):
+                raise IndexError("no columns selected in slice")
             
             # must be a list of str
             if not all(isinstance(k, string_types) for k in s):
