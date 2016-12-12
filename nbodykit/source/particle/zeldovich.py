@@ -1,6 +1,5 @@
 from nbodykit.io.stack import FileStack
 from nbodykit.base.particles import ParticleSource
-from nbodykit.base.painter import Painter
 
 from nbodykit import CurrentMPIComm
 

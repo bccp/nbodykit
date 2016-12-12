@@ -200,6 +200,5 @@ class ParticleSource(object):
 
         # paint and apply any transformations to the real field
         real = self.painter(self, pm)
-        self.painter.transform(self, real)
 
         return real

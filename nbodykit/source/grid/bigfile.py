@@ -3,7 +3,6 @@ from __future__ import absolute_import
 # import this module itself. Due to the unfortnate name conflict!
 
 from nbodykit.base.grid import GridSource
-from nbodykit.base.painter import Painter
 from nbodykit import CurrentMPIComm
 from bigfile import BigFileMPI
 import numpy
@@ -113,6 +112,4 @@ class BigFileGrid(GridSource):
         # pass on the shot noise
         real.shotnoise = self.shotnoise
 
-        # apply transformations
-        self.painter.transform(self, real)
         return real

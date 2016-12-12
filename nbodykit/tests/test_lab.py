@@ -36,8 +36,7 @@ def test_paint(comm):
     source.set_painter(
             Painter(interlaced=True,
                     paintbrush='tsc',
-                    set_mean=0,
-                    normalize=True))
+                    ))
 
     # compute P(k,mu) and multipoles
     alg = algorithms.Paint(source, Nmesh=128)

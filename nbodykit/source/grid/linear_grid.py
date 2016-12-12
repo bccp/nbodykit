@@ -73,7 +73,5 @@ class LinearGrid(GridSource):
         # generate linear density field with desired seed
         with MPINumpyRNGContext(self.attrs['seed'], self.comm):
             real, _ = mockmaker.gaussian_real_fields(pm, Plin, compute_displacement=False)
-    
-        # apply transformations to real field
-        self.painter.transform(self, real)
+
         return real
