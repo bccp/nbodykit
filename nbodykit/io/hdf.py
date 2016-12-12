@@ -27,7 +27,7 @@ def find_datasets(info, attrs, name, obj):
             for col in obj.dtype.names:
                 size = len(obj)
                 dtype = obj.dtype[col]
-                key = (os.path.join(name, col)).encode()
+                key = str(os.path.join(name, col))
                 info[key] = ColumnInfo(size=size, dtype=dtype, dset=name)
         # normal array
         else:
@@ -36,7 +36,7 @@ def find_datasets(info, attrs, name, obj):
             fmt = obj.dtype.type
             if len(subshape): fmt = (fmt,) + subshape
             dtype = numpy.dtype(fmt)
-            key = name.encode()
+            key = str(name)
             info[key] = ColumnInfo(size=size, dtype=dtype, dset=name)
             
 class HDFFile(FileType):
