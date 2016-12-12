@@ -1,3 +1,7 @@
+from __future__ import absolute_import
+# the future import is important. or in python 2.7 we try to 
+# import this module itself. Due to the unfortnate name conflict!
+
 from nbodykit.base.grid import GridSource
 from nbodykit.base.painter import Painter
 from nbodykit import CurrentMPIComm
