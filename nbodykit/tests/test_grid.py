@@ -60,7 +60,7 @@ def test_bigfile_grid(comm):
     CurrentMPIComm.set(comm)
 
     # zeldovich particles
-    source = Source.ZeldovichParticles(cosmo, nbar=3e-8, redshift=0.55, BoxSize=1380., Nmesh=32, rsd='z', seed=42)
+    source = Source.ZeldovichParticles(cosmo, nbar=3e-7, redshift=0.55, BoxSize=1380., Nmesh=32, rsd='z', seed=42)
     
     # paint to a mesh
     alg = algorithms.Paint(source, Nmesh=128)
