@@ -1,7 +1,9 @@
 from mpi4py_test import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
+
 import os
+import shutil
 import numpy
 from numpy.testing import assert_array_equal
 
@@ -58,14 +60,18 @@ def test_bigfile_grid(comm):
     CurrentMPIComm.set(comm)
 
     # zeldovich particles
-    source = Source.ZeldovichParticles(cosmo, nbar=3e-7, redshift=0.55, BoxSize=1380., Nmesh=32, rsd='z', seed=42)
+    source = Source.ZeldovichParticles(cosmo, nbar=3e-8, redshift=0.55, BoxSize=1380., Nmesh=32, rsd='z', seed=42)
     
     # paint to a mesh
     alg = algorithms.Paint(source, Nmesh=128)
     alg.run()
 
-    # and save to tmp file
-    output = tempfile.mkdtemp()
+    # and save to tmp directory
+    if comm.rank == 0: 
+        output = tempfile.mkdtemp()
+    else:
+        output = None
+    output = comm.bcast(output)
     alg.result.save(output, dataset='Field')
     
     # now load it and paint to the algorithm's ParticleMesh
@@ -74,6 +80,9 @@ def test_bigfile_grid(comm):
     
     # compare to direct algorithm result
     assert_array_equal(alg.result.real, loaded_real)
+    
+    if comm.rank == 0:
+        shutil.rmtree(output)
     
     
     
