@@ -6,29 +6,41 @@ import numpy
 
 class ParticlesFromFile(ParticleSource):
     """
-    Read particles from file
+    Read a source of particles from a single file, or multiple
+    files, on disk
     """
     @CurrentMPIComm.enable
     def __init__(self, filetype, path, args={}, comm=None, **kwargs):
         """
         Parameters
         ----------
-        comm : MPI.Communicator
-            the MPI communicator
-        filetype : class
-            the type of class to load 
-        path : str
-            the path to the file
+        filetype : subclass of :class:`nbodykit.io.FileType`
+            the file-like class used to load the data from file; should be a 
+            subclass of :class:`nbodykit.io.FileType`
+        path : str, list of str
+            the path to the file(s) to load; can be a list of files to load, or
+            contain a glob-like asterisk pattern
+        args : dict, optional
+            the arguments to pass to the ``filetype`` class when constructing
+            each file object
+        **kwargs : 
+            additional keywords are stored as meta-data in the :attr:`attrs` dict
         """
         self.comm = comm
-        self._source = FileStack(path, filetype, **args)
+        
+        # bcast the FileStack
+        if self.comm.rank == 0:
+            self._source = FileStack(path, filetype, **args)
+        else:
+            self._source = None
+        self._source = self.comm.bcast(self._source)
 
         # update the meta-data
         self.attrs.update(self._source.attrs)
         self.attrs.update(kwargs)
 
         if self.comm.rank == 0:
-            self.logger.info("Extra arguments to FileType: %s " % args)
+            self.logger.info("Extra arguments to FileType: %s" %args)
 
         ParticleSource.__init__(self, comm)
 
