@@ -27,7 +27,8 @@ def find_datasets(info, attrs, name, obj):
             for col in obj.dtype.names:
                 size = len(obj)
                 dtype = obj.dtype[col]
-                info[os.path.join(name, col)] = ColumnInfo(size=size, dtype=dtype, dset=name)
+                key = (os.path.join(name, col)).encode()
+                info[key] = ColumnInfo(size=size, dtype=dtype, dset=name)
         # normal array
         else:
             size = obj.shape[0]
@@ -35,9 +36,9 @@ def find_datasets(info, attrs, name, obj):
             fmt = obj.dtype.type
             if len(subshape): fmt = (fmt,) + subshape
             dtype = numpy.dtype(fmt)
-            info[name] = ColumnInfo(size=size, dtype=dtype, dset=name)
-    
-
+            key = name.encode()
+            info[key] = ColumnInfo(size=size, dtype=dtype, dset=name)
+            
 class HDFFile(FileType):
     """
     A file object to handle the reading of columns of data from 
@@ -110,7 +111,7 @@ class HDFFile(FileType):
             if single_structured_arr:
                 name = name.rsplit('/', 1)[-1]
             dtype.append((name, info[col].dtype))
-            
+
         # empty file check
         if not len(dtype):
             raise ValueError("HDF file appears to contain datasets")
