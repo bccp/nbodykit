@@ -21,7 +21,6 @@ class PaintResult(Result):
                 bb.attrs['ndarray.shape'] = state['Nmesh']
                 bb.attrs['BoxSize'] = state['BoxSize']
 
-# touch the file
 class Paint(Algorithm):
     logger = logging.getLogger('Paint')
     
