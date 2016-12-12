@@ -5,7 +5,6 @@ import logging
 from nbodykit import CurrentMPIComm
 from nbodykit.base.algorithm import Algorithm
 
-# touch the file
 class FFTPower(Algorithm):
     """
     Algorithm to compute the 1d or 2d power spectrum and/or multipoles
@@ -102,7 +101,7 @@ class FFTPower(Algorithm):
             if not numpy.array_equal(self.fields[0].BoxSize , self.fields[1].BoxSize):
                 raise ValueError("BoxSize mismatch between cross-correlation sources")
 
-        # setup the particle mesh object, taking BoxSize from the painters
+        # setup the particle mesh object
         self.pm = ParticleMesh(BoxSize=self.fields[0].BoxSize, Nmesh=[self.attrs['Nmesh']]*3,
                                 dtype='f4', comm=self.comm)
 
@@ -140,6 +139,8 @@ class FFTPower(Algorithm):
         """
         Set the transfer functions applied to the Fourier-space field
         """
+        if transfers is None:
+            transfers = [[]]*len(self.fields)
         self._transfers = transfers
 
     def run(self):
@@ -186,7 +187,7 @@ class FFTPower(Algorithm):
             
         # power results as a structured array
         dtype = numpy.dtype([(name, result[icol].dtype.str) for icol,name in zip(icols,cols)])
-        power = numpy.empty(result[0].shape, dtype=dtype)
+        power = numpy.squeeze(numpy.empty(result[0].shape, dtype=dtype))
         for icol, col in zip(icols, cols):
             power[col][:] = numpy.squeeze(result[icol])
             
@@ -203,7 +204,6 @@ class FFTPower(Algorithm):
                 poles[col][:] = result[icol]
 
         # set all the necessary results
-
         self.result.edges = edges
         self.result.power = power
         self.result.poles = poles
