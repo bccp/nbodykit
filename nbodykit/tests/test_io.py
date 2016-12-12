@@ -7,7 +7,7 @@ import os
 from numpy.testing import assert_almost_equal
 
 @MPITest(1)
-def test_csv():
+def test_csv(comm):
     """
     Test :class:`nbodykit.io.csv.CSVFile`
     """
@@ -39,7 +39,7 @@ def test_csv():
             assert_almost_equal(data[:,i], f2[names[i]][:], err_msg="error reading column '%s'" %names[i])
 
 @MPITest(1)
-def test_bigfile():
+def test_bigfile(comm):
     """
     Test :class:`nbodykit.io.bigfile.BigFile`
     """
@@ -73,7 +73,7 @@ def test_bigfile():
     shutil.rmtree(tmpdir)
 
 @MPITest(1)
-def test_binary():
+def test_binary(comm):
     """
     Test :class:`nbodykit.io.binary.BinaryFile`
     """
@@ -101,7 +101,7 @@ def test_binary():
     os.unlink(tmpfile)
     
 @MPITest(1)
-def test_hdf():
+def test_hdf(comm):
     """
     Test :class:`nbodykit.io.hdf.HDFFile`
     """
