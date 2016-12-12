@@ -11,7 +11,7 @@ class CurrentMPIComm(object):
     @staticmethod
     def enable(func):
         import functools
-        functools.wraps(func)
+        @functools.wraps(func)
         def wrapped(*args, **kwargs):
             kwargs.setdefault('comm', None)
             if kwargs['comm'] is None:

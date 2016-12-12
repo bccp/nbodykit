@@ -35,7 +35,7 @@ install:
     #
     # test optional Zeldovich data source
     - pip install --no-cache-dir classylss # ignore cache due to binaries
-
+    - pip install pfft-python kdcount mpsort pmesh sharedmem bigfile --no-deps
     - pip install .
 
 script:

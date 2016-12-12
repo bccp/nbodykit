@@ -14,7 +14,7 @@ def compute_3d_power(fields, pm, transfers=[], comm=None):
 
     Parameters
     ----------
-    fields : list of sources
+    fields : list of ParticleSource or GridSource
         the list of fields which the 3D power will be computed
     pm : ParticleMesh
         the particle mesh object that handles the painting and FFTs

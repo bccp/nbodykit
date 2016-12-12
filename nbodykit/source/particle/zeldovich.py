@@ -12,7 +12,31 @@ class ZeldovichParticles(ParticleSource):
     """
     @CurrentMPIComm.enable
     def __init__(self, cosmo, nbar, redshift, BoxSize, Nmesh, bias=2., rsd=None, seed=None, comm=None):
-        
+        """
+        Parameters
+        ----------
+        cosmo : subclass of astropy.cosmology.FLRW
+           the cosmology used to generate the linear power spectrum (using CLASS) 
+        nbar : float
+            the number density of the particles in the box, assumed constant across the box; 
+            this is used when Poisson sampling the density field
+        redshift : float
+            the redshift of the linear power spectrum to generate
+        BoxSize : float, 3-vector of floats
+            the size of the box to generate the grid on
+        Nmesh : int
+            the mesh size to use when generating the density and displacement fields, which
+            are Poisson-sampled to particles
+        bias : float, optional
+            the desired bias of the particles; applied while applying a log-normal transformation
+            to the density field
+        rsd : {'x', 'y', 'z'}, optional
+            apply redshift space-distortions in this direction
+        seed : int, optional
+            the global random seed, used to set the seeds across all ranks
+        comm : MPI communicator
+            the MPI communicator
+        """
         # communicator and cosmology
         self.comm    = comm
         self.cosmo   = cosmo
@@ -62,7 +86,7 @@ class ZeldovichParticles(ParticleSource):
             
             # classylss is required to call CLASS and create a power spectrum
             try: import classylss
-            except: raise ImportError("`classylss` is required to use %s" %self.plugin_name)
+            except: raise ImportError("`classylss` is required to use %s" %self.__class__.__name__)
         
             # the other imports
             from nbodykit import mockmaker

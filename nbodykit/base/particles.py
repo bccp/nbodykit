@@ -103,6 +103,9 @@ class ParticleSource(object):
         """
         A 3-vector specifying the size of the box for this source
         """
+        if 'BoxSize' not in self.attrs:
+            raise AttributeError("`BoxSize` has not been set in the `attrs` dict")
+            
         BoxSize = numpy.array([1, 1, 1.], dtype='f8')
         BoxSize[:] = self.attrs['BoxSize']
         return BoxSize
