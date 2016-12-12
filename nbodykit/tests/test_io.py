@@ -1,4 +1,4 @@
-from mpi4py_test import MPIWorld
+from mpi4py_test import MPITest
 import numpy
 import tempfile
 import shutil
@@ -6,6 +6,7 @@ import pickle
 import os
 from numpy.testing import assert_almost_equal
 
+@MPITest(1)
 def test_csv():
     """
     Test :class:`nbodykit.io.csv.CSVFile`
@@ -37,6 +38,7 @@ def test_csv():
         for i, name in enumerate(names):
             assert_almost_equal(data[:,i], f2[names[i]][:], err_msg="error reading column '%s'" %names[i])
 
+@MPITest(1)
 def test_bigfile():
     """
     Test :class:`nbodykit.io.bigfile.BigFile`
@@ -70,6 +72,7 @@ def test_bigfile():
     assert_almost_equal(vel, ff2.read(['Velocity'], 0, 1024)['Velocity'])
     shutil.rmtree(tmpdir)
 
+@MPITest(1)
 def test_binary():
     """
     Test :class:`nbodykit.io.binary.BinaryFile`
@@ -97,6 +100,7 @@ def test_binary():
 
     os.unlink(tmpfile)
     
+@MPITest(1)
 def test_hdf():
     """
     Test :class:`nbodykit.io.hdf.HDFFile`
