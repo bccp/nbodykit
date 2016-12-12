@@ -50,7 +50,7 @@ def test_linear_grid(comm):
 @MPITest([1,4])
 def test_bigfile_grid(comm):
     """
-    Run the ``Paint`` algorithm, load the result as a 
+    Run the ``DumpField`` algorithm, load the result as a 
     :class:`~nbodykit.source.grid.BigFileGrid`, and compare the painted grid 
     to the algorithm's result
     """
@@ -62,8 +62,8 @@ def test_bigfile_grid(comm):
     # zeldovich particles
     source = Source.ZeldovichParticles(cosmo, nbar=3e-7, redshift=0.55, BoxSize=1380., Nmesh=32, rsd='z', seed=42)
     
-    # paint to a mesh
-    alg = algorithms.Paint(source, Nmesh=128)
+    # Dump the mesh of the source
+    alg = algorithms.DumpField(source, Nmesh=128)
     alg.run()
 
     # and save to tmp directory
@@ -84,6 +84,39 @@ def test_bigfile_grid(comm):
     if comm.rank == 0:
         shutil.rmtree(output)
     
+@MPITest([1,4])
+def test_bigfile_grid_complex(comm):
+    """
+    Run the ``DumpField`` algorithm, load the result as a 
+    :class:`~nbodykit.source.grid.BigFileGrid`, and compare the painted grid 
+    to the algorithm's result
+    """
+    import tempfile
     
+    cosmo = cosmology.Planck15
+    CurrentMPIComm.set(comm)
+
+    # zeldovich particles
+    source = Source.ZeldovichParticles(cosmo, nbar=3e-7, redshift=0.55, BoxSize=1380., Nmesh=32, rsd='z', seed=42)
     
+    # Dump the mesh of the source
+    alg = algorithms.DumpField(source, Nmesh=128, kind="complex")
+    alg.run()
+
+    # and save to tmp directory
+    if comm.rank == 0: 
+        output = tempfile.mkdtemp()
+    else:
+        output = None
+    output = comm.bcast(output)
+    alg.result.save(output, dataset='Field')
     
+    # now load it and paint to the algorithm's ParticleMesh
+    grid = Source.BigFileGrid(path=output, dataset='Field')
+    loaded_real = grid.paint(alg.pm)
+    
+    # compare to direct algorithm result
+    assert_array_equal(alg.result.complex.c2r(), loaded_real)
+    
+    if comm.rank == 0:
+        shutil.rmtree(output)

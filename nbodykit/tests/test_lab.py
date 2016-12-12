@@ -39,7 +39,7 @@ def test_paint(comm):
                     ))
 
     # compute P(k,mu) and multipoles
-    alg = algorithms.Paint(source, Nmesh=128)
+    alg = algorithms.DumpField(source, Nmesh=128)
 
     alg.run()
 

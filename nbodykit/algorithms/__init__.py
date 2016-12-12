@@ -1,2 +1,2 @@
 from .fftpower import FFTPower
-from .paint import Paint
+from .dump import DumpField

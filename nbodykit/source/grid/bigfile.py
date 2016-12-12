@@ -45,7 +45,11 @@ class BigFileGrid(GridSource):
         # determine Nmesh
         if 'ndarray.shape' not in self.attrs:
             raise ValueError("`ndarray.shape` should be stored in the Bigfile `attrs` to determine `Nmesh`")
-        self.Nmesh = self.attrs['ndarray.shape']
+
+        if 'Nmesh' not in self.attrs:
+            raise ValueError("`ndarray.shape` should be stored in the Bigfile `attrs` to determine `Nmesh`")
+
+        self.Nmesh = self.attrs['Nmesh']
 
         # shot noise
         if 'shotnoise' in self.attrs:
