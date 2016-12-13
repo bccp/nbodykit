@@ -5,8 +5,8 @@ import logging
 from pmesh.pm import RealField, ComplexField, ParticleMesh
 from nbodykit import CurrentMPIComm
 
-class Field(object):
-    logger = logging.getLogger('Field')
+class FieldStudio(object):
+    logger = logging.getLogger('FieldStudio')
 
 
     @CurrentMPIComm.enable

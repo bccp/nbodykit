@@ -62,10 +62,10 @@ def test_bigfile_grid(comm):
     # zeldovich particles
     source = Source.ZeldovichParticles(cosmo, nbar=3e-3, redshift=0.55, BoxSize=1380., Nmesh=32, rsd='z', seed=42)
     
-    field = Field(BoxSize=1380., Nmesh=128, dtype='f8')
+    studio = FieldStudio(BoxSize=1380., Nmesh=128, dtype='f8')
 
-    real = field.paint(source, kind='real')
-    complex = field.paint(source, kind="complex")
+    real = studio.paint(source, kind='real')
+    complex = studio.paint(source, kind="complex")
 
     # and save to tmp directory
     if comm.rank == 0: 
@@ -74,20 +74,20 @@ def test_bigfile_grid(comm):
         output = None
     output = comm.bcast(output)
 
-    field.save(real, output, dataset='Field')
+    studio.save(real, output, dataset='Field')
 
     # now load it and paint to the algorithm's ParticleMesh
     source = Source.BigFileGrid(path=output, dataset='Field')
-    loaded_real = field.paint(source)
+    loaded_real = studio.paint(source)
     
     # compare to direct algorithm result
     assert_array_equal(real, loaded_real)
     
-    field.save(complex, output, dataset='FieldC')
+    studio.save(complex, output, dataset='FieldC')
 
     # now load it and paint to the algorithm's ParticleMesh
     source = Source.BigFileGrid(path=output, dataset='FieldC')
-    loaded_real = field.paint(source, kind="complex")
+    loaded_real = studio.paint(source, kind="complex")
     
     # compare to direct algorithm result
     assert_allclose(complex, loaded_real, rtol=1e-5)
