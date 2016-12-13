@@ -111,7 +111,7 @@ class MeshSlab(object):
         """
         return self.coords(0)**2 + self.coords(1)**2 + self.coords(2)**2
 
-    def mu(self, los_index):
+    def mu(self, los):
         """
         The `mu` value defined at each point on the slab for the
         specified line-of-sight index
@@ -119,9 +119,9 @@ class MeshSlab(object):
         
         Parameters
         ----------
-        los_index: int, {0, 1, 2}
-            the index defining the line-of-sight, which `mu` is defined
-            with respect to
+        los: array_like,
+            the direction of the line-of-sight, which `mu` is defined
+            with respect to. must have a norm of 1.
         
         Returns
         -------
@@ -129,7 +129,7 @@ class MeshSlab(object):
             the `mu` value at each point in the slab
         """
         with numpy.errstate(invalid='ignore'):            
-            return self.coords(los_index) / self.norm2()**0.5
+            return sum(self.coords(i) * los[i] for i in range(3)) / self.norm2()**0.5
 
     @property
     def nonsingular(self):
