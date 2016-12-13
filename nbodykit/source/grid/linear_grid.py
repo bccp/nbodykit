@@ -74,4 +74,7 @@ class LinearGrid(GridSource):
         with MPINumpyRNGContext(self.attrs['seed'], self.comm):
             real, _ = mockmaker.gaussian_real_fields(pm, Plin, compute_displacement=False)
 
+        real.attrs = {}
+        real.attrs.update(self.attrs)
+
         return real
