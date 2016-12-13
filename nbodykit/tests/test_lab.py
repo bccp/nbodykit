@@ -34,21 +34,18 @@ def test_paint(comm):
 
     source.set_brush(interlaced=True, window='tsc')
 
-    studio = FieldStudio(BoxSize=1380., Nmesh=128)
-    studio.r2c()
-
     def filter(k, v):
         kk = sum(ki ** 2 for ki in k)
         kk[kk == 0] = 1
         return v / kk
 
-    studio.apply(filter)
+    source.apply(filter)
 
-    real = studio.paint(source, kind='real')
-    complex = studio.paint(source, kind='complex')
+    real = source.paint(kind='real')
+    complex = source.paint(kind='complex')
 
-    studio.save(real, output="./test_paint-real-%d.bigfile" % comm.size)
-    studio.save(complex, output="./test_paint-complex-%d.bigfile" % comm.size)
+    real.save(output="./test_paint-real-%d.bigfile" % comm.size)
+    complex.save(output="./test_paint-complex-%d.bigfile" % comm.size)
 
 @MPITest([2, 3, 4])
 def test_taskmanager(comm):
