@@ -3,18 +3,20 @@ import numpy
 import logging
 
 from pmesh.pm import RealField, ComplexField, ParticleMesh
+from nbodykit import CurrentMPIComm
 
 class Field(object):
     logger = logging.getLogger('Field')
 
-    def __init__(self, source, Nmesh, dtype='f4', comm=None):
+
+    @CurrentMPIComm.enable
+    def __init__(self, BoxSize, Nmesh, dtype='f4', comm=None):
 
         self.Nmesh = Nmesh
-        self.source = source
         self.dtype = dtype
-        self.comm = source.comm
+        self.comm = comm
 
-        self.pm = ParticleMesh(BoxSize=self.source.BoxSize,
+        self.pm = ParticleMesh(BoxSize=BoxSize,
                                 Nmesh=[self.Nmesh]*3,
                                 dtype=self.dtype, comm=self.comm)
 
@@ -32,16 +34,19 @@ class Field(object):
     def apply(self, func, kind=None):
         self.actions.append(('apply', func, kind))
 
-    def paint(self, kind="real"):
+    def paint(self, source, kind="real"):
         """
         Parameters
         ----------
         kind : string
         real or complex
         """
-        real = self.source.paint(self.pm)
+
+        real = source.paint(self.pm)
         var = real
-        for action in self.actions:
+
+        for action in remove_roundtrips(self.actions):
+
             if   action[0] == 'r2c':
                 var = var.r2c()
             elif action[0] == 'c2r':
@@ -81,4 +86,18 @@ class Field(object):
                     bb.attrs['ndarray.shape'] = self.Nmesh, self.Nmesh, self.Nmesh // 2 + 1
                     bb.attrs['BoxSize'] = self.pm.BoxSize
                     bb.attrs['Nmesh'] = self.pm.Nmesh
+
+def remove_roundtrips(actions):
+    i = 0
+    while i < len(actions):
+        action = actions[i]
+        next = actions[i + 1] if i < len(actions) - 1 else ('',)
+        if action[0] == 'r2c' and next[0] == 'c2r':
+            i = i + 2
+            continue
+        if action[0] == 'c2r' and next[0] == 'r2c':
+            i = i + 2
+            continue
+        yield action
+        i = i + 1
 

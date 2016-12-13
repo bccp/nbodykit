@@ -38,8 +38,9 @@ def test_paint(comm):
                     paintbrush='tsc',
                     ))
 
-    field = Field(source, Nmesh=128)
+    field = Field(BoxSize=1380., Nmesh=128)
     field.r2c()
+
     def filter(k, v):
         kk = sum(ki ** 2 for ki in k)
         kk[kk == 0] = 1
@@ -47,8 +48,8 @@ def test_paint(comm):
 
     field.apply(filter)
 
-    real = field.paint(kind='real')
-    complex = field.paint(kind='complex')
+    real = field.paint(source, kind='real')
+    complex = field.paint(source, kind='complex')
 
     field.save(real, output="./test_paint-real-%d.bigfile" % comm.size)
     field.save(complex, output="./test_paint-complex-%d.bigfile" % comm.size)
