@@ -211,7 +211,7 @@ def poisson_sample_to_points(delta, displacement, pm, nbar, rsd=None, f=0., bias
         the linear displacement fields which is used to move the particles
     nbar : float
         the desired number density of the output catalog of objects
-    rsd : {'x', 'y' 'z'}
+    rsd : array_like
         the direction to apply RSD to; if ``None`` (default), no RSD 
         will be added
     f : float, optional
@@ -255,10 +255,8 @@ def poisson_sample_to_points(delta, displacement, pm, nbar, rsd=None, f=0., bias
     if rsd is not None:
         if f <= 0.:
             raise ValueError("a RSD direction was provided, but the growth rate is not positive")
-        if rsd not in ["x", "y", "z"]:
-            raise ValueError("'rsd' should be one of ['x', 'y', 'z']")
-        rsd_index = "xyz".index(rsd)
-        offset[rsd_index] *= (1. + f)
+        for i in range(3):
+            offset[i] *= (1. + f) * rsd[i]
     
     # displace the coordinate mesh
     x += offset[0]

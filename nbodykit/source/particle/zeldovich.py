@@ -29,8 +29,8 @@ class ZeldovichParticles(ParticleSource):
         bias : float, optional
             the desired bias of the particles; applied while applying a log-normal transformation
             to the density field
-        rsd : {'x', 'y', 'z'}, optional
-            apply redshift space-distortions in this direction
+        rsd : array_like, optional
+            apply redshift space-distortions in this direction; if None, no rsd is applied.
         seed : int, optional
             the global random seed, used to set the seeds across all ranks
         comm : MPI communicator
@@ -39,7 +39,10 @@ class ZeldovichParticles(ParticleSource):
         # communicator and cosmology
         self.comm    = comm
         self.cosmo   = cosmo
-        
+
+        if rsd is None:
+            rsd = [0, 0, 0.]
+
         # save the meta-data
         self.attrs['nbar']     = nbar
         self.attrs['redshift'] = redshift
