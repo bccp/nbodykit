@@ -39,6 +39,13 @@ def test_paint(comm):
                     ))
 
     field = Field(source, Nmesh=128)
+    field.r2c()
+    def filter(k, v):
+        kk = sum(ki ** 2 for ki in k)
+        kk[kk == 0] = 1
+        return v / kk
+
+    field.apply(filter)
 
     real = field.paint(kind='real')
     complex = field.paint(kind='complex')
