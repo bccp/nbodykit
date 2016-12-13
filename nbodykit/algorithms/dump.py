@@ -19,23 +19,10 @@ class DumpFieldResult(Result):
             return dict(complex=data, Nmesh=self.complex.Nmesh, BoxSize=self.complex.BoxSize)
 
     def save(self, out, dataset="Field"):
-        import bigfile
-        state = self.state
-        with bigfile.BigFileMPI(self.comm, out, create=True) as ff:
-            if hasattr(self, "real"):
-                with ff.create_from_array(dataset, state['real']) as bb:
-                    bb.attrs['ndarray.shape'] = state['Nmesh']
-                    bb.attrs['BoxSize'] = state['BoxSize']
-                    bb.attrs['Nmesh'] = state['Nmesh']
-            else:
-                with ff.create_from_array(dataset, state['complex']) as bb:
-                    bb.attrs['ndarray.shape'] = state['Nmesh'], state['Nmesh'], state['Nmesh'] // 2 + 1
-                    bb.attrs['BoxSize'] = state['BoxSize']
-                    bb.attrs['Nmesh'] = state['Nmesh']
 
 class DumpField(Algorithm):
     logger = logging.getLogger('DumpField')
-    
+
     @CurrentMPIComm.enable
     def __init__(self, source, Nmesh, kind="real", comm=None):
         """

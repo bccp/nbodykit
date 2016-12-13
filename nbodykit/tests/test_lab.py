@@ -38,14 +38,13 @@ def test_paint(comm):
                     paintbrush='tsc',
                     ))
 
-    # compute P(k,mu) and multipoles
-    alg = algorithms.DumpField(source, Nmesh=128)
+    field = Field(source, Nmesh=128)
 
-    alg.run()
+    real = field.paint(kind='real')
+    complex = field.paint(kind='complex')
 
-    # and save
-    output = "./test_paint-%d.bigfile" % comm.size
-    alg.result.save(output)
+    field.save(real, output="./test_paint-real-%d.bigfile" % comm.size)
+    field.save(complex, output="./test_paint-complex-%d.bigfile" % comm.size)
 
 @MPITest([2, 3, 4])
 def test_taskmanager(comm):

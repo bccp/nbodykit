@@ -96,7 +96,7 @@ class BigFileGrid(GridSource):
             # ComplexField
             if self.isfourier:
                 if self.comm.rank == 0:
-                    self.logger.info("reading complex field")
+                    self.logger.info("reading complex field from %s" % self.path)
                 complex2 = ComplexField(pmread)
                 assert self.comm.allreduce(complex2.size) == ds.size
                 start = sum(self.comm.allgather(complex2.size)[:self.comm.rank])
@@ -106,7 +106,7 @@ class BigFileGrid(GridSource):
             # RealField
             else:
                 if self.comm.rank == 0:
-                    self.logger.info("reading real field")
+                    self.logger.info("reading real field from %s" % self.path)
                 real2 = RealField(pmread)
                 start = sum(self.comm.allgather(real2.size)[:self.comm.rank])
                 end = start + real2.size

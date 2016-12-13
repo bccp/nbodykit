@@ -5,7 +5,7 @@ from nbodykit import setup_logging
 import os
 import shutil
 import numpy
-from numpy.testing import assert_array_equal
+from numpy.testing import assert_array_equal, assert_almost_equal, assert_allclose
 
 setup_logging("debug")
 
@@ -60,11 +60,12 @@ def test_bigfile_grid(comm):
     CurrentMPIComm.set(comm)
 
     # zeldovich particles
-    source = Source.ZeldovichParticles(cosmo, nbar=3e-7, redshift=0.55, BoxSize=1380., Nmesh=32, rsd='z', seed=42)
+    source = Source.ZeldovichParticles(cosmo, nbar=3e-3, redshift=0.55, BoxSize=1380., Nmesh=32, rsd='z', seed=42)
     
-    # Dump the mesh of the source
-    alg = algorithms.DumpField(source, Nmesh=128)
-    alg.run()
+    field = Field(source, Nmesh=128, dtype='f8')
+
+    real = field.paint()
+    complex = field.paint(kind="complex")
 
     # and save to tmp directory
     if comm.rank == 0: 
@@ -72,51 +73,24 @@ def test_bigfile_grid(comm):
     else:
         output = None
     output = comm.bcast(output)
-    alg.result.save(output, dataset='Field')
-    
+
+    field.save(real, output, dataset='Field')
+
     # now load it and paint to the algorithm's ParticleMesh
-    grid = Source.BigFileGrid(path=output, dataset='Field')
-    loaded_real = grid.paint(alg.pm)
+    source = Source.BigFileGrid(path=output, dataset='Field')
+    loaded_real = Field(source, Nmesh=128, dtype='f8').paint()
     
     # compare to direct algorithm result
-    assert_array_equal(alg.result.real, loaded_real)
+    assert_array_equal(real, loaded_real)
     
-    if comm.rank == 0:
-        shutil.rmtree(output)
-    
-@MPITest([1,4])
-def test_bigfile_grid_complex(comm):
-    """
-    Run the ``DumpField`` algorithm, load the result as a 
-    :class:`~nbodykit.source.grid.BigFileGrid`, and compare the painted grid 
-    to the algorithm's result
-    """
-    import tempfile
-    
-    cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
+    field.save(complex, output, dataset='FieldC')
 
-    # zeldovich particles
-    source = Source.ZeldovichParticles(cosmo, nbar=3e-7, redshift=0.55, BoxSize=1380., Nmesh=32, rsd='z', seed=42)
-    
-    # Dump the mesh of the source
-    alg = algorithms.DumpField(source, Nmesh=128, kind="complex")
-    alg.run()
-
-    # and save to tmp directory
-    if comm.rank == 0: 
-        output = tempfile.mkdtemp()
-    else:
-        output = None
-    output = comm.bcast(output)
-    alg.result.save(output, dataset='Field')
-    
     # now load it and paint to the algorithm's ParticleMesh
-    grid = Source.BigFileGrid(path=output, dataset='Field')
-    loaded_real = grid.paint(alg.pm)
+    source = Source.BigFileGrid(path=output, dataset='FieldC')
+    loaded_real = Field(source, Nmesh=128, dtype='f8').paint(kind="complex")
     
     # compare to direct algorithm result
-    assert_array_equal(alg.result.complex.c2r(), loaded_real)
-    
+    assert_allclose(complex, loaded_real, rtol=1e-5)
     if comm.rank == 0:
         shutil.rmtree(output)
+
