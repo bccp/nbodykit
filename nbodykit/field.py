@@ -42,8 +42,10 @@ class FieldStudio(object):
         real or complex
         """
 
-        real = source.paint(self.pm)
-        var = real
+        # these methods are implemented in the base classes of sources.
+        # it may be wise to move them here.
+
+        var = source.paint(self.pm)
 
         for action in remove_roundtrips(self.actions):
 
