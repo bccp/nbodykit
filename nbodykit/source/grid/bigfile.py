@@ -113,7 +113,10 @@ class BigFileGrid(GridSource):
                 real2.unsort(ds[start:end])
                 real2.resample(real)
 
-        # pass on the shot noise
+        # compatibility -- get rid of this after fftpower is fixed.
         real.shotnoise = self.shotnoise
 
+        # pass on the attributes
+        real.attrs = {}
+        real.attrs.update(self.attrs)
         return real

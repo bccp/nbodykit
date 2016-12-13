@@ -46,6 +46,7 @@ class FieldStudio(object):
         # it may be wise to move them here.
 
         var = source.paint(self.pm)
+        attrs = var.attrs
 
         for action in remove_roundtrips(self.actions):
 
@@ -61,17 +62,16 @@ class FieldStudio(object):
                 var.apply(**kwargs)
 
         if kind == 'real':
-            if isinstance(var, RealField):
-                return var
-            else:
-                return var.c2r()
+            if not isinstance(var, RealField):
+                var = var.c2r()
         elif kind == 'complex':
-            if isinstance(var, RealField):
-                return var.r2c()
-            else:
-                return var
+            if not isinstance(var, ComplexField):
+                var = var.r2c()
         else:
             raise ValueError('kind must be "real" or "complex"')
+
+        var.attrs = attrs
+        return var
 
     def save(self, field, output, dataset="Field"):
         import bigfile
@@ -83,11 +83,18 @@ class FieldStudio(object):
                     bb.attrs['ndarray.shape'] = self.pm.Nmesh
                     bb.attrs['BoxSize'] = self.pm.BoxSize
                     bb.attrs['Nmesh'] = self.pm.Nmesh
+                    for key in field.attrs:
+                        # do not override the above values -- they are vectors (from pm)
+                        if key in bb.attrs: continue
+                        bb.attrs[key] = field.attrs[key]
             elif isinstance(field, ComplexField):
                 with ff.create_from_array(dataset, data) as bb:
                     bb.attrs['ndarray.shape'] = self.Nmesh, self.Nmesh, self.Nmesh // 2 + 1
                     bb.attrs['BoxSize'] = self.pm.BoxSize
                     bb.attrs['Nmesh'] = self.pm.Nmesh
+                    for key in field.attrs:
+                        if key in bb.attrs: continue
+                        bb.attrs[key] = field.attrs[key]
 
 def remove_roundtrips(actions):
     i = 0

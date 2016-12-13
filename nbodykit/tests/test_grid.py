@@ -60,9 +60,9 @@ def test_bigfile_grid(comm):
     CurrentMPIComm.set(comm)
 
     # zeldovich particles
-    source = Source.ZeldovichParticles(cosmo, nbar=3e-3, redshift=0.55, BoxSize=1380., Nmesh=32, rsd='z', seed=42)
+    source = Source.ZeldovichParticles(cosmo, nbar=3e-4, redshift=0.55, BoxSize=1380., Nmesh=32, rsd='z', seed=42)
     
-    studio = FieldStudio(BoxSize=1380., Nmesh=128, dtype='f8')
+    studio = FieldStudio(BoxSize=1380., Nmesh=32, dtype='f8')
 
     real = studio.paint(source, kind='real')
     complex = studio.paint(source, kind="complex")

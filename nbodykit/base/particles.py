@@ -85,27 +85,27 @@ class ParticleSource(object):
     @property
     def interlaced(self):
         try:
-            return self._interlaced
-        except AttributeError:
-            self._interlaced = False
-            return self._interlaced
+            return self.attrs['interlaced']
+        except KeyError:
+            self.attrs['interlaced'] = False
+            return self.attrs['interlaced']
 
     @interlaced.setter
     def interlaced(self, interlaced):
-        self._interlaced = interlaced
+        self.attrs['interlaced'] = False
 
     @property
     def window(self):
         try:
-            return self._window
-        except AttributeError:
-            self._window = 'cic'
-            return self._window
+            return self.attrs['window']
+        except KeyError:
+            self.attrs['window'] = 'cic'
+            return self.attrs['window']
 
     @window.setter
     def window(self, value):
         assert value in window.methods
-        self._window = value
+        self.attrs['window'] = value
 
     def set_brush(self, window='cic', interlaced=False):
         """
@@ -293,7 +293,14 @@ class ParticleSource(object):
         if nbar > 0:
             real[...] /= nbar
 
-        real.shotnoise = 1 / nbar
+        shotnoise = 1 / nbar
+
+        real.attrs = {}
+        real.attrs.update(self.attrs)
+        real.attrs['shotnoise'] = shotnoise
+
+        # move this after fftpower is updated.
+        real.shotnoise = shotnoise
 
         if pm.comm.rank == 0:
             self.logger.info("mean number density is %g", nbar)
