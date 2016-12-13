@@ -19,10 +19,6 @@ class GridSource(object):
         # ensure self.comm is set, though usually already set by the child.
         self.comm = comm
                 
-        # set the default Painter
-        from .painter import Painter
-        self._painter = Painter()
-
         if self.comm.rank == 0:
             self.logger.info("attrs = %s" % self.attrs)
     
@@ -31,19 +27,6 @@ class GridSource(object):
         Set the length of a grid source to be 0
         """
         return 0
-    
-    def set_painter(self, painter):
-        """
-        Set the painter
-        """
-        self._painter = painter
-                    
-    @property
-    def painter(self):
-        """
-        The painter class
-        """
-        return self._painter
     
     @property
     def attrs(self):

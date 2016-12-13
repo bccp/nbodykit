@@ -28,15 +28,11 @@ def test_paint(comm):
     cosmo = cosmology.Planck15
 
     CurrentMPIComm.set(comm)
-    from nbodykit.base.painter import Painter
 
     # zeldovich particles
     source = Source.ZeldovichParticles(cosmo, nbar=3e-7, redshift=0.55, BoxSize=1380., Nmesh=32, rsd='z', seed=42)
 
-    source.set_painter(
-            Painter(interlaced=True,
-                    paintbrush='tsc',
-                    ))
+    source.set_brush(interlaced=True, window='tsc')
 
     field = Field(BoxSize=1380., Nmesh=128)
     field.r2c()

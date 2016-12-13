@@ -4,6 +4,9 @@ import abc
 import numpy
 import logging
 
+# for converting from particle to mesh
+from pmesh import window
+from pmesh.pm import RealField, ComplexField
 
 @add_metaclass(abc.ABCMeta)
 class ParticleSource(object):
@@ -19,9 +22,6 @@ class ParticleSource(object):
         # ensure self.comm is set, though usually already set by the child.
 
         self.comm = comm
-
-        from .painter import Painter
-        self._painter = Painter()
 
         # set the collective size
         self._csize = self.comm.allreduce(self.size)
@@ -82,11 +82,37 @@ class ParticleSource(object):
         for k in kwargs:
             t[k] = kwargs[k]
     
-    def set_painter(self, painter):
+    @property
+    def interlaced(self):
+        try:
+            return self._interlaced
+        except AttributeError:
+            self._interlaced = False
+            return self._interlaced
+
+    @interlaced.setter
+    def interlaced(self, interlaced):
+        self._interlaced = interlaced
+
+    @property
+    def window(self):
+        try:
+            return self._window
+        except AttributeError:
+            self._window = 'cic'
+            return self._window
+
+    @window.setter
+    def window(self, value):
+        assert value in window.methods
+        self._window = value
+
+    def set_brush(self, window='cic', interlaced=False):
         """
         Set the painter
         """
-        self._painter = painter
+        self.window = window
+        self.interlaced = interlaced
         
     def __len__(self):
         """
@@ -121,14 +147,7 @@ class ParticleSource(object):
             from nbodykit.transform import DefaultSelection, DefaultWeight
             self._transform = {'Selection':DefaultSelection, 'Weight':DefaultWeight}
             return self._transform
-            
-    @property
-    def painter(self):
-        """
-        The painter class
-        """
-        return self._painter
-    
+
     @property
     def attrs(self):
         """
@@ -196,9 +215,88 @@ class ParticleSource(object):
         paint : (verb) 
             interpolate the `Position` column to the particle mesh
             specified by ``pm``
+        pm : pmesh.pm.ParticleMesh
+            the particle mesh object
+        
+        Returns
+        -------
+        real : pmesh.pm.RealField
+            the painted real field
         """
+        Nlocal = 0 # number of particles read on local rank
+        
+        # the paint brush window
+        paintbrush = window.methods[self.window]
 
-        # paint and apply any transformations to the real field
-        real = self.painter(self, pm)
+        # initialize the RealField to returns
+        real = RealField(pm)
+        real[:] = 0
+
+        # need 2nd field if interlacing
+        if self.interlaced:
+            real2 = RealField(pm)
+            real2[...] = 0
+
+        # read the necessary data (as dask arrays)
+        columns = ['Position', 'Weight', 'Selection']
+        if not all(col in self for col in columns):
+            missing = set(columns) - set(self.columns)
+            raise ValueError("self does not contain columns: %s" %str(missing))
+        Position, Weight, Selection = self.read(columns)
+
+        # ensure the slices are synced, since decomposition is collective
+        N = max(pm.comm.allgather(len(Position)))
+
+        # paint data in chunks on each rank
+        chunksize = 1024 ** 2
+        for i in range(0, N, chunksize):
+            if i > len(Position) : i = len(Position)
+            s = slice(i, i + chunksize)
+            position, weight, selection = self.compute(Position[s], Weight[s], Selection[s])
+
+            if weight is None:
+                weight = numpy.ones(len(position))
+
+            if selection is not None:
+                position = position[selection]
+                weight   = weight[selection]
+
+            Nlocal += len(position)
+
+            if not self.interlaced:
+                lay = pm.decompose(position, smoothing=0.5 * paintbrush.support)
+                p = lay.exchange(position)
+                w = lay.exchange(weight)
+                real.paint(position, mass=weight, method=paintbrush, hold=True)
+            else:
+                lay = pm.decompose(position, smoothing=1.0 * paintbrush.support)
+                p = lay.exchange(position)
+                w = lay.exchange(weight)
+
+                H = pm.BoxSize / pm.Nmesh
+
+                # in mesh units
+                shifted = pm.affine.shift(0.5)
+
+                real.paint(position, mass=weight, method=paintbrush, hold=True)
+                real2.paint(position, mass=weight, method=paintbrush, transform=shifted, hold=True)
+                c1 = real.r2c()
+                c2 = real2.r2c()
+
+                for k, s1, s2 in zip(c1.slabs.x, c1.slabs, c2.slabs):
+                    kH = sum(k[i] * H[i] for i in range(3))
+                    s1[...] = s1[...] * 0.5 + s2[...] * 0.5 * numpy.exp(0.5 * 1j * kH)
+
+                c1.c2r(real)
+        nbar = pm.comm.allreduce(Nlocal) / numpy.prod(pm.BoxSize)
+
+        if nbar > 0:
+            real[...] /= nbar
+
+        real.shotnoise = 1 / nbar
+
+        if pm.comm.rank == 0:
+            self.logger.info("mean number density is %g", nbar)
+            self.logger.info("normalized the convention to 1 + delta")
 
         return real

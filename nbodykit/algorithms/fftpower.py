@@ -125,9 +125,9 @@ class FFTPower(Algorithm):
             self._transfers = []
             for i, field in enumerate(self.fields):
                 t = [tf.NormalizeDC, tf.RemoveDC]
-                brush = field.painter.paintbrush.upper()
+                brush = field.window.upper()
                 if brush in ['TSC', 'CIC']:
-                    if not field.painter.interlaced:
+                    if not field.interlaced:
                         t.append(getattr(tf, "%sAliasingWindow" %brush))
                     else:
                         t.append(getattr(tf, "%sWindow" %brush))
