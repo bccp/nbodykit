@@ -21,7 +21,7 @@ def test_linear_grid(comm):
     CurrentMPIComm.set(comm)
 
     # linear grid 
-    source = Source.LinearGrid(cosmo, redshift=0.55, BoxSize=512, seed=42)
+    source = Source.LinearGrid(cosmo, redshift=0.55, Nmesh=64, BoxSize=512, seed=42)
 
     # compute P(k) from linear grid
     alg = algorithms.FFTPower(source, mode='1d', Nmesh=64, dk=0.01, kmin=0.005)
@@ -62,10 +62,8 @@ def test_bigfile_grid(comm):
     # zeldovich particles
     source = Source.ZeldovichParticles(cosmo, nbar=3e-4, redshift=0.55, BoxSize=1380., Nmesh=32, rsd='z', seed=42)
     
-    studio = FieldStudio(BoxSize=1380., Nmesh=32, dtype='f8')
-
-    real = studio.paint(source, kind='real')
-    complex = studio.paint(source, kind="complex")
+    real = source.paint(kind='real')
+    complex = source.paint(kind="complex")
 
     # and save to tmp directory
     if comm.rank == 0: 
@@ -74,20 +72,20 @@ def test_bigfile_grid(comm):
         output = None
     output = comm.bcast(output)
 
-    studio.save(real, output, dataset='Field')
+    real.save(output, dataset='Field')
 
     # now load it and paint to the algorithm's ParticleMesh
     source = Source.BigFileGrid(path=output, dataset='Field')
-    loaded_real = studio.paint(source)
+    loaded_real = source.paint()
     
     # compare to direct algorithm result
     assert_array_equal(real, loaded_real)
     
-    studio.save(complex, output, dataset='FieldC')
+    complex.save(output, dataset='FieldC')
 
     # now load it and paint to the algorithm's ParticleMesh
     source = Source.BigFileGrid(path=output, dataset='FieldC')
-    loaded_real = studio.paint(source, kind="complex")
+    loaded_real = source.paint(kind="complex")
     
     # compare to direct algorithm result
     assert_allclose(complex, loaded_real, rtol=1e-5)

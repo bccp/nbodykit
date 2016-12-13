@@ -11,7 +11,7 @@ class LinearGrid(GridSource):
     which is a python wrapper around CLASS 
     """
     @CurrentMPIComm.enable
-    def __init__(self, cosmo, redshift, BoxSize, seed=None, comm=None):
+    def __init__(self, cosmo, redshift, BoxSize, Nmesh, seed=None, comm=None):
         """
         Parameters
         ----------
@@ -21,6 +21,8 @@ class LinearGrid(GridSource):
             the redshift of the linear power spectrum to generate
         BoxSize : float, 3-vector of floats
             the size of the box to generate the grid on
+        Nmesh : int, 3-vector of int
+            the number of the mesh points per side
         seed : int, optional
             the global random seed, used to set the seeds across all ranks
         comm : MPI communicator
@@ -41,11 +43,10 @@ class LinearGrid(GridSource):
         # save the rest of the attributes as meta-data
         self.attrs['redshift'] = redshift
         self.attrs['seed']     = seed
-        self.attrs['BoxSize']  = BoxSize
         
-        GridSource.__init__(self, comm)
+        GridSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype='f4', comm=comm)
             
-    def paint(self, pm):
+    def to_real_field(self):
         """
         Load a grid from file, and paint to the ParticleMesh represented by ``pm``
         
@@ -66,15 +67,12 @@ class LinearGrid(GridSource):
             cosmo = classylss.Cosmology(self.pars)
         except Exception as e:
             raise ValueError("error running CLASS for the specified cosmology: %s" %str(e))
-    
+
         # initialize the linear power spectrum object
         Plin = classylss.power.LinearPS(cosmo, z=self.attrs['redshift'])
-        
+
         # generate linear density field with desired seed
         with MPINumpyRNGContext(self.attrs['seed'], self.comm):
-            real, _ = mockmaker.gaussian_real_fields(pm, Plin, compute_displacement=False)
-
-        real.attrs = {}
-        real.attrs.update(self.attrs)
+            real, _ = mockmaker.gaussian_real_fields(self.pm, Plin, compute_displacement=False)
 
         return real

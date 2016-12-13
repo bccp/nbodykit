@@ -3,13 +3,14 @@ from nbodykit.extern.six import add_metaclass
 import abc
 import numpy
 import logging
+from nbodykit.base.grid import GridSource
 
 # for converting from particle to mesh
 from pmesh import window
 from pmesh.pm import RealField, ComplexField
 
 @add_metaclass(abc.ABCMeta)
-class ParticleSource(object):
+class ParticleSource(GridSource):
     """
     Base class for a source of input particles
     
@@ -18,10 +19,12 @@ class ParticleSource(object):
     logger = logging.getLogger('ParticleSource')
 
     # called by the subclasses
-    def __init__(self, comm):
+    def __init__(self, BoxSize, Nmesh, dtype, comm):
         # ensure self.comm is set, though usually already set by the child.
 
         self.comm = comm
+
+        GridSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype=dtype, comm=comm)
 
         # set the collective size
         self._csize = self.comm.allreduce(self.size)
@@ -30,7 +33,7 @@ class ParticleSource(object):
 
         if self.comm.rank == 0:
             self.logger.info("total number of particles = %d" % self.csize)
-            self.logger.info("attrs = %s" % self.attrs)
+
 
     @staticmethod
     def compute(*args, **kwargs):
@@ -123,19 +126,7 @@ class ParticleSource(object):
     
     def __contains__(self, col):
         return col in self.columns
-        
-    @property
-    def BoxSize(self):
-        """
-        A 3-vector specifying the size of the box for this source
-        """
-        if 'BoxSize' not in self.attrs:
-            raise AttributeError("`BoxSize` has not been set in the `attrs` dict")
-            
-        BoxSize = numpy.array([1, 1, 1.], dtype='f8')
-        BoxSize[:] = self.attrs['BoxSize']
-        return BoxSize
-        
+
     @property
     def transform(self):
         """
@@ -147,17 +138,6 @@ class ParticleSource(object):
             from nbodykit.transform import DefaultSelection, DefaultWeight
             self._transform = {'Selection':DefaultSelection, 'Weight':DefaultWeight}
             return self._transform
-
-    @property
-    def attrs(self):
-        """
-        Dictionary storing relevant meta-data
-        """
-        try:
-            return self._attrs
-        except AttributeError:
-            self._attrs = {}
-            return self._attrs
 
     @property
     def columns(self):
@@ -210,21 +190,21 @@ class ParticleSource(object):
         """
         return [self[col] for col in columns]
 
-    def paint(self, pm):
+    def to_real_field(self):
         """
         paint : (verb) 
             interpolate the `Position` column to the particle mesh
             specified by ``pm``
-        pm : pmesh.pm.ParticleMesh
-            the particle mesh object
         
         Returns
         -------
         real : pmesh.pm.RealField
             the painted real field
         """
+        pm = self.pm
+
         Nlocal = 0 # number of particles read on local rank
-        
+
         # the paint brush window
         paintbrush = window.methods[self.window]
 
@@ -296,11 +276,7 @@ class ParticleSource(object):
         shotnoise = 1 / nbar
 
         real.attrs = {}
-        real.attrs.update(self.attrs)
         real.attrs['shotnoise'] = shotnoise
-
-        # move this after fftpower is updated.
-        real.shotnoise = shotnoise
 
         if pm.comm.rank == 0:
             self.logger.info("mean number density is %g", nbar)

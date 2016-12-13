@@ -43,13 +43,11 @@ class ZeldovichParticles(ParticleSource):
         # save the meta-data
         self.attrs['nbar']     = nbar
         self.attrs['redshift'] = redshift
-        self.attrs['BoxSize']  = BoxSize
-        self.attrs['Nmesh']    = Nmesh
         self.attrs['bias']     = bias
         self.attrs['rsd']      = rsd
         self.attrs['seed']     = seed
 
-        ParticleSource.__init__(self, comm)
+        ParticleSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype='f4', comm=comm)
 
     def __getitem__(self, col):
         """
@@ -104,7 +102,7 @@ class ZeldovichParticles(ParticleSource):
             Plin = classylss.power.LinearPS(cosmo, z=self.attrs['redshift'])
         
             # the particle mesh for gridding purposes
-            pm = ParticleMesh(BoxSize=self.attrs['BoxSize'], Nmesh=[self.attrs['Nmesh']]*3, dtype='f4', comm=self.comm)
+            pm = self.pm
         
             # generate initialize fields and Poisson sample with fixed local seed
             with MPINumpyRNGContext(self.attrs['seed'], self.comm):

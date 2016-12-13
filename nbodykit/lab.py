@@ -8,4 +8,3 @@ from nbodykit import io
 from nbodykit import source as Source
 from nbodykit import algorithms
 from nbodykit import CurrentMPIComm
-from nbodykit.field import FieldStudio

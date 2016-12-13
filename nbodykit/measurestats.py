@@ -32,19 +32,24 @@ def compute_3d_power(fields, pm, transfers=[], comm=None):
         statistics of the second field, as returned by the `Painter`
     """
     rank = comm.rank if comm is not None else MPI.COMM_WORLD.rank
+    def resample(c1, pm):
+        if any(c1.pm.Nmesh != pm.Nmesh):
+            cnew = ComplexField(pm)
+            c1.resample(out=cnew)
+            return cnew
+        return c1
 
     # make sure we have right number of transfer functions
     if len(fields) == 2 and len(transfers) == 1:
         transfers = [transfers]*2
 
     # step 1: paint the density field to the mesh
-    real = fields[0].paint(pm)
+    c1 = fields[0].paint(kind='complex')
     if rank == 0: logger.info('field #1: %s painting done' % str(fields[0]))
 
-    # step 2: Fourier transform density field using real to complex FFT
-    c1 = real.r2c()
-    del real
-    if rank == 0: logger.info('field #1: r2c done')
+    # step 2: resample the density field to the mesh
+    c1 = resample(c1, pm)
+    if rank == 0: logger.info('field #1: %s resampling done' % str(fields[0]))
 
     # step 3: apply transfer function kernels to complex field
     for fk in transfers[0]: fk(c1)
@@ -56,13 +61,11 @@ def compute_3d_power(fields, pm, transfers=[], comm=None):
     # compute the cross power of the two supplied fields
     else:        
         # apply painting, FFT, and transfer steps to second field
-        real = fields[1].paint(pm)
+        c2 = fields[1].paint(kind='complex')
         if rank == 0: logger.info('field #2: %s painting done' % str(fields[1]))
-        
-        # FFT
-        c2 = real.r2c()
-        del real
-        if rank == 0: logger.info('field #2: r2c done')
+
+        c2 = resample(c2, pm)
+        if rank == 0: logger.info('field #2: %s resampling done' % str(fields[1]))
 
         # transfers
         for fk in transfers[1]: fk(c2)
