@@ -41,14 +41,8 @@ class GridSource(object):
     def actions(self):
         return self._actions
 
-    def r2c(self):
-        self.actions.append(('r2c',))
-
-    def c2r(self):
-        self.actions.append(('c2r',))
-
-    def apply(self, func, kind=None):
-        self.actions.append(('apply', func, kind))
+    def apply(self, func, kind='wavenumber', mode='complex'):
+        self.actions.append((mode, func, kind))
 
     def __len__(self):
         """
@@ -62,15 +56,15 @@ class GridSource(object):
     def to_complex_field(self):
         return NotImplemented
 
-    def to_field(self, kind='real'):
-        if kind == 'real':
+    def to_field(self, mode='real'):
+        if mode == 'real':
             real = self.to_real_field()
             if real is NotImplemented:
                 complex = self.to_complex_field()
                 assert complex is not NotImplemented
                 real = complex.r2c(complex)
             var = real
-        elif kind == 'complex':
+        elif mode == 'complex':
             complex = self.to_complex_field()
             if complex is NotImplemented:
                 real = self.to_real_field()
@@ -78,15 +72,7 @@ class GridSource(object):
                 complex = real.r2c(real)
             var = complex
         else:
-            raise ValueError("kind is either real or complex")
-
-        if not hasattr(var, 'attrs'):
-            var.attrs = {}
-
-        var.attrs.update(self.attrs)
-
-        # FIXME: this shall probably got to pmesh
-        var.save = lambda *args, **kwargs : save(var, *args, **kwargs)
+            raise ValueError("mode is either real or complex, %s given" % mode)
 
         return var
 
@@ -101,47 +87,47 @@ class GridSource(object):
             self._attrs = {}
             return self._attrs
 
-    def paint(self, kind="real"):
+    def paint(self, mode="real"):
         """
         Parameters
         ----------
-        kind : string
+        mode : string
         real or complex
         """
+        if not mode in ['real', 'complex']:
+            raise ValueError('mode must be "real" or "complex"')
 
-        # these methods are implemented in the base classes of sources.
-        # it may be wise to move them here.
+        # add a dummy action to ensure the right mode of return value
+        actions = self.actions + [(mode, )]
 
-        # FIXME: if there is a c2r be smart and use complex directly.
-        var = self.to_field(kind='real')
+        # if we expect complex, be smart and use complex directly.
+        var = self.to_field(mode=actions[0][0])
 
-        attrs = var.attrs
-        save = var.save
+        for action in actions:
+            # ensure var is the right mode
 
-        for action in remove_roundtrips(self.actions):
+            if action[0] == 'complex':
+                if not isinstance(var, ComplexField):
+                    var = var.r2c(var)
+            if action[0] == 'real':
+                if not isinstance(var, RealField):
+                    var = var.c2r(var)
 
-            if   action[0] == 'r2c':
-                var = var.r2c()
-            elif action[0] == 'c2r':
-                var = var.c2r()
-            elif action[0] == 'apply':
+            if len(action) > 1:
+                # there is a filter function
                 kwargs = {}
                 kwargs['func'] = action[1]
                 if action[2] is not None:
                     kwargs['kind'] = action[2]
                 var.apply(**kwargs)
 
-        if kind == 'real':
-            if not isinstance(var, RealField):
-                var = var.c2r()
-        elif kind == 'complex':
-            if not isinstance(var, ComplexField):
-                var = var.r2c()
-        else:
-            raise ValueError('kind must be "real" or "complex"')
+        if not hasattr(var, 'attrs'):
+            var.attrs = {}
 
-        var.attrs = attrs
-        var.save = save
+        var.attrs.update(self.attrs)
+
+        # FIXME: this shall probably got to pmesh
+        var.save = lambda *args, **kwargs : save(var, *args, **kwargs)
 
         return var
 
@@ -167,18 +153,3 @@ def save(self, output, dataset='Field'):
                 for key in self.attrs:
                     if key in bb.attrs: continue
                     bb.attrs[key] = self.attrs[key]
-        
-def remove_roundtrips(actions):
-    i = 0
-    while i < len(actions):
-        action = actions[i]
-        next = actions[i + 1] if i < len(actions) - 1 else ('',)
-        if action[0] == 'r2c' and next[0] == 'c2r':
-            i = i + 2
-            continue
-        if action[0] == 'c2r' and next[0] == 'r2c':
-            i = i + 2
-            continue
-        yield action
-        i = i + 1
-

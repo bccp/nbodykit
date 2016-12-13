@@ -26,6 +26,10 @@ class ParticleSource(GridSource):
 
         GridSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype=dtype, comm=comm)
 
+        self.attrs['compensated'] = True
+        self.attrs['interlaced'] = False
+        self.attrs['window'] = 'cic'
+
         # set the collective size
         self._csize = self.comm.allreduce(self.size)
 
@@ -87,11 +91,7 @@ class ParticleSource(GridSource):
     
     @property
     def interlaced(self):
-        try:
-            return self.attrs['interlaced']
-        except KeyError:
-            self.attrs['interlaced'] = False
-            return self.attrs['interlaced']
+        return self.attrs['interlaced']
 
     @interlaced.setter
     def interlaced(self, interlaced):
@@ -99,31 +99,28 @@ class ParticleSource(GridSource):
 
     @property
     def window(self):
-        try:
-            return self.attrs['window']
-        except KeyError:
-            self.attrs['window'] = 'cic'
-            return self.attrs['window']
+        return self.attrs['window']
 
     @window.setter
     def window(self, value):
         assert value in window.methods
         self.attrs['window'] = value
 
-    def set_brush(self, window='cic', interlaced=False):
-        """
-        Set the painter
-        """
-        self.window = window
-        self.interlaced = interlaced
-        
+    @property
+    def compensated(self):
+        return self.attrs['compensated']
+
+    @compensated.setter
+    def compensated(self, value):
+        self.attrs['compensated'] = value
+
     def __len__(self):
         """
         The length of ParticleSource is equal to :attr:`size`; this is the 
         local size of the source on a given rank
         """
         return self.size
-    
+
     def __contains__(self, col):
         return col in self.columns
 
@@ -283,3 +280,89 @@ class ParticleSource(GridSource):
             self.logger.info("normalized the convention to 1 + delta")
 
         return real
+
+    @property
+    def actions(self):
+        actions = GridSource.actions.fget(self)
+        if self.compensated:
+            return self._get_compensation() + actions
+        return actions
+
+    def _get_compensation(self):
+        if self.interlaced:
+            d = {'cic' : CompensateCIC,
+                 'tsc' : CompensateTSC}
+        else:
+            d = {'cic' : CompensateCICAliasing,
+                 'tsc' : CompensateTSCAliasing}
+
+        if not self.window in d:
+            raise ValueError("compensation for window %s is not defined" % self.window)
+
+        filter = d[self.window]
+
+        return [('complex', filter, "circular")]
+
+def CompensateTSC(w, v):
+    """
+    Return the Fourier-space kernel that accounts for the convolution of 
+    the gridded field with the TSC window function in configuration space
+    
+    References
+    ----------
+    see equation 18 (with p=3) of Jing et al 2005 (arxiv:0409240)
+    """ 
+    for i in range(3):
+        wi = w[i]
+        tmp = ( numpy.sin(0.5 * wi) / (0.5 * wi) ) ** 3
+        tmp[k[i] == 0.] = 1.
+        v = v / tmp
+    return v
+
+def CompensateCIC(w, v):
+    """
+    Return the Fourier-space kernel that accounts for the convolution of 
+    the gridded field with the CIC window function in configuration space
+    
+    References
+    ----------
+    see equation 18 (with p=3) of Jing et al 2005 (arxiv:0409240)
+    """     
+    for i in range(3):
+        wi = w[i]
+        tmp = ( numpy.sin(0.5 * wi) / (0.5 * wi) ) ** 2
+        tmp[kk[i] == 0.] = 1.
+        v = v / tmp
+    return v
+
+def CompensateTSCAliasing(w, v):
+    """
+    Return the Fourier-space kernel that accounts for the convolution of 
+    the gridded field with the TSC window function in configuration space,
+    as well as the approximate aliasing correction
+
+    References
+    ----------
+    see equation 20 of Jing et al 2005 (arxiv:0409240)
+    """   
+    for i in range(3):
+        wi = w[i]
+        s = numpy.sin(0.5 * wi)**2
+        v = v / (1 - s + 2./15 * s**2) ** 0.5
+    return v
+
+def CompensateCICAliasing(w, v):
+    """
+    Return the Fourier-space kernel that accounts for the convolution of 
+    the gridded field with the CIC window function in configuration space,
+    as well as the approximate aliasing correction
+
+    References
+    ----------
+    see equation 20 of Jing et al 2005 (arxiv:0409240)
+    """     
+    for i in range(3):
+        wi = w[i]
+        v = v / (1 - 2. / 3 * numpy.sin(0.5 * wi) ** 2) ** 0.5
+    return v
+

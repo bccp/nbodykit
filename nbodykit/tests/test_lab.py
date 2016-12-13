@@ -32,7 +32,9 @@ def test_paint(comm):
     # zeldovich particles
     source = Source.ZeldovichParticles(cosmo, nbar=3e-7, redshift=0.55, BoxSize=1380., Nmesh=32, rsd='z', seed=42)
 
-    source.set_brush(interlaced=True, window='tsc')
+    source.interlaced = True
+    source.window = 'tsc'
+    source.compensated = True
 
     def filter(k, v):
         kk = sum(ki ** 2 for ki in k)
@@ -41,8 +43,8 @@ def test_paint(comm):
 
     source.apply(filter)
 
-    real = source.paint(kind='real')
-    complex = source.paint(kind='complex')
+    real = source.paint(mode='real')
+    complex = source.paint(mode='complex')
 
     real.save(output="./test_paint-real-%d.bigfile" % comm.size)
     complex.save(output="./test_paint-complex-%d.bigfile" % comm.size)

@@ -117,42 +117,6 @@ class FFTPower(Algorithm):
 
         Algorithm.__init__(self, comm)
 
-    @property
-    def transfers(self):
-        """
-        A list of callables to apply to the Fourier transform of the real-space
-        density field for each source in :attr:`sources`
-        
-        The function signature of these functions should be
-        ``fk(k, kx, ky, kz)``, where ``k`` is the norm of the wavenumber
-        and ``kx``, ``ky``, and ``kz`` are the individual components
-        """
-        try:
-            return self._transfers
-        except AttributeError:
-            from nbodykit import transfers as tf
-            
-            self._transfers = []
-            for i, field in enumerate(self.sources):
-                t = [tf.NormalizeDC, tf.RemoveDC]
-                brush = field.window.upper()
-                if brush in ['TSC', 'CIC']:
-                    if not field.interlaced:
-                        t.append(getattr(tf, "%sAliasingWindow" %brush))
-                    else:
-                        t.append(getattr(tf, "%sWindow" %brush))
-                self._transfers.append(t)
-                
-            return self._transfers
-            
-    def set_transfers(self, transfers):
-        """
-        Set the transfer functions applied to the Fourier-space field
-        """
-        if transfers is None:
-            transfers = [[]]*len(self.sources)
-        self._transfers = transfers
-
     def run(self):
         """
         Run the algorithm, which computes and returns the power spectrum
@@ -214,10 +178,10 @@ class FFTPower(Algorithm):
         self.result.power = power
         self.result.poles = poles
 
-    def source2field(self, source, transfer):
+    def source2field(self, source):
 
         # step 1: paint the density field to the mesh
-        c = source.paint(kind='complex')
+        c = source.paint(mode='complex')
 
         if self.comm.rank == 0: self.logger.info('field: %s painting done' % str(source))
 
@@ -227,10 +191,6 @@ class FFTPower(Algorithm):
 
             if self.comm.rank == 0: self.logger.info('field: %s resampling done' % str(source))
 
-        for fk in transfer:
-            fk(c)
-
-        if self.comm.rank == 0: self.logger.info('field: %s transfer done' % str(source))
         return c
 
 
@@ -262,18 +222,17 @@ class FFTPower(Algorithm):
         """
         sources = self.sources
         pm = self.pm
-        transfers = transfers=self.transfers
         comm = self.comm
 
         rank = comm.rank
 
-        c1 = self.source2field(self.sources[0], self.transfers[0])
+        c1 = self.source2field(self.sources[0])
 
         # compute the auto power of single supplied field
         if sources[0] is sources[1]:
             c2 = c1
         else:
-            c2 = self.source2field(self.sources[1], self.transfers[1])
+            c2 = self.source2field(self.sources[1])
 
         # calculate the 3d power spectrum, slab-by-slab to save memory
         p3d = c1

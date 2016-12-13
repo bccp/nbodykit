@@ -25,7 +25,6 @@ def test_linear_grid(comm):
 
     # compute P(k) from linear grid
     alg = algorithms.FFTPower(source, mode='1d', Nmesh=64, dk=0.01, kmin=0.005)
-    alg.set_transfers(None)  # no transfer functions needed
     
     # run and get the result
     alg.run()
@@ -62,8 +61,8 @@ def test_bigfile_grid(comm):
     # zeldovich particles
     source = Source.ZeldovichParticles(cosmo, nbar=3e-4, redshift=0.55, BoxSize=1380., Nmesh=32, rsd='z', seed=42)
     
-    real = source.paint(kind='real')
-    complex = source.paint(kind="complex")
+    real = source.paint(mode='real')
+    complex = source.paint(mode="complex")
 
     # and save to tmp directory
     if comm.rank == 0: 
@@ -85,7 +84,7 @@ def test_bigfile_grid(comm):
 
     # now load it and paint to the algorithm's ParticleMesh
     source = Source.BigFileGrid(path=output, dataset='FieldC')
-    loaded_real = source.paint(kind="complex")
+    loaded_real = source.paint(mode="complex")
     
     # compare to direct algorithm result
     assert_allclose(complex, loaded_real, rtol=1e-5)
