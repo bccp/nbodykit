@@ -71,3 +71,29 @@ def test_transform(comm):
     # which resolves to the true data.
     # so total is 3.
     assert_allclose(source['Position'], 3)
+
+@MPITest([1])
+def test_file(comm):
+    import h5py
+    import tempfile
+    from nbodykit.io.hdf import HDFFile
+
+    # fake structured array
+    dset = numpy.empty(1024, dtype=[('Position', ('f8', 3)), ('Mass', 'f8')])
+    dset['Position'] = numpy.random.random(size=(1024, 3))
+    dset['Mass'] = numpy.random.random(size=1024)
+
+    tmpfile = tempfile.mkstemp()[1]
+    
+    with h5py.File(tmpfile , 'w') as ff:
+        ff.create_dataset('X', data=dset) # store structured array as dataset
+        grp = ff.create_group('Y')
+        grp.create_dataset('Position', data=dset['Position']) # column as dataset
+        grp.create_dataset('Mass', data=dset['Mass']) # column as dataset
+
+    cosmo = cosmology.Planck15
+    CurrentMPIComm.set(comm)
+
+    source = Source.File(HDFFile, tmpfile, BoxSize=1, Nmesh=32, args={'root': 'X'})
+
+    assert_allclose(source['Position'], dset['Position'])
