@@ -227,9 +227,15 @@ class ParticleSource(GridSource):
         # paint data in chunks on each rank
         chunksize = 1024 ** 2
         for i in range(0, N, chunksize):
-            if i > len(Position) : i = len(Position)
             s = slice(i, i + chunksize)
-            position, weight, selection = self.compute(Position[s], Weight[s], Selection[s])
+
+            if len(Position) != 0:
+                position, weight, selection = self.compute(Position[s], Weight[s], Selection[s])
+            else:
+                # workaround a potential dask issue on empty dask arrays
+                position = numpy.empty((0, 3), dtype=Position.dtype)
+                weight = None
+                selection = None
 
             if weight is None:
                 weight = numpy.ones(len(position))
@@ -239,12 +245,11 @@ class ParticleSource(GridSource):
                 weight   = weight[selection]
 
             Nlocal += len(position)
-
             if not self.interlaced:
                 lay = pm.decompose(position, smoothing=0.5 * paintbrush.support)
                 p = lay.exchange(position)
                 w = lay.exchange(weight)
-                real.paint(position, mass=weight, method=paintbrush, hold=True)
+                real.paint(p, mass=w, method=paintbrush, hold=True)
             else:
                 lay = pm.decompose(position, smoothing=1.0 * paintbrush.support)
                 p = lay.exchange(position)
@@ -255,8 +260,8 @@ class ParticleSource(GridSource):
                 # in mesh units
                 shifted = pm.affine.shift(0.5)
 
-                real.paint(position, mass=weight, method=paintbrush, hold=True)
-                real2.paint(position, mass=weight, method=paintbrush, transform=shifted, hold=True)
+                real.paint(p, mass=w, method=paintbrush, hold=True)
+                real2.paint(p, mass=w, method=paintbrush, transform=shifted, hold=True)
                 c1 = real.r2c()
                 c2 = real2.r2c()
 
@@ -265,19 +270,23 @@ class ParticleSource(GridSource):
                     s1[...] = s1[...] * 0.5 + s2[...] * 0.5 * numpy.exp(0.5 * 1j * kH)
 
                 c1.c2r(real)
-        nbar = pm.comm.allreduce(Nlocal) / numpy.prod(pm.BoxSize)
 
-        if nbar > 0:
-            real[...] /= nbar
+        nbar = 1.0 * pm.comm.allreduce(Nlocal) / numpy.prod(pm.Nmesh)
 
-        shotnoise = 1 / nbar
+        shotnoise = numpy.prod(pm.BoxSize) / pm.comm.allreduce(Nlocal)
 
         real.attrs = {}
         real.attrs['shotnoise'] = shotnoise
-
+        csum = real.csum()
         if pm.comm.rank == 0:
-            self.logger.info("mean number density is %g", nbar)
+            self.logger.info("mean particles per cell is %g", nbar)
+            self.logger.info("sum is %g ", csum)
             self.logger.info("normalized the convention to 1 + delta")
+
+        if nbar > 0:
+            real[...] /= nbar
+        else:
+            real[...] = 1
 
         return real
 

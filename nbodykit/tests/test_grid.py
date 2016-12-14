@@ -59,7 +59,7 @@ def test_bigfile_grid(comm):
     CurrentMPIComm.set(comm)
 
     # zeldovich particles
-    source = Source.ZeldovichParticles(cosmo, nbar=3e-4, redshift=0.55, BoxSize=1380., Nmesh=32, rsd=[0, 0, 1], seed=42)
+    source = Source.LinearGrid(cosmo, redshift=0.55, BoxSize=512, Nmesh=64, seed=42)
     
     real = source.paint(mode='real')
     complex = source.paint(mode="complex")
