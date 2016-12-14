@@ -30,6 +30,12 @@ class ParticleSource(GridSource):
         self.attrs['interlaced'] = False
         self.attrs['window'] = 'cic'
 
+        # if size is already computed update csize
+        # otherwise the subclass shall call update_csize explicitly.
+        if self.size is not NotImplemented:
+            self.update_csize()
+
+    def update_csize(self):
         # set the collective size
         self._csize = self.comm.allreduce(self.size)
 
@@ -37,7 +43,6 @@ class ParticleSource(GridSource):
 
         if self.comm.rank == 0:
             self.logger.info("total number of particles = %d" % self.csize)
-
 
     @staticmethod
     def compute(*args, **kwargs):

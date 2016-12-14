@@ -52,6 +52,11 @@ class ZeldovichParticles(ParticleSource):
 
         ParticleSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype='f4', comm=comm)
 
+        self._source = self._makesource()
+
+        # recompute _csize to the real size
+        self.update_csize()
+
     def __getitem__(self, col):
         """
         Return a column from the underlying file source
@@ -66,6 +71,8 @@ class ZeldovichParticles(ParticleSource):
 
     @property
     def size(self):
+        if not hasattr(self, "_source"):
+            return NotImplemented
         return len(self._source)
 
     @property
@@ -75,52 +82,49 @@ class ZeldovichParticles(ParticleSource):
         """
         return list(self._source.dtype.names)
 
-    @property
-    def _source(self):
-        """
-        The underlying data array which holds the `Position` data
-        """
+    def _makesource(self):
+        # classylss is required to call CLASS and create a power spectrum
+        try: import classylss
+        except: raise ImportError("`classylss` is required to use %s" %self.__class__.__name__)
+    
+        # the other imports
+        from nbodykit import mockmaker
+        from pmesh.pm import ParticleMesh
+        from nbodykit.utils import MPINumpyRNGContext
+    
+        # initialize the CLASS parameters 
+        pars = classylss.ClassParams.from_astropy(self.cosmo)
+
         try:
-            return self._pos
-        except AttributeError:
-            
-            # classylss is required to call CLASS and create a power spectrum
-            try: import classylss
-            except: raise ImportError("`classylss` is required to use %s" %self.__class__.__name__)
+            cosmo = classylss.Cosmology(pars)
+        except Exception as e:
+            raise ValueError("error running CLASS for the specified cosmology: %s" %str(e))
+    
+        # initialize the linear power spectrum object
+        Plin = classylss.power.LinearPS(cosmo, z=self.attrs['redshift'])
+    
+        # the particle mesh for gridding purposes
+        pm = self.pm
+    
+        # generate initialize fields and Poisson sample with fixed local seed
+        with MPINumpyRNGContext(self.attrs['seed'], self.comm):
+    
+            # compute the linear overdensity and displacement fields
+            delta, disp = mockmaker.gaussian_real_fields(pm, Plin, compute_displacement=True)
+    
+            # sample to Poisson points
+            f = cosmo.f_z(self.attrs['redshift']) # growth rate to do RSD in the Zel'dovich approx
+            kws = {'f':f, 'bias':self.attrs['bias']}
+            pos, vel = mockmaker.poisson_sample_to_points(delta, disp, pm, self.attrs['nbar'], **kws)
         
-            # the other imports
-            from nbodykit import mockmaker
-            from pmesh.pm import ParticleMesh
-            from nbodykit.utils import MPINumpyRNGContext
-        
-            # initialize the CLASS parameters 
-            pars = classylss.ClassParams.from_astropy(self.cosmo)
+        pos += vel * self.attrs['rsd']
 
-            try:
-                cosmo = classylss.Cosmology(pars)
-            except Exception as e:
-                raise ValueError("error running CLASS for the specified cosmology: %s" %str(e))
-        
-            # initialize the linear power spectrum object
-            Plin = classylss.power.LinearPS(cosmo, z=self.attrs['redshift'])
-        
-            # the particle mesh for gridding purposes
-            pm = self.pm
-        
-            # generate initialize fields and Poisson sample with fixed local seed
-            with MPINumpyRNGContext(self.attrs['seed'], self.comm):
-        
-                # compute the linear overdensity and displacement fields
-                delta, disp = mockmaker.gaussian_real_fields(pm, Plin, compute_displacement=True)
-        
-                # sample to Poisson points
-                f = cosmo.f_z(self.attrs['redshift']) # growth rate to do RSD in the Zel'dovich approx
-                kws = {'f':f, 'bias':self.attrs['bias']}
-                pos, vel = mockmaker.poisson_sample_to_points(delta, disp, pm, self.attrs['nbar'], **kws)
-            
-            pos += vel * self.attrs['rsd']
+        dtype = numpy.dtype([
+                ('Position', ('f4', 3)),
+                ('Velocity', ('f4', 3)),
+        ])
 
-            dtype = numpy.dtype([('Position', (pos.dtype.str,3))])
-            self._pos = numpy.empty(len(pos), dtype=dtype)
-            self._pos['Position'][:] = pos[:]
-            return self._pos
+        source = numpy.empty(len(pos), dtype)
+        source['Position'][:] = pos[:]
+        source['Velocity'][:] = vel[:]
+        return source
