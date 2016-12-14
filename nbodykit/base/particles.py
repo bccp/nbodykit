@@ -382,16 +382,26 @@ def CompensateCICAliasing(w, v):
     return v
 
 class ResolveColumn(object):
+    """ Helper object that provides the context for evaluating
+        the transforms.
+
+        As we go along we remove edges from the dictionary to
+        avoid deadloops.
+
+        this object is passed to the transform functions,
+        so we make it look like a Source.
+
+    """
     def __init__(self, source, transforms):
         self.source = source
         self.transforms = {}
         self.transforms.update(transforms)
 
     def __len__(self):
+        """ len is used some times """
         return len(self.source)
 
     def __getitem__(self, col):
-
         if col in self.transforms:
             t = self.transforms.pop(col)
             return t(self)
