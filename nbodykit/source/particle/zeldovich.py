@@ -115,9 +115,11 @@ class ZeldovichParticles(ParticleSource):
         
                 # sample to Poisson points
                 f = cosmo.f_z(self.attrs['redshift']) # growth rate to do RSD in the Zel'dovich approx
-                kws = {'rsd':self.attrs['rsd'], 'f':f, 'bias':self.attrs['bias']}
-                pos = mockmaker.poisson_sample_to_points(delta, disp, pm, self.attrs['nbar'], **kws)
+                kws = {'f':f, 'bias':self.attrs['bias']}
+                pos, vel = mockmaker.poisson_sample_to_points(delta, disp, pm, self.attrs['nbar'], **kws)
             
+            pos += vel * self.attrs['rsd']
+
             dtype = numpy.dtype([('Position', (pos.dtype.str,3))])
             self._pos = numpy.empty(len(pos), dtype=dtype)
             self._pos['Position'][:] = pos[:]
