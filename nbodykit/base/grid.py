@@ -145,7 +145,7 @@ def save(self, output, dataset='Field'):
                     # do not override the above values -- they are vectors (from pm)
                     if key in bb.attrs: continue
                     value = numpy.array(self.attrs[key])
-                    if value.dtype.char in 'bSiufc':
+                    if value.dtype.char in 'bdfSilIL':
                         bb.attrs[key] = value
         elif isinstance(self, ComplexField):
             with ff.create_from_array(dataset, data) as bb:
@@ -155,5 +155,5 @@ def save(self, output, dataset='Field'):
                 for key in self.attrs:
                     if key in bb.attrs: continue
                     value = numpy.array(self.attrs[key])
-                    if value.dtype.char in 'bSiufc':
+                    if value.dtype.char in 'bdfSilIL':
                         bb.attrs[key] = value

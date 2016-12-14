@@ -43,6 +43,13 @@ class ZeldovichParticles(ParticleSource):
         if rsd is None:
             rsd = [0, 0, 0.]
 
+        try: import classylss
+        except: raise ImportError("`classylss` is required to use %s" %self.__class__.__name__)
+
+        self.pars = classylss.ClassParams.from_astropy(cosmo)
+        for key, value in self.pars.items():
+            self.attrs['cosmo.' + key] = value
+
         # save the meta-data
         self.attrs['nbar']     = nbar
         self.attrs['redshift'] = redshift

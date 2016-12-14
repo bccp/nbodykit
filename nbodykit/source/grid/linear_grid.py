@@ -34,7 +34,8 @@ class LinearGrid(GridSource):
         
         # initialize the CLASS parameters and save dict version
         self.pars = classylss.ClassParams.from_astropy(cosmo)
-        self.attrs['cosmo'] = dict(self.pars)
+        for key, value in self.pars.items():
+            self.attrs['cosmo.' + key] = value
         
         # cosmology and communicator
         self.comm    = comm
