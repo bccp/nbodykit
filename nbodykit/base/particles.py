@@ -171,7 +171,7 @@ class ParticleSource(GridSource):
     def __setitem__(self, col, value):
         import dask.array as da
         assert len(value) == self.size
-        self._overrides[col] = da.array(value, ndmin=0)
+        self._overrides[col] = da.from_array(value, chunks=getattr(value, 'chunks', 100000))
 
     def read(self, columns):
         """
