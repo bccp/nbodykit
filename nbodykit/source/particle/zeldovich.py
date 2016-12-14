@@ -1,6 +1,6 @@
 from nbodykit.io.stack import FileStack
 from nbodykit.base.particles import ParticleSource
-
+from nbodykit.utils import cosmology_to_dict
 from nbodykit import CurrentMPIComm
 
 import numpy
@@ -43,12 +43,7 @@ class ZeldovichParticles(ParticleSource):
         if rsd is None:
             rsd = [0, 0, 0.]
 
-        try: import classylss
-        except: raise ImportError("`classylss` is required to use %s" %self.__class__.__name__)
-
-        self.pars = classylss.ClassParams.from_astropy(cosmo)
-        for key, value in self.pars.items():
-            self.attrs['cosmo.' + key] = value
+        self.attrs.update(cosmology_to_dict(cosmo))
 
         # save the meta-data
         self.attrs['nbar']     = nbar

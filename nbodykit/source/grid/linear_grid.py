@@ -1,6 +1,7 @@
 from nbodykit.base.grid import GridSource
 from nbodykit import CurrentMPIComm, mockmaker
 from nbodykit.utils import MPINumpyRNGContext
+from nbodykit.utils import cosmology_to_dict
 
 class LinearGrid(GridSource):
     """
@@ -34,8 +35,8 @@ class LinearGrid(GridSource):
         
         # initialize the CLASS parameters and save dict version
         self.pars = classylss.ClassParams.from_astropy(cosmo)
-        for key, value in self.pars.items():
-            self.attrs['cosmo.' + key] = value
+
+        self.attrs.update(cosmology_to_dict(cosmo))
         
         # cosmology and communicator
         self.comm    = comm
