@@ -35,14 +35,27 @@ class ParticleSource(GridSource):
         if self.size is not NotImplemented:
             self.update_csize()
 
+        self._overrides = {}
+
     def update_csize(self):
-        # set the collective size
+        """ set the collective size
+
+            Call this function in __init__ of subclass, 
+            after .size is a valid value (not NotImplemented)
+        """
         self._csize = self.comm.allreduce(self.size)
 
         self.logger.debug("local number of particles = %d" % self.size)
 
         if self.comm.rank == 0:
             self.logger.info("total number of particles = %d" % self.csize)
+
+        import dask.array as da
+
+        self._fallbacks = {
+                'Selection': da.ones(self.size, dtype='?', chunks=100000),
+                   'Weight': da.ones(self.size, dtype='?', chunks=100000),
+                          }
 
     @staticmethod
     def compute(*args, **kwargs):
@@ -73,27 +86,6 @@ class ParticleSource(GridSource):
         kwargs.setdefault('optimize_graph', False)
         return dask.compute(*args, **kwargs)
 
-    def set_transform(self, *transform, **kwargs):
-        """
-        Set the transform dictionary
-        """
-        # the existing dict
-        t = self.transform
-        
-        if len(transform):
-            if len(transform) != 1:
-                raise ValueError("please supply a dictionary as the single positional argument")
-            transform = transform[0]
-            if not isinstance(transform, dict):
-                raise TypeError("`transform` should be a dictionary of callables")
-            
-            # update the existing dict
-            t.update(transform)
-        
-        # set any kwargs too
-        for k in kwargs:
-            t[k] = kwargs[k]
-    
     @property
     def interlaced(self):
         return self.attrs['interlaced']
@@ -130,23 +122,11 @@ class ParticleSource(GridSource):
         return col in self.columns
 
     @property
-    def transform(self):
-        """
-        A dictionary of callables that return transform data columns
-        """
-        try:
-            return self._transform
-        except AttributeError:
-            from nbodykit.transform import DefaultSelection, DefaultWeight
-            self._transform = {'Selection':DefaultSelection, 'Weight':DefaultWeight}
-            return self._transform
-
-    @property
     def columns(self):
         """
-        The names of the data fields defined for each particle, including transformed columns
+        The names of the data fields defined for each particle, including overriden columns and fallback columns
         """
-        return sorted(set(list(self.hcolumns) + list(self.transform)))
+        return sorted(set(list(self.hcolumns) + list(self._overrides) + list(self._fallbacks)))
 
     @abc.abstractproperty
     def hcolumns(self):
@@ -166,9 +146,9 @@ class ParticleSource(GridSource):
     @abc.abstractproperty
     def size(self):
         """
-        The number of particles in the source on the local rank
+        The number of particles in the source on the local rank.
         """
-        return 0
+        return NotImplemented
 
     @abc.abstractmethod
     def get_column(self, col):
@@ -181,8 +161,17 @@ class ParticleSource(GridSource):
         pass
 
     def __getitem__(self, col):
-        cc = ResolveColumn(self, self.transform)
-        return cc[col]
+        if col in self._overrides:
+            return self._overrides[col]
+        elif col in self.hcolumns:
+            return self.get_column(col)
+        elif col in self._fallbacks:
+            return self._fallbacks[col]
+
+    def __setitem__(self, col, value):
+        import dask.array as da
+        assert len(value) == self.size
+        self._overrides[col] = da.array(value)
 
     def read(self, columns):
         """
@@ -380,29 +369,3 @@ def CompensateCICAliasing(w, v):
         v = v / (1 - 2. / 3 * numpy.sin(0.5 * wi) ** 2) ** 0.5
     return v
 
-class ResolveColumn(object):
-    """ Helper object that provides the context for evaluating
-        the transforms.
-
-        As we go along we remove edges from the dictionary to
-        avoid deadloops.
-
-        this object is passed to the transform functions,
-        so we make it look like a Source.
-
-    """
-    def __init__(self, source, transforms):
-        self.source = source
-        self.transforms = {}
-        self.transforms.update(transforms)
-
-    def __len__(self):
-        """ len is used some times """
-        return len(self.source)
-
-    def __getitem__(self, col):
-        if col in self.transforms:
-            t = self.transforms.pop(col)
-            return t(self)
-        else:
-            return self.source.get_column(col)

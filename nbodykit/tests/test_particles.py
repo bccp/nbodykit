@@ -42,7 +42,7 @@ def test_zeldovich_velocity(comm):
 
     source.compensated = False
 
-    source.set_transform({'Weight' : lambda x: x['Velocity'][:, 0]})
+    source['Weight'] = source['Velocity'][:, 0]
 
     real = source.paint(mode='real')
     velsum = comm.allreduce(source['Velocity'][:, 0].sum().compute())
@@ -61,11 +61,9 @@ def test_transform(comm):
 
     source = Source.Array(data, BoxSize=100, Nmesh=32)
 
-    source.set_transform({
-        'Position' : lambda x : x['Position'] + x['Velocity']})
+    source['Velocity'] = source['Position'] + source['Velocity']
 
-    source.set_transform({
-        'Velocity' : lambda x : x['Position'] + x['Velocity']})
+    source['Position'] = source['Position'] + source['Velocity']
 
     # Position triggers  Velocity which triggers Position and Velocity
     # which resolves to the true data.
