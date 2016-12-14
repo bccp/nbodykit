@@ -19,8 +19,8 @@ def find_datasets(info, attrs, name, obj):
     # only gather info on dataset    
     if isinstance(obj, h5py.Dataset):
         
-        # update meta
-        attrs[name] = dict(obj.attrs)
+        # update meta-data (remember: all strings in h5py stored encoded data)
+        attrs[str(name)] = {str(k):obj.attrs[k] for k in obj.attrs}
         
         # structured array
         if obj.dtype.kind == 'V':
