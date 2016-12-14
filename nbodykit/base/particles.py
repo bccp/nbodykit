@@ -100,7 +100,7 @@ class ParticleSource(GridSource):
 
     @interlaced.setter
     def interlaced(self, interlaced):
-        self.attrs['interlaced'] = False
+        self.attrs['interlaced'] = interlaced
 
     @property
     def window(self):
