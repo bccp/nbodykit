@@ -77,6 +77,7 @@ def test_file(comm):
     import h5py
     import tempfile
     from nbodykit.io.hdf import HDFFile
+    import os
 
     # fake structured array
     dset = numpy.empty(1024, dtype=[('Position', ('f8', 3)), ('Mass', 'f8')])
@@ -86,7 +87,8 @@ def test_file(comm):
     tmpfile = tempfile.mkstemp()[1]
     
     with h5py.File(tmpfile , 'w') as ff:
-        ff.create_dataset('X', data=dset) # store structured array as dataset
+        ds = ff.create_dataset('X', data=dset) # store structured array as dataset
+        ds.attrs['BoxSize'] = 1.0
         grp = ff.create_group('Y')
         grp.create_dataset('Position', data=dset['Position']) # column as dataset
         grp.create_dataset('Mass', data=dset['Mass']) # column as dataset
@@ -94,6 +96,8 @@ def test_file(comm):
     cosmo = cosmology.Planck15
     CurrentMPIComm.set(comm)
 
-    source = Source.File(HDFFile, tmpfile, BoxSize=1, Nmesh=32, args={'root': 'X'})
+    source = Source.File(HDFFile, tmpfile, Nmesh=32, args={'root': 'X'})
 
     assert_allclose(source['Position'], dset['Position'])
+
+    os.unlink(tmpfile)
