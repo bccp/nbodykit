@@ -329,8 +329,7 @@ def CompensateTSC(w, v):
     """ 
     for i in range(3):
         wi = w[i]
-        tmp = ( numpy.sin(0.5 * wi) / (0.5 * wi) ) ** 3
-        tmp[wi == 0.] = 1.
+        tmp = (numpy.sinc(0.5 * wi / numpy.pi) ) ** 3
         v = v / tmp
     return v
 
@@ -345,7 +344,7 @@ def CompensateCIC(w, v):
     """     
     for i in range(3):
         wi = w[i]
-        tmp = ( numpy.sin(0.5 * wi) / (0.5 * wi) ) ** 2
+        tmp = (numpy.sinc(0.5 * wi / numpy.pi) ) ** 2
         tmp[wi == 0.] = 1.
         v = v / tmp
     return v
