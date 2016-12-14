@@ -35,17 +35,14 @@ class ParticlesFromNumpy(ParticleSource):
 
         ParticleSource.__init__(self, comm)
 
-    def __getitem__(self, col):
+    def get_column(self, col):
         """
         Return a column from the underlying file source
         
         Columns are returned as dask arrays
         """
-        if col in self._source.dtype.names:
-            import dask.array as da
-            return da.from_array(self._source[col], chunks=100000)
-
-        return ParticleSource.__getitem__(self, col)
+        import dask.array as da
+        return da.from_array(self._source[col], chunks=100000)
 
     @property
     def size(self):

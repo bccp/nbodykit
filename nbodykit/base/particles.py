@@ -171,17 +171,18 @@ class ParticleSource(GridSource):
         return 0
 
     @abc.abstractmethod
-    def __getitem__(self, col):
+    def get_column(self, col):
         """
         Return a column from the underlying source or from
         the transformation dictionary
         
         Columns are returned as dask arrays
         """
-        if col in self.transform:
-            return self.transform[col](self)
-        else:
-            raise KeyError("column `%s` is not a valid column name" %col)
+        pass
+
+    def __getitem__(self, col):
+        cc = ResolveColumn(self, self.transform)
+        return cc[col]
 
     def read(self, columns):
         """
@@ -380,3 +381,19 @@ def CompensateCICAliasing(w, v):
         v = v / (1 - 2. / 3 * numpy.sin(0.5 * wi) ** 2) ** 0.5
     return v
 
+class ResolveColumn(object):
+    def __init__(self, source, transforms):
+        self.source = source
+        self.transforms = {}
+        self.transforms.update(transforms)
+
+    def __len__(self):
+        return len(self.source)
+
+    def __getitem__(self, col):
+
+        if col in self.transforms:
+            t = self.transforms.pop(col)
+            return t(self)
+        else:
+            return self.source.get_column(col)

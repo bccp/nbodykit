@@ -43,18 +43,15 @@ class ParticlesFromFile(ParticleSource):
 
         ParticleSource.__init__(self, comm)
 
-    def __getitem__(self, col):
+    def get_column(self, col):
         """
         Return a column from the underlying file source
 
         Columns are returned as dask arrays
         """
-        if col in self._source:
-            start = self.comm.rank * self._source.size // self.comm.size
-            end = (self.comm.rank  + 1) * self._source.size // self.comm.size
-            return self._source.get_dask(col)[start:end]
-
-        return ParticleSource.__getitem__(self, col)
+        start = self.comm.rank * self._source.size // self.comm.size
+        end = (self.comm.rank  + 1) * self._source.size // self.comm.size
+        return self._source.get_dask(col)[start:end]
 
     @property
     def size(self):
