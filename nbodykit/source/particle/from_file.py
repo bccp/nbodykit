@@ -3,7 +3,7 @@ from nbodykit.base.particles import ParticleSource
 from nbodykit import CurrentMPIComm
 import numpy
 
-class ParticlesFromFile(ParticleSource):
+class File(ParticleSource):
     """
     Read a source of particles from a single file, or multiple
     files, on disk

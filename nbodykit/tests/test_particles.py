@@ -50,3 +50,24 @@ def test_zeldovich_velocity(comm):
 
     assert_allclose(real.cmean(), velmean, rtol=1e-5)
 
+@MPITest([1])
+def test_transform(comm):
+    cosmo = cosmology.Planck15
+    CurrentMPIComm.set(comm)
+    data = numpy.ones(100, dtype=[
+            ('Position', ('f4', 3)),
+            ('Velocity', ('f4', 3))]
+            )
+
+    source = Source.Array(data, BoxSize=100, Nmesh=32)
+
+    source.set_transform({
+        'Position' : lambda x : x['Position'] + x['Velocity']})
+
+    source.set_transform({
+        'Velocity' : lambda x : x['Position'] + x['Velocity']})
+
+    # Position triggers  Velocity which triggers Position and Velocity
+    # which resolves to the true data.
+    # so total is 3.
+    assert_allclose(source['Position'], 3)
