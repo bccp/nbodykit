@@ -144,7 +144,9 @@ def save(self, output, dataset='Field'):
                 for key in self.attrs:
                     # do not override the above values -- they are vectors (from pm)
                     if key in bb.attrs: continue
-                    bb.attrs[key] = self.attrs[key]
+                    value = numpy.array(self.attrs[key])
+                    if value.dtype.char in 'bSiufc':
+                        bb.attrs[key] = value
         elif isinstance(self, ComplexField):
             with ff.create_from_array(dataset, data) as bb:
                 bb.attrs['ndarray.shape'] = self.Nmesh, self.Nmesh, self.Nmesh // 2 + 1
@@ -152,4 +154,6 @@ def save(self, output, dataset='Field'):
                 bb.attrs['Nmesh'] = self.pm.Nmesh
                 for key in self.attrs:
                     if key in bb.attrs: continue
-                    bb.attrs[key] = self.attrs[key]
+                    value = numpy.array(self.attrs[key])
+                    if value.dtype.char in 'bSiufc':
+                        bb.attrs[key] = value
