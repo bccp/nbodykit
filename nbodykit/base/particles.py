@@ -162,11 +162,17 @@ class ParticleSource(GridSource):
 
     def __getitem__(self, col):
         if col in self._overrides:
-            return self._overrides[col]
+            r = self._overrides[col]
         elif col in self.hcolumns:
-            return self.get_column(col)
+            r = self.get_column(col)
         elif col in self._fallbacks:
-            return self._fallbacks[col]
+            r = self._fallbacks[col]
+        else:
+            raise KeyError("column `%s` is not defined in this source" % col)
+        if not hasattr(r, 'attrs'):
+            r.attrs = {}
+        r.save = lambda output, dataset=col: save(r, output, dataset, self.comm)
+        return r
 
     def __setitem__(self, col, value):
         import dask.array as da
@@ -181,6 +187,17 @@ class ParticleSource(GridSource):
         of data for each rank, divided equally amongst the available ranks
         """
         return [self[col] for col in columns]
+
+    def save_attrs(self, filename, dataset='Header'):
+        import bigfile
+        with bigfile.BigFileMPI(comm=self.comm, filename=filename, create=True) as ff:
+            try:
+                header = ff.open(dataset)
+            except:
+                header = ff.create(dataset)
+            with header:
+                for key in self.attrs:
+                    header.attrs[key] = self.attrs[key]
 
     def to_real_field(self):
         """
@@ -369,3 +386,22 @@ def CompensateCICAliasing(w, v):
         v = v / (1 - 2. / 3 * numpy.sin(0.5 * wi) ** 2) ** 0.5
     return v
 
+
+def save(c, output, dataset, comm):
+    """ save a dask array to bigfile output as dataset.
+
+        c.attr is stored as block attrs.
+    """
+    import bigfile
+
+    csize = comm.allreduce(c.size)
+    dtype = c.dtype
+    if len(c.shape) > 1:
+        dtype = (dtype, c.shape[1:])
+
+    with bigfile.BigFileMPI(comm=comm, filename=output, create=True) as ff:
+        with ff.create_from_array(dataset, c) as bb:
+            if hasattr(c, 'attrs'): 
+                for key in c.attrs:
+                    bb.attrs[key] = c.attrs[key]
+    

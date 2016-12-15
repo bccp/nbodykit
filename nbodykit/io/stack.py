@@ -42,8 +42,10 @@ class FileStack(FileType):
                 filenames = [os.path.abspath(path)]
         else:
             raise ValueError("'path' should be a string or a list of strings")
-
         self.files = [filetype(fn, **kwargs) for fn in filenames]
+        print path
+        print self.files
+        print len(self.files[0])
         self.sizes = numpy.array([len(f) for f in self.files], dtype='i8')
 
         # set dtype and size
