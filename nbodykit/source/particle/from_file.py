@@ -1,16 +1,15 @@
 from nbodykit.io.stack import FileStack
 from nbodykit.base.particles import ParticleSource
-from nbodykit.base.painter import Painter
 from nbodykit import CurrentMPIComm
 import numpy
 
-class ParticlesFromFile(ParticleSource):
+class File(ParticleSource):
     """
     Read a source of particles from a single file, or multiple
     files, on disk
     """
     @CurrentMPIComm.enable
-    def __init__(self, filetype, path, args={}, comm=None, **kwargs):
+    def __init__(self, filetype, path, Nmesh, BoxSize=None, args={}, comm=None, **kwargs):
         """
         Parameters
         ----------
@@ -38,24 +37,23 @@ class ParticlesFromFile(ParticleSource):
         # update the meta-data
         self.attrs.update(self._source.attrs)
         self.attrs.update(kwargs)
+        if BoxSize is None:
+            BoxSize = self.attrs['BoxSize']
 
         if self.comm.rank == 0:
             self.logger.info("Extra arguments to FileType: %s" %args)
 
-        ParticleSource.__init__(self, comm)
+        ParticleSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype='f4', comm=comm)
 
-    def __getitem__(self, col):
+    def get_column(self, col):
         """
         Return a column from the underlying file source
 
         Columns are returned as dask arrays
         """
-        if col in self._source:
-            start = self.comm.rank * self._source.size // self.comm.size
-            end = (self.comm.rank  + 1) * self._source.size // self.comm.size
-            return self._source.get_dask(col)[start:end]
-
-        return ParticleSource.__getitem__(self, col)
+        start = self.comm.rank * self._source.size // self.comm.size
+        end = (self.comm.rank  + 1) * self._source.size // self.comm.size
+        return self._source.get_dask(col)[start:end]
 
     @property
     def size(self):

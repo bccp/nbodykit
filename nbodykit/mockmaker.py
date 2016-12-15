@@ -191,7 +191,7 @@ def lognormal_transform(density, bias=1.):
     return toret
     
     
-def poisson_sample_to_points(delta, displacement, pm, nbar, rsd=None, f=0., bias=1.):
+def poisson_sample_to_points(delta, displacement, pm, nbar, f=0., bias=1.):
     """
     Poisson sample the linear delta and displacement fields to points. 
     
@@ -211,9 +211,6 @@ def poisson_sample_to_points(delta, displacement, pm, nbar, rsd=None, f=0., bias
         the linear displacement fields which is used to move the particles
     nbar : float
         the desired number density of the output catalog of objects
-    rsd : {'x', 'y' 'z'}
-        the direction to apply RSD to; if ``None`` (default), no RSD 
-        will be added
     f : float, optional
         the growth rate, equal to `f = dlnD\dlna`, which scales the 
         strength of the RSD; default is 0. (no RSD)
@@ -250,29 +247,28 @@ def poisson_sample_to_points(delta, displacement, pm, nbar, rsd=None, f=0., bias
     # the displacement field for all nonzero grid cells
     offset = [displacement[i][pts[0], pts[1], pts[2]] for i in [0,1,2]]
     
-    # add RSD to the displacement field in the specified direction
-    # in Zel'dovich approx, RSD is implemented with an additional factor of (1+f)
-    if rsd is not None:
-        if f <= 0.:
-            raise ValueError("a RSD direction was provided, but the growth rate is not positive")
-        if rsd not in ["x", "y", "z"]:
-            raise ValueError("'rsd' should be one of ['x', 'y', 'z']")
-        rsd_index = "xyz".index(rsd)
-        offset[rsd_index] *= (1. + f)
-    
     # displace the coordinate mesh
     x += offset[0]
     y += offset[1]
     z += offset[2]
+
+    # convert displacement field to RSD
+    # in Zel'dovich approx, RSD is implemented with an additional factor of (1+f)
+    if f <= 0.:
+        raise ValueError("a RSD direction was provided, but the growth rate is not positive")
     
     # coordinates of each object (placed randomly in each cell)
     x = numpy.repeat(x, N[pts]) + numpy.random.uniform(0, H[0], size=Ntot)
     y = numpy.repeat(y, N[pts]) + numpy.random.uniform(0, H[1], size=Ntot)
     z = numpy.repeat(z, N[pts]) + numpy.random.uniform(0, H[2], size=Ntot)
     
+    for i in range(3):
+        offset[i] *= (1. + f)
+        offset[i] = numpy.repeat(offset[i], N[pts])
+
     # enforce periodic and stack
     x %= delta.BoxSize[0]
     y %= delta.BoxSize[1]
     z %= delta.BoxSize[2]
-    return numpy.vstack([x, y, z]).T
+    return numpy.vstack([x, y, z]).T, numpy.vstack(offset).T
   

@@ -1,15 +1,13 @@
-from nbodykit.io.stack import FileStack
 from nbodykit.base.particles import ParticleSource
-from nbodykit.base.painter import Painter
 from nbodykit import CurrentMPIComm
 import numpy
 
-class ParticlesFromNumpy(ParticleSource):
+class Array(ParticleSource):
     """
     A source of particles from numpy array
     """
     @CurrentMPIComm.enable
-    def __init__(self, data, comm=None, **kwargs):
+    def __init__(self, data, BoxSize, Nmesh, comm=None, **kwargs):
         """
         Parameters
         ----------
@@ -34,19 +32,16 @@ class ParticlesFromNumpy(ParticleSource):
         # update the meta-data
         self.attrs.update(kwargs)
 
-        ParticleSource.__init__(self, comm)
+        ParticleSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype='f4', comm=comm)
 
-    def __getitem__(self, col):
+    def get_column(self, col):
         """
         Return a column from the underlying file source
         
         Columns are returned as dask arrays
         """
-        if col in self._source.dtype.names:
-            import dask.array as da
-            return da.from_array(self._source[col], chunks=100000)
-
-        return ParticleSource.__getitem__(self, col)
+        import dask.array as da
+        return da.from_array(self._source[col], chunks=100000)
 
     @property
     def size(self):

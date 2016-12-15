@@ -5,7 +5,7 @@ from nbodykit import setup_logging
 import os
 import shutil
 import numpy
-from numpy.testing import assert_array_equal
+from numpy.testing import assert_array_equal, assert_almost_equal, assert_allclose
 
 setup_logging("debug")
 
@@ -21,11 +21,10 @@ def test_linear_grid(comm):
     CurrentMPIComm.set(comm)
 
     # linear grid 
-    source = Source.LinearGrid(cosmo, redshift=0.55, BoxSize=512, seed=42)
+    source = Source.LinearGrid(cosmo, redshift=0.55, Nmesh=64, BoxSize=512, seed=42)
 
     # compute P(k) from linear grid
     alg = algorithms.FFTPower(source, mode='1d', Nmesh=64, dk=0.01, kmin=0.005)
-    alg.set_transfers(None)  # no transfer functions needed
     
     # run and get the result
     alg.run()
@@ -50,7 +49,7 @@ def test_linear_grid(comm):
 @MPITest([1,4])
 def test_bigfile_grid(comm):
     """
-    Run the ``Paint`` algorithm, load the result as a 
+    Run the ``DumpField`` algorithm, load the result as a 
     :class:`~nbodykit.source.grid.BigFileGrid`, and compare the painted grid 
     to the algorithm's result
     """
@@ -60,11 +59,10 @@ def test_bigfile_grid(comm):
     CurrentMPIComm.set(comm)
 
     # zeldovich particles
-    source = Source.ZeldovichParticles(cosmo, nbar=3e-7, redshift=0.55, BoxSize=1380., Nmesh=32, rsd='z', seed=42)
+    source = Source.LinearGrid(cosmo, redshift=0.55, BoxSize=512, Nmesh=64, seed=42)
     
-    # paint to a mesh
-    alg = algorithms.Paint(source, Nmesh=128)
-    alg.run()
+    real = source.paint(mode='real')
+    complex = source.paint(mode="complex")
 
     # and save to tmp directory
     if comm.rank == 0: 
@@ -72,18 +70,24 @@ def test_bigfile_grid(comm):
     else:
         output = None
     output = comm.bcast(output)
-    alg.result.save(output, dataset='Field')
-    
+
+    real.save(output, dataset='Field')
+
     # now load it and paint to the algorithm's ParticleMesh
-    grid = Source.BigFileGrid(path=output, dataset='Field')
-    loaded_real = grid.paint(alg.pm)
+    source = Source.BigFileGrid(path=output, dataset='Field')
+    loaded_real = source.paint()
     
     # compare to direct algorithm result
-    assert_array_equal(alg.result.real, loaded_real)
+    assert_array_equal(real, loaded_real)
     
+    complex.save(output, dataset='FieldC')
+
+    # now load it and paint to the algorithm's ParticleMesh
+    source = Source.BigFileGrid(path=output, dataset='FieldC')
+    loaded_real = source.paint(mode="complex")
+    
+    # compare to direct algorithm result
+    assert_allclose(complex, loaded_real, rtol=1e-5)
     if comm.rank == 0:
         shutil.rmtree(output)
-    
-    
-    
-    
+

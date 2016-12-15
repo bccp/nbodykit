@@ -1,3 +1,3 @@
-from .from_file import ParticlesFromFile
-from .from_numpy import ParticlesFromNumpy
+from .from_file import File
+from .from_numpy import Array
 from .zeldovich import ZeldovichParticles

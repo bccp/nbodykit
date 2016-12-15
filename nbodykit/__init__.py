@@ -39,6 +39,7 @@ class CurrentMPIComm(object):
         """
         cls._instance = comm
 
+_logging_handler = None
 def setup_logging(log_level="info"):
     """
     Set the basic configuration of all loggers
@@ -71,9 +72,12 @@ def setup_logging(log_level="info"):
     fmt = Formatter(fmt='%(asctime)s %(name)-15s %(levelname)-8s %(message)s',
                     datefmt='%m-%d %H:%M ')
 
-    hdlr = logging.StreamHandler()
-    hdlr.setFormatter(fmt)
-    logger.addHandler(hdlr)
+    global _logging_handler
+    if _logging_handler is None:
+        _logging_handler = logging.StreamHandler()
+        logger.addHandler(_logging_handler)
+
+    _logging_handler.setFormatter(fmt)
     logger.setLevel(levels[log_level])
 
 

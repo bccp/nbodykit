@@ -3,10 +3,11 @@ from __future__ import absolute_import
 # import this module itself. Due to the unfortnate name conflict!
 
 from nbodykit.base.grid import GridSource
-from nbodykit.base.painter import Painter
 from nbodykit import CurrentMPIComm
 from bigfile import BigFileMPI
 import numpy
+
+from pmesh.pm import ParticleMesh, ComplexField, RealField
 
 class BigFileGrid(GridSource):
     """
@@ -31,12 +32,13 @@ class BigFileGrid(GridSource):
         self.path    = path
         self.dataset = dataset
         self.comm    = comm
-    
+
         # update the meta-data
         self.attrs.update(kwargs)
         with BigFileMPI(comm=self.comm, filename=path)[dataset] as ff:
-            self.attrs.update(ff.attrs)
-            
+            for key in ff.attrs:
+                self.attrs[key] = numpy.squeeze(ff.attrs[key])
+
             # fourier space or config space
             if ff.dtype.kind == 'c':
                 self.isfourier = True
@@ -46,17 +48,16 @@ class BigFileGrid(GridSource):
         # determine Nmesh
         if 'ndarray.shape' not in self.attrs:
             raise ValueError("`ndarray.shape` should be stored in the Bigfile `attrs` to determine `Nmesh`")
-        self.Nmesh = self.attrs['ndarray.shape']
 
-        # shot noise
-        if 'shotnoise' in self.attrs:
-            self.shotnoise = self.attrs['shotnoise'].squeeze()
-        else:
-            self.shotnoise = 0
-            
-        GridSource.__init__(self, comm)
+        if 'Nmesh' not in self.attrs:
+            raise ValueError("`ndarray.shape` should be stored in the Bigfile `attrs` to determine `Nmesh`")
+
+        Nmesh = self.attrs['Nmesh']
+        BoxSize = self.attrs['BoxSize']
+
+        GridSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype='f4', comm=comm)
         
-    def paint(self, pm):
+    def to_real_field(self):
         """
         Load a grid from file, and paint to the ParticleMesh represented by ``pm``
         
@@ -70,49 +71,36 @@ class BigFileGrid(GridSource):
         real : pmesh.pm.RealField
             an array-like object holding the interpolated grid
         """
-        from pmesh.pm import ParticleMesh, ComplexField, RealField
         
+        if self.isfourier:
+            return NotImplemented
+
         # the real field to paint to
-        real = RealField(pm)
+        pmread = self.pm
 
-        # check box size
-        if not numpy.array_equal(pm.BoxSize, self.BoxSize):
-            args = (self.BoxSize, pm.BoxSize)
-            raise ValueError("`BoxSize` mismatch when painting grid: self.BoxSize = %s; pm.BoxSize = %s" %args)
-
-        # the meshes do not match -- interpolation needed
-        if any(pm.Nmesh != self.Nmesh):
-            pmread = ParticleMesh(BoxSize=pm.BoxSize, Nmesh=self.Nmesh, dtype='f4', comm=self.comm)
-        # no interpolation needed
-        else:
-            pmread = real.pm
-
-        # open the dataset
         with BigFileMPI(comm=self.comm, filename=self.path)[self.dataset] as ds:
+            if self.comm.rank == 0:
+                self.logger.info("reading real field from %s" % self.path)
+            real2 = RealField(pmread)
+            start = sum(self.comm.allgather(real2.size)[:self.comm.rank])
+            end = start + real2.size
+            real2.unsort(ds[start:end])
 
-            # ComplexField
-            if self.isfourier:
-                if self.comm.rank == 0:
-                    self.logger.info("reading complex field")
-                complex2 = ComplexField(pmread)
-                assert self.comm.allreduce(complex2.size) == ds.size
-                start = sum(self.comm.allgather(complex2.size)[:self.comm.rank])
-                end = start + complex2.size
-                complex2.unsort(ds[start:end])
-                complex2.resample(real)
-            # RealField
-            else:
-                if self.comm.rank == 0:
-                    self.logger.info("reading real field")
-                real2 = RealField(pmread)
-                start = sum(self.comm.allgather(real2.size)[:self.comm.rank])
-                end = start + real2.size
-                real2.unsort(ds[start:end])
-                real2.resample(real)
+        return real2
 
-        # pass on the shot noise
-        real.shotnoise = self.shotnoise
+    def to_complex_field(self):
+        if not self.isfourier:
+            return NotImplemented
+        pmread = self.pm
 
-        # apply transformations
-        self.painter.transform(self, real)
-        return real
+        if self.comm.rank == 0:
+            self.logger.info("reading complex field from %s" % self.path)
+
+        with BigFileMPI(comm=self.comm, filename=self.path)[self.dataset] as ds:
+            complex2 = ComplexField(pmread)
+            assert self.comm.allreduce(complex2.size) == ds.size
+            start = sum(self.comm.allgather(complex2.size)[:self.comm.rank])
+            end = start + complex2.size
+            complex2.unsort(ds[start:end])
+
+        return complex2

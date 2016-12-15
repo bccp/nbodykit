@@ -45,3 +45,19 @@ def MPINumpyRNGContext(seed, comm):
             yield local_seed
     except:
         pass
+
+
+def cosmology_to_dict(cosmo, prefix='cosmo.'):
+    try: import classylss
+    except: raise ImportError("`classylss` is required to use %s" %self.__class__.__name__)
+    pars = classylss.ClassParams.from_astropy(cosmo)
+
+    d = {}
+    for key, value in pars.items():
+        try: 
+            value = float(value)
+        except ValueError:
+            pass
+        d[prefix + key] = value
+    return d
+
