@@ -16,15 +16,11 @@ def test_fof(comm):
     source = Source.ZeldovichParticles(cosmo, nbar=3e-3, redshift=0.55, BoxSize=512., Nmesh=128, rsd=[0, 0, 1], seed=42)
 
     # compute P(k,mu) and multipoles
-    alg = FOF(source, linking_length=0.2, nmin=20)
+    fof = FOF(source, linking_length=0.2, nmin=20)
 
-    alg.run()
-    labels = alg.result['HaloLabel']
+    fof['HaloLabel'].save("FOF-label-%d" % comm.size)
 
-    alg.result['HaloLabel'].save("FOF-label-%d" % comm.size)
-
-    alg = HaloFinder(source, labels)
-    alg.run()
-    alg.result['Position'].save("FOF-label-%d" % comm.size)
-    alg.result['Velocity'].save("FOF-label-%d" % comm.size)
-    alg.result['Length'].save("FOF-label-%d" % comm.size)
+    halos = HaloFinder(source, fof['HaloLabel'])
+    halos['Position'].save("FOF-label-%d" % comm.size)
+    halos['Velocity'].save("FOF-label-%d" % comm.size)
+    halos['Length'].save("FOF-label-%d" % comm.size)

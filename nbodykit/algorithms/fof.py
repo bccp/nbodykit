@@ -2,42 +2,38 @@ from __future__ import print_function
 
 import numpy
 import logging
-from nbodykit import source
+from nbodykit.source import Array
+from nbodykit.base.algorithm import Algorithm
 
 from mpi4py import MPI
 
-class FOF(object):
+class FOF(Array):
 
     logger = logging.getLogger('FOF')
 
     def __init__(self, source, linking_length, nmin):
-        self.source = source
         self.comm = source.comm
-        self.linking_length = linking_length
-        self.mean_separation = pow(numpy.prod(source.attrs['BoxSize']) / source.csize, 1.0 / len(source.attrs['Nmesh']))
-        self.nmin = nmin
-        self.result = None
 
-    def run(self):
-        minid = fof(self.source, self.linking_length * self.mean_separation, self.comm)
+        mean_separation = pow(numpy.prod(source.attrs['BoxSize']) / source.csize, 1.0 / len(source.attrs['Nmesh']))
+
+        self.attrs['linking_length'] = linking_length
+        self.attrs['nmin'] = nmin
+
+        minid = fof(source, linking_length * mean_separation, self.comm)
 
         # sort calculate halo catalogue
-        label = _assign_labels(minid, comm=self.comm, thresh=self.nmin)
+        label = _assign_labels(minid, comm=self.comm, thresh=nmin)
 
         label = label.view(dtype=numpy.dtype([('HaloLabel', label.dtype)]))
-        result = source.Array(label, comm=self.comm, **self.source.attrs)
-        self.result = result
 
-class HaloFinder(object):
+        Array.__init__(self, label, comm=self.comm, **source.attrs)
+
+class HaloFinder(Array):
     def __init__(self, source, labels):
-        self.source = source
-        self.labels = labels
-        self.comm = self.source.comm
+        self.comm = source.comm
 
-    def run(self):
-        halos = fof_catalogue(self.source, self.labels.compute(), self.comm)
-        result = source.Array(halos, comm=self.comm, **self.source.attrs)
-        self.result = result
+        halos = fof_catalogue(source, labels.compute(), self.comm)
+        Array.__init__(self, halos, comm=self.comm, **source.attrs)
 
 def _assign_labels(minid, comm, thresh):
     """ 

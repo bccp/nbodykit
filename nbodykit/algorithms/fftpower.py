@@ -3,11 +3,10 @@ import numpy
 import logging
 
 from nbodykit import CurrentMPIComm
-from nbodykit.base.algorithm import Algorithm
 from nbodykit.meshtools import SlabIterator
 from pmesh.pm import ComplexField
 
-class FFTPower(Algorithm):
+class FFTPower(object):
     """
     Algorithm to compute the 1d or 2d power spectrum and/or multipoles
     in a periodic box, using a Fast Fourier Transform (FFT)
@@ -48,8 +47,7 @@ class FFTPower(Algorithm):
     """
     logger = logging.getLogger('FFTPower')
     
-    @CurrentMPIComm.enable
-    def __init__(self, first, mode, Nmesh, second=None, los=[0, 0, 1], Nmu=5, dk=None, kmin=0., poles=[], comm=None):
+    def __init__(self, first, mode, Nmesh=None, second=None, los=[0, 0, 1], Nmu=5, dk=None, kmin=0., poles=[]):
         """
         Parameters
         ----------
@@ -80,11 +78,12 @@ class FFTPower(Algorithm):
         if mode not in ['1d', '2d']:
             raise ValueError("`mode` should be either '1d' or '2d'")
 
-        self.comm = comm 
+        self.comm = first.comm 
 
         # combine the two sources
         if second is None:
             second = first
+        assert second.comm is first.comm
 
         self.sources = [first, second]
 
@@ -93,6 +92,9 @@ class FFTPower(Algorithm):
             if not numpy.array_equal(self.sources[0].attrs['BoxSize'], self.sources[1].attrs['BoxSize']):
                 raise ValueError("BoxSize mismatch between cross-correlation sources")
 
+        if Nmesh is None:
+            Nmesh = self.sources[0].attrs['Nmesh']
+
         BoxSize = self.sources[0].attrs['BoxSize']
         _Nmesh = self.sources[0].attrs['Nmesh'].copy()
         _Nmesh[:] = Nmesh
@@ -100,6 +102,8 @@ class FFTPower(Algorithm):
 
         # setup the particle mesh object
         self.pm = ParticleMesh(BoxSize=BoxSize, Nmesh=Nmesh, dtype='f4', comm=self.comm)
+
+        self.attrs = {}
 
         # save meta-data
         self.attrs['mode']  = mode
@@ -115,7 +119,7 @@ class FFTPower(Algorithm):
         Lx, Ly, Lz = BoxSize
         self.attrs.update({'Lx':Lx, 'Ly':Ly, 'Lz':Lz, 'volume':Lx*Ly*Lz})
 
-        Algorithm.__init__(self, comm)
+        self.run()
 
     def run(self):
         """
@@ -126,7 +130,7 @@ class FFTPower(Algorithm):
         if self.attrs['mode'] == "1d": self.attrs['Nmu'] = 1
 
         # measure the 3D power (y3d is a ComplexField)
-        y3d = self.compute_3d_power()
+        y3d = self._compute_3d_power()
 
         # get the number of objects (in a safe manner)
         N1 = len(self.sources[0])
@@ -174,11 +178,26 @@ class FFTPower(Algorithm):
                 poles[col][:] = result[icol]
 
         # set all the necessary results
-        self.result.edges = edges
-        self.result.power = power
-        self.result.poles = poles
+        self.edges = edges
+        self.power = power
+        self.poles = poles
 
-    def source2field(self, source):
+    def save(self, output):
+        # only the master rank writes
+        state = dict(edges=self.edges,
+                     power=self.power,
+                     poles=self.poles,
+                     attrs=self.attrs)
+
+        if self.comm.rank == 0:
+            import pickle
+
+            self.logger.info('measurement done; saving result to %s' % output)
+
+            with open(output, 'wb') as ff:
+                pickle.dump(state, ff) 
+
+    def _source2field(self, source):
 
         # step 1: paint the density field to the mesh
         c = source.paint(mode='complex')
@@ -197,7 +216,7 @@ class FFTPower(Algorithm):
     #------------------------------------------------------------------------------
     # Fourier space statistics
     #------------------------------------------------------------------------------
-    def compute_3d_power(self):
+    def _compute_3d_power(self):
         """
         Compute and return the 3D power from two input sources
 
@@ -226,13 +245,13 @@ class FFTPower(Algorithm):
 
         rank = comm.rank
 
-        c1 = self.source2field(self.sources[0])
+        c1 = self._source2field(self.sources[0])
 
         # compute the auto power of single supplied field
         if sources[0] is sources[1]:
             c2 = c1
         else:
-            c2 = self.source2field(self.sources[1])
+            c2 = self._source2field(self.sources[1])
 
         # calculate the 3d power spectrum, slab-by-slab to save memory
         p3d = c1
@@ -440,3 +459,4 @@ def project_to_basis(y3d, edges, los=[0, 0, 1], poles=[]):
     result = (xmean_2d, mumean_2d, y2d, N_2d)
     pole_result = (xmean_1d, poles, N_1d) if do_poles else None
     return result, pole_result
+

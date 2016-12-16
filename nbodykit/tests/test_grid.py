@@ -24,11 +24,9 @@ def test_linear_grid(comm):
     source = Source.LinearGrid(cosmo, redshift=0.55, Nmesh=64, BoxSize=512, seed=42)
 
     # compute P(k) from linear grid
-    alg = algorithms.FFTPower(source, mode='1d', Nmesh=64, dk=0.01, kmin=0.005)
+    r = FFTPower(source, mode='1d', Nmesh=64, dk=0.01, kmin=0.005)
     
     # run and get the result
-    alg.run()
-    r = alg.result
     valid = r.power['modes'] > 0
     
     # load the correct theory result
