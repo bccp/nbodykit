@@ -1,11 +1,11 @@
 from nbodykit.io.stack import FileStack
-from nbodykit.base.particles import ParticleSource
+from nbodykit.base.particlemesh import ParticleMeshSource
 from nbodykit.utils import cosmology_to_dict
 from nbodykit import CurrentMPIComm
 
 import numpy
 
-class ZeldovichParticles(ParticleSource):
+class ZeldovichParticles(ParticleMeshSource):
     """
     A source of particles Poisson-sampled from density fields in the Zel'dovich approximation
     """
@@ -52,7 +52,7 @@ class ZeldovichParticles(ParticleSource):
         self.attrs['rsd']      = rsd
         self.attrs['seed']     = seed
 
-        ParticleSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype='f4', comm=comm)
+        ParticleMeshSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype='f4', comm=comm)
 
         self._source = self._makesource()
 

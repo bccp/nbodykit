@@ -1,8 +1,8 @@
-from nbodykit.base.particles import ParticleSource
+from nbodykit.base.particlemesh import ParticleMeshSource
 from nbodykit import CurrentMPIComm
 import numpy
 
-class Array(ParticleSource):
+class Array(ParticleMeshSource):
     """
     A source of particles from numpy array
     """
@@ -32,7 +32,7 @@ class Array(ParticleSource):
         # update the meta-data
         self.attrs.update(kwargs)
 
-        ParticleSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype='f4', comm=comm)
+        ParticleMeshSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype='f4', comm=comm)
 
     def get_column(self, col):
         """

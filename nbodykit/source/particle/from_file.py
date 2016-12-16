@@ -1,9 +1,9 @@
 from nbodykit.io.stack import FileStack
-from nbodykit.base.particles import ParticleSource
+from nbodykit.base.particlemesh import ParticleMeshSource
 from nbodykit import CurrentMPIComm
 import numpy
 
-class File(ParticleSource):
+class File(ParticleMeshSource):
     """
     Read a source of particles from a single file, or multiple
     files, on disk
@@ -43,7 +43,7 @@ class File(ParticleSource):
         if self.comm.rank == 0:
             self.logger.info("Extra arguments to FileType: %s" %args)
 
-        ParticleSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype='f4', comm=comm)
+        ParticleMeshSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype='f4', comm=comm)
 
     def get_column(self, col):
         """
