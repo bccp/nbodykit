@@ -11,6 +11,9 @@ from pmesh.pm import RealField, ComplexField
 
 class ParticleMeshSource(MeshSource):
     logger = logging.getLogger('ParticleMeshSource')
+    def __repr__(self):
+        return "(%s as ParticleMeshSource)" % repr(self.source)
+
     def __init__(self, source, BoxSize, Nmesh, dtype):
         # ensure self.comm is set, though usually already set by the child.
         self.comm = source.comm

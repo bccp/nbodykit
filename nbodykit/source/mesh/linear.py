@@ -11,6 +11,9 @@ class LinearMesh(MeshSource):
     The linear power spectrum is computed using :mod:`classylss`, 
     which is a python wrapper around CLASS 
     """
+    def __repr__(self):
+        return "LinearMesh(seed=%(seed)d)" % self.attrs
+
     @CurrentMPIComm.enable
     def __init__(self, cosmo, redshift, BoxSize, Nmesh, seed=None, comm=None):
         """
@@ -78,3 +81,4 @@ class LinearMesh(MeshSource):
             real, _ = mockmaker.gaussian_real_fields(self.pm, Plin, compute_displacement=False)
 
         return real
+

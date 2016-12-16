@@ -8,6 +8,9 @@ class ZeldovichParticles(ParticleSource):
     """
     A source of particles Poisson-sampled from density fields in the Zel'dovich approximation
     """
+    def __repr__(self):
+        return "ZeldovichParticles(seed=%(seed)d, bias=%(bias)g)" % self.attrs
+
     @CurrentMPIComm.enable
     def __init__(self, cosmo, nbar, redshift, BoxSize, Nmesh, bias=2., rsd=None, seed=None, comm=None):
         """

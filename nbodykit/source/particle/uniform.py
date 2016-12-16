@@ -4,6 +4,10 @@ from nbodykit import CurrentMPIComm
 import numpy
 
 class UniformParticles(ParticleSource):
+
+    def __repr__(self):
+        return "UniformParticles(seed=%(seed)d)" % self.attrs
+
     @CurrentMPIComm.enable
     def __init__(self, nbar, BoxSize, seed=None, comm=None):
         self.comm    = comm
@@ -11,6 +15,7 @@ class UniformParticles(ParticleSource):
         _BoxSize = numpy.empty(3, dtype='f8')
         _BoxSize[:] = BoxSize
         self.attrs['BoxSize'] = _BoxSize
+        self.attrs['seed'] = seed
 
         rng = numpy.random.RandomState(seed)
         N = rng.poisson(nbar * numpy.prod(self.attrs['BoxSize']))
