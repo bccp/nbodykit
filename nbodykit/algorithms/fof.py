@@ -3,7 +3,6 @@ from __future__ import print_function
 import numpy
 import logging
 from nbodykit.source import Array
-from nbodykit.base.algorithm import Algorithm
 
 from mpi4py import MPI
 
