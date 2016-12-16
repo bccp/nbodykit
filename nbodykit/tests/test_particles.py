@@ -14,7 +14,7 @@ def test_zeldovich_sparse(comm):
     CurrentMPIComm.set(comm)
 
     source = Source.ZeldovichParticles(cosmo, nbar=0.2e-6, redshift=0.55, BoxSize=128., Nmesh=8, rsd=[0, 0, 0], seed=42)
-
+    source = source.to_mesh()
     source.compensated = False
 
     real = source.paint(mode='real')
@@ -27,6 +27,7 @@ def test_zeldovich_dense(comm):
     CurrentMPIComm.set(comm)
 
     source = Source.ZeldovichParticles(cosmo, nbar=0.2e-2, redshift=0.55, BoxSize=128., Nmesh=8, rsd=[0, 0, 0], seed=42)
+    source = source.to_mesh()
 
     source.compensated = False
 
@@ -41,11 +42,12 @@ def test_zeldovich_velocity(comm):
 
     source = Source.ZeldovichParticles(cosmo, nbar=0.2e-2, redshift=0.55, BoxSize=1024., Nmesh=32, rsd=[0, 0, 0], seed=42)
 
-    source.compensated = False
-
     source['Weight'] = source['Velocity'][:, 0]
 
-    real = source.paint(mode='real')
+    mesh = source.to_mesh()
+    mesh.compensated = False
+
+    real = mesh.paint(mode='real')
     velsum = comm.allreduce(source['Velocity'][:, 0].sum().compute())
     velmean = velsum / source.csize
 
@@ -70,6 +72,8 @@ def test_transform(comm):
     # which resolves to the true data.
     # so total is 3.
     assert_allclose(source['Position'], 3)
+
+    source = source.to_mesh()
 
 @MPITest([1, 4])
 def test_save(comm):
@@ -134,5 +138,7 @@ def test_file(comm):
     source = Source.File(HDFFile, tmpfile, Nmesh=32, args={'root': 'X'})
 
     assert_allclose(source['Position'], dset['Position'])
+
+    source = source.to_mesh()
 
     os.unlink(tmpfile)

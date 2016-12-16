@@ -1,15 +1,15 @@
 from nbodykit.io.stack import FileStack
-from nbodykit.base.particlemesh import ParticleMeshSource
+from nbodykit.base.particles import ParticleSource
 from nbodykit import CurrentMPIComm
 import numpy
 
-class File(ParticleMeshSource):
+class File(ParticleSource):
     """
     Read a source of particles from a single file, or multiple
     files, on disk
     """
     @CurrentMPIComm.enable
-    def __init__(self, filetype, path, Nmesh, BoxSize=None, args={}, comm=None, **kwargs):
+    def __init__(self, filetype, path, args={}, comm=None, **kwargs):
         """
         Parameters
         ----------
@@ -37,13 +37,11 @@ class File(ParticleMeshSource):
         # update the meta-data
         self.attrs.update(self._source.attrs)
         self.attrs.update(kwargs)
-        if BoxSize is None:
-            BoxSize = self.attrs['BoxSize']
 
         if self.comm.rank == 0:
             self.logger.info("Extra arguments to FileType: %s" %args)
 
-        ParticleMeshSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype='f4', comm=comm)
+        ParticleSource.__init__(self, comm=comm)
 
     def get_column(self, col):
         """

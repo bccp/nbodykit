@@ -80,10 +80,10 @@ class ParticleMeshSource(MeshSource):
 
         # read the necessary data (as dask arrays)
         columns = ['Position', 'Weight', 'Selection']
-        if not all(col in self for col in columns):
+        if not all(col in self.source for col in columns):
             missing = set(columns) - set(self.columns)
             raise ValueError("self does not contain columns: %s" %str(missing))
-        Position, Weight, Selection = self.read(columns)
+        Position, Weight, Selection = self.source.read(columns)
 
         # ensure the slices are synced, since decomposition is collective
         N = max(pm.comm.allgather(len(Position)))

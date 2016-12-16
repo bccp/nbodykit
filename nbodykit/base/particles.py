@@ -3,6 +3,7 @@ from nbodykit.extern.six import add_metaclass
 import abc
 import numpy
 import logging
+from nbodykit.base.particlemesh import ParticleMeshSource
 
 @add_metaclass(abc.ABCMeta)
 class ParticleSource(object):
@@ -26,6 +27,20 @@ class ParticleSource(object):
 
         self._overrides = {}
 
+    def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4'):
+        if BoxSize is None:
+            try:
+                BoxSize = self.attrs['BoxSize']
+            except KeyError:
+                raise ValueError("BoxSize is not supplied but the particle source does not define one in attrs.")
+        if Nmesh is None:
+            try:
+                Nmesh = self.attrs['Nmesh']
+            except KeyError:
+                raise ValueError("Nmesh is not supplied but the particle source does not define one in attrs.")
+
+        return ParticleMeshSource(self, Nmesh=Nmesh, BoxSize=BoxSize, dtype=dtype, comm=self.comm)
+
     def update_csize(self):
         """ set the collective size
 
@@ -45,6 +60,17 @@ class ParticleSource(object):
                 'Selection': da.ones(self.size, dtype='?', chunks=100000),
                    'Weight': da.ones(self.size, dtype='?', chunks=100000),
                           }
+
+    @property
+    def attrs(self):
+        """
+        Dictionary storing relevant meta-data
+        """
+        try:
+            return self._attrs
+        except AttributeError:
+            self._attrs = {}
+            return self._attrs
 
     @staticmethod
     def compute(*args, **kwargs):
