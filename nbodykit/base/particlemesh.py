@@ -11,16 +11,16 @@ from pmesh.pm import RealField, ComplexField
 
 class ParticleMeshSource(MeshSource):
     logger = logging.getLogger('ParticleMeshSource')
-    def __init__(self, source, BoxSize, Nmesh, dtype, comm):
+    def __init__(self, source, BoxSize, Nmesh, dtype):
         # ensure self.comm is set, though usually already set by the child.
-        self.comm = comm
+        self.comm = source.comm
 
         self.source = source
         self.attrs.update(source.attrs)
 
         # this will override BoxSize and Nmesh carried from the source, if there is any!
 
-        MeshSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype=dtype, comm=comm)
+        MeshSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype=dtype, comm=source.comm)
 
         self.attrs['compensated'] = True
         self.attrs['interlaced'] = False

@@ -47,14 +47,14 @@ class FFTPower(object):
     """
     logger = logging.getLogger('FFTPower')
     
-    def __init__(self, first, mode, Nmesh=None, second=None, los=[0, 0, 1], Nmu=5, dk=None, kmin=0., poles=[]):
+    def __init__(self, first, mode, Nmesh=None, BoxSize=None, second=None, los=[0, 0, 1], Nmu=5, dk=None, kmin=0., poles=[]):
         """
         Parameters
         ----------
         comm : 
             the MPI communicator
         first : ParticleSource, MeshSource
-            the source for the first field
+            the source for the first field. ParticleSource is automatcially converted
         mode : {'1d', '2d'}
             compute either 1d or 2d power spectra
         Nmesh : int
@@ -79,11 +79,16 @@ class FFTPower(object):
             raise ValueError("`mode` should be either '1d' or '2d'")
 
         self.comm = first.comm 
-
+        if not hasattr(first, 'paint'):
+            first = first.to_mesh(BoxSize=BoxSize, Nmesh=Nmesh, dtype='f8')
         # combine the two sources
         if second is None:
             second = first
+
         assert second.comm is first.comm
+
+        if not hasattr(first, 'paint'):
+            first = first.to_mesh(BoxSize=BoxSize, Nmesh=Nmesh, dtype='f8')
 
         self.sources = [first, second]
 
@@ -95,28 +100,31 @@ class FFTPower(object):
         if Nmesh is None:
             Nmesh = self.sources[0].attrs['Nmesh']
 
-        BoxSize = self.sources[0].attrs['BoxSize']
+        _BoxSize = self.sources[0].attrs['BoxSize'].copy()
+        if BoxSize is not None:
+            _BoxSize[:] = BoxSize
+
         _Nmesh = self.sources[0].attrs['Nmesh'].copy()
-        _Nmesh[:] = Nmesh
-        Nmesh = _Nmesh
+        if _Nmesh is not None:
+            _Nmesh[:] = Nmesh
 
         # setup the particle mesh object
-        self.pm = ParticleMesh(BoxSize=BoxSize, Nmesh=Nmesh, dtype='f4', comm=self.comm)
+        self.pm = ParticleMesh(BoxSize=_BoxSize, Nmesh=_Nmesh, dtype='f4', comm=self.comm)
 
         self.attrs = {}
 
         # save meta-data
         self.attrs['mode']  = mode
-        self.attrs['Nmesh'] = Nmesh
         self.attrs['los']   = los
         self.attrs['Nmu']   = Nmu
         self.attrs['dk']    = dk
         self.attrs['kmin']  = kmin 
         self.attrs['poles'] = poles
-        self.attrs['BoxSize'] = BoxSize
+        self.attrs['Nmesh'] = self.pm.Nmesh.copy()
+        self.attrs['BoxSize'] = self.pm.BoxSize.copy()
 
         # update the meta-data to return
-        Lx, Ly, Lz = BoxSize
+        Lx, Ly, Lz = _BoxSize
         self.attrs.update({'Lx':Lx, 'Ly':Ly, 'Lz':Lz, 'volume':Lx*Ly*Lz})
 
         self.run()

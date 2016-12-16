@@ -14,8 +14,6 @@ def test_fftpower(comm):
     # zeldovich particles
     source = Source.ZeldovichParticles(cosmo, nbar=3e-7, redshift=0.55, BoxSize=1380., Nmesh=8, rsd=[0, 0, 1], seed=42)
 
-    source = source.to_mesh()
-
     # compute P(k,mu) and multipoles
     result = FFTPower(source, mode='2d', poles=[0,2,4])
 

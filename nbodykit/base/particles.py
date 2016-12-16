@@ -39,13 +39,14 @@ class ParticleSource(object):
                 BoxSize = self.attrs['BoxSize']
             except KeyError:
                 raise ValueError("BoxSize is not supplied but the particle source does not define one in attrs.")
+
         if Nmesh is None:
             try:
                 Nmesh = self.attrs['Nmesh']
             except KeyError:
                 raise ValueError("Nmesh is not supplied but the particle source does not define one in attrs.")
 
-        return ParticleMeshSource(self, Nmesh=Nmesh, BoxSize=BoxSize, dtype=dtype, comm=self.comm)
+        return ParticleMeshSource(self, Nmesh=Nmesh, BoxSize=BoxSize, dtype=dtype)
 
     def update_csize(self):
         """ set the collective size
