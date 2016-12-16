@@ -20,7 +20,7 @@ def test_fof(comm):
 
     alg.run()
     labels = alg.result['HaloLabel']
-    print labels.max().compute()
+
     alg.result['HaloLabel'].save("FOF-label-%d" % comm.size)
 
     alg = HaloFinder(source, labels)
