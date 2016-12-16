@@ -4,7 +4,7 @@ import numpy
 import logging
 from nbodykit import source
 
-#from nbodykit import halos
+from mpi4py import MPI
 
 class FOF(object):
 
@@ -25,7 +25,18 @@ class FOF(object):
         label = _assign_labels(minid, comm=self.comm, thresh=self.nmin)
 
         label = label.view(dtype=numpy.dtype([('HaloLabel', label.dtype)]))
-        result = source.Array(label, **self.source.attrs)
+        result = source.Array(label, comm=self.comm, **self.source.attrs)
+        self.result = result
+
+class HaloFinder(object):
+    def __init__(self, source, labels):
+        self.source = source
+        self.labels = labels
+        self.comm = self.source.comm
+
+    def run(self):
+        halos = fof_catalogue(self.source, self.labels.compute(), self.comm)
+        result = source.Array(halos, comm=self.comm, **self.source.attrs)
         self.result = result
 
 def _assign_labels(minid, comm, thresh):
@@ -222,7 +233,7 @@ def fof(datasource, linking_length, comm):
 
     return minid
 
-def fof_catalogue(datasource, label, comm, calculate_initial=False):
+def fof_catalogue(datasource, label, comm):
     """ Catalogue of FOF groups based on label from a data source
 
         Friend-of-friend was first used by Davis et al 1985 to define
@@ -260,39 +271,32 @@ def fof_catalogue(datasource, label, comm, calculate_initial=False):
         ('Velocity', ('f4', 3)),
         ('Length', 'i4')]
 
-    N = halos.count(label, comm=comm)
+    N = count(label, comm=comm)
     
+    BoxSize = datasource.attrs['BoxSize']
     # explicitly open the DataSource
-    with datasource.keep_cache():
+    Position = datasource['Position']
+    Position /= BoxSize
+    hpos = centerofmass(label, Position.compute(), boxsize=1.0, comm=comm)
+
+    Velocity = datasource['Velocity']
+    Velocity /= BoxSize
+
+    hvel = centerofmass(label, Velocity.compute(), boxsize=None, comm=comm)
+
+    if 'InitialPosition' in datasource:
+        dtype.append(('InitialPosition', ('f4', 3)))
     
-        with datasource.open() as stream:
-            [[Position]] = stream.read(['Position'], full=True)
-        Position /= datasource.BoxSize
-        hpos = halos.centerofmass(label, Position, boxsize=1.0, comm=comm)
-        del Position
+        Position = datasource['InitialPosition']
+        Position /= BoxSize
+        hpos_init = centerofmass(label, Position.compute(), boxsize=1.0, comm=comm)
 
-        with datasource.open() as stream: 
-            [[Velocity]] = stream.read(['Velocity'], full=True)
-        Velocity /= datasource.BoxSize
-
-        hvel = halos.centerofmass(label, Velocity, boxsize=None, comm=comm)
-        del Velocity
-
-        if calculate_initial:
-
-            dtype.append(('InitialPosition', ('f4', 3)))
-        
-            with datasource.open() as stream:
-                [[Position]] = stream.read(['InitialPosition'], full=True)
-            Position /= datasource.BoxSize
-            hpos_init = halos.centerofmass(label, Position, boxsize=1.0, comm=comm)
-            del Position
-
-    if comm.rank == 0: logger.info("Calculated catalogue %d halos found. " % (len(N) -1 ))
-    if comm.rank == 0: logger.info("Length = %s " % N[1:])
-    if comm.rank == 0: logger.info("%d particles not in halo" % N[0])
+    #if comm.rank == 0: logger.info("Calculated catalogue %d halos found. " % (len(N) -1 ))
+    #if comm.rank == 0: logger.info("Length = %s " % N[1:])
+    #if comm.rank == 0: logger.info("%d particles not in halo" % N[0])
 
     dtype = numpy.dtype(dtype)
+
     if comm.rank == 0:
         catalogue = numpy.empty(shape=len(N), dtype=dtype)
 
@@ -300,11 +304,11 @@ def fof_catalogue(datasource, label, comm, calculate_initial=False):
         catalogue['Velocity'] = hvel
         catalogue['Length'] = N
         catalogue['Length'][0] = 0
-        if calculate_initial:
+        if 'InitialPosition' in datasource:
             catalogue['InitialPosition'] = hpos_init
     else:
         catalogue = numpy.empty(shape=0, dtype=dtype)
-        
+
     return catalogue
 
 # -----------------------
@@ -656,3 +660,83 @@ class LinearTopology(object):
         next = heads[self.comm.rank + 1]
         return next
     
+def centerofmass(label, pos, boxsize=1.0, comm=MPI.COMM_WORLD):
+    """
+    Calulate the center of mass of particles of the same label.
+
+    The center of mass is defined as the mean of positions of particles,
+    but care has to be taken regarding to the periodic boundary.
+
+    This is a collective operation, and after the call, all ranks
+    will have the position of halos.
+
+    Parameters
+    ----------
+    label : array_like (integers)
+        Halo label of particles, >=0
+    pos   : array_like (float, 3)
+        position of particles.
+    boxsize : float or None
+        size of the periodic box, or None if no periodic boundary is assumed.
+    comm : :py:class:`MPI.Comm`
+        communicator for the collective operation.
+    
+    Returns
+    -------
+    hpos : array_like (float, 3)
+        the center of mass position of the halos.
+
+    """
+    Nhalo0 = max(comm.allgather(label.max())) + 1
+
+    N = numpy.bincount(label, minlength=Nhalo0)
+    comm.Allreduce(MPI.IN_PLACE, N, op=MPI.SUM)
+
+    if boxsize is not None:
+        posmin = equiv_class(label, pos, op=numpy.fmin, dense_labels=True, identity=numpy.inf,
+                        minlength=len(N))
+        comm.Allreduce(MPI.IN_PLACE, posmin, op=MPI.MIN)
+        dpos = pos - posmin[label]
+        bhalf = boxsize * 0.5
+        dpos[dpos < -bhalf] += boxsize
+        dpos[dpos >= bhalf] -= boxsize
+    else:
+        dpos = pos
+    dpos = equiv_class(label, dpos, op=numpy.add, dense_labels=True, minlength=len(N))
+    
+    comm.Allreduce(MPI.IN_PLACE, dpos, op=MPI.SUM)
+    dpos /= N[:, None]
+
+    if boxsize:
+        hpos = posmin + dpos
+        hpos %= boxsize
+    else:
+        hpos = dpos
+    return hpos
+    
+def count(label, comm=MPI.COMM_WORLD):
+    """
+    Count the number of particles of the same label.
+
+    This is a collective operation, and after the call, all ranks
+    will have the particle count.
+
+    Parameters
+    ----------
+    label : array_like (integers)
+        Halo label of particles, >=0
+    comm : :py:class:`MPI.Comm`
+        communicator for the collective operation.
+    
+    Returns
+    -------
+    count : array_like
+        the count of number of particles in each halo
+
+    """
+    Nhalo0 = max(comm.allgather(label.max())) + 1
+
+    N = numpy.bincount(label, minlength=Nhalo0)
+    comm.Allreduce(MPI.IN_PLACE, N, op=MPI.SUM)
+
+    return N

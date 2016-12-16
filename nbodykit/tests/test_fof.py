@@ -1,6 +1,6 @@
 from mpi4py_test import MPITest
 from nbodykit.lab import *
-from nbodykit.algorithms.fof import FOF
+from nbodykit.algorithms.fof import FOF, HaloFinder
 from nbodykit import setup_logging
 
 # debug logging
@@ -19,7 +19,12 @@ def test_fof(comm):
     alg = FOF(source, linking_length=0.2, nmin=20)
 
     alg.run()
-    labels = alg.result['HaloLabel'].compute()
-    print labels.max()
+    labels = alg.result['HaloLabel']
+    print labels.max().compute()
     alg.result['HaloLabel'].save("FOF-label-%d" % comm.size)
 
+    alg = HaloFinder(source, labels)
+    alg.run()
+    alg.result['Position'].save("FOF-label-%d" % comm.size)
+    alg.result['Velocity'].save("FOF-label-%d" % comm.size)
+    alg.result['Length'].save("FOF-label-%d" % comm.size)
