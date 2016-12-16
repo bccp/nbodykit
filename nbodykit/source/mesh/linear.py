@@ -1,9 +1,9 @@
-from nbodykit.base.grid import GridSource
+from nbodykit.base.mesh import MeshSource
 from nbodykit import CurrentMPIComm, mockmaker
 from nbodykit.utils import MPINumpyRNGContext
 from nbodykit.utils import cosmology_to_dict
 
-class LinearGrid(GridSource):
+class LinearMesh(MeshSource):
     """
     A source to generate a ``RealField`` grid directly from the 
     linear power spectrum, using a specified cosmology and redshift
@@ -46,7 +46,7 @@ class LinearGrid(GridSource):
         self.attrs['redshift'] = redshift
         self.attrs['seed']     = seed
         
-        GridSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype='f4', comm=comm)
+        MeshSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype='f4', comm=comm)
             
     def to_real_field(self):
         """

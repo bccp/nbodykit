@@ -3,14 +3,14 @@ from nbodykit.extern.six import add_metaclass
 import abc
 import numpy
 import logging
-from nbodykit.base.grid import GridSource
+from nbodykit.base.mesh import MeshSource
 
 # for converting from particle to mesh
 from pmesh import window
 from pmesh.pm import RealField, ComplexField
 
 @add_metaclass(abc.ABCMeta)
-class ParticleSource(GridSource):
+class ParticleSource(MeshSource):
     """
     Base class for a source of input particles
     
@@ -24,7 +24,7 @@ class ParticleSource(GridSource):
 
         self.comm = comm
 
-        GridSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype=dtype, comm=comm)
+        MeshSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype=dtype, comm=comm)
 
         self.attrs['compensated'] = True
         self.attrs['interlaced'] = False
@@ -304,7 +304,7 @@ class ParticleSource(GridSource):
 
     @property
     def actions(self):
-        actions = GridSource.actions.fget(self)
+        actions = MeshSource.actions.fget(self)
         if self.compensated:
             return self._get_compensation() + actions
         return actions

@@ -2,14 +2,14 @@ from __future__ import absolute_import
 # the future import is important. or in python 2.7 we try to 
 # import this module itself. Due to the unfortnate name conflict!
 
-from nbodykit.base.grid import GridSource
+from nbodykit.base.mesh import MeshSource
 from nbodykit import CurrentMPIComm
 from bigfile import BigFileMPI
 import numpy
 
 from pmesh.pm import ParticleMesh, ComplexField, RealField
 
-class BigFileGrid(GridSource):
+class BigFileMesh(MeshSource):
     """
     Read a grid that was stored on disk using :mod:`bigfile`
     
@@ -55,7 +55,7 @@ class BigFileGrid(GridSource):
         Nmesh = self.attrs['Nmesh']
         BoxSize = self.attrs['BoxSize']
 
-        GridSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype='f4', comm=comm)
+        MeshSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype='f4', comm=comm)
         
     def to_real_field(self):
         """

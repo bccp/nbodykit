@@ -53,13 +53,13 @@ class FFTPower(object):
         ----------
         comm : 
             the MPI communicator
-        first : ParticleSource, GridSource
+        first : ParticleSource, MeshSource
             the source for the first field
         mode : {'1d', '2d'}
             compute either 1d or 2d power spectra
         Nmesh : int
             the number of cells per side in the particle mesh used to paint the source
-        second : ParticleSource, GridSource; optional
+        second : ParticleSource, MeshSource; optional
             the second source for cross-correlations
         loz : array_like ; optional
             the direction to use as the line-of-sight
@@ -222,7 +222,7 @@ class FFTPower(object):
 
         Parameters
         ----------
-        sources : list of ParticleSource or GridSource
+        sources : list of ParticleSource or MeshSource
             the list of sources which the 3D power will be computed
         pm : ParticleMesh
             the particle mesh object that handles the painting and FFTs

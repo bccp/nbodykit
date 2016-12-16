@@ -21,7 +21,7 @@ def test_linear_grid(comm):
     CurrentMPIComm.set(comm)
 
     # linear grid 
-    source = Source.LinearGrid(cosmo, redshift=0.55, Nmesh=64, BoxSize=512, seed=42)
+    source = Source.LinearMesh(cosmo, redshift=0.55, Nmesh=64, BoxSize=512, seed=42)
 
     # compute P(k) from linear grid
     r = FFTPower(source, mode='1d', Nmesh=64, dk=0.01, kmin=0.005)
@@ -48,7 +48,7 @@ def test_linear_grid(comm):
 def test_bigfile_grid(comm):
     """
     Run the ``DumpField`` algorithm, load the result as a 
-    :class:`~nbodykit.source.grid.BigFileGrid`, and compare the painted grid 
+    :class:`~nbodykit.source.grid.BigFileMesh`, and compare the painted grid 
     to the algorithm's result
     """
     import tempfile
@@ -57,7 +57,7 @@ def test_bigfile_grid(comm):
     CurrentMPIComm.set(comm)
 
     # zeldovich particles
-    source = Source.LinearGrid(cosmo, redshift=0.55, BoxSize=512, Nmesh=64, seed=42)
+    source = Source.LinearMesh(cosmo, redshift=0.55, BoxSize=512, Nmesh=64, seed=42)
     
     real = source.paint(mode='real')
     complex = source.paint(mode="complex")
@@ -72,7 +72,7 @@ def test_bigfile_grid(comm):
     real.save(output, dataset='Field')
 
     # now load it and paint to the algorithm's ParticleMesh
-    source = Source.BigFileGrid(path=output, dataset='Field')
+    source = Source.BigFileMesh(path=output, dataset='Field')
     loaded_real = source.paint()
     
     # compare to direct algorithm result
@@ -81,7 +81,7 @@ def test_bigfile_grid(comm):
     complex.save(output, dataset='FieldC')
 
     # now load it and paint to the algorithm's ParticleMesh
-    source = Source.BigFileGrid(path=output, dataset='FieldC')
+    source = Source.BigFileMesh(path=output, dataset='FieldC')
     loaded_real = source.paint(mode="complex")
     
     # compare to direct algorithm result
