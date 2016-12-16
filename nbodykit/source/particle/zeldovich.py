@@ -1,4 +1,3 @@
-from nbodykit.io.stack import FileStack
 from nbodykit.base.particles import ParticleSource
 from nbodykit.utils import cosmology_to_dict
 from nbodykit import CurrentMPIComm

@@ -89,7 +89,7 @@ def test_save(comm):
 
     tmpfile = comm.bcast(tmpfile)
 
-    source = Source.ZeldovichParticles(cosmo, nbar=0.2e-2, redshift=0.55, BoxSize=1024., Nmesh=32, rsd=[0, 0, 0], seed=42)
+    source = Source.UniformParticles(nbar=0.2e-2, BoxSize=1024., seed=42)
 
     source.save(tmpfile, ['Position', 'Velocity'])
 
