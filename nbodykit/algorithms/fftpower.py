@@ -92,11 +92,6 @@ class FFTPower(object):
 
         self.sources = [first, second]
 
-        # check box sizes
-        if len(self.sources) == 2:
-            if not numpy.array_equal(self.sources[0].attrs['BoxSize'], self.sources[1].attrs['BoxSize']):
-                raise ValueError("BoxSize mismatch between cross-correlation sources")
-
         if Nmesh is None:
             Nmesh = self.sources[0].attrs['Nmesh']
 
@@ -107,6 +102,14 @@ class FFTPower(object):
         _Nmesh = self.sources[0].attrs['Nmesh'].copy()
         if _Nmesh is not None:
             _Nmesh[:] = Nmesh
+
+        # check box sizes
+        if len(self.sources) == 2:
+            if not numpy.array_equal(self.sources[0].attrs['BoxSize'], self.sources[1].attrs['BoxSize']):
+                raise ValueError("BoxSize mismatch between cross-correlation sources")
+            if not numpy.array_equal(self.sources[0].attrs['BoxSize'], _BoxSize):
+                raise ValueError("BoxSize mismatch between sources and the algorithm. ")
+
 
         # setup the particle mesh object
         self.pm = ParticleMesh(BoxSize=_BoxSize, Nmesh=_Nmesh, dtype='f4', comm=self.comm)
