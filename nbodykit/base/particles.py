@@ -28,6 +28,12 @@ class ParticleSource(object):
         self._overrides = {}
 
     def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4'):
+        """ 
+            Convert the ParticleSource to a MeshSource
+
+            FIXME: probably add Position, Weight and Selection column names
+
+        """
         if BoxSize is None:
             try:
                 BoxSize = self.attrs['BoxSize']
@@ -161,8 +167,34 @@ class ParticleSource(object):
             raise KeyError("column `%s` is not defined in this source" % col)
         if not hasattr(r, 'attrs'):
             r.attrs = {}
-        r.save = lambda output, dataset=col: save(r, output, dataset, self.comm)
         return r
+
+    def save(self, output, columns, datasets=None, header='Header'):
+        """ Save the data source to a bigfile.
+
+            selected columns are saved. attrs are saved in header.
+            attrs of columns are stored in the datasets.
+        """
+        import bigfile
+        if datasets is None:
+            datasets = columns
+
+        with bigfile.BigFileMPI(comm=self.comm, filename=output, create=True) as ff:
+            try:
+                bb = ff.open(header)
+            except:
+                bb = ff.create(header)
+            with bb :
+                for key in self.attrs:
+                    bb.attrs[key] = self.attrs[key]
+
+            for column, dataset in zip(columns, datasets):
+                c = self[column]
+
+                with ff.create_from_array(dataset, c) as bb:
+                    if hasattr(c, 'attrs'): 
+                        for key in c.attrs:
+                            bb.attrs[key] = c.attrs[key]
 
     def __setitem__(self, col, value):
         import dask.array as da
@@ -172,38 +204,8 @@ class ParticleSource(object):
     def read(self, columns):
         """
         Return the requested columns as dask arrays
-        
+
         Currently, this returns a dask array holding the total amount
         of data for each rank, divided equally amongst the available ranks
         """
         return [self[col] for col in columns]
-
-    def save_attrs(self, filename, dataset='Header'):
-        import bigfile
-        with bigfile.BigFileMPI(comm=self.comm, filename=filename, create=True) as ff:
-            try:
-                header = ff.open(dataset)
-            except:
-                header = ff.create(dataset)
-            with header:
-                for key in self.attrs:
-                    header.attrs[key] = self.attrs[key]
-
-
-def save(c, output, dataset, comm):
-    """ save a dask array to bigfile output as dataset.
-
-        c.attr is stored as block attrs.
-    """
-    import bigfile
-
-    csize = comm.allreduce(c.size)
-    dtype = c.dtype
-    if len(c.shape) > 1:
-        dtype = (dtype, c.shape[1:])
-
-    with bigfile.BigFileMPI(comm=comm, filename=output, create=True) as ff:
-        with ff.create_from_array(dataset, c) as bb:
-            if hasattr(c, 'attrs'): 
-                for key in c.attrs:
-                    bb.attrs[key] = c.attrs[key]

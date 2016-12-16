@@ -91,9 +91,7 @@ def test_save(comm):
 
     source = Source.ZeldovichParticles(cosmo, nbar=0.2e-2, redshift=0.55, BoxSize=1024., Nmesh=32, rsd=[0, 0, 0], seed=42)
 
-    source['Position'].save(tmpfile, 'Position')
-    source['Velocity'].save(tmpfile, 'Velocity')
-    source.save_attrs(tmpfile, 'Header')
+    source.save(tmpfile, ['Position', 'Velocity'])
 
     source2 = Source.File(BigFile, tmpfile, Nmesh=32, args=dict(header='Header'))
 
