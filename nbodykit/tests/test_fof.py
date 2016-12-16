@@ -18,9 +18,7 @@ def test_fof(comm):
     # compute P(k,mu) and multipoles
     fof = FOF(source, linking_length=0.2, nmin=20)
 
-    fof['HaloLabel'].save("FOF-label-%d" % comm.size)
+    fof.save(columns=['HaloLabel'], output="FOF-label-%d" % comm.size)
 
     halos = HaloFinder(source, fof['HaloLabel'])
-    halos['Position'].save("FOF-label-%d" % comm.size)
-    halos['Velocity'].save("FOF-label-%d" % comm.size)
-    halos['Length'].save("FOF-label-%d" % comm.size)
+    halos.save("FOF-label-%d" % comm.size, ['Position', 'Velocity', 'Length'])
