@@ -26,7 +26,7 @@ class ParticleSource(object):
 
         self._overrides = {}
 
-    def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4'):
+    def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4', interlaced=False, compensated=False, window='cic'):
         """ 
             Convert the ParticleSource to a MeshSource
 
@@ -47,7 +47,11 @@ class ParticleSource(object):
             except KeyError:
                 raise ValueError("Nmesh is not supplied but the particle source does not define one in attrs.")
 
-        return ParticleMeshSource(self, Nmesh=Nmesh, BoxSize=BoxSize, dtype=dtype)
+        r = ParticleMeshSource(self, Nmesh=Nmesh, BoxSize=BoxSize, dtype=dtype)
+        r.interlaced = interlaced
+        r.compensated = compensated
+        r.window = window
+        return r
 
     def update_csize(self):
         """ set the collective size

@@ -15,8 +15,7 @@ def test_zeldovich_sparse(comm):
 
     source = Source.ZeldovichParticles(cosmo, nbar=0.2e-6, redshift=0.55, BoxSize=128., Nmesh=8, rsd=[0, 0, 0], seed=42)
 
-    mesh = source.to_mesh()
-    mesh.compensated = False
+    mesh = source.to_mesh(compensated=False)
 
     real = mesh.paint(mode='real')
 
@@ -28,9 +27,7 @@ def test_zeldovich_dense(comm):
     CurrentMPIComm.set(comm)
 
     source = Source.ZeldovichParticles(cosmo, nbar=0.2e-2, redshift=0.55, BoxSize=128., Nmesh=8, rsd=[0, 0, 0], seed=42)
-    mesh = source.to_mesh()
-
-    mesh.compensated = False
+    mesh = source.to_mesh(compensated=False)
 
     real = mesh.paint(mode='real')
 
@@ -45,8 +42,7 @@ def test_zeldovich_velocity(comm):
 
     source['Weight'] = source['Velocity'][:, 0]
 
-    mesh = source.to_mesh()
-    mesh.compensated = False
+    mesh = source.to_mesh(compensated=False)
 
     real = mesh.paint(mode='real')
     velsum = comm.allreduce(source['Velocity'][:, 0].sum().compute())
@@ -81,7 +77,11 @@ def test_tomesh(comm):
     CurrentMPIComm.set(comm)
 
     source = Source.UniformParticles(nbar=0.2e-2, BoxSize=1024., seed=42)
-    mesh = source.to_mesh(Nmesh=128)
+    mesh = source.to_mesh(Nmesh=128, compensated=True)
+
+    assert_allclose(source['Position'], mesh['Position'])
+
+    mesh = source.to_mesh(Nmesh=128, compensated=True, interlaced=True)
 
     assert_allclose(source['Position'], mesh['Position'])
 
