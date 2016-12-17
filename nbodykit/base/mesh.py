@@ -31,10 +31,6 @@ class MeshSource(object):
         self.attrs['BoxSize'] = self.pm.BoxSize.copy()
         self.attrs['Nmesh'] = self.pm.Nmesh.copy()
 
-        if self.comm.rank == 0:
-            self.logger.info("attrs = %s" % self.attrs)
-
-
         self._actions = []
 
     @property
