@@ -14,10 +14,11 @@ def test_zeldovich_sparse(comm):
     CurrentMPIComm.set(comm)
 
     source = Source.ZeldovichParticles(cosmo, nbar=0.2e-6, redshift=0.55, BoxSize=128., Nmesh=8, rsd=[0, 0, 0], seed=42)
-    source = source.to_mesh()
-    source.compensated = False
 
-    real = source.paint(mode='real')
+    mesh = source.to_mesh()
+    mesh.compensated = False
+
+    real = mesh.paint(mode='real')
 
     assert_allclose(real.cmean(), 1.0)
 
@@ -27,11 +28,11 @@ def test_zeldovich_dense(comm):
     CurrentMPIComm.set(comm)
 
     source = Source.ZeldovichParticles(cosmo, nbar=0.2e-2, redshift=0.55, BoxSize=128., Nmesh=8, rsd=[0, 0, 0], seed=42)
-    source = source.to_mesh()
+    mesh = source.to_mesh()
 
-    source.compensated = False
+    mesh.compensated = False
 
-    real = source.paint(mode='real')
+    real = mesh.paint(mode='real')
 
     assert_allclose(real.cmean(), 1.0)
 
@@ -73,7 +74,16 @@ def test_transform(comm):
     # so total is 3.
     assert_allclose(source['Position'], 3)
 
-    source = source.to_mesh()
+    mesh = source.to_mesh()
+
+@MPITest([1, 4])
+def test_tomesh(comm):
+    CurrentMPIComm.set(comm)
+
+    source = Source.UniformParticles(nbar=0.2e-2, BoxSize=1024., seed=42)
+    mesh = source.to_mesh(Nmesh=128)
+
+    assert_allclose(source['Position'], mesh['Position'])
 
 @MPITest([1, 4])
 def test_save(comm):
@@ -136,7 +146,5 @@ def test_file(comm):
     source = Source.File(HDFFile, tmpfile, Nmesh=32, args={'root': 'X'})
 
     assert_allclose(source['Position'], dset['Position'])
-
-    source = source.to_mesh()
 
     os.unlink(tmpfile)
