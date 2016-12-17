@@ -6,14 +6,14 @@ import logging
 from pmesh.pm import ParticleMesh, RealField, ComplexField
 
 @add_metaclass(abc.ABCMeta)
-class GridSource(object):
+class MeshSource(object):
     """
     Base class for a source in the form of an input grid
 
     Subclasses must define the :func:`paint` function, which
     is abstract in this class
     """
-    logger = logging.getLogger('GridSource')
+    logger = logging.getLogger('MeshSource')
 
     # called by the subclasses
     def __init__(self, comm, Nmesh, BoxSize, dtype):

@@ -1,4 +1,3 @@
-from nbodykit.io.stack import FileStack
 from nbodykit.base.particles import ParticleSource
 from nbodykit.utils import cosmology_to_dict
 from nbodykit import CurrentMPIComm
@@ -9,6 +8,9 @@ class ZeldovichParticles(ParticleSource):
     """
     A source of particles Poisson-sampled from density fields in the Zel'dovich approximation
     """
+    def __repr__(self):
+        return "ZeldovichParticles(seed=%(seed)d, bias=%(bias)g)" % self.attrs
+
     @CurrentMPIComm.enable
     def __init__(self, cosmo, nbar, redshift, BoxSize, Nmesh, bias=2., rsd=None, seed=None, comm=None):
         """
@@ -52,9 +54,12 @@ class ZeldovichParticles(ParticleSource):
         self.attrs['rsd']      = rsd
         self.attrs['seed']     = seed
 
-        ParticleSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype='f4', comm=comm)
+        ParticleSource.__init__(self, comm=comm)
 
-        self._source = self._makesource()
+        self._source, pm = self._makesource(BoxSize=BoxSize, Nmesh=Nmesh)
+
+        self.attrs['Nmesh'] = pm.Nmesh.copy()
+        self.attrs['BoxSize'] = pm.BoxSize.copy()
 
         # recompute _csize to the real size
         self.update_csize()
@@ -81,7 +86,7 @@ class ZeldovichParticles(ParticleSource):
         """
         return list(self._source.dtype.names)
 
-    def _makesource(self):
+    def _makesource(self, BoxSize, Nmesh):
         # classylss is required to call CLASS and create a power spectrum
         try: import classylss
         except: raise ImportError("`classylss` is required to use %s" %self.__class__.__name__)
@@ -90,10 +95,9 @@ class ZeldovichParticles(ParticleSource):
         from nbodykit import mockmaker
         from pmesh.pm import ParticleMesh
         from nbodykit.utils import MPINumpyRNGContext
-    
+
         # initialize the CLASS parameters 
         pars = classylss.ClassParams.from_astropy(self.cosmo)
-
         try:
             cosmo = classylss.Cosmology(pars)
         except Exception as e:
@@ -103,8 +107,10 @@ class ZeldovichParticles(ParticleSource):
         Plin = classylss.power.LinearPS(cosmo, z=self.attrs['redshift'])
     
         # the particle mesh for gridding purposes
-        pm = self.pm
-    
+        _Nmesh = numpy.empty(3, dtype='i8')
+        _Nmesh[:] = Nmesh
+        pm = ParticleMesh(BoxSize=BoxSize, Nmesh=_Nmesh, dtype='f4', comm=self.comm)
+
         # generate initialize fields and Poisson sample with fixed local seed
         with MPINumpyRNGContext(self.attrs['seed'], self.comm):
     
@@ -126,4 +132,4 @@ class ZeldovichParticles(ParticleSource):
         source = numpy.empty(len(pos), dtype)
         source['Position'][:] = pos[:]
         source['Velocity'][:] = vel[:]
-        return source
+        return source, pm

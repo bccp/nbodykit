@@ -24,12 +24,11 @@ def test_taskmanager(comm):
                 source = Source.ZeldovichParticles(cosmo, nbar=3e-7, redshift=0.55, BoxSize=1380., Nmesh=8, rsd=[0, 0, 1], seed=seed)
 
                 # compute P(k,mu) and multipoles
-                alg = algorithms.FFTPower(source, mode='2d', Nmesh=8, poles=[0,2,4])
-                alg.run()
+                r = FFTPower(source, mode='2d', Nmesh=8, poles=[0,2,4])
 
                 # and save
                 output = "./test_batch_zeldovich_seed%d.pickle" % seed
-                alg.result.save(output)
+                r.save(output)
         except Exception as e:
             print(e)
             raise

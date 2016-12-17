@@ -7,7 +7,7 @@ class Array(ParticleSource):
     A source of particles from numpy array
     """
     @CurrentMPIComm.enable
-    def __init__(self, data, BoxSize, Nmesh, comm=None, **kwargs):
+    def __init__(self, data, comm=None, **kwargs):
         """
         Parameters
         ----------
@@ -32,7 +32,7 @@ class Array(ParticleSource):
         # update the meta-data
         self.attrs.update(kwargs)
 
-        ParticleSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype='f4', comm=comm)
+        ParticleSource.__init__(self, comm=comm)
 
     def get_column(self, col):
         """
