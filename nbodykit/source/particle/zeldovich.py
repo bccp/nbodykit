@@ -127,7 +127,6 @@ class ZeldovichParticles(ParticleSource):
 
             kws = {'f':f, 'bias':self.attrs['bias']}
             pos, vel = mockmaker.poisson_sample_to_points(delta, disp, pm, self.attrs['nbar'], **kws)
-            print(pos, vel)
 
         pos += vel * self.attrs['rsd']
 
