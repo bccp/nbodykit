@@ -30,11 +30,7 @@ def test_paint(comm):
     # zeldovich particles
     source = Source.ZeldovichParticles(cosmo, nbar=3e-7, redshift=0.55, BoxSize=1380., Nmesh=32, rsd=[0, 0, 1], seed=42)
 
-    source = source.to_mesh(Nmesh=64, BoxSize=1380.)
-
-    source.interlaced = True
-    source.window = 'tsc'
-    source.compensated = True
+    source = source.to_mesh(Nmesh=64, BoxSize=1380., interlaced=True, window='tsc', compensated=True)
 
     def filter(k, v):
         kk = sum(ki ** 2 for ki in k)
