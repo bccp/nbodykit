@@ -3,7 +3,6 @@ from nbodykit.extern.six import add_metaclass
 import abc
 import numpy
 import logging
-from nbodykit.base.particlemesh import ParticleMeshSource
 
 @add_metaclass(abc.ABCMeta)
 class ParticleSource(object):
@@ -34,6 +33,8 @@ class ParticleSource(object):
             FIXME: probably add Position, Weight and Selection column names
 
         """
+        from nbodykit.base.particlemesh import ParticleMeshSource
+
         if BoxSize is None:
             try:
                 BoxSize = self.attrs['BoxSize']

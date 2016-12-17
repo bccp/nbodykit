@@ -4,12 +4,13 @@ import abc
 import numpy
 import logging
 from nbodykit.base.mesh import MeshSource
+from nbodykit.base.particles import ParticleSource
 
 # for converting from particle to mesh
 from pmesh import window
 from pmesh.pm import RealField, ComplexField
 
-class ParticleMeshSource(MeshSource):
+class ParticleMeshSource(MeshSource, ParticleSource):
     logger = logging.getLogger('ParticleMeshSource')
     def __repr__(self):
         return "(%s as ParticleMeshSource)" % repr(self.source)
@@ -24,10 +25,22 @@ class ParticleMeshSource(MeshSource):
         # this will override BoxSize and Nmesh carried from the source, if there is any!
 
         MeshSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype=dtype, comm=source.comm)
+        ParticleSource.__init__(self, comm=source.comm)
 
         self.attrs['compensated'] = True
         self.attrs['interlaced'] = False
         self.attrs['window'] = 'cic'
+
+    @property
+    def size(self):
+        return self.source.size
+
+    @property
+    def hcolumns (self):
+        return self.source.hcolumns
+
+    def get_column(self, col):
+        return self.source.get_column(col)
 
     @property
     def interlaced(self):
