@@ -2,6 +2,8 @@ from nbodykit.base.mesh import MeshSource
 from nbodykit import CurrentMPIComm, mockmaker
 from nbodykit.utils import MPINumpyRNGContext
 
+from nbodykit.utils import attrs_to_dict
+
 class LinearMesh(MeshSource):
     """
     A source to generate a ``RealField`` grid directly from the 
@@ -34,9 +36,7 @@ class LinearMesh(MeshSource):
         # cosmology and communicator
         self.comm    = comm
 
-        if hasattr(Plin, 'attrs'):
-            for k in Plin.attrs:
-                self.attrs['plin.' + k] = Plin.attrs[k]
+        self.attrs.update(attrs_to_dict(Plin, 'plin.'))
 
         # save the rest of the attributes as meta-data
         self.attrs['seed']     = seed

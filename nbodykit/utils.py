@@ -61,3 +61,12 @@ def cosmology_to_dict(cosmo, prefix='cosmo.'):
         d[prefix + key] = value
     return d
 
+def attrs_to_dict(obj, prefix):
+    if not hasattr(obj, 'attrs'):
+        return {}
+
+    d = {}
+    for key, value in obj.attrs.items():
+        d[prefix + key] = value
+    return d
+

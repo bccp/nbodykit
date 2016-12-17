@@ -1,5 +1,5 @@
 from nbodykit.base.particles import ParticleSource
-from nbodykit.utils import cosmology_to_dict
+from nbodykit.utils import attrs_to_dict, cosmology_to_dict
 from nbodykit import CurrentMPIComm
 
 import numpy
@@ -12,12 +12,14 @@ class ZeldovichParticles(ParticleSource):
         return "ZeldovichParticles(seed=%(seed)d, bias=%(bias)g)" % self.attrs
 
     @CurrentMPIComm.enable
-    def __init__(self, cosmo, nbar, redshift, BoxSize, Nmesh, bias=2., rsd=None, seed=None, comm=None):
+    def __init__(self,cosmo, nbar, redshift, BoxSize, Nmesh, Plin, bias=2., rsd=None, seed=None, comm=None):
         """
         Parameters
         ----------
-        cosmo : subclass of astropy.cosmology.FLRW
-           the cosmology used to generate the linear power spectrum (using CLASS) 
+        cosmo : cosmology
+            the cosmology XXX: fixme.
+        plin : callable
+            linear power spectrum
         nbar : float
             the number density of the particles in the box, assumed constant across the box; 
             this is used when Poisson sampling the density field
@@ -40,12 +42,17 @@ class ZeldovichParticles(ParticleSource):
         """
         # communicator and cosmology
         self.comm    = comm
-        self.cosmo   = cosmo
+        self.cosmo = cosmo
+        # FIXME: after cosmo can do power spectrum we shall 
+        # use that as the default.
+
+        self.Plin = Plin
 
         if rsd is None:
             rsd = [0, 0, 0.]
 
-        self.attrs.update(cosmology_to_dict(cosmo))
+        self.attrs.update(attrs_to_dict(Plin, 'plin.'))
+        self.attrs.update(cosmology_to_dict(cosmo, 'cosmo.'))
 
         # save the meta-data
         self.attrs['nbar']     = nbar
@@ -87,41 +94,41 @@ class ZeldovichParticles(ParticleSource):
         return list(self._source.dtype.names)
 
     def _makesource(self, BoxSize, Nmesh):
-        # classylss is required to call CLASS and create a power spectrum
-        try: import classylss
-        except: raise ImportError("`classylss` is required to use %s" %self.__class__.__name__)
-    
+
         # the other imports
         from nbodykit import mockmaker
         from pmesh.pm import ParticleMesh
         from nbodykit.utils import MPINumpyRNGContext
 
+        # initialize the linear power spectrum object
+        Plin = self.Plin
+
         # initialize the CLASS parameters 
+        # FIXME: replace with our cosmology class
+        import classylss
         pars = classylss.ClassParams.from_astropy(self.cosmo)
         try:
             cosmo = classylss.Cosmology(pars)
         except Exception as e:
             raise ValueError("error running CLASS for the specified cosmology: %s" %str(e))
-    
-        # initialize the linear power spectrum object
-        Plin = classylss.power.LinearPS(cosmo, z=self.attrs['redshift'])
-    
+
         # the particle mesh for gridding purposes
         _Nmesh = numpy.empty(3, dtype='i8')
         _Nmesh[:] = Nmesh
         pm = ParticleMesh(BoxSize=BoxSize, Nmesh=_Nmesh, dtype='f4', comm=self.comm)
 
+        # sample to Poisson points
+        f = cosmo.f_z(self.attrs['redshift']) # growth rate to do RSD in the Zel'dovich approx
+
         # generate initialize fields and Poisson sample with fixed local seed
         with MPINumpyRNGContext(self.attrs['seed'], self.comm):
-    
             # compute the linear overdensity and displacement fields
             delta, disp = mockmaker.gaussian_real_fields(pm, Plin, compute_displacement=True)
-    
-            # sample to Poisson points
-            f = cosmo.f_z(self.attrs['redshift']) # growth rate to do RSD in the Zel'dovich approx
+
             kws = {'f':f, 'bias':self.attrs['bias']}
             pos, vel = mockmaker.poisson_sample_to_points(delta, disp, pm, self.attrs['nbar'], **kws)
-        
+            print(pos, vel)
+
         pos += vel * self.attrs['rsd']
 
         dtype = numpy.dtype([
@@ -132,4 +139,5 @@ class ZeldovichParticles(ParticleSource):
         source = numpy.empty(len(pos), dtype)
         source['Position'][:] = pos[:]
         source['Velocity'][:] = vel[:]
+
         return source, pm

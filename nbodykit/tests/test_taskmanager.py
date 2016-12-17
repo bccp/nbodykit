@@ -21,7 +21,7 @@ def test_taskmanager(comm):
             for seed in tm.iterate([0, 1, 2]):
 
                 # zeldovich particles
-                source = Source.ZeldovichParticles(cosmo, nbar=3e-7, redshift=0.55, BoxSize=1380., Nmesh=8, rsd=[0, 0, 1], seed=seed)
+                source = Source.UniformParticles(nbar=3e-7, BoxSize=1380., seed=seed)
 
                 # compute P(k,mu) and multipoles
                 r = FFTPower(source, mode='2d', Nmesh=8, poles=[0,2,4])

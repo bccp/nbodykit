@@ -7,13 +7,15 @@ from numpy.testing import assert_array_equal
 import dask
 dask.set_options(get=dask.get)
 setup_logging("debug")
+from nbodykit.testing import TestingPowerSpectrum
 
 @MPITest([4])
 def test_zeldovich_sparse(comm):
     cosmo = cosmology.Planck15
     CurrentMPIComm.set(comm)
 
-    source = Source.ZeldovichParticles(cosmo, nbar=0.2e-6, redshift=0.55, BoxSize=128., Nmesh=8, rsd=[0, 0, 0], seed=42)
+    source = Source.ZeldovichParticles(cosmo, Plin=TestingPowerSpectrum,
+            nbar=0.2e-6, redshift=0.55, BoxSize=128., Nmesh=8, rsd=[0, 0, 0], seed=42)
 
     mesh = source.to_mesh(compensated=False)
 
@@ -26,7 +28,8 @@ def test_zeldovich_dense(comm):
     cosmo = cosmology.Planck15
     CurrentMPIComm.set(comm)
 
-    source = Source.ZeldovichParticles(cosmo, nbar=0.2e-2, redshift=0.55, BoxSize=128., Nmesh=8, rsd=[0, 0, 0], seed=42)
+    source = Source.ZeldovichParticles(cosmo, Plin=TestingPowerSpectrum,
+            nbar=0.2e-2, redshift=0.55, BoxSize=128., Nmesh=8, rsd=[0, 0, 0], seed=42)
     mesh = source.to_mesh(compensated=False)
 
     real = mesh.paint(mode='real')
@@ -38,7 +41,8 @@ def test_zeldovich_velocity(comm):
     cosmo = cosmology.Planck15
     CurrentMPIComm.set(comm)
 
-    source = Source.ZeldovichParticles(cosmo, nbar=0.2e-2, redshift=0.55, BoxSize=1024., Nmesh=32, rsd=[0, 0, 0], seed=42)
+    source = Source.ZeldovichParticles(cosmo, Plin=TestingPowerSpectrum,
+             nbar=0.2e-2, redshift=0.55, BoxSize=1024., Nmesh=32, rsd=[0, 0, 0], seed=42)
 
     source['Weight'] = source['Velocity'][:, 0]
 
