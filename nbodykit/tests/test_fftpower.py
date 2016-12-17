@@ -3,6 +3,8 @@ from nbodykit.lab import *
 from nbodykit.algorithms.fof import FOF, HaloFinder
 from nbodykit import setup_logging
 
+from nbodykit.testing import TestingPowerSpectrum
+
 # debug logging
 setup_logging("debug")
 
@@ -28,6 +30,6 @@ def test_fftpower_mismatch_boxsize(comm):
     # zeldovich particles
     source1 = Source.UniformParticles(nbar=3e-3, BoxSize=512., seed=42)
 
-    source2 = Source.LinearMesh(cosmology.Planck15, redshift=0, BoxSize=1024, Nmesh=32, seed=33)
+    source2 = Source.LinearMesh(TestingPowerSpectrum, BoxSize=1024, Nmesh=32, seed=33)
 
     r = FFTPower(source1, second=source2, mode='1d', BoxSize=1024, Nmesh=32)
