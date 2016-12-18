@@ -297,7 +297,6 @@ class FFTPower(object):
         # get the number of objects (in a safe manner)
         N1 = c1.attrs.get('N', 0)
         N2 = c2.attrs.get('N', 0)
-        print c1.attrs
         self.attrs.update({'N1':N1, 'N2':N2})
 
         return p3d
