@@ -4,7 +4,7 @@ from nbodykit.algorithms.fof import FOF, HaloFinder
 from nbodykit import setup_logging
 
 from nbodykit.testing import TestingPowerSpectrum
-
+from numpy.testing import assert_array_equal
 # debug logging
 setup_logging("debug")
 
@@ -17,12 +17,27 @@ def test_fftpower_padding(comm):
     r = FFTPower(source, mode='1d', BoxSize=1024, Nmesh=32)
 
 @MPITest([1])
-def test_fftpower_padding(comm):
+def test_fftpower_save(comm):
+    import json
     CurrentMPIComm.set(comm)
     # zeldovich particles
     source = Source.UniformParticles(nbar=3e-3, BoxSize=512., seed=42)
 
     r = FFTPower(source, mode='1d', Nmesh=32)
+    r.save('fftpower-test.pickle')
+
+    r2 = FFTPower.load('fftpower-test.pickle')
+
+    assert_array_equal(r.power, r2.power)
+
+@MPITest([1])
+def test_fftpower_nopadding(comm):
+    CurrentMPIComm.set(comm)
+    # zeldovich particles
+    source = Source.UniformParticles(nbar=3e-3, BoxSize=512., seed=42)
+
+    r = FFTPower(source, mode='1d', Nmesh=32)
+
 
 @MPITest([1])
 def test_fftpower_mismatch_boxsize(comm):
