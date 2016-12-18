@@ -205,6 +205,10 @@ class FFTPower(object):
         self.__dict__.update(state)
 
     def save(self, output):
+        """ Save the FFTPower result to disk.
+
+            The format is currently json.
+        """
         # only the master rank writes
         import json
         from nbodykit.utils import JSONEncoder
@@ -217,6 +221,10 @@ class FFTPower(object):
     @classmethod
     @CurrentMPIComm.enable
     def load(cls, output, comm=None):
+        """ Load a saved FFTPower result.
+
+            the result has been saved to disk with FFTPower.save.
+        """
         import json
         from nbodykit.utils import JSONDecoder
         if comm.rank == 0:
