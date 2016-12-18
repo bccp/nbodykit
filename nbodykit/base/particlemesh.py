@@ -15,18 +15,23 @@ class ParticleMeshSource(MeshSource, ParticleSource):
     def __repr__(self):
         return "(%s as ParticleMeshSource)" % repr(self.source)
 
-    def __init__(self, source, BoxSize, Nmesh, dtype):
+    # intended to be used by ParticleSource internally
+    def __init__(self, source, BoxSize, Nmesh, dtype, weight, selection):
         # ensure self.comm is set, though usually already set by the child.
         self.comm = source.comm
 
         self.source = source
+        self.selection = selection
+        self.weight = weight
+
         self.attrs.update(source.attrs)
 
         # this will override BoxSize and Nmesh carried from the source, if there is any!
 
         MeshSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype=dtype, comm=source.comm)
         ParticleSource.__init__(self, comm=source.comm)
-
+        self.attrs['selection'] = self.selection
+        self.attrs['weight'] = self.weight
         self.attrs['compensated'] = True
         self.attrs['interlaced'] = False
         self.attrs['window'] = 'cic'
@@ -95,10 +100,7 @@ class ParticleMeshSource(MeshSource, ParticleSource):
             real2[...] = 0
 
         # read the necessary data (as dask arrays)
-        columns = ['Position', 'Weight', 'Selection']
-        if not all(col in self.source for col in columns):
-            missing = set(columns) - set(self.columns)
-            raise ValueError("self does not contain columns: %s" %str(missing))
+        columns = ['Position', self.weight, self.selection]
         Position, Weight, Selection = self.source.read(columns)
 
         # ensure the slices are synced, since decomposition is collective

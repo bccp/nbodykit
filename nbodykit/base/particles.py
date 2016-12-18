@@ -26,7 +26,10 @@ class ParticleSource(object):
 
         self._overrides = {}
 
-    def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4', interlaced=False, compensated=False, window='cic'):
+    def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4',
+            interlaced=False, compensated=False, window='cic',
+            weight='Weight', selection='Selection'
+             ):
         """ 
             Convert the ParticleSource to a MeshSource
 
@@ -47,7 +50,8 @@ class ParticleSource(object):
             except KeyError:
                 raise ValueError("Nmesh is not supplied but the particle source does not define one in attrs.")
 
-        r = ParticleMeshSource(self, Nmesh=Nmesh, BoxSize=BoxSize, dtype=dtype)
+        r = ParticleMeshSource(self, Nmesh=Nmesh, BoxSize=BoxSize, dtype=dtype, weight=weight, selection=selection)
+
         r.interlaced = interlaced
         r.compensated = compensated
         r.window = window
@@ -214,4 +218,8 @@ class ParticleSource(object):
         Currently, this returns a dask array holding the total amount
         of data for each rank, divided equally amongst the available ranks
         """
+        missing = set(columns) - set(self.columns)
+        if len(missing) > 0:
+            raise ValueError("self does not contain columns: %s" %str(missing))
+
         return [self[col] for col in columns]

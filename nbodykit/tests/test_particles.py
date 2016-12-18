@@ -81,6 +81,10 @@ def test_tomesh(comm):
     CurrentMPIComm.set(comm)
 
     source = Source.UniformParticles(nbar=0.2e-2, BoxSize=1024., seed=42)
+    source['Weight0'] = source['Velocity'][:, 0]
+    source['Weight1'] = source['Velocity'][:, 1]
+    source['Weight2'] = source['Velocity'][:, 2]
+
     mesh = source.to_mesh(Nmesh=128, compensated=True)
 
     assert_allclose(source['Position'], mesh['Position'])
@@ -88,6 +92,8 @@ def test_tomesh(comm):
     mesh = source.to_mesh(Nmesh=128, compensated=True, interlaced=True)
 
     assert_allclose(source['Position'], mesh['Position'])
+
+    mesh = source.to_mesh(Nmesh=128, weight='Weight0')
 
 @MPITest([1, 4])
 def test_save(comm):
