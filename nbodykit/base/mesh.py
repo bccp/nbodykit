@@ -59,6 +59,8 @@ class MeshSource(object):
                 complex = self.to_complex_field()
                 assert complex is not NotImplemented
                 real = complex.r2c(complex)
+                if hasattr(complex, 'attrs'):
+                    real.attrs = complex.attrs
             var = real
         elif mode == 'complex':
             complex = self.to_complex_field()
@@ -66,6 +68,8 @@ class MeshSource(object):
                 real = self.to_real_field()
                 assert real is not NotImplemented
                 complex = real.r2c(real)
+                if hasattr(real, 'attrs'):
+                    complex.attrs = real.attrs
             var = complex
         else:
             raise ValueError("mode is either real or complex, %s given" % mode)
@@ -99,6 +103,11 @@ class MeshSource(object):
         # if we expect complex, be smart and use complex directly.
         var = self.to_field(mode=actions[0][0])
 
+        if not hasattr(var, 'attrs'):
+            attrs = {}
+        else:
+            attrs = var.attrs
+
         for action in actions:
             # ensure var is the right mode
 
@@ -117,14 +126,11 @@ class MeshSource(object):
                     kwargs['kind'] = action[2]
                 var.apply(**kwargs)
 
-        if not hasattr(var, 'attrs'):
-            var.attrs = {}
-
+        var.attrs = attrs
         var.attrs.update(self.attrs)
 
         # FIXME: this shall probably got to pmesh
         var.save = lambda *args, **kwargs : save(var, *args, **kwargs)
-
         return var
 
 def save(self, output, dataset='Field'):
@@ -141,8 +147,10 @@ def save(self, output, dataset='Field'):
                     # do not override the above values -- they are vectors (from pm)
                     if key in bb.attrs: continue
                     value = numpy.array(self.attrs[key])
-                    if value.dtype.char in 'bdfSilIL':
+                    try:
                         bb.attrs[key] = value
+                    except TypeError:
+                        warnings.warn("attribute %s is unsupported and lost")
         elif isinstance(self, ComplexField):
             with ff.create_from_array(dataset, data) as bb:
                 bb.attrs['ndarray.shape'] = self.Nmesh, self.Nmesh, self.Nmesh // 2 + 1
@@ -151,5 +159,7 @@ def save(self, output, dataset='Field'):
                 for key in self.attrs:
                     if key in bb.attrs: continue
                     value = numpy.array(self.attrs[key])
-                    if value.dtype.char in 'bdfSilIL':
+                    try:
                         bb.attrs[key] = value
+                    except TypeError:
+                        warnings.warn("attribute %s is unsupported and lost")

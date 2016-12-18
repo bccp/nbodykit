@@ -143,11 +143,6 @@ class FFTPower(object):
         # measure the 3D power (y3d is a ComplexField)
         y3d = self._compute_3d_power()
 
-        # get the number of objects (in a safe manner)
-        N1 = len(self.sources[0])
-        N2 = len(self.sources[1])
-        self.attrs.update({'N1':N1, 'N2':N2})
-
 
         # binning in k out to the minimum nyquist frequency 
         # (accounting for possibly anisotropic box)
@@ -275,10 +270,6 @@ class FFTPower(object):
         -------
         p3d : array_like (complex)
             the 3D complex array holding the power spectrum
-        stats1 : dict
-            statistics of the first field, as returned by the `Painter` 
-        stats2 : dict
-            statistics of the second field, as returned by the `Painter`
         """
         sources = self.sources
         pm = self.pm
@@ -302,6 +293,12 @@ class FFTPower(object):
         # the complex field is dimensionless; power is L^3
         # ref to http://icc.dur.ac.uk/~tt/Lectures/UA/L4/cosmology.pdf
         p3d[...] *= self.attrs['BoxSize'].prod()
+
+        # get the number of objects (in a safe manner)
+        N1 = c1.attrs.get('N', 0)
+        N2 = c2.attrs.get('N', 0)
+        print c1.attrs
+        self.attrs.update({'N1':N1, 'N2':N2})
 
         return p3d
 

@@ -15,6 +15,8 @@ def test_fftpower_padding(comm):
     source = Source.UniformParticles(nbar=3e-3, BoxSize=512., seed=42)
 
     r = FFTPower(source, mode='1d', BoxSize=1024, Nmesh=32)
+    assert r.attrs['N1'] != 0
+    assert r.attrs['N2'] != 0
 
 @MPITest([1])
 def test_fftpower_save(comm):

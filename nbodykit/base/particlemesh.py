@@ -151,12 +151,15 @@ class ParticleMeshSource(MeshSource, ParticleSource):
 
                 c1.c2r(real)
 
-        nbar = 1.0 * pm.comm.allreduce(Nlocal) / numpy.prod(pm.Nmesh)
+        N = pm.comm.allreduce(Nlocal)
+        nbar = 1.0 * N / numpy.prod(pm.Nmesh)
 
-        shotnoise = numpy.prod(pm.BoxSize) / pm.comm.allreduce(Nlocal)
+        shotnoise = numpy.prod(pm.BoxSize) / N
 
         real.attrs = {}
         real.attrs['shotnoise'] = shotnoise
+        real.attrs['N'] = N
+
         csum = real.csum()
         if pm.comm.rank == 0:
             self.logger.info("mean particles per cell is %g", nbar)
