@@ -82,7 +82,8 @@ class JSONEncoder(json.JSONEncoder):
             d = {
                 '__dtype__' :
                     dtype.str if dtype.names is None else dtype.descr,
-                '__data__': value.tolist()
+                '__shape__' : value.shape,
+                '__data__': value.tolist(),
             }
             return d
         return json.JSONEncoder.default(self, obj)
@@ -90,22 +91,34 @@ class JSONEncoder(json.JSONEncoder):
 class JSONDecoder(json.JSONDecoder):
     @staticmethod
     def hook(value):
-        if '__dtype__' in value:
-            dtype = value['__dtype__']
-
+        def fixdtype(dtype):
             if isinstance(dtype, list):
                 true_dtype = []
-                true_a = []
                 for field in dtype:
                     if len(field) == 3:
                         true_dtype.append((str(field[0]), str(field[1]), field[2]))
                     if len(field) == 2:
                         true_dtype.append((str(field[0]), str(field[1])))
-                a = [tuple(i) for i in value['__data__']]
+                return true_dtype
+            return dtype
+
+        def fixdata(data, N, dtype):
+            if not isinstance(dtype, list):
+                return data
+
+            # for structured array,
+            # the last dimension shall be a tuple
+            if N > 0:
+                return [fixdata(i, N - 1, dtype) for i in data]
             else:
-                true_dtype = dtype
-                a = value['__data__']
-            return numpy.array(a, dtype=true_dtype)
+                assert len(data) == len(dtype)
+                return tuple(data)
+
+        if '__dtype__' in value:
+            dtype = fixdtype(value['__dtype__'])
+            shape = value['__shape__']
+            a = fixdata(value['__data__'], len(shape), dtype)
+            return numpy.array(a, dtype=dtype)
 
         if '__complex__' in value:
             real, imag = value['__complex__']

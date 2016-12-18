@@ -23,12 +23,15 @@ def test_fftpower_save(comm):
     # zeldovich particles
     source = Source.UniformParticles(nbar=3e-3, BoxSize=512., seed=42)
 
-    r = FFTPower(source, mode='1d', Nmesh=32)
+    r = FFTPower(source, mode='2d', Nmesh=32)
     r.save('fftpower-test.pickle')
 
     r2 = FFTPower.load('fftpower-test.pickle')
 
-    assert_array_equal(r.power, r2.power)
+    assert_array_equal(r.power['k'], r2.power['k'])
+    assert_array_equal(r.power['power'], r2.power['power'])
+    assert_array_equal(r.power['mu'], r2.power['mu'])
+    assert_array_equal(r.power['modes'], r2.power['modes'])
 
 @MPITest([1])
 def test_fftpower_nopadding(comm):
