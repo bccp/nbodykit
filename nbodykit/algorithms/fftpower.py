@@ -211,7 +211,7 @@ class FFTPower(object):
         if self.comm.rank == 0:
             self.logger.info('measurement done; saving result to %s' % output)
 
-            with open(output, 'wb') as ff:
+            with open(output, 'w') as ff:
                 json.dump(self.__getstate__(), ff, cls=JSONEncoder) 
 
     @classmethod
@@ -220,7 +220,7 @@ class FFTPower(object):
         import json
         from nbodykit.utils import JSONDecoder
         if comm.rank == 0:
-            with open(output, 'rb') as ff:
+            with open(output, 'r') as ff:
                 state = json.load(ff, cls=JSONDecoder)
         else:
             state = None
