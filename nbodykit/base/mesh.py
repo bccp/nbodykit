@@ -135,31 +135,25 @@ class MeshSource(object):
 
 def save(self, output, dataset='Field'):
     import bigfile
+    import warnings
     with bigfile.BigFileMPI(self.pm.comm, output, create=True) as ff:
         data = numpy.empty(shape=self.size, dtype=self.dtype)
         self.sort(out=data)
-        if isinstance(self, RealField):
-            with ff.create_from_array(dataset, data) as bb:
+        with ff.create_from_array(dataset, data) as bb:
+            if isinstance(self, RealField):
                 bb.attrs['ndarray.shape'] = self.pm.Nmesh
                 bb.attrs['BoxSize'] = self.pm.BoxSize
                 bb.attrs['Nmesh'] = self.pm.Nmesh
-                for key in self.attrs:
-                    # do not override the above values -- they are vectors (from pm)
-                    if key in bb.attrs: continue
-                    value = numpy.array(self.attrs[key])
-                    try:
-                        bb.attrs[key] = value
-                    except TypeError:
-                        warnings.warn("attribute %s is unsupported and lost")
-        elif isinstance(self, ComplexField):
-            with ff.create_from_array(dataset, data) as bb:
+            elif isinstance(self, ComplexField):
                 bb.attrs['ndarray.shape'] = self.Nmesh, self.Nmesh, self.Nmesh // 2 + 1
                 bb.attrs['BoxSize'] = self.pm.BoxSize
                 bb.attrs['Nmesh'] = self.pm.Nmesh
-                for key in self.attrs:
-                    if key in bb.attrs: continue
-                    value = numpy.array(self.attrs[key])
-                    try:
-                        bb.attrs[key] = value
-                    except TypeError:
-                        warnings.warn("attribute %s is unsupported and lost")
+
+            for key in self.attrs:
+                # do not override the above values -- they are vectors (from pm)
+                if key in bb.attrs: continue
+                value = numpy.array(self.attrs[key])
+                try:
+                    bb.attrs[key] = value
+                except TypeError:
+                    warnings.warn("attribute %s of type %s is unsupported and lost" % (key, str(value.dtype)))
