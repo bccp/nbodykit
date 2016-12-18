@@ -70,3 +70,49 @@ def attrs_to_dict(obj, prefix):
         d[prefix + key] = value
     return d
 
+import json
+class JSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, complex):
+            return {'__complex__': [obj.real, obj.imag ]}
+
+        elif isinstance(obj, numpy.ndarray):
+            value = obj
+            dtype = obj.dtype
+            d = {
+                '__dtype__' :
+                    dtype.str if dtype.names is None else dtype.descr,
+                '__data__': value.tolist()
+            }
+            return d
+        return json.JSONEncoder.default(self, obj)
+
+class JSONDecoder(json.JSONDecoder):
+    @staticmethod
+    def hook(value):
+        if '__dtype__' in value:
+            dtype = value['__dtype__']
+
+            if isinstance(dtype, list):
+                true_dtype = []
+                true_a = []
+                for field in dtype:
+                    if len(field) == 3:
+                        true_dtype.append((str(field[0]), str(field[1]), field[2]))
+                    if len(field) == 2:
+                        true_dtype.append((str(field[0]), str(field[1])))
+                a = [tuple(i) for i in value['__data__']]
+            else:
+                true_dtype = dtype
+                a = value['__data__']
+            return numpy.array(a, dtype=true_dtype)
+
+        if '__complex__' in value:
+            real, imag = value['__complex__']
+            return real + 1j * imag
+
+        return value
+
+    def __init__(self, *args, **kwargs):
+        kwargs['object_hook'] = JSONDecoder.hook
+        json.JSONDecoder.__init__(self, *args, **kwargs)

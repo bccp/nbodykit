@@ -193,20 +193,42 @@ class FFTPower(object):
         self.power = power
         self.poles = poles
 
-    def save(self, output):
-        # only the master rank writes
-        state = dict(edges=self.edges,
+    def __getstate__(self):
+        state = dict(
+                     edges=self.edges,
                      power=self.power,
                      poles=self.poles,
                      attrs=self.attrs)
+        return state
 
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+
+    def save(self, output):
+        # only the master rank writes
+        import json
+        from nbodykit.utils import JSONEncoder
         if self.comm.rank == 0:
-            import pickle
-
             self.logger.info('measurement done; saving result to %s' % output)
 
             with open(output, 'wb') as ff:
-                pickle.dump(state, ff) 
+                json.dump(self.__getstate__(), ff, cls=JSONEncoder) 
+
+    @classmethod
+    @CurrentMPIComm.enable
+    def load(cls, output, comm=None):
+        import json
+        from nbodykit.utils import JSONDecoder
+        if comm.rank == 0:
+            with open(output, 'rb') as ff:
+                state = json.load(ff, cls=JSONDecoder)
+        else:
+            state = None
+        state = comm.bcast(state)
+        self = object.__new__(cls)
+        self.__setstate__(state)
+
+        return self
 
     def _source2field(self, source):
 
