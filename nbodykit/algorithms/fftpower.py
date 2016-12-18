@@ -290,6 +290,13 @@ class FFTPower(object):
         for (s0, s1, s2) in zip(p3d.slabs, c1.slabs, c2.slabs):
             s0[...] = s1 * s2.conj()
 
+        for i, s0 in zip(p3d.slabs.i, p3d.slabs):
+            # clear the zero mode.
+            mask = True
+            for i1 in i:
+                mask = mask & (i1 == 0)
+            s0[mask] = 0
+
         # the complex field is dimensionless; power is L^3
         # ref to http://icc.dur.ac.uk/~tt/Lectures/UA/L4/cosmology.pdf
         p3d[...] *= self.attrs['BoxSize'].prod()

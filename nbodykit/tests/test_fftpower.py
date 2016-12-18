@@ -36,13 +36,14 @@ def test_fftpower_save(comm):
     assert_array_equal(r.power['modes'], r2.power['modes'])
 
 @MPITest([1])
-def test_fftpower_nopadding(comm):
+def test_fftpower(comm):
     CurrentMPIComm.set(comm)
     # zeldovich particles
     source = Source.UniformParticles(nbar=3e-3, BoxSize=512., seed=42)
 
     r = FFTPower(source, mode='1d', Nmesh=32)
-
+    # the zero mode is cleared
+    assert_array_equal(r.power['power'][0], 0)
 
 @MPITest([1])
 def test_fftpower_mismatch_boxsize(comm):
