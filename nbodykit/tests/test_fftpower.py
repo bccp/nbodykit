@@ -4,7 +4,7 @@ from nbodykit.algorithms.fof import FOF, HaloFinder
 from nbodykit import setup_logging
 
 from nbodykit.testing import TestingPowerSpectrum
-
+from numpy.testing import assert_array_equal
 # debug logging
 setup_logging("debug")
 
@@ -27,8 +27,8 @@ def test_fftpower_save(comm):
     r.save('fftpower-test.pickle')
 
     r2 = FFTPower.load('fftpower-test.pickle')
-    
-    print r2.edges, r2.power
+
+    assert_array_equal(r.power, r2.power)
 
 @MPITest([1])
 def test_fftpower_nopadding(comm):
