@@ -1,7 +1,6 @@
 from mpi4py_test import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
-from nbodykit.testing import TestingPowerSpectrum
 
 # debug logging
 setup_logging("debug")
@@ -13,9 +12,8 @@ def test_fftpower(comm):
     CurrentMPIComm.set(comm)
 
     # zeldovich particles
-    # FIXME: use a relistic power spectrum because this file is upposed to be reasonable.
-    source = Source.ZeldovichParticles(cosmo, Plin=TestingPowerSpectrum,
-            nbar=3e-7, redshift=0.55, BoxSize=1380., Nmesh=8, rsd=[0, 0, 1], seed=42)
+    source = Source.ZeldovichParticles(Plin=cosmology.EHPower(cosmo, redshift=0.55),
+                    nbar=3e-7, BoxSize=1380., Nmesh=8, rsd=[0, 0, 1], seed=42)
 
     # compute P(k,mu) and multipoles
     result = FFTPower(source, mode='2d', poles=[0,2,4])
@@ -31,8 +29,8 @@ def test_paint(comm):
     CurrentMPIComm.set(comm)
 
     # zeldovich particles
-    source = Source.ZeldovichParticles(cosmo, Plin=TestingPowerSpectrum,
-            nbar=3e-7, redshift=0.55, BoxSize=1380., Nmesh=8, rsd=[0, 0, 1], seed=42)
+    source = Source.ZeldovichParticles(Plin=cosmology.EHPower(cosmo, redshift=0.55),
+                nbar=3e-7, BoxSize=1380., Nmesh=8, rsd=[0, 0, 1], seed=42)
 
     source = source.to_mesh(Nmesh=64, BoxSize=1380., interlaced=True, window='tsc', compensated=True)
 

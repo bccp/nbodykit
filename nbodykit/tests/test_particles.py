@@ -7,20 +7,19 @@ from numpy.testing import assert_array_equal
 import dask
 dask.set_options(get=dask.get)
 setup_logging("debug")
-from nbodykit.testing import TestingPowerSpectrum
 
 @MPITest([4])
 def test_zeldovich_sparse(comm):
     cosmo = cosmology.Planck15
     CurrentMPIComm.set(comm)
 
-    source = Source.ZeldovichParticles(cosmo, Plin=TestingPowerSpectrum,
-            nbar=0.2e-6, redshift=0.55, BoxSize=128., Nmesh=8, rsd=[0, 0, 0], seed=42)
+    # this should generate 15 particles
+    source = Source.ZeldovichParticles(Plin=cosmology.EHPower(cosmo, 0.55),
+                nbar=1e-5, BoxSize=128., Nmesh=8, rsd=[0, 0, 0], seed=42)
 
     mesh = source.to_mesh(compensated=False)
 
     real = mesh.paint(mode='real')
-
     assert_allclose(real.cmean(), 1.0)
 
 @MPITest([1, 4])
@@ -28,8 +27,8 @@ def test_zeldovich_dense(comm):
     cosmo = cosmology.Planck15
     CurrentMPIComm.set(comm)
 
-    source = Source.ZeldovichParticles(cosmo, Plin=TestingPowerSpectrum,
-            nbar=0.2e-2, redshift=0.55, BoxSize=128., Nmesh=8, rsd=[0, 0, 0], seed=42)
+    source = Source.ZeldovichParticles(Plin=cosmology.EHPower(cosmo, 0.55),
+                nbar=0.2e-2, BoxSize=128., Nmesh=8, rsd=[0, 0, 0], seed=42)
     mesh = source.to_mesh(compensated=False)
 
     real = mesh.paint(mode='real')
@@ -41,8 +40,8 @@ def test_zeldovich_velocity(comm):
     cosmo = cosmology.Planck15
     CurrentMPIComm.set(comm)
 
-    source = Source.ZeldovichParticles(cosmo, Plin=TestingPowerSpectrum,
-             nbar=0.2e-2, redshift=0.55, BoxSize=1024., Nmesh=32, rsd=[0, 0, 0], seed=42)
+    source = Source.ZeldovichParticles(Plin=cosmology.EHPower(cosmo, 0.55),
+                nbar=0.5e-2, BoxSize=1024., Nmesh=32, rsd=[0, 0, 0], seed=42)
 
     source['Weight'] = source['Velocity'][:, 0]
 
@@ -142,7 +141,7 @@ def test_file(comm):
     dset['Mass'] = numpy.random.random(size=1024)
 
     tmpfile = tempfile.mkstemp()[1]
-    
+
     with h5py.File(tmpfile , 'w') as ff:
         ds = ff.create_dataset('X', data=dset) # store structured array as dataset
         ds.attrs['BoxSize'] = 1.0
