@@ -1,7 +1,5 @@
 from nbodykit.base.mesh import MeshSource
 from nbodykit import CurrentMPIComm, mockmaker
-from nbodykit.utils import MPINumpyRNGContext
-
 from nbodykit.utils import attrs_to_dict
 
 class LinearMesh(MeshSource):
@@ -38,8 +36,12 @@ class LinearMesh(MeshSource):
 
         self.attrs.update(attrs_to_dict(Plin, 'plin.'))
 
-        # save the rest of the attributes as meta-data
-        self.attrs['seed']     = seed
+        # set the seed randomly if it is None
+        if seed is None:
+            if self.comm.rank == 0:
+                seed = numpy.random.randint(0, 4294967295)
+            seed = self.comm.bcast(seed)
+        self.attrs['seed'] = seed
 
         MeshSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype='f4', comm=comm)
 
@@ -58,8 +60,7 @@ class LinearMesh(MeshSource):
             an array-like object holding the interpolated grid
         """
         # generate linear density field with desired seed
-        with MPINumpyRNGContext(self.attrs['seed'], self.comm):
-            real, _ = mockmaker.gaussian_real_fields(self.pm, self.Plin, compute_displacement=False)
+        real, _ = mockmaker.gaussian_real_fields(self.pm, self.Plin, self.attrs['seed'], compute_displacement=False)
 
         return real
 
