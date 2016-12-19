@@ -17,10 +17,6 @@ before_install:
     - ./miniconda.sh -b -p $HOME/miniconda
     - export PATH=$HOME/miniconda/bin:$PATH
     - conda update --yes conda
-# set the c++ and fortran compilers 
-#    - export CXX=g++-4.8 
-#    - export F90=gfortran-4.8
-    - conda install --yes gcc swig>=3.0
 
 install:
     - conda create --yes -n test python=$TRAVIS_PYTHON_VERSION
@@ -32,9 +28,6 @@ install:
     #
     # test optional HOD data sources
     # - pip install halotools 
-    #
-    # test optional Zeldovich data source
-    - pip install --no-cache-dir classylss # ignore cache due to binaries
     - pip install pfft-python kdcount mpsort pmesh sharedmem bigfile --no-deps
     - pip install .
 

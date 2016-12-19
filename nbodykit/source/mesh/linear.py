@@ -4,11 +4,8 @@ from nbodykit.utils import attrs_to_dict
 
 class LinearMesh(MeshSource):
     """
-    A source to generate a ``RealField`` grid directly from the 
-    linear power spectrum.
-    
-    The linear power spectrum is computed using :mod:`classylss`, 
-    which is a python wrapper around CLASS 
+    A source to generate a ``RealField`` grid directly from a 
+    linear power spectrum function
     """
     def __repr__(self):
         return "LinearMesh(seed=%(seed)d)" % self.attrs
