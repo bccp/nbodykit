@@ -1,8 +1,10 @@
 import numpy
+import numbers
+
 from pmesh.pm import RealField, ComplexField
 from nbodykit.meshtools import SlabIterator
 
-def gaussian_complex_fields(pm, linear_power, compute_displacement=False):
+def gaussian_complex_fields(pm, linear_power, seed, compute_displacement=False):
     r"""
     Make a Gaussian realization of a overdensity field, :math:`\delta(x)`
     
@@ -18,18 +20,17 @@ def gaussian_complex_fields(pm, linear_power, compute_displacement=False):
     -----
     This computes the overdensity field using the following steps: 
     
-        1. Generate random variates from :math:`\mathcal{N}(\mu=0, \sigma=1)`
-        2. FFT the above field from configuration to Fourier space
-        3. Scale the Fourier field by :math:`(P(k) N^3 / V)^{1/2}`
+        1. Generate complex variates with unity variance
+        2. Scale the Fourier field by :math:`(P(k) / V)^{1/2}`
 
-    After step 2, the field has a variance of :math:`N^{-3}` (using the 
-    normalization convention of `pmesh`), since the variance of the
-    complex FFT (with no additional normalization) is 
-    :math:`N^3 \times \sigma^2_\mathrm{real}` and `pmesh` divides each field 
-    by :math:`N^3`. 
+    After step 2, the complex field has unity variance. This 
+    is equivalent to generating real-space normal variates
+    with mean and unity variance, calling r2c() and dividing by :math:`N^3`
+    since the variance of the complex FFT (with no additional normalization) 
+    is :math:`N^3 \times \sigma^2_\mathrm{real}`.
     
     Furthermore, the power spectrum is defined as V * variance. 
-    Thus, the extra factor of N**3 / V that shows up in step 3, 
+    So a normalization factor of 1 / V shows up in step 2, 
     cancels this factor such that the power spectrum is P(k).
     
     The linear displacement field is computed as:
@@ -51,6 +52,8 @@ def gaussian_complex_fields(pm, linear_power, compute_displacement=False):
     linear_power : callable
         a function taking wavenumber as its only argument, which returns
         the linear power spectrum
+    seed : int
+        the random seed used to generate the random field
     compute_displacement : bool, optional
         if ``True``, also return the linear Zel'dovich displacement field; 
         default is ``False``
@@ -61,14 +64,16 @@ def gaussian_complex_fields(pm, linear_power, compute_displacement=False):
         the real-space Gaussian overdensity field
     disp_k : ComplexField or ``None``
         if requested, the Gaussian displacement field
-    """            
-    # assign Gaussian rvs with mean 0 and unit variance
-    delta = RealField(pm)
-    delta[:] = numpy.random.normal(size=delta.shape)
-            
-    # FT to k-space
-    delta_k = delta.r2c()
-    
+    """    
+    if not isinstance(seed, numbers.Integral):
+        raise ValueError("the seed used to generate the linear field must be an integer")        
+        
+    # use pmesh to generate random complex white noise field (done in parallel)
+    # variance of complex field is unity
+    # multiply by P(k)**0.5 to get desired variance
+    delta_k = ComplexField(pm)
+    delta_k.generate_whitenoise(seed)
+        
     # initialize the displacement fields for (x,y,z)
     if compute_displacement:
         disp_k = [ComplexField(pm) for i in [0,1,2]]
@@ -76,8 +81,8 @@ def gaussian_complex_fields(pm, linear_power, compute_displacement=False):
     else:
         disp_k = None
     
-    # normalization
-    norm = delta.Nmesh.prod() / delta.BoxSize.prod()
+    # volume factor needed for normalization
+    norm = 1.0 / pm.BoxSize.prod()
     
     # loop over the mesh, slab by slab
     for slab in SlabIterator(pm.k, axis=0):
@@ -111,7 +116,7 @@ def gaussian_complex_fields(pm, linear_power, compute_displacement=False):
     return delta_k, disp_k
     
     
-def gaussian_real_fields(pm, linear_power, compute_displacement=False):
+def gaussian_real_fields(pm, linear_power, seed, compute_displacement=False):
     r"""
     Make a Gaussian realization of a overdensity field in 
     real-space :math:`\delta(x)`
@@ -132,6 +137,8 @@ def gaussian_real_fields(pm, linear_power, compute_displacement=False):
     linear_power : callable
         a function taking wavenumber as its only argument, which returns
         the linear power spectrum
+    seed : int
+        the random seed used to generate the random field
     compute_displacement : bool, optional
         if ``True``, also return the linear Zel'dovich displacement field; 
         default is ``False``
@@ -144,7 +151,7 @@ def gaussian_real_fields(pm, linear_power, compute_displacement=False):
         if requested, the Gaussian displacement field
     """
     # make fourier fields
-    delta_k, disp_k = gaussian_complex_fields(pm, linear_power, compute_displacement)
+    delta_k, disp_k = gaussian_complex_fields(pm, linear_power, seed, compute_displacement=compute_displacement)
                 
     # FFT the density to real-space
     delta = delta_k.c2r()
@@ -191,7 +198,7 @@ def lognormal_transform(density, bias=1.):
     return toret
     
     
-def poisson_sample_to_points(delta, displacement, pm, nbar, f=0., bias=1.):
+def poisson_sample_to_points(delta, displacement, pm, nbar, f=0., bias=1., seed=None):
     """
     Poisson sample the linear delta and displacement fields to points. 
     
@@ -216,12 +223,17 @@ def poisson_sample_to_points(delta, displacement, pm, nbar, f=0., bias=1.):
         strength of the RSD; default is 0. (no RSD)
     bias : float, optional
         apply a linear bias to the overdensity field (default is 1.)
+    seed : int, optional
+        the random seed used to Poisson sample the field to points
     
     Returns
     -------
     pos : array_like, (N, 3)
         the Cartesian positions of the particles in the box     
     """
+    # create a random state with the input seed
+    rng = numpy.random.RandomState(seed)
+    
     # apply the lognormal transformation to the initial conditions density
     # this creates a positive-definite delta (necessary for Poisson sampling)
     lagrangian_bias = bias - 1.
@@ -235,7 +247,7 @@ def poisson_sample_to_points(delta, displacement, pm, nbar, f=0., bias=1.):
     cellmean = delta.value*overallmean
     
     # number of objects in each cell
-    N = numpy.random.poisson(cellmean)
+    N = rng.poisson(cellmean)
     Ntot = N.sum()
     pts = N.nonzero() # indices of nonzero points
     
@@ -258,9 +270,9 @@ def poisson_sample_to_points(delta, displacement, pm, nbar, f=0., bias=1.):
         raise ValueError("a RSD direction was provided, but the growth rate is not positive")
     
     # coordinates of each object (placed randomly in each cell)
-    x = numpy.repeat(x, N[pts]) + numpy.random.uniform(0, H[0], size=Ntot)
-    y = numpy.repeat(y, N[pts]) + numpy.random.uniform(0, H[1], size=Ntot)
-    z = numpy.repeat(z, N[pts]) + numpy.random.uniform(0, H[2], size=Ntot)
+    x = numpy.repeat(x, N[pts]) + rng.uniform(0, H[0], size=Ntot)
+    y = numpy.repeat(y, N[pts]) + rng.uniform(0, H[1], size=Ntot)
+    z = numpy.repeat(z, N[pts]) + rng.uniform(0, H[2], size=Ntot)
     
     for i in range(3):
         offset[i] *= (1. + f)
