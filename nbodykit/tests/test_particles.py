@@ -43,12 +43,12 @@ def test_zeldovich_velocity(comm):
     source = Source.ZeldovichParticles(Plin=cosmology.EHPower(cosmo, 0.55),
                 nbar=0.5e-2, BoxSize=1024., Nmesh=32, rsd=[0, 0, 0], seed=42)
 
-    source['Weight'] = source['Velocity'][:, 0]
+    source['Weight'] = source['Velocity'][:, 0] ** 2
 
     mesh = source.to_mesh(compensated=False)
 
     real = mesh.paint(mode='real')
-    velsum = comm.allreduce(source['Velocity'][:, 0].sum().compute())
+    velsum = comm.allreduce((source['Velocity'][:, 0]**2).sum().compute())
     velmean = velsum / source.csize
 
     assert_allclose(real.cmean(), velmean, rtol=1e-5)
