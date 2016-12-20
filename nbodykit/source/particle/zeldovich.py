@@ -131,7 +131,7 @@ class ZeldovichParticles(ParticleSource):
         delta, disp = mockmaker.gaussian_real_fields(pm, self.Plin, self.attrs['seed'], compute_displacement=True)
 
         # poisson sample to points
-        kws = {'f':f, 'bias':self.attrs['bias'], 'seed':self.attrs['seed']}
+        kws = {'f':f, 'bias':self.attrs['bias'], 'seed':self.attrs['seed'], 'comm':self.comm}
         pos, vel = mockmaker.poisson_sample_to_points(delta, disp, pm, self.attrs['nbar'], **kws)
 
         # add RSD?

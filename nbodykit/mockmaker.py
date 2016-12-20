@@ -1,8 +1,10 @@
 import numpy
 import numbers
+from mpi4py import MPI
 
 from pmesh.pm import RealField, ComplexField
 from nbodykit.meshtools import SlabIterator
+from nbodykit.utils import GatherArray, ScatterArray
 
 def gaussian_complex_fields(pm, linear_power, seed, compute_displacement=False):
     r"""
@@ -198,7 +200,7 @@ def lognormal_transform(density, bias=1.):
     return toret
     
     
-def poisson_sample_to_points(delta, displacement, pm, nbar, f=0., bias=1., seed=None):
+def poisson_sample_to_points(delta, displacement, pm, nbar, f=0., bias=1., seed=None, comm=None):
     """
     Poisson sample the linear delta and displacement fields to points. 
     
@@ -231,6 +233,9 @@ def poisson_sample_to_points(delta, displacement, pm, nbar, f=0., bias=1., seed=
     pos : array_like, (N, 3)
         the Cartesian positions of the particles in the box     
     """
+    if comm is None:
+        comm = MPI.COMM_WORLD
+        
     # create a random state with the input seed
     rng = numpy.random.RandomState(seed)
     
@@ -243,19 +248,26 @@ def poisson_sample_to_points(delta, displacement, pm, nbar, f=0., bias=1., seed=
     H = delta.BoxSize / delta.Nmesh
     overallmean = H.prod() * nbar
     
-    # number of objects in each cell
+    # number of objects in each cell (per rank)
     cellmean = delta.value*overallmean
+    cellmean = GatherArray(cellmean, comm, root=0)
     
-    # number of objects in each cell
-    N = rng.poisson(cellmean)
-    Ntot = N.sum()
+    # rank 0 computes the poisson sampling
+    if comm.rank == 0:
+        N = rng.poisson(cellmean)
+    else:
+        N = None
+    N = ScatterArray(N, comm, root=0)
+    
+    Ntot = comm.allreduce(N.sum()) # the collective number of points
+    Nlocal = N.sum() # local number of points
     pts = N.nonzero() # indices of nonzero points
     
     # setup the coordinate grid
     x = numpy.squeeze(delta.pm.x[0])[pts[0]]
     y = numpy.squeeze(delta.pm.x[1])[pts[1]]
     z = numpy.squeeze(delta.pm.x[2])[pts[2]]
-    
+
     # the displacement field for all nonzero grid cells
     offset = [displacement[i][pts[0], pts[1], pts[2]] for i in [0,1,2]]
     
@@ -269,10 +281,24 @@ def poisson_sample_to_points(delta, displacement, pm, nbar, f=0., bias=1., seed=
     if f <= 0.:
         raise ValueError("a RSD direction was provided, but the growth rate is not positive")
     
+    # rank 0 computes the in-cell uniform offsets
+    if comm.rank == 0:
+        dx = rng.uniform(0, H[0], size=Ntot)
+        dy = rng.uniform(0, H[1], size=Ntot)
+        dz = rng.uniform(0, H[2], size=Ntot)
+    else:
+        dx = None; dy = None; dz = None
+    
+    # scatter the in-cell uniform offsets back to the ranks
+    counts = comm.allgather(Nlocal)    
+    dx = ScatterArray(dx, comm, root=0, counts=counts)
+    dy = ScatterArray(dy, comm, root=0, counts=counts)
+    dz = ScatterArray(dz, comm, root=0, counts=counts)
+    
     # coordinates of each object (placed randomly in each cell)
-    x = numpy.repeat(x, N[pts]) + rng.uniform(0, H[0], size=Ntot)
-    y = numpy.repeat(y, N[pts]) + rng.uniform(0, H[1], size=Ntot)
-    z = numpy.repeat(z, N[pts]) + rng.uniform(0, H[2], size=Ntot)
+    x = numpy.repeat(x, N[pts]) + dx
+    y = numpy.repeat(y, N[pts]) + dy
+    z = numpy.repeat(z, N[pts]) + dz
     
     for i in range(3):
         offset[i] *= (1. + f)
