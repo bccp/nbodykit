@@ -32,8 +32,7 @@ def test_zeldovich_dense(comm):
     mesh = source.to_mesh(compensated=False)
 
     real = mesh.paint(mode='real')
-
-    assert_allclose(real.cmean(), 1.0)
+    assert_allclose(real.cmean(), 1.0, rtol=1e-5)
 
 @MPITest([1])
 def test_zeldovich_velocity(comm):
