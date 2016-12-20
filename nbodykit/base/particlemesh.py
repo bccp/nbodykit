@@ -155,7 +155,10 @@ class ParticleMeshSource(MeshSource, ParticleSource):
 
         N = pm.comm.allreduce(Nlocal)
         nbar = 1.0 * N / numpy.prod(pm.Nmesh)
-
+        
+        # make sure we painted something!
+        if N == 0:
+            raise ValueError("trying to paint particle source to mesh, but no particles were found!")
         shotnoise = numpy.prod(pm.BoxSize) / N
 
         real.attrs = {}

@@ -1,5 +1,6 @@
 from nbodykit.base.particles import ParticleSource
-from nbodykit.utils import attrs_to_dict, cosmology_to_dict
+from nbodykit import cosmology
+from nbodykit.utils import attrs_to_dict
 from nbodykit import CurrentMPIComm
 
 import numpy
@@ -12,19 +13,15 @@ class ZeldovichParticles(ParticleSource):
         return "ZeldovichParticles(seed=%(seed)d, bias=%(bias)g)" % self.attrs
 
     @CurrentMPIComm.enable
-    def __init__(self,cosmo, nbar, redshift, BoxSize, Nmesh, Plin, bias=2., rsd=None, seed=None, comm=None):
+    def __init__(self, Plin, nbar, BoxSize, Nmesh, bias=2., rsd=None, seed=None, comm=None, cosmo=None, redshift=None):
         """
         Parameters
         ----------
-        cosmo : cosmology
-            the cosmology XXX: fixme.
-        plin : callable
-            linear power spectrum
+        Plin : callable
+            callable specifying the linear power spectrum
         nbar : float
             the number density of the particles in the box, assumed constant across the box; 
             this is used when Poisson sampling the density field
-        redshift : float
-            the redshift of the linear power spectrum to generate
         BoxSize : float, 3-vector of floats
             the size of the box to generate the grid on
         Nmesh : int
@@ -36,40 +33,64 @@ class ZeldovichParticles(ParticleSource):
         rsd : array_like, optional
             apply redshift space-distortions in this direction; if None, no rsd is applied.
         seed : int, optional
-            the global random seed, used to set the seeds across all ranks
-        comm : MPI communicator
+            the global random seed; if set to ``None``, the seed will be set randomly
+        comm : MPI communicator, optional
             the MPI communicator
+        cosmo : nbodykit.cosmology.Cosmology, optional
+            this must be supplied if `Plin` does not carry ``cosmo`` attribute, and 
+            we wish to apply RSD, so that the growth rate f(z) can be computed
+        redshift : float, optional
+            this must be supplied if `Plin` does not carry a ``redshift`` attribute, and 
+            we wish to apply RSD, so that the growth rate f(z) can be computed
         """
-        # communicator and cosmology
-        self.comm    = comm
-        self.cosmo = cosmo
-        # FIXME: after cosmo can do power spectrum we shall 
-        # use that as the default.
-
+        self.comm = comm
         self.Plin = Plin
-
+        
         if rsd is None:
             rsd = [0, 0, 0.]
-
-        self.attrs.update(attrs_to_dict(Plin, 'plin.'))
-        self.attrs.update(cosmology_to_dict(cosmo, 'cosmo.'))
+        
+        # must be passed only if we wish to do RSD
+        if cosmo is None:
+            cosmo = getattr(self.Plin, 'cosmo', None)
+        if redshift is None:
+            redshift = getattr(self.Plin, 'redshift', None)
+        if sum(rsd) and cosmo is None or redshift is None:
+            raise ValueError("if RSD is requested, ``redshift`` and ``cosmo`` keywords must be passed")
+        self.cosmo = cosmo
+        
+        # try to add attrs from the Plin
+        if isinstance(Plin, cosmology.LinearPowerBase):
+            self.attrs.update(Plin.attrs)
+        else:
+            self.attrs.update({'cosmo.%s' %k:cosmo[k] for k in cosmo})
 
         # save the meta-data
         self.attrs['nbar']     = nbar
         self.attrs['redshift'] = redshift
         self.attrs['bias']     = bias
         self.attrs['rsd']      = rsd
-        self.attrs['seed']     = seed
+        
+        # set the seed randomly if it is None
+        if seed is None:
+            if self.comm.rank == 0:
+                seed = numpy.random.randint(0, 4294967295)
+            seed = self.comm.bcast(seed)
+        self.attrs['seed'] = seed
 
+        # init the base class
         ParticleSource.__init__(self, comm=comm)
 
+        # make the actual source
         self._source, pm = self._makesource(BoxSize=BoxSize, Nmesh=Nmesh)
-
         self.attrs['Nmesh'] = pm.Nmesh.copy()
         self.attrs['BoxSize'] = pm.BoxSize.copy()
 
         # recompute _csize to the real size
         self.update_csize()
+        
+        # crash with no particles!
+        if self.csize == 0:
+            raise ValueError("no particles in ZeldovichParticles; try increasing ``nbar`` parameter")
 
     def get_column(self, col):
         """
@@ -94,23 +115,9 @@ class ZeldovichParticles(ParticleSource):
         return list(self._source.dtype.names)
 
     def _makesource(self, BoxSize, Nmesh):
-
-        # the other imports
+        
         from nbodykit import mockmaker
         from pmesh.pm import ParticleMesh
-        from nbodykit.utils import MPINumpyRNGContext
-
-        # initialize the linear power spectrum object
-        Plin = self.Plin
-
-        # initialize the CLASS parameters 
-        # FIXME: replace with our cosmology class
-        import classylss
-        pars = classylss.ClassParams.from_astropy(self.cosmo)
-        try:
-            cosmo = classylss.Cosmology(pars)
-        except Exception as e:
-            raise ValueError("error running CLASS for the specified cosmology: %s" %str(e))
 
         # the particle mesh for gridding purposes
         _Nmesh = numpy.empty(3, dtype='i8')
@@ -118,23 +125,23 @@ class ZeldovichParticles(ParticleSource):
         pm = ParticleMesh(BoxSize=BoxSize, Nmesh=_Nmesh, dtype='f4', comm=self.comm)
 
         # sample to Poisson points
-        f = cosmo.f_z(self.attrs['redshift']) # growth rate to do RSD in the Zel'dovich approx
+        f = self.cosmo.growth_rate(self.attrs['redshift']) # growth rate to do RSD in the Zel'dovich approx
 
-        # generate initialize fields and Poisson sample with fixed local seed
-        with MPINumpyRNGContext(self.attrs['seed'], self.comm):
-            # compute the linear overdensity and displacement fields
-            delta, disp = mockmaker.gaussian_real_fields(pm, Plin, compute_displacement=True)
+        # compute the linear overdensity and displacement fields
+        delta, disp = mockmaker.gaussian_real_fields(pm, self.Plin, self.attrs['seed'], compute_displacement=True)
 
-            kws = {'f':f, 'bias':self.attrs['bias']}
-            pos, vel = mockmaker.poisson_sample_to_points(delta, disp, pm, self.attrs['nbar'], **kws)
+        # poisson sample to points
+        kws = {'f':f, 'bias':self.attrs['bias'], 'seed':self.attrs['seed'], 'comm':self.comm}
+        pos, vel = mockmaker.poisson_sample_to_points(delta, disp, pm, self.attrs['nbar'], **kws)
 
+        # add RSD?
         pos += vel * self.attrs['rsd']
 
+        # return data
         dtype = numpy.dtype([
                 ('Position', ('f4', 3)),
                 ('Velocity', ('f4', 3)),
         ])
-
         source = numpy.empty(len(pos), dtype)
         source['Position'][:] = pos[:]
         source['Velocity'][:] = vel[:]

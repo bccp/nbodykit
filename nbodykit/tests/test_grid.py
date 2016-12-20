@@ -6,7 +6,6 @@ import os
 import shutil
 import numpy
 from numpy.testing import assert_array_equal, assert_almost_equal, assert_allclose
-from nbodykit.testing import TestingPowerSpectrum
 
 setup_logging("debug")
 
@@ -16,11 +15,12 @@ def test_linear_grid(comm):
     Compute the power spectrum of a linear density grid and check
     the accuracy of the computed result against the input theory power spectrum
     """
-
+    cosmo = cosmology.Planck15
     CurrentMPIComm.set(comm)
 
     # linear grid 
-    source = Source.LinearMesh(TestingPowerSpectrum, Nmesh=64, BoxSize=512, seed=42)
+    Plin = cosmology.EHPower(cosmo, redshift=0.55)
+    source = Source.LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42)
 
     # compute P(k) from linear grid
     r = FFTPower(source, mode='1d', Nmesh=64, dk=0.01, kmin=0.005)
@@ -29,29 +29,32 @@ def test_linear_grid(comm):
     valid = r.power['modes'] > 0
     
     # variance of each point is 2*P^2/N_modes
-    errs = (2*TestingPowerSpectrum(r.power['k'][valid])**2/r.power['modes'][valid])**0.5
+    theory = Plin(r.power['k'][valid])
+    errs = (2*theory**2/r.power['modes'][valid])**0.5
     
     # compute reduced chi-squared of measurement to theory
-    chisq = ((r.power['power'][valid].real - TestingPowerSpectrum(r.power['k'][valid]))/errs)**2
+    chisq = ((r.power['power'][valid].real - theory)/errs)**2
     N = valid.sum()
     red_chisq = chisq.sum() / (N-1)
     
-    # less than 1.5 (should be ~1)
+    # make sure it is less than 1.5 (should be ~1)
     assert red_chisq < 1.5, "reduced chi sq of linear grid measurement = %.3f" %red_chisq
 
 @MPITest([1,4])
 def test_bigfile_grid(comm):
     """
-    Run the ``DumpField`` algorithm, load the result as a 
-    :class:`~nbodykit.source.grid.BigFileMesh`, and compare the painted grid 
-    to the algorithm's result
+    Paint a linear mesh and save it. Then, load the mesh as a 
+    :class:`~nbodykit.source.grid.BigFileMesh` and compare to the 
+    original mesh object
     """
     import tempfile
     
+    cosmo = cosmology.Planck15
     CurrentMPIComm.set(comm)
 
     # zeldovich particles
-    source = Source.LinearMesh(TestingPowerSpectrum, BoxSize=512, Nmesh=64, seed=42)
+    Plin = cosmology.EHPower(cosmo, redshift=0.55)
+    source = Source.LinearMesh(Plin, BoxSize=512, Nmesh=64, seed=42)
     
     real = source.paint(mode='real')
     complex = source.paint(mode="complex")
