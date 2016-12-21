@@ -17,7 +17,7 @@ class RaDecRedshiftDataSource(DataSource):
     
     def __init__(self, path, names, unit_sphere=False, 
                     usecols=None, sky_cols=['ra','dec'], z_col='z', 
-                    weight_col=None, degrees=False, select=None, nbar_col=None):       
+                    weight_col=None, degrees=False, select=None, nbar_col=None, colmap={}):       
 
         # positional arguments
         self.path = path 
@@ -32,6 +32,7 @@ class RaDecRedshiftDataSource(DataSource):
         self.degrees     = degrees
         self.select      = select
         self.nbar_col    = nbar_col
+        self.colmap      = colmap
         
         # setup the cosmology
         if not self.unit_sphere:
@@ -72,6 +73,8 @@ class RaDecRedshiftDataSource(DataSource):
             help='set this flag if the input (ra, dec) are in degrees')
         s.add_argument("select", type=selectionlanguage.Query, 
             help='row selection based on conditions specified as string')
+        s.add_argument('colmap', type=dict, 
+            help='dictionary that maps input columns to output columns')
                   
     def _to_cartesian(self, coords):
         """
@@ -146,6 +149,12 @@ class RaDecRedshiftDataSource(DataSource):
             dtype += [('Weight', 'f4')]
         if self.nbar_col is not None:
             dtype += [('Nbar', 'f4')]
+            
+        for in_name, out_name in self.colmap.items():
+            if in_name not in self.names:
+                raise ValueError("invalid column re-mapping: '%s' not in input catalog" %in_name)
+            dtype += [(out_name, data[in_name].dtype.str)]
+            
         dtype = numpy.dtype(dtype)
         new = numpy.empty(len(data), dtype=dtype)
 
@@ -169,6 +178,10 @@ class RaDecRedshiftDataSource(DataSource):
         # optionally, return nbar
         if self.nbar_col is not None:
             new['Nbar'] = data[self.nbar_col].values.astype('f4')
+            
+        # copy any extra columns from the column map
+        for in_name, out_name in self.colmap.items():
+            new[out_name] = data[in_name].values.copy()
     
         # select based on input conditions
         if self.select is not None:
