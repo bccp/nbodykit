@@ -463,7 +463,9 @@ class FKPCatalog(object):
     
         # if we read number density column for randoms, scale by alpha
         elif name == 'randoms':
-            nbar = nbar * self.alpha
+            logger.warning(('n(z) read from randoms file; this should give the expected n(z) for the data, '
+                            'i.e., we are NOT scaling this n(z) by alpha'))
+            #nbar = nbar * self.alpha
             
         
         return nbar
