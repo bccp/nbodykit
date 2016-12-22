@@ -154,22 +154,49 @@ class HDFFile(FileType):
         toret = numpy.empty(tools.get_slice_size(start, stop, step), dtype=dt)
           
         with h5py.File(self.path, 'r') as ff:
+            # compile a list of datasets
+            dsets = {}
+
             for col in columns:
                 
                 # absolute name of column (with root path prepended)
                 name = os.path.join(self.root, col)
                 
-                # data from a h5py Dataset directly
                 if name in ff:
-                    dset = ff[name]
-                # data from a column in a structured array
+                    # data from a h5py Dataset directly
+                    dsets[name] = [(col, None)]
+                    continue
                 else:
+                    # data from a column in a structured array
                     splitcol = name.rsplit('/', 1)
                     if len(splitcol) != 2:
                         raise ValueError("error trying to access column '%s' in HDF file" %col)
-                    dset_name, field = splitcol
-                    dset = ff[dset_name][field]
-                    
-                toret[col][:] = dset[start:stop:step]
-    
+
+                    name, field = splitcol
+
+                    try:
+                        dsets[name].append((col, field))
+                    except KeyError:
+                        dsets[name] = [(col, field)]
+            # then read through the list of datasets,
+            # columns in the same dataset is read only once.
+            # see, http://docs.h5py.org/en/latest/high/dataset.html#reading-writing-data
+
+            # it is a bit ugly seems to work will see if this fixes the slowness.
+            for name, cols in dsets.items():
+                dset = ff[name]
+                if len(cols) == 1 and cols[0][1] is None:
+                    [[col, field]] = cols
+                    toret[col][:] = dset[start:stop:step]
+                else:
+                    fields = [field for col, field in cols]
+                    fields.append(slice(start, stop, step))
+                    results = dset[tuple(fields)]
+
+                    for col, field in cols:
+                        if len(cols) > 1:
+                            toret[col][:] = results[field]
+                        else:
+                            toret[col][:] = results
+
         return toret
