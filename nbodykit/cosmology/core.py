@@ -2,6 +2,48 @@ from astropy import cosmology, units
 from scipy.integrate import quad
 import numpy as np
 
+class fittable(object):
+    """ add .fit() method to a member function
+        which returns a fitted version
+        of the function on a given variable.
+     """
+
+    def __init__(self, func, instance=None):
+        self.func = func
+        self.__doc__ == func.__doc__
+        self.instance = instance
+
+    def __get__(self, instance, owner):
+        # descriptor that binds the method to an instance
+        return fittable(self.func, instance=instance)
+
+    def __call__(self, *args, **kwargs):
+        return self.func(self.instance, *args, **kwargs)
+
+    def fit(self, argname, kwargs={}, bins=1024, range=None):
+        """ interpolate the function for the given argument (argname)
+            with a univariate spline.
+
+            range and bins behave like np.histogram.
+
+        """
+        from scipy import interpolate
+
+        if isiterable(bins):
+            bin_edges = np.asarray(bins)
+        else:
+            assert len(range) == 2
+            bin_edges = np.linspace(range[0], range[1], bins + 1, endpoint=True)
+
+        y = []
+        for x in bin_edges:
+            d = {}
+            d.update(kwargs)
+            d[argname] = x
+            y.append(self.__call__(**d))
+
+        return interpolate.InterpolatedUnivariateSpline(bin_edges, y)
+
 def vectorize_if_needed(func, *x):
     """Helper function to vectorize functions on array inputs; borrowed from :mod:`astropy.cosmology.core`"""
     if any(map(isiterable, x)):
@@ -233,6 +275,7 @@ class Cosmology(dict):
         eprime = esq_prime / (2*self.efunc(z))
         return eprime
     
+    @fittable
     def growth_rate(self, z):
         """
         Linear growth rate :math:`f(z) = dlnD / dlna`, where ``a`` is the
@@ -248,6 +291,7 @@ class Cosmology(dict):
         fz : ndarray, or float if input scalar
             The linear growth rate evaluated at the input redshifts
         """
+        z = np.asarray(z)
         a = 1./(1+z)
         inv_efunc = self.inv_efunc(z)
         
@@ -257,6 +301,7 @@ class Cosmology(dict):
         
         return a * inv_efunc * self.efunc_prime(z) + inv_efunc**3 / (a**2 * D_z)
     
+    @fittable
     def growth_function(self, z):
         """
         Linear growth function :math:`D(z)` at redshift ``z`` 
