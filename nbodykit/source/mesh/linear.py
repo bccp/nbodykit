@@ -58,6 +58,7 @@ class LinearMesh(MeshSource):
         """
         # generate linear density field with desired seed
         complex, _ = mockmaker.gaussian_complex_fields(self.pm, self.Plin, self.attrs['seed'], compute_displacement=False)
-
+        complex.attrs = {}
+        complex.attrs.update(self.attrs)
         return complex
 
