@@ -30,18 +30,18 @@ def za_transfer(deltain, deltaout, dir):
 class LPTParticles(ParticleSource):
     logger = logging.getLogger('LPT')
 
-    def __init__(self, complex, cosmo, redshift=1.0):
-        comm = complex.pm.comm
+    def __init__(self, dlink, cosmo, redshift=1.0):
+        comm = dlink.pm.comm
 
         cosmo = removeradiation(cosmo)
         self.cosmo = cosmo
 
-        self.attrs.update(complex.attrs)
+        self.attrs.update(dlink.attrs)
         self.attrs['redshift'] = redshift
 
         self._source = {}
-        self._source['InitialPosition'] = self._fill_initial_position(complex)
-        self._source['dx1'] = self._fill_dx1(complex)
+        self._source['InitialPosition'] = self._fill_initial_position(dlink)
+        self._source['dx1'] = self._fill_dx1(dlink)
 
         ParticleSource.__init__(self, comm=comm)
         D1, f1, D2, f2 = cosmo.lptode(z=redshift)
@@ -63,8 +63,8 @@ class LPTParticles(ParticleSource):
     def hcolumns(self):
         return list(self._source.keys())
 
-    def _fill_initial_position(self, complex):
-        basepm = complex.pm
+    def _fill_initial_position(self, dlink):
+        basepm = dlink.pm
         ndim = len(basepm.Nmesh)
         real = RealField(basepm)
 
@@ -80,14 +80,14 @@ class LPTParticles(ParticleSource):
             source[..., d] = real.value.flat
         return source
 
-    def _fill_dx1(self, complex):
-        basepm = complex.pm
+    def _fill_dx1(self, dlink):
+        basepm = dlink.pm
         ndim = len(basepm.Nmesh)
 
         source = numpy.zeros((self.size, ndim), dtype='f4')
         for d in range(len(basepm.Nmesh)):
-            delta_k = complex.copy()
-            za_transfer(complex, delta_k, d)
+            delta_k = dlink.copy()
+            za_transfer(dlink, delta_k, d)
             disp = delta_k.c2r(delta_k)
             source[..., d] = disp.value.flat
 
