@@ -224,7 +224,7 @@ class Cosmology(dict):
         
         # return a new Cosmology instance
         return self.from_astropy(new_engine, **extra)
-        
+
     def efunc_prime(self, z):
         """
         Function giving the derivative of :func:`efunc with respect
@@ -332,7 +332,62 @@ class Cosmology(dict):
         f = lambda red: quad(integrand, 0., 1./(1+red))[0]
         return norm * vectorize_if_needed(f, z)
 
-    @staticmethod
-    def fast(func, x):
-        from scipy import interpolate
-        return interpolate.InterpolatedUnivariateSpline(x, func(x))
+    def lptode(self, z, order=2):
+        """ Yin's ODE solution to lpt factors D1, D2, f1, f2.
+
+            Currently only second order LPT is supported.
+
+            No radiation is supported.
+
+            Uses scipy.odeint which can-only be used in one thread.
+        """
+        # does not support radiation
+
+        assert self.Ogamma0 == 0
+        assert self.Onu0 == 0
+
+        # 2LPT growth functions
+        from scipy.integrate import odeint
+
+        a = 1 / (np.atleast_1d(z) + 1.)
+
+        # astropy uses z, so we do some conversion
+        # to fit into Yin's variables
+        def E(a):
+            return self.efunc(1/a - 1.0)
+
+        def Eprime(a):
+            return self.efunc_prime(1 / a  - 1.0)
+
+        def Hfac(a):
+            return -2. - a * Eprime(a) / E(a)
+
+        def Om(a):
+            return self.Om0 * a ** -3 / E(a) **2
+
+        def ode(y, lna):
+            D1, F1, D2, F2 = y
+            a = np.exp(lna)
+            hfac = Hfac(a)
+            omega = Om(a)
+            F1p = hfac * F1 + 1.5 * omega * D1
+            D1p = F1
+            F2p = hfac * F2 + 1.5 * omega * D2 - 1.5 * omega * D1 ** 2
+            D2p = D1
+            return D1p, F1p, D2p, F2p
+
+        a0 = 1e-7
+        loga0 = np.log(a0)
+        t = [loga0] + list(np.log(a))
+        y0 = [a0, a0, -3./7 * a0**2, -6. / 7 *a0**2]
+        r = odeint(ode, y0, t)
+
+        if not isiterable(z):
+            yf = r[1]
+
+        D1f, F1f, D2f, F2f = r[1:].T
+
+        f1f = F1f / D1f
+        f2f = F2f / D2f
+
+        return D1f, f1f, D2f, f2f
