@@ -106,7 +106,8 @@ class Cosmology(dict):
             a name for the cosmology
         """
         # convert neutrino mass to a astropy `Quantity`
-        m_nu = units.Quantity(m_nu, 'eV')
+        if m_nu is not None:
+            m_nu = units.Quantity(m_nu, 'eV')
         
         # the astropy keywords
         kws = {'name':name, 'Ob0':Ob0, 'w0':w0, 'Tcmb0':Tcmb0, 'Neff':Neff, 'm_nu':m_nu, 'Ode0':Ode0}
@@ -378,16 +379,18 @@ class Cosmology(dict):
 
         a0 = 1e-7
         loga0 = np.log(a0)
-        t = [loga0] + list(np.log(a))
+        t = [loga0] + list(np.log(a)) + [0.0]
         y0 = [a0, a0, -3./7 * a0**2, -6. / 7 *a0**2]
         r = odeint(ode, y0, t)
 
         if not isiterable(z):
             yf = r[1]
+        else:
+            yf = r[1:-1].T
 
-        D1f, F1f, D2f, F2f = r[1:].T
+        y1 = r[-1]
 
-        f1f = F1f / D1f
-        f2f = F2f / D2f
+        D11, F11, D21, F21 = y1
+        D1f, F1f, D2f, F2f = yf
 
-        return D1f, f1f, D2f, f2f
+        return D1f / D11, F1f / D1f, D2f / D21, F2f / D2f
