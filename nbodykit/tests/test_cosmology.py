@@ -23,27 +23,6 @@ def test_fast():
 
     assert_allclose(f1, f2, rtol=1e-4)
 
-def test_eprime():
-    import autograd
-    C = Cosmology(Om0=0.3, Ode0=0.7, Neff=0, Tcmb=0)
-    print C.Onu0, C.Ogamma0, C.Ode0, C.Om0, C.Ok0
-    a = numpy.linspace(0.01, 1.0, 20, endpoint=True)
-
-    def E(a):
-        return C.efunc(1 / a - 1)
-    def Eprime(a):
-        return C.efunc_prime(1 / a - 1)
-
-    def E2(a):
-        a = numpy.array(a)
-        return (C.Om0 *a ** -3 + (C.Ogamma0 + C.Onu0) * a ** -4 + C.Ode0 + C.Ok0 * a ** -2 )**0.5 
-
-    E2prime = autograd.elementwise_grad(E2)
-
-    for aa in a:
-        err = check_grad(E, Eprime, x0=numpy.array([aa]), epsilon=1e-7)
-        print err / E(aa), E(aa), E2(aa), Eprime(aa), E2prime(aa)
-
 def test_ode():
 
     C = Cosmology(Om0=0.3, Ode0=0.7, Neff=0, Tcmb0=0)
