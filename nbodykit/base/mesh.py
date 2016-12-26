@@ -58,7 +58,7 @@ class MeshSource(object):
             if real is NotImplemented:
                 complex = self.to_complex_field()
                 assert complex is not NotImplemented
-                real = complex.r2c(complex)
+                real = complex.c2r(complex)
                 if hasattr(complex, 'attrs'):
                     real.attrs = complex.attrs
             var = real

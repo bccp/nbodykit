@@ -42,7 +42,7 @@ class LinearMesh(MeshSource):
 
         MeshSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype='f4', comm=comm)
 
-    def to_real_field(self):
+    def to_complex_field(self):
         """
         Load a grid from file, and paint to the ParticleMesh represented by ``pm``
         
@@ -57,7 +57,7 @@ class LinearMesh(MeshSource):
             an array-like object holding the interpolated grid
         """
         # generate linear density field with desired seed
-        real, _ = mockmaker.gaussian_real_fields(self.pm, self.Plin, self.attrs['seed'], compute_displacement=False)
+        complex, _ = mockmaker.gaussian_complex_fields(self.pm, self.Plin, self.attrs['seed'], compute_displacement=False)
 
-        return real
+        return complex
 
