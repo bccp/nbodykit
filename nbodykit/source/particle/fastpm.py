@@ -6,7 +6,6 @@ from nbodykit.base.particles import ParticleSource
 
 from mpi4py import MPI
 import warnings
-from pmesh.pm import RealField
 
 def removeradiation(cosmo):
     if cosmo.Ogamma0 != 0:
@@ -30,26 +29,33 @@ def za_transfer(deltain, deltaout, dir):
 class LPTParticles(ParticleSource):
     logger = logging.getLogger('LPT')
 
-    def __init__(self, dlink, cosmo, redshift=1.0):
+    def __init__(self, dlink, cosmo, redshift=0.0):
         comm = dlink.pm.comm
 
         cosmo = removeradiation(cosmo)
         self.cosmo = cosmo
 
-        self.attrs.update(dlink.attrs)
-        self.attrs['redshift'] = redshift
+        if hasattr(dlink, 'attrs'):
+            self.attrs.update(dlink.attrs)
 
+        self.attrs['redshift'] = redshift
+        self.basepm = dlink.pm
         self._source = {}
-        self._source['InitialPosition'] = self._fill_initial_position(dlink)
-        self._source['dx1'] = self._fill_dx1(dlink)
+        self._source['InitialPosition'] = self._compute_initial_position(self.basepm)
+        self._source['LPTDisp1'] = self._compute_dx1(dlink.value, self.basepm)
 
         ParticleSource.__init__(self, comm=comm)
-        D1, f1, D2, f2 = cosmo.lptode(z=redshift)
-        a = 1 / (redshift + 1.)
-        E = cosmo.efunc(z=redshift)
 
-        self._fallbacks['Position'] = self['InitialPosition'] + self['dx1'] * D1
-        self._fallbacks['Velocity'] = self['dx1'] * D1 * f1 * a ** 2 * E
+        import dask.array as da
+        self._fallbacks['GradPosition'] = da.zeros((self.size, 3), dtype='f4', chunks=100000)
+        self._fallbacks['GradVelocity'] = da.zeros((self.size, 3), dtype='f4', chunks=100000)
+        self.set_redshift(redshift)
+
+    def set_redshift(self, redshift):
+        self.redshift = redshift
+
+    def gradient(self):
+        return self._grad_dx1(self.basepm)
 
     @property
     def size(self):
@@ -57,16 +63,30 @@ class LPTParticles(ParticleSource):
 
     def get_column(self, col):
         import dask.array as da
-        return da.from_array(self._source[col], chunks=100000)
+        if col in self._source:
+            return da.from_array(self._source[col], chunks=100000)
+
+        redshift = self.redshift
+        cosmo = self.cosmo
+
+        D1, f1, D2, f2 = cosmo.lptode(z=redshift)
+        a = 1 / (redshift + 1.)
+        E = cosmo.efunc(z=redshift)
+
+        d = {}
+        d['Position'] = self['InitialPosition'] + self['LPTDisp1'] * D1
+        d['Velocity'] = self['LPTDisp1'] * D1 * f1 * a ** 2 * E
+        d['GradLPTDisp1'] = self['GradVelocity'] * (D1 * f1 * a **2 * E) + self['GradPosition'] * D1
+
+        return d[col]
 
     @property
     def hcolumns(self):
-        return list(self._source.keys())
+        return list(self._source.keys()) + ['Position', 'Velocity', 'GradLPTDisp1']
 
-    def _fill_initial_position(self, dlink):
-        basepm = dlink.pm
+    def _compute_initial_position(self, basepm):
         ndim = len(basepm.Nmesh)
-        real = RealField(basepm)
+        real = basepm.create('real')
 
         dtype = numpy.dtype(('f4', 3))
 
@@ -80,15 +100,30 @@ class LPTParticles(ParticleSource):
             source[..., d] = real.value.flat
         return source
 
-    def _fill_dx1(self, dlink):
-        basepm = dlink.pm
+    def _compute_dx1(self, dlink, basepm):
         ndim = len(basepm.Nmesh)
 
         source = numpy.zeros((self.size, ndim), dtype='f4')
+        delta_k = basepm.create('complex')
         for d in range(len(basepm.Nmesh)):
-            delta_k = dlink.copy()
-            za_transfer(dlink, delta_k, d)
+            delta_k[...] = dlink
+            za_transfer(delta_k, delta_k, d)
             disp = delta_k.c2r(delta_k)
             source[..., d] = disp.value.flat
 
         return source
+
+    def _grad_dx1(self, basepm):
+        ndim = len(basepm.Nmesh)
+        grad = basepm.create('complex')
+        grad[...] = 0
+        source = self['GradLPTDisp1']
+        print(self['GradPosition'].compute())
+        for d in range(len(basepm.Nmesh)):
+            grad_disp = basepm.create('real')
+            grad_disp.value.flat[...] = source[..., d].compute()
+            grad_disp_k = grad_disp.c2r_gradient(grad_disp)
+            za_transfer(grad_disp_k, grad_disp_k, d)
+            grad.value[...] += grad_disp_k.value
+
+        return grad
