@@ -7,24 +7,13 @@ from nbodykit.base.particles import ParticleSource
 from mpi4py import MPI
 import warnings
 
+from nbodykit import fastpm
+
 def removeradiation(cosmo):
     if cosmo.Ogamma0 != 0:
         warnings.warn("Cosmology has radiation. Radiation is removed from background for a consistent integration.")
 
     return cosmo.clone(Tcmb0=0)
-
-def za_transfer(deltain, deltaout, dir):
-    for k, i, slabin, slabout in zip(deltain.slabs.x,
-                    deltain.slabs.i, deltain.slabs, deltaout.slabs):
-        kk = sum(ki ** 2 for ki in k)
-        mask = numpy.ones(slabin.shape, '?')
-
-        for ii, n in zip(i, deltain.Nmesh):
-           mask &=  ii >= n // 2
-        mask[kk == 0] = True
-
-        kk[kk == 0] = 1
-        slabout[...] = (~mask) * slabin * 1j * k[dir] / kk
 
 class LPTParticles(ParticleSource):
     logger = logging.getLogger('LPT')
@@ -40,9 +29,11 @@ class LPTParticles(ParticleSource):
 
         self.attrs['redshift'] = redshift
         self.basepm = dlink.pm
+        self.dlink = dlink
+
         self._source = {}
-        self._source['InitialPosition'] = self._compute_initial_position(self.basepm)
-        self._source['LPTDisp1'] = self._compute_dx1(dlink.value, self.basepm)
+        self._source['InitialPosition'] = fastpm.create_grid(self.basepm, shift=0.0)
+        self._source['LPTDisp1'] = fastpm.lpt1(dlink, self._source['InitialPosition'])
 
         ParticleSource.__init__(self, comm=comm)
 
@@ -54,8 +45,12 @@ class LPTParticles(ParticleSource):
     def set_redshift(self, redshift):
         self.redshift = redshift
 
-    def gradient(self):
-        return self._grad_dx1(self.basepm)
+    @staticmethod
+    def gradient(dlink, self):
+        """ Backtrace the gradient of LPT source at dlink, using
+            self['GradLPTDisp1'] as the gradient column of LPT1 displacement
+        """
+        return fastpm.lpt1_gradient(self.dlink, self._source['InitialPosition'], self['GradLPTDisp1'].compute())
 
     @property
     def size(self):
@@ -76,6 +71,7 @@ class LPTParticles(ParticleSource):
         d = {}
         d['Position'] = self['InitialPosition'] + self['LPTDisp1'] * D1
         d['Velocity'] = self['LPTDisp1'] * D1 * f1 * a ** 2 * E
+
         d['GradLPTDisp1'] = self['GradVelocity'] * (D1 * f1 * a **2 * E) + self['GradPosition'] * D1
 
         return d[col]
@@ -84,46 +80,3 @@ class LPTParticles(ParticleSource):
     def hcolumns(self):
         return list(self._source.keys()) + ['Position', 'Velocity', 'GradLPTDisp1']
 
-    def _compute_initial_position(self, basepm):
-        ndim = len(basepm.Nmesh)
-        real = basepm.create('real')
-
-        dtype = numpy.dtype(('f4', 3))
-
-        # one particle per base mesh point
-        source = numpy.zeros((real.size, ndim), dtype='f4')
-
-        for d in range(len(real.shape)):
-            real[...] = 0
-            for xi, slab in zip(real.slabs.i, real.slabs):
-                slab[...] = xi[d] * (real.BoxSize[d] / real.Nmesh[d])
-            source[..., d] = real.value.flat
-        return source
-
-    def _compute_dx1(self, dlink, basepm):
-        ndim = len(basepm.Nmesh)
-
-        source = numpy.zeros((self.size, ndim), dtype='f4')
-        delta_k = basepm.create('complex')
-        for d in range(len(basepm.Nmesh)):
-            delta_k[...] = dlink
-            za_transfer(delta_k, delta_k, d)
-            disp = delta_k.c2r(delta_k)
-            source[..., d] = disp.value.flat
-
-        return source
-
-    def _grad_dx1(self, basepm):
-        ndim = len(basepm.Nmesh)
-        grad = basepm.create('complex')
-        grad[...] = 0
-        source = self['GradLPTDisp1']
-        grad_disp = basepm.create('real')
-        for d in range(ndim):
-            grad_disp.value.flat[...] = source[..., d].compute()
-            grad_disp_k = grad_disp.c2r_gradient(grad_disp)
-            za_transfer(grad_disp_k, grad_disp_k, d)
-            grad_disp_k[...] *= -1 # because 1j is conjugated
-            grad.value[...] += grad_disp_k.value
-        grad.decompress_gradient(out=grad)
-        return grad

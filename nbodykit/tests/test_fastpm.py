@@ -49,7 +49,7 @@ def test_lpt_grad(comm):
 
     def grad_chi2(lpt):
         lpt['GradLPTDisp1'] = 2 * lpt['LPTDisp1']
-        return lpt.gradient()
+        return Source.LPTParticles.gradient(dlink, lpt)
 
     chi2_0 = chi2(lpt0)
     grad_a = grad_chi2(lpt0)
