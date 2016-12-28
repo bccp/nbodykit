@@ -118,12 +118,12 @@ class LPTParticles(ParticleSource):
         grad = basepm.create('complex')
         grad[...] = 0
         source = self['GradLPTDisp1']
-        print(self['GradPosition'].compute())
-        for d in range(len(basepm.Nmesh)):
-            grad_disp = basepm.create('real')
+        grad_disp = basepm.create('real')
+        for d in range(ndim):
             grad_disp.value.flat[...] = source[..., d].compute()
             grad_disp_k = grad_disp.c2r_gradient(grad_disp)
             za_transfer(grad_disp_k, grad_disp_k, d)
+            grad_disp_k[...] *= -1 # because 1j is conjugated
             grad.value[...] += grad_disp_k.value
-
+        grad.decompress_gradient(out=grad)
         return grad

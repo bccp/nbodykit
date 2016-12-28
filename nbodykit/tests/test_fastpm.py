@@ -39,29 +39,29 @@ def test_lpt_grad(comm):
     cosmo = cosmology.Planck15
 
     linear = Source.LinearMesh(Plin=cosmology.EHPower(cosmo, 0.0),
-                BoxSize=1280, Nmesh=8, seed=42, comm=comm)
+                BoxSize=1280, Nmesh=4, seed=42, comm=comm)
 
     dlink = linear.to_field(mode='complex')
     lpt0 = Source.LPTParticles(dlink=dlink, cosmo=cosmo, redshift=0.0)
 
     def chi2(lpt):
-        return (lpt['Position'] ** 2).sum().compute()
+        return (lpt['LPTDisp1'] ** 2).sum(dtype='f8').compute()
 
     def grad_chi2(lpt):
-        lpt['GradPosition'] = 2 * lpt['Position']
+        lpt['GradLPTDisp1'] = 2 * lpt['LPTDisp1']
         return lpt.gradient()
 
     chi2_0 = chi2(lpt0)
     grad_a = grad_chi2(lpt0)
 
-    mode = (1, 2, 3)
+    mode = (1, 1, 1)
     dlink1 = dlink.copy()
-    diff = 0.003
-    dlink1.real[mode] += diff
+    diff = 0.000001
+    dlink1.imag[mode] += diff
     lpt1 = Source.LPTParticles(dlink=dlink1, cosmo=cosmo, redshift=0.0)
 
     chi2_1 = chi2(lpt1)
 
     grad_n = (chi2_1 - chi2_0) / diff
-
+    print(chi2_1, chi2_0, chi2_1 - chi2_0)
     print(grad_n, grad_a[mode])
