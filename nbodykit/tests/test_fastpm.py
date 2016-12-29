@@ -34,7 +34,7 @@ def test_lpt(comm):
     # should be almost isotropic. Need to add a term in linear to fix the modulus.
     assert_allclose(vdisp, vdisp.mean(), rtol=5e-2)
 
-@MPITest([1])
+@MPITest([1, 4])
 def test_lpt_grad(comm):
     cosmo = cosmology.Planck15
 
