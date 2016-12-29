@@ -45,23 +45,25 @@ def test_lpt_grad(comm):
     lpt0 = Source.LPTParticles(dlink=dlink, cosmo=cosmo, redshift=0.0)
 
     def chi2(lpt):
-        return (lpt['LPTDisp1'] ** 2).sum(dtype='f8').compute()
+        return comm.allreduce((lpt['LPTDisp1'] ** 2).sum(dtype='f8').compute())
 
-    def grad_chi2(lpt):
+    def grad_chi2(lpt, dlink):
         lpt['GradLPTDisp1'] = 2 * lpt['LPTDisp1']
         return Source.LPTParticles.gradient(dlink, lpt)
 
     chi2_0 = chi2(lpt0)
-    grad_a = grad_chi2(lpt0)
+    grad_a = grad_chi2(lpt0, dlink)
 
-    mode = (1, 1, 1)
-    dlink1 = dlink.copy()
-    diff = 0.000001
-    dlink1.imag[mode] += diff
-    lpt1 = Source.LPTParticles(dlink=dlink1, cosmo=cosmo, redshift=0.0)
+    for ind1 in numpy.ndindex(*(list(dlink.cshape) + [2])):
+        dlink1 = dlink.copy()
+        old = dlink1.cgetitem(ind1)
+        diff = 1e-6
+        new = dlink1.csetitem(ind1, diff + old)
+        diff = new - old
 
-    chi2_1 = chi2(lpt1)
+        lpt1 = Source.LPTParticles(dlink=dlink1, cosmo=cosmo, redshift=0.0)
 
-    grad_n = (chi2_1 - chi2_0) / diff
-    print(chi2_1, chi2_0, chi2_1 - chi2_0)
-    print(grad_n, grad_a[mode])
+        chi2_1 = chi2(lpt1)
+        grad = grad_a.cgetitem(ind1)
+
+        assert_allclose(1 + chi2_1 - chi2_0, 1 + grad * diff, 1e-5)

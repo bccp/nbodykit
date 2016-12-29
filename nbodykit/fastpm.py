@@ -6,14 +6,15 @@ def za_transfer(delta, out, dir):
     for k, i, a, b in zip(delta.slabs.x,
                     delta.slabs.i, delta.slabs, out.slabs):
         kk = sum(ki ** 2 for ki in k)
+        # set mask == False to 0
         mask = numpy.ones(a.shape, '?')
 
         for ii, n in zip(i, delta.Nmesh):
-           mask &=  ii >= n // 2
-        mask[kk == 0] = True
-
+            # any nyquist modes are set to 0
+            mask &=  ii != (n // 2)
+        mask[kk == 0] = False
         kk[kk == 0] = 1
-        b[...] = (~mask) * a * 1j * k[dir] / kk
+        b[...] = mask * a * 1j * k[dir] / kk
 
 def create_grid(basepm, shift=0):
     """
@@ -79,7 +80,7 @@ def lpt1_gradient(dlink, pos, grad_disp, method='cic'):
     # for each dimension
     for d in range(ndim):
         local_grad_disp_d = layout.exchange(grad_disp[:, d])
-        grad_disp_d[...] = grad_disp_d.readout_gradient(local_pos, local_grad_disp_d, method=method)
+        grad_disp_d.readout_gradient(local_pos, local_grad_disp_d, method=method, out_self=grad_disp_d, out_pos=False)
         grad_disp_d_k = grad_disp_d.c2r_gradient(grad_disp_d)
 
         # FIXME: allow changing this.
