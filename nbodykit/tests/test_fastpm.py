@@ -112,56 +112,8 @@ def test_lpt(comm):
     assert_allclose(num, ana, rtol=1e-5)
 
 @MPITest([1])
-def test_drift(comm):
-    from nbodykit import fastpm
-    x1 = numpy.ones((10, 2))
-    p = numpy.ones((10, 2))
-
-    def objective(x1, p):
-        x2 = fastpm.drift(x1, p, 2.0)
-        return (x2 **2).sum(dtype='f8')
-
-    def gradient(x1, p):
-        x2 = fastpm.drift(x1, p, 2.0)
-        return fastpm.drift_gradient(x1, p, 2.0, grad_x2=2 * x2)
-
-    y0 = objective(x1, p)
-    yprime_x1, yprime_p = gradient(x1, p)
-
-    num = []
-    ana = []
-
-    for ind1 in numpy.ndindex(*x1.shape):
-        x1l = x1.copy()
-        x1r = x1.copy()
-        x1l[ind1] -= 1e-3
-        x1r[ind1] += 1e-3
-        yl = objective(x1l, p)
-        yr = objective(x1r, p)
-        grad = yprime_x1[ind1]
-        num.append(yr - yl)
-        ana.append(grad * (x1r[ind1] - x1l[ind1]))
-
-    assert_allclose(num, ana, rtol=1e-5)
-
-    num = []
-    ana = []
-    for ind1 in numpy.ndindex(*p.shape):
-        pl = p.copy()
-        pr = p.copy()
-        pl[ind1] -= 1e-3
-        pr[ind1] += 1e-3
-        yl = objective(x1, pl)
-        yr = objective(x1, pr)
-        grad = yprime_p[ind1]
-        num.append(yr - yl)
-        ana.append(grad * (pr[ind1] - pl[ind1]))
-
-
-    assert_allclose(num, ana, rtol=1e-5)
-
-@MPITest([1])
 def test_kick(comm):
+    # No need to to thest drift because it is just an alias of kick.
     from nbodykit import fastpm
     p1 = numpy.ones((10, 2))
     f = numpy.ones((10, 2))
@@ -246,7 +198,7 @@ def test_gravity(comm):
         diff = 1e-1
 
         start = sum(comm.allgather(x1.shape[0])[:comm.rank])
-        end = start + x1.shape[1]
+        end = start + x1.shape[0]
         x1l = x1.copy()
         x1r = x1.copy()
         if ind1[0] >= start and ind1[0] < end:
@@ -261,7 +213,7 @@ def test_gravity(comm):
         yr = objective(x1r, pm)
         # Watchout : (yr - yl) / (yr + yl) must be large enough for numerical
         # to be accurate
-        #print ind1, yl, yr, grad * diff * 2, yr - yl
+        print ind1, yl, yr, grad * diff * 2, yr - yl
         num.append(yr - yl)
         ana.append(grad * 2 * diff)
 
