@@ -146,9 +146,11 @@ def gravity(x, pm, factor, f=None):
         f = numpy.empty_like(x)
 
     for d in range(field.ndim):
-        force_k = factor * za_transfer(deltak, d)
+        force_k = za_transfer(deltak, d)
+        force_k[...] *= factor
         force = force_k.c2r(out=force_k)
         force.readout(x, layout=layout, out=f[..., d])
+    return f
 
 def gravity_gradient(x, pm, factor, grad_f, out_x=None):
     if out_x is None:
@@ -168,14 +170,15 @@ def gravity_gradient(x, pm, factor, grad_f, out_x=None):
         force = force_k.c2r(out=force_k)
         grad_force_d, grad_x_d = force.readout_gradient(
             x, btgrad=grad_f[:, d], layout=layout)
-        grad_force_d_k = grad_force.c2r_gradient(out=grad_force_d)
+        grad_force_d_k = grad_force_d.c2r_gradient(out=grad_force_d)
         grad_deltak_d = za_transfer(grad_force_d_k, d)
         grad_deltak_d[...] *= -1 * factor
         grad_deltak[...] += grad_deltak_d
         out_x[...] += grad_x_d
 
     grad_field = grad_deltak.r2c_gradient(out=grad_deltak)
-    out_x[...] += grad_field.paint_gradient(x, layout=layout, out_mass=False)
+    grad_x, grad_mass = grad_field.paint_gradient(x, layout=layout, out_mass=False)
+    out_x[...] += grad_x
 
     return out_x
 

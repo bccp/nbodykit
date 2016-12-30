@@ -208,3 +208,61 @@ def test_kick(comm):
 
 
     assert_allclose(num, ana, rtol=1e-5)
+
+@MPITest([1, 4])
+def test_gravity(comm):
+    from pmesh.pm import ParticleMesh
+    from nbodykit import fastpm
+
+    pm = ParticleMesh(BoxSize=4.0, Nmesh=(4, 4), comm=comm, method='cic', dtype='f8')
+
+    dlink = pm.create(mode='complex')
+    dlink.generate_whitenoise(1234)
+
+    # FIXME: without the shift some particles have near zero dx1.
+    # or near 1 dx1.
+    # the gradient is not well approximated by the numerical if
+    # any of the left or right value shifts beyond the support of
+    # the window.
+    #
+    q = fastpm.create_grid(pm, shift=0.5)
+    dx1 = fastpm.lpt1(dlink, q)
+    x1 = q + dx1
+    def objective(x, pm):
+        f = fastpm.gravity(x, pm, 2.0)
+        return comm.allreduce((f**2).sum(dtype='f8'))
+
+    def gradient(x, pm):
+        f = fastpm.gravity(x, pm, 2.0)
+        return fastpm.gravity_gradient(x, pm, 2.0, 2 * f)
+
+    y0 = objective(x1, pm)
+    yprime = gradient(x1, pm)
+
+    num = []
+    ana = []
+
+    for ind1 in numpy.ndindex(comm.allreduce(x1.shape[0]), x1.shape[1]):
+        diff = 1e-1
+
+        start = sum(comm.allgather(x1.shape[0])[:comm.rank])
+        end = start + x1.shape[1]
+        x1l = x1.copy()
+        x1r = x1.copy()
+        if ind1[0] >= start and ind1[0] < end:
+            x1l[ind1[0] - start, ind1[1]] -= diff
+            x1r[ind1[0] - start, ind1[1]] += diff
+            grad = yprime[ind1[0] - start, ind1[1]]
+        else:
+            grad = 0
+        grad = comm.allreduce(grad)
+
+        yl = objective(x1l, pm)
+        yr = objective(x1r, pm)
+        # Watchout : (yr - yl) / (yr + yl) must be large enough for numerical
+        # to be accurate
+        #print ind1, yl, yr, grad * diff * 2, yr - yl
+        num.append(yr - yl)
+        ana.append(grad * 2 * diff)
+
+    assert_allclose(num, ana, rtol=1e-5, atol=1e-7)
