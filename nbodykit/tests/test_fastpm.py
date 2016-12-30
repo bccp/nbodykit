@@ -7,7 +7,7 @@ import dask
 dask.set_options(get=dask.get)
 
 @MPITest([1, 4])
-def test_lpt(comm):
+def test_lpt_particles(comm):
     cosmo = cosmology.Planck15
 
     linear = Source.LinearMesh(Plin=cosmology.EHPower(cosmo, 0.0),
@@ -35,7 +35,7 @@ def test_lpt(comm):
     assert_allclose(vdisp, vdisp.mean(), rtol=5e-2)
 
 @MPITest([1, 4])
-def test_lpt_grad(comm):
+def test_lpt_particles_grad(comm):
     cosmo = cosmology.Planck15
 
     linear = Source.LinearMesh(Plin=cosmology.EHPower(cosmo, 0.0),
@@ -67,3 +67,144 @@ def test_lpt_grad(comm):
         grad = grad_a.cgetitem(ind1)
 
         assert_allclose(1 + chi2_1 - chi2_0, 1 + grad * diff, 1e-5)
+
+@MPITest([1, 4])
+def test_lpt(comm):
+    from pmesh.pm import ParticleMesh
+    from nbodykit import fastpm
+
+    pm = ParticleMesh(BoxSize=128.0, Nmesh=(4, 4), comm=comm)
+
+    dlink = pm.create(mode='complex')
+    dlink.generate_whitenoise(1234)
+
+    def objective(dlink, pm):
+        q = fastpm.create_grid(pm)
+        dx1 = fastpm.lpt1(dlink, q)
+        return comm.allreduce((dx1**2).sum(dtype='f8'))
+
+    def gradient(dlink, pm):
+        q = fastpm.create_grid(pm)
+        dx1 = fastpm.lpt1(dlink, q)
+        grad_dx1 = 2 * dx1
+        return fastpm.lpt1_gradient(dlink, q, grad_dx1)
+
+    y0 = objective(dlink, pm)
+    yprime = gradient(dlink, pm)
+
+    num = []
+    ana = []
+
+    for ind1 in numpy.ndindex(*(list(dlink.cshape) + [2])):
+        dlinkl = dlink.copy()
+        dlinkr = dlink.copy()
+        old = dlink.cgetitem(ind1)
+        left = dlinkl.csetitem(ind1, old - 1e-1)
+        right = dlinkr.csetitem(ind1, old + 1e-1)
+        diff = right - left
+        yl = objective(dlinkl, pm)
+        yr = objective(dlinkr, pm)
+        grad = yprime.cgetitem(ind1)
+        #print ind1, yl, yr, grad * diff, yr - yl
+        ana.append(grad * diff)
+        num.append(yr - yl)
+
+    assert_allclose(num, ana, rtol=1e-5)
+
+@MPITest([1])
+def test_drift(comm):
+    from nbodykit import fastpm
+    x1 = numpy.ones((10, 2))
+    p = numpy.ones((10, 2))
+
+    def objective(x1, p):
+        x2 = fastpm.drift(x1, p, 2.0)
+        return (x2 **2).sum(dtype='f8')
+
+    def gradient(x1, p):
+        x2 = fastpm.drift(x1, p, 2.0)
+        return fastpm.drift_gradient(x1, p, 2.0, grad_x2=2 * x2)
+
+    y0 = objective(x1, p)
+    yprime_x1, yprime_p = gradient(x1, p)
+
+    num = []
+    ana = []
+
+    for ind1 in numpy.ndindex(*x1.shape):
+        x1l = x1.copy()
+        x1r = x1.copy()
+        x1l[ind1] -= 1e-3
+        x1r[ind1] += 1e-3
+        yl = objective(x1l, p)
+        yr = objective(x1r, p)
+        grad = yprime_x1[ind1]
+        num.append(yr - yl)
+        ana.append(grad * (x1r[ind1] - x1l[ind1]))
+
+    assert_allclose(num, ana, rtol=1e-5)
+
+    num = []
+    ana = []
+    for ind1 in numpy.ndindex(*p.shape):
+        pl = p.copy()
+        pr = p.copy()
+        pl[ind1] -= 1e-3
+        pr[ind1] += 1e-3
+        yl = objective(x1, pl)
+        yr = objective(x1, pr)
+        grad = yprime_p[ind1]
+        num.append(yr - yl)
+        ana.append(grad * (pr[ind1] - pl[ind1]))
+
+
+    assert_allclose(num, ana, rtol=1e-5)
+
+@MPITest([1])
+def test_kick(comm):
+    from nbodykit import fastpm
+    p1 = numpy.ones((10, 2))
+    f = numpy.ones((10, 2))
+
+    def objective(p1, f):
+        p2 = fastpm.kick(p1, f, 2.0)
+        return (p2 **2).sum(dtype='f8')
+
+    def gradient(p1, f):
+        p2 = fastpm.kick(p1, f, 2.0)
+        return fastpm.kick_gradient(p1, f, 2.0, grad_p2=2 * p2)
+
+    y0 = objective(p1, f)
+    yprime_p1, yprime_f = gradient(p1, f)
+
+    num = []
+    ana = []
+
+    for ind1 in numpy.ndindex(*p1.shape):
+        p1l = p1.copy()
+        p1r = p1.copy()
+        p1l[ind1] -= 1e-3
+        p1r[ind1] += 1e-3
+        yl = objective(p1l, f)
+        yr = objective(p1r, f)
+        grad = yprime_p1[ind1]
+        num.append(yr - yl)
+        ana.append(grad * (p1r[ind1] - p1l[ind1]))
+
+    assert_allclose(num, ana, rtol=1e-5)
+
+    num = []
+    ana = []
+    for ind1 in numpy.ndindex(*f.shape):
+        fl = f.copy()
+        fr = f.copy()
+        fl[ind1] -= 1e-3
+        fr[ind1] += 1e-3
+        yl = objective(p1, fl)
+        yr = objective(p1, fr)
+        grad = yprime_f[ind1]
+        num.append(yr - yl)
+        ana.append(grad * (fr[ind1] - fl[ind1]))
+
+
+    assert_allclose(num, ana, rtol=1e-5)

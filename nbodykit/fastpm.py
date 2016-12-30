@@ -115,14 +115,14 @@ def kick_gradient(p1, f, dt, grad_p2, out_p1=None, out_f=None):
     if out_p1 is None:
         out_p1 = numpy.empty_like(p1)
 
-    out_f[...] = grad_p1 * dt
-    out_p1[...] = grad_p1
+    out_f[...] = grad_p2 * dt
+    out_p1[...] = grad_p2
 
-    return out_f, out_p1
+    return out_p1, out_f
 
 def drift(x1, p, dt, x2=None):
     if x2 is None:
-        x2 = numpy.empty_like(x)
+        x2 = numpy.empty_like(x1)
     x2[...] = x1 + p * dt
     return x2
 
@@ -134,6 +134,7 @@ def drift_gradient(x1, p, dt, grad_x2, out_x1=None, out_p=None):
 
     out_x1[...] = grad_x2
     out_p[...] = grad_x2 * dt
+    return out_x1, out_p
 
 def gravity(x, pm, factor, f=None):
     field = pm.create(mode="real")
