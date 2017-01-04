@@ -6,7 +6,7 @@ from pmesh.pm import RealField, ComplexField
 from nbodykit.meshtools import SlabIterator
 from nbodykit.utils import GatherArray, ScatterArray
 
-def gaussian_complex_fields(pm, linear_power, seed, compute_displacement=False):
+def gaussian_complex_fields(pm, linear_power, seed, remove_variance=False, compute_displacement=False):
     r"""
     Make a Gaussian realization of a overdensity field, :math:`\delta(x)`
     
@@ -59,7 +59,10 @@ def gaussian_complex_fields(pm, linear_power, seed, compute_displacement=False):
     compute_displacement : bool, optional
         if ``True``, also return the linear Zel'dovich displacement field; 
         default is ``False``
-    
+    remove_variance : bool, optional
+        if ``True``, remove the variance in the amplitude of the guassian,
+        such that the power spectrum of the realization is exactly the input.
+
     Returns
     -------
     delta_k : ComplexField
@@ -73,7 +76,7 @@ def gaussian_complex_fields(pm, linear_power, seed, compute_displacement=False):
     # use pmesh to generate random complex white noise field (done in parallel)
     # variance of complex field is unity
     # multiply by P(k)**0.5 to get desired variance
-    delta_k = pm.generate_whitenoise(seed, mode='complex')
+    delta_k = pm.generate_whitenoise(seed, mode='complex', unitary=remove_variance)
         
     # initialize the displacement fields for (x,y,z)
     if compute_displacement:
@@ -105,14 +108,13 @@ def gaussian_complex_fields(pm, linear_power, seed, compute_displacement=False):
         if compute_displacement:
             with numpy.errstate(invalid='ignore'):
                 this_delta = delta_k[slab.index]
-                disp_k[0][slab.index] *= slab.coords(0) / kslab * this_delta
-                disp_k[1][slab.index] *= slab.coords(1) / kslab * this_delta
-                disp_k[2][slab.index] *= slab.coords(2) / kslab * this_delta
-                
+                for d in range(delta_k.ndim):
+                    disp_k[d][slab.index] *= slab.coords(d) / kslab * this_delta
+
             # no bulk displacement
-            for i in [0, 1, 2]:    
-                disp_k[i][slab.index][zero_idx] = 0.       
-                    
+            for i in range(delta_k.ndim):
+                disp_k[i][slab.index][zero_idx] = 0.
+
     # return Fourier-space density and displacement (which could be None)
     return delta_k, disp_k
     
@@ -159,7 +161,7 @@ def gaussian_real_fields(pm, linear_power, seed, compute_displacement=False):
     
     # FFT the velocity back to real space
     if compute_displacement:
-        disp = [disp_k[i].c2r() for i in [0, 1, 2]]
+        disp = [disp_k[i].c2r() for i in range(delta.ndim)]
     else:
         disp = None
 
