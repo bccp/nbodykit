@@ -58,7 +58,7 @@ class MeshSource(object):
             if real is NotImplemented:
                 complex = self.to_complex_field()
                 assert complex is not NotImplemented
-                real = complex.c2r(complex)
+                real = complex.c2r(out=Ellipsis)
                 if hasattr(complex, 'attrs'):
                     real.attrs = complex.attrs
             var = real
@@ -67,7 +67,7 @@ class MeshSource(object):
             if complex is NotImplemented:
                 real = self.to_real_field()
                 assert real is not NotImplemented
-                complex = real.r2c(real)
+                complex = real.r2c(out=Ellipsis)
                 if hasattr(real, 'attrs'):
                     complex.attrs = real.attrs
             var = complex
@@ -113,10 +113,10 @@ class MeshSource(object):
 
             if action[0] == 'complex':
                 if not isinstance(var, ComplexField):
-                    var = var.r2c(var)
+                    var = var.r2c(out=Ellipsis)
             if action[0] == 'real':
                 if not isinstance(var, RealField):
-                    var = var.c2r(var)
+                    var = var.c2r(out=Ellipsis)
 
             if len(action) > 1:
                 # there is a filter function
@@ -124,6 +124,7 @@ class MeshSource(object):
                 kwargs['func'] = action[1]
                 if action[2] is not None:
                     kwargs['kind'] = action[2]
+                kwargs['out'] = Ellipsis
                 var.apply(**kwargs)
 
         var.attrs = attrs
