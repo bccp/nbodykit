@@ -18,7 +18,7 @@ def removeradiation(cosmo):
 class LPTParticles(ParticleSource):
     logger = logging.getLogger('LPT')
 
-    def __init__(self, dlink, cosmo, redshift=0.0):
+    def __init__(self, dlink, cosmo, redshift=0.0, order=2):
         comm = dlink.pm.comm
 
         cosmo = removeradiation(cosmo)
@@ -28,12 +28,18 @@ class LPTParticles(ParticleSource):
             self.attrs.update(dlink.attrs)
 
         self.attrs['redshift'] = redshift
+        self.attrs['order'] = order
+
         self.basepm = dlink.pm
         self.dlink = dlink
 
         self._source = {}
         self._source['InitialPosition'] = fastpm.create_grid(self.basepm, shift=0.0)
         self._source['LPTDisp1'] = fastpm.lpt1(dlink, self._source['InitialPosition'])
+
+        lpt2source = fastpm.lpt2source(dlink)
+
+        self._source['LPTDisp2'] = fastpm.lpt1(lpt2source, self._source['InitialPosition'])
 
         ParticleSource.__init__(self, comm=comm)
 
@@ -61,18 +67,29 @@ class LPTParticles(ParticleSource):
         if col in self._source:
             return da.from_array(self._source[col], chunks=100000)
 
+        # now deal with generated sources
         redshift = self.redshift
         cosmo = self.cosmo
 
         D1, f1, D2, f2 = cosmo.lptode(z=redshift)
+        if self.attrs['order'] == 1:
+            D2 = 0
+            f2 = 0
+
         a = 1 / (redshift + 1.)
         E = cosmo.efunc(z=redshift)
 
+        # these are dask arrays so generating columns takes no time
         d = {}
-        d['Position'] = self['InitialPosition'] + self['LPTDisp1'] * D1
-        d['Velocity'] = self['LPTDisp1'] * D1 * f1 * a ** 2 * E
+        d['Position'] = (self['InitialPosition']
+                + self['LPTDisp1'] * D1
+                + self['LPTDisp2'] * D2)
+
+        d['Velocity'] = (self['LPTDisp1'] * D1 * f1 * a ** 2 * E
+                       + self['LPTDisp2'] * D2 * f2 * a ** 2 * E)
 
         d['GradLPTDisp1'] = self['GradVelocity'] * (D1 * f1 * a **2 * E) + self['GradPosition'] * D1
+        d['GradLPTDisp2'] = self['GradVelocity'] * (D2 * f2 * a **2 * E) + self['GradPosition'] * D2
 
         return d[col]
 

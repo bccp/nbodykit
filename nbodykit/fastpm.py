@@ -5,6 +5,8 @@ import logging
 def laplace_transfer(delta, out=None):
     if out is None:
         out = delta.copy()
+    if out is Ellipsis:
+        out = delta
 
     for k, i, a, b in zip(delta.slabs.x,
                     delta.slabs.i, delta.slabs, out.slabs):
@@ -20,7 +22,8 @@ def laplace_transfer(delta, out=None):
 def diff_transfer(delta, dir, out=None):
     if out is None:
         out = delta.copy()
-
+    if out is Ellipsis:
+        out = delta
     for k, i, a, b in zip(delta.slabs.x,
                     delta.slabs.i, delta.slabs, out.slabs):
         # set mask == False to 0
@@ -72,9 +75,9 @@ def lpt1(dlink, q, method='cic'):
     source = numpy.zeros((delta_x.size, ndim), dtype='f4')
     for d in range(len(basepm.Nmesh)):
         delta_k[...] = dlink
-        laplace_transfer(delta_k, out=delta_k)
-        diff_transfer(delta_k, d, out=delta_k)
-        disp = delta_k.c2r(delta_k)
+        laplace_transfer(delta_k, out=Ellipsis)
+        diff_transfer(delta_k, d, out=Ellipsis)
+        disp = delta_k.c2r(out=Ellipsis)
         local_disp = disp.readout(local_q, method=method)
         source[..., d] = layout.gather(local_disp)
     return source
@@ -105,8 +108,8 @@ def lpt1_gradient(dlink, q, grad_disp, method='cic'):
         # FIXME: allow changing this.
         # the force
         # -1 because 1j is conjugated
-        grad_delta_d_k = laplace_transfer(grad_disp_d_k, out=grad_disp_d_k)
-        grad_delta_d_k = diff_transfer(grad_disp_d_k, d, out=grad_disp_d_k)
+        grad_delta_d_k = laplace_transfer(grad_disp_d_k, out=Ellipsis)
+        grad_delta_d_k = diff_transfer(grad_disp_d_k, d, out=Ellipsis)
         grad_delta_d_k.value[...] *= -1
 
         grad.value[...] += grad_delta_d_k.value
@@ -114,15 +117,96 @@ def lpt1_gradient(dlink, q, grad_disp, method='cic'):
     # dlink are free modes in the compressed real FFT representation,
     # so we need to take care of decompression
 
-    grad.decompress_gradient(out=grad)
+    grad.decompress_gradient(out=Ellipsis)
 
     return grad
 
-def lpt2source(dlink, q, method='cic'):
-    """ Generate the second order LPT source term.
-    """
+def lpt2source(dlink):
+    """ Generate the second order LPT source term.  """
+    source = dlink.pm.create('real')
+    source[...] = 0
+    D1 = [1, 2, 0]
+    D2 = [2, 0, 1]
+
+    phi_ii = []
+    assert dlink.ndim == 3
+
+    # diagnoal terms
+    for d in range(dlink.ndim):
+        phi_k = laplace_transfer(dlink)
+        phi_i_k = diff_transfer(phi_k, d, out=Ellipsis)
+        phi_ii_k = diff_transfer(phi_i_k, d, out=Ellipsis)
+        phi_ii.append(phi_ii_k.c2r(out=Ellipsis))
+
     for d in range(3):
-        dlink, 
+        source[...] += phi_ii[D1[d]].value * phi_ii[D2[d]].value
+
+    # free memory
+    phi_ii = []
+
+    phi_ij = []
+    # off-diag terms
+    for d in range(dlink.ndim):
+        phi_k = laplace_transfer(dlink)
+        phi_i_k = diff_transfer(phi_k, D1[d], out=Ellipsis)
+        phi_ij_k = diff_transfer(phi_i_k, D2[d], out=Ellipsis)
+        phi_ij_d = phi_ij_k.c2r(out=Ellipsis)
+        source[...] -= phi_ij_d[...] **2
+
+    # this ensures x = x0 + dx1(t) + d2(t) for 2LPT
+
+    source[...] *= 3.0 / 7
+    return source.r2c(out=Ellipsis)
+
+def lpt2source_gradient(dlink, grad_source):
+    """ Generate the second order LPT source term.  """
+    D1 = [1, 2, 0]
+    D2 = [2, 0, 1]
+
+    grad_dlink = dlink.copy()
+    grad_dlink[...] = 0
+
+    grad_source_x = grad_source.r2c_gradient()
+
+    grad_source_x *= 3.0 / 7
+
+    # diagonal terms, forward
+    phi_ii = []
+    for d in range(3):
+        phi_k = laplace_transfer(dlink)
+        phi_i_k = diff_transfer(phi_k, d, out=Ellipsis)
+        phi_ii_k = diff_transfer(phi_i_k, d, out=Ellipsis)
+        phi_ii.append(phi_ii_k.c2r(out=Ellipsis))
+
+    # diagonal terms, backward
+    for d in range(3):
+        # every component is used twice, with D1 and D2
+        grad_phi_ii_d = grad_source_x.copy()
+        grad_phi_ii_d[...] *= (phi_ii[D1[d]].value + phi_ii[D2[d]].value)
+        grad_phi_ii_k_d = grad_phi_ii_d.c2r_gradient(out=Ellipsis)
+        grad_phi_i_k_d = diff_transfer(grad_phi_ii_k_d, d, out=Ellipsis)
+        grad_phi_k_d = diff_transfer(grad_phi_i_k_d, d, out=Ellipsis)
+        grad_dlink[...] += laplace_transfer(grad_phi_k_d, out=Ellipsis)
+
+    # off diagonal terms
+    for d in range(3):
+        # forward
+        phi_k = laplace_transfer(dlink)
+        phi_i_k = diff_transfer(phi_k, D1[d], out=Ellipsis)
+        phi_ij_k = diff_transfer(phi_i_k, D2[d], out=Ellipsis)
+        phi_ij_d = phi_ij_k.c2r(out=Ellipsis)
+
+        # backward
+        grad_phi_ij_d = phi_ij_d
+        grad_phi_ij_d[...] *= -2 * grad_source_x[...]
+
+        grad_phi_ij_k_d = grad_phi_ij_d.c2r_gradient(out=Ellipsis)
+        grad_phi_i_k_d = diff_transfer(grad_phi_ij_k_d, D2[d], out=Ellipsis)
+        grad_phi_k_d = diff_transfer(grad_phi_i_k_d, D1[d], out=Ellipsis)
+        grad_dlink[...] += laplace_transfer(grad_phi_k_d, out=Ellipsis)
+
+    return grad_dlink
+
 def kick(p1, f, dt, p2=None):
     if p2 is None:
         p2 = numpy.empty_like(p1)
@@ -152,15 +236,15 @@ def gravity(x, pm, factor, f=None):
     layout = pm.decompose(x)
     field.paint(x, layout=layout, hold=False)
 
-    deltak = field.r2c(out=field)
+    deltak = field.r2c(out=Ellipsis)
     if f is None:
         f = numpy.empty_like(x)
 
     for d in range(field.ndim):
         force_k = laplace_transfer(deltak)
-        force_k = diff_transfer(force_k, d, out=force_k)
+        force_k = diff_transfer(force_k, d, out=Ellipsis)
         force_k[...] *= factor
-        force = force_k.c2r(out=force_k)
+        force = force_k.c2r(out=Ellipsis)
         force.readout(x, layout=layout, out=f[..., d])
     return f
 
@@ -172,25 +256,25 @@ def gravity_gradient(x, pm, factor, grad_f, out_x=None):
     layout = pm.decompose(x)
 
     field.paint(x, layout=layout, hold=False)
-    deltak = field.r2c(out=field)
+    deltak = field.r2c(out=Ellipsis)
     grad_deltak = pm.create(mode="complex")
     grad_deltak[...] = 0
 
     for d in range(x.shape[1]):
         force_k = laplace_transfer(deltak)
-        force_k = diff_transfer(force_k, d, out=force_k)
+        force_k = diff_transfer(force_k, d, out=Ellipsis)
         force_k[...] *= factor
-        force = force_k.c2r(out=force_k)
+        force = force_k.c2r(out=Ellipsis)
         grad_force_d, grad_x_d = force.readout_gradient(
             x, btgrad=grad_f[:, d], layout=layout)
-        grad_force_d_k = grad_force_d.c2r_gradient(out=grad_force_d)
-        grad_deltak_d = laplace_transfer(grad_force_d_k)
-        grad_deltak_d = diff_transfer(grad_force_d_k, d, out=grad_deltak_d)
+        grad_force_d_k = grad_force_d.c2r_gradient(out=Ellipsis)
+        grad_deltak_d = laplace_transfer(grad_force_d_k, out=Ellipsis)
+        grad_deltak_d = diff_transfer(grad_deltak_d, d, out=Ellipsis)
         grad_deltak_d[...] *= -1 * factor
         grad_deltak[...] += grad_deltak_d
         out_x[...] += grad_x_d
 
-    grad_field = grad_deltak.r2c_gradient(out=grad_deltak)
+    grad_field = grad_deltak.r2c_gradient(out=Ellipsis)
     grad_x, grad_mass = grad_field.paint_gradient(x, layout=layout, out_mass=False)
     out_x[...] += grad_x
 

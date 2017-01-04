@@ -27,12 +27,20 @@ def test_lpt_particles(comm):
 
     # linear theory and za at this scale can have 1 few percent of difference.
     assert_allclose(Dsquare, lpt.cosmo.growth_function(redshifts) ** 2 * Dsquare[-1], rtol=1e-2)
+    print(Dsquare, lpt.cosmo.growth_function(redshifts))
+    v12 = comm.allreduce((lpt['LPTDisp1']**2).sum(axis=0).compute())
+    v1disp = ((v12 / lpt.csize) ** 0.5)
 
-    v2 = comm.allreduce((lpt['LPTDisp1']**2).sum(axis=0).compute())
-    vdisp = ((v2 / lpt.csize) ** 0.5)
+    v22 = comm.allreduce((lpt['LPTDisp2']**2).sum(axis=0).compute())
+    v2disp = ((v22 / lpt.csize) ** 0.5)
+
+    print(v2disp, v2disp)
 
     # should be almost isotropic. Need to add a term in linear to fix the modulus.
-    assert_allclose(vdisp, vdisp.mean(), rtol=5e-2)
+    assert_allclose(v1disp, v1disp.mean(), rtol=5e-2)
+
+    # should be almost isotropic. Need to add a term in linear to fix the modulus.
+    assert_allclose(v2disp, v2disp.mean(), rtol=5e-2)
 
 @MPITest([1, 4])
 def test_lpt_particles_grad(comm):
