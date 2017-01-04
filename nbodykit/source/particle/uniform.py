@@ -1,4 +1,4 @@
-from nbodykit.base.particles import ParticleSource
+from nbodykit.base.particles import ParticleSource, column
 from nbodykit import CurrentMPIComm
 
 import numpy
@@ -35,17 +35,10 @@ class UniformParticles(ParticleSource):
     def size(self):
         return self._size
 
-    @property
-    def hcolumns(self):
-        return ['Position', 'Velocity']
+    @column
+    def Position(self):
+        return self.make_column(self._pos)
 
-    def get_column(self, col):
-        import dask.array as da
-        if col == 'Position':
-            r = da.from_array(self._pos, chunks=100000)
-        if col == 'Velocity':
-            r = da.from_array(self._vel, chunks=100000)
-        r.attrs = {}
-        return r
-
-
+    @column
+    def Velocity(self):
+        return self.make_column(self._vel)

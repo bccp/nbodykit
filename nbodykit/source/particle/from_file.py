@@ -43,16 +43,6 @@ class File(ParticleSource):
 
         ParticleSource.__init__(self, comm=comm)
 
-    def get_column(self, col):
-        """
-        Return a column from the underlying file source
-
-        Columns are returned as dask arrays
-        """
-        start = self.comm.rank * self._source.size // self.comm.size
-        end = (self.comm.rank  + 1) * self._source.size // self.comm.size
-        return self._source.get_dask(col)[start:end]
-
     @property
     def size(self):
         """
@@ -63,9 +53,19 @@ class File(ParticleSource):
         return end - start
 
     @property
-    def hcolumns(self):
+    def hardcolumns(self):
         """
         The union of the columns in the file and any transformed columns
         """
         return list(self._source.dtype.names)
+
+    def get_hardcolumn(self, col):
+        """
+        Return a column from the underlying file source
+
+        Columns are returned as dask arrays
+        """
+        start = self.comm.rank * self._source.size // self.comm.size
+        end = (self.comm.rank  + 1) * self._source.size // self.comm.size
+        return self._source.get_dask(col)[start:end]
 

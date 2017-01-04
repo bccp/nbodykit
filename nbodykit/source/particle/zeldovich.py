@@ -1,4 +1,4 @@
-from nbodykit.base.particles import ParticleSource
+from nbodykit.base.particles import ParticleSource, column
 from nbodykit import cosmology
 from nbodykit.utils import attrs_to_dict
 from nbodykit import CurrentMPIComm
@@ -92,27 +92,19 @@ class ZeldovichParticles(ParticleSource):
         if self.csize == 0:
             raise ValueError("no particles in ZeldovichParticles; try increasing ``nbar`` parameter")
 
-    def get_column(self, col):
-        """
-        Return a column from the underlying file source
-        
-        Columns are returned as dask arrays
-        """
-        import dask.array as da
-        return da.from_array(self._source[col], chunks=100000)
-
     @property
     def size(self):
         if not hasattr(self, "_source"):
             return NotImplemented
         return len(self._source)
 
-    @property
-    def hcolumns(self):
-        """
-        The union of the columns in the file and any transformed columns
-        """
-        return list(self._source.dtype.names)
+    @column
+    def Position(self):
+        return self.make_column(self._source['Position'])
+
+    @column
+    def Velocity(self):
+        return self.make_column(self._source['Velocity'])
 
     def _makesource(self, BoxSize, Nmesh):
         

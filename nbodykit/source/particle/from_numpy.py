@@ -34,22 +34,22 @@ class Array(ParticleSource):
 
         ParticleSource.__init__(self, comm=comm)
 
-    def get_column(self, col):
-        """
-        Return a column from the underlying file source
-        
-        Columns are returned as dask arrays
-        """
-        import dask.array as da
-        return da.from_array(self._source[col], chunks=100000)
-
     @property
     def size(self):
         return len(self._source)
         
     @property
-    def hcolumns(self):
+    def hardcolumns(self):
         """
         The union of the columns in the file and any transformed columns
         """
         return list(self._source.dtype.names)
+
+    def get_hardcolumn(self, col):
+        """
+        Return a column from the underlying file source
+        
+        Columns are returned as dask arrays
+        """
+        return self.make_column(self._source[col])
+

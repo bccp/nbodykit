@@ -2,7 +2,7 @@ from __future__ import print_function
 
 import numpy
 import logging
-from nbodykit.base.particles import ParticleSource
+from nbodykit.base.particles import ParticleSource, column
 
 from mpi4py import MPI
 import warnings
@@ -50,6 +50,18 @@ class LPTParticles(ParticleSource):
 
     def set_redshift(self, redshift):
         self.redshift = redshift
+        # now deal with generated sources
+        cosmo = self.cosmo
+
+        self.D1, self.f1, self.D2, self.f2 = cosmo.lptode(z=redshift)
+
+        if self.attrs['order'] == 1:
+            self.D2 = 0
+            self.f2 = 0
+
+        self.a = 1 / (redshift + 1.)
+        self.E = cosmo.efunc(z=redshift)
+
 
     @staticmethod
     def gradient(dlink, self):
@@ -76,38 +88,31 @@ class LPTParticles(ParticleSource):
     def size(self):
         return len(self._source['InitialPosition'])
 
-    def get_column(self, col):
-        import dask.array as da
-        if col in self._source:
-            return da.from_array(self._source[col], chunks=100000)
+    @column
+    def InitialPosition(self):
+        return self.make_column(self._source['InitialPosition'])
 
-        # now deal with generated sources
-        redshift = self.redshift
-        cosmo = self.cosmo
+    @column
+    def LPTDisp1(self):
+        return self.make_column(self._source['LPTDisp1'])
 
-        D1, f1, D2, f2 = cosmo.lptode(z=redshift)
-        if self.attrs['order'] == 1:
-            D2 = 0
-            f2 = 0
+    @column
+    def LPTDisp2(self):
+        return self.make_column(self._source['LPTDisp2'])
 
-        a = 1 / (redshift + 1.)
-        E = cosmo.efunc(z=redshift)
+    @column
+    def Position(self):
+        return (self['InitialPosition'].astype('f4')
+                + self['LPTDisp1'] * self.D1
+                + self['LPTDisp2'] * self.D2)
+    @column
+    def Velocity(self):
+        return (self['LPTDisp1'] * self.D1 * self.f1 * self.a ** 2 * self.E
+                       + self['LPTDisp2'] * self.D2 * self.f2 * self.a ** 2 * self.E)
+    @column
+    def GradLPTDisp1(self):
+        return self['GradVelocity'] * (self.D1 * self.f1 * self.a **2 * self.E) + self['GradPosition'] * self.D1
 
-        # these are dask arrays so generating columns takes no time
-        d = {}
-        d['Position'] = (self['InitialPosition'].astype('f4')
-                + self['LPTDisp1'] * D1
-                + self['LPTDisp2'] * D2)
-
-        d['Velocity'] = (self['LPTDisp1'] * D1 * f1 * a ** 2 * E
-                       + self['LPTDisp2'] * D2 * f2 * a ** 2 * E)
-
-        d['GradLPTDisp1'] = self['GradVelocity'] * (D1 * f1 * a **2 * E) + self['GradPosition'] * D1
-        d['GradLPTDisp2'] = self['GradVelocity'] * (D2 * f2 * a **2 * E) + self['GradPosition'] * D2
-
-        return d[col]
-
-    @property
-    def hcolumns(self):
-        return list(self._source.keys()) + ['Position', 'Velocity', 'GradLPTDisp1', 'GradLPTDisp2']
-
+    @column
+    def GradLPTDisp2(self):
+        return self['GradVelocity'] * (self.D2 * self.f2 * self.a **2 * self.E) + self['GradPosition'] * self.D2

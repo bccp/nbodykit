@@ -4,6 +4,33 @@ import abc
 import numpy
 import logging
 
+def column(name=None):
+    def decorator(getter):
+        getter.column_name = name
+        return getter
+
+    if hasattr(name, '__call__'):
+        # a single callable is provided
+        getter = name
+        name = getter.__name__
+        return decorator(getter)
+    else:
+        return decorator
+
+def find_columns(cls):
+    hardcolumns = []
+    for key, value in cls.__dict__.items():
+         if hasattr(value, 'column_name'):
+            hardcolumns.append(value.column_name)
+
+    return list(sorted(set(hardcolumns)))
+
+def find_column(cls, name):
+    for key, value in cls.__dict__.items():
+        if not hasattr(value, 'column_name'): continue
+        if value.column_name == name: return value
+    raise AttributeError("Column %s not found in class %s." % (str(cls), name))
+
 @add_metaclass(abc.ABCMeta)
 class ParticleSource(object):
     """
@@ -12,6 +39,12 @@ class ParticleSource(object):
     This combines the process of reading and painting
     """
     logger = logging.getLogger('ParticleSource')
+
+    @staticmethod
+    def make_column(array):
+        """ convert a numpy array to a column object (dask.array.Array) """
+        import dask.array as da
+        return da.from_array(array, chunks=getattr(array, 'chunks', 100000))
 
     # called by the subclasses
     def __init__(self, comm):
@@ -127,20 +160,36 @@ class ParticleSource(object):
         return col in self.columns
 
     @property
+    def hardcolumns(self):
+        """ a list of hard coded columns.
+            These are usually member functions marked by @column decorator.
+
+            Subclasses may override this method and get_hardcolumn to bypass
+            the decorator logic.
+        """
+        try:
+            self._hardcolumns
+        except AttributeError:
+            self._hardcolumns = find_columns(self.__class__)
+        return self._hardcolumns
+
+    def get_hardcolumn(self, col):
+        """ construct and return a hard coded column.
+            These are usually produced by calling member functions marked by @column decorator.
+
+            Subclasses may override this method and the hardcolumns attribute to bypass
+            the decorator logic.
+        """
+        return find_column(self.__class__, col)(self)
+
+
+    @property
     def columns(self):
         """
         The names of the data fields defined for each particle, including overriden columns and fallback columns
         """
-        return sorted(set(list(self.hcolumns) + list(self._overrides) + list(self._fallbacks)))
+        return sorted(set(list(self.hardcolumns) + list(self._overrides) + list(self._fallbacks)))
 
-    @abc.abstractproperty
-    def hcolumns(self):
-        """
-        The names of the hard data fields defined for each particle.
-        hard means it is not a transformed field.
-        """
-        return []
-        
     @property
     def csize(self):
         """
@@ -155,21 +204,11 @@ class ParticleSource(object):
         """
         return NotImplemented
 
-    @abc.abstractmethod
-    def get_column(self, col):
-        """
-        Return a column from the underlying source or from
-        the transformation dictionary
-        
-        Columns are returned as dask arrays
-        """
-        pass
-
     def __getitem__(self, col):
         if col in self._overrides:
             r = self._overrides[col]
-        elif col in self.hcolumns:
-            r = self.get_column(col)
+        elif col in self.hardcolumns:
+            r = self.get_hardcolumn(col)
         elif col in self._fallbacks:
             r = self._fallbacks[col]
         else:
@@ -208,7 +247,7 @@ class ParticleSource(object):
     def __setitem__(self, col, value):
         import dask.array as da
         assert len(value) == self.size
-        self._overrides[col] = da.from_array(value, chunks=getattr(value, 'chunks', 100000))
+        self._overrides[col] = self.make_column(value)
 
     def read(self, columns):
         """

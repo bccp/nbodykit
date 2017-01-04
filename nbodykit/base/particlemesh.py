@@ -41,11 +41,11 @@ class ParticleMeshSource(MeshSource, ParticleSource):
         return self.source.size
 
     @property
-    def hcolumns (self):
-        return self.source.hcolumns
+    def hardcolumns (self):
+        return self.source.hardcolumns
 
-    def get_column(self, col):
-        return self.source.get_column(col)
+    def get_hardcolumn(self, col):
+        return self.source.get_hardcolumn(col)
 
     @property
     def interlaced(self):
