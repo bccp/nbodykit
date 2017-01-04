@@ -65,9 +65,8 @@ class ParticleSource(object):
         """
         self._csize = self.comm.allreduce(self.size)
 
-        self.logger.debug("local number of particles = %d" % self.size)
-
         if self.comm.rank == 0:
+            self.logger.debug("rank 0, local number of particles = %d" % self.size)
             self.logger.info("total number of particles = %d" % self.csize)
 
         import dask.array as da

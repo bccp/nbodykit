@@ -11,7 +11,7 @@ class LinearMesh(MeshSource):
         return "LinearMesh(seed=%(seed)d)" % self.attrs
 
     @CurrentMPIComm.enable
-    def __init__(self, Plin, BoxSize, Nmesh, seed=None, comm=None):
+    def __init__(self, Plin, BoxSize, Nmesh, seed=None, remove_variance=False, comm=None):
         """
         Parameters
         ----------
@@ -39,6 +39,7 @@ class LinearMesh(MeshSource):
                 seed = numpy.random.randint(0, 4294967295)
             seed = self.comm.bcast(seed)
         self.attrs['seed'] = seed
+        self.attrs['remove_variance'] = remove_variance
 
         MeshSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype='f4', comm=comm)
 
@@ -57,7 +58,7 @@ class LinearMesh(MeshSource):
             an array-like object holding the interpolated grid
         """
         # generate linear density field with desired seed
-        complex, _ = mockmaker.gaussian_complex_fields(self.pm, self.Plin, self.attrs['seed'], compute_displacement=False)
+        complex, _ = mockmaker.gaussian_complex_fields(self.pm, self.Plin, self.attrs['seed'], remove_variance=self.attrs['remove_variance'], compute_displacement=False)
         complex.attrs = {}
         complex.attrs.update(self.attrs)
         return complex

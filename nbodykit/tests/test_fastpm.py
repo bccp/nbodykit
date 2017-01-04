@@ -11,22 +11,10 @@ def test_lpt_particles(comm):
     cosmo = cosmology.Planck15
 
     linear = Source.LinearMesh(Plin=cosmology.EHPower(cosmo, 0.0),
-                BoxSize=1280, Nmesh=64, seed=42, comm=comm)
+                BoxSize=1280, Nmesh=64, seed=142, remove_variance=True, comm=comm)
 
     lpt = Source.LPTParticles(dlink=linear.to_field(mode='complex'), cosmo=cosmo, redshift=0.0)
 
-    # let's compsre the large scale growth against linear theory.
-    Dsquare = []
-    redshifts = [9, 5, 2, 1, 0]
-    for z in redshifts:
-        lpt.set_redshift(z)
-        r = FFTPower(lpt, Nmesh=64, mode='1d')
-        use = r.power['k'] < 0.02
-        pbar = r.power['power'][use].mean()
-        Dsquare.append(pbar)
-
-    # linear theory and za at this scale can have 1 few percent of difference.
-    assert_allclose(Dsquare, lpt.cosmo.growth_function(redshifts) ** 2 * Dsquare[-1], rtol=1e-2)
 #    print(Dsquare, lpt.cosmo.growth_function(redshifts))
     v12 = comm.allreduce((lpt['LPTDisp1']**2).sum(axis=0).compute())
     v1disp = ((v12 / lpt.csize) ** 0.5)
@@ -42,39 +30,68 @@ def test_lpt_particles(comm):
     # should be almost isotropic. Need to add a term in linear to fix the modulus.
     assert_allclose(v2disp, v2disp.mean(), rtol=5e-2)
 
+    # let's compsre the large scale growth against linear theory.
+    Dsquare = []
+    redshifts = [9, 5, 2, 1, 0]
+    for z in redshifts:
+        lpt.set_redshift(z)
+        r = FFTPower(lpt, Nmesh=64, mode='1d')
+        use = r.power['k'] < 0.02
+        pbar = r.power['power'][use].mean()
+        Dsquare.append(pbar)
+
+    # linear theory and za at this scale can have 1 few percent of difference.
+    assert_allclose(Dsquare, lpt.cosmo.growth_function(redshifts) ** 2 * Dsquare[-1], rtol=1e-2)
+
 @MPITest([1, 4])
 def test_lpt_particles_grad(comm):
     cosmo = cosmology.Planck15
 
     linear = Source.LinearMesh(Plin=cosmology.EHPower(cosmo, 0.0),
-                BoxSize=1280, Nmesh=4, seed=42, comm=comm)
+                BoxSize=32, Nmesh=4, seed=42, comm=comm)
 
     dlink = linear.to_field(mode='complex')
-    lpt0 = Source.LPTParticles(dlink=dlink, cosmo=cosmo, redshift=0.0)
+    lpt0 = Source.LPTParticles(dlink=dlink, cosmo=cosmo, redshift=0.0, order=2)
 
     def chi2(lpt):
-        return comm.allreduce((lpt['LPTDisp1'] ** 2).sum(dtype='f8').compute())
+#        print 'disp1', comm.allreduce(((lpt['LPTDisp1'] + lpt['LPTDisp2'])** 2).sum(dtype='f8').compute())
+#        print 'diffpos', comm.allreduce(((lpt['Position'] - lpt['InitialPosition'])** 2).sum(dtype='f8').compute())
+        return comm.allreduce(((lpt['Position'] - lpt['InitialPosition'])** 2).sum(dtype='f8').compute())
 
     def grad_chi2(lpt, dlink):
-        lpt['GradLPTDisp1'] = 2 * lpt['LPTDisp1']
+        lpt['GradPosition'] = 2 * (lpt['Position'] - lpt['InitialPosition'])
+        #print 'grad pos', lpt['GradPosition'].compute()
+        #print 'grad lpt1', lpt['GradLPTDisp1'].compute()
+        #print 'grad lpt2', lpt['GradLPTDisp2'].compute()
         return Source.LPTParticles.gradient(dlink, lpt)
 
     chi2_0 = chi2(lpt0)
     grad_a = grad_chi2(lpt0, dlink)
 
+    chi2_ndiff = []
+    chi2_adiff = []
+    i = 0
     for ind1 in numpy.ndindex(*(list(dlink.cshape) + [2])):
-        dlink1 = dlink.copy()
-        old = dlink1.cgetitem(ind1)
+        i = i + 1
+        if i % 4 != 0: continue
+        dlinkl = dlink.copy()
+        dlinkr = dlink.copy()
+        old = dlink.cgetitem(ind1)
         diff = 1e-6
-        new = dlink1.csetitem(ind1, diff + old)
-        diff = new - old
+        dlinkl.csetitem(ind1, -diff + old)
+        dlinkr.csetitem(ind1, diff + old)
 
-        lpt1 = Source.LPTParticles(dlink=dlink1, cosmo=cosmo, redshift=0.0)
+        lptl = Source.LPTParticles(dlink=dlinkl, cosmo=cosmo, redshift=0.0, order=2)
+        lptr = Source.LPTParticles(dlink=dlinkr, cosmo=cosmo, redshift=0.0, order=2)
 
-        chi2_1 = chi2(lpt1)
+        chi2_1 = chi2(lptl)
+        chi2_2 = chi2(lptr)
         grad = grad_a.cgetitem(ind1)
+#        print chi2_2, chi2_1, grad * diff * 2, diff
+        chi2_ndiff.append(1 + chi2_2 - chi2_1)
+        chi2_adiff.append(1 + grad * diff * 2)
 
-        assert_allclose(1 + chi2_1 - chi2_0, 1 + grad * diff, 1e-5)
+    assert_allclose(chi2_ndiff, chi2_adiff, rtol=1e-4)
 
 @MPITest([1, 4])
 def test_lpt(comm):
@@ -101,7 +118,7 @@ def test_lpt(comm):
 
     num = []
     ana = []
-
+    print('------')
     for ind1 in numpy.ndindex(*(list(dlink.cshape) + [2])):
         dlinkl = dlink.copy()
         dlinkr = dlink.copy()
@@ -112,9 +129,10 @@ def test_lpt(comm):
         yl = objective(dlinkl, pm)
         yr = objective(dlinkr, pm)
         grad = yprime.cgetitem(ind1)
-        #print ind1, yl, yr, grad * diff, yr - yl
+        print(ind1, yl, yr, grad * diff, yr - yl)
         ana.append(grad * diff)
         num.append(yr - yl)
+    print('------')
 
     assert_allclose(num, ana, rtol=1e-5)
 
@@ -175,7 +193,7 @@ def test_gravity(comm):
 
     pm = ParticleMesh(BoxSize=4.0, Nmesh=(4, 4), comm=comm, method='cic', dtype='f8')
 
-    dlink = pm.generate_whitenoise(1234, mode='complex')
+    dlink = pm.generate_whitenoise(12345, mode='complex')
 
     # FIXME: without the shift some particles have near zero dx1.
     # or near 1 dx1.
@@ -184,7 +202,11 @@ def test_gravity(comm):
     # the window.
     #
     q = fastpm.create_grid(pm, shift=0.5)
+    # ensure our numerical gradient shift doesn't hit non-concave regions of
+    # the window.
     dx1 = fastpm.lpt1(dlink, q)
+    dx1 = dx1.clip(-.5, .5)
+    dx1 *= 0.5
     x1 = q + dx1
     def objective(x, pm):
         f = fastpm.gravity(x, pm, 2.0)
@@ -211,16 +233,19 @@ def test_gravity(comm):
             x1l[ind1[0] - start, ind1[1]] -= diff
             x1r[ind1[0] - start, ind1[1]] += diff
             grad = yprime[ind1[0] - start, ind1[1]]
+            dx11 = dx1[ind1[0] - start, ind1[1]]
         else:
             grad = 0
+            dx11 = 0
         grad = comm.allreduce(grad)
+        dx11 = comm.allreduce(dx11)
 
         yl = objective(x1l, pm)
         yr = objective(x1r, pm)
         # Watchout : (yr - yl) / (yr + yl) must be large enough for numerical
         # to be accurate
-        print ind1, yl, yr, grad * diff * 2, yr - yl
+        print ind1, yl, yr, grad * diff * 2, yr - yl, yr - yl - grad *diff*2, dx11
         num.append(yr - yl)
         ana.append(grad * 2 * diff)
-
+    print('max difference is', numpy.abs(numpy.subtract(num, ana)).max())
     assert_allclose(num, ana, rtol=1e-5, atol=1e-7)

@@ -84,7 +84,7 @@ def lpt1(dlink, q, method='cic'):
 
 def lpt1_gradient(dlink, q, grad_disp, method='cic'):
     """ backtrace gradient of first order LPT on linear density field.
-        returns gradient over modes of dlink. The qitions are assumed to
+        returns gradient over modes of dlink. The positions are assumed to
         not to move, thus gradient over qition is not returned.
 
         The data partition of grad_disp must matchs the fastpm particle grid.
@@ -103,13 +103,13 @@ def lpt1_gradient(dlink, q, grad_disp, method='cic'):
     for d in range(ndim):
         local_grad_disp_d = layout.exchange(grad_disp[:, d])
         grad_disp_d.readout_gradient(local_q, local_grad_disp_d, method=method, out_self=grad_disp_d, out_pos=False)
-        grad_disp_d_k = grad_disp_d.c2r_gradient(grad_disp_d)
+        grad_disp_d_k = grad_disp_d.c2r_gradient(out=Ellipsis)
 
         # FIXME: allow changing this.
         # the force
         # -1 because 1j is conjugated
         grad_delta_d_k = laplace_transfer(grad_disp_d_k, out=Ellipsis)
-        grad_delta_d_k = diff_transfer(grad_disp_d_k, d, out=Ellipsis)
+        grad_delta_d_k = diff_transfer(grad_delta_d_k, d, out=Ellipsis)
         grad_delta_d_k.value[...] *= -1
 
         grad.value[...] += grad_delta_d_k.value
@@ -168,7 +168,7 @@ def lpt2source_gradient(dlink, grad_source):
 
     grad_source_x = grad_source.r2c_gradient()
 
-    grad_source_x *= 3.0 / 7
+    grad_source_x[...] *= 3.0 / 7
 
     # diagonal terms, forward
     phi_ii = []

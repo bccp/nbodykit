@@ -56,7 +56,21 @@ class LPTParticles(ParticleSource):
         """ Backtrace the gradient of LPT source at dlink, using
             self['GradLPTDisp1'] as the gradient column of LPT1 displacement
         """
-        return fastpm.lpt1_gradient(self.dlink, self._source['InitialPosition'], self['GradLPTDisp1'].compute())
+        # path through first order LPT
+        gradient = fastpm.lpt1_gradient(self.dlink, self._source['InitialPosition'], self['GradLPTDisp1'].compute())
+
+        # path through second order order LPT
+        # forward
+        # because the exact value of lpt2source is irrelevant, we save some computation
+        # by not using lpt2source = fastpm.lpt2source(self.dlink)
+
+        lpt2source = self.dlink
+
+        # backward
+        gradient_lpt2source = fastpm.lpt1_gradient(lpt2source, self._source['InitialPosition'], self['GradLPTDisp2'].compute())
+        gradient[...] += fastpm.lpt2source_gradient(self.dlink, gradient_lpt2source)
+
+        return gradient
 
     @property
     def size(self):
@@ -81,7 +95,7 @@ class LPTParticles(ParticleSource):
 
         # these are dask arrays so generating columns takes no time
         d = {}
-        d['Position'] = (self['InitialPosition']
+        d['Position'] = (self['InitialPosition'].astype('f4')
                 + self['LPTDisp1'] * D1
                 + self['LPTDisp2'] * D2)
 
@@ -95,5 +109,5 @@ class LPTParticles(ParticleSource):
 
     @property
     def hcolumns(self):
-        return list(self._source.keys()) + ['Position', 'Velocity', 'GradLPTDisp1']
+        return list(self._source.keys()) + ['Position', 'Velocity', 'GradLPTDisp1', 'GradLPTDisp2']
 
