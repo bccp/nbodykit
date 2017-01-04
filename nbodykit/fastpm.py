@@ -45,11 +45,11 @@ def create_grid(basepm, shift=0):
         source[..., d] = real.value.flat
     return source
 
-def lpt1(dlink, q, method='cic'):
+def lpt1(dlin_k, q, method='cic'):
     """ Run first order LPT on linear density field, returns displacements of particles
         reading out at q.
     """
-    basepm = dlink.pm
+    basepm = dlin_k.pm
 
     ndim = len(basepm.Nmesh)
     delta_k = basepm.create('complex')
@@ -62,21 +62,21 @@ def lpt1(dlink, q, method='cic'):
 
     source = numpy.zeros((delta_x.size, ndim), dtype='f4')
     for d in range(len(basepm.Nmesh)):
-        disp = dlink.apply(laplace_kernel) \
+        disp = dlin_k.apply(laplace_kernel) \
                     .apply(diff_kernel(d), out=Ellipsis) \
                     .c2r(out=Ellipsis)
         local_disp = disp.readout(local_q, method=method)
         source[..., d] = layout.gather(local_disp)
     return source
 
-def lpt1_gradient(dlink, q, grad_disp, method='cic'):
+def lpt1_gradient(dlin_k, q, grad_disp, method='cic'):
     """ backtrace gradient of first order LPT on linear density field.
-        returns gradient over modes of dlink. The positions are assumed to
+        returns gradient over modes of dlin_k. The positions are assumed to
         not to move, thus gradient over qition is not returned.
 
         The data partition of grad_disp must matchs the fastpm particle grid.
     """
-    basepm = dlink.pm
+    basepm = dlin_k.pm
     ndim = len(basepm.Nmesh)
 
     layout = basepm.decompose(q)
@@ -96,26 +96,26 @@ def lpt1_gradient(dlink, q, grad_disp, method='cic'):
 
         grad.value[...] += grad_delta_d_k.value
 
-    # dlink are free modes in the compressed real FFT representation,
+    # dlin_k are free modes in the compressed real FFT representation,
     # so we need to take care of decompression
 
     grad.decompress_gradient(out=Ellipsis)
 
     return grad
 
-def lpt2source(dlink):
+def lpt2source(dlin_k):
     """ Generate the second order LPT source term.  """
-    source = dlink.pm.create('real')
+    source = dlin_k.pm.create('real')
     source[...] = 0
     D1 = [1, 2, 0]
     D2 = [2, 0, 1]
 
     phi_ii = []
-    assert dlink.ndim == 3
+    assert dlin_k.ndim == 3
 
     # diagnoal terms
-    for d in range(dlink.ndim):
-        phi_ii_d = dlink.apply(laplace_kernel) \
+    for d in range(dlin_k.ndim):
+        phi_ii_d = dlin_k.apply(laplace_kernel) \
                      .apply(diff_kernel(d), out=Ellipsis) \
                      .apply(diff_kernel(d), out=Ellipsis) \
                      .c2r(out=Ellipsis)
@@ -129,8 +129,8 @@ def lpt2source(dlink):
 
     phi_ij = []
     # off-diag terms
-    for d in range(dlink.ndim):
-        phi_ij_d = dlink.apply(laplace_kernel) \
+    for d in range(dlin_k.ndim):
+        phi_ij_d = dlin_k.apply(laplace_kernel) \
                  .apply(diff_kernel(D1[d]), out=Ellipsis) \
                  .apply(diff_kernel(D2[d]), out=Ellipsis) \
                  .c2r(out=Ellipsis)
@@ -142,13 +142,13 @@ def lpt2source(dlink):
     source[...] *= 3.0 / 7
     return source.r2c(out=Ellipsis)
 
-def lpt2source_gradient(dlink, grad_source):
+def lpt2source_gradient(dlin_k, grad_source):
     """ Generate the second order LPT source term.  """
     D1 = [1, 2, 0]
     D2 = [2, 0, 1]
 
-    grad_dlink = dlink.copy()
-    grad_dlink[...] = 0
+    grad_dlin_k = dlin_k.copy()
+    grad_dlin_k[...] = 0
 
     grad_source_x = grad_source.r2c_gradient()
 
@@ -157,7 +157,7 @@ def lpt2source_gradient(dlink, grad_source):
     # diagonal terms, forward
     phi_ii = []
     for d in range(3):
-        phi_ii_d = dlink.apply(laplace_kernel) \
+        phi_ii_d = dlin_k.apply(laplace_kernel) \
                      .apply(diff_kernel(d), out=Ellipsis) \
                      .apply(diff_kernel(d), out=Ellipsis) \
                      .c2r(out=Ellipsis)
@@ -168,17 +168,17 @@ def lpt2source_gradient(dlink, grad_source):
         # every component is used twice, with D1 and D2
         grad_phi_ii_d = grad_source_x.copy()
         grad_phi_ii_d[...] *= (phi_ii[D1[d]].value + phi_ii[D2[d]].value)
-        grad_dlink_d = grad_phi_ii_d.c2r_gradient(out=Ellipsis) \
+        grad_dlin_k_d = grad_phi_ii_d.c2r_gradient(out=Ellipsis) \
                          .apply(diff_kernel(d, conjugate=True), out=Ellipsis) \
                          .apply(diff_kernel(d, conjugate=True), out=Ellipsis) \
                          .apply(laplace_kernel, out=Ellipsis)
 
-        grad_dlink[...] += grad_dlink_d
+        grad_dlin_k[...] += grad_dlin_k_d
 
     # off diagonal terms
     for d in range(3):
         # forward
-        phi_ij_d = dlink.apply(laplace_kernel) \
+        phi_ij_d = dlin_k.apply(laplace_kernel) \
                  .apply(diff_kernel(D1[d]), out=Ellipsis) \
                  .apply(diff_kernel(D2[d]), out=Ellipsis) \
                  .c2r(out=Ellipsis)
@@ -186,13 +186,13 @@ def lpt2source_gradient(dlink, grad_source):
         # backward
         grad_phi_ij_d = phi_ij_d
         grad_phi_ij_d[...] *= -2 * grad_source_x[...]
-        grad_dlink_d = grad_phi_ij_d.c2r_gradient(out=Ellipsis) \
+        grad_dlin_k_d = grad_phi_ij_d.c2r_gradient(out=Ellipsis) \
                     .apply(diff_kernel(D2[d], conjugate=True), out=Ellipsis) \
                     .apply(diff_kernel(D1[d], conjugate=True), out=Ellipsis) \
                     .apply(laplace_kernel, out=Ellipsis)
-        grad_dlink[...] += grad_dlink_d
+        grad_dlin_k[...] += grad_dlin_k_d
 
-    return grad_dlink
+    return grad_dlin_k
 
 def kick(p1, f, dt, p2=None):
     if p2 is None:
