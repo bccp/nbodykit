@@ -54,14 +54,14 @@ class MeshSlab(object):
         Return the local shape of the mesh on this rank, as determined
         by the input coordinates array
         """
-        return [numpy.shape(self._coords[i])[i] for i in range(self.ndim)]
+        return tuple([numpy.shape(self._coords[i])[i] for i in range(self.ndim)])
     
     @property
     def shape(self):
         """
         Return the shape of the slab
         """
-        return [s for i, s in enumerate(self.meshshape) if i != self.axis]
+        return tuple([s for i, s in enumerate(self.meshshape) if i != self.axis])
 
     @property
     def hermitian_symmetric(self):
@@ -125,7 +125,7 @@ class MeshSlab(object):
         ----------
         los: array_like,
             the direction of the line-of-sight, which `mu` is defined
-            with respect to. must have a norm of 1.
+            with respect to; must have a norm of 1.
         
         Returns
         -------
@@ -216,6 +216,8 @@ def SlabIterator(coords, axis=0, symmetry_axis=None):
     """    
     # number of dimensions in the mesh
     ndim = len(coords)
+    if ndim != 3:
+        raise NotImplementedError("SlabIterator can only be used on 3D arrays")
         
     # account for negative axes
     if axis < 0: axis += ndim
