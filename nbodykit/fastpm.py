@@ -2,7 +2,7 @@ from __future__ import print_function
 import numpy
 import logging
 
-def za_transfer(delta, dir, out=None):
+def laplace_transfer(delta, out=None):
     if out is None:
         out = delta.copy()
 
@@ -10,15 +10,29 @@ def za_transfer(delta, dir, out=None):
                     delta.slabs.i, delta.slabs, out.slabs):
         kk = sum(ki ** 2 for ki in k)
         # set mask == False to 0
+        mask = kk == 0
+        kk[mask] = 1
+        b[...] = a / kk
+        b[mask] = 0
+
+    return out
+
+def diff_transfer(delta, dir, out=None):
+    if out is None:
+        out = delta.copy()
+
+    for k, i, a, b in zip(delta.slabs.x,
+                    delta.slabs.i, delta.slabs, out.slabs):
+        # set mask == False to 0
         mask = numpy.ones(a.shape, '?')
 
         for ii, n in zip(i, delta.Nmesh):
             # any nyquist modes are set to 0
             mask &=  ii != (n // 2)
-        mask[kk == 0] = False
-        kk[kk == 0] = 1
-        b[...] = mask * a * 1j * k[dir] / kk
+
+        b[...] = mask * a * 1j * k[dir]
     return out
+
 
 def create_grid(basepm, shift=0):
     """
@@ -58,7 +72,8 @@ def lpt1(dlink, q, method='cic'):
     source = numpy.zeros((delta_x.size, ndim), dtype='f4')
     for d in range(len(basepm.Nmesh)):
         delta_k[...] = dlink
-        za_transfer(delta_k, d, out=delta_k)
+        laplace_transfer(delta_k, out=delta_k)
+        diff_transfer(delta_k, d, out=delta_k)
         disp = delta_k.c2r(delta_k)
         local_disp = disp.readout(local_q, method=method)
         source[..., d] = layout.gather(local_disp)
@@ -90,7 +105,8 @@ def lpt1_gradient(dlink, q, grad_disp, method='cic'):
         # FIXME: allow changing this.
         # the force
         # -1 because 1j is conjugated
-        grad_delta_d_k = za_transfer(grad_disp_d_k, d, out=grad_disp_d_k)
+        grad_delta_d_k = laplace_transfer(grad_disp_d_k, out=grad_disp_d_k)
+        grad_delta_d_k = diff_transfer(grad_disp_d_k, d, out=grad_disp_d_k)
         grad_delta_d_k.value[...] *= -1
 
         grad.value[...] += grad_delta_d_k.value
@@ -102,6 +118,11 @@ def lpt1_gradient(dlink, q, grad_disp, method='cic'):
 
     return grad
 
+def lpt2source(dlink, q, method='cic'):
+    """ Generate the second order LPT source term.
+    """
+    for d in range(3):
+        dlink, 
 def kick(p1, f, dt, p2=None):
     if p2 is None:
         p2 = numpy.empty_like(p1)
@@ -136,7 +157,8 @@ def gravity(x, pm, factor, f=None):
         f = numpy.empty_like(x)
 
     for d in range(field.ndim):
-        force_k = za_transfer(deltak, d)
+        force_k = laplace_transfer(deltak)
+        force_k = diff_transfer(force_k, d, out=force_k)
         force_k[...] *= factor
         force = force_k.c2r(out=force_k)
         force.readout(x, layout=layout, out=f[..., d])
@@ -155,13 +177,15 @@ def gravity_gradient(x, pm, factor, grad_f, out_x=None):
     grad_deltak[...] = 0
 
     for d in range(x.shape[1]):
-        force_k = za_transfer(deltak, d)
+        force_k = laplace_transfer(deltak)
+        force_k = diff_transfer(force_k, d, out=force_k)
         force_k[...] *= factor
         force = force_k.c2r(out=force_k)
         grad_force_d, grad_x_d = force.readout_gradient(
             x, btgrad=grad_f[:, d], layout=layout)
         grad_force_d_k = grad_force_d.c2r_gradient(out=grad_force_d)
-        grad_deltak_d = za_transfer(grad_force_d_k, d)
+        grad_deltak_d = laplace_transfer(grad_force_d_k)
+        grad_deltak_d = diff_transfer(grad_force_d_k, d, out=grad_deltak_d)
         grad_deltak_d[...] *= -1 * factor
         grad_deltak[...] += grad_deltak_d
         out_x[...] += grad_x_d
