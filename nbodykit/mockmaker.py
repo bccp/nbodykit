@@ -88,33 +88,38 @@ def gaussian_complex_fields(pm, linear_power, seed, remove_variance=False, compu
     # volume factor needed for normalization
     norm = 1.0 / pm.BoxSize.prod()
     
+    # iterate in slabs over fields
+    slabs = [delta_k.slabs.x, delta_k.slabs]
+    if compute_displacement: 
+        slabs += [d.slabs for d in disp_k]
+    
     # loop over the mesh, slab by slab
-    for slab in SlabIterator(pm.k, axis=0):
+    for islabs in zip(*slabs):
+        kslab, delta_slab = islabs[:2] # the k arrays and delta slab
         
         # the square of the norm of k on the mesh
-        kslab = slab.norm2()
+        k2 = sum(kk**2 for kk in kslab)
     
         # the linear power (function of k)
-        power = linear_power((kslab**0.5).flatten())
+        power = linear_power((k2**0.5).flatten())
             
         # multiply complex field by sqrt of power
-        delta_k[slab.index].flat *= (power*norm)**0.5
+        delta_slab[...].flat *= (power*norm)**0.5
         
-        # set k == 0 to zero (zero x-space mean)
-        zero_idx = kslab == 0. 
-        delta_k[slab.index][zero_idx] = 0.
+        # set k == 0 to zero (zero config-space mean)
+        zero_idx = k2 == 0. 
+        delta_slab[zero_idx] = 0.
         
         # compute the displacement
         if compute_displacement:
+            
+            # ignore division where k==0 and set to 0
             with numpy.errstate(invalid='ignore'):
-                this_delta = delta_k[slab.index]
-                for d in range(delta_k.ndim):
-                    disp_k[d][slab.index] *= slab.coords(d) / kslab * this_delta
-
-            # no bulk displacement
-            for i in range(delta_k.ndim):
-                disp_k[i][slab.index][zero_idx] = 0.
-
+                for i in range(delta_k.ndim):                    
+                    disp_slab = islabs[2+i]
+                    disp_slab[...] *= kslab[i] / k2 * delta_slab[...]
+                    disp_slab[zero_idx] = 0. # no bulk displacement
+                    
     # return Fourier-space density and displacement (which could be None)
     return delta_k, disp_k
     
@@ -303,8 +308,8 @@ def poisson_sample_to_points(delta, displacement, pm, nbar, f=0., bias=1., seed=
     
     # initialize the output array of particle positions and velocity
     # this has shape: (local number of particles, number of dimensions)
-    pos = numpy.empty((Nlocal, delta.ndim), dtype=delta.dtype)
-    vel = numpy.empty_like(pos)
+    pos = numpy.zeros((Nlocal, delta.ndim), dtype=delta.dtype)
+    vel = numpy.zeros_like(pos)
     
     # coordinates of each object (placed randomly in each cell)
     for i in range(delta.ndim):
@@ -313,7 +318,7 @@ def poisson_sample_to_points(delta, displacement, pm, nbar, f=0., bias=1., seed=
 
     # velocities of each object
     for i in range(delta.ndim):
-        vel[:,i] *= (1. + f)
+        vel_mesh[i] *= (1. + f) # scale to redshift with extra factor of f
         vel[:,i] = numpy.repeat(vel_mesh[i], N[nonzero_cells])
 
     return pos, vel
