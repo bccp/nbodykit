@@ -21,10 +21,11 @@ class MeshSlab(object):
         symmetry_axis : int, optional
             if provided, the axis that has been compressed due to Hermitian symmetry
         """
-        self._index       = islab
-        self.axis        = axis
+        self.ndim          = len(coords)
+        self._index        = islab
+        self.axis          = axis
         self.symmetry_axis = symmetry_axis
-        self._coords     = coords
+        self._coords       = coords
         
         # make sure symmetry_axis > 0 (sanity check)
         if self.hermitian_symmetric and self.symmetry_axis < 0:
@@ -43,7 +44,7 @@ class MeshSlab(object):
         Return an indexing list appropriate for selecting the slicing the 
         appropriate slab out of a full 3D array of shape (Nx, Ny, Nz)
         """
-        toret = [slice(None), slice(None), slice(None)]
+        toret = [slice(None)]*self.ndim
         toret[self.axis] = self._index
         return toret
         
@@ -53,14 +54,14 @@ class MeshSlab(object):
         Return the local shape of the mesh on this rank, as determined
         by the input coordinates array
         """
-        return [numpy.shape(self._coords[i])[i] for i in [0, 1, 2]]
+        return tuple([numpy.shape(self._coords[i])[i] for i in range(self.ndim)])
     
     @property
     def shape(self):
         """
         Return the shape of the slab
         """
-        return [s for i, s in enumerate(self.meshshape) if i != self.axis]
+        return tuple([s for i, s in enumerate(self.meshshape) if i != self.axis])
 
     @property
     def hermitian_symmetric(self):
@@ -91,6 +92,9 @@ class MeshSlab(object):
             the coordinate array for dimension `i` on the slab; see the 
             note about the shape of the return array for details
         """
+        if i < 0: i += self.ndim
+        assert 0 <= i < self.ndim, "i should be between 0 and %d" %self.ndim
+        
         if i != self.axis:
             return numpy.take(self._coords[i], 0, axis=self.axis)
         else:
@@ -109,7 +113,7 @@ class MeshSlab(object):
         array_like, (slab.shape)
             the square of coordinate mesh at each point in the slab
         """
-        return self.coords(0)**2 + self.coords(1)**2 + self.coords(2)**2
+        return sum(self.coords(i)**2 for i in range(self.ndim))
 
     def mu(self, los):
         """
@@ -121,7 +125,7 @@ class MeshSlab(object):
         ----------
         los: array_like,
             the direction of the line-of-sight, which `mu` is defined
-            with respect to. must have a norm of 1.
+            with respect to; must have a norm of 1.
         
         Returns
         -------
@@ -129,7 +133,7 @@ class MeshSlab(object):
             the `mu` value at each point in the slab
         """
         with numpy.errstate(invalid='ignore'):            
-            return sum(self.coords(i) * los[i] for i in range(3)) / self.norm2()**0.5
+            return sum(self.coords(i) * los[i] for i in range(self.ndim)) / self.norm2()**0.5
 
     @property
     def nonsingular(self):
@@ -209,20 +213,26 @@ def SlabIterator(coords, axis=0, symmetry_axis=None):
         the index of the mesh axis to iterate over
     symmetry_axis : int, optional
         if provided, the axis that has been compressed due to Hermitian symmetry
-    """        
+    """    
+    # number of dimensions in the mesh
+    ndim = len(coords)
+    if ndim != 3:
+        raise NotImplementedError("SlabIterator can only be used on 3D arrays")
+        
     # account for negative axes
-    if axis < 0: axis += 3
-    if symmetry_axis is not None and symmetry_axis < 0: symmetry_axis += 3
+    if axis < 0: axis += ndim
+    assert 0 <= axis < ndim, "axis should be between 0 and %d" %ndim
+    if symmetry_axis is not None and symmetry_axis < 0: symmetry_axis += ndim
     
     # this will only work if shapes are: [(Nx, 1, 1), (1, Ny, 1), (1, 1, Nz)]
     # mainly a sanity check to make sure things work
     shapes = [numpy.shape(x) for x in coords]
-    if shapes[0][1] != 1 or shapes[0][2] != 1:
-        raise ValueError("1st coordinate array should have shape (Nx, 1, 1)")
-    if shapes[1][0] != 1 or shapes[1][2] != 1:
-        raise ValueError("2nd coordinate array should have shape (1, Ny, 1)")
-    if shapes[2][0] != 1 or shapes[2][1] != 1:
-        raise ValueError("3rd coordinate array should have shape (1, 1, Nz)")
+    mesh_size = [shape[i] for i, shape in enumerate(shapes)]
+    for i in range(ndim):
+        desired_shape = numpy.ones(ndim)
+        desired_shape[i] = mesh_size[i]
+        if shapes[i] != tuple(desired_shape):
+            raise ValueError("coordinate array shape mismatch")
     
     # iterate over the specified axis, slab by slab
     N = numpy.shape(coords[axis])[axis]
