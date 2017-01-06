@@ -244,8 +244,78 @@ def test_gravity(comm):
         yr = objective(x1r, pm)
         # Watchout : (yr - yl) / (yr + yl) must be large enough for numerical
         # to be accurate
-        print ind1, yl, yr, grad * diff * 2, yr - yl, yr - yl - grad *diff*2, dx11
+        print(ind1, yl, yr, grad * diff * 2, yr - yl, yr - yl - grad *diff*2, dx11)
         num.append(yr - yl)
         ana.append(grad * 2 * diff)
     print('max difference is', numpy.abs(numpy.subtract(num, ana)).max())
     assert_allclose(num, ana, rtol=1e-5, atol=1e-7)
+
+@MPITest([1])
+def test_vm(comm):
+    from nbodykit import fastpm
+    from pmesh.pm import ParticleMesh
+    pm = ParticleMesh(BoxSize=32.0, Nmesh=(4,4), comm=comm, dtype='f4')
+    vm = fastpm.Solver(pm)
+    dlink = pm.generate_whitenoise(12345, mode='complex', unitary=True)
+
+    def kernel(k, v):
+        kk = sum(ki ** 2 for ki in k)
+        ka = kk ** 0.5
+        p = (ka / 0.1) ** -2 * 1e4 * (pm.Nmesh / pm.BoxSize).prod()
+        p[ka == 0] = 0
+        v = v * p ** 0.5
+        return v
+
+    dlink.apply(kernel, out=Ellipsis)
+
+    vm.push('InitialCondition')
+    vm.push('Perturb', 0.10, 1.0, 0.0, 0.0)
+    vm.push('Force')
+    vm.push('Kick', 0.1)
+    vm.push('Drift', 0.05)
+    vm.push('Drift', 0.005)
+    vm.push('Force')
+    vm.push('Kick', 0.01)
+    vm.push('Drift', 0.01)
+    vm.push('Force')
+    vm.push('Drift', 0.1)
+    vm.push('Kick', 0.01)
+    vm.push('Kick', 0.01)
+
+    def objective(dlink, vm):
+        q, s, p = vm.compute(dlink)
+        #print s.std(axis=0)
+    #    print p.std(axis=0)
+        return comm.allreduce((s**2).sum(dtype='f8'))
+        return comm.allreduce((p**2).sum(dtype='f8'))
+
+    def gradient(dlink, vm):
+        tape = []
+        q, s, p = vm.compute(dlink, tape=tape)
+        grad_s = 2 * s
+        grad_p = 2 * p
+        return vm.gradient(grad_s=grad_s, grad_p=vm.Zero, tape=tape)
+        return vm.gradient(grad_s=0, grad_p=grad_p, tape=tape)
+
+    y0 = objective(dlink, vm)
+    yprime = gradient(dlink, vm)
+
+    num = []
+    ana = []
+    print('------')
+    for ind1 in numpy.ndindex(*(list(dlink.cshape) + [2])):
+        dlinkl = dlink.copy()
+        dlinkr = dlink.copy()
+        old = dlink.cgetitem(ind1)
+        left = dlinkl.csetitem(ind1, old - old * 1e-3)
+        right = dlinkr.csetitem(ind1,old + old * 1e-3)
+        diff = right - left
+        yl = objective(dlinkl, vm)
+        yr = objective(dlinkr, vm)
+        grad = yprime.cgetitem(ind1)
+        print(ind1, yl, yr, grad * diff, yr - yl)
+        ana.append(grad * diff)
+        num.append(yr - yl)
+    print('------')
+
+    assert_allclose(num, ana, rtol=1e-3)
