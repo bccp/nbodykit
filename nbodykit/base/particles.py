@@ -217,6 +217,7 @@ class ParticleSource(object):
             r = self._fallbacks[col]
         else:
             raise KeyError("column `%s` is not defined in this source" % col)
+        if callable(r): r = r()
         if not hasattr(r, 'attrs'):
             r.attrs = {}
         return r
