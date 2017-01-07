@@ -186,7 +186,7 @@ class ParticleMeshSource(MeshSource, ParticleSource):
     def actions(self):
         actions = MeshSource.actions.fget(self)
         if self.compensated:
-            return self._get_compensation() + actions
+            actions.extend(self._get_compensation())
         return actions
 
     def _get_compensation(self):
