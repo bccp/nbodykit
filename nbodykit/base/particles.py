@@ -52,6 +52,10 @@ class ParticleSource(object):
 
         self.comm = comm
 
+        # initial dicts of overrided and fallback columns
+        self._overrides = {}
+        self._fallbacks = {}
+        
         # if size is already computed update csize
         # otherwise the subclass shall call update_csize explicitly.
         if self.size is not NotImplemented:
