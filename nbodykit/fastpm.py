@@ -26,7 +26,7 @@ def diff_kernel(dir, conjugate=False):
         return (mask * v) * (factor * k[dir])
     return kernel
 
-def create_grid(basepm, shift=0):
+def create_grid(basepm, shift=0, dtype='f4'):
     """
         create uniform grid of particles, one per grid point on the basepm mesh
 
@@ -37,7 +37,7 @@ def create_grid(basepm, shift=0):
     _shift = numpy.zeros(ndim, 'f8')
     _shift[:] = shift
     # one particle per base mesh point
-    source = numpy.zeros((real.size, ndim), dtype='f4')
+    source = numpy.zeros((real.size, ndim), dtype=dtype)
 
     for d in range(len(real.shape)):
         real[...] = 0
@@ -48,7 +48,7 @@ def create_grid(basepm, shift=0):
 
 def lpt1(dlin_k, q, method='cic'):
     """ Run first order LPT on linear density field, returns displacements of particles
-        reading out at q.
+        reading out at q. The result has the same dtype as q.
     """
     basepm = dlin_k.pm
 
@@ -61,7 +61,7 @@ def lpt1(dlin_k, q, method='cic'):
     layout = basepm.decompose(q)
     local_q = layout.exchange(q)
 
-    source = numpy.zeros((delta_x.size, ndim), dtype='f4')
+    source = numpy.zeros((delta_x.size, ndim), dtype=q.dtype)
     for d in range(len(basepm.Nmesh)):
         disp = dlin_k.apply(laplace_kernel) \
                     .apply(diff_kernel(d), out=Ellipsis) \
@@ -283,21 +283,52 @@ class Solver(VM):
         self.pm = pm
         VM.__init__(self)
 
-    def compute(self, dlin_k, tape=None):
-        fout = ['q', 's', 'p']
-        init = {'i': dlin_k}
-        r = VM.compute(self, fout, init, tape)
-        return r['q'], r['s'], r['p']
+    def push_kdk(self, pt, astart, aend, Nsteps):
+        self.push('Initialize')
+        self.push('Displace', pt.D1(astart), 
+                              pt.f1(astart) * pt.D1(astart) * astart ** 2 * pt.E(astart),
+                              pt.D2(astart),
+                              pt.f2(astart) * pt.D2(astart) * astart ** 2 * pt.E(astart),
+                 )
+        self.push('Force', -1.5 * pt.Om0)
+        #self.push('Displace', pt.D1(aend), pt.f1(aend), pt.D2(aend), pt.f2(aend))
 
-    def gradient(self, grad_s, grad_p, tape=None):
+        a = numpy.linspace(astart, aend, Nsteps + 1, endpoint=True)
+        def K(ai, af, ar):
+            return 1 / (ar ** 2 * pt.E(ar)) * (pt.Gf(af) - pt.Gf(ai)) / pt.gf(ar)
+        def D(ai, af, ar):
+            return 1 / (ar ** 3 * pt.E(ar)) * (pt.Gp(af) - pt.Gp(ai)) / pt.gp(ar)
+
+        #self.push('Drift', 2.0)
+
+        for ai, af in zip(a[:-1], a[1:]):
+            ac = (ai * af) ** 0.5
+
+            self.push('Kick', K(ai, ac, ai))
+            self.push('Drift', D(ai, ac, ac))
+            self.push('Drift', D(ac, af, ac))
+            self.push('Drift', D(ac, af, ac))
+            self.push('Force', -1.5 * pt.Om0)
+            self.push('Kick', K(ac, af, af))
+
+        self.push('Paint')
+
+    def compute(self, dlin_k, tape=None, monitor=None):
+        fout = ['r']
+        init = {'i': dlin_k}
+        r = VM.compute(self, fout, init, tape, monitor)
+        return r['r']
+
+    def gradient(self, grad_r, tape, monitor=None):
         gout = ['^i']
-        ginit = {'^s' : grad_s, '^p' : grad_p}
-        r = VM.gradient(self, gout, ginit, tape)
+        ginit = {'^r' : grad_r}
+        r = VM.gradient(self, gout, ginit, tape, monitor)
         return r['^i']
 
     @VM.microcode(lout=['q'])
     def Initialize(self, frontier):
-        q = create_grid(frontier['i'].pm)
+        # use the float resolution of the PM
+        q = create_grid(frontier['i'].pm, dtype=frontier['i'].real.dtype)
         frontier['q'] = q
 
     @Initialize.grad
@@ -311,7 +342,6 @@ class Solver(VM):
         dx1 = lpt1(dlin_k, q)
         source = lpt2source(dlin_k)
         dx2 = lpt1(source, q)
-
         frontier['s'] = D1 * dx1 + D2 * dx2
         frontier['p'] = v1 * dx1 + v2 * dx2
 
@@ -335,19 +365,39 @@ class Solver(VM):
         frontier['^i'] = gradient
 
     @VM.microcode(fout=['f'], fin=['s'])
-    def Force(self, frontier):
+    def Force(self, frontier, factor):
         density_factor = self.pm.Nmesh.prod() / self.pm.comm.allreduce(len(frontier['q']))
         x = frontier['s'] + frontier['q']
-        frontier['f'] = gravity(x, self.pm, factor=density_factor, f=None)
+        frontier['f'] = gravity(x, self.pm, factor=density_factor * factor, f=None)
 
     @Force.grad
-    def GradientForce(self, frontier):
+    def GradientForce(self, frontier, factor):
         if frontier['^f'] is VM.Zero:
             frontier['^s'] = VM.Zero
         else:
             density_factor = self.pm.Nmesh.prod() / self.pm.comm.allreduce(len(frontier['q']))
             x = frontier['s'] + frontier['q']
-            frontier['^s'] = gravity_gradient(x, self.pm, density_factor, frontier['^f'])
+            frontier['^s'] = gravity_gradient(x, self.pm, density_factor * factor, frontier['^f'])
+
+
+    @VM.microcode(fout=['r'], fin=['s'])
+    def Paint(self, frontier):
+        x = frontier['s'] + frontier['q']
+        dlink = frontier['i']
+        real = dlink.pm.create(mode='real')
+        layout = dlink.pm.decompose(x)
+        real.paint(x, layout=layout, hold=False)
+        frontier['r'] = real
+
+    @Paint.grad
+    def GradientPaint(self, frontier):
+        btgrad = frontier['^r']
+        if btgrad is VM.Zero:
+            frontier['^s'] = VM.Zero
+        else:
+            x = frontier['s'] + frontier['q']
+            layout = btgrad.pm.decompose(x)
+            frontier['^s'], junk = btgrad.paint_gradient(x, layout=layout, out_mass=False)
 
     @VM.microcode(fout=['p'], fin=['f', 'p'])
     def Kick(self, frontier, dda):

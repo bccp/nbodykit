@@ -1,8 +1,8 @@
+from __future__ import print_function
 from nbodykit.lab import *
 from nbodykit import setup_logging
 from mpi4py_test import MPITest
 from numpy.testing import assert_allclose
-
 import dask
 dask.set_options(get=dask.get)
 
@@ -250,52 +250,41 @@ def test_gravity(comm):
     print('max difference is', numpy.abs(numpy.subtract(num, ana)).max())
     assert_allclose(num, ana, rtol=1e-5, atol=1e-7)
 
-@MPITest([1])
+@MPITest([1, 4])
 def test_vm(comm):
     from nbodykit import fastpm
+    from nbodykit.cosmology import PerturbationGrowth
+    from nbodykit.cosmology import Cosmology
     from pmesh.pm import ParticleMesh
-    pm = ParticleMesh(BoxSize=32.0, Nmesh=(4,4), comm=comm, dtype='f4')
+
+    pt = PerturbationGrowth(Cosmology(Om0=0.3, Tcmb0=0))
+
+    pm = ParticleMesh(BoxSize=128.0, Nmesh=(8,8,8), comm=comm, dtype='f8')
     vm = fastpm.Solver(pm)
     dlink = pm.generate_whitenoise(12345, mode='complex', unitary=True)
+    power = dlink.copy()
 
     def kernel(k, v):
         kk = sum(ki ** 2 for ki in k)
         ka = kk ** 0.5
-        p = (ka / 0.1) ** -2 * 1e4 * (pm.Nmesh / pm.BoxSize).prod()
+        p = (ka / 0.1) ** -2 * .4e4 * (1.0 / pm.BoxSize).prod()
         p[ka == 0] = 0
-        v = v * p ** 0.5
-        return v
+        return p ** 0.5 + p ** 0.5 * 1j
 
-    dlink.apply(kernel, out=Ellipsis)
+    power.apply(kernel, out=Ellipsis)
+    dlink[...] *= power.real
 
-    vm.push('Initialize')
-    vm.push('Displace', 0.1, 1.0, 0, 0)
-    vm.push('Force')
-    vm.push('Kick', 0.1)
-    vm.push('Drift', 0.05)
-    vm.push('Drift', 0.005)
-    vm.push('Force')
-    vm.push('Kick', 0.01)
-    vm.push('Drift', 0.01)
-    vm.push('Force')
-    vm.push('Drift', 0.1)
-    vm.push('Kick', 0.01)
-    vm.push('Kick', 0.01)
+    vm.push_kdk(pt, 0.1, 1.0, 5)
 
     def objective(dlink, vm):
-        q, s, p = vm.compute(dlink)
-        #print s.std(axis=0)
-    #    print p.std(axis=0)
-        return comm.allreduce((s**2).sum(dtype='f8'))
-        return comm.allreduce((p**2).sum(dtype='f8'))
+        r = vm.compute(dlink, monitor=None)
+        return comm.allreduce((r[...]**2).sum(dtype='f8'))
 
     def gradient(dlink, vm):
         tape = []
-        q, s, p = vm.compute(dlink, tape=tape)
-        grad_s = 2 * s
-        grad_p = 2 * p
-        return vm.gradient(grad_s=grad_s, grad_p=vm.Zero, tape=tape)
-        return vm.gradient(grad_s=0, grad_p=grad_p, tape=tape)
+        r = vm.compute(dlink, tape=tape, monitor=print)
+        grad_r = r.apply(lambda x, v: v * 2)
+        return vm.gradient(grad_r=grad_r, tape=tape, monitor=print)
 
     y0 = objective(dlink, vm)
     yprime = gradient(dlink, vm)
@@ -307,13 +296,14 @@ def test_vm(comm):
         dlinkl = dlink.copy()
         dlinkr = dlink.copy()
         old = dlink.cgetitem(ind1)
-        left = dlinkl.csetitem(ind1, old - old * 1e-3)
-        right = dlinkr.csetitem(ind1,old + old * 1e-3)
+        pert = power.cgetitem(ind1) * 1e-5
+        left = dlinkl.csetitem(ind1, old - pert)
+        right = dlinkr.csetitem(ind1, old + pert)
         diff = right - left
         yl = objective(dlinkl, vm)
         yr = objective(dlinkr, vm)
         grad = yprime.cgetitem(ind1)
-        print(ind1, yl, yr, grad * diff, yr - yl)
+        print(ind1, old, pert, yl, yr, grad * diff, yr - yl)
         ana.append(grad * diff)
         num.append(yr - yl)
     print('------')

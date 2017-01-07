@@ -34,27 +34,35 @@ class PerturbationGrowth(object):
     def f2(self, a):
         return self.D2(a, order=1) / self.D2(a, order=0)
     
-    def Gp(self, a, order=0):
+    def Gp(self, a):
         """ FastPM growth factor function, eq, 19;
-            notice the derivative is against ln a, so 
-            gp = Gp(a, order=1) / a
         """
-        return self.D1(a, order)
+        return self.D1(a)
 
-    def Gf(self, a, order=0):
+    def gp(self, a):
+        """
+            Notice the derivative of D1 is against ln a but gp is d D1 / da, so
+            gp = D1(a, order=1) / a
+        """
+        return self.D1(a, order=1) / a
+
+    def Gf(self, a):
         """ FastPM growth factor function, eq, 20
-            Similarly, the derivative is against ln a, so
+        """
 
+        return self.D1(a, 1) * a ** 2 * self.E(a)
+
+    def gf(self, a):
+        """
+            Similarly, the derivative is against ln a, so
             gf = Gf(a, order=1) / a
         """
-
-        if order == 0:
-            return self.D1(a, 1) * a ** 2 * self.E(a)
-        if order == 1:
-            return self.D1(a, 2) * a ** 2 * self.E(a) \
-                +  self.D1(a, 1) * (
-                        a ** 2 * self.E(a, order=1)
-                    +   2 * a ** 2 * self.E(a))
+        return 1 / a * (
+            self.D1(a, 2) * a ** 2 * self.E(a) \
+            +  self.D1(a, 1) * (
+                    a ** 2 * self.E(a, order=1)
+                +   2 * a ** 2 * self.E(a))
+            )
 
     def E(self, a, order=0):
         if order == 0:
