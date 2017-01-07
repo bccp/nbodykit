@@ -16,24 +16,25 @@ class ParticleMeshSource(MeshSource, ParticleSource):
         return "(%s as ParticleMeshSource)" % repr(self.source)
 
     # intended to be used by ParticleSource internally
-    def __init__(self, source, BoxSize, Nmesh, dtype, weight, selection):
+    def __init__(self, source, BoxSize, Nmesh, dtype, weight, selection, position='Position'):
         # ensure self.comm is set, though usually already set by the child.
         self.comm = source.comm
 
-        self.source = source
+        self.source    = source
+        self.position  = position
         self.selection = selection
-        self.weight = weight
+        self.weight    = weight
 
         self.attrs.update(source.attrs)
 
         # this will override BoxSize and Nmesh carried from the source, if there is any!
-
         MeshSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype=dtype, comm=source.comm)
         ParticleSource.__init__(self, comm=source.comm)
         
         # copy over the overrides
         self._overrides.update(self.source._overrides)
         
+        self.attrs['position'] = self.position
         self.attrs['selection'] = self.selection
         self.attrs['weight'] = self.weight
         self.attrs['compensated'] = True
@@ -87,6 +88,10 @@ class ParticleMeshSource(MeshSource, ParticleSource):
         real : pmesh.pm.RealField
             the painted real field
         """
+        # check for 'Position' column
+        if self.position not in self:
+            raise ValueError("in order to paint a ParticleSource to a RealField, add a " + \
+                              "column named '%s', representing the particle positions" %self.position)
         pm = self.pm
 
         Nlocal = 0 # number of particles read on local rank
@@ -116,6 +121,8 @@ class ParticleMeshSource(MeshSource, ParticleSource):
             s = slice(i, i + chunksize)
 
             if len(Position) != 0:
+                
+                # be sure to use the source to compute
                 position, weight, selection = self.source.compute(Position[s], Weight[s], Selection[s])
             else:
                 # workaround a potential dask issue on empty dask arrays
@@ -226,7 +233,7 @@ def CompensateCIC(w, v):
     
     References
     ----------
-    see equation 18 (with p=3) of Jing et al 2005 (arxiv:0409240)
+    see equation 18 (with p=2) of Jing et al 2005 (arxiv:0409240)
     """     
     for i in range(3):
         wi = w[i]
