@@ -44,7 +44,10 @@ class ParticleSource(object):
     def make_column(array):
         """ convert a numpy array to a column object (dask.array.Array) """
         import dask.array as da
-        return da.from_array(array, chunks=getattr(array, 'chunks', 100000))
+        if isinstance(array, da.Array):
+            return array
+        else:
+            return da.from_array(array, chunks=100000)
 
     # called by the subclasses
     def __init__(self, comm):
