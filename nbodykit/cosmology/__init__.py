@@ -1,4 +1,6 @@
 from .core import Cosmology
+from .perturbation import PerturbationGrowth
+
 from .ehpower import LinearPowerBase, EHPower, NoWiggleEHPower
 
 # override these with Cosmology classes below

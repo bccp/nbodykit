@@ -388,3 +388,6 @@ class Solver(VM):
             frontier['^s'], frontier['^p'] = VM.Zero, VM.Zero
         else:
             frontier['^s'], frontier['^p'] = drift_gradient(frontier['s'], frontier['p'], dyyy, frontier['^s'])
+
+
+

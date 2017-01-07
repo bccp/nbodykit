@@ -3,6 +3,7 @@ from __future__ import print_function
 import numpy
 import logging
 from nbodykit.base.particles import ParticleSource, column
+from nbodykit.cosmology import PerturbationGrowth
 
 from mpi4py import MPI
 import warnings
@@ -23,6 +24,7 @@ class LPTParticles(ParticleSource):
 
         cosmo = removeradiation(cosmo)
         self.cosmo = cosmo
+        self.pt = PerturbationGrowth(cosmo)
 
         if hasattr(dlink, 'attrs'):
             self.attrs.update(dlink.attrs)
@@ -52,16 +54,19 @@ class LPTParticles(ParticleSource):
         self.redshift = redshift
         # now deal with generated sources
         cosmo = self.cosmo
+        a = 1 / (1. + redshift)
 
-        self.D1, self.f1, self.D2, self.f2 = cosmo.lptode(z=redshift)
+        self.D1 = self.pt.D1(a)
+        self.f1 = self.pt.f1(a)
+        self.D2 = self.pt.D2(a)
+        self.f2 = self.pt.f2(a)
 
         if self.attrs['order'] == 1:
             self.D2 = 0
             self.f2 = 0
 
-        self.a = 1 / (redshift + 1.)
-        self.E = cosmo.efunc(z=redshift)
-
+        self.a = a
+        self.E = self.pt.E(a)
 
     @staticmethod
     def gradient(dlink, self):
