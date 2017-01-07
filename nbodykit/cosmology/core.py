@@ -28,21 +28,27 @@ class fittable(object):
 
         """
         from scipy import interpolate
-
+        from astropy.units import Quantity
+        
         if isiterable(bins):
             bin_edges = np.asarray(bins)
         else:
             assert len(range) == 2
             bin_edges = np.linspace(range[0], range[1], bins + 1, endpoint=True)
 
-        y = []
-        for x in bin_edges:
-            d = {}
-            d.update(kwargs)
-            d[argname] = x
-            y.append(self.__call__(**d))
+        # evaluate at binned points
+        d = {}
+        d.update(kwargs)
+        d[argname] = bin_edges
+        y = self.__call__(**d)
 
-        return interpolate.InterpolatedUnivariateSpline(bin_edges, y)
+        # preserve the return value of astropy functions by attaching
+        # the right units to the splined result
+        spl = interpolate.InterpolatedUnivariateSpline(bin_edges, y)
+        if isinstance(y, Quantity):
+            return lambda x: Quantity(spl(x), y.unit)
+        else:
+            return spl
 
 def vectorize_if_needed(func, *x):
     """Helper function to vectorize functions on array inputs; borrowed from :mod:`astropy.cosmology.core`"""
@@ -184,9 +190,19 @@ class Cosmology(dict):
         """
         Try to return attributes from the underlying astropy engine, and then
         provide access to the dict keys
+        
+        Notes
+        -----
+        For callable attributes part of the astropy engine's public API (i.e., 
+        functions that do not begin with a '_'), the function will be decorated
+        with the :class:`fittable` class 
         """
         try:
-            return getattr(self.engine, key)
+            toret = getattr(self.engine, key)
+            # if a callable function part of public API of the "engine", make it fittable
+            if callable(toret) and not key.startswith('_'):
+                toret = fittable(toret.__func__, instance=self)
+            return toret
         except AttributeError:
             return self[key]
         
