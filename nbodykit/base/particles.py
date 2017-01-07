@@ -4,6 +4,9 @@ from nbodykit.transform import ConstantArray
 import abc
 import numpy
 import logging
+import warnings
+
+CACHE_SIZE = 1e9
 
 def column(name=None):
     def decorator(getter):
@@ -51,11 +54,14 @@ class ParticleSource(object):
             return da.from_array(array, chunks=100000)
 
     # called by the subclasses
-    def __init__(self, comm):
+    def __init__(self, comm, cache=False):
+        
         # ensure self.comm is set, though usually already set by the child.
-
         self.comm = comm
 
+        # initialize a cache
+        self.cache = cache
+        
         # initial dicts of overrided and fallback columns
         self._overrides = {}
         self._fallbacks = {}
@@ -65,8 +71,24 @@ class ParticleSource(object):
         if self.size is not NotImplemented:
             self.update_csize()
 
-        self._overrides = {}
-
+    @property
+    def cache(self):
+        return self._use_cache
+        
+    @cache.setter
+    def cache(self, val):
+        if val:
+            try:
+                from dask.cache import Cache
+                if not hasattr(self, '_cache'):
+                    self._cache = Cache(CACHE_SIZE)
+            except ImportError:
+                warnings.warn("caching of ParticleSource requires ``cachey`` module; turning cache off")
+        else:
+            if hasattr(self, '_cache'):
+                delattr(self, '_cache')
+        self._use_cache = val
+                
     def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4',
             interlaced=False, compensated=False, window='cic',
             weight='Weight', selection='Selection'
@@ -126,9 +148,8 @@ class ParticleSource(object):
         except AttributeError:
             self._attrs = {}
             return self._attrs
-
-    @staticmethod
-    def compute(*args, **kwargs):
+            
+    def compute(self, *args, **kwargs):
         """
         Our version of :func:`dask.compute` that computes
         multiple delayed dask collections at once
@@ -154,7 +175,12 @@ class ParticleSource(object):
         
         # XXX find a better place for this function
         kwargs.setdefault('optimize_graph', False)
-        return dask.compute(*args, **kwargs)
+        
+        if self.cache:
+            with self._cache:
+                return dask.compute(*args, **kwargs)
+        else:
+            return dask.compute(*args, **kwargs)
 
     def __len__(self):
         """
