@@ -268,8 +268,8 @@ def test_vm(comm):
 
     dlink.apply(kernel, out=Ellipsis)
 
-    vm.push('InitialCondition')
-    vm.push('Perturb', 0.10, 1.0, 0.0, 0.0)
+    vm.push('Initialize')
+    vm.push('Displace', 0.1, 1.0, 0, 0)
     vm.push('Force')
     vm.push('Kick', 0.1)
     vm.push('Drift', 0.05)
