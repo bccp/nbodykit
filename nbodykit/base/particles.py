@@ -1,4 +1,5 @@
 from nbodykit.extern.six import add_metaclass
+from nbodykit.transform import ConstantArray
 
 import abc
 import numpy
@@ -111,12 +112,9 @@ class ParticleSource(object):
             self.logger.debug("rank 0, local number of particles = %d" % self.size)
             self.logger.info("total number of particles = %d" % self.csize)
 
-        import dask.array as da
-
-        self._fallbacks = {
-                'Selection': da.ones(self.size, dtype='?', chunks=100000),
-                   'Weight': da.ones(self.size, dtype='?', chunks=100000),
-                          }
+        # defaults (these save memory by using ConstantArray)
+        self._fallbacks['Selection'] = ConstantArray(True, self.size, chunks=100000)
+        self._fallbacks['Weight']    = ConstantArray(1.0, self.size, chunks=100000)
 
     @property
     def attrs(self):
@@ -255,8 +253,15 @@ class ParticleSource(object):
                             bb.attrs[key] = c.attrs[key]
 
     def __setitem__(self, col, value):
-        import dask.array as da
-        assert len(value) == self.size
+
+        # handle scalar values
+        if numpy.isscalar(value):
+            assert self.size is not NotImplemented, "size is not implemented! cannot set scalar array"
+            value = ConstantArray(value, self.size, chunks=100000)
+        
+        # check the correct size, if we know the size
+        if self.size is not NotImplemented:
+            assert len(value) == self.size, "error setting column, data must be array of size %d" %self.size
         self._overrides[col] = self.make_column(value)
 
     def read(self, columns):
