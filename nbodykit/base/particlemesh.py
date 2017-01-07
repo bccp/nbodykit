@@ -100,9 +100,9 @@ class ParticleMeshSource(MeshSource, ParticleSource):
             real2[...] = 0
 
         # read the necessary data (as dask arrays)
-        columns = ['Position', self.weight, self.selection]
-        Position, Weight, Selection = self.source.read(columns)
-
+        columns = [self.position, self.weight, self.selection]
+        Position, Weight, Selection = self.read(columns)
+        
         # ensure the slices are synced, since decomposition is collective
         N = max(pm.comm.allgather(len(Position)))
 
