@@ -7,7 +7,7 @@ class File(ParticleSource):
     """
     Read a source of particles from a single file, or multiple
     files, on disk
-    """
+    """        
     @CurrentMPIComm.enable
     def __init__(self, filetype, path, args={}, comm=None, **kwargs):
         """
@@ -26,6 +26,7 @@ class File(ParticleSource):
             additional keywords are stored as meta-data in the :attr:`attrs` dict
         """
         self.comm = comm
+        self.filetype = filetype
         
         # bcast the FileStack
         if self.comm.rank == 0:
