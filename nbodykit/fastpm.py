@@ -307,7 +307,6 @@ class Solver(VM):
             self.push('Kick', K(ai, ac, ai))
             self.push('Drift', D(ai, ac, ac))
             self.push('Drift', D(ac, af, ac))
-            self.push('Drift', D(ac, af, ac))
             self.push('Force', -1.5 * pt.Om0)
             self.push('Kick', K(ac, af, af))
 
