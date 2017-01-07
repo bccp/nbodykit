@@ -219,10 +219,11 @@ class ParticleSource(object):
         elif col in self._fallbacks:
             r = self._fallbacks[col]
         else:
-            raise KeyError("column `%s` is not defined in this source" % col)
+            raise KeyError("column `%s` is not defined in this source; try adding column via `source[column] = data`" %col)
+        
         if callable(r): r = r()
         if not hasattr(r, 'attrs'):
-            r.attrs = {}
+            r.attrs = {}        
         return r
 
     def save(self, output, columns, datasets=None, header='Header'):
@@ -273,6 +274,6 @@ class ParticleSource(object):
         """
         missing = set(columns) - set(self.columns)
         if len(missing) > 0:
-            raise ValueError("self does not contain columns: %s" %str(missing))
+            raise ValueError("source does not contain columns: %s; try adding columns via `source[column] = data`" %str(missing))
 
         return [self[col] for col in columns]
