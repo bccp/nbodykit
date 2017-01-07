@@ -54,14 +54,14 @@ class FFTPower(object):
         comm : 
             the MPI communicator
         first : ParticleSource, MeshSource
-            the source for the first field. ParticleSource is automatcially converted
+            the source for the first field. ParticleSource is automatically converted
         mode : {'1d', '2d'}
             compute either 1d or 2d power spectra
         Nmesh : int
             the number of cells per side in the particle mesh used to paint the source
         second : ParticleSource, MeshSource; optional
             the second source for cross-correlations
-        loz : array_like ; optional
+        los : array_like ; optional
             the direction to use as the line-of-sight
         Nmu : int; optional
             the number of mu bins to use from mu=[0,1]; if `mode = 1d`, then `Nmu` is set to 1
@@ -73,25 +73,34 @@ class FFTPower(object):
             a list of multipole numbers ``ell`` to compute :math:`P_\ell(k)` from :math:`P(k,\mu)`
         """
         from pmesh.pm import ParticleMesh
+        from nbodykit.base.mesh import MeshSource
         
-        # check inputs
+        # mode is either '1d' or '2d'
         if mode not in ['1d', '2d']:
             raise ValueError("`mode` should be either '1d' or '2d'")
 
+        # grab comm from first source
         self.comm = first.comm 
+        
+        # if input is ParticleSource, use defaults to make it into a mesh
         if not hasattr(first, 'paint'):
             first = first.to_mesh(BoxSize=BoxSize, Nmesh=Nmesh, dtype='f8')
-        # combine the two sources
+            
+        # handle the second input source
         if second is None:
             second = first
-
-        assert second.comm is first.comm
-
-        if not hasattr(first, 'paint'):
-            first = first.to_mesh(BoxSize=BoxSize, Nmesh=Nmesh, dtype='f8')
-
+        else:
+            # make the second input a mesh if we need to
+            if not hasattr(second, 'paint'):
+                second = second.to_mesh(BoxSize=BoxSize, Nmesh=Nmesh, dtype='f8')
+                
+        # check for comm mismatch
+        assert second.comm is first.comm, "communicator mismatch between input sources"
+        
         self.sources = [first, second]
-
+        assert all([isinstance(src, MeshSource) for src in self.sources]), 'error converting input sources to meshes'
+        
+        # using Nmesh from source
         if Nmesh is None:
             Nmesh = self.sources[0].attrs['Nmesh']
 
@@ -108,7 +117,7 @@ class FFTPower(object):
             if not numpy.array_equal(self.sources[0].attrs['BoxSize'], self.sources[1].attrs['BoxSize']):
                 raise ValueError("BoxSize mismatch between cross-correlation sources")
             if not numpy.array_equal(self.sources[0].attrs['BoxSize'], _BoxSize):
-                raise ValueError("BoxSize mismatch between sources and the algorithm. ")
+                raise ValueError("BoxSize mismatch between sources and the algorithm.")
 
 
         # setup the particle mesh object
