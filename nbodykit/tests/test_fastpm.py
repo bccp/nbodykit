@@ -244,7 +244,7 @@ def test_gravity(comm):
         yr = objective(x1r, pm)
         # Watchout : (yr - yl) / (yr + yl) must be large enough for numerical
         # to be accurate
-        print ind1, yl, yr, grad * diff * 2, yr - yl, yr - yl - grad *diff*2, dx11
+        print(ind1, yl, yr, grad * diff * 2, yr - yl, yr - yl - grad *diff*2, dx11)
         num.append(yr - yl)
         ana.append(grad * 2 * diff)
     print('max difference is', numpy.abs(numpy.subtract(num, ana)).max())
