@@ -30,6 +30,10 @@ class ParticleMeshSource(MeshSource, ParticleSource):
 
         MeshSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype=dtype, comm=source.comm)
         ParticleSource.__init__(self, comm=source.comm)
+        
+        # copy over the overrides
+        self._overrides.update(self.source._overrides)
+        
         self.attrs['selection'] = self.selection
         self.attrs['weight'] = self.weight
         self.attrs['compensated'] = True
