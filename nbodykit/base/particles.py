@@ -82,13 +82,15 @@ class ParticleSource(object):
             try:
                 BoxSize = self.attrs['BoxSize']
             except KeyError:
-                raise ValueError("BoxSize is not supplied but the particle source does not define one in attrs.")
+                raise ValueError("cannot convert particle source to a mesh; "
+                                 "'BoxSize' keyword is not supplied and the particle source does not define one in 'attrs'.")
 
         if Nmesh is None:
             try:
                 Nmesh = self.attrs['Nmesh']
             except KeyError:
-                raise ValueError("Nmesh is not supplied but the particle source does not define one in attrs.")
+                raise ValueError("cannot convert particle source to a mesh; " 
+                                  "'Nmesh' keyword is not supplied and the particle source does not define one in 'attrs'.")
 
         r = ParticleMeshSource(self, Nmesh=Nmesh, BoxSize=BoxSize, dtype=dtype, weight=weight, selection=selection)
 
