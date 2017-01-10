@@ -13,7 +13,8 @@ class ZeldovichParticles(ParticleSource):
         return "ZeldovichParticles(seed=%(seed)d, bias=%(bias)g)" % self.attrs
 
     @CurrentMPIComm.enable
-    def __init__(self, Plin, nbar, BoxSize, Nmesh, bias=2., rsd=None, seed=None, comm=None, cosmo=None, redshift=None):
+    def __init__(self, Plin, nbar, BoxSize, Nmesh, bias=2., rsd=None, seed=None, 
+                    comm=None, cosmo=None, redshift=None, use_cache=False):
         """
         Parameters
         ----------
@@ -78,7 +79,7 @@ class ZeldovichParticles(ParticleSource):
         self.attrs['seed'] = seed
 
         # init the base class
-        ParticleSource.__init__(self, comm=comm)
+        ParticleSource.__init__(self, comm=comm, use_cache=use_cache)
 
         # make the actual source
         self._source, pm = self._makesource(BoxSize=BoxSize, Nmesh=Nmesh)

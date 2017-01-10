@@ -136,7 +136,7 @@ class RandomParticles(ParticleSource):
         return "RandomParticles(seed=%(seed)s)" % self.attrs
 
     @CurrentMPIComm.enable
-    def __init__(self, csize, seed=None, comm=None):
+    def __init__(self, csize, seed=None, comm=None, use_cache=False):
         """
         Parameters
         ----------
@@ -155,7 +155,7 @@ class RandomParticles(ParticleSource):
         self._size =  self.rng.size
         
         # init the base class
-        ParticleSource.__init__(self, comm=comm)
+        ParticleSource.__init__(self, comm=comm, use_cache=use_cache)
 
     @property
     def size(self):
@@ -174,7 +174,7 @@ class UniformParticles(RandomParticles):
         return "UniformParticles(seed=%(seed)s)" % self.attrs
 
     @CurrentMPIComm.enable
-    def __init__(self, nbar, BoxSize, seed=None, comm=None):
+    def __init__(self, nbar, BoxSize, seed=None, comm=None, use_cache=False):
         """
         Parameters
         ----------
@@ -195,7 +195,7 @@ class UniformParticles(RandomParticles):
 
         rng = numpy.random.RandomState(seed)
         N = rng.poisson(nbar * numpy.prod(self.attrs['BoxSize']))
-        RandomParticles.__init__(self, N, seed=seed, comm=comm)
+        RandomParticles.__init__(self, N, seed=seed, comm=comm, use_cache=use_cache)
         
         self._pos = self.rng.uniform(size=(self._size, 3)) * self.attrs['BoxSize']
         self._vel = self.rng.uniform(size=(self._size, 3)) * self.attrs['BoxSize'] * 0.01

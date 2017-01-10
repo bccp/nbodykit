@@ -9,7 +9,7 @@ class File(ParticleSource):
     files, on disk
     """        
     @CurrentMPIComm.enable
-    def __init__(self, filetype, path, args={}, comm=None, **kwargs):
+    def __init__(self, filetype, path, args={}, comm=None, use_cache=False, **kwargs):
         """
         Parameters
         ----------
@@ -42,7 +42,7 @@ class File(ParticleSource):
         if self.comm.rank == 0:
             self.logger.info("Extra arguments to FileType: %s" %args)
 
-        ParticleSource.__init__(self, comm=comm)
+        ParticleSource.__init__(self, comm=comm, use_cache=use_cache)
 
     @property
     def size(self):
