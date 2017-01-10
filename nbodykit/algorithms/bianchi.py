@@ -122,7 +122,8 @@ class BianchiFFTPower(object):
                 
         # add FKP weights
         if use_fkp_weights:
-            self.logger.info("adding FKP weights as the '%s' column, using P0 = %.4e" %(self.source.fkp_weight, P0_FKP))
+            if self.comm.rank == 0:
+                self.logger.info("adding FKP weights as the '%s' column, using P0 = %.4e" %(self.source.fkp_weight, P0_FKP))
             
             for name in ['data', 'randoms']:
                 
@@ -192,9 +193,11 @@ class BianchiFFTPower(object):
         compensation = None
         try:
             compensation = self.source._get_compensation()
-            self.logger.info('using compensation function %s' %compensation[0][1].__name__)
+            if self.comm.rank == 0:
+                self.logger.info('using compensation function %s' %compensation[0][1].__name__)
         except ValueError as e:
-            self.logger.warning('no compensation applied: %s' %str(e))
+            if self.comm.rank == 0:
+                self.logger.warning('no compensation applied: %s' %str(e))
             
         # determine kernels needed to compute ell=2,4
         bianchi_transfers = {}
@@ -286,7 +289,8 @@ class BianchiFFTPower(object):
                 self.logger.info("using factorized hexadecapole estimator for ell=4")
     
         # proper normalization: same as equation 49 of Scoccimarro et al. 2015 
-        self.logger.info("normalizing power spectrum with randoms.A = %.6f" %rfield.attrs['randoms.A'])
+        if rank == 0:
+            self.logger.info("normalizing power spectrum with randoms.A = %.6f" %rfield.attrs['randoms.A'])
         norm = 1.0 / rfield.attrs['randoms.A']
     
         # reuse memory for output arrays

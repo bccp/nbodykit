@@ -90,11 +90,13 @@ class RedshiftHistogram(object):
         # using Scott's rule for binning
         if bins is None:
             h, bins = scotts_bin_width(source.compute(source[redshift]), self.comm)
-            self.logger.info("using Scott's rule to determine optimal binning; h = %.2e, N_bins = %d" %(h, len(bins)-1))
+            if self.comm.rank == 0:
+                self.logger.info("using Scott's rule to determine optimal binning; h = %.2e, N_bins = %d" %(h, len(bins)-1))
             
         # equally spaced bins from min to max val
         elif numpy.isscalar(bins):
-            self.logger.info("computing %d equally spaced bins" %bins)
+            if self.comm.rank == 0:
+                self.logger.info("computing %d equally spaced bins" %bins)
             z = source.compute(source[redshift])
             maxval = comm.allreduce(z.max(), op=MPI.MAX)    
             minval = comm.allreduce(z.min(), op=MPI.MIN)
@@ -134,7 +136,8 @@ class RedshiftHistogram(object):
         redshift = self.source[self.attrs['redshift']]
         if self.attrs['weight'] is not None:
             weight = self.source[self.attrs['weight']]
-            self.logger.info("computing histogram using weights from '%s' column" %self.attrs['weight'])
+            if self.comm.rank == 0:
+                self.logger.info("computing histogram using weights from '%s' column" %self.attrs['weight'])
         else:
             weight = ConstantArray(1.0, self.source.size)
             
@@ -149,8 +152,9 @@ class RedshiftHistogram(object):
         N = self.comm.allreduce(N)
     
         # compute the volume
-        self.logger.info("using cosmology %s to compute volume in units of (Mpc/h)^3" %str(self.cosmo))
-        self.logger.info("sky fraction used in volume calculation: %.4f" %self.attrs['fsky'])
+        if self.comm.rank == 0:
+            self.logger.info("using cosmology %s to compute volume in units of (Mpc/h)^3" %str(self.cosmo))
+            self.logger.info("sky fraction used in volume calculation: %.4f" %self.attrs['fsky'])
         R_hi = self.cosmo.comoving_distance(edges[1:]).value * self.cosmo.h
         R_lo = self.cosmo.comoving_distance(edges[:-1]).value * self.cosmo.h
         dV   = (4./3.)*numpy.pi*(R_hi**3 - R_lo**3) * self.attrs['fsky']
