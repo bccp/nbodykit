@@ -216,6 +216,15 @@ class BianchiFFTPower(object):
                 
         # paint the FKP density field to the mesh (paints: data - alpha*randoms, essentially)
         rfield = self.source.paint(mode='real')
+        
+        # first, check if normalizations from data and randoms are similar
+        # if not, n(z) column is probably wrong - BAD!
+        if not numpy.allclose(rfield.attrs['data.A'], rfield.attrs['randoms.A'], rtol=0.05):
+            msg = "normalization in BianchiFFTPower different by more than 5%\n"
+            msg += "\trandoms.A = %.6f, data.A = %.6f\n" %(rfield.attrs['randoms.A'], rfield.attrs['data.A'])
+            msg += "\tpossible discrepancies related to normalization of n(z) column ('%s')\n" %self.source.nbar
+            msg += "\tn(z) columns for 'data' and 'randoms' should be normalized to represent n(z) of the data catalog"
+            raise ValueError(msg)
 
         # save the painted density field for later
         density = rfield.copy()
