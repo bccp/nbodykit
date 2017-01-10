@@ -105,7 +105,7 @@ class FKPMeshSource(ParticleMeshSource):
             fkp_weight  = self['randoms.'+self.fkp_weight] 
             A           = nbar*comp_weight*fkp_weight**2
             
-            [A] = self.compute(A.sum())
+            A = self.compute(A.sum())
             self._A_ran = self.comm.allreduce(A) * self.alpha
             return self._A_ran
             
@@ -119,7 +119,7 @@ class FKPMeshSource(ParticleMeshSource):
             fkp_weight  = self['data.'+self.fkp_weight] 
             A           = nbar*comp_weight*fkp_weight**2
             
-            [A] = self.compute(A.sum())
+            A = self.compute(A.sum())
             self._A_data = self.comm.allreduce(A)
             return self._A_data
             
@@ -136,7 +136,7 @@ class FKPMeshSource(ParticleMeshSource):
         try:
             return self._W_data
         except:
-            [wsum] = self.compute(self['data.'+self.comp_weight].sum())
+            wsum = self.compute(self['data.'+self.comp_weight].sum())
             self._W_data = self.comm.allreduce(wsum)
             return self._W_data
                 
@@ -145,7 +145,7 @@ class FKPMeshSource(ParticleMeshSource):
         try:
             return self._W_ran
         except:
-            [wsum] = self.compute(self['randoms.'+self.comp_weight].sum())
+            wsum = self.compute(self['randoms.'+self.comp_weight].sum())
             self._W_ran = self.comm.allreduce(wsum)
             return self._W_ran
     
@@ -264,7 +264,7 @@ class FKPCatalog(ParticleSource):
             s = slice(i, i + chunksize)
             
             if len(Position) != 0:
-                [pos] = self.compute(Position[s])
+                pos = self.compute(Position[s])
 
                 # global min/max of cartesian coordinates
                 pos_min = numpy.minimum(pos_min, pos.min(axis=0))

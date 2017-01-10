@@ -179,9 +179,13 @@ class ParticleSource(object):
         
         if self.use_cache:
             with self._cache:
-                return dask.compute(*args, **kwargs)
+                toret = dask.compute(*args, **kwargs)
         else:
-            return dask.compute(*args, **kwargs)
+            toret = dask.compute(*args, **kwargs)
+            
+        # do not return tuples of length one
+        if len(toret) == 1: toret = toret[0]
+        return toret
 
     def __len__(self):
         """
