@@ -1,32 +1,12 @@
-import os
 import numpy
 import logging
 import time
+import warnings
 
 from nbodykit import CurrentMPIComm
+from nbodykit.utils import timer
 from .fftpower import project_to_basis
 from pmesh.pm import ComplexField
-
-def timer(start, end):
-    """
-    Utility function to return a string representing the elapsed time, 
-    as computed from the input start and end times
-    
-    Parameters
-    ----------
-    start : int
-        the start time in seconds
-    end : int
-        the end time in seconds
-    
-    Returns
-    -------
-    str : 
-        the elapsed time as a string, using the format `hours:minutes:seconds`
-    """
-    hours, rem = divmod(end-start, 3600)
-    minutes, seconds = divmod(rem, 60)
-    return "{:0>2}:{:0>2}:{:05.2f}".format(int(hours),int(minutes),seconds)
 
 def BianchiKernel(x, v, i, j, k=None, offset=[0.,0.,0.]):
     """
@@ -98,13 +78,31 @@ class BianchiFFTPower(object):
                     kmin=0., 
                     dk=None, 
                     use_fkp_weights=False, 
-                    P0_fkp=None, 
-                    factor_hexadecapole=False,
-                    paintbrush='cic'):
+                    P0_FKP=None, 
+                    factor_hexadecapole=False):
         """
         Parameters
         ----------
-        
+        source : FKPCatalog, FKPMeshSource
+            the source to paint the data/randoms; FKPCatalog is automatically converted
+            to a FKPMeshSource, using default painting parameters
+        max_ell : {0,2,4}
+            the maximum multipole to compute, i.e., if max_ell=0, only the monopole
+            is computed
+        kmin : float; optional
+            the edge of the first wavenumber bin; default is 0
+        dk : float; optional
+            the spacing in wavenumber to use; if not provided; the fundamental mode of the
+            box is used
+        use_fkp_weights : bool; optional
+            if ``True``, FKP weights will be added using ``P0_FKP`` such that the 
+            fkp weight is given by ``1 / (1 + P0*NZ)`` where ``NZ`` is the number density
+            as a function of redshift column
+        P0_FKP : float; optional
+            the value of ``P0`` to use when computing FKP weights
+        factor_hexadecapole : bool; optional
+            if `True`, use the factored expression for the hexadecapole (ell=4) from
+            eq. 27 of Scoccimarro 2015 (1506.02729); default is `False`
         """
         if not hasattr(source, 'paint'):
             source = source.to_mesh(Nmesh=Nmesh)
@@ -115,15 +113,42 @@ class BianchiFFTPower(object):
         if max_ell not in [0, 2, 4]:
             raise ValueError("valid values for the maximum multipole number are [0, 2, 4]")
         
+        if use_fkp_weights and P0_FKP is None:
+            raise ValueError(("please set the 'P0_FKP' keyword if you wish to automatically "
+                              "use FKP weights with 'use_fkp_weights=True'"))
+                
+        # add FKP weights
+        if use_fkp_weights:
+            self.logger.info("adding FKP weights as the '%s' column, using P0 = %.4e" %(self.source.fkp_weight, P0_FKP))
+            
+            for name in ['data', 'randoms']:
+                
+                # print a warning if we are overwriting a non-default column
+                old_fkp_weights = self.source[name+'.'+self.source.fkp_weight]
+                if self.source.compute(old_fkp_weights.sum()) != len(old_fkp_weights):
+                    warn = "it appears that we are overwriting FKP weights for the '%s' " %name
+                    warn += "source in FKPCatalog when using 'use_fkp_weights=True' in BianchiFFTPower"
+                    warnings.warn(warn)
+                
+                nbar = self.source[name+'.'+self.source.nbar]
+                self.source[name+'.'+self.source.fkp_weight] = 1.0 / (1. + P0_FKP * nbar)
+                
         self.attrs = {}
         self.attrs['max_ell']             = max_ell
         self.attrs['dk']                  = dk
         self.attrs['kmin']                = kmin
         self.attrs['use_fkp_weights']     = use_fkp_weights
-        self.attrs['P0_fkp']              = P0_fkp
+        self.attrs['P0_FKP']              = P0_FKP
         self.attrs['factor_hexadecapole'] = factor_hexadecapole
-        self.attrs.update(self.source.attrs)
 
+        # store BoxSize and BoxCenter from source
+        self.attrs['BoxSize']   = self.source.attrs['BoxSize']
+        self.attrs['BoxPad']    = self.source.attrs['BoxPad']
+        self.attrs['BoxCenter'] = self.source.attrs['BoxCenter']
+        
+        # grab some mesh attrs, too
+        self.attrs['mesh.window']     = self.source.attrs['window']
+        self.attrs['mesh.interlaced'] = self.source.attrs['interlaced']
         
     def _compute_multipoles(self):
         """
@@ -258,8 +283,8 @@ class BianchiFFTPower(object):
                 self.logger.info("using factorized hexadecapole estimator for ell=4")
     
         # proper normalization: same as equation 49 of Scoccimarro et al. 2015 
-        self.logger.info("normalizing power spectrum with A_ran = %.6f" %self.source.attrs['A_ran'])
-        norm = 1.0 / self.source.attrs['A_ran']
+        self.logger.info("normalizing power spectrum with randoms.A = %.6f" %rfield.attrs['randoms.A'])
+        norm = 1.0 / rfield.attrs['randoms.A']
     
         # reuse memory for output arrays
         P0 = result[0]
@@ -291,6 +316,12 @@ class BianchiFFTPower(object):
 
             # monopole: equation 6 of Bianchi et al. 2015
             P0[islab, ...] = norm * P0[islab] * P0_star
+        
+        # update with the attributes computed while painting
+        self.attrs['alpha'] = rfield.attrs['alpha']
+        for key in rfield.attrs:
+            if key.startswith('data.') or key.startswith('randoms.'):
+                self.attrs[key] = rfield.attrs[key]
         
         return result
         
