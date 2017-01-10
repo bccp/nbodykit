@@ -24,9 +24,9 @@ def test_fftpower_save(comm):
     source = Source.UniformParticles(nbar=3e-3, BoxSize=512., seed=42)
 
     r = FFTPower(source, mode='2d', Nmesh=32)
-    r.save('fftpower-test.pickle')
+    r.save('fftpower-test.json')
 
-    r2 = FFTPower.load('fftpower-test.pickle')
+    r2 = FFTPower.load('fftpower-test.json')
 
     assert_array_equal(r.power['k'], r2.power['k'])
     assert_array_equal(r.power['power'], r2.power['power'])
