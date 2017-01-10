@@ -48,8 +48,8 @@ def test_bianchi(comm):
     alg.run()
 
     # tests
-    assert_allclose(alg.attrs['A_data'], NDATA*NBAR)
-    assert_allclose(alg.attrs['A_ran'], NDATA*NBAR)
+    assert_allclose(alg.attrs['data.A'], NDATA*NBAR)
+    assert_allclose(alg.attrs['randoms.A'], NDATA*NBAR)
 
 
     

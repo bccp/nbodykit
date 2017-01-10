@@ -11,6 +11,11 @@ from nbodykit.base.particlemesh import ParticleMeshSource
 from pmesh.pm import RealField, ComplexField
 
 class FKPMeshSource(ParticleMeshSource):
+    """
+    A subclass of :class:`~nbodykit.base.particlemesh.ParticleMeshSource`
+    designed to paint the FKP density field to a mesh, given
+    two catalogs, one for `data` and one for `randoms`
+    """
     logger = logging.getLogger('FKPMeshSource')
     
     def __init__(self, source, BoxSize, Nmesh, dtype, selection, weight, comp_weight, fkp_weight, nbar):
@@ -22,15 +27,6 @@ class FKPMeshSource(ParticleMeshSource):
         
         ParticleMeshSource.__init__(self, source, BoxSize, Nmesh, dtype, weight, selection)
         
-        # add the statistics
-        self.attrs['A_ran']  = self.A_ran
-        self.attrs['A_data'] = self.A_data
-        self.attrs['W_ran']  = self.W_ran
-        self.attrs['W_data'] = self.W_data
-        self.attrs['N_ran']  = self.N_ran
-        self.attrs['N_data'] = self.N_data
-        self.attrs['alpha']  = self.alpha
-    
     @contextlib.contextmanager
     def _set_mesh(self, prefix):
         """
@@ -76,9 +72,27 @@ class FKPMeshSource(ParticleMeshSource):
             
         # from N/Nbar = 1+delta to un-normalized number
         real[:] *= real.attrs['N'] / numpy.prod(self.pm.Nmesh)
+        
+        # update the statistics
+        for name, source in zip(['data', 'randoms'], [self.source.data, self.source.randoms]):
             
+            # power spectrum normalization
+            real.attrs[name+'.A'] = self._normalization(name)
+            
+            # total number
+            real.attrs[name+'.N'] = int(source.csize)
+            
+            # weighted number (sum of completeness)
+            real.attrs[name+'.W'] = self._weighted_total(name)
+            
+        # compute alpha from sum of completeness weights
+        real.attrs['alpha'] = real.attrs['data.W'] / real.attrs['randoms.W']
+        
+        # scale the randoms normalization by alpha
+        real.attrs['randoms.A'] *= real.attrs['alpha']
+        
         # randoms get -alpha factor; alpha is W_data / W_randoms
-        real[:] *= -self.alpha
+        real[:] *= -real.attrs['alpha']
 
         # paint the data
         with self._set_mesh('data'):
@@ -93,66 +107,42 @@ class FKPMeshSource(ParticleMeshSource):
         # divide by volume per cell to go from number to number density
         vol_per_cell = (self.pm.BoxSize/self.pm.Nmesh).prod()
         real[:] /= vol_per_cell
+            
         return real
-                
-    @property
-    def A_ran(self):
-        try:
-            return self._A_ran
-        except:            
-            nbar        = self['randoms.'+self.nbar]
-            comp_weight = self['randoms.'+self.comp_weight]
-            fkp_weight  = self['randoms.'+self.fkp_weight] 
-            A           = nbar*comp_weight*fkp_weight**2
-            
-            A = self.compute(A.sum())
-            self._A_ran = self.comm.allreduce(A) * self.alpha
-            return self._A_ran
-            
-    @property
-    def A_data(self):
-        try:
-            return self._A_data
-        except:
-            nbar        = self['data.'+self.nbar]
-            comp_weight = self['data.'+self.comp_weight]
-            fkp_weight  = self['data.'+self.fkp_weight] 
-            A           = nbar*comp_weight*fkp_weight**2
-            
-            A = self.compute(A.sum())
-            self._A_data = self.comm.allreduce(A)
-            return self._A_data
-            
-    @property
-    def N_data(self):
-        return int(self.source.data.csize)
-        
-    @property
-    def N_ran(self):
-        return int(self.source.randoms.csize)
-        
-    @property
-    def W_data(self):
-        try:
-            return self._W_data
-        except:
-            wsum = self.compute(self['data.'+self.comp_weight].sum())
-            self._W_data = self.comm.allreduce(wsum)
-            return self._W_data
-                
-    @property
-    def W_ran(self):
-        try:
-            return self._W_ran
-        except:
-            wsum = self.compute(self['randoms.'+self.comp_weight].sum())
-            self._W_ran = self.comm.allreduce(wsum)
-            return self._W_ran
+                    
+    def _normalization(self, name):
+        """
+        Compute the power spectrum normalization, using either the
+        `data` or `randoms` source
     
-    @property
-    def alpha(self):
-        return self.W_data / self.W_ran
+        This computes
+        
+        .. math:: 
+        
+            A = \sum \bar{n} w_\mathrm[comp] w_\mathrm{fkp}^2
+        """         
+        nbar        = self[name+'.'+self.nbar]
+        comp_weight = self[name+'.'+self.comp_weight]
+        fkp_weight  = self[name+'.'+self.fkp_weight] 
+        A           = nbar*comp_weight*fkp_weight**2
+        
+        A = self.compute(A.sum())
+        return self.comm.allreduce(A)
+                                
+    def _weighted_total(self, name):
+        """
+        Compute the weighted total numner of objects, using either the
+        `data` or `randoms` source
     
+        This is just the sum of the completeness weights: 
+        
+        .. math:: 
+        
+            W = \sum w_\mathrm{comp}
+        """
+        wsum = self.compute(self[name+'.'+self.comp_weight].sum())
+        return self.comm.allreduce(wsum)
+                    
 def FKPColumn(self, which, col):
     source = getattr(self, which)
     return source[col]
@@ -356,8 +346,8 @@ class FKPCatalog(ParticleSource):
             try:
                 Nmesh = self.attrs['Nmesh']
             except KeyError:
-                raise ValueError("cannot convert FKP source to a mesh; " 
-                                  "'Nmesh' keyword is not supplied and the FKP source does not define one in 'attrs'.")
+                raise ValueError("cannot convert FKP source to a mesh; 'Nmesh' keyword is not "
+                                 "supplied and the FKP source does not define one in 'attrs'.")
                 
         # initialize the FKP mesh
         kws = {'Nmesh':Nmesh, 'BoxSize':BoxSize, 'dtype':dtype, 'selection':selection}
