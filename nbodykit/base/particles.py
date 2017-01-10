@@ -54,13 +54,13 @@ class ParticleSource(object):
             return da.from_array(array, chunks=100000)
 
     # called by the subclasses
-    def __init__(self, comm, cache=False):
+    def __init__(self, comm, use_cache=False):
         
         # ensure self.comm is set, though usually already set by the child.
         self.comm = comm
 
         # initialize a cache
-        self.cache = cache
+        self.use_cache = use_cache
         
         # initial dicts of overrided and fallback columns
         self._overrides = {}
@@ -72,13 +72,14 @@ class ParticleSource(object):
             self.update_csize()
 
     @property
-    def cache(self):
+    def use_cache(self):
         return self._use_cache
         
-    @cache.setter
-    def cache(self, val):
+    @use_cache.setter
+    def use_cache(self, val):
         if val:
             try:
+                # try to add a Cache if we don't have one yet
                 from dask.cache import Cache
                 if not hasattr(self, '_cache'):
                     self._cache = Cache(CACHE_SIZE)
@@ -176,7 +177,7 @@ class ParticleSource(object):
         # XXX find a better place for this function
         kwargs.setdefault('optimize_graph', False)
         
-        if self.cache:
+        if self.use_cache:
             with self._cache:
                 return dask.compute(*args, **kwargs)
         else:

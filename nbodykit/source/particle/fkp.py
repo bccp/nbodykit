@@ -172,7 +172,7 @@ class FKPCatalog(ParticleSource):
     """
     logger = logging.getLogger('FKPCatalog')
 
-    def __init__(self, data, randoms, BoxSize=None, BoxPad=0.02, cache=True):
+    def __init__(self, data, randoms, BoxSize=None, BoxPad=0.02, use_cache=True):
         """
         Parameters
         ----------
@@ -187,7 +187,7 @@ class FKPCatalog(ParticleSource):
         BoxPad : float; optional
             optionally apply this additional buffer to the extent of the 
             Cartesian box
-        cache : bool; optional
+        use_cache : bool; optional
             if ``True``, use the built-in dask cache system to cache
             data, providing significant speed-ups; requires :mod:`cachey`
         """
@@ -202,13 +202,12 @@ class FKPCatalog(ParticleSource):
         self.attrs.update(attrs_to_dict(randoms, 'randoms.'))
         
         # init the base class
-        ParticleSource.__init__(self, comm=self.comm)
+        ParticleSource.__init__(self, comm=self.comm, use_cache=use_cache)
         
         # turn on cache?
-        self.cache = cache
-        if self.cache:
-            self.data.cache = True
-            self.randoms.cache = True
+        if self.use_cache:
+            self.data.use_cache = True
+            self.randoms.use_cache = True
                     
         # define the fallbacks new weight columns: FKPWeight and TotalWeight
         import dask.array as da
