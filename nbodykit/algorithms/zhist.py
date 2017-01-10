@@ -53,7 +53,7 @@ class RedshiftHistogram(object):
     Compute the mean number density as a function of redshift 
     :math:`n(z)` from an input Source of particles.
     
-    .. warning:: The units of the number density are :math:`(\mathrm{Mpc}/h)^3`
+    .. warning:: The units of the number density are :math:`(\mathrm{Mpc}/h)^{-3}`
     """
     logger = logging.getLogger('RedshiftHistogram')
 
@@ -119,12 +119,14 @@ class RedshiftHistogram(object):
         Attributes
         ----------
         bin_edges : array_like
-            the edges of the bins
+            the edges of the redshift bins
         bin_centers : array_like
-            the center values of each bin
+            the center values of each redshift bin
+        dV : array_like
+            the volume of each redshift shell in units of :math:`(\mathrm{Mpc}/h)^3`
         nbar : array_like
             the values of the redshift histogram, normalized to 
-            number density (in units of :math:`(\mathrm{Mpc}/h)^3`)
+            number density (in units of :math:`(\mathrm{Mpc}/h)^{-3}`)
         """       
         edges = self.attrs['edges']
          
@@ -150,17 +152,19 @@ class RedshiftHistogram(object):
         self.logger.info("sky fraction used in volume calculation: %.4f" %self.attrs['fsky'])
         R_hi = self.cosmo.comoving_distance(edges[1:]).value * self.cosmo.h
         R_lo = self.cosmo.comoving_distance(edges[:-1]).value * self.cosmo.h
-        volume = (4./3.)*numpy.pi*(R_hi**3 - R_lo**3) * self.attrs['fsky']
+        dV   = (4./3.)*numpy.pi*(R_hi**3 - R_lo**3) * self.attrs['fsky']
     
         # store the results
-        self.bin_edges = edges
+        self.bin_edges   = edges
         self.bin_centers = 0.5*(edges[:-1] + edges[1:])
-        self.nbar = 1.*N/volume
+        self.dV          = dV
+        self.nbar        = 1.*N/dV
         
     def __getstate__(self):
         state = dict(
                      bin_edges=self.bin_edges,
                      bin_centers=self.bin_centers,
+                     dV=self.dV,
                      nbar=self.nbar,
                      attrs=self.attrs)
         return state
