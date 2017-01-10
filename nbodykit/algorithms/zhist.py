@@ -134,6 +134,7 @@ class RedshiftHistogram(object):
         redshift = self.source[self.attrs['redshift']]
         if self.attrs['weight'] is not None:
             weight = self.source[self.attrs['weight']]
+            self.logger.info("computing histogram using weights from '%s' column" %self.attrs['weight'])
         else:
             weight = ConstantArray(1.0, self.source.size)
             
