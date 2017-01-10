@@ -69,8 +69,11 @@ class BianchiFFTPower(object):
     Algorithm to compute the power spectrum multipoles using FFTs
     for a data survey with non-trivial geometry
     
-    The algorithm used to compute the multipoles is detailed
-    in Bianchi et al. 2015 (http://adsabs.harvard.edu/abs/2015MNRAS.453L..11B)
+    References
+    ----------
+    * Bianchi, Davide et al., `Measuring line-of-sight-dependent Fourier-space clustering using FFTs`,
+      MNRAS, 2015
+    * Scoccimarro, Roman, `Fast estimators for redshift-space clustering`, Phys. Review D, 2015
     """
     logger = logging.getLogger('BianchiFFTPower')
 
@@ -327,9 +330,17 @@ class BianchiFFTPower(object):
         
     def run(self):
         """
-        Compute the power spectrum multipoles
+        Compute the power spectrum multipoles. This function does not return 
+        anything, but adds several attributes (see below).
         
-        This function does not return anything, but addes 
+        Attributes
+        ----------
+        edges : array_like
+            the edges of the wavenumber bins
+        poles : array_like
+            a structured array holding the measured multipole
+            results, as well as the number of modes (``modes``) and average
+            wavenumbers values in each bin (``k``)
         """
         pm = self.source.pm
 
