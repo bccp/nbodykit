@@ -46,9 +46,16 @@ def test_bianchi(comm):
     alg = BianchiFFTPower(fkp, max_ell=4, dk=0.005, use_fkp_weights=True, P0_FKP=P0)
     alg.run()
 
-    # tests
+    # normalization
     assert_allclose(alg.attrs['data.A'], NDATA*NBAR)
     assert_allclose(alg.attrs['randoms.A'], NDATA*NBAR)
+    
+    # shotnoise
+    S_data = alg.attrs['data.W']/alg.attrs['randoms.A']
+    assert_allclose(S_data, alg.attrs['data.S'])
+    
+    S_ran = alg.attrs['randoms.W']/alg.attrs['randoms.A']*alg.attrs['alpha']**2
+    assert_allclose(S_ran, alg.attrs['randoms.S'])
     
 @MPITest([1, 4])
 def test_with_zhist(comm):
