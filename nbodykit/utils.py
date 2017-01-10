@@ -229,3 +229,24 @@ class JSONDecoder(json.JSONDecoder):
     def __init__(self, *args, **kwargs):
         kwargs['object_hook'] = JSONDecoder.hook
         json.JSONDecoder.__init__(self, *args, **kwargs)
+        
+def timer(start, end):
+    """
+    Utility function to return a string representing the elapsed time, 
+    as computed from the input start and end times
+    
+    Parameters
+    ----------
+    start : int
+        the start time in seconds
+    end : int
+        the end time in seconds
+    
+    Returns
+    -------
+    str : 
+        the elapsed time as a string, using the format `hours:minutes:seconds`
+    """
+    hours, rem = divmod(end-start, 3600)
+    minutes, seconds = divmod(rem, 60)
+    return "{:0>2}:{:0>2}:{:05.2f}".format(int(hours),int(minutes),seconds)
