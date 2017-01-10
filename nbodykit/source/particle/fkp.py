@@ -79,6 +79,9 @@ class FKPMeshSource(ParticleMeshSource):
             # power spectrum normalization
             real.attrs[name+'.A'] = self._normalization(name)
             
+            # power spectrum shot noise
+            real.attrs[name+'.S'] = self._shotnoise(name)
+            
             # total number
             real.attrs[name+'.N'] = int(source.csize)
             
@@ -88,8 +91,11 @@ class FKPMeshSource(ParticleMeshSource):
         # compute alpha from sum of completeness weights
         real.attrs['alpha'] = real.attrs['data.W'] / real.attrs['randoms.W']
         
-        # scale the randoms normalization by alpha
+        # finish the statistics
         real.attrs['randoms.A'] *= real.attrs['alpha']
+        real.attrs['randoms.S'] *= real.attrs['alpha']**2 / real.attrs['randoms.A']
+        real.attrs['data.S'] /=  real.attrs['randoms.A']
+        real.attrs['shotnoise'] = real.attrs['data.S'] + real.attrs['randoms.S']
         
         # randoms get -alpha factor; alpha is W_data / W_randoms
         real[:] *= -real.attrs['alpha']
@@ -110,6 +116,7 @@ class FKPMeshSource(ParticleMeshSource):
             
         return real
                     
+    
     def _normalization(self, name):
         """
         Compute the power spectrum normalization, using either the
@@ -120,6 +127,12 @@ class FKPMeshSource(ParticleMeshSource):
         .. math:: 
         
             A = \sum \bar{n} w_\mathrm[comp] w_\mathrm{fkp}^2
+        
+        References
+        ----------
+        see Eqs. 13,14 of Beutler et al. 2014, "The clustering of galaxies in the 
+        SDSS-III Baryon Oscillation Spectroscopic Survey: testing gravity with redshift 
+        space distortions using the power spectrum multipoles"
         """         
         nbar        = self[name+'.'+self.nbar]
         comp_weight = self[name+'.'+self.comp_weight]
@@ -128,6 +141,30 @@ class FKPMeshSource(ParticleMeshSource):
         
         A = self.compute(A.sum())
         return self.comm.allreduce(A)
+        
+    def _shotnoise(self, name):
+        """
+        Compute the power spectrum shot noise, using either the
+        `data` or `randoms` source
+    
+        This computes
+        
+        .. math:: 
+        
+            S = \sum (w_\mathrm[comp] w_\mathrm{fkp})^2
+        
+        References
+        ----------
+        see Eq. 15 of Beutler et al. 2014, "The clustering of galaxies in the 
+        SDSS-III Baryon Oscillation Spectroscopic Survey: testing gravity with redshift 
+        space distortions using the power spectrum multipoles"
+        """         
+        comp_weight = self[name+'.'+self.comp_weight]
+        fkp_weight  = self[name+'.'+self.fkp_weight] 
+        S           = (comp_weight*fkp_weight)**2
+        
+        S = self.compute(S.sum())
+        return self.comm.allreduce(S)
                                 
     def _weighted_total(self, name):
         """

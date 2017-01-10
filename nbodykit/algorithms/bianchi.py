@@ -220,9 +220,10 @@ class BianchiFFTPower(object):
         # first, check if normalizations from data and randoms are similar
         # if not, n(z) column is probably wrong - BAD!
         if not numpy.allclose(rfield.attrs['data.A'], rfield.attrs['randoms.A'], rtol=0.05):
-            msg = "normalization in BianchiFFTPower different by more than 5%\n"
+            msg = "normalization in BianchiFFTPower different by more than 5%; algorithm requires they must be similar\n"
             msg += "\trandoms.A = %.6f, data.A = %.6f\n" %(rfield.attrs['randoms.A'], rfield.attrs['data.A'])
-            msg += "\tpossible discrepancies related to normalization of n(z) column ('%s')\n" %self.source.nbar
+            msg += "\tpossible discrepancies could be related to normalization of n(z) column ('%s')\n" %self.source.nbar
+            msg += "\tor the consistency of the FKP weight column ('%s') for 'data' and 'randoms';\n" %self.source.fkp_weight
             msg += "\tn(z) columns for 'data' and 'randoms' should be normalized to represent n(z) of the data catalog"
             raise ValueError(msg)
 
@@ -335,6 +336,7 @@ class BianchiFFTPower(object):
         
         # update with the attributes computed while painting
         self.attrs['alpha'] = rfield.attrs['alpha']
+        self.attrs['shotnoise'] = rfield.attrs['shotnoise']
         for key in rfield.attrs:
             if key.startswith('data.') or key.startswith('randoms.'):
                 self.attrs[key] = rfield.attrs[key]
