@@ -165,6 +165,9 @@ class RedshiftHistogram(object):
         self.dV          = dV
         self.nbar        = 1.*N/dV
         
+        # and run
+        self.run()
+        
     def __getstate__(self):
         state = dict(
                      bin_edges=self.bin_edges,

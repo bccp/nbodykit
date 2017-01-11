@@ -154,6 +154,8 @@ class BianchiFFTPower(object):
         self.attrs['mesh.window']     = self.source.attrs['window']
         self.attrs['mesh.interlaced'] = self.source.attrs['interlaced']
         
+        # and run
+        self.run()
     def _compute_multipoles(self):
         """
         Use the algorithm detailed in Bianchi et al. 2015 to compute and return the 3D 
