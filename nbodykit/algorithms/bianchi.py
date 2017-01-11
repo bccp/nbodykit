@@ -5,6 +5,8 @@ import warnings
 
 from nbodykit import CurrentMPIComm
 from nbodykit.utils import timer
+from nbodykit.dataset import DataSet
+
 from .fftpower import project_to_basis
 from pmesh.pm import ComplexField
 
@@ -156,6 +158,112 @@ class BianchiFFTPower(object):
         
         # and run
         self.run()
+            
+    def run(self):
+        """
+        Compute the power spectrum multipoles. This function does not return 
+        anything, but adds several attributes (see below).
+        
+        Attributes
+        ----------
+        edges : array_like
+            the edges of the wavenumber bins
+        poles : :class:`~nbodykit.dataset.DataSet`
+            a DataSet object that behaves similar to a structured array, with
+            fancy slicing and re-indexing; it holds the measured multipole
+            results, as well as the number of modes (``modes``) and average
+            wavenumbers values in each bin (``k``)
+        """
+        pm = self.source.pm
+
+        # measure the 3D multipoles in Fourier space
+        poles = self._compute_multipoles()
+        k3d = pm.k
+
+        # setup the binning in k out to the minimum nyquist frequency
+        dk = 2*numpy.pi/pm.BoxSize.min() if self.attrs['dk'] is None else self.attrs['dk']
+        kedges = numpy.arange(self.attrs['kmin'], numpy.pi*pm.Nmesh.min()/pm.BoxSize.max() + dk/2, dk)
+
+        # project on to 1d k-basis (averaging over mu=[0,1])
+        muedges = numpy.linspace(0, 1, 2, endpoint=True)
+        edges = [kedges, muedges]
+        poles_final = []
+        for p in poles:
+            result, _ = project_to_basis(p, edges)
+            poles_final.append(numpy.squeeze(result[2]))
+
+        # format (k, poles, modes)
+        poles = numpy.vstack(poles_final)
+        k = numpy.squeeze(result[0])
+        N = numpy.squeeze(result[-1])
+        
+        # make a structured array holding the results
+        cols = ['k'] + ['power_%d' %l for l in range(0, self.attrs['max_ell']+1,2)] + ['modes']
+        result = [k] + [pole for pole in poles] + [N]
+        dtype = numpy.dtype([(name, result[icol].dtype.str) for icol,name in enumerate(cols)])
+        poles = numpy.empty(result[0].shape, dtype=dtype)
+        for icol, col in enumerate(cols):
+            poles[col][:] = result[icol]
+        
+        # set all the necessary results
+        self.edges = kedges
+        self.poles = DataSet(['k'], [self.edges], poles, fields_to_sum=['modes'])
+            
+    def __getstate__(self):
+        state = dict(edges=self.edges,
+                     poles=self.poles.data,
+                     attrs=self.attrs)
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.poles = DataSet(['k'], [self.edges], self.poles, fields_to_sum=['modes'])
+
+    def save(self, output):
+        """ 
+        Save the BianchiFFTPower result to disk.
+
+        The format is currently json.
+        
+        Parameters
+        ----------
+        output : str
+            the name of the file to dump the JSON results to
+        """
+        import json
+        from nbodykit.utils import JSONEncoder
+        
+        # only the master rank writes
+        if self.comm.rank == 0:
+            self.logger.info('saving BianchiFFTPower result to %s' %output)
+
+            with open(output, 'w') as ff:
+                json.dump(self.__getstate__(), ff, cls=JSONEncoder)
+    
+    @classmethod
+    @CurrentMPIComm.enable
+    def load(cls, output, comm=None):
+        """
+        Load a saved BianchiFFTPower result, which has been saved to 
+        disk with :func:`BianchiFFTPower.save`
+        
+        The current MPI communicator is automatically used
+        if the ``comm`` keyword is ``None``
+        """
+        import json
+        from nbodykit.utils import JSONDecoder
+        
+        if comm.rank == 0:
+            with open(output, 'r') as ff:
+                state = json.load(ff, cls=JSONDecoder)
+        else:
+            state = None
+        state = comm.bcast(state)
+        self = object.__new__(cls)
+        self.__setstate__(state)
+
+        return self
+        
     def _compute_multipoles(self):
         """
         Use the algorithm detailed in Bianchi et al. 2015 to compute and return the 3D 
@@ -344,106 +452,3 @@ class BianchiFFTPower(object):
                 self.attrs[key] = rfield.attrs[key]
         
         return result
-        
-    def run(self):
-        """
-        Compute the power spectrum multipoles. This function does not return 
-        anything, but adds several attributes (see below).
-        
-        Attributes
-        ----------
-        edges : array_like
-            the edges of the wavenumber bins
-        poles : array_like
-            a structured array holding the measured multipole
-            results, as well as the number of modes (``modes``) and average
-            wavenumbers values in each bin (``k``)
-        """
-        pm = self.source.pm
-
-        # measure the 3D multipoles in Fourier space
-        poles = self._compute_multipoles()
-        k3d = pm.k
-
-        # setup the binning in k out to the minimum nyquist frequency
-        dk = 2*numpy.pi/pm.BoxSize.min() if self.attrs['dk'] is None else self.attrs['dk']
-        kedges = numpy.arange(self.attrs['kmin'], numpy.pi*pm.Nmesh.min()/pm.BoxSize.max() + dk/2, dk)
-
-        # project on to 1d k-basis (averaging over mu=[0,1])
-        muedges = numpy.linspace(0, 1, 2, endpoint=True)
-        edges = [kedges, muedges]
-        poles_final = []
-        for p in poles:
-            result, _ = project_to_basis(p, edges)
-            poles_final.append(numpy.squeeze(result[2]))
-
-        # format (k, poles, modes)
-        poles = numpy.vstack(poles_final)
-        k = numpy.squeeze(result[0])
-        N = numpy.squeeze(result[-1])
-        
-        # make a structured array holding the results
-        cols = ['k'] + ['power_%d' %l for l in range(0, self.attrs['max_ell']+1,2)] + ['modes']
-        result = [k] + [pole for pole in poles] + [N]
-        dtype = numpy.dtype([(name, result[icol].dtype.str) for icol,name in enumerate(cols)])
-        poles = numpy.empty(result[0].shape, dtype=dtype)
-        for icol, col in enumerate(cols):
-            poles[col][:] = result[icol]
-        
-        # set all the necessary results
-        self.edges = kedges
-        self.poles = poles # structured array holding the result
-    
-    def __getstate__(self):
-        state = dict(edges=self.edges,
-                     poles=self.poles,
-                     attrs=self.attrs)
-        return state
-
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-
-    def save(self, output):
-        """ 
-        Save the BianchiFFTPower result to disk.
-
-        The format is currently json.
-        
-        Parameters
-        ----------
-        output : str
-            the name of the file to dump the JSON results to
-        """
-        import json
-        from nbodykit.utils import JSONEncoder
-        
-        # only the master rank writes
-        if self.comm.rank == 0:
-            self.logger.info('saving BianchiFFTPower result to %s' %output)
-
-            with open(output, 'w') as ff:
-                json.dump(self.__getstate__(), ff, cls=JSONEncoder)
-    
-    @classmethod
-    @CurrentMPIComm.enable
-    def load(cls, output, comm=None):
-        """
-        Load a saved BianchiFFTPower result, which has been saved to 
-        disk with :func:`BianchiFFTPower.save`
-        
-        The current MPI communicator is automatically used
-        if the ``comm`` keyword is ``None``
-        """
-        import json
-        from nbodykit.utils import JSONDecoder
-        
-        if comm.rank == 0:
-            with open(output, 'r') as ff:
-                state = json.load(ff, cls=JSONDecoder)
-        else:
-            state = None
-        state = comm.bcast(state)
-        self = object.__new__(cls)
-        self.__setstate__(state)
-
-        return self

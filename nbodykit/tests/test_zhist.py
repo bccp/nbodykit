@@ -47,10 +47,9 @@ def test_unweighted(comm):
     source['z'] = source.rng.normal(loc=0.5, scale=0.1, size=source.size)
     
     # compute the histogram
-    alg = RedshiftHistogram(source, FSKY, cosmo, redshift='z')
-    alg.run()
+    r = RedshiftHistogram(source, FSKY, cosmo, redshift='z')
 
-    assert (alg.nbar*alg.dV).sum() == N
+    assert (r.nbar*r.dV).sum() == N
     
 
 @MPITest([1, 4])
@@ -68,11 +67,10 @@ def test_weighted(comm):
     source['weight'] = source.rng.uniform(0, high=1., size=source.size)
     
     # compute the histogram
-    alg = RedshiftHistogram(source, FSKY, cosmo, redshift='z', weight='weight')
-    alg.run()
+    r = RedshiftHistogram(source, FSKY, cosmo, redshift='z', weight='weight')
 
     wsum = comm.allreduce(source['weight'].sum().compute())
-    assert_allclose((alg.nbar*alg.dV).sum(), wsum)
+    assert_allclose((r.nbar*r.dV).sum(), wsum)
 
 
 
