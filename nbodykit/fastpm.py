@@ -1,7 +1,7 @@
 from __future__ import print_function
 import numpy
 import logging
-from abopt.vmad2 import VM
+from abopt.vmad import VM
 
 def laplace_kernel(k, v):
     kk = sum(ki ** 2 for ki in k)
