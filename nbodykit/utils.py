@@ -171,9 +171,26 @@ def attrs_to_dict(obj, prefix):
     return d
 
 import json
+from astropy.units import Quantity, Unit
+
 class JSONEncoder(json.JSONEncoder):
     def default(self, obj):
-        if isinstance(obj, complex):
+        
+        if isinstance(obj, Quantity):
+            
+            d = {}
+            d['__unit__'] = str(obj.unit)
+            
+            value = obj.value
+            if obj.size > 1:
+                d['__dtype__'] = value.dtype.str if value.dtype.names is None else value.dtype.descr
+                d['__shape__'] = value.shape
+                value = value.tolist()
+            
+            d['__data__'] = value
+            return d
+        
+        elif isinstance(obj, complex):
             return {'__complex__': [obj.real, obj.imag ]}
 
         elif isinstance(obj, numpy.ndarray):
@@ -214,12 +231,21 @@ class JSONDecoder(json.JSONDecoder):
                 assert len(data) == len(dtype)
                 return tuple(data)
 
+        d = None
         if '__dtype__' in value:
             dtype = fixdtype(value['__dtype__'])
             shape = value['__shape__']
             a = fixdata(value['__data__'], len(shape), dtype)
-            return numpy.array(a, dtype=dtype)
+            d = numpy.array(a, dtype=dtype)
 
+        if '__unit__' in value:
+            if d is None:
+                d = value['__data__']
+            d = Quantity(d, Unit(value['__unit__']))
+            
+        if d is not None: 
+            return d
+            
         if '__complex__' in value:
             real, imag = value['__complex__']
             return real + 1j * imag
@@ -229,3 +255,24 @@ class JSONDecoder(json.JSONDecoder):
     def __init__(self, *args, **kwargs):
         kwargs['object_hook'] = JSONDecoder.hook
         json.JSONDecoder.__init__(self, *args, **kwargs)
+        
+def timer(start, end):
+    """
+    Utility function to return a string representing the elapsed time, 
+    as computed from the input start and end times
+    
+    Parameters
+    ----------
+    start : int
+        the start time in seconds
+    end : int
+        the end time in seconds
+    
+    Returns
+    -------
+    str : 
+        the elapsed time as a string, using the format `hours:minutes:seconds`
+    """
+    hours, rem = divmod(end-start, 3600)
+    minutes, seconds = divmod(rem, 60)
+    return "{:0>2}:{:0>2}:{:05.2f}".format(int(hours),int(minutes),seconds)

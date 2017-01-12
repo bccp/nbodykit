@@ -1,11 +1,37 @@
 from mpi4py_test import MPITest
 from nbodykit.lab import *
-from nbodykit.algorithms.fof import FOF, HaloFinder
 from nbodykit import setup_logging
-from numpy.testing import assert_array_equal
+from numpy.testing import assert_array_equal, assert_allclose
 
 # debug logging
 setup_logging("debug")
+    
+@MPITest([1])
+def test_fftpower_poles(comm):
+    
+    CurrentMPIComm.set(comm)
+    source = Source.UniformParticles(nbar=3e-3, BoxSize=512., seed=42)
+    
+    r = FFTPower(source, mode='2d', BoxSize=1024, Nmesh=32, poles=[0,2,4])
+    pkmu = r.power['power'].real
+    mono = r.poles['power_0'].real
+    
+    modes_1d = r.power['modes'].sum(axis=-1)
+    mono_from_pkmu = numpy.nansum(pkmu*r.power['modes'], axis=-1) / modes_1d
+    
+    assert_array_equal(modes_1d, r.poles['modes'])
+    assert_allclose(mono_from_pkmu, mono)
+
+    
+@MPITest([1])
+def test_fftpower_padding(comm):
+    CurrentMPIComm.set(comm)
+    # zeldovich particles
+    source = Source.UniformParticles(nbar=3e-3, BoxSize=512., seed=42)
+
+    r = FFTPower(source, mode='1d', BoxSize=1024, Nmesh=32)
+    assert r.attrs['N1'] != 0
+    assert r.attrs['N2'] != 0
 
 @MPITest([1])
 def test_fftpower_padding(comm):
@@ -19,15 +45,15 @@ def test_fftpower_padding(comm):
 
 @MPITest([1])
 def test_fftpower_save(comm):
-    import json
+
     CurrentMPIComm.set(comm)
     # zeldovich particles
     source = Source.UniformParticles(nbar=3e-3, BoxSize=512., seed=42)
 
     r = FFTPower(source, mode='2d', Nmesh=32)
-    r.save('fftpower-test.pickle')
+    r.save('fftpower-test.json')
 
-    r2 = FFTPower.load('fftpower-test.pickle')
+    r2 = FFTPower.load('fftpower-test.json')
 
     assert_array_equal(r.power['k'], r2.power['k'])
     assert_array_equal(r.power['power'], r2.power['power'])

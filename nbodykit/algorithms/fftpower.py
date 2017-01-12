@@ -3,6 +3,7 @@ import numpy
 import logging
 
 from nbodykit import CurrentMPIComm
+from nbodykit.dataset import DataSet
 from nbodykit.meshtools import SlabIterator
 from pmesh.pm import ComplexField
 
@@ -54,14 +55,14 @@ class FFTPower(object):
         comm : 
             the MPI communicator
         first : ParticleSource, MeshSource
-            the source for the first field. ParticleSource is automatcially converted
+            the source for the first field. ParticleSource is automatically converted
         mode : {'1d', '2d'}
             compute either 1d or 2d power spectra
         Nmesh : int
             the number of cells per side in the particle mesh used to paint the source
         second : ParticleSource, MeshSource; optional
             the second source for cross-correlations
-        loz : array_like ; optional
+        los : array_like ; optional
             the direction to use as the line-of-sight
         Nmu : int; optional
             the number of mu bins to use from mu=[0,1]; if `mode = 1d`, then `Nmu` is set to 1
@@ -73,25 +74,34 @@ class FFTPower(object):
             a list of multipole numbers ``ell`` to compute :math:`P_\ell(k)` from :math:`P(k,\mu)`
         """
         from pmesh.pm import ParticleMesh
+        from nbodykit.base.mesh import MeshSource
         
-        # check inputs
+        # mode is either '1d' or '2d'
         if mode not in ['1d', '2d']:
             raise ValueError("`mode` should be either '1d' or '2d'")
 
+        # grab comm from first source
         self.comm = first.comm 
+        
+        # if input is ParticleSource, use defaults to make it into a mesh
         if not hasattr(first, 'paint'):
             first = first.to_mesh(BoxSize=BoxSize, Nmesh=Nmesh, dtype='f8')
-        # combine the two sources
+            
+        # handle the second input source
         if second is None:
             second = first
-
-        assert second.comm is first.comm
-
-        if not hasattr(first, 'paint'):
-            first = first.to_mesh(BoxSize=BoxSize, Nmesh=Nmesh, dtype='f8')
-
+        else:
+            # make the second input a mesh if we need to
+            if not hasattr(second, 'paint'):
+                second = second.to_mesh(BoxSize=BoxSize, Nmesh=Nmesh, dtype='f8')
+                
+        # check for comm mismatch
+        assert second.comm is first.comm, "communicator mismatch between input sources"
+        
         self.sources = [first, second]
-
+        assert all([isinstance(src, MeshSource) for src in self.sources]), 'error converting input sources to meshes'
+        
+        # using Nmesh from source
         if Nmesh is None:
             Nmesh = self.sources[0].attrs['Nmesh']
 
@@ -108,7 +118,7 @@ class FFTPower(object):
             if not numpy.array_equal(self.sources[0].attrs['BoxSize'], self.sources[1].attrs['BoxSize']):
                 raise ValueError("BoxSize mismatch between cross-correlation sources")
             if not numpy.array_equal(self.sources[0].attrs['BoxSize'], _BoxSize):
-                raise ValueError("BoxSize mismatch between sources and the algorithm. ")
+                raise ValueError("BoxSize mismatch between sources and the algorithm.")
 
 
         # setup the particle mesh object
@@ -117,13 +127,13 @@ class FFTPower(object):
         self.attrs = {}
 
         # save meta-data
-        self.attrs['mode']  = mode
-        self.attrs['los']   = los
-        self.attrs['Nmu']   = Nmu
-        self.attrs['dk']    = dk
-        self.attrs['kmin']  = kmin 
-        self.attrs['poles'] = poles
-        self.attrs['Nmesh'] = self.pm.Nmesh.copy()
+        self.attrs['mode']    = mode
+        self.attrs['los']     = los
+        self.attrs['Nmu']     = Nmu
+        self.attrs['dk']      = dk
+        self.attrs['kmin']    = kmin 
+        self.attrs['poles']   = poles
+        self.attrs['Nmesh']   = self.pm.Nmesh.copy()
         self.attrs['BoxSize'] = self.pm.BoxSize.copy()
 
         # update the meta-data to return
@@ -134,7 +144,21 @@ class FFTPower(object):
 
     def run(self):
         """
-        Run the algorithm, which computes and returns the power spectrum
+        Compute the power spectrum in a periodic box, using FFTs. This
+        function returns nothing, but attaches several attributes
+        to the class (see below).
+        
+        Attributes
+        ----------
+        edges : array_like
+            the edges of the wavenumber bins
+        power : :class:`~nbodykit.dataset.DataSet`
+            a DataSet object that behaves similar to a structured array, with
+            fancy slicing and re-indexing; it holds the measured :math:`P(k)` or 
+            :math:`P(k,\mu)`
+        poles : :class:`~nbodykit.dataset.DataSet` or ``None``
+            a DataSet object to hold the multipole results :math:`P_\ell(k)`;
+            if no multipoles were requested by the user, this is ``None``
         """
 
         # only need one mu bin if 1d case is requested
@@ -185,28 +209,33 @@ class FFTPower(object):
 
         # set all the necessary results
         self.edges = edges
-        self.power = power
         self.poles = poles
-
+        self.power = power
+        
+        self._make_datasets()
+    
     def __getstate__(self):
         state = dict(
                      edges=self.edges,
-                     power=self.power,
-                     poles=self.poles,
+                     power=self.power.data,
+                     poles=getattr(self.poles, 'data', None),
                      attrs=self.attrs)
         return state
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-
+        self._make_datasets()
+        
     def save(self, output):
-        """ Save the FFTPower result to disk.
-
-            The format is currently json.
         """
-        # only the master rank writes
+        Save the FFTPower result to disk.
+
+        The format is currently JSON.
+        """
         import json
         from nbodykit.utils import JSONEncoder
+        
+        # only the master rank writes
         if self.comm.rank == 0:
             self.logger.info('measurement done; saving result to %s' % output)
 
@@ -216,9 +245,10 @@ class FFTPower(object):
     @classmethod
     @CurrentMPIComm.enable
     def load(cls, output, comm=None):
-        """ Load a saved FFTPower result.
+        """ 
+        Load a saved FFTPower result.
 
-            the result has been saved to disk with FFTPower.save.
+        The result has been saved to disk with :func:`FFTPower.save`.
         """
         import json
         from nbodykit.utils import JSONDecoder
@@ -233,6 +263,15 @@ class FFTPower(object):
 
         return self
 
+    def _make_datasets(self):
+        
+        if self.attrs['mode'] == '1d':
+            self.power = DataSet(['k'], [self.edges], self.power, fields_to_sum=['modes'])
+        else:
+            self.power = DataSet(['k', 'mu'], self.edges, self.power, fields_to_sum=['modes'])
+        if self.poles is not None:
+            self.poles = DataSet(['k'], [self.power.edges['k_cen']], self.poles, fields_to_sum=['modes'])
+            
     def _source2field(self, source):
 
         # step 1: paint the density field to the mesh
@@ -248,10 +287,6 @@ class FFTPower(object):
 
         return c
 
-
-    #------------------------------------------------------------------------------
-    # Fourier space statistics
-    #------------------------------------------------------------------------------
     def _compute_3d_power(self):
         """
         Compute and return the 3D power from two input sources

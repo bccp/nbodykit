@@ -1,8 +1,12 @@
 from nbodykit.extern.six import add_metaclass
+from nbodykit.transform import ConstantArray
 
 import abc
 import numpy
 import logging
+import warnings
+
+CACHE_SIZE = 1e9
 
 def column(name=None):
     def decorator(getter):
@@ -44,21 +48,48 @@ class ParticleSource(object):
     def make_column(array):
         """ convert a numpy array to a column object (dask.array.Array) """
         import dask.array as da
-        return da.from_array(array, chunks=getattr(array, 'chunks', 100000))
+        if isinstance(array, da.Array):
+            return array
+        else:
+            return da.from_array(array, chunks=100000)
 
     # called by the subclasses
-    def __init__(self, comm):
+    def __init__(self, comm, use_cache=False):
+        
         # ensure self.comm is set, though usually already set by the child.
-
         self.comm = comm
 
+        # initialize a cache
+        self.use_cache = use_cache
+        
+        # initial dicts of overrided and fallback columns
+        self._overrides = {}
+        self._fallbacks = {}
+        
         # if size is already computed update csize
         # otherwise the subclass shall call update_csize explicitly.
         if self.size is not NotImplemented:
             self.update_csize()
 
-        self._overrides = {}
-
+    @property
+    def use_cache(self):
+        return self._use_cache
+        
+    @use_cache.setter
+    def use_cache(self, val):
+        if val:
+            try:
+                # try to add a Cache if we don't have one yet
+                from dask.cache import Cache
+                if not hasattr(self, '_cache'):
+                    self._cache = Cache(CACHE_SIZE)
+            except ImportError:
+                warnings.warn("caching of ParticleSource requires ``cachey`` module; turning cache off")
+        else:
+            if hasattr(self, '_cache'):
+                delattr(self, '_cache')
+        self._use_cache = val
+                
     def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4',
             interlaced=False, compensated=False, window='cic',
             weight='Weight', selection='Selection'
@@ -75,13 +106,15 @@ class ParticleSource(object):
             try:
                 BoxSize = self.attrs['BoxSize']
             except KeyError:
-                raise ValueError("BoxSize is not supplied but the particle source does not define one in attrs.")
+                raise ValueError("cannot convert particle source to a mesh; "
+                                 "'BoxSize' keyword is not supplied and the particle source does not define one in 'attrs'.")
 
         if Nmesh is None:
             try:
                 Nmesh = self.attrs['Nmesh']
             except KeyError:
-                raise ValueError("Nmesh is not supplied but the particle source does not define one in attrs.")
+                raise ValueError("cannot convert particle source to a mesh; " 
+                                  "'Nmesh' keyword is not supplied and the particle source does not define one in 'attrs'.")
 
         r = ParticleMeshSource(self, Nmesh=Nmesh, BoxSize=BoxSize, dtype=dtype, weight=weight, selection=selection)
 
@@ -102,12 +135,9 @@ class ParticleSource(object):
             self.logger.debug("rank 0, local number of particles = %d" % self.size)
             self.logger.info("total number of particles = %d" % self.csize)
 
-        import dask.array as da
-
-        self._fallbacks = {
-                'Selection': da.ones(self.size, dtype='?', chunks=100000),
-                   'Weight': da.ones(self.size, dtype='?', chunks=100000),
-                          }
+        # defaults (these save memory by using ConstantArray)
+        self._fallbacks['Selection'] = ConstantArray(True, self.size, chunks=100000)
+        self._fallbacks['Weight']    = ConstantArray(1.0, self.size, chunks=100000)
 
     @property
     def attrs(self):
@@ -119,9 +149,8 @@ class ParticleSource(object):
         except AttributeError:
             self._attrs = {}
             return self._attrs
-
-    @staticmethod
-    def compute(*args, **kwargs):
+            
+    def compute(self, *args, **kwargs):
         """
         Our version of :func:`dask.compute` that computes
         multiple delayed dask collections at once
@@ -147,7 +176,16 @@ class ParticleSource(object):
         
         # XXX find a better place for this function
         kwargs.setdefault('optimize_graph', False)
-        return dask.compute(*args, **kwargs)
+        
+        if self.use_cache:
+            with self._cache:
+                toret = dask.compute(*args, **kwargs)
+        else:
+            toret = dask.compute(*args, **kwargs)
+            
+        # do not return tuples of length one
+        if len(toret) == 1: toret = toret[0]
+        return toret
 
     def __len__(self):
         """
@@ -212,9 +250,11 @@ class ParticleSource(object):
         elif col in self._fallbacks:
             r = self._fallbacks[col]
         else:
-            raise KeyError("column `%s` is not defined in this source" % col)
+            raise KeyError("column `%s` is not defined in this source; try adding column via `source[column] = data`" %col)
+        
+        if callable(r): r = r()
         if not hasattr(r, 'attrs'):
-            r.attrs = {}
+            r.attrs = {}        
         return r
 
     def save(self, output, columns, datasets=None, header='Header'):
@@ -245,8 +285,15 @@ class ParticleSource(object):
                             bb.attrs[key] = c.attrs[key]
 
     def __setitem__(self, col, value):
-        import dask.array as da
-        assert len(value) == self.size
+
+        # handle scalar values
+        if numpy.isscalar(value):
+            assert self.size is not NotImplemented, "size is not implemented! cannot set scalar array"
+            value = ConstantArray(value, self.size, chunks=100000)
+        
+        # check the correct size, if we know the size
+        if self.size is not NotImplemented:
+            assert len(value) == self.size, "error setting column, data must be array of size %d" %self.size
         self._overrides[col] = self.make_column(value)
 
     def read(self, columns):
@@ -258,6 +305,6 @@ class ParticleSource(object):
         """
         missing = set(columns) - set(self.columns)
         if len(missing) > 0:
-            raise ValueError("self does not contain columns: %s" %str(missing))
+            raise ValueError("source does not contain columns: %s; try adding columns via `source[column] = data`" %str(missing))
 
         return [self[col] for col in columns]
