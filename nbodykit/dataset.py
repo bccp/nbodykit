@@ -65,22 +65,27 @@ class DataSet(object):
     It is modeled after the syntax of :class:`xarray.Dataset`, and is designed 
     to hold correlation function or power spectrum results (in 1D or 2D)
     
-    Notes
-    -----
-    *   the suffix *cen* will be appended to the names of the 
+    .. note::
+        The suffix ``cen`` will be appended to the names of the 
         dimensions passed to the constructor, since the :attr:`coords` array holds
         the **bin centers**, as constructed from the bin edges
         
     Examples
     --------
-    The following example shows how to read a power spectrum or correlation 
-    function measurement as written by a nbodykit `Algorithm`. It uses
-    :func:`~nbodykit.files.Read1DPlainText`
+    The following example shows how to read a power spectrum 
+    measurement from a JSON file, as output by nbodykit, assuming
+    the JSON file holds a dictionary with a 'power' entry holding the
+    relevant data
     
-    >>> from nbodykit import files
-    >>> corr = Corr2dDataSet.from_nbkit(*files.Read2DPlainText(filename))
-    >>> pk = Power1dDataSet.from_nbkit(*files.Read1DPlainText(filename))
+    >>> filename = 'test_data.json'
+    >>> pk = DataSet.from_json(['k'], filename, 'power')
         
+    In older versions of nbodykit, results were written using plaintext ASCII
+    files. Although now deprecated, this type of files can be read using:
+    
+    >>> filename = 'test_data.dat'
+    >>> dset = DataSet.from_plaintext(['k'], filename)
+    
     Data variables and coordinate arrays can be accessed in a dict-like
     fashion:
         
@@ -121,7 +126,7 @@ class DataSet(object):
     :func:`reindex` will re-bin the coordinate arrays along the specified 
     dimension
     """    
-    def __init__(self, dims, edges, variables, fields_to_sum=[]):
+    def __init__(self, dims, edges, variables, fields_to_sum=[], **kwargs):
         """
         Parameters
         ----------
@@ -139,6 +144,9 @@ class DataSet(object):
         fields_to_sum : list; optional
             the name of fields that will be summed when reindexing, instead
             of averaging
+        kwargs :
+            Any additional keywords are saved as metadata in the :attr:`attrs`
+            dictionary attribute
         """
         # number of dimensions must match
         if len(dims) != len(edges):
@@ -173,6 +181,10 @@ class DataSet(object):
         # fields that we wish to sum, instead of averaging
         self._fields_to_sum = fields_to_sum
         
+        # save and track metadata
+        self.attrs = {}
+        for k in kwargs: self.attrs[k] = kwargs[k]
+        
     @property
     def shape(self):
         """
@@ -198,7 +210,7 @@ class DataSet(object):
         -----
         *   Useful for returning new instances with sliced data/mask 
         *   The keyword arguments required to create a full, unbroken
-            instance are `dims`, `coords`, `edges`
+            instance are `dims`, `coords`, `edges`, and `attrs`
                     
         Parameters
         ----------
@@ -226,6 +238,7 @@ class DataSet(object):
         kw['dims'] = list(self.dims)
         kw['edges'] = self.edges.copy()
         kw['coords'] = self.coords.copy()
+        kw['attrs'] = self.attrs.copy()
         kw['_fields_to_sum'] = list(self._fields_to_sum)
         return kw
 
@@ -236,7 +249,7 @@ class DataSet(object):
         """
         edges, coords = self.__slice_edges__(indices)
         kw = {'dims':list(self.dims), 'edges':edges, 'coords':coords, 
-                '_fields_to_sum':self._fields_to_sum}
+              'attrs':self.attrs.copy(), '_fields_to_sum':self._fields_to_sum}
         return self.__class__.__construct_direct__(data, mask, **kw)
 
     def __slice_edges__(self, indices):
@@ -390,6 +403,104 @@ class DataSet(object):
     #--------------------------------------------------------------------------
     # user-called functions
     #--------------------------------------------------------------------------
+    @classmethod
+    def from_json(cls, dims, filename, key):
+        """
+        Initialize a DataSet from a JSON file. 
+        
+        The JSON file should contain a dictionary, where the data to load is stored 
+        as the ``key`` entry, with an ``edges`` entry specifying bin edges, and 
+        optionally, a ``attrs`` entry giving a dict of meta-data
+        
+        .. note::
+            This uses :class:`nbodykit.utils.JSONDecoder` to load the 
+            JSON file
+        
+        Parameters
+        ----------
+        dims : list
+            list of names specifying the dimensions, i.e., ``['k']`` or ``['k', 'mu']``
+        filename : str
+            the name of the file to load
+        key : str
+            the name of the key in the JSON file holding the data to load
+        
+        Returns
+        -------
+        dset : DataSet
+            the DataSet holding the data from file
+        """
+        import json
+        from nbodykit.utils import JSONDecoder
+        
+        # parse
+        with open(filename, 'r') as ff:
+            state = json.load(ff, cls=JSONDecoder)
+        
+        # the data    
+        if key not in state:
+            args = (key, tuple(state.keys()))
+            raise ValueError("no data entry found in JSON format for '%s' key; valid keys are %s" %args)
+        data = state[key]
+        
+        # the edges
+        edges = state.pop('edges', None)
+        if edges is None:
+            raise ValueError("no `edges` found in JSON file; cannot be loaded into a DataSet")
+        if len(dims) == 1:
+            edges = [edges]
+            
+        # meta-data
+        attrs = state.pop('attrs', {})
+        
+        return cls(dims, edges, data, **attrs) 
+        
+    @classmethod
+    def from_plaintext(cls, dims, filename):
+        """
+        Initialize a DataSet from a plaintext file
+        
+        .. note:: Deprecated in nbodykit 1.0
+            Storage of DataSet objects as plaintext ASCII files is no longer supported;
+            See :func:`DataSet.from_json`
+        
+        Parameters
+        ----------
+        dims : list
+            list of names specifying the dimensions, i.e., ``['k']`` or ``['k', 'mu']``
+        filename : str
+            the name of the file to load
+        
+        Returns
+        -------
+        dset : DataSet
+            the DataSet holding the data from file
+        """
+        import warnings
+        warnings.simplefilter('always', DeprecationWarning)
+        msg = "storage of DataSet objects as ASCII plaintext files is deprecated; see DataSet.from_json"
+        warnings.warn(msg, DeprecationWarning)
+
+        # make sure dims is a list/tuple
+        if not isinstance(dims, (tuple, list)):
+            raise TypeError("`dims` should be a list or tuple of strings")
+        
+        # read from file
+        if len(dims) == 1:
+            data, meta = _Read1DPlainText(filename)
+        elif len(dims) == 2:
+            data, meta = _Read2DPlainText(filename)
+        
+        # get the bin edges
+        edges = meta.pop('edges', None)
+        if edges is None:
+            raise ValueError("plaintext file does not include `edges`; cannot be loaded into a DataSet")
+        if len(dims) == 1:
+            edges = [edges]
+        
+        return cls(dims, edges, data, **meta)
+        
+        
     def copy(self):
         """
         Returns a copy of the DataSet
@@ -709,3 +820,188 @@ class DataSet(object):
         toret = self.__construct_direct__(new_data, new_mask, **kw)
         
         return (toret, spacing) if return_spacing else toret
+        
+#------------------------------------------------------------------------------
+# Deprecated Plaintext read/write functions
+#------------------------------------------------------------------------------
+def _Read2DPlainText(filename):
+    """
+    Reads the plain text storage of a 2D measurement
+    
+    Returns
+    -------
+    data : dict
+        dictionary holding the `edges` data, as well as the
+        data columns for the P(k,mu) measurement
+    metadata : dict
+        any additional metadata to store as part of the 
+        P(k,mu) measurement
+    """
+    d = {}
+    metadata = {}
+    
+    with open(filename, 'r') as ff:
+        
+        # read number of k and mu bins are first line
+        Nk, Nmu = [int(l) for l in ff.readline().split()]
+        N = Nk*Nmu
+        
+        # names of data columns on second line
+        columns = ff.readline().split()
+        
+        lines = ff.readlines()
+        data = numpy.array([float(l) for line in lines[:N] for l in line.split()])
+        data = data.reshape((Nk, Nmu, -1)) #reshape properly to (Nk, Nmu)
+              
+        # make a dict, making complex arrays from real/imag parts
+        i = 0
+        while i < len(columns):
+            name = columns[i]
+            nextname = columns[i+1] if i < len(columns)-1 else ''
+            if name.endswith('.real') and nextname.endswith('.imag'):
+                name = name.split('.real')[0]
+                d[name] = data[...,i] + 1j*data[...,i+1]
+                i += 2
+            else:
+                d[name] = data[...,i]
+                i += 1
+                
+        # store variables as a structured array
+        dtypes = numpy.dtype([(name, d[name].dtype) for name in d])
+        data = numpy.empty(data.shape[:2], dtype=dtypes)
+        for name in d:
+            data[name] = d[name]
+        
+        # read the edges for k and mu bins
+        edges = []
+        l1 = int(lines[N].split()[-1]); N = N+1
+        edges.append(numpy.array([float(line) for line in lines[N:N+l1]]))
+        l2 = int(lines[N+l1].split()[-1]); N = N+l1+1
+        edges.append(numpy.array([float(line) for line in lines[N:N+l2]]))
+        metadata['edges'] = edges
+        
+        # read any metadata
+        if len(lines) > N+l2:
+            N_meta = int(lines[N+l2].split()[-1])
+            N = N + l2 + 1
+            meta = lines[N:N+N_meta]
+            for line in meta:
+                fields = line.split()
+                cast = fields[-1]
+                if cast in __builtins__:
+                    metadata[fields[0]] = __builtins__[cast](fields[1])
+                elif hasattr(numpy, cast):
+                     metadata[fields[0]] = getattr(numpy, cast)(fields[1])
+                else:
+                    raise TypeError("Metadata must have builtin or numpy type")
+
+    return data, metadata
+    
+def _Read1DPlainText(filename):
+    """
+    Reads the plain text storage of a 1D measurement
+    
+    Notes
+    -----
+    *   If `edges` is present in the file, they will be returned
+        as part of the metadata, with the key `edges`
+    *   If the first line of the file specifies column names, 
+        they will be returned as part of the metadata with the
+        `columns` key
+    
+    Returns
+    -------
+    data : array_like
+        the 1D data stacked vertically, such that each columns
+        represents a separate data variable
+    metadata : dict
+        any additional metadata to store as part of the 
+        P(k) measurement 
+    """
+    # data list
+    data = []
+    
+    # extract the metadata
+    metadata = {}
+    make_float = lambda x: float(x[1:])
+    with open(filename, 'r') as ff:
+        
+        currline = 0
+        lines = ff.readlines()
+
+        # try to read columns
+        if lines[0][0] == '#':
+            try:
+                metadata['columns'] = lines[0][1:].split()
+            except:
+                pass
+        
+        while True:
+            
+            # break if we are at the EOF
+            if currline == len(lines): break
+            line = lines[currline]
+            
+            if not line: 
+                currline += 1
+                continue
+                
+            if line[0] != '#':
+                data.append([float(l) for l in line.split()])
+            else:
+                line = line[1:]
+                
+                # read edges
+                if 'edges' in line:
+                    fields = line.split()
+                    N = int(fields[-1]) # number of edges
+                    metadata['edges'] = numpy.array([make_float(l) for l in lines[currline+1:currline+1+N]])
+                    currline += 1+N
+                    continue
+        
+                # read metadata
+                if 'metadata' in line:                
+                    # read and cast the metadata properly
+                    fields = line.split()
+                    N = int(fields[-1]) # number of individual metadata lines
+                    for i in range(N):
+                        fields = lines[currline+1+i][1:].split()
+                        cast = fields[-1]
+                        if cast in __builtins__:
+                            metadata[fields[0]] = __builtins__[cast](fields[1])
+                        elif hasattr(numpy, cast):
+                             metadata[fields[0]] = getattr(numpy, cast)(fields[1])
+                        else:
+                            raise TypeError("metadata must have builtin or numpy type")
+                    currline += 1+N
+                    continue
+                
+            # add to the data
+            currline += 1
+    
+    data = numpy.asarray(data)
+    
+    # get names of columns, using default if not in file
+    columns = metadata.pop('columns', ['col_%d' %i for i in range(data.shape[1])])
+    
+    # make a dict, making complex arrays from real/imag parts
+    i = 0
+    d = {}
+    while i < len(columns):
+        name = columns[i]
+        nextname = columns[i+1] if i < len(columns)-1 else ''
+        if name.endswith('.real') and nextname.endswith('.imag'):
+            name = name.split('.real')[0]
+            d[name] = data[...,i] + 1j*data[...,i+1]
+            i += 2
+        else:
+            d[name] = data[...,i]
+            i += 1
+    
+    # store variables as a structured array
+    dtypes = numpy.dtype([(name, d[name].dtype) for name in d])
+    data = numpy.empty(len(data), dtype=dtypes)
+    for name in d:
+        data[name] = d[name]
+        
+    return data, metadata        
