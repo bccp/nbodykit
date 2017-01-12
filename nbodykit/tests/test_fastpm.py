@@ -259,7 +259,7 @@ def test_vm(comm):
 
     pt = PerturbationGrowth(Cosmology(Om0=0.3, Tcmb0=0))
 
-    pm = ParticleMesh(BoxSize=128.0, Nmesh=(8,8,8), comm=comm, dtype='f8')
+    pm = ParticleMesh(BoxSize=128.0, Nmesh=(4,4,4), comm=comm, dtype='f8')
     vm = fastpm.Solver(pm)
     dlink = pm.generate_whitenoise(12345, mode='complex', unitary=True)
     power = dlink.copy()
@@ -285,12 +285,10 @@ def test_vm(comm):
         tape = vm.tape()
         init = {'dlin_k': dlin_k}
         r = code.compute('r', init, tape=tape, monitor=None)
-        print(tape)
         gcode = vm.gradient(tape)
-        print(gcode)
         _r = r.apply(lambda x, v: v * 2)
         init = {'_r' : _r, '_q': vm.Zero, '_p' : vm.Zero}
-        return gcode.compute('_dlin_k', init, monitor=print)
+        return gcode.compute('_dlin_k', init, monitor=None)
 
     y0 = objective(dlink, vm)
     yprime = gradient(dlink, vm)
