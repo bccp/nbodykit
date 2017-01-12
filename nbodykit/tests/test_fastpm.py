@@ -274,17 +274,23 @@ def test_vm(comm):
     power.apply(kernel, out=Ellipsis)
     dlink[...] *= power.real
 
-    vm.push_kdk(pt, 0.1, 1.0, 5)
+    code=vm.kdk(pt, 0.1, 1.0, 5)
 
-    def objective(dlink, vm):
-        r = vm.compute(dlink, monitor=None)
+    def objective(dlin_k, vm):
+        init = {'dlin_k': dlin_k}
+        r = code.compute('r', init, monitor=None)
         return comm.allreduce((r[...]**2).sum(dtype='f8'))
 
-    def gradient(dlink, vm):
-        tape = []
-        r = vm.compute(dlink, tape=tape, monitor=print)
-        grad_r = r.apply(lambda x, v: v * 2)
-        return vm.gradient(grad_r=grad_r, tape=tape, monitor=print)
+    def gradient(dlin_k, vm):
+        tape = vm.tape()
+        init = {'dlin_k': dlin_k}
+        r = code.compute('r', init, tape=tape, monitor=None)
+        print(tape)
+        gcode = vm.gradient(tape)
+        print(gcode)
+        _r = r.apply(lambda x, v: v * 2)
+        init = {'_r' : _r, '_q': vm.Zero, '_p' : vm.Zero}
+        return gcode.compute('_dlin_k', init, monitor=print)
 
     y0 = objective(dlink, vm)
     yprime = gradient(dlink, vm)

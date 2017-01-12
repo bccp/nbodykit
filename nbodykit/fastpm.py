@@ -1,7 +1,7 @@
 from __future__ import print_function
 import numpy
 import logging
-from abopt.vmad import VM
+from abopt.vmad2 import VM
 
 def laplace_kernel(k, v):
     kk = sum(ki ** 2 for ki in k)
@@ -281,17 +281,17 @@ def gravity_gradient(x, pm, factor, grad_f, out_x=None):
 class Solver(VM):
     def __init__(self, pm):
         self.pm = pm
+
         VM.__init__(self)
 
-    def push_kdk(self, pt, astart, aend, Nsteps):
-        self.push('Initialize')
-        self.push('Displace', pt.D1(astart), 
-                              pt.f1(astart) * pt.D1(astart) * astart ** 2 * pt.E(astart),
-                              pt.D2(astart),
-                              pt.f2(astart) * pt.D2(astart) * astart ** 2 * pt.E(astart),
-                 )
-        self.push('Force', -1.5 * pt.Om0)
-        #self.push('Displace', pt.D1(aend), pt.f1(aend), pt.D2(aend), pt.f2(aend))
+    def kdk(self, pt, astart, aend, Nsteps):
+        code = self.code()
+        code.Displace(D1=pt.D1(astart), 
+                      v1=pt.f1(astart) * pt.D1(astart) * astart ** 2 * pt.E(astart),
+                      D2=pt.D2(astart),
+                      v2=pt.f2(astart) * pt.D2(astart) * astart ** 2 * pt.E(astart),
+                     )
+        code.Force(factor=-1.5 * pt.Om0)
 
         a = numpy.linspace(astart, aend, Nsteps + 1, endpoint=True)
         def K(ai, af, ar):
@@ -299,127 +299,108 @@ class Solver(VM):
         def D(ai, af, ar):
             return 1 / (ar ** 3 * pt.E(ar)) * (pt.Gp(af) - pt.Gp(ai)) / pt.gp(ar)
 
-        #self.push('Drift', 2.0)
-
         for ai, af in zip(a[:-1], a[1:]):
             ac = (ai * af) ** 0.5
 
-            self.push('Kick', K(ai, ac, ai))
-            self.push('Drift', D(ai, ac, ac))
-            self.push('Drift', D(ac, af, ac))
-            self.push('Force', -1.5 * pt.Om0)
-            self.push('Kick', K(ac, af, af))
+            code.Kick(dda=K(ai, ac, ai))
+            code.Drift(dyyy=D(ai, ac, ac))
+            code.Drift(dyyy=D(ac, af, ac))
+            code.Force(factor=-1.5 * pt.Om0)
+            code.Kick(dda=K(ac, af, af))
+        code.Paint(pm=self.pm)
+        return code
 
-        self.push('Paint')
+    @VM.microcode(aout=['b'], ain=['a'])
+    def copy(self, a):
+        if hasattr(a, 'copy'):
+            return a.copy()
+        else:
+            return 1.0 * a
 
-    def compute(self, dlin_k, tape=None, monitor=None):
-        fout = ['r']
-        init = {'i': dlin_k}
-        r = VM.compute(self, fout, init, tape, monitor)
-        return r['r']
-
-    def gradient(self, grad_r, tape, monitor=None):
-        gout = ['^i']
-        ginit = {'^r' : grad_r}
-        r = VM.gradient(self, gout, ginit, tape, monitor)
-        return r['^i']
-
-    @VM.microcode(lout=['q'])
-    def Initialize(self, frontier):
-        # use the float resolution of the PM
-        q = create_grid(frontier['i'].pm, dtype=frontier['i'].real.dtype)
-        frontier['q'] = q
-
-    @Initialize.grad
-    def GradientInitialize(self, frontier):
-        pass
-
-    @VM.microcode(fout=['s', 'p'], fin=['i'])
-    def Displace(self, frontier, D1, v1, D2, v2):
-        q = frontier['q']
-        dlin_k = frontier['i']
+    @VM.microcode(aout=['s', 'p', 'q'], ain=['dlin_k'])
+    def Displace(self, dlin_k, D1, v1, D2, v2):
+        q = create_grid(dlin_k.pm, dtype=dlin_k.real.dtype)
         dx1 = lpt1(dlin_k, q)
         source = lpt2source(dlin_k)
         dx2 = lpt1(source, q)
-        frontier['s'] = D1 * dx1 + D2 * dx2
-        frontier['p'] = v1 * dx1 + v2 * dx2
+        s = D1 * dx1 + D2 * dx2
+        p = v1 * dx1 + v2 * dx2
+        return s, p, q
 
     @Displace.grad
-    def GradientDisplace(self, frontier, D1, v1, D2, v2):
-        grad_dx1 = frontier['^p'] * (v1) + frontier['^s'] * D1
-        grad_dx2 = frontier['^p'] * (v2) + frontier['^s'] * D2
-        q = frontier['q']
+    def GradientDisplace(self, dlin_k, _s, _p, _q, D1, v1, D2, v2):
+        grad_dx1 = _p * (v1) + _s * D1
+        grad_dx2 = _p * (v2) + _s * D2
+        q = create_grid(dlin_k.pm, dtype=dlin_k.real.dtype)
 
         if grad_dx1 is not VM.Zero:
-            gradient = lpt1_gradient(frontier['i'], q, grad_dx1)
+            gradient = lpt1_gradient(dlin_k, q, grad_dx1)
         else:
             gradient = VM.Zero
         # because the exact value of lpt2source is irrelevant, we save some computation
         # by not using lpt2source = fastpm.lpt2source(self.dlink)
         if grad_dx2 is not VM.Zero:
-            lpt2source = frontier['i']
-            gradient_lpt2source = lpt1_gradient(lpt2source, q, grad_dx2)
-            gradient[...] += lpt2source_gradient(frontier['i'], gradient_lpt2source)
+            gradient_lpt2source = lpt1_gradient(dlin_k, q, grad_dx2)
+            gradient[...] += lpt2source_gradient(dlin_k, gradient_lpt2source)
 
-        frontier['^i'] = gradient
+        return gradient
 
-    @VM.microcode(fout=['f'], fin=['s'])
-    def Force(self, frontier, factor):
-        density_factor = self.pm.Nmesh.prod() / self.pm.comm.allreduce(len(frontier['q']))
-        x = frontier['s'] + frontier['q']
-        frontier['f'] = gravity(x, self.pm, factor=density_factor * factor, f=None)
+    @VM.microcode(aout=['f'], ain=['s'], literals=['q'])
+    def Force(self, s, q, factor):
+        density_factor = self.pm.Nmesh.prod() / self.pm.comm.allreduce(len(q))
+        x = s + q
+        return gravity(x, self.pm, factor=density_factor * factor, f=None)
 
     @Force.grad
-    def GradientForce(self, frontier, factor):
-        if frontier['^f'] is VM.Zero:
-            frontier['^s'] = VM.Zero
+    def GradientForce(self, s, _f, q, factor):
+        if _f is VM.Zero:
+            return VM.Zero
         else:
-            density_factor = self.pm.Nmesh.prod() / self.pm.comm.allreduce(len(frontier['q']))
-            x = frontier['s'] + frontier['q']
-            frontier['^s'] = gravity_gradient(x, self.pm, density_factor * factor, frontier['^f'])
+            density_factor = self.pm.Nmesh.prod() / self.pm.comm.allreduce(len(q))
+            x = s + q
+            return gravity_gradient(x, self.pm, density_factor * factor, _f)
 
 
-    @VM.microcode(fout=['r'], fin=['s'])
-    def Paint(self, frontier):
-        x = frontier['s'] + frontier['q']
-        dlink = frontier['i']
-        real = dlink.pm.create(mode='real')
-        layout = dlink.pm.decompose(x)
+    @VM.microcode(aout=['r'], ain=['s'], literals=['q'])
+    def Paint(self, s, q, pm):
+        x = s + q
+        real = pm.create(mode='real')
+        layout = pm.decompose(x)
         real.paint(x, layout=layout, hold=False)
-        frontier['r'] = real
+        return real
 
     @Paint.grad
-    def GradientPaint(self, frontier):
-        btgrad = frontier['^r']
-        if btgrad is VM.Zero:
-            frontier['^s'] = VM.Zero
+    def GradientPaint(self, _r, s, q, pm):
+        if _r is VM.Zero:
+            return VM.Zero
         else:
-            x = frontier['s'] + frontier['q']
-            layout = btgrad.pm.decompose(x)
-            frontier['^s'], junk = btgrad.paint_gradient(x, layout=layout, out_mass=False)
+            x = s + q
+            layout = _r.pm.decompose(x)
+            _s, junk = _r.paint_gradient(x, layout=layout, out_mass=False)
+            return _s
 
-    @VM.microcode(fout=['p'], fin=['f', 'p'])
-    def Kick(self, frontier, dda):
-        frontier['p'] = kick(frontier['p'], frontier['f'], dda, p2=Ellipsis)
+    @VM.microcode(aout=['p'], ain=['f', 'p'])
+    def Kick(self, f, p, dda):
+        return kick(p, f, dda, p2=Ellipsis)
 
     @Kick.grad
-    def GradientKick(self, frontier, dda):
-        if frontier['^p'] is VM.Zero:
-            frontier['^p'], frontier['^f'] = VM.Zero, VM.Zero
+    def GradientKick(self, f, p, _p, dda):
+        if _p is VM.Zero:
+            return VM.Zero, VM.Zero
         else:
-            frontier['^p'], frontier['^f'] = kick_gradient(frontier['p'], frontier['f'], dda, frontier['^p'])
+            _p, _f = kick_gradient(p, f, dda, _p)
+            return _f, _p
 
-    @VM.microcode(fout=['s'], fin=['p', 's'])
-    def Drift(self, frontier, dyyy):
-        frontier['s'] = drift(frontier['s'], frontier['p'], dyyy, x2=Ellipsis)
+    @VM.microcode(aout=['s'], ain=['p', 's'])
+    def Drift(self, p, s, dyyy):
+        return drift(s, p, dyyy, x2=Ellipsis)
 
     @Drift.grad
-    def GradientDrift(self, frontier, dyyy):
-        #print('GradientDrift', dyyy, frontier)
-        if frontier['^s'] is VM.Zero:
-            frontier['^s'], frontier['^p'] = VM.Zero, VM.Zero
+    def GradientDrift(self, p, s, _s, dyyy):
+        if _s is VM.Zero:
+            return VM.Zero, VM.Zero
         else:
-            frontier['^s'], frontier['^p'] = drift_gradient(frontier['s'], frontier['p'], dyyy, frontier['^s'])
-
+            _s, _p = drift_gradient(s, p, dyyy, _s)
+            return _p, _s
 
 
