@@ -111,6 +111,9 @@ class RedshiftHistogram(object):
         self.attrs['redshift'] = redshift
         self.attrs['weight']   = weight
         self.attrs.update({'cosmo.%s' %k:cosmo[k] for k in cosmo})
+        
+        # and run
+        self.run()
                          
     def run(self):
         """
@@ -164,9 +167,6 @@ class RedshiftHistogram(object):
         self.bin_centers = 0.5*(edges[:-1] + edges[1:])
         self.dV          = dV
         self.nbar        = 1.*N/dV
-        
-        # and run
-        self.run()
         
     def __getstate__(self):
         state = dict(
