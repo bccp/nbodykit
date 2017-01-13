@@ -4,4 +4,6 @@ from .zeldovich import ZeldovichParticles
 from .uniform import UniformParticles, RandomParticles
 from .fastpm import LPTParticles
 from .fkp import FKPCatalog
+from .halos import HaloCatalog
+from .hod import HOD
 
