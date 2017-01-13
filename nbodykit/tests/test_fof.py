@@ -1,6 +1,5 @@
 from mpi4py_test import MPITest
 from nbodykit.lab import *
-from nbodykit.algorithms.fof import FOF, HaloFinder
 from nbodykit import setup_logging
 
 # debug logging
