@@ -110,10 +110,15 @@ class LinearPowerBase(object):
             the linear power spectrum evaluated at k in [Mpc/h]^3
         """
         if not hasattr(self, '_norm'): self._normalize()
-        
+        if np.isscalar(k) and k == 0:
+            return 1.
+        k = np.asarray(k)
         T = self.transfer(k)
         D = self.cosmo.growth_function(self.redshift)
-        return D**2 * (self.sigma8/self._sigma8_0)**2 * self._norm * T ** 2 * k ** self.cosmo.n_s
+        r = D**2 * (self.sigma8/self._sigma8_0)**2 * self._norm * T ** 2 * k ** self.cosmo.n_s
+        r = np.asarray(r)
+        r[k == 0] = 1.
+        return r
             
     def sigma_r(self, r):
         """
@@ -219,6 +224,7 @@ class EHPower(LinearPowerBase):
         if np.isscalar(k) and k == 0.:
             return 1.0
         
+        k = np.asarray(k)
         # only compute k > 0 modes
         valid = k > 0.
         
@@ -243,7 +249,7 @@ class EHPower(LinearPowerBase):
         T_b_2 = self.alpha_b / (1 + (self.beta_b/ks)**3 ) * np.exp(-(k/self.k_silk) ** 1.4)
         T_b = np.sinc(ks_tilde/np.pi) * (T_b_1 + T_b_2)
     
-        T = np.ones(len(valid)) 
+        T = np.ones(valid.shape) 
         T[valid] = self.f_baryon*T_b + (1-self.f_baryon)*T_c;
         return T
 
@@ -297,6 +303,7 @@ class NoWiggleEHPower(LinearPowerBase):
             return 1.0
             
         # only compute k > 0 modes
+        k = np.asarray(k)
         valid = k > 0.
         
         k = k[valid] * self.cosmo.h # in 1/Mpc now
@@ -308,6 +315,6 @@ class NoWiggleEHPower(LinearPowerBase):
         L0 = np.log(2*np.e + 1.8 * q_eff)
         C0 = 14.2 + 731.0 / (1 + 62.5 * q_eff)
     
-        T = np.ones(len(valid))
+        T = np.ones(valid.shape)
         T[valid] = L0 / (L0 + C0 * q_eff**2)
         return T

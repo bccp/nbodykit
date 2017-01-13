@@ -85,7 +85,7 @@ class FFTPower(object):
         
         # if input is ParticleSource, use defaults to make it into a mesh
         if not hasattr(first, 'paint'):
-            first = first.to_mesh(BoxSize=BoxSize, Nmesh=Nmesh, dtype='f8')
+            first = first.to_mesh(BoxSize=BoxSize, Nmesh=Nmesh, dtype='f8', compensated=True)
             
         # handle the second input source
         if second is None:
@@ -93,7 +93,7 @@ class FFTPower(object):
         else:
             # make the second input a mesh if we need to
             if not hasattr(second, 'paint'):
-                second = second.to_mesh(BoxSize=BoxSize, Nmesh=Nmesh, dtype='f8')
+                second = second.to_mesh(BoxSize=BoxSize, Nmesh=Nmesh, dtype='f8', compensated=True)
                 
         # check for comm mismatch
         assert second.comm is first.comm, "communicator mismatch between input sources"
