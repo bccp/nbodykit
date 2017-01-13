@@ -291,7 +291,7 @@ class Evolution(VM):
                       D2=pt.D2(astart),
                       v2=pt.f2(astart) * pt.D2(astart) * astart ** 2 * pt.E(astart),
                      )
-        code.Force(factor=-1.5 * pt.Om0)
+        code.Force(factor=1.5 * pt.Om0)
 
         a = numpy.linspace(astart, aend, Nsteps + 1, endpoint=True)
         def K(ai, af, ar):
@@ -305,7 +305,7 @@ class Evolution(VM):
             code.Kick(dda=K(ai, ac, ai))
             code.Drift(dyyy=D(ai, ac, ac))
             code.Drift(dyyy=D(ac, af, ac))
-            code.Force(factor=-1.5 * pt.Om0)
+            code.Force(factor=1.5 * pt.Om0)
             code.Kick(dda=K(ac, af, af))
 
         return code
