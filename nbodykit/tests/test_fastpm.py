@@ -260,7 +260,7 @@ def test_vm(comm):
     pt = PerturbationGrowth(Cosmology(Om0=0.3, Tcmb0=0))
 
     pm = ParticleMesh(BoxSize=128.0, Nmesh=(4,4,4), comm=comm, dtype='f8')
-    vm = fastpm.Solver(pm)
+    vm = fastpm.Evolution(pm)
     dlink = pm.generate_whitenoise(12345, mode='complex', unitary=True)
     power = dlink.copy()
 
@@ -274,24 +274,29 @@ def test_vm(comm):
     power.apply(kernel, out=Ellipsis)
     dlink[...] *= power.real
 
-    code=vm.kdk(pt, 0.1, 1.0, 5)
+    data = dlink.c2r()
+    data[...] = 0
+    sigma = data.copy()
+    sigma[...] = 1.0
 
-    def objective(dlin_k, vm):
+    code = vm.kdk(pt, 0.1, 1.0, 5)
+    code.Paint(pm=data.pm)
+    code.Chi2(data_x=data, sigma_x=sigma)
+
+    def objective(dlin_k):
         init = {'dlin_k': dlin_k}
-        r = code.compute('r', init, monitor=None)
-        return comm.allreduce((r[...]**2).sum(dtype='f8'))
+        return code.compute('chi2', init, monitor=None)
 
-    def gradient(dlin_k, vm):
+    def gradient(dlin_k):
         tape = vm.tape()
         init = {'dlin_k': dlin_k}
-        r = code.compute('r', init, tape=tape, monitor=None)
+        code.compute('chi2', init, tape=tape, monitor=None)
         gcode = vm.gradient(tape)
-        _r = r.apply(lambda x, v: v * 2)
-        init = {'_r' : _r, '_q': vm.Zero, '_p' : vm.Zero}
+        init = {'_chi2' : 1, '_q': vm.Zero}  #'_r' : _r, '_q': vm.Zero, '_p' : vm.Zero}
         return gcode.compute('_dlin_k', init, monitor=None)
 
-    y0 = objective(dlink, vm)
-    yprime = gradient(dlink, vm)
+    y0 = objective(dlink)
+    yprime = gradient(dlink)
 
     num = []
     ana = []
@@ -304,8 +309,8 @@ def test_vm(comm):
         left = dlinkl.csetitem(ind1, old - pert)
         right = dlinkr.csetitem(ind1, old + pert)
         diff = right - left
-        yl = objective(dlinkl, vm)
-        yr = objective(dlinkr, vm)
+        yl = objective(dlinkl)
+        yr = objective(dlinkr)
         grad = yprime.cgetitem(ind1)
         print(ind1, old, pert, yl, yr, grad * diff, yr - yl)
         ana.append(grad * diff)

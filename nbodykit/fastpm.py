@@ -278,7 +278,7 @@ def gravity_gradient(x, pm, factor, grad_f, out_x=None):
 
     return out_x
 
-class Solver(VM):
+class Evolution(VM):
     def __init__(self, pm):
         self.pm = pm
 
@@ -307,7 +307,7 @@ class Solver(VM):
             code.Drift(dyyy=D(ac, af, ac))
             code.Force(factor=-1.5 * pt.Om0)
             code.Kick(dda=K(ac, af, af))
-        code.Paint(pm=self.pm)
+
         return code
 
     @VM.microcode(aout=['b'], ain=['a'])
@@ -378,6 +378,20 @@ class Solver(VM):
             layout = _r.pm.decompose(x)
             _s, junk = _r.paint_gradient(x, layout=layout, out_mass=False)
             return _s
+
+    @VM.microcode(aout=['chi2'], ain=['r'])
+    def Chi2(self, r, data_x, sigma_x):
+        diff = r + -1 * data_x
+        diff[...] **= 2
+        diff[...] /= sigma_x[...]
+        return diff.csum()
+
+    @Chi2.grad
+    def gchi2(self, _chi2, r, data_x, sigma_x):
+        diff = r + -1 * data_x
+        diff[...] *= 2
+        diff[...] /= sigma_x[...]
+        return diff
 
     @VM.microcode(aout=['p'], ain=['f', 'p'])
     def Kick(self, f, p, dda):
