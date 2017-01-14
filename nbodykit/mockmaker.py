@@ -266,10 +266,13 @@ def poisson_sample_to_points(delta, displacement, pm, nbar, f=0., bias=1., seed=
         N = rng.poisson(cellmean)
     else:
         N = None
-    N = ScatterArray(N, comm, root=0)
     
-    Ntot = comm.allreduce(N.sum()) # the collective number of particles
+    # scatter N back evenly across the ranks
+    counts = comm.allgather(delta.shape[0])
+    N = ScatterArray(N, comm, root=0, counts=counts)
+    
     Nlocal = N.sum() # local number of particles
+    Ntot = comm.allreduce(Nlocal) # the collective number of particles
     nonzero_cells = N.nonzero() # indices of nonzero cells
 
     # initialize the mesh of particle positions and velocity
