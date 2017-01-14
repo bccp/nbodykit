@@ -16,7 +16,7 @@ def remove_object_dtypes(data):
     """
     for col in data.colnames:
         if data.dtype[col] == 'O':
-            data[col] = data[col].astype('U')
+            data.replace_column(col, data[col].astype('U'))
     return data
         
 @add_metaclass(abc.ABCMeta)
