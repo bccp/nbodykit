@@ -25,9 +25,9 @@ def split_ranks(N_ranks, N, include_all=False):
     available = list(range(1, N_ranks)) # available ranks to do work    
     total = len(available)
     extra_ranks = total % N
-  
+      
     if include_all:
-        for i, chunk in enumerate(numpy.array_split(available, total//N)):
+        for i, chunk in enumerate(numpy.array_split(available, max(total//N, 1))):
             yield i, list(chunk)
     else:
         for i in range(total//N):
