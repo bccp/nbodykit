@@ -138,33 +138,38 @@ class MeshSlab(object):
     @property
     def nonsingular(self):
         """
-        Return the indices on the slab of the positive frequencies
+        The indices on the slab of the positive frequencies
         along the dimension specified by `symmetry_axis`
+        
+        Returns
+        -------
+        idx : array_like, self.shape
+            Return a boolean array with the shape of the slab,
+            with `True` elements giving the elements with 
+            positive freq along `symmetry_axis`
         """
         try: 
             return self._nonsingular
         except AttributeError:
             
             # initially, return slice that includes all elements 
-            all_slice = slice(None); empty_slice = slice(0, 0)
-            idx = [all_slice, all_slice]
+            idx = numpy.ones(self.shape, dtype=bool)
             
             # iteration axis is symmetry axis
             if self.symmetry_axis == self.axis:
                 
                 # check if current iteration value is positive
                 if numpy.float(self.coords(self.axis)) <= 0.:
-                    idx = [empty_slice, empty_slice] 
+                    idx = numpy.zeros(self.shape, dtype=bool)
                        
             # one of slab dimensions is symmetry axis
             else:
                 
                 # get the indices that have positive freq along symmetry axis
-                nonsingular = numpy.squeeze(self._coords[self.symmetry_axis] > 0.)
+                nonsingular = (self._coords[self.symmetry_axis] > 0.)
+                nonsingular = numpy.take(nonsingular, 0, axis=self.axis)
                 
-                # set the appropriate dimension of the slab
-                i = max(0, self.symmetry_axis-1)
-                idx[i] = nonsingular
+                idx[...] = nonsingular
         
             self._nonsingular = idx
             return self._nonsingular
