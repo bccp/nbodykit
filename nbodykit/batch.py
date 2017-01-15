@@ -128,6 +128,10 @@ class TaskManager(object):
             nworkers = nworkers + 1
         self.workers = nworkers # store the total number of workers
 
+        # check for no workers!
+        if self.workers == 0:
+            raise ValueError("no pool workers available; try setting `use_all_cpus` = True")
+
         leftover = (self.size - 1) - total_ranks
         if leftover and self.rank == 0:
             args = (self.cpus_per_task, self.size-1, leftover)
