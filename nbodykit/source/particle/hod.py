@@ -153,6 +153,7 @@ class HODBase(Array):
                 valid = list(self._model.param_dict.keys())
                 raise ValueError("'%s' is not a valid Hod parameter name; valid are: %s" %(name, str(valid)))
             self._model.param_dict[name] = params[name]
+            self.attrs[name] = params
             
         # the root will do the mock population
         if self.comm.rank == 0:
