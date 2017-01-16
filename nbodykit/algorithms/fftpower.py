@@ -167,7 +167,6 @@ class FFTPower(object):
         # measure the 3D power (y3d is a ComplexField)
         y3d = self._compute_3d_power()
 
-
         # binning in k out to the minimum nyquist frequency 
         # (accounting for possibly anisotropic box)
         dk = 2*numpy.pi/y3d.BoxSize.min() if self.attrs['dk'] is None else self.attrs['dk']
