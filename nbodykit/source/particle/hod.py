@@ -185,6 +185,7 @@ class HODBase(Array):
             
             fsat = 1.*(data['gal_type'] == 'satellites').sum()/len(data)
             self.logger.info("satellite fraction: %.2f" %fsat)
+            self.attrs['fsat'] = fsat
 
             logmass = numpy.log10(data[self.mass])
             self.logger.info("mean log10 halo mass: %.2f" %logmass.mean())
