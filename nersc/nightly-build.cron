@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# full path of the nightly build script
+script_path=$(readlink -f nightly-build.sh)
+
+# do the nightly build (only add cron job if not present)
+job="00 00 * * * bash -l $script_path"
+( crontab -l | grep -Fq "$job" | echo "$job" ) | crontab -
+
