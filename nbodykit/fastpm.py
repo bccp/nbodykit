@@ -207,11 +207,11 @@ def kick(p1, f, dt, p2=None):
     p2[...] = p1 + f * dt
     return p2
 
-def kick_gradient(p1, f, dt, grad_p2, out_p1=None, out_f=None):
+def kick_gradient(dt, grad_p2, out_p1=None, out_f=None):
     if out_f is None:
-        out_f = numpy.empty_like(f)
+        out_f = numpy.empty_like(grad_p2)
     if out_p1 is None:
-        out_p1 = numpy.empty_like(p1)
+        out_p1 = numpy.empty_like(grad_p2)
 
     out_f[...] = grad_p2 * dt
     out_p1[...] = grad_p2
@@ -221,8 +221,8 @@ def kick_gradient(p1, f, dt, grad_p2, out_p1=None, out_f=None):
 def drift(x1, p, dt, x2=None):
     return kick(x1, p, dt, x2)
 
-def drift_gradient(x1, p, dt, grad_x2, out_x1=None, out_p=None):
-    return kick_gradient(x1, p, dt, grad_x2, out_x1, out_p)
+def drift_gradient(dt, grad_x2, out_x1=None, out_p=None):
+    return kick_gradient(dt, grad_x2, out_x1, out_p)
 
 def gravity(x, pm, factor, f=None):
     field = pm.create(mode="real")
@@ -443,11 +443,11 @@ class Evolution(VM):
         return kick(p, f, dda, p2=Ellipsis)
 
     @Kick.grad
-    def GradientKick(self, f, p, _p, dda):
+    def GradientKick(self, _p, dda):
         if _p is VM.Zero:
             return VM.Zero, VM.Zero
         else:
-            _p, _f = kick_gradient(p, f, dda, _p)
+            _p, _f = kick_gradient(dda, _p)
             return _f, _p
 
     @VM.microcode(aout=['s'], ain=['p', 's'])
@@ -455,11 +455,11 @@ class Evolution(VM):
         return drift(s, p, dyyy, x2=Ellipsis)
 
     @Drift.grad
-    def GradientDrift(self, p, s, _s, dyyy):
+    def GradientDrift(self, _s, dyyy):
         if _s is VM.Zero:
             return VM.Zero, VM.Zero
         else:
-            _s, _p = drift_gradient(s, p, dyyy, _s)
+            _s, _p = drift_gradient(dyyy, _s)
             return _p, _s
 
 

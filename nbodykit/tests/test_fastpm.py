@@ -149,7 +149,7 @@ def test_kick(comm):
 
     def gradient(p1, f):
         p2 = fastpm.kick(p1, f, 2.0)
-        return fastpm.kick_gradient(p1, f, 2.0, grad_p2=2 * p2)
+        return fastpm.kick_gradient(2.0, grad_p2=2 * p2)
 
     y0 = objective(p1, f)
     yprime_p1, yprime_f = gradient(p1, f)
@@ -292,9 +292,9 @@ def test_vm(comm):
     def gradient(dlin_k):
         tape = vm.tape()
         init = {'dlin_k': dlin_k, 'q' : q}
-        code.compute('chi2', init, tape=tape, monitor=None)
+        code.compute(['chi2', 'f', 's', 'p'], init, tape=tape, monitor=None)
         gcode = vm.gradient(tape)
-        init = {'_chi2' : 1, '_q': vm.Zero}  #'_r' : _r, '_q': vm.Zero, '_p' : vm.Zero}
+        init = {'_chi2' : 1, '_q': 0, '_p' : 0, '_s' : 0, '_f' : 0}
         return gcode.compute('_dlin_k', init, monitor=None)
 
     y0 = objective(dlink)
