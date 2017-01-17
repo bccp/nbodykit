@@ -7,24 +7,58 @@ from nbodykit.source import Array
 from mpi4py import MPI
 
 class FOF(Array):
+    """
+    A friend-of-friend halo finder that returns a Source
+    holding the 'HaloLabel' data
 
+    Friend-of-friend was first used by Davis et al 1985 to define
+    halos in hierachical structure formation of cosmological simulations.
+    The algorithm is also known as DBSCAN in computer science. 
+    The subroutine here implements a parallel version of the FOF. 
+
+    The underlying local FOF algorithm is from `kdcount.cluster`, 
+    which is an adaptation of the implementation in Volker Springel's 
+    Gadget and Martin White's PM. It could have been done faster.
+    """
     logger = logging.getLogger('FOF')
 
-    def __init__(self, source, linking_length, nmin):
+    def __init__(self, source, linking_length, nmin, absolute=False):
+        """
+        Parameters
+        ----------
+        source : ParticleSource
+            the source to run the FOF algorithm on; must support 'Position'
+        linking_length : float
+            the linking length, either in absolute units, or relative
+            to the mean particle separation
+        nmin : int
+            halo with fewer particles are ignored
+        absolute : bool; optional
+            If `True`, the linking length is in absolute units, otherwise it is 
+            relative to the mean particle separation; default is `False`
+        """
         self.comm = source.comm
 
-        mean_separation = pow(numpy.prod(source.attrs['BoxSize']) / source.csize, 1.0 / len(source.attrs['Nmesh']))
+        if 'Position' not in source:
+            raise ValueError("cannot compute FOF without 'Position' column")
 
         self.attrs['linking_length'] = linking_length
         self.attrs['nmin'] = nmin
+        self.attrs['absolute'] = absolute
+        
+        # linking length relative to mean separation
+        if not absolute:
+            mean_separation = pow(numpy.prod(source.attrs['BoxSize']) / source.csize, 1.0 / len(source.attrs['Nmesh']))
+            linking_length *= mean_separation
+            
+        # run the FOF
+        minid = fof(source, linking_length, self.comm)
 
-        minid = fof(source, linking_length * mean_separation, self.comm)
-
-        # sort calculate halo catalogue
+        # sort calculate halo catalog
         label = _assign_labels(minid, comm=self.comm, thresh=nmin)
-
+        
+        # init the Array Source
         label = label.view(dtype=numpy.dtype([('HaloLabel', label.dtype)]))
-
         Array.__init__(self, label, comm=self.comm, **source.attrs)
 
 class HaloFinder(Array):
@@ -167,33 +201,33 @@ def _fof_merge(layout, minid, comm):
     return minid
 
 def fof(datasource, linking_length, comm):
-    """ Run Friend-of-friend halo finder.
+    """
+    Run Friend-of-friend halo finder.
 
-        Friend-of-friend was first used by Davis et al 1985 to define
-        halos in hierachical structure formation of cosmological simulations.
-        The algorithm is also known as DBSCAN in computer science. 
-        The subroutine here implements a parallel version of the FOF. 
+    Friend-of-friend was first used by Davis et al 1985 to define
+    halos in hierachical structure formation of cosmological simulations.
+    The algorithm is also known as DBSCAN in computer science. 
+    The subroutine here implements a parallel version of the FOF. 
 
-        The underlying local FOF algorithm is from `kdcount.cluster`, 
-        which is an adaptation of the implementation in Volker Springel's 
-        Gadget and Martin White's PM. It could have been done faster.
+    The underlying local FOF algorithm is from `kdcount.cluster`, 
+    which is an adaptation of the implementation in Volker Springel's 
+    Gadget and Martin White's PM. It could have been done faster.
 
-        Parameters
-        ----------
-        datasource: DataSource
-            datasource; must support Position.
-            datasource.BoxSize is used too.
-        linking_length: float
-            linking length in data units. (Usually Mpc/h).
+    Parameters
+    ----------
+    datasource: DataSource
+        datasource; must support Position.
+        datasource.BoxSize is used too.
+    linking_length: float
+        linking length in data units. (Usually Mpc/h).
 
-        comm: MPI.Comm
-            The mpi communicator.
+    comm: MPI.Comm
+        The mpi communicator.
 
-        Returns
-        -------
-        minid: array_like
-            A unique label of each position. The label is not ranged from 0.
-
+    Returns
+    -------
+    minid: array_like
+        A unique label of each position. The label is not ranged from 0.
     """
     from pmesh.domain import GridND
 
@@ -210,7 +244,7 @@ def fof(datasource, linking_length, comm):
 #    if comm.rank == 0: logger.info("ll %g. " % linking_length)
 #    if comm.rank == 0: logger.debug('grid: %s' % str(grid))
 
-    Position = datasource['Position'].compute()
+    Position = datasource.compute(datasource['Position'])
 
     layout = domain.decompose(Position, smoothing=linking_length * 1)
 
@@ -272,19 +306,19 @@ def fof_catalogue(datasource, label, comm):
     # explicitly open the DataSource
     Position = datasource['Position']
     Position /= BoxSize
-    hpos = centerofmass(label, Position.compute(), boxsize=1.0, comm=comm)
+    hpos = centerofmass(label, datasource.compute(Position), boxsize=1.0, comm=comm)
 
     Velocity = datasource['Velocity']
     Velocity /= BoxSize
 
-    hvel = centerofmass(label, Velocity.compute(), boxsize=None, comm=comm)
+    hvel = centerofmass(label, datasource.compute(Velocity), boxsize=None, comm=comm)
 
     if 'InitialPosition' in datasource:
         dtype.append(('InitialPosition', ('f4', 3)))
     
         Position = datasource['InitialPosition']
         Position /= BoxSize
-        hpos_init = centerofmass(label, Position.compute(), boxsize=1.0, comm=comm)
+        hpos_init = centerofmass(label, datasource.compute(Position), boxsize=1.0, comm=comm)
 
     #if comm.rank == 0: logger.info("Calculated catalogue %d halos found. " % (len(N) -1 ))
     #if comm.rank == 0: logger.info("Length = %s " % N[1:])
