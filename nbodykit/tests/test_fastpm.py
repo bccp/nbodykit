@@ -274,6 +274,8 @@ def test_vm(comm):
     power.apply(kernel, out=Ellipsis)
     dlink[...] *= power.real
 
+    q = fastpm.create_grid(pm, shift=0.5)
+
     data = dlink.c2r()
     data[...] = 0
     sigma = data.copy()
@@ -284,12 +286,12 @@ def test_vm(comm):
     code.Chi2(data_x=data, sigma_x=sigma)
 
     def objective(dlin_k):
-        init = {'dlin_k': dlin_k}
+        init = {'dlin_k': dlin_k, 'q' : q}
         return code.compute('chi2', init, monitor=None)
 
     def gradient(dlin_k):
         tape = vm.tape()
-        init = {'dlin_k': dlin_k}
+        init = {'dlin_k': dlin_k, 'q' : q}
         code.compute('chi2', init, tape=tape, monitor=None)
         gcode = vm.gradient(tape)
         init = {'_chi2' : 1, '_q': vm.Zero}  #'_r' : _r, '_q': vm.Zero, '_p' : vm.Zero}

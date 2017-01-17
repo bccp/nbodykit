@@ -284,6 +284,22 @@ class Evolution(VM):
 
         VM.__init__(self)
 
+    def lpt(self, pt, aend, order):
+        code = self.code()
+        if order == 1:
+            code.Displace(D1=pt.D1(aend), 
+                          v1=pt.f1(aend) * pt.D1(aend) * aend ** 2 * pt.E(aend),
+                          D2=0,
+                          v2=0,
+                         )
+        if order == 2:
+            code.Displace(D1=pt.D1(aend), 
+                          v1=pt.f1(aend) * pt.D1(aend) * aend ** 2 * pt.E(aend),
+                          D2=pt.D2(aend),
+                          v2=pt.f2(aend) * pt.D2(aend) * aend ** 2 * pt.E(aend),
+                         )
+        return code
+
     def kdk(self, pt, astart, aend, Nsteps):
         code = self.code()
         code.Displace(D1=pt.D1(astart), 
@@ -317,9 +333,9 @@ class Evolution(VM):
         else:
             return 1.0 * a
 
-    @VM.microcode(aout=['s', 'p', 'q'], ain=['dlin_k'])
+    @VM.microcode(aout=['s', 'p'], ain=['dlin_k'], literals=['q'])
     def Displace(self, dlin_k, D1, v1, D2, v2):
-        q = create_grid(dlin_k.pm, dtype=dlin_k.real.dtype)
+        q = create_grid(dlin_k.pm, shift=0.5, dtype=dlin_k.real.dtype)
         dx1 = lpt1(dlin_k, q)
         source = lpt2source(dlin_k)
         dx2 = lpt1(source, q)
@@ -328,10 +344,10 @@ class Evolution(VM):
         return s, p, q
 
     @Displace.grad
-    def GradientDisplace(self, dlin_k, _s, _p, _q, D1, v1, D2, v2):
+    def GradientDisplace(self, dlin_k, _s, _p, D1, v1, D2, v2):
         grad_dx1 = _p * (v1) + _s * D1
         grad_dx2 = _p * (v2) + _s * D2
-        q = create_grid(dlin_k.pm, dtype=dlin_k.real.dtype)
+        q = create_grid(dlin_k.pm, shift=0.5, dtype=dlin_k.real.dtype)
 
         if grad_dx1 is not VM.Zero:
             gradient = lpt1_gradient(dlin_k, q, grad_dx1)
@@ -345,12 +361,41 @@ class Evolution(VM):
 
         return gradient
 
+    @VM.microcode(aout=['meshforce'], ain=['mesh'])
+    def MeshForce(self, mesh, d, factor):
+        deltak = field.r2c(out=Ellipsis)
+        f = deltak.apply(laplace_kernel) \
+                  .apply(diff_kernel(d), out=Ellipsis) \
+                  .c2r(out=Ellipsis)
+        f[...] *= factor
+        return f
+
+    @MeshForce.grad
+    def gMeshForce(self, _meshforce, d, factor):
+        _mesh = _meshforce.c2r_gradient()\
+                           .apply(laplace_kernel, out=Ellipsis) \
+                           .apply(diff_kernel(d), out=Ellipsis) \
+                           .r2c_gradient(out=Ellipsis)
+        _mesh[...] *= factor
+        return _mesh
+
+    @VM.microcode(ain=['f', 'meshforce', 's'], literals=['q'], aout=['f'])
+    def Readout(self, s, q, meshforce, d, f):
+        density_factor = self.pm.Nmesh.prod() / self.pm.comm.allreduce(len(q))
+        if f is VM.Zero:
+            f = numpy.empty_like(q)
+        x = s + q
+        layout = pm.decompose(x)
+        meshforce.readout(x, layout=layout, out=f[:, d])
+        return f
+        
     @VM.microcode(aout=['f'], ain=['s'], literals=['q'])
     def Force(self, s, q, factor):
         density_factor = self.pm.Nmesh.prod() / self.pm.comm.allreduce(len(q))
         x = s + q
         return gravity(x, self.pm, factor=density_factor * factor, f=None)
 
+        
     @Force.grad
     def GradientForce(self, s, _f, q, factor):
         if _f is VM.Zero:
@@ -361,7 +406,7 @@ class Evolution(VM):
             return gravity_gradient(x, self.pm, density_factor * factor, _f)
 
 
-    @VM.microcode(aout=['r'], ain=['s'], literals=['q'])
+    @VM.microcode(aout=['mesh'], ain=['s'], literals=['q'])
     def Paint(self, s, q, pm):
         x = s + q
         real = pm.create(mode='real')
@@ -370,25 +415,25 @@ class Evolution(VM):
         return real
 
     @Paint.grad
-    def GradientPaint(self, _r, s, q, pm):
-        if _r is VM.Zero:
+    def GradientPaint(self, _mesh, s, q, pm):
+        if _mesh is VM.Zero:
             return VM.Zero
         else:
             x = s + q
-            layout = _r.pm.decompose(x)
-            _s, junk = _r.paint_gradient(x, layout=layout, out_mass=False)
+            layout = _mesh.pm.decompose(x)
+            _s, junk = _mesh.paint_gradient(x, layout=layout, out_mass=False)
             return _s
 
-    @VM.microcode(aout=['chi2'], ain=['r'])
-    def Chi2(self, r, data_x, sigma_x):
-        diff = r + -1 * data_x
+    @VM.microcode(aout=['chi2'], ain=['mesh'])
+    def Chi2(self, mesh, data_x, sigma_x):
+        diff = mesh + -1 * data_x
         diff[...] **= 2
         diff[...] /= sigma_x[...]
         return diff.csum()
 
     @Chi2.grad
-    def gchi2(self, _chi2, r, data_x, sigma_x):
-        diff = r + -1 * data_x
+    def gchi2(self, _chi2, mesh, data_x, sigma_x):
+        diff = mesh + -1 * data_x
         diff[...] *= 2
         diff[...] /= sigma_x[...]
         return diff
