@@ -117,6 +117,10 @@ class BianchiFFTPower(object):
         self.Nmesh   = Nmesh
         self.comm = self.source.comm
         
+        # make a list of multipole numbers
+        if numpy.isscalar(poles):
+            poles = [poles]
+        
         if use_fkp_weights and P0_FKP is None:
             raise ValueError(("please set the 'P0_FKP' keyword if you wish to automatically "
                               "use FKP weights with 'use_fkp_weights=True'"))
@@ -139,11 +143,11 @@ class BianchiFFTPower(object):
                 self.source[name+'.'+self.source.fkp_weight] = 1.0 / (1. + P0_FKP * nbar)
                 
         self.attrs = {}
-        self.attrs['poles']               = poles
-        self.attrs['dk']                  = dk
-        self.attrs['kmin']                = kmin
-        self.attrs['use_fkp_weights']     = use_fkp_weights
-        self.attrs['P0_FKP']              = P0_FKP
+        self.attrs['poles']           = poles
+        self.attrs['dk']              = dk
+        self.attrs['kmin']            = kmin
+        self.attrs['use_fkp_weights'] = use_fkp_weights
+        self.attrs['P0_FKP']          = P0_FKP
 
         # store BoxSize and BoxCenter from source
         self.attrs['BoxSize']   = self.source.attrs['BoxSize']
@@ -368,7 +372,7 @@ class BianchiFFTPower(object):
                 for x, slab in zip(rfield.slabs.x, rfield.slabs):
                     xgrid = [xx.astype('f8') + offset[ii] for ii, xx in enumerate(x)]
                     xnorm = numpy.sqrt(sum(xx**2 for xx in xgrid))
-                    slab[:] *= Ylm(*xgrid, xnorm)
+                    slab[:] *= Ylm(xgrid[0], xgrid[1], xgrid[2], xnorm)
                     
                 # real to complex
                 rfield.r2c(out=cfield)
@@ -377,7 +381,7 @@ class BianchiFFTPower(object):
                 for k, slab in zip(cfield.slabs.x, cfield.slabs):
                     kgrid = [kk.astype('f8') for kk in k]
                     knorm = numpy.sqrt(sum(kk**2 for kk in kgrid))
-                    slab[:] *= Ylm(*kgrid, knorm)
+                    slab[:] *= Ylm(kgrid[0], kgrid[1], kgrid[2], knorm)
                     
                 # add to the total sum
                 Aell[:] += cfield[:]
