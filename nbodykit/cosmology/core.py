@@ -173,6 +173,15 @@ class Cosmology(dict):
         integrand = lambda a: a ** (-3) * self.engine.inv_efunc(1/a-1.) ** 3
         self._Dz_norm = 1. / quad(integrand, 0., 1. )[0]
     
+    def __dir__(self):
+        """
+        Explicitly the underlying astropy engine's attributes as 
+        part of the attributes of this class
+        """
+        this_attrs = set(dict.__dir__(self))
+        engine_attrs = set(self.engine.__dir__())
+        return list(this_attrs|engine_attrs)
+        
     @classmethod
     def from_astropy(self, cosmo, **kwargs):
         """
