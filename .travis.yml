@@ -24,7 +24,7 @@ install:
     
     # base python setup
     - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py
-    - conda install --yes h5py pandas scipy pytables pyyaml astropy numba dask
+    - conda install --yes h5py pandas scipy pytables pyyaml astropy numba dask sympy
     #
     # test optional HOD data sources
     # - pip install halotools 
