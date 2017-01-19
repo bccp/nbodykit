@@ -126,7 +126,7 @@ class DataSet(object):
     :func:`reindex` will re-bin the coordinate arrays along the specified 
     dimension
     """    
-    def __init__(self, dims, edges, variables, fields_to_sum=[], **kwargs):
+    def __init__(self, dims, edges, data, fields_to_sum=[], **kwargs):
         """
         Parameters
         ----------
@@ -137,7 +137,7 @@ class DataSet(object):
             centers
         edges : list, (Ndim,)
             A list specifying the bin edges for each dimension
-        variables : array_like
+        data : array_like
             a structured array holding the data variables, where the named
             fields interpreted as the variable names. The variable names are 
             stored in :attr:`variables`
@@ -153,12 +153,12 @@ class DataSet(object):
             raise ValueError("size mismatch between specified `dims` and `edges`")
         
         # input data must be structured array
-        if not isinstance(variables, numpy.ndarray) or variables.dtype.names is None:
-            raise TypeError("'variables' should be a structured numpy array")
+        if not isinstance(data, numpy.ndarray) or data.dtype.names is None:
+            raise TypeError("'data' should be a structured numpy array")
         
         shape = tuple(len(e)-1 for e in edges)
-        if variables.shape != shape:
-            args = (shape, variables.shape)
+        if data.shape != shape:
+            args = (shape, data.shape)
             raise ValueError("`edges` imply data shape of %s, but data has shape %s" %args)
         
         self.dims = [dim+'_cen' for dim in dims]
@@ -170,12 +170,12 @@ class DataSet(object):
             self.coords[dim] = 0.5 * (edges[i][1:] + edges[i][:-1])
             
         # store variables as a structured array
-        self.data = variables.copy()
+        self.data = data.copy()
             
         # define a mask such that a coordinate grid element will be masked
         # if any of the variables at that coordinate are (NaN, inf)
         self.mask = numpy.zeros(self.shape, dtype=bool)
-        for name in variables.dtype.names:
+        for name in data.dtype.names:
             self.mask = numpy.logical_or(self.mask, ~numpy.isfinite(self.data[name]))
         
         # fields that we wish to sum, instead of averaging

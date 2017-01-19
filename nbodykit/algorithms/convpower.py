@@ -10,66 +10,85 @@ from nbodykit.dataset import DataSet
 from .fftpower import project_to_basis
 from pmesh.pm import ComplexField
 
-def BianchiKernel(x, v, i, j, k=None, offset=[0.,0.,0.]):
+def get_Ylm(l, m):
     """
-    Apply coordinate kernels to ``data`` necessary to compute the 
-    power spectrum multipoles via FFTs using the algorithm 
-    detailed in Bianchi et al. 2015.
-    
-    This multiplies by one of two kernels:
-    
-        1. x_i * x_j / x**2 * data, if `k` is None
-        2. x_i**2 * x_j * x_k / x**4 * data, if `k` is not None
-    
-    See equations 10 (for quadrupole) and 12 (for hexadecapole)
-    of Bianchi et al 2015.
+    Return a function that computes the real spherical 
+    harmonic of order (l,m)
     
     Parameters
     ----------
-    data : array_like
-        the array to rescale -- either the configuration-space 
-        `pm.real` or the Fourier-space `pm.complex`
-    x : array_like
-        the coordinate array -- either `pm.r` or `pm.k`
-    i, j, k : int
-        the integers specifying the coordinate axes; see the 
-        above description 
-    """   
-    # add any offsets to the input coordinate array
-    x = [xx.copy() + offset[kk] for kk,xx in enumerate(x)] 
+    l : int
+        the degree of the harmonic
+    m : int
+        the order of the harmonic; |m| < l
     
-    # normalization is norm squared of coordinate mesh
-    norm = sum(xx**2 for xx in x)
-
-    # get coordinate arrays for indices i, j         
-    xi = x[i]
-    if j == i: xj = xi
-    else: xj = x[j]
-        
-    # handle third index j
-    if k is not None:
-        
-        # get coordinate array for index k
-        if k == i: xk = xi
-        elif k == j: xk = xj
-        else: xk = x[k]
-
-        # weight data by xi**2 * xj * xj 
-        with numpy.errstate(invalid='ignore'):
-            v = v * xi**2 * xj * xk / norm**2
-        v[norm==0] = 0.
+    Returns
+    -------
+    Ylm : callable 
+        a function that takes 4 arguments: (x, y, z, r)
+        where r is the norm of the first three Cartesian
+        coordinates, and returns the specified Ylm
+    
+    References
+    ----------
+    https://en.wikipedia.org/wiki/Spherical_harmonics#Real_form
+    """
+    import sympy as sp
+    
+    # the relevant cartesian and spherical symbols
+    x, y, z, r = sp.symbols('x y z r', real=True, positive=True)
+    phi, theta = sp.symbols('phi theta')
+    defs = [(sp.sin(phi), y/sp.sqrt(x**2+y**2)), 
+            (sp.cos(phi), x/sp.sqrt(x**2+y**2)), 
+            (sp.cos(theta), z/sp.sqrt(x**2 + y**2+z**2))]
+    
+    # the normalization factors
+    if m == 0:
+        expr = sp.sqrt((2*l+1) / (4*sp.pi))
     else:
-        # weight data by xi * xj
-        with numpy.errstate(invalid='ignore'):
-            v = v * xi * xj / norm
-        v[norm==0] = 0.
+        expr = sp.sqrt(2*(2*l+1) / (4*sp.pi) * sp.factorial(l-abs(m)) / sp.factorial(l+abs(m)))
         
-    return v
-     
-class BianchiFFTPower(object):
+    # the phi dependence
+    if m < 0:
+        expr *= sp.expand_trig(sp.sin(abs(m)*phi))
+    elif m > 0:
+        expr *= sp.expand_trig(sp.cos(m*phi))
+    
+    # the cos(theta) dependence encoded by the associated Legendre poly
+    expr *= (-1)**m * sp.assoc_legendre(l, abs(m), sp.cos(theta))
+    
+    # simplify
+    expr = sp.together(expr.subs(defs)).subs(x**2 + y**2 + z**2, r**2)
+    Ylm = sp.lambdify((x,y,z,r), expr, 'numpy')
+    
+    def safe_Ylm(x, y, z, r):
+        with numpy.errstate(invalid='ignore'):
+            toret = Ylm(x, y, z, r)
+        if not numpy.isscalar(toret):
+            toret[r==0] = 0.
+        return toret
+    safe_Ylm.expr = expr
+    safe_Ylm.l = l
+    safe_Ylm.m = m
+        
+    return safe_Ylm
+         
+class ConvolvedFFTPower(object):
     """
     Algorithm to compute the power spectrum multipoles using FFTs
-    for a data survey with non-trivial geometry
+    for a data survey with non-trivial geometry. 
+    
+    Due to the geometry, the estimator computes the true power spectrum
+    convolved with the window function (FFT of the geometry).
+    
+    This estimator builds upon the work presented in Bianchi et al. 2015
+    and Scoccimarro et al. 2015, but differs in the implementation. This
+    class uses the spherical harmonic addition theorem such that
+    only :math:`2\ell+1` FFTs are required per multipole, rather than the
+    :math:`(\ell+1)(\ell+2)/2` FFTs in the implementation presented by
+    Bianchi et al. and Scoccimarro et al.
+    
+    Thanks to Yin Li for pointing out the spherical harmonic decomposition.
     
     References
     ----------
@@ -77,23 +96,22 @@ class BianchiFFTPower(object):
       MNRAS, 2015
     * Scoccimarro, Roman, `Fast estimators for redshift-space clustering`, Phys. Review D, 2015
     """
-    logger = logging.getLogger('BianchiFFTPower')
+    logger = logging.getLogger('ConvolvedFFTPower')
 
-    def __init__(self, source, max_ell, Nmesh=None, 
+    def __init__(self, source, poles, 
+                    Nmesh=None, 
                     kmin=0., 
                     dk=None, 
                     use_fkp_weights=False, 
-                    P0_FKP=None, 
-                    factor_hexadecapole=False):
+                    P0_FKP=None):
         """
         Parameters
         ----------
         source : FKPCatalog, FKPMeshSource
             the source to paint the data/randoms; FKPCatalog is automatically converted
             to a FKPMeshSource, using default painting parameters
-        max_ell : {0,2,4}
-            the maximum multipole to compute, i.e., if max_ell=0, only the monopole
-            is computed
+        poles : list of int
+            a list of integer multipole numbers ``ell`` to compute
         kmin : float; optional
             the edge of the first wavenumber bin; default is 0
         dk : float; optional
@@ -105,9 +123,6 @@ class BianchiFFTPower(object):
             as a function of redshift column
         P0_FKP : float; optional
             the value of ``P0`` to use when computing FKP weights
-        factor_hexadecapole : bool; optional
-            if `True`, use the factored expression for the hexadecapole (ell=4) from
-            eq. 27 of Scoccimarro 2015 (1506.02729); default is `False`
         """
         if not hasattr(source, 'paint'):
             source = source.to_mesh(Nmesh=Nmesh)
@@ -115,8 +130,9 @@ class BianchiFFTPower(object):
         self.Nmesh   = Nmesh
         self.comm = self.source.comm
         
-        if max_ell not in [0, 2, 4]:
-            raise ValueError("valid values for the maximum multipole number are [0, 2, 4]")
+        # make a list of multipole numbers
+        if numpy.isscalar(poles):
+            poles = [poles]
         
         if use_fkp_weights and P0_FKP is None:
             raise ValueError(("please set the 'P0_FKP' keyword if you wish to automatically "
@@ -133,19 +149,18 @@ class BianchiFFTPower(object):
                 old_fkp_weights = self.source[name+'.'+self.source.fkp_weight]
                 if self.source.compute(old_fkp_weights.sum()) != len(old_fkp_weights):
                     warn = "it appears that we are overwriting FKP weights for the '%s' " %name
-                    warn += "source in FKPCatalog when using 'use_fkp_weights=True' in BianchiFFTPower"
+                    warn += "source in FKPCatalog when using 'use_fkp_weights=True' in ConvolvedFFTPower"
                     warnings.warn(warn)
                 
                 nbar = self.source[name+'.'+self.source.nbar]
                 self.source[name+'.'+self.source.fkp_weight] = 1.0 / (1. + P0_FKP * nbar)
                 
         self.attrs = {}
-        self.attrs['max_ell']             = max_ell
-        self.attrs['dk']                  = dk
-        self.attrs['kmin']                = kmin
-        self.attrs['use_fkp_weights']     = use_fkp_weights
-        self.attrs['P0_FKP']              = P0_FKP
-        self.attrs['factor_hexadecapole'] = factor_hexadecapole
+        self.attrs['poles']           = poles
+        self.attrs['dk']              = dk
+        self.attrs['kmin']            = kmin
+        self.attrs['use_fkp_weights'] = use_fkp_weights
+        self.attrs['P0_FKP']          = P0_FKP
 
         # store BoxSize and BoxCenter from source
         self.attrs['BoxSize']   = self.source.attrs['BoxSize']
@@ -198,7 +213,7 @@ class BianchiFFTPower(object):
         N = numpy.squeeze(result[-1])
         
         # make a structured array holding the results
-        cols = ['k'] + ['power_%d' %l for l in range(0, self.attrs['max_ell']+1,2)] + ['modes']
+        cols = ['k'] + ['power_%d' %l for l in sorted(self.attrs['poles'])] + ['modes']
         result = [k] + [pole for pole in poles] + [N]
         dtype = numpy.dtype([(name, result[icol].dtype.str) for icol,name in enumerate(cols)])
         poles = numpy.empty(result[0].shape, dtype=dtype)
@@ -208,6 +223,64 @@ class BianchiFFTPower(object):
         # set all the necessary results
         self.edges = kedges
         self.poles = DataSet(['k'], [self.edges], poles, fields_to_sum=['modes'])
+    
+    def to_pkmu(self, mu_edges, max_ell):
+        """
+        Invert the measured multipoles :math:`P_\ell(k)` into power
+        spectrum wedges, :math:`P(k,\mu)`
+        
+        Parameters
+        ----------
+        mu_edges : array_like
+            the edges of the :math:`\mu` bins
+        max_ell : int
+            the maximum multipole to use when computing the wedges; 
+            all even multipoles with :math:`ell` less than or equal
+            to this number are included
+        
+        Returns
+        -------
+        pkmu : DataSet
+            a data set holding the :math:`P(k,\mu)` wedges
+        """
+        from scipy.special import legendre
+        from scipy.integrate import quad
+        
+        def compute_coefficient(ell, mumin, mumax):
+            """
+            Compute how much each multipole contributes to a given wedges.
+            This returns:
+            
+            .. math::
+                \frac{1}{\mu_{max} - \mu_{max}} \int_{\mu_{min}}^{\mu^{max}} \mathcal{L}_\ell(\mu)
+            """
+            norm = 1.0 / (mumax - mumin)
+            return norm * quad(lambda mu: legendre(ell)(mu), mumin, mumax)[0]
+        
+        # make sure we have all the poles measured
+        ells = list(range(0, max_ell+1, 2))
+        if any('power_%d' %ell not in self.poles for ell in ells):
+            raise ValueError("measurements for ells=%s required if max_ell=%d" %(ells, max_ell))
+        
+        # new data array
+        dtype = numpy.dtype([('power', 'c8'), ('k', 'f8'), ('mu', 'f8')])
+        data = numpy.zeros((self.poles.shape[0], len(mu_edges)-1), dtype=dtype)
+        
+        # loop over each wedge
+        bounds = list(zip(mu_edges[:-1], mu_edges[1:]))
+        for imu, mulims in enumerate(bounds):
+            
+            # add the contribution from each Pell
+            for ell in ells:
+                coeff = compute_coefficient(ell, *mulims)
+                data['power'][:,imu] += coeff * self.poles['power_%d' %ell]
+                
+            data['k'][:,imu] = self.poles['k']
+            data['mu'][:,imu] = numpy.ones(len(data))*0.5*(mulims[1]+mulims[0])
+            
+        dims = ['k', 'mu']
+        edges = [self.poles.edges['k_cen'], mu_edges]
+        return DataSet(dims=dims, edges=edges, data=data, **self.attrs)
             
     def __getstate__(self):
         state = dict(edges=self.edges,
@@ -221,7 +294,7 @@ class BianchiFFTPower(object):
 
     def save(self, output):
         """ 
-        Save the BianchiFFTPower result to disk.
+        Save the ConvolvedFFTPower result to disk.
 
         The format is currently json.
         
@@ -235,17 +308,17 @@ class BianchiFFTPower(object):
         
         # only the master rank writes
         if self.comm.rank == 0:
-            self.logger.info('saving BianchiFFTPower result to %s' %output)
+            self.logger.info('saving ConvolvedFFTPower result to %s' %output)
 
             with open(output, 'w') as ff:
                 json.dump(self.__getstate__(), ff, cls=JSONEncoder)
-    
+        
     @classmethod
     @CurrentMPIComm.enable
     def load(cls, output, comm=None):
         """
-        Load a saved BianchiFFTPower result, which has been saved to 
-        disk with :func:`BianchiFFTPower.save`
+        Load a saved ConvolvedFFTPower result, which has been saved to 
+        disk with :func:`ConvolvedFFTPower.save`
         
         The current MPI communicator is automatically used
         if the ``comm`` keyword is ``None``
@@ -266,25 +339,15 @@ class BianchiFFTPower(object):
         
     def _compute_multipoles(self):
         """
-        Use the algorithm detailed in Bianchi et al. 2015 to compute and return the 3D 
-        power spectrum multipoles (`ell = [0, 2, 4]`) from one input field, which contains 
-        non-trivial survey geometry.
+        Compute the window-convoled power spectrum multipoles, for a data set
+        with non-trivial survey geometry.
     
-        The estimator uses the FFT algorithm outlined in Bianchi et al. 2015
-        (http://adsabs.harvard.edu/abs/2015arXiv150505341B) to compute
-        the monopole, quadrupole, and hexadecapole
-
-        Returns
-        -------
-        pm : ParticleMesh
-            the mesh object used to do painting, FFTs, etc
-        result : list of arrays
-            list of 3D complex arrays holding power spectrum multipoles; respectively, 
-            if `ell_max=0,2,4`, the list holds the monopole only, monopole and quadrupole, 
-            or the monopole, quadrupole, and hexadecapole
-        stats : dict
-            dict holding the statistics of the input fields, as returned
-            by the `FKPPainter` painter
+        This estimator builds upon the work presented in Bianchi et al. 2015
+        and Scoccimarro et al. 2015, but differs in the implementation. This
+        class uses the spherical harmonic addition theorem such that
+        only :math:`2\ell+1` FFTs are required per multipole, rather than the
+        :math:`(\ell+1)(\ell+2)/2` FFTs in the implementation presented by
+        Bianchi et al. and Scoccimarro et al.
     
         References
         ----------
@@ -292,13 +355,19 @@ class BianchiFFTPower(object):
           MNRAS, 2015
         * Scoccimarro, Roman, `Fast estimators for redshift-space clustering`, Phys. Review D, 2015
         """
-        rank                = self.comm.rank
-        max_ell             = self.attrs['max_ell']
-        factor_hexadecapole = self.attrs['factor_hexadecapole']
+        rank = self.comm.rank
+        pm   = self.source.pm
         
-        pm     = self.source.pm
+        # offset the box coordinate mesh ([-BoxSize/2, BoxSize]) back to 
+        # the original (x,y,z) coords
         offset = self.attrs['BoxCenter'] + 0.5*pm.BoxSize / pm.Nmesh
-            
+        
+        # always need to compute ell=0
+        poles = sorted(self.attrs['poles'])
+        if 0 not in poles:
+            poles = [0] + poles
+        assert poles[0] == 0
+                
         # initialize the compensation transfer
         compensation = None
         try:
@@ -309,29 +378,19 @@ class BianchiFFTPower(object):
             if self.comm.rank == 0:
                 self.logger.warning('no compensation applied: %s' %str(e))
             
-        # determine kernels needed to compute ell=2,4
-        bianchi_transfers = {}
-        for ell in range(2, max_ell+1, 2):
-            
-            if ell == 2:
-                integers = [(0, 0), (1, 1), (2, 2), (0, 1), (0, 2), (1, 2)]
-
-                amps = [1.]*3 + [2.]*3
-            elif ell == 4 and not factor_hexadecapole:
-                integers = [(0, 0, 0), (1, 1, 1), (2, 2, 2), (0, 0, 1), (0, 0, 2),
-                            (1, 1, 0), (1, 1, 2), (2, 2, 0), (2, 2, 1), (0, 1, 1),
-                            (0, 2, 2), (1, 2, 2), (0, 1, 2), (1, 0, 2), (2, 0, 1)]
-                amps = [1.]*3 + [4.]*6 + [6.]*3 + [12.]*3
-            bianchi_transfers[ell] = (amps, integers)
+        # spherical harmonic kernels (for ell > 0)
+        Ylms = [[get_Ylm(l,m) for m in range(-l, l+1)] for l in poles[1:]]
                 
         # paint the FKP density field to the mesh (paints: data - alpha*randoms, essentially)
         rfield = self.source.paint(mode='real')
+        meta = rfield.attrs.copy()
+        if rank == 0: self.logger.info('%s painting done' %self.source.window)
         
         # first, check if normalizations from data and randoms are similar
-        # if not, n(z) column is probably wrong - BAD!
-        if not numpy.allclose(rfield.attrs['data.A'], rfield.attrs['randoms.A'], rtol=0.05):
-            msg = "normalization in BianchiFFTPower different by more than 5%; algorithm requires they must be similar\n"
-            msg += "\trandoms.A = %.6f, data.A = %.6f\n" %(rfield.attrs['randoms.A'], rfield.attrs['data.A'])
+        # if not, n(z) column is probably wrong 
+        if not numpy.allclose(meta['data.A'], meta['randoms.A'], rtol=0.05):
+            msg = "normalization in ConvolvedFFTPower different by more than 5%; algorithm requires they must be similar\n"
+            msg += "\trandoms.A = %.6f, data.A = %.6f\n" %(meta['randoms.A'], meta['data.A'])
             msg += "\tpossible discrepancies could be related to normalization of n(z) column ('%s')\n" %self.source.nbar
             msg += "\tor the consistency of the FKP weight column ('%s') for 'data' and 'randoms';\n" %self.source.fkp_weight
             msg += "\tn(z) columns for 'data' and 'randoms' should be normalized to represent n(z) of the data catalog"
@@ -339,8 +398,7 @@ class BianchiFFTPower(object):
 
         # save the painted density field for later
         density = rfield.copy()
-        if rank == 0: self.logger.info('%s painting done' %self.source.window)
-    
+        
         # FFT density field and apply the paintbrush window transfer kernel
         cfield = rfield.r2c()
         if compensation is not None:
@@ -352,103 +410,88 @@ class BianchiFFTPower(object):
         A0 = ComplexField(pm)
         A0[:] = cfield[:] * volume # normalize with a factor of volume
     
-        # store the A0, A2, A4 arrays here
+        # store the A0, A2, A4, etc arrays here
         result = []
-        result.append(A0); del A0
-    
-        xgrid = [x + offset[ii] for ii, x in enumerate(pm.x)]
-        
+        result.append(A0)
+            
         # loop over the higher order multipoles (ell > 0)
         start = time.time()
-        for ell in range(2, max_ell+1, 2):
+        for iell, ell in enumerate(poles[1:]):
         
-            # temporary array to hold sum of all of the terms in Fourier space
-            Aell_sum = ComplexField(pm)
-            Aell_sum[:] = 0.
+            # initialize the memory holding the Aell terms for
+            # higher multipoles (this holds sum of m for fixed ell)
+            Aell = ComplexField(pm)
+            Aell[:] = 0.
                                 
-            # loop over each kernel term for this multipole
-            for amp, integers in zip(*bianchi_transfers[ell]):
+            # iterate from m=-l to m=l and apply Ylm
+            for Ylm in Ylms[iell]:
                 
-                # reset the realspace mesh to the original FKP density
+                # reset the real-space mesh to the original density
                 rfield[:] = density[:]        
                 
-                # apply the config-space kernel
-                func = lambda x,v: BianchiKernel(x, v, *integers, offset=offset)
-                rfield.apply(func=func, kind='relative', out=Ellipsis)
-
+                # apply the config-space Ylm
+                for x, slab in zip(rfield.slabs.x, rfield.slabs):
+                    xgrid = [xx.astype('f8') + offset[ii] for ii, xx in enumerate(x)]
+                    xnorm = numpy.sqrt(sum(xx**2 for xx in xgrid))
+                    slab[:] *= Ylm(xgrid[0], xgrid[1], xgrid[2], xnorm)
+                    
                 # real to complex
                 rfield.r2c(out=cfield)
 
-                # apply the Fourier-space kernel
-                func = lambda x,v: BianchiKernel(x, v, *integers)
-                cfield.apply(func=func, kind='wavenumber', out=Ellipsis)        
+                # apply the Fourier-space Ylm
+                for k, slab in zip(cfield.slabs.x, cfield.slabs):
+                    kgrid = [kk.astype('f8') for kk in k]
+                    knorm = numpy.sqrt(sum(kk**2 for kk in kgrid))
+                    slab[:] *= Ylm(kgrid[0], kgrid[1], kgrid[2], knorm)
+                    
+                # add to the total sum
+                Aell[:] += cfield[:]
                 
                 # and this contribution to the total sum
-                Aell_sum[:] += amp*volume*cfield[:]
                 if rank == 0:
-                    self.logger.debug("done Bianchi term for %s..." %str(integers))
+                    self.logger.debug("done term for Y(l=%d, m=%d)" %(Ylm.l, Ylm.m))
 
-            # apply the window transfer function and save
+            # apply the compensation transfer function
             if compensation is not None:
-                Aell_sum.apply(func=compensation[0][1], kind=compensation[0][2], out=Ellipsis)
-            result.append(Aell_sum); del Aell_sum # delete temp array since appending to list makes copy
+                Aell.apply(func=compensation[0][1], kind=compensation[0][2], out=Ellipsis)
+            
+            # factor of 4*pi from spherical harmonic addition theorem + volume factor
+            Aell[:] *= 4*numpy.pi*volume
+            result.append(Aell)
         
             # log the total number of FFTs computed for each ell
             if rank == 0: 
-                args = (ell, len(bianchi_transfers[ell][0]))
+                args = (ell, len(Ylms[iell]))
                 self.logger.info('ell = %d done; %s r2c completed' %args)
         
-        # density array no longer needed
-        del density
+        # clear up some space
+        del density, cfield, rfield
     
         # summarize how long it took
         stop = time.time()
         if rank == 0:
             self.logger.info("higher order multipoles computed in elapsed time %s" %timer(start, stop))
-            if factor_hexadecapole:
-                self.logger.info("using factorized hexadecapole estimator for ell=4")
     
         # proper normalization: same as equation 49 of Scoccimarro et al. 2015 
         if rank == 0:
-            self.logger.info("normalizing power spectrum with randoms.A = %.6f" %rfield.attrs['randoms.A'])
-        norm = 1.0 / rfield.attrs['randoms.A']
+            self.logger.info("normalizing power spectrum with randoms.A = %.6f" %meta['randoms.A'])
+        norm = 1. / meta['randoms.A']
     
-        # reuse memory for output arrays
+        # calculate the power spectrum multipoles, slab-by-slab to save memory 
+        # this computes Aell * A0.conj
         P0 = result[0]
-        if max_ell > 0: 
-            P2 = result[1]
-        if max_ell > 2:
-            P4 = ComplexField(pm) if factor_hexadecapole else result[2]
-        
-        # calculate the power spectrum multipoles, slab-by-slab to save memory
         for islab in range(P0.shape[0]):
-
-            # save arrays for reuse
-            P0_star = (P0[islab]).conj()
-            if max_ell > 0: P2_star = (P2[islab]).conj()
-
-            # hexadecapole
-            if max_ell > 2:
-            
-                # see equation 8 of Bianchi et al. 2015
-                if not factor_hexadecapole:
-                    P4[islab, ...] = norm * 9./8. * P0[islab] * (35.*(P4[islab]).conj() - 30.*P2_star + 3.*P0_star)
-                # see equation 48 of Scoccimarro et al; 2015
-                else:
-                    P4[islab, ...] = norm * 9./8. * ( 35.*P2[islab]*P2_star + 3.*P0[islab]*P0_star - 5./3.*(11.*P0[islab]*P2_star + 7.*P2[islab]*P0_star) )
-        
-            # quadrupole: equation 7 of Bianchi et al. 2015
-            if max_ell > 0:
-                P2[islab, ...] = norm * 5./2. * P0[islab] * (3.*P2_star - P0_star)
-
-            # monopole: equation 6 of Bianchi et al. 2015
-            P0[islab, ...] = norm * P0[islab] * P0_star
-        
+            P0_star = (P0[islab].conj())
+            for P in result:
+                P[islab,...] = norm*P[islab]*P0_star
+                
         # update with the attributes computed while painting
-        self.attrs['alpha'] = rfield.attrs['alpha']
-        self.attrs['shotnoise'] = rfield.attrs['shotnoise']
-        for key in rfield.attrs:
+        self.attrs['alpha'] = meta['alpha']
+        self.attrs['shotnoise'] = meta['shotnoise']
+        for key in meta:
             if key.startswith('data.') or key.startswith('randoms.'):
-                self.attrs[key] = rfield.attrs[key]
+                self.attrs[key] = meta[key]
         
+        if 0 not in self.attrs['poles']:
+            result = result[1:]
         return result
