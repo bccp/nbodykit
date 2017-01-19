@@ -9,7 +9,7 @@ from numpy.testing import assert_allclose
 setup_logging("debug")
 
 @MPITest([1, 4])
-def test_bianchi(comm):
+def test_run(comm):
     
     NDATA = 1000
     NBAR = 1e-4
@@ -43,7 +43,11 @@ def test_bianchi(comm):
     fkp = fkp.to_mesh(Nmesh=128, dtype='f8', nbar='NZ', fkp_weight='FKPWeight', comp_weight='Weight')
 
     # compute the multipoles
-    r = BianchiFFTPower(fkp, poles=[0,2,4], dk=0.005, use_fkp_weights=True, P0_FKP=P0)
+    r = ConvolvedFFTPower(fkp, poles=[0,2,4], dk=0.005, use_fkp_weights=True, P0_FKP=P0)
+
+    # compute pkmu
+    mu_edges = numpy.linspace(0, 1, 6)
+    pkmu = r.to_pkmu(mu_edges=mu_edges, max_ell=4)
 
     # normalization
     assert_allclose(r.attrs['data.A'], NDATA*NBAR)
@@ -97,7 +101,7 @@ def test_with_zhist(comm):
     fkp['data.NZ'] *= alpha
     
     # compute the multipoles
-    r = BianchiFFTPower(fkp.to_mesh(Nmesh=128), poles=[0,2,4], dk=0.005)
+    r = ConvolvedFFTPower(fkp.to_mesh(Nmesh=128), poles=[0,2,4], dk=0.005)
 
     assert_allclose(r.attrs['data.A'], 0.000388338522187, rtol=1e-5)
     assert_allclose(r.attrs['randoms.A'], 0.000395808747269, rtol=1e-5) 

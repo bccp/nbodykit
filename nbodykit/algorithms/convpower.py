@@ -73,10 +73,22 @@ def get_Ylm(l, m):
         
     return safe_Ylm
          
-class BianchiFFTPower(object):
+class ConvolvedFFTPower(object):
     """
     Algorithm to compute the power spectrum multipoles using FFTs
-    for a data survey with non-trivial geometry
+    for a data survey with non-trivial geometry. 
+    
+    Due to the geometry, the estimator computes the true power spectrum
+    convolved with the window function (FFT of the geometry).
+    
+    This estimator builds upon the work presented in Bianchi et al. 2015
+    and Scoccimarro et al. 2015, but differs in the implementation. This
+    class uses the spherical harmonic addition theorem such that
+    only :math:`2\ell+1` FFTs are required per multipole, rather than the
+    :math:`(\ell+1)(\ell+2)/2` FFTs in the implementation presented by
+    Bianchi et al. and Scoccimarro et al.
+    
+    Thanks to Yin Li for pointing out the spherical harmonic decomposition.
     
     References
     ----------
@@ -84,9 +96,10 @@ class BianchiFFTPower(object):
       MNRAS, 2015
     * Scoccimarro, Roman, `Fast estimators for redshift-space clustering`, Phys. Review D, 2015
     """
-    logger = logging.getLogger('BianchiFFTPower')
+    logger = logging.getLogger('ConvolvedFFTPower')
 
-    def __init__(self, source, poles, Nmesh=None, 
+    def __init__(self, source, poles, 
+                    Nmesh=None, 
                     kmin=0., 
                     dk=None, 
                     use_fkp_weights=False, 
@@ -136,7 +149,7 @@ class BianchiFFTPower(object):
                 old_fkp_weights = self.source[name+'.'+self.source.fkp_weight]
                 if self.source.compute(old_fkp_weights.sum()) != len(old_fkp_weights):
                     warn = "it appears that we are overwriting FKP weights for the '%s' " %name
-                    warn += "source in FKPCatalog when using 'use_fkp_weights=True' in BianchiFFTPower"
+                    warn += "source in FKPCatalog when using 'use_fkp_weights=True' in ConvolvedFFTPower"
                     warnings.warn(warn)
                 
                 nbar = self.source[name+'.'+self.source.nbar]
@@ -210,6 +223,64 @@ class BianchiFFTPower(object):
         # set all the necessary results
         self.edges = kedges
         self.poles = DataSet(['k'], [self.edges], poles, fields_to_sum=['modes'])
+    
+    def to_pkmu(self, mu_edges, max_ell):
+        """
+        Invert the measured multipoles :math:`P_\ell(k)` into power
+        spectrum wedges, :math:`P(k,\mu)`
+        
+        Parameters
+        ----------
+        mu_edges : array_like
+            the edges of the :math:`\mu` bins
+        max_ell : int
+            the maximum multipole to use when computing the wedges; 
+            all even multipoles with :math:`ell` less than or equal
+            to this number are included
+        
+        Returns
+        -------
+        pkmu : DataSet
+            a data set holding the :math:`P(k,\mu)` wedges
+        """
+        from scipy.special import legendre
+        from scipy.integrate import quad
+        
+        def compute_coefficient(ell, mumin, mumax):
+            """
+            Compute how much each multipole contributes to a given wedges.
+            This returns:
+            
+            .. math::
+                \frac{1}{\mu_{max} - \mu_{max}} \int_{\mu_{min}}^{\mu^{max}} \mathcal{L}_\ell(\mu)
+            """
+            norm = 1.0 / (mumax - mumin)
+            return norm * quad(lambda mu: legendre(ell)(mu), mumin, mumax)[0]
+        
+        # make sure we have all the poles measured
+        ells = list(range(0, max_ell+1, 2))
+        if any('power_%d' %ell not in self.poles for ell in ells):
+            raise ValueError("measurements for ells=%s required if max_ell=%d" %(ells, max_ell))
+        
+        # new data array
+        dtype = numpy.dtype([('power', 'c8'), ('k', 'f8'), ('mu', 'f8')])
+        data = numpy.zeros((self.poles.shape[0], len(mu_edges)-1), dtype=dtype)
+        
+        # loop over each wedge
+        bounds = list(zip(mu_edges[:-1], mu_edges[1:]))
+        for imu, mulims in enumerate(bounds):
+            
+            # add the contribution from each Pell
+            for ell in ells:
+                coeff = compute_coefficient(ell, *mulims)
+                data['power'][:,imu] += coeff * self.poles['power_%d' %ell]
+                
+            data['k'][:,imu] = self.poles['k']
+            data['mu'][:,imu] = numpy.ones(len(data))*0.5*(mulims[1]+mulims[0])
+            
+        dims = ['k', 'mu']
+        edges = [self.poles.edges['k_cen'], mu_edges]
+        return DataSet(dims=dims, edges=edges, data=data, **self.attrs)
             
     def __getstate__(self):
         state = dict(edges=self.edges,
@@ -223,7 +294,7 @@ class BianchiFFTPower(object):
 
     def save(self, output):
         """ 
-        Save the BianchiFFTPower result to disk.
+        Save the ConvolvedFFTPower result to disk.
 
         The format is currently json.
         
@@ -237,17 +308,17 @@ class BianchiFFTPower(object):
         
         # only the master rank writes
         if self.comm.rank == 0:
-            self.logger.info('saving BianchiFFTPower result to %s' %output)
+            self.logger.info('saving ConvolvedFFTPower result to %s' %output)
 
             with open(output, 'w') as ff:
                 json.dump(self.__getstate__(), ff, cls=JSONEncoder)
-    
+        
     @classmethod
     @CurrentMPIComm.enable
     def load(cls, output, comm=None):
         """
-        Load a saved BianchiFFTPower result, which has been saved to 
-        disk with :func:`BianchiFFTPower.save`
+        Load a saved ConvolvedFFTPower result, which has been saved to 
+        disk with :func:`ConvolvedFFTPower.save`
         
         The current MPI communicator is automatically used
         if the ``comm`` keyword is ``None``
@@ -268,25 +339,15 @@ class BianchiFFTPower(object):
         
     def _compute_multipoles(self):
         """
-        Use the algorithm detailed in Bianchi et al. 2015 to compute and return the 3D 
-        power spectrum multipoles (`ell = [0, 2, 4]`) from one input field, which contains 
-        non-trivial survey geometry.
+        Compute the window-convoled power spectrum multipoles, for a data set
+        with non-trivial survey geometry.
     
-        The estimator uses the FFT algorithm outlined in Bianchi et al. 2015
-        (http://adsabs.harvard.edu/abs/2015arXiv150505341B) to compute
-        the monopole, quadrupole, and hexadecapole
-
-        Returns
-        -------
-        pm : ParticleMesh
-            the mesh object used to do painting, FFTs, etc
-        result : list of arrays
-            list of 3D complex arrays holding power spectrum multipoles; respectively, 
-            if `ell_max=0,2,4`, the list holds the monopole only, monopole and quadrupole, 
-            or the monopole, quadrupole, and hexadecapole
-        stats : dict
-            dict holding the statistics of the input fields, as returned
-            by the `FKPPainter` painter
+        This estimator builds upon the work presented in Bianchi et al. 2015
+        and Scoccimarro et al. 2015, but differs in the implementation. This
+        class uses the spherical harmonic addition theorem such that
+        only :math:`2\ell+1` FFTs are required per multipole, rather than the
+        :math:`(\ell+1)(\ell+2)/2` FFTs in the implementation presented by
+        Bianchi et al. and Scoccimarro et al.
     
         References
         ----------
@@ -328,7 +389,7 @@ class BianchiFFTPower(object):
         # first, check if normalizations from data and randoms are similar
         # if not, n(z) column is probably wrong 
         if not numpy.allclose(meta['data.A'], meta['randoms.A'], rtol=0.05):
-            msg = "normalization in BianchiFFTPower different by more than 5%; algorithm requires they must be similar\n"
+            msg = "normalization in ConvolvedFFTPower different by more than 5%; algorithm requires they must be similar\n"
             msg += "\trandoms.A = %.6f, data.A = %.6f\n" %(meta['randoms.A'], meta['data.A'])
             msg += "\tpossible discrepancies could be related to normalization of n(z) column ('%s')\n" %self.source.nbar
             msg += "\tor the consistency of the FKP weight column ('%s') for 'data' and 'randoms';\n" %self.source.fkp_weight
