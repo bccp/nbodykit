@@ -1,16 +1,21 @@
 from astropy import cosmology, units
 from scipy.integrate import quad
 import numpy as np
+import functools
 
 class fittable(object):
-    """ add .fit() method to a member function
-        which returns a fitted version
-        of the function on a given variable.
-     """
-
+    """
+    A "fittable" function
+    
+    There exists a `.fit()` method of the original function
+    which returns a spline-interpolated version of the function 
+    for a specified variable
+    """
     def __init__(self, func, instance=None):
+        
+        # update the docstring, etc from the original func
+        functools.update_wrapper(self, func)
         self.func = func
-        self.__doc__ == func.__doc__
         self.instance = instance
 
     def __get__(self, instance, owner):
@@ -21,11 +26,28 @@ class fittable(object):
         return self.func(self.instance, *args, **kwargs)
 
     def fit(self, argname, kwargs={}, bins=1024, range=None):
-        """ interpolate the function for the given argument (argname)
-            with a univariate spline.
+        """
+        Interpolate the function for the given argument (`argname`)
+        with a :class:`~scipy.interpolate.InterpolatedUnivariateSpline`
 
-            range and bins behave like np.histogram.
+        `range` and `bins` behave like :func:`numpy.histogram`
 
+        Parameters
+        ----------
+        argname : str
+            the name of the variable to interpolate
+        kwargs : dict; optional
+            dict of keywords to pass to the original function
+        bins : int, iterable; optional
+            either an iterable specifying the bin edges, or an 
+            integer specifying the number of linearly-spaced bins
+        range : tuple; optional
+            the range to fit over if `bins` specifies an integer
+        
+        Returns
+        -------
+        spl : callable
+            the callable spline function
         """
         from scipy import interpolate
         from astropy.units import Quantity
@@ -51,14 +73,20 @@ class fittable(object):
             return spl
 
 def vectorize_if_needed(func, *x):
-    """Helper function to vectorize functions on array inputs; borrowed from :mod:`astropy.cosmology.core`"""
+    """
+    Helper function to vectorize functions on array inputs; 
+    borrowed from :mod:`astropy.cosmology.core`
+    """
     if any(map(isiterable, x)):
         return np.vectorize(func)(*x)
     else:
         return func(*x)
 
 def isiterable(obj):
-    """Returns `True` if the given object is iterable; borrowed from :mod:`astropy.cosmology.core`"""
+    """
+    Returns `True` if the given object is iterable;
+    borrowed from :mod:`astropy.cosmology.core`
+    """
     try:
         iter(obj)
         return True
@@ -110,6 +138,8 @@ class Cosmology(dict):
             if `True`, automatically set `Ode0` such that `Ok0` is zero
         name : str
             a name for the cosmology
+        kwargs : 
+            additional key/value pairs to store in the dictionary
         """
         # convert neutrino mass to a astropy `Quantity`
         if m_nu is not None:
