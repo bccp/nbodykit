@@ -13,7 +13,7 @@ def test_fftpower(comm):
 
     # lognormal particles
     source = Source.LogNormal(Plin=cosmology.EHPower(cosmo, redshift=0.55),
-                    nbar=3e-7, BoxSize=1380., Nmesh=8, rsd=[0, 0, 1], seed=42)
+                    nbar=3e-7, BoxSize=1380., Nmesh=8, seed=42)
                     
     # apply RSD
     source['Position'] += source['VelocityOffset'] * [0,0,1]
