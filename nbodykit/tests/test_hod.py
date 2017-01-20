@@ -13,11 +13,9 @@ def test_hod(comm):
     cosmo = cosmology.Planck15
     BoxSize = 512
 
-
-    # zeldovich particles
-    source = Source.ZeldovichParticles(Plin=cosmology.EHPower(cosmo, redshift),
-                                        nbar=3e-3, BoxSize=BoxSize, Nmesh=128, rsd=[0, 0, 1], seed=42)
-
+    # lognormal particles
+    source = Source.LogNormal(Plin=cosmology.EHPower(cosmo, redshift),
+                                nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
     
     # run FOF
     fof = FOF(source, linking_length=0.2, nmin=20)

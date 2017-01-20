@@ -25,8 +25,8 @@ def test_fftpower_poles(comm):
     
 @MPITest([1])
 def test_fftpower_padding(comm):
+    
     CurrentMPIComm.set(comm)
-    # zeldovich particles
     source = Source.UniformParticles(nbar=3e-3, BoxSize=512., seed=42)
 
     r = FFTPower(source, mode='1d', BoxSize=1024, Nmesh=32)
@@ -35,8 +35,8 @@ def test_fftpower_padding(comm):
 
 @MPITest([1])
 def test_fftpower_padding(comm):
+    
     CurrentMPIComm.set(comm)
-    # zeldovich particles
     source = Source.UniformParticles(nbar=3e-3, BoxSize=512., seed=42)
 
     r = FFTPower(source, mode='1d', BoxSize=1024, Nmesh=32)
@@ -47,7 +47,6 @@ def test_fftpower_padding(comm):
 def test_fftpower_save(comm):
 
     CurrentMPIComm.set(comm)
-    # zeldovich particles
     source = Source.UniformParticles(nbar=3e-3, BoxSize=512., seed=42)
 
     r = FFTPower(source, mode='2d', Nmesh=32)
@@ -62,8 +61,8 @@ def test_fftpower_save(comm):
 
 @MPITest([1])
 def test_fftpower(comm):
+    
     CurrentMPIComm.set(comm)
-    # zeldovich particles
     source = Source.UniformParticles(nbar=3e-3, BoxSize=512., seed=42)
 
     r = FFTPower(source, mode='1d', Nmesh=32)
@@ -76,7 +75,7 @@ def test_fftpower_mismatch_boxsize(comm):
     cosmo = cosmology.Planck15
     CurrentMPIComm.set(comm)
     
-    # zeldovich particles
+    # input sources
     source1 = Source.UniformParticles(nbar=3e-3, BoxSize=512., seed=42)
     source2 = Source.LinearMesh(cosmology.NoWiggleEHPower(cosmo, 0.55), BoxSize=1024, Nmesh=32, seed=33)
 

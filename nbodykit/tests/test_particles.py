@@ -9,13 +9,13 @@ dask.set_options(get=dask.get)
 setup_logging("debug")
 
 @MPITest([4])
-def test_zeldovich_sparse(comm):
+def test_lognormal_sparse(comm):
     cosmo = cosmology.Planck15
     CurrentMPIComm.set(comm)
 
     # this should generate 15 particles
-    source = Source.ZeldovichParticles(Plin=cosmology.EHPower(cosmo, 0.55),
-                nbar=1e-5, BoxSize=128., Nmesh=8, rsd=[0, 0, 0], seed=42)
+    source = Source.LogNormal(Plin=cosmology.EHPower(cosmo, 0.55),
+                    nbar=1e-5, BoxSize=128., Nmesh=8, seed=42)
 
     mesh = source.to_mesh(compensated=False)
 
@@ -23,24 +23,24 @@ def test_zeldovich_sparse(comm):
     assert_allclose(real.cmean(), 1.0)
 
 @MPITest([1, 4])
-def test_zeldovich_dense(comm):
+def test_lognormal_dense(comm):
     cosmo = cosmology.Planck15
     CurrentMPIComm.set(comm)
 
-    source = Source.ZeldovichParticles(Plin=cosmology.EHPower(cosmo, 0.55),
-                nbar=0.2e-2, BoxSize=128., Nmesh=8, rsd=[0, 0, 0], seed=42)
+    source = Source.LogNormal(Plin=cosmology.EHPower(cosmo, 0.55),
+                    nbar=0.2e-2, BoxSize=128., Nmesh=8, seed=42)
     mesh = source.to_mesh(compensated=False)
 
     real = mesh.paint(mode='real')
     assert_allclose(real.cmean(), 1.0, rtol=1e-5)
 
 @MPITest([1])
-def test_zeldovich_velocity(comm):
+def test_lognormal_velocity(comm):
     cosmo = cosmology.Planck15
     CurrentMPIComm.set(comm)
 
-    source = Source.ZeldovichParticles(Plin=cosmology.EHPower(cosmo, 0.55),
-                nbar=0.5e-2, BoxSize=1024., Nmesh=32, rsd=[0, 0, 0], seed=42)
+    source = Source.LogNormal(Plin=cosmology.EHPower(cosmo, 0.55),
+                nbar=0.5e-2, BoxSize=1024., Nmesh=32, seed=42)
 
     source['Weight'] = source['Velocity'][:, 0] ** 2
 

@@ -52,7 +52,7 @@ def test_bigfile_grid(comm):
     cosmo = cosmology.Planck15
     CurrentMPIComm.set(comm)
 
-    # zeldovich particles
+    # input linear mesh
     Plin = cosmology.EHPower(cosmo, redshift=0.55)
     source = Source.LinearMesh(Plin, BoxSize=512, Nmesh=64, seed=42)
     

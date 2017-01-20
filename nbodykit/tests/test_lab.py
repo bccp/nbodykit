@@ -11,15 +11,18 @@ def test_fftpower(comm):
 
     CurrentMPIComm.set(comm)
 
-    # zeldovich particles
-    source = Source.ZeldovichParticles(Plin=cosmology.EHPower(cosmo, redshift=0.55),
+    # lognormal particles
+    source = Source.LogNormal(Plin=cosmology.EHPower(cosmo, redshift=0.55),
                     nbar=3e-7, BoxSize=1380., Nmesh=8, rsd=[0, 0, 1], seed=42)
+                    
+    # apply RSD
+    source['Position'] += source['VelocityOffset'] * [0,0,1]
 
     # compute P(k,mu) and multipoles
-    result = FFTPower(source, mode='2d', poles=[0,2,4])
+    result = FFTPower(source, mode='2d', poles=[0,2,4], los=[0,0,1])
 
     # and save
-    output = "./test_zeldovich-%d.pickle" % comm.size
+    output = "./test_zeldovich-%d.json" % comm.size
     result.save(output)
 
 @MPITest([1, 4])
@@ -28,10 +31,14 @@ def test_paint(comm):
 
     CurrentMPIComm.set(comm)
 
-    # zeldovich particles
-    source = Source.ZeldovichParticles(Plin=cosmology.EHPower(cosmo, redshift=0.55),
-                nbar=3e-7, BoxSize=1380., Nmesh=8, rsd=[0, 0, 1], seed=42)
+    # lognormal particles
+    source = Source.LogNormal(Plin=cosmology.EHPower(cosmo, redshift=0.55),
+                    nbar=3e-7, BoxSize=1380., Nmesh=8, seed=42)
+                    
+    # apply RSD
+    source['Position'] += source['VelocityOffset'] * [0,0,1]
 
+    # convert to mesh, with Painter specifics
     source = source.to_mesh(Nmesh=64, BoxSize=1380., interlaced=True, window='tsc', compensated=True)
 
     def filter(k, v):

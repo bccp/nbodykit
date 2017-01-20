@@ -5,15 +5,15 @@ from nbodykit import CurrentMPIComm
 
 import numpy
 
-class ZeldovichParticles(ParticleSource):
+class LogNormal(ParticleSource):
     """
-    A source of particles Poisson-sampled from density fields in the Zel'dovich approximation
+    A source of (biased) particles Poisson-sampled from a log-normal density field
     """
     def __repr__(self):
-        return "ZeldovichParticles(seed=%(seed)d, bias=%(bias)g)" % self.attrs
+        return "LogNormal(seed=%(seed)d, bias=%(bias)g)" %self.attrs
 
     @CurrentMPIComm.enable
-    def __init__(self, Plin, nbar, BoxSize, Nmesh, bias=2., rsd=None, seed=None, 
+    def __init__(self, Plin, nbar, BoxSize, Nmesh, bias=2., seed=None,
                     comm=None, cosmo=None, redshift=None, use_cache=False):
         """
         Parameters
@@ -31,32 +31,27 @@ class ZeldovichParticles(ParticleSource):
         bias : float, optional
             the desired bias of the particles; applied while applying a log-normal transformation
             to the density field
-        rsd : array_like, optional
-            apply redshift space-distortions in this direction; if None, no rsd is applied.
         seed : int, optional
             the global random seed; if set to ``None``, the seed will be set randomly
         comm : MPI communicator, optional
             the MPI communicator
         cosmo : nbodykit.cosmology.Cosmology, optional
-            this must be supplied if `Plin` does not carry ``cosmo`` attribute, and 
-            we wish to apply RSD, so that the growth rate f(z) can be computed
+            this must be supplied if `Plin` does not carry ``cosmo`` attribute
         redshift : float, optional
-            this must be supplied if `Plin` does not carry a ``redshift`` attribute, and 
-            we wish to apply RSD, so that the growth rate f(z) can be computed
+            this must be supplied if `Plin` does not carry a ``redshift`` attribute
         """
         self.comm = comm
         self.Plin = Plin
         
-        if rsd is None:
-            rsd = [0, 0, 0.]
-        
-        # must be passed only if we wish to do RSD
+        # try to infer cosmo or redshift from Plin
         if cosmo is None:
             cosmo = getattr(self.Plin, 'cosmo', None)
         if redshift is None:
             redshift = getattr(self.Plin, 'redshift', None)
-        if sum(rsd) and cosmo is None or redshift is None:
-            raise ValueError("if RSD is requested, ``redshift`` and ``cosmo`` keywords must be passed")
+        if cosmo is None:
+            raise ValueError("'cosmo' must be passed if 'Plin' does not have 'cosmo' attribute")
+        if redshift is None:
+            raise ValueError("'redshift' must be passed if 'Plin' does not have 'redshift' attribute")
         self.cosmo = cosmo
         
         # try to add attrs from the Plin
@@ -69,7 +64,6 @@ class ZeldovichParticles(ParticleSource):
         self.attrs['nbar']     = nbar
         self.attrs['redshift'] = redshift
         self.attrs['bias']     = bias
-        self.attrs['rsd']      = rsd
         
         # set the seed randomly if it is None
         if seed is None:
@@ -91,7 +85,7 @@ class ZeldovichParticles(ParticleSource):
         
         # crash with no particles!
         if self.csize == 0:
-            raise ValueError("no particles in ZeldovichParticles; try increasing ``nbar`` parameter")
+            raise ValueError("no particles in LogNormal source; try increasing ``nbar`` parameter")
 
     @property
     def size(self):
@@ -101,11 +95,24 @@ class ZeldovichParticles(ParticleSource):
 
     @column
     def Position(self):
+        """
+        Position assumed to be in Mpc/h
+        """
         return self.make_column(self._source['Position'])
 
     @column
     def Velocity(self):
+        """
+        Velocity in km/s
+        """
         return self.make_column(self._source['Velocity'])
+        
+    @column
+    def VelocityOffset(self):
+        """
+        The corresponding RSD offset, in Mpc/h
+        """
+        return self.make_column(self._source['VelocityOffset'])
 
     def _makesource(self, BoxSize, Nmesh):
         
@@ -124,19 +131,32 @@ class ZeldovichParticles(ParticleSource):
         delta, disp = mockmaker.gaussian_real_fields(pm, self.Plin, self.attrs['seed'], compute_displacement=True)
 
         # poisson sample to points
-        kws = {'f':f, 'bias':self.attrs['bias'], 'seed':self.attrs['seed'], 'comm':self.comm}
-        pos, vel = mockmaker.poisson_sample_to_points(delta, disp, pm, self.attrs['nbar'], **kws)
+        # this returns position and velocity offsets
+        kws = {'bias':self.attrs['bias'], 'seed':self.attrs['seed'], 'comm':self.comm}
+        pos, disp = mockmaker.poisson_sample_to_points(delta, disp, pm, self.attrs['nbar'], **kws)
 
-        # add RSD?
-        pos += vel * self.attrs['rsd']
+        # move particles from initial position based on the Zeldovich displacement
+        pos[:] = (pos + disp) % BoxSize
+                
+        # RSD in the Zel'dovich approx bring in extra factor of f
+        # add this to both velocity and velocity offset
+        disp[:] *= (1 + f)
+        
+        # velocity from displacement (assuming Mpc/h)
+        # this is f * H(z) * a / h = f E(z) a --> converts from Mpc/h to km/s
+        z = self.attrs['redshift']
+        velocity_norm = f * self.cosmo.efunc(z) / (1+z)
+        vel = velocity_norm * disp
 
         # return data
         dtype = numpy.dtype([
                 ('Position', ('f4', 3)),
                 ('Velocity', ('f4', 3)),
+                ('VelocityOffset', ('f4', 3))
         ])
         source = numpy.empty(len(pos), dtype)
-        source['Position'][:] = pos[:]
-        source['Velocity'][:] = vel[:]
-
+        source['Position'][:] = pos[:] # in Mpc/h
+        source['Velocity'][:] = vel[:] # in km/s
+        source['VelocityOffset'][:] = disp[:] # in Mpc/h
+        
         return source, pm
