@@ -10,7 +10,7 @@ from nbodykit.dataset import DataSet
 from .fftpower import project_to_basis
 from pmesh.pm import ComplexField
 
-def get_Ylm(l, m):
+def get_real_Ylm(l, m):
     """
     Return a function that computes the real spherical 
     harmonic of order (l,m)
@@ -25,9 +25,9 @@ def get_Ylm(l, m):
     Returns
     -------
     Ylm : callable 
-        a function that takes 4 arguments: (x, y, z, r)
-        where r is the norm of the first three Cartesian
-        coordinates, and returns the specified Ylm
+        a function that takes 4 arguments: (xhat, yhat, zhat)
+        unit-normalized Cartesian coordinates and returns the 
+        specified Ylm
     
     References
     ----------
@@ -37,6 +37,7 @@ def get_Ylm(l, m):
     
     # the relevant cartesian and spherical symbols
     x, y, z, r = sp.symbols('x y z r', real=True, positive=True)
+    xhat, yhat, zhat = sp.symbols('xhat yhat zhat', real=True, positive=True)
     phi, theta = sp.symbols('phi theta')
     defs = [(sp.sin(phi), y/sp.sqrt(x**2+y**2)), 
             (sp.cos(phi), x/sp.sqrt(x**2+y**2)), 
@@ -44,34 +45,30 @@ def get_Ylm(l, m):
     
     # the normalization factors
     if m == 0:
-        expr = sp.sqrt((2*l+1) / (4*sp.pi))
+        amp = sp.sqrt((2*l+1) / (4*numpy.pi))
     else:
-        expr = sp.sqrt(2*(2*l+1) / (4*sp.pi) * sp.factorial(l-abs(m)) / sp.factorial(l+abs(m)))
+        amp = sp.sqrt(2*(2*l+1) / (4*numpy.pi) * sp.factorial(l-abs(m)) / sp.factorial(l+abs(m)))
+    
+    # the cos(theta) dependence encoded by the associated Legendre poly
+    expr = (-1)**m * sp.assoc_legendre(l, abs(m), sp.cos(theta))
         
     # the phi dependence
     if m < 0:
         expr *= sp.expand_trig(sp.sin(abs(m)*phi))
     elif m > 0:
         expr *= sp.expand_trig(sp.cos(m*phi))
-    
-    # the cos(theta) dependence encoded by the associated Legendre poly
-    expr *= (-1)**m * sp.assoc_legendre(l, abs(m), sp.cos(theta))
-    
+        
     # simplify
     expr = sp.together(expr.subs(defs)).subs(x**2 + y**2 + z**2, r**2)
-    Ylm = sp.lambdify((x,y,z,r), expr, 'numpy')
+    expr = amp * expr.expand().subs([(x/r, xhat), (y/r, yhat), (z/r, zhat)])
+    Ylm = sp.lambdify((xhat,yhat,zhat), expr, 'numexpr')
     
-    def safe_Ylm(x, y, z, r):
-        with numpy.errstate(invalid='ignore'):
-            toret = Ylm(x, y, z, r)
-        if not numpy.isscalar(toret):
-            toret[r==0] = 0.
-        return toret
-    safe_Ylm.expr = expr
-    safe_Ylm.l = l
-    safe_Ylm.m = m
+    # attach some meta-data
+    Ylm.expr = expr
+    Ylm.l    = l
+    Ylm.m    = m
         
-    return safe_Ylm
+    return Ylm
          
 class ConvolvedFFTPower(object):
     """
@@ -190,38 +187,15 @@ class ConvolvedFFTPower(object):
             wavenumbers values in each bin (``k``)
         """
         pm = self.source.pm
-
-        # measure the 3D multipoles in Fourier space
-        poles = self._compute_multipoles()
-        k3d = pm.k
-
+        
         # setup the binning in k out to the minimum nyquist frequency
         dk = 2*numpy.pi/pm.BoxSize.min() if self.attrs['dk'] is None else self.attrs['dk']
-        kedges = numpy.arange(self.attrs['kmin'], numpy.pi*pm.Nmesh.min()/pm.BoxSize.max() + dk/2, dk)
+        self.edges = numpy.arange(self.attrs['kmin'], numpy.pi*pm.Nmesh.min()/pm.BoxSize.max() + dk/2, dk)
 
-        # project on to 1d k-basis (averaging over mu=[0,1])
-        muedges = numpy.linspace(0, 1, 2, endpoint=True)
-        edges = [kedges, muedges]
-        poles_final = []
-        for p in poles:
-            result, _ = project_to_basis(p, edges)
-            poles_final.append(numpy.squeeze(result[2]))
-
-        # format (k, poles, modes)
-        poles = numpy.vstack(poles_final)
-        k = numpy.squeeze(result[0])
-        N = numpy.squeeze(result[-1])
-        
-        # make a structured array holding the results
-        cols = ['k'] + ['power_%d' %l for l in sorted(self.attrs['poles'])] + ['modes']
-        result = [k] + [pole for pole in poles] + [N]
-        dtype = numpy.dtype([(name, result[icol].dtype.str) for icol,name in enumerate(cols)])
-        poles = numpy.empty(result[0].shape, dtype=dtype)
-        for icol, col in enumerate(cols):
-            poles[col][:] = result[icol]
+        # measure the binned 1D multipoles in Fourier space
+        poles = self._compute_multipoles()
         
         # set all the necessary results
-        self.edges = kedges
         self.poles = DataSet(['k'], [self.edges], poles, fields_to_sum=['modes'])
     
     def to_pkmu(self, mu_edges, max_ell):
@@ -358,6 +332,16 @@ class ConvolvedFFTPower(object):
         rank = self.comm.rank
         pm   = self.source.pm
         
+        # setup the 1D-binning
+        muedges = numpy.linspace(0, 1, 2, endpoint=True)
+        edges = [self.edges, muedges]
+        
+        # make a structured array to hold the results
+        cols   = ['k'] + ['power_%d' %l for l in sorted(self.attrs['poles'])] + ['modes']
+        dtype  = ['f8'] + ['c8']*len(self.attrs['poles']) + ['i8']
+        dtype  = numpy.dtype(list(zip(cols, dtype)))
+        result = numpy.empty(len(self.edges)-1, dtype=dtype)
+        
         # offset the box coordinate mesh ([-BoxSize/2, BoxSize]) back to 
         # the original (x,y,z) coords
         offset = self.attrs['BoxCenter'] + 0.5*pm.BoxSize / pm.Nmesh
@@ -379,7 +363,7 @@ class ConvolvedFFTPower(object):
                 self.logger.warning('no compensation applied: %s' %str(e))
             
         # spherical harmonic kernels (for ell > 0)
-        Ylms = [[get_Ylm(l,m) for m in range(-l, l+1)] for l in poles[1:]]
+        Ylms = [[get_real_Ylm(l,m) for m in range(-l, l+1)] for l in poles[1:]]
                 
         # paint the FKP density field to the mesh (paints: data - alpha*randoms, essentially)
         rfield = self.source.paint(mode='real')
@@ -409,47 +393,58 @@ class ConvolvedFFTPower(object):
         volume = pm.BoxSize.prod()
         A0 = ComplexField(pm)
         A0[:] = cfield[:] * volume # normalize with a factor of volume
-    
-        # store the A0, A2, A4, etc arrays here
-        result = []
-        result.append(A0)
             
+        # initialize the memory holding the Aell terms for
+        # higher multipoles (this holds sum of m for fixed ell)
+        Aell = ComplexField(pm)
+        
+        # the real-space grid
+        xgrid = [xx.astype('f8') + offset[ii] for ii, xx in enumerate(density.slabs.optx)]
+        xnorm = numpy.sqrt(sum(xx**2 for xx in xgrid))
+        xgrid = [x/xnorm for x in xgrid]
+        
+        # the Fourier-space grid
+        kgrid = [kk.astype('f8') for kk in cfield.slabs.optx]
+        knorm = numpy.sqrt(sum(kk**2 for kk in kgrid)); knorm[knorm==0.] = numpy.inf
+        kgrid = [k/knorm for k in kgrid]
+        
+        # proper normalization: same as equation 49 of Scoccimarro et al. 2015 
+        if rank == 0:
+            self.logger.info("normalizing power spectrum with randoms.A = %.6f" %meta['randoms.A'])
+        norm = 1. / meta['randoms.A']    
+        
         # loop over the higher order multipoles (ell > 0)
         start = time.time()
         for iell, ell in enumerate(poles[1:]):
-        
-            # initialize the memory holding the Aell terms for
-            # higher multipoles (this holds sum of m for fixed ell)
-            Aell = ComplexField(pm)
+            
+            # clear 2D workspace
             Aell[:] = 0.
-                                
+                 
             # iterate from m=-l to m=l and apply Ylm
+            substart = time.time()
             for Ylm in Ylms[iell]:
                 
                 # reset the real-space mesh to the original density
                 rfield[:] = density[:]        
                 
                 # apply the config-space Ylm
-                for x, slab in zip(rfield.slabs.x, rfield.slabs):
-                    xgrid = [xx.astype('f8') + offset[ii] for ii, xx in enumerate(x)]
-                    xnorm = numpy.sqrt(sum(xx**2 for xx in xgrid))
-                    slab[:] *= Ylm(xgrid[0], xgrid[1], xgrid[2], xnorm)
+                for islab, slab in enumerate(rfield.slabs):
+                    slab[:] *= Ylm(xgrid[0][islab], xgrid[1][islab], xgrid[2][islab])
                     
                 # real to complex
                 rfield.r2c(out=cfield)
 
                 # apply the Fourier-space Ylm
-                for k, slab in zip(cfield.slabs.x, cfield.slabs):
-                    kgrid = [kk.astype('f8') for kk in k]
-                    knorm = numpy.sqrt(sum(kk**2 for kk in kgrid))
-                    slab[:] *= Ylm(kgrid[0], kgrid[1], kgrid[2], knorm)
+                for islab, slab in enumerate(cfield.slabs):
+                    slab[:] *= Ylm(kgrid[0][islab], kgrid[1][islab], kgrid[2][islab])
                     
                 # add to the total sum
                 Aell[:] += cfield[:]
                 
                 # and this contribution to the total sum
+                substop = time.time()
                 if rank == 0:
-                    self.logger.debug("done term for Y(l=%d, m=%d)" %(Ylm.l, Ylm.m))
+                    self.logger.debug("done term for Y(l=%d, m=%d) in %s" %(Ylm.l, Ylm.m, timer(substart, substop)))
 
             # apply the compensation transfer function
             if compensation is not None:
@@ -457,33 +452,40 @@ class ConvolvedFFTPower(object):
             
             # factor of 4*pi from spherical harmonic addition theorem + volume factor
             Aell[:] *= 4*numpy.pi*volume
-            result.append(Aell)
-        
+            
             # log the total number of FFTs computed for each ell
             if rank == 0: 
                 args = (ell, len(Ylms[iell]))
                 self.logger.info('ell = %d done; %s r2c completed' %args)
         
-        # clear up some space
-        del density, cfield, rfield
-    
+            # calculate the power spectrum multipoles, slab-by-slab to save memory 
+            # this computes Aell.conj() * A0
+            for islab in range(A0.shape[0]):
+                Aell[islab,...] = norm*Aell[islab].conj()*A0[islab]
+                
+            # project on to 1d k-basis (averaging over mu=[0,1])
+            proj_result, _ = project_to_basis(Aell, edges)
+            result['power_%d' %ell][:] = numpy.squeeze(proj_result[2])
+                
         # summarize how long it took
         stop = time.time()
         if rank == 0:
             self.logger.info("higher order multipoles computed in elapsed time %s" %timer(start, stop))
-    
-        # proper normalization: same as equation 49 of Scoccimarro et al. 2015 
-        if rank == 0:
-            self.logger.info("normalizing power spectrum with randoms.A = %.6f" %meta['randoms.A'])
-        norm = 1. / meta['randoms.A']
-    
-        # calculate the power spectrum multipoles, slab-by-slab to save memory 
-        # this computes Aell * A0.conj
-        P0 = result[0]
-        for islab in range(P0.shape[0]):
-            P0_star = (P0[islab].conj())
-            for P in result:
-                P[islab,...] = norm*P[islab]*P0_star
+        
+        # save the number of modes and k
+        result['k'][:] = numpy.squeeze(proj_result[0])
+        result['modes'][:] = numpy.squeeze(proj_result[1])
+        
+        # also compute ell=0
+        if 0 in self.attrs['poles']:
+            
+            # the 3D monopole
+            for islab in range(A0.shape[0]):
+                A0[islab,...] = norm*A0[islab]*A0[islab].conj()
+            
+            # the 1D monopole
+            proj_result, _ = project_to_basis(A0, edges)
+            result['power_0'][:] = numpy.squeeze(proj_result[2])
                 
         # update with the attributes computed while painting
         self.attrs['alpha'] = meta['alpha']
@@ -491,7 +493,5 @@ class ConvolvedFFTPower(object):
         for key in meta:
             if key.startswith('data.') or key.startswith('randoms.'):
                 self.attrs[key] = meta[key]
-        
-        if 0 not in self.attrs['poles']:
-            result = result[1:]
+    
         return result
