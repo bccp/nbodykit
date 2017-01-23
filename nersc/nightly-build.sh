@@ -43,7 +43,7 @@ update_tarball()
         esac;
         
         # run the pip command        
-        pip_output=$(MPICC=cc PYTHONPATH=$pkgdir:$PYTHONPATH PYTHONUSERBASE=$pkgdir $pip_cmd)
+        pip_output=$(MPICC=cc PYTHONPATH=$pkgdir PYTHONUSERBASE=$pkgdir $pip_cmd)
     else
         # no tarball so ignore any installed packages with additional -I flag
         pip_output=$(MPICC=cc $pip_cmd -I)
@@ -85,28 +85,20 @@ load_anaconda()
     case "$version" in
       "2.7" )
        module load python/2.7-anaconda
-        ;;
-      "3.4" )
-        module load python/3.4-anaconda
+       source activate /usr/common/contrib/bccp/nbodykit/build-envs/2.7-nbodykit-base
         ;;
       "3.5" )
         module load python/3.5-anaconda
+        source activate /usr/common/contrib/bccp/nbodykit/build-envs/3.5-nbodykit-base
         ;;
       * )
-        echo "supported python anaconda modules are 2.7, 3.4, 3.5"
+        echo "supported python anaconda modules are 2.7, 3.5"
         exit 1
       ;;
     esac;
 }
 
-if [ "$NERSC_HOST" == "edison" ]
-then
-    versions=("2.7" "3.4" "3.5")
-
-elif [ "$NERSC_HOST" == "cori" ]
-then
-     versions=("2.7" "3.5")
-fi
+versions=("2.7" "3.5")
 
 for version in "${versions[@]}"; do
     
@@ -118,17 +110,19 @@ for version in "${versions[@]}"; do
     master="git+https://github.com/bccp/nbodykit.git@master"
     pip_install="pip install -U --no-deps --install-option=--prefix=$tmpdir/build $master"
     update_tarball "${tarball}" "${pip_install}" || exit 1
+    
+    # build v2.0 source from the HEAD of "v2.0"
+    tarball=nbodykit-v2.0.tar.gz
+    master="git+https://github.com/bccp/nbodykit.git@v2.0"
+    pip_install="pip install -U --no-deps --install-option=--prefix=$tmpdir/build $master"
+    update_tarball "${tarball}" "${pip_install}" || exit 1
 
     # update the dependencies
     tarball=nbodykit-dep.tar.gz
-    reqs="https://raw.githubusercontent.com/bccp/nbodykit/master/requirements.txt"
+    reqs="https://raw.githubusercontent.com/bccp/nbodykit/v2.0/requirements.txt"
     pip_install="pip install -U --no-deps --install-option=--prefix=$tmpdir/build -r $reqs"
     update_tarball "${tarball}" "${pip_install}" || exit 1
     
-    # add latest dask from master branch (until v0.12 gets tagged)
-    pip_install="pip install -I --no-deps --install-option=--prefix=$tmpdir/build git+git://github.com/dask/dask.git@master"
-    update_tarball "${tarball}" "${pip_install}" || exit 1
-
     # update stable
     tarball=nbodykit-stable.tar.gz
     pip_install="pip install -U --no-deps --install-option=--prefix=$tmpdir/build nbodykit"

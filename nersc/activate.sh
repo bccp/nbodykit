@@ -2,15 +2,15 @@
 
 # can supply 0 or 1 argument
 if [ "$#" -gt 1 ]; then
-    echo "usage: activate.sh latest|stable"
+    echo "usage: activate.sh latest|stable|v2.0"
     exit 1
 fi
 
 # if no version provided, use 'stable'
 if [ $# -eq 0 ]; then
     version="stable"
-elif [[ "$1" -ne "stable" || "$1" -ne "latest" ]]; then
-    echo "valid version names are 'stable' and 'latest'"
+elif [[ "$1" != "stable" && "$1" != "latest" && "$1" != "v2.0" ]]; then
+    echo "valid version names: 'stable', 'latest', 'v2.0'"
     exit 1
 else
     version=$1
@@ -22,7 +22,7 @@ elif [[ -n $ZSH_VERSION ]]; then
     _SCRIPT_LOCATION=${funcstack[1]}
 else
     echo "Only bash and zsh are supported"
-    return 1
+    exit 1
 fi
 
 NBKITROOT=`dirname ${_SCRIPT_LOCATION}`
@@ -52,6 +52,10 @@ function srun-nbkit {
         np="-n $1"
         shift
     fi
-    srun $np python-mpi /dev/shm/local/bin/nbkit.py $*
+    if [[ "$version" != "v2.0" ]]; then
+        srun $np python-mpi /dev/shm/local/bin/nbkit.py $*
+    else
+        echo "calling 'nbkit.py' is deprecated!"
+        return 1
+    fi
 }
-
