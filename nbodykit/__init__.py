@@ -1,6 +1,10 @@
-__version__ = "1.0.0.dev0"
+__version__ = "0.2.0.dev0"
 
 from mpi4py import MPI
+
+# prevents too many threads exception when using MPI and dask
+import dask
+dask.set_options(get=dask.get)
 
 class CurrentMPIComm(object):
     """

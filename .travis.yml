@@ -24,13 +24,9 @@ install:
     
     # base python setup
     - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py
-    - conda install --yes h5py pandas scipy pytables pyyaml astropy numba dask
-    #
-    # test optional HOD data sources
-    # - pip install halotools 
-    - pip install pfft-python kdcount mpsort pmesh sharedmem bigfile --no-deps
-    - pip install cachey halotools
-    - pip install https://github.com/bccp/abopt/archive/master.zip
+    - conda install --yes h5py pandas scipy pytables pyyaml astropy numba dask sympy
+
+    - pip install --no-deps -r requirements.txt
     - pip install .
 
 script:

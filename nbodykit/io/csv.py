@@ -92,10 +92,10 @@ def make_partitions(filename, blocksize, config, delimiter="\n"):
             sizes.append(block.count(delimiter))
     return partitions, sizes
 
-def infer_dtype(path, names, nrows=10, **config):
+def verify_data(path, names, nrows=10, **config):
     """
-    Read the first few lines of the specified CSV file to determine 
-    the data type
+    Verify the data by reading the first few lines of the specified 
+    CSV file to determine the data type
     
     Parameters
     ----------
@@ -115,10 +115,19 @@ def infer_dtype(path, names, nrows=10, **config):
         dictionary holding the dtype for each name in `names`
     """    
     # read the first few lines to get the the dtype
-    df = read_csv(path, nrows=nrows, names=names, **config)
+    try:
+        df = read_csv(path, nrows=nrows, names=names, **config)
+    except:
+        import traceback
+        config['names'] = names
+        msg = ("error trying to read data with pandas.read_csv; ensure that 'names' matches "
+               "the number of columns in the file\n")
+        msg += "   pandas configuration: %s\n" %str(config)
+        msg += "   traceback: %s" %(traceback.format_exc())
+        raise ValueError(msg)
 
     toret = {}
-    for name in names:
+    for name in df.columns:
         toret[name] = df[name].dtype
     return toret
 
@@ -140,19 +149,21 @@ class CSVFile(FileType):
     passed to :func:`pandas.read_csv`
     
     .. warning::
-
         This assumes the delimiter for separate lines is the newline
-        character.
+        character and that all columns in the file represent data 
+        columns (no "index" column when using ``pandas``)
     """
     def __init__(self, path, names, blocksize=32*1024*1024, dtype={}, 
-                    delim_whitespace=True, header=None, **config):
+                    usecols=None, delim_whitespace=True, header=None, **config):
         """
         Parameters
         ----------
         path : str
             the name of the file to load
         names : list of str
-            the names of the columns of the csv file
+            the names of the columns of the csv file; this should give
+            names of all the columns in the file -- pass ``usecols``
+            to select a subset of columns
         blocksize : int; optional
             the file will be partitioned into blocks of bytes roughly
             of this size
@@ -160,10 +171,13 @@ class CSVFile(FileType):
             if specified as a string, assume all columns have this dtype,
             otherwise; each column can have a dtype entry in the dict;
             if not specified, the data types will be inferred from the file
+        usecols : list; optional
+            a ``pandas.read_csv``; a subset of ``names`` to store, ignoring
+            all other columns
         delim_whitespace : bool; optional
             a ``pandas.read_csv`` keyword; if the CSV file is space-separated, 
             set this to ``True``
-        header : int; optional
+        header : int or ``None``; optional
              a ``pandas.read_csv`` keyword; if the file does not contain a 
             header (default case), this should be ``None``. Otherwise, this
             should specify the number of rows to treat as the header
@@ -172,24 +186,29 @@ class CSVFile(FileType):
             see the documentation of that function for a full list
         """        
         self.path      = path
-        self.names     = names
+        self.names     = names if usecols is None else usecols
         self.blocksize = blocksize
+        
+        # ensure that no index column is passed
+        if 'index_col' in config and config['index_col']:
+            raise ValueError("CSVFile requires that all columns in file be treated as data; ``index_col`` must be ``False``")
+        config['index_col'] = False # no index columns in file
         
         # set the read_csv defaults
         if 'sep' in config or 'delimiter' in config:
             delim_whitespace = False
-        config.setdefault('delim_whitespace', delim_whitespace)
-        config.setdefault('header', header)
+        config['delim_whitespace'] = delim_whitespace
+        config['header'] = header
+        config['usecols'] = usecols
         config.setdefault('engine', 'c')
         self.pandas_config = config.copy()
+        
+        # verify the data
+        inferred_dtype = verify_data(self.path, names, **self.pandas_config)
         
         # dtype can also be a string --> apply to all columns
         if isinstance(dtype, string_types):
             dtype = {col:dtype for col in self.names}
-
-        # infer the data type?
-        if not all(col in dtype for col in self.names):
-            inferred_dtype = infer_dtype(self.path, self.names, **self.pandas_config)
 
         # store the dtype as a list
         self.dtype = []
@@ -198,13 +217,16 @@ class CSVFile(FileType):
                 dt = dtype[col]
                 if not isinstance(dt, numpy.dtype):
                     dt = numpy.dtype(dt)
-            else:
+            elif col in inferred_dtype:
                 dt = inferred_dtype[col]
+            else:
+                raise ValueError("data type for column '%s' cannot be inferred from file" %col)
             self.dtype.append((col, dt))
         self.dtype = numpy.dtype(self.dtype)
         
         # add the dtype and names to the pandas config
-        self.pandas_config['dtype'] = {col:self.dtype[col] for col in self.names}
+        if config['engine'] == 'c':
+            self.pandas_config['dtype'] = {col:self.dtype[col] for col in self.names}
         self.pandas_config['names'] = names
         
         # make the partitions
