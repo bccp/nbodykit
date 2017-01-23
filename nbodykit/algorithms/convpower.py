@@ -409,8 +409,6 @@ class ConvolvedFFTPower(object):
         kgrid = [k/knorm for k in kgrid]
         
         # proper normalization: same as equation 49 of Scoccimarro et al. 2015 
-        if rank == 0:
-            self.logger.info("normalizing power spectrum with randoms.A = %.6f" %meta['randoms.A'])
         norm = 1. / meta['randoms.A']    
         
         # loop over the higher order multipoles (ell > 0)
@@ -494,4 +492,7 @@ class ConvolvedFFTPower(object):
             if key.startswith('data.') or key.startswith('randoms.'):
                 self.attrs[key] = meta[key]
     
+        if rank == 0:
+            self.logger.info("normalized power spectrum with randoms.A = %.6f" %meta['randoms.A'])
+        
         return result
