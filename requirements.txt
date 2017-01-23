@@ -4,3 +4,7 @@ pfft-python
 kdcount
 mpsort
 bigfile
+dask>=0.13
+cachey
+halotools>=0.4
+
