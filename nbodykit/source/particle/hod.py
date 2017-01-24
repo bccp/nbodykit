@@ -2,13 +2,12 @@ from nbodykit import CurrentMPIComm
 from nbodykit.base.particles import column
 from nbodykit.source.particle.from_numpy import Array
 from nbodykit.utils import GatherArray, ScatterArray
-
-from halotools.empirical_models import HodModelFactory, model_defaults
-
 from nbodykit.extern.six import add_metaclass
+
 import abc
 import logging
 import numpy
+from halotools.empirical_models import HodModelFactory, model_defaults
 
 def remove_object_dtypes(data):
     """
@@ -34,15 +33,29 @@ class HODBase(Array):
     logger = logging.getLogger("HODBase")
     
     @CurrentMPIComm.enable
-    def __init__(self, halos, cosmo, redshift, mdef, 
-                  rsd=None, seed=None, use_cache=False, comm=None, **params):
-        
+    def __init__(self, halos, seed=None, use_cache=False, comm=None, **params):
+                
+        # check type
         from halotools.sim_manager import UserSuppliedHaloCatalog
         if not isinstance(halos, UserSuppliedHaloCatalog):
-            raise TypeError("input 'halos' object for HOD should be a halotools UserSuppliedHaloCatalog")
-            
-        if rsd is None:
-            rsd = [0, 0, 0.]
+            raise TypeError("input halos catalog for HOD should be halotools.sim_manager.UserSuppliedHaloCatalog")
+                    
+        # try to extract meta-data from catalog
+        mdef     = getattr(halos, 'mdef', 'vir')
+        cosmo    = getattr(halos, 'cosmology', None)
+        Lbox     = getattr(halos, 'Lbox', None)
+        redshift = getattr(halos, 'redshift', None)
+        
+        # fail if we are missing any of these
+        for name, attr in zip(['cosmology', 'Lbox', 'redshift'], [cosmo, Lbox, redshift]):
+            if attr is None:
+                raise AttributeError("input UserSuppliedHaloCatalog must have '%s attribute" %name)
+                 
+        # promote astropy cosmology to nbodykit's Cosmology
+        from astropy.cosmology import FLRW
+        if isinstance(cosmo, FLRW):
+            from nbodykit.cosmology import Cosmology
+            cosmo = Cosmology.from_astropy(cosmo)
         
         # store the halotools catalog
         self._halos = halos
@@ -51,19 +64,24 @@ class HODBase(Array):
         
         # grab the BoxSize from the halotools catalog
         self.attrs['BoxSize'] = numpy.empty(3)
-        self.attrs['BoxSize'][:] = halos.Lbox
+        self.attrs['BoxSize'][:] = Lbox
         
         # store mass and radius keys
         self.mass   = model_defaults.get_halo_mass_key(mdef)
         self.radius = model_defaults.get_halo_boundary_key(mdef)
     
-        # propapagate all columns in the halo catalogs to the galaxy catalog
+        # check for any missing columns
+        needed = ['halo_%s' %s for s in ['x','y','z','vx','vy','vz', 'id', 'upid']] + [self.mass, self.radius]
+        missing = set(needed) - set(halos.halo_table.colnames) 
+        if len(missing):
+            raise ValueError("missing columns from halotools UserSuppliedHaloCatalog: %s" %str(missing))
+    
+        # this ensures that all columns in the halo catalog will propagate to the galaxy catalog
         model_defaults.default_haloprop_list_inherited_by_mock = halos.halo_table.colnames
-                        
+                            
         # store the attributes
         self.attrs['mdef'] = mdef
         self.attrs['redshift'] = redshift
-        self.attrs['rsd'] = rsd
         self.attrs['seed'] = seed
         self.attrs.update(params)
         self.attrs.update({'cosmo.%s' %k : cosmo[k] for k in cosmo})
@@ -193,14 +211,30 @@ class HODBase(Array):
 
     @column
     def Position(self):
+        """
+        Galaxy positions, in units of Mpc/h
+        """
         pos = numpy.vstack([self._source['x'], self._source['y'], self._source['z']]).T
         return self.make_column(pos)
 
     @column
     def Velocity(self):
+        """
+        Galaxy velocity, in units of km/s
+        """
         vel = numpy.vstack([self._source['vx'], self._source['vy'], self._source['vz']]).T
         return self.make_column(vel)
-
+        
+    @column
+    def VelocityOffset(self):
+        """
+        The RSD velocity offset, in units of Mpc/h
+        
+        This multiplies Velocity by 1 / (a*E(z))
+        """
+        z = self.attrs['redshift']
+        rsd_factor = (1+z) / self.cosmo.efunc(z)
+        return self['Velocity'] * rsd_factor
 
 from halotools.empirical_models import Zheng07Sats, Zheng07Cens
 from halotools.empirical_models import NFWPhaseSpace, TrivialPhaseSpace
@@ -211,22 +245,7 @@ class HOD(HODBase):
     Zheng et al. 2007 to populate an input halo catalog with galaxies, 
     and returns the (Position, Velocity) of those galaxies
     
-    The mock population is done using `halotools` (http://halotools.readthedocs.org)
-    The HOD model is of the commonly-used form:
-    
-    Parameters
-    ----------
-        logMmin : 
-            Minimum mass required for a halo to host a central galaxy
-        sigma_logM : 
-            Rate of transition from <Ncen>=0 --> <Ncen>=1
-        alpha : 
-            Power law slope of the relation between halo mass and <Nsat>
-        logM0 : 
-            Low-mass cutoff in <Nsat>
-        logM1 : 
-            Characteristic halo mass where <Nsat> begins to assume a power law form
-    
+    The mock population is done using `halotools` (http://halotools.readthedocs.org)    
     See the documentation for the `halotools` builtin Zheng07 HOD model, 
     for further details regarding the HOD
     
@@ -237,8 +256,8 @@ class HOD(HODBase):
     logger = logging.getLogger("HOD")
     
     @CurrentMPIComm.enable
-    def __init__(self, halos, cosmo, redshift, mdef, logMmin=13.031, sigma_logM=0.38, 
-                    alpha=0.76, logM0=13.27, logM1=14.08, rsd=None, 
+    def __init__(self, halos, logMmin=13.031, sigma_logM=0.38, 
+                    alpha=0.76, logM0=13.27, logM1=14.08,
                     seed=None, use_cache=False, comm=None):
         """
         Initialize the Source. Default HOD values from Reid et al. 2014
@@ -246,15 +265,8 @@ class HOD(HODBase):
         Parameters
         ----------
         halos : halotools.sim_manager.UserSuppliedHaloCatalog
-            the halotools table holding the halo data
-        cosmo : nbodykit.cosmology.Cosmology
-            the cosmology instance, needed to populate the HOD
-        redshift : float
-            the redshift at which we are populating the HOD
-        mdef : str
-            string specifying mass definition, used for computing default
-            halo radii and concentration; should be 'vir' or 'XXXc' or 
-            'XXXm' where 'XXX' is an int specifying the overdensity
+            the halotools table holding the halo data; this object must have
+            the following attributes: `cosmology`, `Lbox`, `redshift`
         logMmin : float; optional
             Minimum mass required for a halo to host a central galaxy
         sigma_logM : float; optional
@@ -265,8 +277,6 @@ class HOD(HODBase):
             Low-mass cutoff in <Nsat>
         logM1 : float; optional
             Characteristic halo mass where <Nsat> begins to assume a power law form
-        rsd : 3-vector; optional
-            the RSD direction
         seed : int; optional
             the random seed to generate deterministic mocks
         """
@@ -277,8 +287,7 @@ class HOD(HODBase):
         params['logM0'] = logM0
         params['logM1'] = logM1
         
-        HODBase.__init__(self, halos, cosmo, redshift, mdef, 
-                        rsd=rsd, seed=seed, use_cache=use_cache, comm=comm, **params)
+        HODBase.__init__(self, halos, seed=seed, use_cache=use_cache, comm=comm, **params)
 
     def _makemodel(self):
         """
