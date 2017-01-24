@@ -1,4 +1,5 @@
 from nbodykit.base.particles import ParticleSource, column
+from nbodykit import transform
 import numpy
 from halotools.empirical_models import profile_helpers, ConcMass
 
@@ -7,9 +8,9 @@ class HaloCatalog(ParticleSource):
     A wrapper Source class to interface nicely with 
     :class:`halotools.sim_manager.UserSuppliedHaloCatalog`
     """
-    def __init__(self, source, particle_mass, cosmo, redshift, 
-                    length='Length', velocity='Velocity', position='Position', 
-                    mdef='vir', use_cache=False):
+    def __init__(self, source, cosmo, redshift, mdef='vir',
+                    mass='Mass', velocity='Velocity', position='Position', 
+                     use_cache=False, comm=None):
         """
         Parameters
         ----------
@@ -21,90 +22,79 @@ class HaloCatalog(ParticleSource):
             the cosmology instance; 
         redshift : float
             the redshift of the halo catalog
-        length : str; optional
-            the column name specifying the "length" of each halo, which is the 
-            number of particles per halo; halo mass is computed as the
-            particle mass times the length
-        velocity : str; optional
-            the column name specifying the velocity of each halo
-        position : str; optional
-            the column name specifying the position of each halo
         mdef : str; optional
             string specifying mass definition, used for computing default
             halo radii and concentration; should be 'vir' or 'XXXc' or 
             'XXXm' where 'XXX' is an int specifying the overdensity
-        use_cache : bool; optional
-            use dask to cache the intermediate the columns            
+        mass : str; optional
+            the column name specifying the mass of each halo
+        position : str; optional
+            the column name specifying the position of each halo
+        velocity : str; optional
+            the column name specifying the velocity of each halo
         """
+        if comm is None:
+            comm = source.comm
+            
         self._source = source
         self.cosmo = cosmo
         
-        self.attrs['particle_mass']   = particle_mass
-        self.attrs['redshift']        = redshift
-        self.attrs['length']          = length
-        self.attrs['velocity']        = velocity
-        self.attrs['position']        = position
-        self.attrs['mdef']            = mdef
+        # get the attrs from the source
+        self.attrs.update(source.attrs)
         
-        # default c(M) follows Eqs 12 & 13 of Dutton & Maccio 2014, arXiv:1402.7073
-        self._conc_model = ConcMass(cosmology=cosmo.engine, conc_mass_model='dutton_maccio14',
-                                    mdef=mdef, redshift=redshift)
-        
-        
-        ParticleSource.__init__(self, comm=source.comm, use_cache=use_cache)
+        # and save the parameters
+        self.attrs['redshift'] = redshift
+        self.attrs['mass']     = mass
+        self.attrs['velocity'] = velocity
+        self.attrs['position'] = position
+        self.attrs['mdef']     = mdef
+                
+        # init the base class
+        ParticleSource.__init__(self, comm=comm, use_cache=use_cache)
         
     @property
     def size(self):
         return self._source.size
     
     @column
-    def HaloMass(self):
-        mass = self.attrs['particle_mass'] * self._source[self.attrs['length']]
-        return self.make_column(mass)
+    def Mass(self):
+        return self.make_column(self._source[self.attrs['mass']])
         
     @column
-    def HaloPosition(self):
+    def Position(self):
         return self.make_column(self._source[self.attrs['position']])
         
     @column
-    def HaloVelocity(self):
+    def Velocity(self):
         return self.make_column(self._source[self.attrs['velocity']])
-        
+    
+    @column
+    def Concentration(self):
+        z = self.attrs['redshift']
+        mdef = self.attrs['mdef']
+        return transform.HaloConcentration(self['Mass'], self.cosmo, z, mdef=mdef)
         
     @column
-    def HaloConcentration(self):
-        conc = self._conc_model.compute_concentration(prim_haloprop=self['HaloMass'])
-        return self.make_column(conc)
+    def Radius(self):
+        z = self.attrs['redshift']
+        mdef = self.attrs['mdef']
+        return transform.HaloRadius(self['Mass'], self.cosmo, z, mdef=mdef)
         
-    @column
-    def HaloRadius(self):
-        kws = {'mass':self['HaloMass'], 'cosmology':self.cosmo.engine, 
-               'redshift':self.attrs['redshift'], 'mdef':self.attrs['mdef']
-              }
-        return self.make_column(profile_helpers.halo_mass_to_halo_radius(**kws))
-        
-    def to_halotools(self, BoxSize, selection='Selection', extra={}):
+    def to_halotools(self, BoxSize=None, selection='Selection'):
         """
         Return the source as a :class:`halotools.sim_manager.UserSuppliedHaloCatalog`.
-        The Halotools catalog only holds the local data (this is not a collective
-        operation).
+        The Halotools catalog only holds the local data, although halos are labeled
+        via the ``halo_id`` column with the global index 
         
-        By default, the halotools catalog will included the data from all columns
-        in :attr:`columns`. Additional columns can be included by providing
-        the mapping between nbodykit and halotool column names 
         
         Parameters
         ----------
-        BoxSize : float, array_like
+        BoxSize : float, array_like; optional
             the size of the box; note that anisotropic boxes are currently
             not supported by halotools
         selection : str; optional
             the name of the column to slice the data on before converting
             to a halotools catalog
-        extra : dict, optional
-            a mapping between columns in the Source (keys) and the corresponding
-            columns in the halotools (values) for any extra columns the user
-            wishes to include
         
         Returns
         -------
@@ -114,6 +104,13 @@ class HaloCatalog(ParticleSource):
         from halotools.sim_manager import UserSuppliedHaloCatalog
         from halotools.empirical_models import model_defaults
         
+        # make sure we have a BoxSize
+        if BoxSize is None:
+            BoxSize = self.attrs.get('BoxSize', None)
+        if BoxSize is None:
+            raise ValueError("please specify a 'BoxSize' to convert to a halotools catalog")
+        
+        # anisotropic boxes not yet supported
         if not numpy.isscalar(BoxSize):
             BoxSize = numpy.asarray(BoxSize)
             if not (BoxSize == BoxSize[0]).all():
@@ -125,7 +122,7 @@ class HaloCatalog(ParticleSource):
                 
         # compute the columns
         sel = self.compute(self[selection])
-        cols = ['HaloPosition', 'HaloVelocity', 'HaloMass', 'HaloRadius', 'HaloConcentration']
+        cols = ['Position', 'Velocity', 'Mass', 'Radius', 'Concentration']
         cols = self.compute(*[self[col][sel] for col in cols])
         Position, Velocity, Mass, Radius, Concen = [col for col in cols]
         
@@ -133,10 +130,13 @@ class HaloCatalog(ParticleSource):
         mkey = model_defaults.get_halo_mass_key(self.attrs['mdef'])
         rkey = model_defaults.get_halo_boundary_key(self.attrs['mdef'])
         
+        # global halo ids (across all ranks)
+        start = self.csize * self.comm.rank // self.comm.size
+        stop  = self.csize * (self.comm.rank  + 1) // self.comm.size
+        halo_id = numpy.arange(start, stop, dtype='i8')[sel]
+        
+        # data columns
         kws                  = {}
-        kws['redshift']      = self.attrs['redshift']
-        kws['Lbox']          = BoxSize
-        kws['particle_mass'] = self.attrs['particle_mass']
         kws['halo_x']        = Position[:,0]
         kws['halo_y']        = Position[:,1]
         kws['halo_z']        = Position[:,2]
@@ -146,8 +146,17 @@ class HaloCatalog(ParticleSource):
         kws[mkey]            = Mass
         kws[rkey]            = Radius
         kws['halo_nfw_conc'] = Concen
-        kws['halo_id']       = numpy.arange(len(Position))
+        kws['halo_id']       = halo_id
         kws['halo_upid']     = numpy.zeros(len(Position)) - 1
+        kws['halo_local_id'] = numpy.arange(0, self.size, dtype='i8')[sel]            
+        
+        # add metadata too
+        kws['cosmology']     = self.cosmo
+        kws['redshift']      = self.attrs['redshift']
+        kws['Lbox']          = BoxSize
+        kws['particle_mass'] = self.attrs.get('particle_mass', 1.0)
+        kws['mdef']          = self.attrs['mdef']
+        
         return UserSuppliedHaloCatalog(**kws)
         
     
