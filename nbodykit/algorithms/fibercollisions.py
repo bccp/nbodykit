@@ -6,7 +6,7 @@ from nbodykit.transform import SkyToUnitSphere
 import numpy
 import logging
 
-class FiberCollisions(Array):
+class FiberCollisions(object):
     """
     Run an angular FOF algorithm to determine fiber collision
     groups from an input catalog, and then assign fibers such that
@@ -46,14 +46,14 @@ class FiberCollisions(Array):
         pos = SkyToUnitSphere(ra, dec, degrees=degrees).compute()
         
         # make the source
-        dtype = numpy.dtype([('Position', (pos.dtype.str, 3))])
-        data = numpy.empty(len(pos), dtype=dtype)
-        data['Position'] = pos
-        source = Array(data, BoxSize=numpy.array([2., 2., 2.]))
+        dt = numpy.dtype([('Position', (pos.dtype.str, 3))])
+        pos = numpy.squeeze(pos.view(dtype=dt))
+        source = Array(pos, BoxSize=numpy.array([2., 2., 2.]))
         
         self.source = source
         self.comm = source.comm
         
+        self.attrs = {}
         self.attrs['collision_radius'] = collision_radius
         self.attrs['seed'] = seed
         self.attrs['degrees'] = degrees
@@ -64,38 +64,36 @@ class FiberCollisions(Array):
             self.logger.info("collision radius in degrees = %.4f" %collision_radius)
         
         # compute and init the base class
-        result = self._compute()
-        Array.__init__(self, result, comm=self.comm, **source.attrs)
+        self.run()
         
-        
-    def _compute(self):
+    def run(self):
         """
         Compute the FOF collision groups and assign fibers, such that
-        the maximum number of objects receive fibers
+        the maximum number of objects receive fibers. It attaches
+        the following attribute:
         
-        Returns
-        -------
-        result: array_like
-            a structured array with 3 fields:
-                Label : 
-                    the group labels for each object in the input 
-                    DataSource; label == 0 objects are not in a group
-                Collided : 
-                    a flag array specifying which objects are 
-                    collided, i.e., do not receive a fiber
-                NeighborID : 
-                    for those objects that are collided, this 
-                    gives the (global) index of the nearest neighbor 
-                    on the sky (0-indexed), else it is set to -1
+        Attributes
+        ----------
+        labels: ParticleSouce
+            Label : 
+                the group labels for each object in the input 
+                DataSource; label == 0 objects are not in a group
+            Collided : 
+                a flag array specifying which objects are 
+                collided, i.e., do not receive a fiber
+            NeighborID : 
+                for those objects that are collided, this 
+                gives the (global) index of the nearest neighbor 
+                on the sky (0-indexed), else it is set to -1
         """
         from astropy.utils.misc import NumpyRNGContext
-        from nbodykit.algorithms import FOF
+        from nbodykit.algorithms import fof
                 
         # angular FOF: labels gives the global group ID corresponding to each 
         # object in Position on this rank
-        fof = FOF(self.source, self._collision_radius_rad, 1, absolute=True)
-        labels = fof.compute(fof['HaloLabel'])
-        
+        minid = fof.fof(self.source, self._collision_radius_rad, self.comm)
+        labels = fof._assign_labels(minid, comm=self.comm, thresh=1)
+                
         # assign the fibers (in parallel)
         with NumpyRNGContext(self.attrs['seed']):
             collided, neighbors = self._assign_fibers(labels)
@@ -117,7 +115,9 @@ class FiberCollisions(Array):
         dtype = numpy.dtype([(col, x.dtype) for col, x in d])
         result = numpy.empty(len(labels), dtype=dtype)
         for col, x in d: result[col] = x
-        return result
+        
+        # make a particle source
+        self.labels = Array(result, comm=self.comm, **self.source.attrs)
 
     def _assign_fibers(self, Label):
         """
