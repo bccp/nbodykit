@@ -18,20 +18,17 @@ def test_hod(comm):
                                 nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
     
     # run FOF
-    fof = FOF(source, linking_length=0.2, nmin=20)
-    halos = HaloFinder(source, fof['HaloLabel'])
-
-    # FIXME: HaloFinder is only nonzero on root
-    s = comm.bcast(halos._source)
-    halos = Source.Array(s)
+    r = FOF(source, linking_length=0.2, nmin=20)
+    halos = r.to_halo_catalog(cosmo=cosmo, redshift=redshift, particle_mass=1e12, mdef='vir')
+        
+    # make the HOD catalog from halotools catalog
+    hod = Source.HOD(halos.to_halotools(), seed=42)
     
-    # convert to a HaloCatalog
-    # FIXME: the position/velocity units are wrong!
-    cat = Source.HaloCatalog(halos, particle_mass=1e12, cosmo=cosmo, redshift=redshift, mdef='vir')
-    cat['Selection'] = cat['HaloMass'] > 0
+    assert hod.csize == 449, "HOD galaxy catalog size %d should be 449" %hod.csize
     
-    # make the HOD catalog
-    hod = Source.HOD(cat.to_halotools(BoxSize), cosmo=cosmo, redshift=redshift, mdef='vir')
+    # RSD offset in 'z' direction
+    hod['Position'] += hod['VelocityOffset'] * [0, 0, 1]
     
-    # and repopulate in-place once
-    hod.repopulate()
+    # compute the power
+    r = FFTPower(hod.to_mesh(Nmesh=128), mode='2d', Nmu=5, los=[0,0,1])
+    

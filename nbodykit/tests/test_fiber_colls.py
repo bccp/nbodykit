@@ -27,12 +27,12 @@ def test_fibercolls(comm):
     dec = ScatterArray(dec, comm)
 
     # compute the fiber collisions
-    d = FiberCollisions(ra, dec, degrees=True, seed=42)
-    rad = d._collision_radius_rad
+    r = FiberCollisions(ra, dec, degrees=True, seed=42)
+    rad = r._collision_radius_rad
     
     #  gather collided and position to root
-    idx = GatherArray(d['Collided'].compute().astype(bool), comm, root=0)
-    pos = GatherArray(d.source['Position'].compute(), comm, root=0)
+    idx = GatherArray(r.labels['Collided'].compute().astype(bool), comm, root=0)
+    pos = GatherArray(r.source['Position'].compute(), comm, root=0)
     
     # manually compute distances and check on root
     if comm.rank == 0:

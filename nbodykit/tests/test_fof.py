@@ -16,9 +16,8 @@ def test_fof(comm):
                 nbar=3e-3, BoxSize=512., Nmesh=128, seed=42)
 
     # compute P(k,mu) and multipoles
-    fof = FOF(source, linking_length=0.2, nmin=20)
+    r = FOF(source, linking_length=0.2, nmin=20)
 
-    fof.save(columns=['HaloLabel'], output="FOF-label-%d" % comm.size)
-
-    halos = HaloFinder(source, fof['HaloLabel'])
-    halos.save("FOF-label-%d" % comm.size, ['Position', 'Velocity', 'Length'])
+    # save the labels and the halos
+    r.labels.save(columns=['HaloLabel'], output="FOF-label-%d" % comm.size)
+    r.halos.save("FOF-label-%d" % comm.size, ['Position', 'Velocity', 'Length'])
