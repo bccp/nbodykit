@@ -111,8 +111,8 @@ for version in "${versions[@]}"; do
     pip_install="pip install -U --no-deps --install-option=--prefix=$tmpdir/build $master"
     update_tarball "${tarball}" "${pip_install}" || exit 1
     
-    # build v2.0 source from the HEAD of "v2.0"
-    tarball=nbodykit-v2.0.tar.gz
+    # build 0.2 source from the HEAD of "v2.0"
+    tarball=nbodykit-0.2.tar.gz
     master="git+https://github.com/bccp/nbodykit.git@v2.0"
     pip_install="pip install -U --no-deps --install-option=--prefix=$tmpdir/build $master"
     update_tarball "${tarball}" "${pip_install}" || exit 1

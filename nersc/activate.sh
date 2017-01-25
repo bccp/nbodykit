@@ -2,15 +2,15 @@
 
 # can supply 0 or 1 argument
 if [ "$#" -gt 1 ]; then
-    echo "usage: activate.sh latest|stable|v2.0"
+    echo "usage: activate.sh latest|stable|0.2"
     exit 1
 fi
 
 # if no version provided, use 'stable'
 if [ $# -eq 0 ]; then
     version="stable"
-elif [[ "$1" != "stable" && "$1" != "latest" && "$1" != "v2.0" ]]; then
-    echo "valid version names: 'stable', 'latest', 'v2.0'"
+elif [[ "$1" != "stable" && "$1" != "latest" && "$1" != "0.2" ]]; then
+    echo "valid version names: 'stable', 'latest', '0.2'"
     exit 1
 else
     version=$1
@@ -52,7 +52,7 @@ function srun-nbkit {
         np="-n $1"
         shift
     fi
-    if [[ "$version" != "v2.0" ]]; then
+    if [[ "$version" != "0.2" ]]; then
         srun $np python-mpi /dev/shm/local/bin/nbkit.py $*
     else
         echo "calling 'nbkit.py' is deprecated!"
