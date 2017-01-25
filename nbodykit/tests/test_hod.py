@@ -19,7 +19,7 @@ def test_hod(comm):
     
     # run FOF
     r = FOF(source, linking_length=0.2, nmin=20)
-    halos = r.to_halo_catalog(cosmo=cosmo, redshift=redshift, particle_mass=1e12, mdef='vir')
+    halos = r.to_halos(cosmo=cosmo, redshift=redshift, particle_mass=1e12, mdef='vir')
         
     # make the HOD catalog from halotools catalog
     hod = Source.HOD(halos.to_halotools(), seed=42)

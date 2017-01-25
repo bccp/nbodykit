@@ -87,16 +87,15 @@ class FiberCollisions(object):
                 on the sky (0-indexed), else it is set to -1
         """
         from astropy.utils.misc import NumpyRNGContext
-        from nbodykit.algorithms import fof
+        from nbodykit.algorithms import FOF
                 
         # angular FOF: labels gives the global group ID corresponding to each 
         # object in Position on this rank
-        minid = fof.fof(self.source, self._collision_radius_rad, self.comm)
-        labels = fof._assign_labels(minid, comm=self.comm, thresh=1)
+        fof = FOF(self.source, self._collision_radius_rad, 1, absolute=True)
                 
         # assign the fibers (in parallel)
         with NumpyRNGContext(self.attrs['seed']):
-            collided, neighbors = self._assign_fibers(labels)
+            collided, neighbors = self._assign_fibers(fof.labels)
     
         # all reduce to get summary statistics
         N_pop1 = self.comm.allreduce((collided^1).sum())
@@ -111,9 +110,9 @@ class FiberCollisions(object):
             self.logger.info("collision fraction = %.4f" %f)
 
         # return a structured array
-        d = list(zip(['Label', 'Collided', 'NeighborID'], [labels, collided, neighbors]))
+        d = list(zip(['Label', 'Collided', 'NeighborID'], [fof.labels, collided, neighbors]))
         dtype = numpy.dtype([(col, x.dtype) for col, x in d])
-        result = numpy.empty(len(labels), dtype=dtype)
+        result = numpy.empty(len(fof.labels), dtype=dtype)
         for col, x in d: result[col] = x
         
         # make a particle source
