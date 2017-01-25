@@ -143,9 +143,9 @@ class LogNormal(ParticleSource):
         disp[:] *= (1 + f)
         
         # velocity from displacement (assuming Mpc/h)
-        # this is f * H(z) * a / h = f E(z) a --> converts from Mpc/h to km/s
+        # this is f * H(z) * a / h = f 100 E(z) a --> converts from Mpc/h to km/s
         z = self.attrs['redshift']
-        velocity_norm = f * self.cosmo.efunc(z) / (1+z)
+        velocity_norm = f * 100 * self.cosmo.efunc(z) / (1+z)
         vel = velocity_norm * disp
 
         # return data

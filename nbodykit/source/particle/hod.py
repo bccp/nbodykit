@@ -230,10 +230,10 @@ class HODBase(Array):
         """
         The RSD velocity offset, in units of Mpc/h
         
-        This multiplies Velocity by 1 / (a*E(z))
+        This multiplies Velocity by 1 / (a*100*E(z)) = 1 / (a H(z)/h)
         """
         z = self.attrs['redshift']
-        rsd_factor = (1+z) / self.cosmo.efunc(z)
+        rsd_factor = (1+z) / (100*self.cosmo.efunc(z))
         return self['Velocity'] * rsd_factor
 
 from halotools.empirical_models import Zheng07Sats, Zheng07Cens

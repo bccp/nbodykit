@@ -69,6 +69,15 @@ class HaloCatalog(ParticleSource):
         return self.make_column(self._source[self.attrs['velocity']])
     
     @column
+    def VelocityOffset(self):
+        """
+        This multiplies Velocity by 1 / (a*100*E(z)) = 1 / (a H(z)/h)
+        """
+        z = self.attrs['redshift']
+        rsd_factor = (1+z) / (100*self.cosmo.efunc(z))
+        return self['Velocity'] * rsd_factor
+        
+    @column
     def Concentration(self):
         z = self.attrs['redshift']
         mdef = self.attrs['mdef']
