@@ -3,7 +3,8 @@ from __future__ import print_function
 import numpy
 import logging
 from mpi4py import MPI
-
+from nbodykit.source import Array
+        
 class FOF(object):
     """
     A friend-of-friend halo finder that computes the a label for
@@ -64,33 +65,38 @@ class FOF(object):
         
         Attributes
         ----------
-        labels : ParticleSource
-            a particle source holding the number of particles in the input
+        labels : array_like
+            an array holding the number of particles in the input
             source that specifies which halo each particle belongs to
-        halos : array_like
-            a structured array holding the ('Position', 'Velocity', 'Length')
-            of each halo
-        """     
-        from nbodykit.source import Array
-           
+        """                
         # run the FOF
         minid = fof(self._source, self._linking_length, self.comm)
 
         # the sorted labels
-        labels = _assign_labels(minid, comm=self.comm, thresh=self.attrs['nmin'])
-                
-        # the center-of-mass (Position, Velocity, Length) for each halo
-        halos = fof_catalog(self._source, labels, self.comm)
+        self.labels = _assign_labels(minid, comm=self.comm, thresh=self.attrs['nmin'])
+                        
+    def find_features(self):
+        """
+        Basd on the particles labels, identify the groups, and return 
+        the center-of-mass Position, Velocity, and Length of each feature
         
-        # store Source objects
+        Data is scattered evenly across all ranks
+        
+        Returns
+        -------
+        ParticleSource : 
+            a source holding the ('Position', 'Velocity', 'Length')
+            of each halo
+        """        
+        # the center-of-mass (Position, Velocity, Length)
+        halos = fof_catalog(self._source, self.labels, self.comm)
+        
+        # return a Source
         attrs = self._source.attrs.copy()
         attrs.update(self.attrs)
+        return Array(halos, **attrs)
         
-        dtype = numpy.dtype([('HaloLabel', labels.dtype)])
-        self.labels = Array(labels.view(dtype=dtype), **attrs)
-        self.halos = Array(halos, **attrs)
-        
-    def to_halo_catalog(self, particle_mass, cosmo, redshift, mdef='vir'):
+    def to_halos(self, particle_mass, cosmo, redshift, mdef='vir'):
         """
         Return a :class:`HaloCatalog`, holding the center-of-mass position and 
         velocity of each halo, as well as properly scaled mass. The returned catalog 
@@ -120,14 +126,15 @@ class FOF(object):
         cat : nbodykit.source.HaloCatalog
             a HaloCatalog at the specified cosmology and redshift
         """
-        from nbodykit.source import HaloCatalog, Array
+        from nbodykit.source import HaloCatalog
         
-        # make a copy of the halos source
-        attrs = self.halos.attrs.copy()
+        # meta-data
+        attrs = self._source.attrs.copy()
+        attrs.update(self.attrs)
         attrs['particle_mass'] = particle_mass
         
-        # make a source from all halos with non-zero mass
-        data = self.halos._source.copy()
+        # the center-of-mass (Position, Velocity, Length) for each halo
+        data = fof_catalog(self._source, self.labels, self.comm)
         data = data[data['Length'] > 0]
         halos = Array(data, **attrs)
         
