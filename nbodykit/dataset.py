@@ -447,6 +447,8 @@ class DataSet(object):
         edges = state.pop('edges', None)
         if edges is None:
             raise ValueError("no `edges` found in JSON file; cannot be loaded into a DataSet")
+        if len(edges) == 2 and len(dims) == 1:
+            edges = edges[0]
         if len(dims) == 1:
             edges = [edges]
             
@@ -486,10 +488,15 @@ class DataSet(object):
             raise TypeError("`dims` should be a list or tuple of strings")
         
         # read from file
-        if len(dims) == 1:
-            data, meta = _Read1DPlainText(filename)
-        elif len(dims) == 2:
-            data, meta = _Read2DPlainText(filename)
+        try:
+            if len(dims) == 1:
+                data, meta = _Read1DPlainText(filename)
+            elif len(dims) == 2:
+                data, meta = _Read2DPlainText(filename)
+        except Exception as e:
+            msg = "unable to read plaintext file, perhaps the dimension of the file does "
+            msg += "not match the passed `dims`;\nexception: %s" %str(e)
+            raise ValueError(msg)
         
         # get the bin edges
         edges = meta.pop('edges', None)

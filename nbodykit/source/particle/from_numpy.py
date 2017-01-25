@@ -26,9 +26,8 @@ class Array(ParticleSource):
         dtypes = self.comm.gather(data.dtype, root=0)
         if self.comm.rank == 0:
             if any(dt != dtypes[0] for dt in dtypes):
-                raise ValueError("mismatch between dtypes across ranks in ParticlesFromNumpy")
-        self.dtype = data.dtype
-
+                raise ValueError("mismatch between dtypes across ranks in Array")
+        
         # update the meta-data
         self.attrs.update(kwargs)
 
@@ -43,7 +42,8 @@ class Array(ParticleSource):
         """
         The union of the columns in the file and any transformed columns
         """
-        return list(self._source.dtype.names)
+        defaults = ParticleSource.hardcolumns.fget(self)
+        return list(self._source.dtype.names) + defaults
 
     def get_hardcolumn(self, col):
         """
@@ -51,5 +51,8 @@ class Array(ParticleSource):
         
         Columns are returned as dask arrays
         """
-        return self.make_column(self._source[col])
+        if col in self._source.dtype.names: 
+            return self.make_column(self._source[col])
+        else:
+            return ParticleSource.get_hardcolumn(self, col)
 

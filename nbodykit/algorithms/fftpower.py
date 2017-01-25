@@ -167,7 +167,6 @@ class FFTPower(object):
         # measure the 3D power (y3d is a ComplexField)
         y3d = self._compute_3d_power()
 
-
         # binning in k out to the minimum nyquist frequency 
         # (accounting for possibly anisotropic box)
         dk = 2*numpy.pi/y3d.BoxSize.min() if self.attrs['dk'] is None else self.attrs['dk']
@@ -340,6 +339,12 @@ class FFTPower(object):
         N1 = c1.attrs.get('N', 0)
         N2 = c2.attrs.get('N', 0)
         self.attrs.update({'N1':N1, 'N2':N2})
+        
+        # add shotnoise (nonzero only for auto-spectra)
+        Pshot = 0
+        if sources[0] is sources[1] and N1 > 0:
+            Pshot = self.attrs['BoxSize'].prod() / N1
+        self.attrs['shotnoise'] = Pshot
 
         return p3d
 

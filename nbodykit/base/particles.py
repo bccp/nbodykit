@@ -23,9 +23,14 @@ def column(name=None):
 
 def find_columns(cls):
     hardcolumns = []
+    
     for key, value in cls.__dict__.items():
          if hasattr(value, 'column_name'):
             hardcolumns.append(value.column_name)
+    
+    # recursively search the base classes, too
+    for base in cls.__bases__:
+        hardcolumns += find_columns(base)
 
     return list(sorted(set(hardcolumns)))
 
@@ -33,7 +38,12 @@ def find_column(cls, name):
     for key, value in cls.__dict__.items():
         if not hasattr(value, 'column_name'): continue
         if value.column_name == name: return value
-    raise AttributeError("Column %s not found in class %s." % (str(cls), name))
+        
+    for base in cls.__bases__:
+        try: return find_column(base, name)
+        except: pass
+        
+    raise AttributeError("Column %s not found in class %s." % (name, str(cls)))
 
 @add_metaclass(abc.ABCMeta)
 class ParticleSource(object):
@@ -208,6 +218,7 @@ class ParticleSource(object):
         try:
             self._hardcolumns
         except AttributeError:
+            
             self._hardcolumns = find_columns(self.__class__)
         return self._hardcolumns
 

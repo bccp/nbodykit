@@ -151,6 +151,8 @@ class RandomParticles(ParticleSource):
         self.attrs['seed'] = seed
         
         # generate the seeds from the global seed
+        if csize == 0:
+            raise ValueError("no random particles generated!")
         self.rng = MPIRandomState(comm, seed, csize)
         self._size =  self.rng.size
         
@@ -195,6 +197,8 @@ class UniformParticles(RandomParticles):
 
         rng = numpy.random.RandomState(seed)
         N = rng.poisson(nbar * numpy.prod(self.attrs['BoxSize']))
+        if N == 0:
+            raise ValueError("no uniform particles generated, try increasing `nbar` parameter")
         RandomParticles.__init__(self, N, seed=seed, comm=comm, use_cache=use_cache)
         
         self._pos = self.rng.uniform(size=(self._size, 3)) * self.attrs['BoxSize']

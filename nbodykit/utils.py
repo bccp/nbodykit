@@ -32,12 +32,46 @@ def GatherArray(data, comm, root=0):
     
     # check dtypes and shapes
     shapes = comm.gather(data.shape, root=root)
-    dtypes = comm.gather(data.dtype, root=root)
+    dtypes = comm.allgather(data.dtype)
     
+    # check for structured data
+    if dtypes[0].char == 'V':
+                
+        # check for structured data mismatch
+        names = set(dtypes[0].names)
+        if any(set(dt.names) != names for dt in dtypes[1:]):
+            raise ValueError("mismatch between data type fields in structured data")
+        
+        # check for 'O' data types
+        if any(dtypes[0][name] == 'O' for name in dtypes[0].names):
+            raise ValueError("object data types ('O') not allowed in structured data in GatherArray")
+        
+        # compute the new shape for each rank
+        newlength = comm.allreduce(local_length)
+        newshape = list(data.shape)
+        newshape[0] = newlength
+        
+        # the return array
+        if comm.rank == root:
+            recvbuffer = numpy.empty(newshape, dtype=dtypes[0], order='C')
+        else:
+            recvbuffer = None
+            
+        for name in dtypes[0].names:
+            d = GatherArray(data[name], comm, root=root)
+            if comm.rank == 0:
+                recvbuffer[name] = d
+            
+        return recvbuffer
+        
+    # check for 'O' data types
+    if dtypes[0] == 'O':
+        raise ValueError("object data types ('O') not allowed in structured data in GatherArray")
+        
     if comm.rank == root:
-        if any(s[1:] != shapes[0][1:] for s in shapes):
+        if any(s[1:] != shapes[0][1:] for s in shapes[1:]):
             raise ValueError("mismatch between shape[1:] across ranks in GatherArray")
-        if any(dt != dtypes[0] for dt in dtypes):
+        if any(dt != dtypes[0] for dt in dtypes[1:]):
             raise ValueError("mismatch between dtypes across ranks in GatherArray")
         
     shape = data.shape
@@ -99,6 +133,8 @@ def ScatterArray(data, comm, root=0, counts=None):
     recvbuffer : array_like
         the chunk of `data` that each rank gets
     """
+    import logging
+    
     if counts is not None:
         counts = numpy.asarray(counts, order='C')
         if len(counts) != comm.size:
@@ -118,6 +154,15 @@ def ScatterArray(data, comm, root=0, counts=None):
     # each rank needs shape/dtype of input data
     shape, dtype = comm.bcast(shape_and_dtype)
     
+    # object dtype is not supported
+    fail = False
+    if dtype.char == 'V':
+         fail = any(dtype[name] == 'O' for name in dtype.names)
+    else:
+        fail = dtype == 'O'
+    if fail:
+        raise ValueError("'object' data type not supported in ScatterArray; please specify specific data type")
+        
     # initialize empty data on non-root ranks
     if comm.rank != root:
         np_dtype = numpy.dtype((dtype, shape[1:]))

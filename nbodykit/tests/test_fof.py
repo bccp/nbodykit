@@ -1,6 +1,5 @@
 from mpi4py_test import MPITest
 from nbodykit.lab import *
-from nbodykit.algorithms.fof import FOF, HaloFinder
 from nbodykit import setup_logging
 
 # debug logging
@@ -12,14 +11,13 @@ def test_fof(comm):
 
     CurrentMPIComm.set(comm)
 
-    # zeldovich particles
-    source = Source.ZeldovichParticles(Plin=cosmology.EHPower(cosmo, 0.55),
-                nbar=3e-3, BoxSize=512., Nmesh=128, rsd=[0, 0, 1], seed=42)
+    # lognormal particles
+    source = Source.LogNormal(Plin=cosmology.EHPower(cosmo, 0.55),
+                nbar=3e-3, BoxSize=512., Nmesh=128, seed=42)
 
     # compute P(k,mu) and multipoles
     fof = FOF(source, linking_length=0.2, nmin=20)
 
-    fof.save(columns=['HaloLabel'], output="FOF-label-%d" % comm.size)
-
-    halos = HaloFinder(source, fof['HaloLabel'])
-    halos.save("FOF-label-%d" % comm.size, ['Position', 'Velocity', 'Length'])
+    # save the halos
+    peaks = fof.find_features()
+    peaks.save("FOF-%d" % comm.size, ['Position', 'Velocity', 'Length'])

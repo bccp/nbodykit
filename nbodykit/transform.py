@@ -89,3 +89,87 @@ def SkyToCartesion(ra, dec, redshift, cosmo, degrees=True, interpolate_cdist=Tru
     r = redshift.map_blocks(lambda z: comoving_distance(z).value * cosmo.h, dtype=redshift.dtype)
     
     return r[:,None] * pos
+    
+def HaloConcentration(mass, cosmo, redshift, mdef='vir'):
+    """
+    Return halo concentration from halo mass, based on the analytic fitting
+    formulas presented in Dutton and Maccio 2014 (arxiv:1402.7073)
+    
+    .. note:: 
+        The units of the input mass are assumed to be :math:`M_{\odot}/h`
+    
+    Parameters
+    ----------
+    mass : array_like
+        either a numpy or dask array specifying the halo mass; units
+        assumed to be :math:`M_{\odot}/h`
+    cosmo : nbodykit.cosmology.Cosmology
+        the cosmology instance used in the analytic formula
+    redshift : float
+        compute the c(M) relation at this redshift
+    mdef : str; optional
+        string specifying the halo mass definition to use; should be 
+        'vir' or 'XXXc' or 'XXXm' where 'XXX' is an int specifying the 
+        overdensity
+    
+    Returns
+    -------
+    concen : dask.array.Array
+        a dask array holding the analytic concentration
+    
+    References
+    ----------
+    Dutton and Maccio, "Cold dark matter haloes in the Planck era: evolution 
+    of structural parameters for Einasto and NFW profiles", 2014, arxiv:1402.7073
+    """
+    from halotools.empirical_models import ConcMass
+    
+    if not isinstance(mass, da.Array):
+        mass = da.from_array(mass, chunks=100000)
+    
+    # initialize the model
+    kws = {'cosmology':cosmo.engine, 'conc_mass_model':'dutton_maccio14', 'mdef':mdef, 'redshift':redshift}
+    model = ConcMass(**kws)
+            
+    return mass.map_blocks(lambda mass: model.compute_concentration(prim_haloprop=mass), dtype=mass.dtype)
+    
+def HaloRadius(mass, cosmo, redshift, mdef='vir'):
+    """
+    Return halo radius from halo mass, based on the specified mass definition.
+    This is independent of halo profile, and simply returns:
+    
+        ``radius = (mass * 3.0 / 4.0 / pi / rho)**(1.0 / 3.0)``
+    
+    where ``rho`` is the density threshold, which depends on cosmology, 
+    redshift, and mass definition
+    
+    .. note:: 
+        The units of the input mass are assumed to be :math:`M_{\odot}/h`
+    
+    Parameters
+    ----------
+    mass : array_like
+        either a numpy or dask array specifying the halo mass; units
+        assumed to be :math:`M_{\odot}/h`
+    cosmo : nbodykit.cosmology.Cosmology
+        the cosmology instance
+    redshift : float
+        compute the density threshold which determines the R(M) relation 
+        at this redshift
+    mdef : str; optional
+        string specifying the halo mass definition to use; should be 
+        'vir' or 'XXXc' or 'XXXm' where 'XXX' is an int specifying the 
+        overdensity
+    
+    Returns
+    -------
+    radius : dask.array.Array
+        a dask array holding the halo radius
+    """
+    from halotools.empirical_models import profile_helpers
+    
+    if not isinstance(mass, da.Array):
+        mass = da.from_array(mass, chunks=100000)
+
+    kws = {'cosmology':cosmo.engine, 'mdef':mdef, 'redshift':redshift}
+    return mass.map_blocks(lambda mass: profile_helpers.halo_mass_to_halo_radius(mass=mass, **kws), dtype=mass.dtype)

@@ -17,14 +17,14 @@ def test_iterate(comm):
         try:
             for seed in tm.iterate([0, 1, 2]):
 
-                # zeldovich particles
+                # uniform particles
                 source = Source.UniformParticles(nbar=3e-7, BoxSize=1380., seed=seed)
 
                 # compute P(k,mu) and multipoles
                 r = FFTPower(source, mode='2d', Nmesh=8, poles=[0,2,4])
 
                 # and save
-                output = "./test_batch_zeldovich_seed%d.json" % seed
+                output = "./test_batch_uniform_seed%d.json" % seed
                 r.save(output)
                 
         except Exception as e:
@@ -39,14 +39,14 @@ def test_map(comm):
 
     def fftpower(seed):
         
-        # zeldovich particles
+        # uniform particles
         source = Source.UniformParticles(nbar=3e-7, BoxSize=1380., seed=seed)
 
         # compute P(k,mu) and multipoles
         r = FFTPower(source, mode='2d', Nmesh=8, poles=[0,2,4])
 
         # and save
-        output = "./test_batch_zeldovich_seed%d.json" % seed
+        output = "./test_batch_uniform_seed%d.json" % seed
         r.save(output)
         
         return seed
