@@ -7,3 +7,5 @@ from nbodykit import source as Source, cosmology
 from nbodykit.algorithms import *
 from nbodykit import CurrentMPIComm
 from nbodykit import transform
+
+from nbodykit import io as IO
