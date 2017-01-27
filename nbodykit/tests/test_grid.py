@@ -10,6 +10,28 @@ from numpy.testing import assert_array_equal, assert_almost_equal, assert_allclo
 setup_logging("debug")
 
 @MPITest([1,4])
+def test_preview(comm):
+    """
+    Compute the power spectrum of a linear density grid and check
+    the accuracy of the computed result against the input theory power spectrum
+    """
+    cosmo = cosmology.Planck15
+    CurrentMPIComm.set(comm)
+
+    # linear grid 
+    Plin = cosmology.EHPower(cosmo, redshift=0.55)
+    source = Source.LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42)
+
+    real = source.to_field('real')
+
+    preview = source.preview(Nmesh=64)
+    assert_allclose(preview.sum(), real.csum(), rtol=1e-5)
+
+    real[...] **= 2
+    preview[...] **= 2
+    assert_allclose(preview.sum(), real.csum(), rtol=1e-5)
+
+@MPITest([1,4])
 def test_linear_grid(comm):
     """
     Compute the power spectrum of a linear density grid and check
