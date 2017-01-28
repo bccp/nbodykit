@@ -1,6 +1,7 @@
 from nbodykit.base.mesh import MeshSource
 from nbodykit import CurrentMPIComm, mockmaker
 from nbodykit.utils import attrs_to_dict
+import numpy
 
 class LinearMesh(MeshSource):
     """
@@ -59,6 +60,13 @@ class LinearMesh(MeshSource):
         """
         # generate linear density field with desired seed
         complex, _ = mockmaker.gaussian_complex_fields(self.pm, self.Plin, self.attrs['seed'], remove_variance=self.attrs['remove_variance'], compute_displacement=False)
+        # set normalization to 1 + \delta.
+        def filter(k, v):
+            mask = numpy.bitwise_and.reduce([ki == 0 for ki in k])
+            v[mask] = 1.0
+            return v
+
+        complex.apply(filter)
         complex.attrs = {}
         complex.attrs.update(self.attrs)
         return complex

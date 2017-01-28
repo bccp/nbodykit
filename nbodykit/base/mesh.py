@@ -134,6 +134,42 @@ class MeshSource(object):
         var.save = lambda *args, **kwargs : save(var, *args, **kwargs)
         return var
 
+    def preview(self, Nmesh=None, root=0):
+        """ gathers the mesh into as a numpy array, with
+            (reduced resolution). The result is broadcast to
+            all ranks, so this uses Nmesh ** 3 per rank.
+
+            Parameters
+            ----------
+            Nmesh : int, array_like
+                The desired Nmesh of the result. Be aware this function
+                allocates memory to hold A full Nmesh on each rank.
+
+            Returns
+            -------
+            out : array_like
+                An numpy array for the real density field.
+
+        """
+        field = self.to_field(mode='real')
+        if any(Nmesh != self.attrs['Nmesh']):
+            _Nmesh = self.attrs['Nmesh'].copy()
+            _Nmesh[:] = Nmesh
+            pm = ParticleMesh(BoxSize=self.attrs['BoxSize'],
+                                Nmesh=_Nmesh,
+                                dtype=self.dtype, comm=self.comm)
+            out = pm.create(mode='real')
+            field.resample(out)
+        else:
+            out = field
+
+        from mpi4py import MPI # for inplace
+
+        r = numpy.zeros(out.cshape, out.dtype)
+        r[out.slices] = out.value
+        self.comm.Allreduce(MPI.IN_PLACE, r)
+        return r
+
 def save(self, output, dataset='Field'):
     import bigfile
     import warnings
