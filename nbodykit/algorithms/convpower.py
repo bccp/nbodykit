@@ -253,7 +253,7 @@ class ConvolvedFFTPower(object):
             data['mu'][:,imu] = numpy.ones(len(data))*0.5*(mulims[1]+mulims[0])
             
         dims = ['k', 'mu']
-        edges = [self.poles.edges['k_cen'], mu_edges]
+        edges = [self.poles.edges['k'], mu_edges]
         return DataSet(dims=dims, edges=edges, data=data, **self.attrs)
             
     def __getstate__(self):
