@@ -192,6 +192,9 @@ class ParticleSource(object):
                 toret = dask.compute(*args, **kwargs)
         else:
             toret = dask.compute(*args, **kwargs)
+        
+        if not all(len(x) == self.size for x in toret):
+            raise ValueError('mismatch between size of computed particle data and Source size; probably an error reading data')
             
         # do not return tuples of length one
         if len(toret) == 1: toret = toret[0]
