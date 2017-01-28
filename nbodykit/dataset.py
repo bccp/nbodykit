@@ -86,19 +86,17 @@ class DataSet(object):
     >>> filename = 'test_data.dat'
     >>> dset = DataSet.from_plaintext(['k'], filename)
     
-    Data variables and coordinate arrays can be accessed in a dict-like
-    fashion:
+    Data variables can be accessed in a dict-like fashion:
         
     >>> power = pkmu['power'] # returns power data variable
-    >>> k_cen = pkmu['k_cen'] # returns k_cen coordinate array
-        
+
     Array-like indexing of a :class:`DataSet` returns a new :class:`DataSet`
     holding the sliced data:
         
     >>> pkmu
-    <DataSet: dims: (k_cen: 200, mu_cen: 5), variables: ('mu', 'k', 'power')>
+    <DataSet: dims: (k: 200, mu: 5), variables: ('mu', 'k', 'power')>
     >>> pkmu[:,0] # select first mu column
-    <DataSet: dims: (k_cen: 200), variables: ('mu', 'k', 'power')>
+    <DataSet: dims: (k: 200), variables: ('mu', 'k', 'power')>
     
     Additional data variables can be added to the :class:`DataSet` via:
     
@@ -108,17 +106,17 @@ class DataSet(object):
     Coordinate-based indexing is possible through :func:`sel`:
     
     >>> pkmu
-    <DataSet: dims: (k_cen: 200, mu_cen: 5), variables: ('mu', 'k', 'power')>
-    >>> pkmu.sel(k_cen=slice(0.1, 0.4), mu_cen=0.5)
-    <DataSet: dims: (k_cen: 30), variables: ('mu', 'k', 'power')>
+    <DataSet: dims: (k: 200, mu: 5), variables: ('mu', 'k', 'power')>
+    >>> pkmu.sel(k=slice(0.1, 0.4), mu=0.5)
+    <DataSet: dims: (k: 30), variables: ('mu', 'k', 'power')>
     
     :func:`squeeze` will explicitly squeeze the specified dimension 
     (of length one) such that the resulting instance has one less dimension:
         
     >>> pkmu
-    <DataSet: dims: (k_cen: 200, mu_cen: 1), variables: ('mu', 'k', 'power')>
-    >>> pkmu.squeeze(dim='mu_cen') # can also just call pkmu.squeeze()
-    <DataSet: dims: (k_cen: 200), variables: ('mu', 'k', 'power')>
+    <DataSet: dims: (k: 200, mu: 1), variables: ('mu', 'k', 'power')>
+    >>> pkmu.squeeze(dim='mu') # can also just call pkmu.squeeze()
+    <DataSet: dims: (k: 200), variables: ('mu', 'k', 'power')>
     
     :func:`average` returns a new :class:`DataSet` holding the 
     data averaged over one dimension
@@ -161,7 +159,7 @@ class DataSet(object):
             args = (shape, data.shape)
             raise ValueError("`edges` imply data shape of %s, but data has shape %s" %args)
         
-        self.dims = [dim+'_cen' for dim in dims]
+        self.dims = list(dims)
         self.edges = dict(zip(self.dims, edges))
         
         # coordinates are the bin centers
@@ -332,10 +330,8 @@ class DataSet(object):
         if isinstance(key, str):
             if key in self.variables:
                 return self.data[key]
-            elif key in self.coords.keys():
-                return self.coords[key]
             else:
-                raise KeyError("`%s` is not a valid variable or coordinate name" %key)
+                raise KeyError("`%s` is not a valid variable name" %key)
             
         # indices to slice the data with
         indices = [list(range(0, self.shape[i])) for i in range(len(self.dims))]
@@ -403,8 +399,29 @@ class DataSet(object):
     #--------------------------------------------------------------------------
     # user-called functions
     #--------------------------------------------------------------------------
+    def to_json(self, filename):
+        """
+        Write a DataSet from a JSON file. 
+        
+        .. note::
+            This uses :class:`nbodykit.utils.JSONEncoder` to write the 
+            JSON file
+        
+        Parameters
+        ----------
+        filename : str
+            the name of the file to write
+        """
+        import json
+        from nbodykit.utils import JSONEncoder
+        
+        edges = [self.edges[dim] for dim in self.dims]
+        state = {'edges':edges, 'attrs':self.attrs, 'data':self.data, 'dims':self.dims}
+        with open(filename, 'w') as ff:
+            json.dump(state, ff, cls=JSONEncoder)
+        
     @classmethod
-    def from_json(cls, dims, filename, key):
+    def from_json(cls, filename, key='data', dims=None, edges=None):
         """
         Initialize a DataSet from a JSON file. 
         
@@ -418,12 +435,13 @@ class DataSet(object):
         
         Parameters
         ----------
-        dims : list
-            list of names specifying the dimensions, i.e., ``['k']`` or ``['k', 'mu']``
         filename : str
             the name of the file to load
-        key : str
+        key : str; optional
             the name of the key in the JSON file holding the data to load
+        dims : list; optional
+            list of names specifying the dimensions, i.e., ``['k']`` or ``['k', 'mu']``;
+            must be supplied if not given in the JSON file
         
         Returns
         -------
@@ -443,10 +461,16 @@ class DataSet(object):
             raise ValueError("no data entry found in JSON format for '%s' key; valid keys are %s" %args)
         data = state[key]
         
+        # the dimensions
+        dims = state.pop('dims', dims)
+        if dims is None:
+            raise ValueError("no `dims` found in JSON file; please specify as keyword argument")
+        
         # the edges
-        edges = state.pop('edges', None)
+        edges = state.pop('edges', edges)
         if edges is None:
-            raise ValueError("no `edges` found in JSON file; cannot be loaded into a DataSet")
+            raise ValueError("no `edges` found in JSON file; please specify as keyword argument")
+            
         if len(edges) == 2 and len(dims) == 1:
             edges = edges[0]
         if len(dims) == 1:
@@ -573,16 +597,16 @@ class DataSet(object):
         Examples
         --------
         >>> pkmu
-        <DataSet: dims: (k_cen: 200, mu_cen: 5), variables: ('mu', 'k', 'power')>
+        <DataSet: dims: (k: 200, mu: 5), variables: ('mu', 'k', 'power')>
         
-        >>> pkmu.sel(k_cen=0.4)
-        <DataSet: dims: (mu_cen: 5), variables: ('mu', 'k', 'power')>
+        >>> pkmu.sel(k=0.4)
+        <DataSet: dims: (mu: 5), variables: ('mu', 'k', 'power')>
         
-        >>> pkmu.sel(k_cen=[0.4])
-        <DataSet: dims: (k_cen: 1, mu_cen: 5), variables: ('mu', 'k', 'power')>
+        >>> pkmu.sel(k=[0.4])
+        <DataSet: dims: (k: 1, mu: 5), variables: ('mu', 'k', 'power')>
         
-        >>> pkmu.sel(k_cen=slice(0.1, 0.4), mu_cen=0.5)
-        <DataSet: dims: (k_cen: 30), variables: ('mu', 'k', 'power')>
+        >>> pkmu.sel(k=slice(0.1, 0.4), mu=0.5)
+        <DataSet: dims: (k: 30), variables: ('mu', 'k', 'power')>
         """
         indices = [list(range(0, self.shape[i])) for i in range(len(self.dims))]
         squeezed_dims = []
@@ -653,9 +677,9 @@ class DataSet(object):
         Examples
         --------
         >>> pkmu
-        <DataSet: dims: (k_cen: 200, mu_cen: 1), variables: ('mu', 'k', 'power')>
+        <DataSet: dims: (k: 200, mu: 1), variables: ('mu', 'k', 'power')>
         >>> pkmu.squeeze() # squeeze the mu dimension
-        <DataSet: dims: (k_cen: 200), variables: ('mu', 'k', 'power')>
+        <DataSet: dims: (k: 200), variables: ('mu', 'k', 'power')>
         """
         # infer the right dimension to squeeze
         if dim is None:
