@@ -421,7 +421,7 @@ class DataSet(object):
             json.dump(state, ff, cls=JSONEncoder)
         
     @classmethod
-    def from_json(cls, filename, key='data', dims=None, edges=None):
+    def from_json(cls, filename, key='data', dims=None, edges=None, **kwargs):
         """
         Initialize a DataSet from a JSON file. 
         
@@ -478,11 +478,12 @@ class DataSet(object):
             
         # meta-data
         attrs = state.pop('attrs', {})
+        attrs.update(kwargs)
         
         return cls(dims, edges, data, **attrs) 
         
     @classmethod
-    def from_plaintext(cls, dims, filename):
+    def from_plaintext(cls, dims, filename, **kwargs):
         """
         Initialize a DataSet from a plaintext file
         
@@ -529,6 +530,7 @@ class DataSet(object):
         if len(dims) == 1:
             edges = [edges]
         
+        meta.update(kwargs)
         return cls(dims, edges, data, **meta)
         
         
