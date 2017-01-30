@@ -1,7 +1,6 @@
 import numpy as np
 import abc
-from scipy.integrate import simps, quad
-
+from scipy.integrate import simps
 from nbodykit.extern.six import add_metaclass
 
 @add_metaclass(abc.ABCMeta)
@@ -88,8 +87,11 @@ class LinearPowerBase(object):
         the integral over the power spectrum gives the proper ``sigma8``
         value
         """
+        # set to unity so we get the un-normalized sigma
         self._norm = 1.0
-        self._norm = self.sigma8/self.sigma_r(8.)
+        
+        # power is proportional so square of sigma8
+        self._norm = (self.sigma8/self.sigma_r(8.))**2
     
     def __call__(self, k, no_BAO=False):
         """
@@ -145,7 +147,8 @@ class LinearPowerBase(object):
             
         norm = self._norm * (self.sigma8 / self._sigma8_0)**2
         lnk = np.log(np.logspace(-4, 4, 4096))
-        return self._norm / (2*np.pi**2) * simps(integrand(lnk), x=lnk)
+        sigma_sq = norm*simps(integrand(lnk), x=lnk) / (2*np.pi**2)
+        return sigma_sq**0.5
     
     
 class EHPower(LinearPowerBase):
