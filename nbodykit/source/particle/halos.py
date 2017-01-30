@@ -140,9 +140,9 @@ class HaloCatalog(ParticleSource):
         rkey = model_defaults.get_halo_boundary_key(self.attrs['mdef'])
         
         # global halo ids (across all ranks)
-        start = self.csize * self.comm.rank // self.comm.size
-        stop  = self.csize * (self.comm.rank  + 1) // self.comm.size
-        halo_id = numpy.arange(start, stop, dtype='i8')[sel]
+        sizes = self.comm.allgather(self.size)
+        start = sum(sizes[:self.comm.rank])
+        halo_id = numpy.arange(start, start+self.size, dtype='i8')[sel]
         
         # data columns
         kws                  = {}

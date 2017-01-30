@@ -23,9 +23,7 @@ def test_hod(comm):
         
     # make the HOD catalog from halotools catalog
     hod = Source.HOD(halos.to_halotools(), seed=42)
-    
-    assert hod.csize == 449, "HOD galaxy catalog size %d should be 449" %hod.csize
-    
+        
     # RSD offset in 'z' direction
     hod['Position'] += hod['VelocityOffset'] * [0, 0, 1]
     
