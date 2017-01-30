@@ -178,7 +178,7 @@ class Cosmology(dict):
         Explicitly the underlying astropy engine's attributes as 
         part of the attributes of this class
         """
-        this_attrs = set(dict.__dir__(self))
+        this_attrs = set(dict.__dir__(self)) | set(self.keys())
         engine_attrs = set(self.engine.__dir__())
         return list(this_attrs|engine_attrs)
         
@@ -210,7 +210,7 @@ class Cosmology(dict):
         No setting --> read-only
         """
         raise ValueError("Cosmology is a read-only dictionary; see clone() to create a copy with changes")
-    
+            
     def __missing__(self, key):
         """
         Missing dict keys returned only if they are attributes of the
@@ -227,8 +227,8 @@ class Cosmology(dict):
     
     def __getattr__(self, key):
         """
-        Try to return attributes from the underlying astropy engine, and then
-        provide access to the dict keys
+        Try to return attributes from the underlying astropy engine and 
+        then from the dictionary
         
         Notes
         -----
@@ -242,8 +242,10 @@ class Cosmology(dict):
             if callable(toret) and not key.startswith('_'):
                 toret = fittable(toret.__func__, instance=self)
             return toret
-        except AttributeError:
-            return self[key]
+        except:
+            if key in self:
+                return self[key]
+            raise AttributeError("no such attribute '%s'" %key)
         
     def clone(self, **kwargs):
         """
@@ -273,13 +275,14 @@ class Cosmology(dict):
         >>> newcos = cosmo.clone(name="Modified Planck 2013", Om0=0.35)
         """
         # filter out astropy-defined parameters and extras
-        extra = {k:kwargs.pop(k) for k in list(kwargs) if not hasattr(self.engine, k)}
+        extras = {k:self[k] for k in self if not hasattr(self.engine, k)}
+        extras.update({k:kwargs.pop(k) for k in list(kwargs) if not hasattr(self.engine, k)})
         
-        # macke the new astropy instance
+        # make the new astropy instance
         new_engine = self.engine.clone(**kwargs)
         
         # return a new Cosmology instance
-        return self.from_astropy(new_engine, **extra)
+        return self.from_astropy(new_engine, **extras)
 
     def efunc_prime(self, z):
         """
