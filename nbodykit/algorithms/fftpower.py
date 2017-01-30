@@ -269,7 +269,7 @@ class FFTPower(object):
         else:
             self.power = DataSet(['k', 'mu'], self.edges, self.power, fields_to_sum=['modes'])
         if self.poles is not None:
-            self.poles = DataSet(['k'], [self.power.edges['k_cen']], self.poles, fields_to_sum=['modes'])
+            self.poles = DataSet(['k'], [self.power.edges['k']], self.poles, fields_to_sum=['modes'])
             
     def _source2field(self, source):
 
