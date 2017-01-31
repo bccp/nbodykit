@@ -76,7 +76,9 @@ def make_partitions(filename, blocksize, config, delimiter="\n"):
         the list of the number of rows in each partition
     """
     from dask.bytes.utils import read_block
-
+    
+    config = config.copy()
+    
     # search for lines separated by this character
     delimiter = delimiter.encode()
 
@@ -84,12 +86,47 @@ def make_partitions(filename, blocksize, config, delimiter="\n"):
     size = os.path.getsize(filename)
     offsets = list(range(0, size, int(blocksize)))
 
+    # ignored commented lines
+    comment = config.get('comment', None)
+    if comment is not None:
+        comment = comment.encode()
+        
+    # number of rows to read  
+    nrows = config.pop('nrows', None)
+        
     sizes = []; partitions = []
     with open(filename, 'rb') as f:
-        for offset in offsets:
+        for i, offset in enumerate(offsets):
+            
+            # skiprows only valid for first block
+            if i > 0 and 'skiprows' in config:
+                config.pop('skiprows')
+                
+            # set nrows for this block
+            config['nrows'] = nrows
+            
             block = read_block(f, offset, blocksize, delimiter)
             partitions.append(CSVPartition(block, **config))
-            sizes.append(block.count(delimiter))
+            
+            size = block.count(delimiter)
+            if comment is not None:
+                size -= block.count(delimiter+comment)
+                if i == 0 and block.startswith(comment):
+                    size -= 1
+                    
+            # account for skiprows
+            skiprows = config.get('skiprows', 0)
+            size -= skiprows
+            
+            # account for nrows
+            if nrows is not None and nrows > 0:
+                if nrows < size: 
+                    sizes.append(nrows)
+                    break
+                else:
+                    nrows -= size # update for next block
+            sizes.append(size)
+    
     return partitions, sizes
 
 def verify_data(path, names, nrows=10, **config):
@@ -117,13 +154,19 @@ def verify_data(path, names, nrows=10, **config):
     # read the first few lines to get the the dtype
     try:
         df = read_csv(path, nrows=nrows, names=names, **config)
+        
+        if df.isnull().sum().any():
+            raise ValueError("'NaN' entries found when reading first %d rows; likely configuration error" %nrows)
+        if any(dt == 'O' for dt in df.dtypes):
+            raise ValueError("'object' data types found when reading first %d rows; likely configuration error" %nrows)
+        
     except:
         import traceback
         config['names'] = names
         msg = ("error trying to read data with pandas.read_csv; ensure that 'names' matches "
                "the number of columns in the file\n")
-        msg += "   pandas configuration: %s\n" %str(config)
-        msg += "   traceback: %s" %(traceback.format_exc())
+        msg += "pandas configuration: %s\n" %str(config)
+        msg += "\n%s" %(traceback.format_exc())
         raise ValueError(msg)
 
     toret = {}
@@ -154,7 +197,7 @@ class CSVFile(FileType):
         columns (no "index" column when using ``pandas``)
     """
     def __init__(self, path, names, blocksize=32*1024*1024, dtype={}, 
-                    usecols=None, delim_whitespace=True, header=None, **config):
+                    usecols=None, delim_whitespace=True, **config):
         """
         Parameters
         ----------
@@ -177,10 +220,6 @@ class CSVFile(FileType):
         delim_whitespace : bool; optional
             a ``pandas.read_csv`` keyword; if the CSV file is space-separated, 
             set this to ``True``
-        header : int or ``None``; optional
-             a ``pandas.read_csv`` keyword; if the file does not contain a 
-            header (default case), this should be ``None``. Otherwise, this
-            should specify the number of rows to treat as the header
         config : 
             additional keyword pairs to pass to :func:`pandas.read_csv`; 
             see the documentation of that function for a full list
@@ -191,14 +230,24 @@ class CSVFile(FileType):
         
         # ensure that no index column is passed
         if 'index_col' in config and config['index_col']:
-            raise ValueError("CSVFile requires that all columns in file be treated as data; ``index_col`` must be ``False``")
+            raise ValueError("'index_col = False' is not supported in CSVFile")
         config['index_col'] = False # no index columns in file
         
+        # ensure that no header is passed
+        if 'header' in config and header is not None:
+            raise ValueError("'header' not equal to None is not supported in CSVFile")
+        config['header'] = None # no header
+        
+        if isinstance(config.get('skiprows', None), list):
+            raise ValueError("only integer values supported for 'skiprows' in CSVFile")
+                
+        if 'skipfooter' in config:
+            raise ValueError("'skipfooter' not supported in CSVFile")
+                
         # set the read_csv defaults
         if 'sep' in config or 'delimiter' in config:
             delim_whitespace = False
         config['delim_whitespace'] = delim_whitespace
-        config['header'] = header
         config['usecols'] = usecols
         config.setdefault('engine', 'c')
         self.pandas_config = config.copy()
@@ -228,7 +277,7 @@ class CSVFile(FileType):
         if config['engine'] == 'c':
             self.pandas_config['dtype'] = {col:self.dtype[col] for col in self.names}
         self.pandas_config['names'] = names
-        
+
         # make the partitions
         self.partitions, self._sizes = make_partitions(path, blocksize, self.pandas_config)
         self.size = sum(self._sizes)

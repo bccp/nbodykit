@@ -192,7 +192,7 @@ class ParticleSource(object):
                 toret = dask.compute(*args, **kwargs)
         else:
             toret = dask.compute(*args, **kwargs)
-            
+        
         # do not return tuples of length one
         if len(toret) == 1: toret = toret[0]
         return toret
