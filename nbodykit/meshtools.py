@@ -221,8 +221,8 @@ def SlabIterator(coords, axis=0, symmetry_axis=None):
     """    
     # number of dimensions in the mesh
     ndim = len(coords)
-    if ndim != 3:
-        raise NotImplementedError("SlabIterator can only be used on 3D arrays")
+    if ndim != 3 and ndim != 2:
+        raise NotImplementedError("SlabIterator can only be used on 3D or 2D arrays")
         
     # account for negative axes
     if axis < 0: axis += ndim
