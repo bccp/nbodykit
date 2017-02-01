@@ -467,17 +467,17 @@ def compute_brutal_corr(datasources, redges, Nmu=0, comm=None, subsample=1, los=
 
     # use multipole binning
     if len(poles):
-        bins = correlate.FlatSkyMultipoleBinning(redges, poles, los, compute_mean_coords=True)
+        bins = correlate.FlatSkyMultipoleBinning(redges, poles, los)
     # use (R, mu) binning
     elif Nmu > 0:
-        bins = correlate.FlatSkyBinning(redges, Nmu, los, compute_mean_coords=True)
+        bins = correlate.FlatSkyBinning(redges, Nmu, los)
     # use R binning
     else:
-        bins = correlate.RBinning(redges, compute_mean_coords=True)
+        bins = correlate.RBinning(redges)
 
     # do the pair counting
     # have to set usefast = False to get mean centers, or exception thrown
-    pc = correlate.paircount(tree2, tree1, bins, np=0, usefast=False)
+    pc = correlate.paircount(tree2, tree1, bins, np=0, usefast=False, compute_mean_coords=True)
     pc.sum1[:] = comm.allreduce(pc.sum1)
     
     # get the mean bin values, reducing from all ranks
