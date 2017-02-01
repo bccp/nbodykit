@@ -35,9 +35,12 @@ class FastPMDataSource(DataSource):
         BoxSize = numpy.empty(3, dtype='f8')
         f = bigfile.BigFileMPI(self.comm, self.path)
         try:
-            header = f['.']
-        except: 
             header = f['header']
+        except: 
+            try:
+                header = f['Header']
+            except:
+                header = f['.']
 
         BoxSize[:] = header.attrs['BoxSize'][0]
         OmegaM = header.attrs['OmegaM'][0]
@@ -77,9 +80,12 @@ class FastPMDataSource(DataSource):
     def parallel_read(self, columns, full=False):
         f = bigfile.BigFileMPI(self.comm, self.path)
         try:
-            header = f['.']
-        except: 
             header = f['header']
+        except: 
+            try:
+                header = f['Header']
+            except:
+                header = f['.']
         boxsize = header.attrs['BoxSize'][0]
         RSD = header.attrs['RSDFactor'][0]
         if boxsize != self.BoxSize[0]:
