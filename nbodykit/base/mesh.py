@@ -22,7 +22,13 @@ class MeshSource(object):
         self.comm = comm
 
         self.dtype = dtype
-        _Nmesh = numpy.empty(3, dtype='i8')
+        Nmesh = numpy.array(Nmesh)
+        if Nmesh.ndim == 0:
+            ndim = 3
+        else:
+            ndim = len(Nmesh)
+        _Nmesh = numpy.empty(ndim, dtype='i8')
+
         _Nmesh[:] = Nmesh
         self.pm = ParticleMesh(BoxSize=BoxSize,
                                 Nmesh=_Nmesh,

@@ -137,8 +137,9 @@ class FFTPower(object):
         self.attrs['BoxSize'] = self.pm.BoxSize.copy()
 
         # update the meta-data to return
-        Lx, Ly, Lz = _BoxSize
-        self.attrs.update({'Lx':Lx, 'Ly':Ly, 'Lz':Lz, 'volume':Lx*Ly*Lz})
+        self.attrs.update(zip(['Lx', 'Ly', 'Lz'], _BoxSize))
+
+        self.attrs.update({'volume':_BoxSize.prod()})
 
         self.run()
 
