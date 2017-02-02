@@ -47,7 +47,7 @@ def csv_partition_sizes(filename, blocksize, delimiter="\n"):
     nrows : list of int
         the list of the number of rows in each block
     """
-    from dask.bytes.local import read_block_from_file
+    from dask.bytes.core import read_block_from_file
 
     # search for lines separated by newline char
     delimiter = delimiter.encode()
@@ -58,7 +58,7 @@ def csv_partition_sizes(filename, blocksize, delimiter="\n"):
 
     nrows = []
     for offset in offsets:
-        block = read_block_from_file(filename, offset, blocksize, delimiter, False)
+        block = read_block_from_file(open(filename, 'rb'), offset, blocksize, delimiter)
         nrows.append(block.count(delimiter))
     return nrows
 
