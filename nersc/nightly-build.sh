@@ -15,69 +15,124 @@ source /usr/common/contrib/bccp/python-mpi-bcast/activate.sh
 
 update_tarball()
 {
-    tarball=$1
-    pip_cmd=$2
+    version=$1
+    
+    if [[ $version != "latest" ]]; then
+        
+        # increment version
+        a=( ${version//./ } ) 
+        ((a[1]++))  
+        next_version="${a[0]}.${a[1]}"
 
-    # make a build directory
-    mkdir build; cd build
+        # make a build directory
+        mkdir build; cd build
     
-    # untar and run the pip update
-    if [ -f $install_dir/$tarball ]; then 
-        tar -xf $install_dir/$tarball
-        
-        # find the right package directory
-        case "$LOADEDMODULES" in
-          *2.7-anaconda* )
-            pkgdir="./lib/python2.7/site-packages"
-            ;;
-          *3.4-anaconda* )
-            pkgdir="./lib/python3.4/site-packages"
-            ;;
-          *3.5-anaconda* )
-            pkgdir="./lib/python3.5/site-packages"
-            ;;
-          * )
-            echo "cannot find correct package directorys"
-            exit 1
-          ;;
-        esac;
-        
-        # run the pip command        
-        pip_output=$(MPICC=cc PYTHONPATH=$pkgdir PYTHONUSERBASE=$pkgdir $pip_cmd)
-    else
-        # no tarball so ignore any installed packages with additional -I flag
-        pip_output=$(MPICC=cc $pip_cmd -I)
+        # download the right nbodykit source dist
+        pip download "nbodykit>=$version<$next_version" --no-deps
+    
+        # do nothing if no stable version exists
+        if [[ ! $(ls -A) ]]; then
+            return
+        fi
+    
+        # untar the source tarball and cd
+        source_name=$(ls .)
+        tar -xvf $source_name
+        source_name="${source_name%.tar.gz}"
+        a=(${source_name//-/ })
+        version=${a[1]}
+    
+        # get the previous version and remove it
+        a=( ${version//./ } ) 
+        ((a[2]--))  
+        prev_version="${a[0]}.${a[1]}.${a[2]}"
+    
+        if [ -f $install_dir/nbodykit-$prev_version.tar.gz ]; then
+            rm -rf $install_dir/nbodykit-$prev_version.tar.gz
+        fi
     fi
-    cd ..; cd build # avoid stale file handle
-    echo "$pip_output"
     
-    # remake the tarball?
-    if [[ $pip_output == *"Installing collected packages"* ]] || [ ! -f $install_dir/$tarball ]; then
-        echo "remaking the tarball '$tarball'..."
-        list=
-        for dir in bin lib include share; do
-            if [ -d $dir ]; then
-                list="$list $dir"
+    # make source and dependency tarballs
+    tarballs=("nbodykit-$version.tar.gz" "nbodykit-deps-$version.tar.gz")
+    currdir=$(pwd)
+    
+    i=0
+    for tarball in "${tarballs[@]}"; do
+        
+        if [[ $version == "latest" ]]; then
+            if [[ $i == 0 ]]; then
+                master="git+https://github.com/bccp/nbodykit.git@master"
+                pip_cmd="pip install -I --no-deps --install-option=--prefix=$currdir $master"
+            else
+                reqs="https://raw.githubusercontent.com/bccp/nbodykit/master/requirements.txt"
+                pip_cmd="pip install -U --no-deps --install-option=--prefix=$currdir -r $reqs"
             fi
-        done
-        (
-        tar -czf $tarball \
-            --exclude='*.html' \
-            --exclude='*.jpg' \
-            --exclude='*.jpeg' \
-            --exclude='*.png' \
-            --exclude='*.pyc' \
-            --exclude='*.pyo' \
-            $list
-        ) || exit 1
-        (
-        install $tarball $install_dir/$tarball 
-        ) || exit 1
-    fi
-    cd ..; rm -r build 
+        elif [[ $i == 0 ]]; then
+            pip_cmd="pip install -U --no-deps --install-option=--prefix=$currdir $source_name/"
+        else
+            pip_cmd="pip install -U --no-deps --install-option=--prefix=$currdir -r $source_name/requirements.txt"
+        fi
+        
+        # untar and run the pip update
+        if [ -f $install_dir/$tarball ]; then
+            tar -xf $install_dir/$tarball
+
+            # find the right package directory
+            case "$LOADEDMODULES" in
+              *2.7-anaconda* )
+                pkgdir="./lib/python2.7/site-packages"
+                ;;
+              *3.5-anaconda* )
+                pkgdir="./lib/python3.5/site-packages"
+                ;;
+              * )
+                echo "cannot find correct package directorys"
+                exit 1
+              ;;
+            esac;
+
+            # run the pip command
+            echo "executing " $pip_cmd
+            MPICC=cc PYTHONPATH=$pkgdir PYTHONUSERBASE=$pkgdir $pip_cmd
+        else
+            echo "executing " $pip_cmd
+            # no tarball so ignore any installed packages with additional -I flag
+            MPICC=cc $pip_cmd -I
+        fi
+        cd ..; cd build # avoid stale file handle
+        pip_output="Installing collected packages"
+        echo "$pip_output"
+
+        # remake the tarball?
+        if [[ $pip_output == *"Installing collected packages"* ]] || [ ! -f $install_dir/$tarball ]; then
+            echo "remaking the tarball '$tarball'..."
+            list=
+            for dir in bin lib include share; do
+                if [ -d $dir ]; then
+                    list="$list $dir"
+                fi
+            done
+            (
+            tar -czf $tarball \
+                --exclude='*.html' \
+                --exclude='*.jpg' \
+                --exclude='*.jpeg' \
+                --exclude='*.png' \
+                --exclude='*.pyc' \
+                --exclude='*.pyo' \
+                $list
+            ) || exit 1
+            (
+            install $tarball $install_dir/$tarball
+            ) || exit 1
+        fi
+        
+        ((i++))
+    done
+    cd ../; rm -r build
 }
 
-load_anaconda() 
+load_anaconda()
 {
     version=$1
     module unload python
@@ -98,33 +153,17 @@ load_anaconda()
     esac;
 }
 
-versions=("2.7" "3.5")
+py_versions=("2.7" "3.5")
+nbkit_versions=("0.1" "0.2" "latest")
 
-for version in "${versions[@]}"; do
+for py_version in "${py_versions[@]}"; do
     
-    # load the right anaconda version
-    load_anaconda $version
+    load_anaconda $py_version
     
-    # build the "latest" source from the HEAD of "master"
-    tarball=nbodykit-latest.tar.gz
-    master="git+https://github.com/bccp/nbodykit.git@master"
-    pip_install="pip install -U --no-deps --install-option=--prefix=$tmpdir/build $master"
-    update_tarball "${tarball}" "${pip_install}" || exit 1
+    for nbkit_version in "${nbkit_versions[@]}"; do
     
-    # build 0.2 source from the HEAD of "v2.0"
-    tarball=nbodykit-0.2.tar.gz
-    master="git+https://github.com/bccp/nbodykit.git@v2.0"
-    pip_install="pip install -U --no-deps --install-option=--prefix=$tmpdir/build $master"
-    update_tarball "${tarball}" "${pip_install}" || exit 1
-
-    # update the dependencies
-    tarball=nbodykit-dep.tar.gz
-    reqs="https://raw.githubusercontent.com/bccp/nbodykit/v2.0/requirements.txt"
-    pip_install="pip install -U --no-deps --install-option=--prefix=$tmpdir/build -r $reqs"
-    update_tarball "${tarball}" "${pip_install}" || exit 1
+        update_tarball $nbkit_version
     
-    # update stable
-    tarball=nbodykit-stable.tar.gz
-    pip_install="pip install -U --no-deps --install-option=--prefix=$tmpdir/build nbodykit"
-    update_tarball "${tarball}" "${pip_install}" || exit 1
+    done
 done
+
