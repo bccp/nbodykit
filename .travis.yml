@@ -32,8 +32,13 @@ install:
 script:
     - python runtests.py --mpirun='mpirun -np 4' -v
 
-#after_success:
-#    - coveralls
-    
-#notifications:
-#  email: false
+deploy:
+    - provider: pypi
+      distributions: sdist
+      server: https://pypi.python.org/pypi
+      user: "nickhand"
+      password:
+          secure: "HgbpYapyGiOpi51rRGx6H5u1PbkaUp9QgLemg5XjfuKt660QAcDFH3KSDJzl6f2PKvnlkLis8f0fieDYrx8pT3PmuvhwZjQi03ArDpdjVSFn+rQvU1ir3f1Qf1gqdlMWttwfdHjLzHQOF3IMomLGDU6+TXQK+4iRJIprufJFSemNOJ9fTx+Qos6/oWo2q566SLVtdHZZsz1N3tuGzdY9gUGdJLx07g2IsE+WX14v9jwPupgZU+uR1o6twA/I+mvqvbcb9BBKBOQGp7XYtSv61H35SNz+GB6SZeOR3pyG4xKXEB6NsKyIU+7YDPLCwPGAJJZ9rGKviErC8ayTaAhcWDLgLahvWze9IkbGmULoqa4Hs/M5sOkI6ETI7mITl6W9LtFTAwDlUcsZNrtRRYtMM7ygI9xqztU3PuKzzAi50HC7aKRncbj0xhzozCT7ocm1bpICeu+vHh7qsIsVAP4dAC8DqeplN1qSsfkS157/bFYoAWhCJclK1i2KScq7ZQR/Ekc+H0fRBZzVmjbP/2Mv7ukuipn7VBqY5PAoQPWsYLMGutKsRoWcU6TmpL/uxU7iZo2ht8OB7aJ5B+vueqlR7sADw0S37HwtspQGlSQ9OV7KLxLGegGaOu9ajxVo0Bidb+RY+ID4rTSVz4qbbNeJkRD1lhjMG0kCcEyzOwmC+Wc="
+      on:
+        tags   : true
+        condition : $TRAVIS_PYTHON_VERSION = "2.7"
