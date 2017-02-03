@@ -1,20 +1,50 @@
 #!/bin/bash
 
+function join_by { local IFS="$1"; shift; echo "$*"; }
+
+install_dir=/usr/common/contrib/bccp/nbodykit/
+allowed=()
+for file in $install_dir/nbodykit-[0-9].[0-9].[0-9].tar.gz; do 
+    base=$(basename $file)
+    base="${base%.tar.gz}"
+    a=(${base//-/ })
+    version=${a[1]}
+    a=( ${version//./ } ) 
+    version="${a[0]}.${a[1]}"
+    allowed+=($version)
+done
+
 # can supply 0 or 1 argument
 if [ "$#" -gt 1 ]; then
-    echo "usage: activate.sh latest|stable|0.2"
-    exit 1
+    valid=$(join_by "|" ${allowed[@]})
+    echo "usage: activate.sh dev|$valid"
+    return 1
 fi
 
-# if no version provided, use 'stable'
+# if no version provided, use '0.1' and warn
 if [ $# -eq 0 ]; then
-    version="stable"
-elif [[ "$1" != "stable" && "$1" != "latest" && "$1" != "0.2" ]]; then
-    echo "valid version names: 'stable', 'latest', '0.2'"
-    exit 1
+    version="0.1"
+    echo "warning: in the future, please specify the desired nbodykit version as the first argument"
+elif [[ "$1" != "dev" ]]; then
+    match=0
+    for ver in "${allowed[@]}"; do
+        if [[ "$1" = "$ver" ]]; then
+            match=1
+            break
+        fi
+    done
+    
+    if [[ $match = 0 ]]; then
+        valid=$(join_by " " ${allowed[@]})
+        echo "error: valid version names: dev $valid"
+        return 1
+    fi
 else
     version=$1
 fi
+
+# echo the version
+echo "loading nbodykit version: " $version
 
 if [[ -n $BASH_VERSION ]]; then
     _SCRIPT_LOCATION=${BASH_SOURCE[0]}
@@ -22,7 +52,7 @@ elif [[ -n $ZSH_VERSION ]]; then
     _SCRIPT_LOCATION=${funcstack[1]}
 else
     echo "Only bash and zsh are supported"
-    exit 1
+    return 1
 fi
 
 NBKITROOT=`dirname ${_SCRIPT_LOCATION}`
@@ -42,8 +72,12 @@ esac;
 # activate python-mpi-bcast
 source /usr/common/contrib/bccp/python-mpi-bcast/nersc/activate.sh
 
-# load the specified version
-bcast ${NBKITROOT}/nbodykit-dep.tar.gz ${NBKITROOT}/nbodykit-${version}.tar.gz
+# bcast the tarballs
+for tarball in ${NBKITROOT}/nbodykit-*${version}*.tar.gz; do
+    echo "bcasting " $tarball
+    bcast $tarball
+done
+
 
 function srun-nbkit {
     local np=
@@ -52,10 +86,10 @@ function srun-nbkit {
         np="-n $1"
         shift
     fi
-    if [[ "$version" != "0.2" ]]; then
+    if [[ "$version" == "0.1" ]]; then
         srun $np python-mpi /dev/shm/local/bin/nbkit.py $*
     else
-        echo "calling 'nbkit.py' is deprecated!"
+        echo "error: calling 'nbkit.py' is deprecated!"
         return 1
     fi
 }
