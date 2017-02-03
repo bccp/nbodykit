@@ -90,6 +90,9 @@ function srun-nbkit {
         srun $np python-mpi /dev/shm/local/bin/nbkit.py $*
     else
         echo "error: calling 'nbkit.py' is deprecated!"
+        echo "usage: srun -n NTASKS python-mpi job_script.py"
+        echo "see nbodykit/tests for examples using new 'nbodykit.lab' syntax"
         return 1
+        
     fi
 }
