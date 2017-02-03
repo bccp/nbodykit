@@ -1,7 +1,6 @@
-__version__ = "0.1.6"
+from .version import __version__
 
 import os
-
 from nbodykit.plugins.manager import PluginManager
 from argparse import Namespace
 

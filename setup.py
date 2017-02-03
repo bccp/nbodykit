@@ -1,29 +1,18 @@
 from setuptools import setup, find_packages
-import codecs
 from glob import glob
-import os
-import re
-import sys
-import warnings
 
-
-
-def read(*parts):
-    # intentionally *not* adding an encoding option to open, See:
-    #   https://github.com/pypa/virtualenv/issues/201#issuecomment-3145690
-    here = os.path.abspath(os.path.dirname(__file__))
-    return codecs.open(os.path.join(here, *parts), 'r').read()
-
-def find_version(*file_paths):
-    version_file = read(*file_paths)
+def find_version(path):
+    import re
+    # path shall be a plain ascii text file.
+    s = open(path, 'rt').read()
     version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]",
-                              version_file, re.M)
+                              s, re.M)
     if version_match:
         return version_match.group(1)
-    raise RuntimeError("Unable to find version string.")
+    raise RuntimeError("Version not found")
 
 setup(name="nbodykit", 
-      version=find_version("nbodykit", "__init__.py"),
+      version=find_version("nbodykit/version.py"),
       author="Yu Feng, Nick Hand, et al",
       maintainer="Yu Feng",
       maintainer_email="rainwoodman@gmail.com",

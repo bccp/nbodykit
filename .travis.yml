@@ -53,9 +53,21 @@ install:
     
 script:
     - py.test nbodykit --cov=nbodykit --cov-report term-missing
+    - bash check_tag.sh nbodykit/version.py
 
 after_success:
     - coveralls
+    
+deploy:
+    - provider: pypi
+      distributions: sdist
+      server: https://pypi.python.org/pypi
+      user: "nickhand"
+      password:
+          secure: "SFknKu4DDcBYI6iQNhu4ihtqtQE15uKZ5KSU9qIdNRxLEZKp6urCWt67R3WM0wm6vj81fsSiCh9qvE0i8X3dZ1d2YOLm1CATeT+3zLIwY4GTmKRYv1l26uSmXiMye0LQOcRQu4o4qaitwHhMz3BtJzZ61JpelnSBnpT9MZfPKYdLS1Fgo5EL3WrxwMsztpnlI4WWCiZN+JJk0Ajo37PS7Oq1SjuKz0QNDMnraGo5XggBd3ZhlOolf/vW3q7jQlw6Pj9Xs9Aw+C66syMos/f3i7Hj1oO+F2Gv8qlvjDGvdBOjBJu/z39jJRXqKNfZr4uDT6cMP6qaWahnDQJeHFdH2Bc8XYvSVCOIqGT0qbVK7JoLefHIOJImRNyFzb0cV3dYWsYTwJZHz/RtQvMVZWEnB1Ev3Dvw3gxj7N8GMPigBa0dg7Pkey2cEaUFfvQcVk2gzRKWb3lAsfivzOacDW1sS9tAhyFIQdL8MFr/EvgN+IepktBnMVXGXacrVBgZHHTNcxCpnqgJtnMZzSXMfRkzc0oB1jE5opN06nKPvJJK0N+I5CLhvdJ3zn8Bn0Oxbg7BofVFnzPLAcYTsdVYdGSionsjaHjxEYf5sNGaAP0FoBulrwaCsXmMKIWLIpVsGMS2D7v2gZor1/zCBBvjwOf9O4yfRTSeDUo1wWFEWj3CqI4="
+      on:
+        tags   : true
+        condition : $TRAVIS_PYTHON_VERSION = "2.7"
     
 #notifications:
 #  email: false
