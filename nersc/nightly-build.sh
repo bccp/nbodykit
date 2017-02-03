@@ -62,7 +62,7 @@ update_tarball()
         if [[ $version == "latest" ]]; then
             if [[ $i == 0 ]]; then
                 master="git+https://github.com/bccp/nbodykit.git@master"
-                pip_cmd="pip install -I --no-deps --install-option=--prefix=$currdir $master"
+                pip_cmd="pip install -U --no-deps --install-option=--prefix=$currdir $master"
             else
                 reqs="https://raw.githubusercontent.com/bccp/nbodykit/master/requirements.txt"
                 pip_cmd="pip install -U --no-deps --install-option=--prefix=$currdir -r $reqs"
@@ -93,14 +93,13 @@ update_tarball()
 
             # run the pip command
             echo "executing " $pip_cmd
-            MPICC=cc PYTHONPATH=$pkgdir PYTHONUSERBASE=$pkgdir $pip_cmd
+            pip_output=$(MPICC=cc PYTHONPATH=$pkgdir PYTHONUSERBASE=$pkgdir $pip_cmd)
         else
             echo "executing " $pip_cmd
             # no tarball so ignore any installed packages with additional -I flag
-            MPICC=cc $pip_cmd -I
+            pip_output=$(MPICC=cc $pip_cmd -I)
         fi
         cd ..; cd build # avoid stale file handle
-        pip_output="Installing collected packages"
         echo "$pip_output"
 
         # remake the tarball?
