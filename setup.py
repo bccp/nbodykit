@@ -1,4 +1,5 @@
 from setuptools import setup, find_packages
+from glob import glob
 
 def find_version(path):
     import re
