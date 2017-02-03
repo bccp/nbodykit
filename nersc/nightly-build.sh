@@ -17,7 +17,7 @@ update_tarball()
 {
     version=$1
     
-    if [[ $version != "latest" ]]; then
+    if [[ $version != "dev" ]]; then
         
         # increment version
         a=( ${version//./ } ) 
@@ -59,7 +59,7 @@ update_tarball()
     i=0
     for tarball in "${tarballs[@]}"; do
         
-        if [[ $version == "latest" ]]; then
+        if [[ $version == "dev" ]]; then
             if [[ $i == 0 ]]; then
                 master="git+https://github.com/bccp/nbodykit.git@master"
                 pip_cmd="pip install -U --no-deps --install-option=--prefix=$currdir $master"
@@ -153,7 +153,7 @@ load_anaconda()
 }
 
 py_versions=("2.7" "3.5")
-nbkit_versions=("0.1" "0.2" "latest")
+nbkit_versions=("0.1" "0.2" "dev")
 
 for py_version in "${py_versions[@]}"; do
     
