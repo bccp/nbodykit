@@ -13,17 +13,26 @@ class CSVPartition(object):
     The DataFrame is cached as :attr:`value`, so only a single
     call to :func:`pandas.read_csv` is used
     """
-    def __init__(self, bstr, **config):
+    def __init__(self, filename, offset, blocksize, delimiter, **config):
         """
         Parameters
         ----------
-        bstr : bytestring
-            the data content read from file, as a string of bytes
+        filename : str
+            the file to read data from
+        offset : int 
+            the offset in bytes to start reading at
+        blocksize : int
+            the size of the bytes block to read
+        delimiter : byte str
+            how to distinguish separate lines
         config : 
             the configuration keywords passed to :func:`pandas.read_csv`
         """
-        self.bstr = bstr
-        self.config = config
+        self.filename  = filename
+        self.offset    = offset
+        self.blocksize = blocksize
+        self.delimiter = delimiter
+        self.config    = config
         
     @property
     def value(self):
@@ -34,15 +43,17 @@ class CSVPartition(object):
             return self._value
         except AttributeError:
             from io import BytesIO
+            from dask.bytes.utils import read_block
             
+            # read the relevant bytes
+            with open(filename, 'rb') as f:
+                block = read_block(f, self.offset, self.blocksize, self.delimiter)
+                
             # parse the byte string
             b = BytesIO()
-            b.write(self.bstr); b.seek(0)
+            b.write(block); b.seek(0)
             self._value = read_csv(b, **self.config)
-            
-            # free memory, since we have DataFrame now
-            self.bstr = None 
-            
+                        
             return self._value
 
 def make_partitions(filename, blocksize, config, delimiter="\n"):
@@ -106,7 +117,7 @@ def make_partitions(filename, blocksize, config, delimiter="\n"):
             config['nrows'] = nrows
             
             block = read_block(f, offset, blocksize, delimiter)
-            partitions.append(CSVPartition(block, **config))
+            partitions.append(CSVPartition(filename, offset, blocksize, delimiter, **config))
             
             size = block.count(delimiter)
             if comment is not None:
