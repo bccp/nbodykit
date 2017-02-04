@@ -211,7 +211,7 @@ class FKPCatalog(ParticleSource):
             the size of the Cartesian box to use for the unified `data` and 
             `randoms`; if not provided, the maximum Cartesian extent of the 
             `randoms` defines the box
-        BoxPad : float; optional
+        BoxPad : float, 3-vector; optional
             optionally apply this additional buffer to the extent of the 
             Cartesian box
         use_cache : bool; optional
@@ -254,7 +254,9 @@ class FKPCatalog(ParticleSource):
         if numpy.isscalar(BoxSize):
             BoxSize = numpy.ones(3)*BoxSize
         self.attrs['BoxSize'] = BoxSize
-        self.attrs['BoxPad']  = BoxPad
+        if numpy.isscalar(BoxPad):
+            BoxPad = numpy.ones(3)*BoxPad
+        self.attrs['BoxPad'] = BoxPad
         self._define_cartesian_box()
             
     @property
