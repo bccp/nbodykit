@@ -46,7 +46,7 @@ class CSVPartition(object):
             from dask.bytes.utils import read_block
             
             # read the relevant bytes
-            with open(filename, 'rb') as f:
+            with open(self.filename, 'rb') as f:
                 block = read_block(f, self.offset, self.blocksize, self.delimiter)
                 
             # parse the byte string
