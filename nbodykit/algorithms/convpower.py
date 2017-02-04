@@ -472,7 +472,7 @@ class ConvolvedFFTPower(object):
         
         # save the number of modes and k
         result['k'][:] = numpy.squeeze(proj_result[0])
-        result['modes'][:] = numpy.squeeze(proj_result[1])
+        result['modes'][:] = numpy.squeeze(proj_result[-1])
         
         # also compute ell=0
         if 0 in self.attrs['poles']:
@@ -494,5 +494,5 @@ class ConvolvedFFTPower(object):
     
         if rank == 0:
             self.logger.info("normalized power spectrum with randoms.A = %.6f" %meta['randoms.A'])
-        
+
         return result
