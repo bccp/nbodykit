@@ -44,6 +44,12 @@ miniconda environment for Python 2.7 and Python 3.4.
    :alt: PyPi
    :target: https://pypi.python.org/pypi/nbodykit/
 
+Installation
+------------
+
+Refer to .travis.yml, the build section:
+
+- https://github.com/bccp/nbodykit/blob/master/.travis.yml
 
 Documentation
 -------------
