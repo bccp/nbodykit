@@ -1,7 +1,6 @@
 from nbodykit.base.particles import ParticleSource, column
 from nbodykit import transform
 import numpy
-from halotools.empirical_models import profile_helpers, ConcMass
 
 class HaloCatalog(ParticleSource):
     """
