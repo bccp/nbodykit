@@ -24,6 +24,7 @@ install:
     
     # base python setup
     - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py
+    # prefer packages from conda
     - conda install --yes h5py pandas scipy pytables pyyaml astropy numba dask sympy
 
     - pip install -r requirements.txt
