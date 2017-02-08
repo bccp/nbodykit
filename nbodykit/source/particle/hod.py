@@ -7,7 +7,6 @@ from nbodykit.extern.six import add_metaclass
 import abc
 import logging
 import numpy
-from halotools.empirical_models import HodModelFactory, model_defaults
 
 def remove_object_dtypes(data):
     """
@@ -34,7 +33,9 @@ class HODBase(Array):
     
     @CurrentMPIComm.enable
     def __init__(self, halos, seed=None, use_cache=False, comm=None, **params):
-                
+
+        from halotools.empirical_models import model_defaults
+
         # check type
         from halotools.sim_manager import UserSuppliedHaloCatalog
         if not isinstance(halos, UserSuppliedHaloCatalog):
@@ -236,9 +237,6 @@ class HODBase(Array):
         rsd_factor = (1+z) / (100*self.cosmo.efunc(z))
         return self['Velocity'] * rsd_factor
 
-from halotools.empirical_models import Zheng07Sats, Zheng07Cens
-from halotools.empirical_models import NFWPhaseSpace, TrivialPhaseSpace
-
 class HOD(HODBase):
     """
     A `ParticleSource` that uses the HOD prescription of 
@@ -295,6 +293,10 @@ class HOD(HODBase):
         
         This model evaluates Eqs. 2 and 5 of Zheng et al. 2007
         """
+        from halotools.empirical_models import HodModelFactory
+        from halotools.empirical_models import Zheng07Sats, Zheng07Cens
+        from halotools.empirical_models import NFWPhaseSpace, TrivialPhaseSpace
+
         model = {}
         
         # use concentration from halo table
