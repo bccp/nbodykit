@@ -187,7 +187,7 @@ class ParticleSource(object):
         # XXX find a better place for this function
         kwargs.setdefault('optimize_graph', False)
         
-        if self.use_cache:
+        if self.use_cache and hasattr(self, '_cache'):
             with self._cache:
                 toret = dask.compute(*args, **kwargs)
         else:
