@@ -26,7 +26,7 @@ install:
     - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py
     #
     # prefer packages from conda
-    - conda install --yes h5py pandas scipy pytables pyyaml astropy numba dask sympy
+    - conda install --yes h5py pandas scipy pytables astropy numba dask sympy
 
     # prefix CONDA_PREFIX for anaconda openmpi issue on OSX
     - env LD_LIBRARY_PATH=$CONDA_PREFIX:$LD_LIBRARY_PATH pip install -r requirements.txt
