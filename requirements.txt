@@ -1,4 +1,3 @@
-sharedmem
 pmesh
 pfft-python
 kdcount
