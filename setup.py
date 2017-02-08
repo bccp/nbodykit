@@ -44,6 +44,6 @@ setup(name="nbodykit",
                 'pmesh',
                 'kdcount',
                 'mpsort',
-                'bigfile'],
+                'bigfile', 'dask'],
 )
 
