@@ -70,7 +70,10 @@ At NERSC, nbodykit's master branch is built every night.
 
     source /usr/common/contrib/bccp/nbodykit/activate.sh dev
 
-    srun -n 4 python-mpi -c "from nbodykit.lab import *"
+    srun -n 4 python-mpi example.py
+
+The file, example.py can be found at
+https://github.com/bccp/nbodykit/blob/master/nersc/example.py
 
 Documentation
 -------------
