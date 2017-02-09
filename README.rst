@@ -47,9 +47,30 @@ miniconda environment for Python 2.7 and Python 3.4.
 Installation
 ------------
 
-Refer to .travis.yml, the build section:
+We recommend using the anaconda distribution of Python.
+
+To obtain the dependencies and install a package on OSX or Linux, use
+
+.. code::
+
+    conda install -c bccp nbodykit
+
+We are considering support for Windows, but this depends on the status
+of `mpi4py`.
+
+For manual install, please refer to .travis.yml, the build section:
 
 - https://github.com/bccp/nbodykit/blob/master/.travis.yml
+
+At NERSC, nbodykit's master branch is built every night.
+
+.. code::
+
+    salloc -N 1
+
+    source /usr/common/contrib/bccp/nbodykit/activate.sh dev
+
+    srun -n 4 python-mpi -c "from nbodykit.lab import *"
 
 Documentation
 -------------
