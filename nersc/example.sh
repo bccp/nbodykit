@@ -17,7 +17,7 @@ source /usr/common/contrib/bccp/nbodykit/activate.sh dev
 # regular nbodykit command lines
 # replace nbkit.py with srun-nbkit
 
-srun -n 16 python-mpi -c 'from nbodykit.lab import *;print(FFTPower)'
+srun -n 16 python-mpi -u example.py
 
 # You can also do this in an interactive shell
 # e.g.
