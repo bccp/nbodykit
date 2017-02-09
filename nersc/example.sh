@@ -10,14 +10,14 @@
 # and type the commands in the shell obtained from salloc
 
 module unload python
-module load python/2.7-anaconda
+module load python/3.5-anaconda
 
-source /usr/common/contrib/bccp/nbodykit/activate.sh
+source /usr/common/contrib/bccp/nbodykit/activate.sh dev
 
 # regular nbodykit command lines
 # replace nbkit.py with srun-nbkit
 
-srun-nbkit -n 16 FFTPower --help
+srun -n 16 python-mpi -c 'from nbodykit.lab import *;print(FFTPower)'
 
 # You can also do this in an interactive shell
 # e.g.
