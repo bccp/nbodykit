@@ -38,9 +38,6 @@ extras = {}
 with open('requirements-extras.txt', 'r') as fh:
     extras['extras'] = [l.strip() for l in fh][1:]
     extras['full'] = extras['extras'] #
-    
-extras = {'extras': ['halotools', 'h5py']}
-extras['full'] = extras['extras'] # alias nbodykit[full] to nbodykit[extras]
 
 setup(name="nbodykit", 
       version=find_version("nbodykit/version.py"),
