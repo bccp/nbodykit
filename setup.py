@@ -43,6 +43,7 @@ dependencies = ['numpy',
                 'cachey']
 
 extras = {'extras': ['halotools', 'h5py']}
+extras['full'] = extras['extras'] # alias nbodykit[full] to nbodykit[extras]
 
 setup(name="nbodykit", 
       version=find_version("nbodykit/version.py"),
