@@ -28,7 +28,7 @@ install:
     
     # install specific numpy version and pin it
     - conda install --yes numpy=$NUMPY_VERSION 
-    - echo "numpy==$NUMPY_VERSION" >> $CONDA_PREFIX/conda-meta/pinned
+    - echo "numpy $NUMPY_VERSION.*" >> $CONDA_PREFIX/conda-meta/pinned
     
     # need nose for tests
     - conda install --yes nose
