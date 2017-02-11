@@ -29,14 +29,14 @@ install:
     # install specific numpy version
     - conda install --yes numpy=$NUMPY_VERSION 
     
-    # setup tests
-    - conda install nose
+    # need nose for tests
+    - conda install --yes nose
     
     # install base dependencies
-    - conda install  --file requirements.txt
+    - conda install --yes --file requirements.txt
     
     # install base dependencies
-    - conda install --file requirements-extras.txt
+    - conda install --yes --file requirements-extras.txt
     
     # install nbodykit itself (developers may want to add -e)
     - pip install .[extras]
