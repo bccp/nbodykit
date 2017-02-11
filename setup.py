@@ -28,6 +28,22 @@ def find_packages(base_path):
                 found.append(package)
     return found
 
+
+dependencies = ['numpy', 
+                'scipy', 
+                'astropy',
+                'mpi4py', 
+                'mpi4py_test',
+                'pmesh',
+                'kdcount',
+                'mpsort',
+                'bigfile',
+                'pandas', 
+                'dask', 
+                'cachey']
+
+extras = {'extras': ['halotools', 'h5py']}
+
 setup(name="nbodykit", 
       version=find_version("nbodykit/version.py"),
       author="Yu Feng, Nick Hand, et al",
@@ -38,12 +54,8 @@ setup(name="nbodykit",
       zip_safe=False,
       package_dir = {'nbodykit': 'nbodykit'},
       packages = find_packages('.'),
-      install_requires=[
-                'numpy', 'scipy', 'astropy',
-                'mpi4py', 'mpi4py_test',
-                'pmesh',
-                'kdcount',
-                'mpsort',
-                'bigfile', 'dask'],
+      license='GPL3',
+      install_requires=dependencies,
+      extras_require=extras
 )
 
