@@ -1,0 +1,14 @@
+numpy 
+scipy
+astropy
+mpi4py
+mpi4py_test
+pmesh
+kdcount
+mpsort
+bigfile
+pandas
+dask>=0.13
+cachey
+sympy
+numexpr

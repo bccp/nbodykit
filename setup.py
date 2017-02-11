@@ -29,19 +29,16 @@ def find_packages(base_path):
     return found
 
 
-dependencies = ['numpy', 
-                'scipy', 
-                'astropy',
-                'mpi4py', 
-                'mpi4py_test',
-                'pmesh',
-                'kdcount',
-                'mpsort',
-                'bigfile',
-                'pandas', 
-                'dask', 
-                'cachey']
+# the base dependencies
+with open('requirements.txt', 'r') as fh:
+    dependencies = [l.strip() for l in fh]
 
+# extra dependencies
+extras = {}
+with open('requirements-extras.txt', 'r') as fh:
+    extras['extras'] = [l.strip() for l in fh][1:]
+    extras['full'] = extras['extras'] #
+    
 extras = {'extras': ['halotools', 'h5py']}
 extras['full'] = extras['extras'] # alias nbodykit[full] to nbodykit[extras]
 
