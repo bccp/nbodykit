@@ -79,6 +79,9 @@ class FFTPower(object):
         # mode is either '1d' or '2d'
         if mode not in ['1d', '2d']:
             raise ValueError("`mode` should be either '1d' or '2d'")
+            
+        if poles is None:
+            poles = []
 
         # grab comm from first source
         self.comm = first.comm 
