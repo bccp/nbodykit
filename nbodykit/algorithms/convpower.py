@@ -308,7 +308,7 @@ class ConvolvedFFTPower(object):
         state = comm.bcast(state)
         self = object.__new__(cls)
         self.__setstate__(state)
-
+        self.comm = comm
         return self
         
     def _compute_multipoles(self):
