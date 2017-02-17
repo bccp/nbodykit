@@ -30,6 +30,7 @@ elif [[ "$1" != "dev" ]]; then
     for ver in "${allowed[@]}"; do
         if [[ "$1" = "$ver" ]]; then
             match=1
+            version=$ver
             break
         fi
     done

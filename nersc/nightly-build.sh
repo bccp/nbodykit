@@ -17,18 +17,17 @@ update_tarball()
 {
     version=$1
     
+    # make a build directory
+    mkdir build; cd build
+    
     if [[ $version != "dev" ]]; then
         
         # increment version
         a=( ${version//./ } ) 
         ((a[1]++))  
-        next_version="${a[0]}.${a[1]}"
-
-        # make a build directory
-        mkdir build; cd build
-    
+        next_version="${a[0]}.${a[1]}"    
         # download the right nbodykit source dist
-        pip download "nbodykit>=$version<$next_version" --no-deps
+        pip download --no-cache-dir "nbodykit<$next_version" --no-deps
     
         # do nothing if no stable version exists
         if [[ ! $(ls -A) ]]; then
@@ -60,19 +59,29 @@ update_tarball()
     for tarball in "${tarballs[@]}"; do
         
         if [[ $version == "dev" ]]; then
+            
+            # install dev sourcefrom HEAD of master
             if [[ $i == 0 ]]; then
                 master="git+https://github.com/bccp/nbodykit.git@master"
-                pip_cmd="pip install -U --no-deps --install-option=--prefix=$currdir $master"
+                pip_cmd="pip install --no-cache-dir -U --no-deps --install-option=--prefix=$currdir $master"
+            # install dev dependencies from requirements file
             else
+                # base requirements
                 reqs="https://raw.githubusercontent.com/bccp/nbodykit/master/requirements.txt"
-                pip_cmd="pip install -U --no-deps --install-option=--prefix=$currdir -r $reqs"
+                pip_cmd="pip install --no-cache-dir -U --no-deps --install-option=--prefix=$currdir -r $reqs"
+                
+                # extra requirements
+                reqs="https://raw.githubusercontent.com/bccp/nbodykit/master/requirements-extras.txt"
+                pip_cmd+="; pip install --no-cache-dir -U --no-deps --install-option=--prefix=$currdir -r $reqs"
+                
             fi
         elif [[ $i == 0 ]]; then
-            pip_cmd="pip install -U --no-deps --install-option=--prefix=$currdir $source_name/"
+            pip_cmd="pip install --no-cache-dir -U --no-deps --install-option=--prefix=$currdir $source_name/"
         else
-            pip_cmd="pip install -U --no-deps --install-option=--prefix=$currdir -r $source_name/requirements.txt"
+            pip_cmd="pip install --no-cache-dir -U --no-deps --install-option=--prefix=$currdir -r $source_name/requirements.txt"
         fi
         
+        echo $PYTHONPATH
         # untar and run the pip update
         if [ -f $install_dir/$tarball ]; then
             tar -xf $install_dir/$tarball
@@ -93,11 +102,11 @@ update_tarball()
 
             # run the pip command
             echo "executing " $pip_cmd
-            pip_output=$(MPICC=cc PYTHONPATH=$pkgdir PYTHONUSERBASE=$pkgdir $pip_cmd)
+            pip_output=$(env MPICC=cc PYTHONPATH=$pkgdir:$PYTHONPATH PYTHONUSERBASE=$pkgdir:$PYTHONPATH $pip_cmd)
         else
             echo "executing " $pip_cmd
             # no tarball so ignore any installed packages with additional -I flag
-            pip_output=$(MPICC=cc $pip_cmd -I)
+            pip_output=$(env MPICC=cc $pip_cmd -I)
         fi
         cd ..; cd build # avoid stale file handle
         echo "$pip_output"
@@ -157,10 +166,12 @@ nbkit_versions=("0.1" "0.2" "dev")
 
 for py_version in "${py_versions[@]}"; do
     
+    echo "processing python version " $py_version
     load_anaconda $py_version
     
     for nbkit_version in "${nbkit_versions[@]}"; do
     
+        echo "processing nbodykit version " $nbkit_version
         update_tarball $nbkit_version
     
     done
