@@ -83,7 +83,7 @@ class FKPMeshSource(ParticleMeshSource):
             real.attrs[name+'.S'] = self._shotnoise(name)
             
             # total number
-            real.attrs[name+'.N'] = int(source.csize)
+            real.attrs[name+'.N'] = self._unweighted_total(name)
             
             # weighted number (sum of completeness)
             real.attrs[name+'.W'] = self._weighted_total(name)
@@ -116,7 +116,6 @@ class FKPMeshSource(ParticleMeshSource):
             
         return real
                     
-    
     def _normalization(self, name):
         """
         Compute the power spectrum normalization, using either the
@@ -133,10 +132,12 @@ class FKPMeshSource(ParticleMeshSource):
         see Eqs. 13,14 of Beutler et al. 2014, "The clustering of galaxies in the 
         SDSS-III Baryon Oscillation Spectroscopic Survey: testing gravity with redshift 
         space distortions using the power spectrum multipoles"
-        """         
-        nbar        = self[name+'.'+self.nbar]
-        comp_weight = self[name+'.'+self.comp_weight]
-        fkp_weight  = self[name+'.'+self.fkp_weight] 
+        """  
+        sel = self.compute(self[name+'.'+self.selection])
+               
+        nbar        = self[name+'.'+self.nbar][sel]
+        comp_weight = self[name+'.'+self.comp_weight][sel]
+        fkp_weight  = self[name+'.'+self.fkp_weight][sel]
         A           = nbar*comp_weight*fkp_weight**2
         
         A = self.compute(A.sum())
@@ -158,9 +159,11 @@ class FKPMeshSource(ParticleMeshSource):
         see Eq. 15 of Beutler et al. 2014, "The clustering of galaxies in the 
         SDSS-III Baryon Oscillation Spectroscopic Survey: testing gravity with redshift 
         space distortions using the power spectrum multipoles"
-        """         
-        comp_weight = self[name+'.'+self.comp_weight]
-        fkp_weight  = self[name+'.'+self.fkp_weight] 
+        """
+        sel = self.compute(self[name+'.'+self.selection])
+                 
+        comp_weight = self[name+'.'+self.comp_weight][sel]
+        fkp_weight  = self[name+'.'+self.fkp_weight][sel]
         S           = (comp_weight*fkp_weight)**2
         
         S = self.compute(S.sum())
@@ -168,7 +171,7 @@ class FKPMeshSource(ParticleMeshSource):
                                 
     def _weighted_total(self, name):
         """
-        Compute the weighted total numner of objects, using either the
+        Compute the weighted total number of objects, using either the
         `data` or `randoms` source
     
         This is just the sum of the completeness weights: 
@@ -177,8 +180,20 @@ class FKPMeshSource(ParticleMeshSource):
         
             W = \sum w_\mathrm{comp}
         """
-        wsum = self.compute(self[name+'.'+self.comp_weight].sum())
+        sel = self.compute(self[name+'.'+self.selection])
+        comp_weight = self[name+'.'+self.comp_weight][sel]
+        
+        wsum = self.compute(comp_weight.sum())
         return self.comm.allreduce(wsum)
+        
+    def _unweighted_total(self, name):
+        """
+        Compute the total number of objects, using either the
+        `data` or `randoms` source
+        """
+        sel = self.compute(self[name+'.'+self.selection])
+        Nsum = self.compute(sel.sum())
+        return self.comm.allreduce(Nsum)
                     
 def FKPColumn(self, which, col):
     source = getattr(self, which)
