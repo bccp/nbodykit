@@ -8,6 +8,53 @@ from numpy.testing import assert_allclose
 # debug logging
 setup_logging("debug")
 
+@MPITest([4])
+def test_selection(comm):
+    
+    NDATA = 1000
+    NBAR = 1e-4
+    
+    CurrentMPIComm.set(comm)
+    cosmo = cosmology.Planck15
+    
+    data = Source.RandomParticles(NDATA, seed=42)
+    randoms = Source.RandomParticles(NDATA*10, seed=84)
+    
+    # add the random columns
+    for s in [data, randoms]:
+        
+        # ra, dec, z
+        s['z']   = s.rng.normal(loc=0.5, scale=0.1, size=s.size)
+        s['ra']  = s.rng.uniform(low=110, high=260, size=s.size)
+        s['dec'] = s.rng.uniform(low=-3.6, high=60., size=s.size)
+        
+        # position
+        s['Position'] = transform.SkyToCartesion(s['ra'], s['dec'], s['z'], cosmo=cosmo)
+    
+        # constant number density
+        s['NZ'] = NBAR
+                    
+        # select in given redshift range
+        s['Selection'] = (s['z'] > 0.4)&(s['z'] < 0.6)
+    
+    # the FKP source
+    fkp = Source.FKPCatalog(data, randoms)
+    fkp = fkp.to_mesh(Nmesh=128, dtype='f8', nbar='NZ', selection='Selection')
+
+    # compute the multipoles
+    r = ConvolvedFFTPower(fkp, poles=[0,2,4], dk=0.005)
+
+    # number of data objects selected
+    N = comm.allreduce(((data['z'] > 0.4)&(data['z'] < 0.6)).sum())
+    assert_allclose(r.attrs['data.N'], N)
+
+    # number of randoms selected
+    N = comm.allreduce(((randoms['z'] > 0.4)&(randoms['z'] < 0.6)).sum())
+    assert_allclose(r.attrs['randoms.N'], N)
+    
+    # and save
+    r.save("conv-power-with-selection.json")
+    
 @MPITest([1, 4])
 def test_run(comm):
     
@@ -37,10 +84,10 @@ def test_run(comm):
         # completeness weights
         P0 = 1e4
         s['Weight'] = (1 + P0*s['NZ'])**2
-    
+        
     # the FKP source
     fkp = Source.FKPCatalog(data, randoms)
-    fkp = fkp.to_mesh(Nmesh=128, dtype='f8', nbar='NZ', fkp_weight='FKPWeight', comp_weight='Weight')
+    fkp = fkp.to_mesh(Nmesh=128, dtype='f8', nbar='NZ', fkp_weight='FKPWeight', comp_weight='Weight', selection='Selection')
 
     # compute the multipoles
     r = ConvolvedFFTPower(fkp, poles=[0,2,4], dk=0.005, use_fkp_weights=True, P0_FKP=P0)

@@ -248,6 +248,13 @@ class JSONEncoder(json.JSONEncoder):
                 '__data__': value.tolist(),
             }
             return d
+        # explicity convert numpy data types to python types
+        # see: https://bugs.python.org/issue24313
+        elif isinstance(obj, numpy.floating):
+            return float(obj)
+        elif isinstance(obj, numpy.integer):
+            return int(obj)
+            
         return json.JSONEncoder.default(self, obj)
 
 class JSONDecoder(json.JSONDecoder):
