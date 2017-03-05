@@ -17,7 +17,8 @@ update_tarball()
 {
     tarball=$1
     pip_cmd=$2
-
+    echo $tarball
+    echo $pip_cmd
     # make a build directory
     mkdir build; cd build
     
@@ -115,13 +116,13 @@ for version in "${versions[@]}"; do
     
     # build the "latest" source from the HEAD of "master"
     tarball=nbodykit-latest.tar.gz
-    master="git+https://github.com/bccp/nbodykit.git@master"
+    master="git+https://github.com/bccp/nbodykit.git@v0.1.x"
     pip_install="pip install -U --no-deps --install-option=--prefix=$tmpdir/build $master"
     update_tarball "${tarball}" "${pip_install}" || exit 1
 
     # update the dependencies
     tarball=nbodykit-dep.tar.gz
-    reqs="https://raw.githubusercontent.com/bccp/nbodykit/master/requirements.txt"
+    reqs="https://raw.githubusercontent.com/bccp/nbodykit/v0.1.x/requirements.txt"
     pip_install="pip install -U --no-deps --install-option=--prefix=$tmpdir/build -r $reqs"
     update_tarball "${tarball}" "${pip_install}" || exit 1
     
@@ -131,6 +132,6 @@ for version in "${versions[@]}"; do
 
     # update stable
     tarball=nbodykit-stable.tar.gz
-    pip_install="pip install -U --no-deps --install-option=--prefix=$tmpdir/build nbodykit"
+    pip_install="pip install -U --no-deps --install-option=--prefix=$tmpdir/build nbodykit<0.2.0 "
     update_tarball "${tarball}" "${pip_install}" || exit 1
 done
