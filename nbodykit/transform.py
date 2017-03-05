@@ -2,6 +2,26 @@ import numpy
 import dask.array as da
 import dask
 
+def StackColumns(*cols):
+    """
+    Stack the input dask arrays vertically, column by column
+    
+    Parameters
+    ----------
+    cols : dask arrays
+        the dask arrays to stack vertically
+    
+    Returns
+    -------
+    dask.array.Array
+        the dask array where columns correspond to the input
+        arrays
+    """
+    if not all(isinstance(col, da.Array) for col in cols):
+        raise TypeError("all input columns in `StackColumns` must be dask arrays")
+        
+    return da.vstack(cols).T
+    
 def ConstantArray(value, size, chunks=100000):
     """
     Return a dask array of the specified ``size`` holding a 
