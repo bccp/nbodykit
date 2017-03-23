@@ -46,7 +46,7 @@ install:
 
 script:
     # run with coverage (using nbodykit/ in current directory)
-    - mpirun -n 4 coverage run -p runtests.py --mpisub
+    - mpirun -n 4 coverage run -p --source=nbodykit runtests.py --mpisub
 
 after_success:
     # combine parallel coverage and report to coveralls
