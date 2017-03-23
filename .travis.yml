@@ -33,7 +33,7 @@ install:
     
     # tests and coverage
     - conda install --yes nose coverage
-    - pip install coveralls
+    - pip install coveralls[yaml]
     
     # install base dependencies
     - conda install --yes --file requirements.txt
@@ -48,9 +48,7 @@ script:
     - python runtests.py --mpirun='mpirun -np 4' -v --coverage
 
 after_success:
-    - cd build/test
-    - cat .coverage
-    - coveralls
+    - cd build/test; coveralls
 
 deploy:
     - provider: pypi
