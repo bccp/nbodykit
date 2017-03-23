@@ -48,7 +48,7 @@ script:
     - python runtests.py --mpirun='mpirun -np 4' -v --coverage
 
 after_success:
-    - cd build/test; coveralls
+    - cd build/test; coveralls -v
 
 deploy:
     - provider: pypi
