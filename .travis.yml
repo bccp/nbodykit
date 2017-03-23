@@ -41,8 +41,8 @@ install:
     # install base dependencies
     - conda install --yes --file requirements-extras.txt
     
-    # install nbodykit itself (developers may want to add -e)
-    - pip install .[extras]
+    # install nbodykit itself (developer mode here to run tests with coverage)
+    - pip install -e .[extras]
 
 script:
     # run with coverage
