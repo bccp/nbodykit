@@ -49,7 +49,7 @@ script:
 
 after_success:
     - cd build/test
-    - ls
+    - cat .coverage
     - coveralls
 
 deploy:
