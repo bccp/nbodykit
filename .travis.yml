@@ -31,9 +31,8 @@ install:
     - conda install --yes numpy=$NUMPY_VERSION 
     - echo "numpy $NUMPY_VERSION.*" >> $CONDA_PREFIX/conda-meta/pinned
     
-    # need nose for tests
-    - conda install --yes nose
-    # need coveralls for coverage
+    # tests and coverage
+    - conda install --yes nose coverage
     - pip install coveralls
     
     # install base dependencies
@@ -49,7 +48,9 @@ script:
     - python runtests.py --mpirun='mpirun -np 4' -v --coverage
 
 after_success:
-    - cd build/test; coveralls
+    - cd build/test
+    - ls
+    - coveralls
 
 deploy:
     - provider: pypi
