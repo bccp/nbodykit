@@ -45,10 +45,10 @@ install:
     - pip install .[extras]
 
 script:
-    - python runtests.py -v --coverage #--mpirun='mpirun -np 4'
+    # run with coverage
+    - mpirun -n 4 coverage run -p runtests.py --mpisub
 
 after_success:
-    - cd build/test; 
     - coveralls -v
 
 deploy:
