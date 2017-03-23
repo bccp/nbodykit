@@ -49,6 +49,8 @@ script:
     - mpirun -n 4 coverage run -p runtests.py --mpisub
 
 after_success:
+    # combine parallel coverage and report to coveralls
+    - coverage combine
     - coveralls -v
 
 deploy:
