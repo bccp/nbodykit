@@ -33,6 +33,8 @@ install:
     
     # need nose for tests
     - conda install --yes nose
+    # need coveralls for coverage
+    - pip install coveralls
     
     # install base dependencies
     - conda install --yes --file requirements.txt
@@ -44,7 +46,10 @@ install:
     - pip install .[extras]
 
 script:
-    - python runtests.py --mpirun='mpirun -np 4' -v
+    - python runtests.py --mpirun='mpirun -np 4' -v --coverage
+
+after_success:
+    - cd build/test; coveralls
 
 deploy:
     - provider: pypi
