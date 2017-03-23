@@ -32,8 +32,8 @@ install:
     - echo "numpy $NUMPY_VERSION.*" >> $CONDA_PREFIX/conda-meta/pinned
     
     # tests and coverage
-    - conda install --yes nose coverage
-    - pip install coveralls[yaml]
+    - conda install --yes nose
+    - pip install coveralls
     
     # install base dependencies
     - conda install --yes --file requirements.txt
@@ -45,15 +45,13 @@ install:
     - pip install -e .[extras]
 
 script:
-    # run with coverage
+    # run with coverage (using nbodykit/ in current directory)
     - mpirun -n 4 coverage run -p runtests.py --mpisub
 
 after_success:
     # combine parallel coverage and report to coveralls
     - coverage combine
-    - ls -alth
-    - cat .coverage
-    - coveralls -v
+    - coveralls
 
 deploy:
     - provider: pypi
