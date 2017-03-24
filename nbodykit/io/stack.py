@@ -1,5 +1,6 @@
 from ..extern.six import string_types
-from . import FileType, tools
+from .base import FileType
+from . import tools
 
 import numpy
 import os

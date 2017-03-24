@@ -1,5 +1,6 @@
-from . import FileType, tools
-from nbodykit.extern.six import string_types
+from .base import FileType
+from . import tools
+from ..extern.six import string_types
 
 import h5py
 import numpy

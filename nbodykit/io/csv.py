@@ -3,7 +3,8 @@ import os
 from pandas import read_csv 
     
 from ..extern.six import string_types
-from . import FileType, tools
+from .base import FileType
+from . import tools
 
 class CSVPartition(object):
     """

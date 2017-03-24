@@ -4,7 +4,7 @@ from __future__ import absolute_import
 
 import numpy
 
-from . import FileType
+from .base import FileType
 from ..extern.six import string_types
 
 class BigFile(FileType):

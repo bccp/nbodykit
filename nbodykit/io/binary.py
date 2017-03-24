@@ -1,7 +1,8 @@
 import numpy
 import os
 
-from . import FileType, tools
+from .base import FileType
+from . import tools
 from ..extern.six import string_types
 
 def getsize(filename, header_size, rowsize):
