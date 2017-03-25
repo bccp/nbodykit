@@ -20,6 +20,9 @@ def test_data():
         data2 = f.asarray()
         numpy.testing.assert_almost_equal(data, data2[:], decimal=7)
         
+        # make sure all the columns are there
+        assert all(col in f for col in names)
+                
 def test_pickle():
 
     with tempfile.NamedTemporaryFile() as ff:    
