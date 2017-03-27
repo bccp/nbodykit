@@ -42,6 +42,11 @@ class FastPMDataSource(DataSource):
             except:
                 header = f['.']
 
+        try:
+            f = f['1/']
+        except:
+            pass
+
         BoxSize[:] = header.attrs['BoxSize'][0]
         OmegaM = header.attrs['OmegaM'][0]
         self.M0 = 27.75e10 * OmegaM * BoxSize[0] ** 3 / f['Position'].size
@@ -91,6 +96,11 @@ class FastPMDataSource(DataSource):
         if boxsize != self.BoxSize[0]:
             raise ValueError("Box size mismatch, expecting %g" % boxsize)
 
+        try:
+            f = f['1/']
+        except:
+            pass
+ 
         readcolumns = set(columns)
         if self.rsd is not None:
             readcolumns = set(columns + ['Velocity'])

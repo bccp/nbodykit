@@ -187,7 +187,7 @@ def fof(datasource, linking_length, nmin, comm=MPI.COMM_WORLD, log_level=logging
     with datasource.open() as stream:
         [[Position]] = stream.read(['Position'], full=True)
 
-    if comm.rank == 0: logger.info("ll %g. " % linking_length)
+    if comm.rank == 0: logger.info("ll %g MPC/h " % linking_length)
     if comm.rank == 0: logger.debug('grid: %s' % str(grid))
 
     layout = domain.decompose(Position, smoothing=linking_length * 1)
