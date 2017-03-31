@@ -1,12 +1,24 @@
+from runtests.mpi import MPITest
 from nbodykit.io.tpm import TPMBinaryFile
 from nbodykit.io.stack import FileStack
 import numpy
 import tempfile
 import os
+import shutil
+import contextlib
 
-def test_data():
+@contextlib.contextmanager
+def TemporaryDirectory():
+    try:
+        tmpdir = tempfile.mkdtemp()
+        yield tmpdir
+    finally:
+        shutil.rmtree(tmpdir)
 
-    with tempfile.TemporaryDirectory() as tmpdir:
+@MPITest([1])
+def test_data(comm):
+
+    with TemporaryDirectory() as tmpdir:
         
         # generate TPM-format data
         pos = numpy.random.random(size=(2048, 3)).astype('f4')
@@ -46,9 +58,10 @@ def test_data():
         # and add and attrs
         f.attrs['size'] = 2048
         
-def test_single_path():
+@MPITest([1])
+def test_single_path(comm):
 
-    with tempfile.TemporaryDirectory() as tmpdir:
+    with TemporaryDirectory() as tmpdir:
         
         # generate TPM-format data
         pos = numpy.random.random(size=(2048, 3)).astype('f4')
@@ -70,9 +83,10 @@ def test_single_path():
         assert f.size == 1024
         assert f.nfiles == 1
 
-def test_bad_path():
+@MPITest([1])
+def test_bad_path(comm):
 
-    with tempfile.TemporaryDirectory() as tmpdir:
+    with TemporaryDirectory() as tmpdir:
         
         # generate TPM-format data
         pos = numpy.random.random(size=(2048, 3)).astype('f4')

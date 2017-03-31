@@ -1,8 +1,10 @@
+from runtests.mpi import MPITest
 from nbodykit.io.tpm import TPMBinaryFile
 import numpy
 import tempfile
 
-def test_data():
+@MPITest([1])
+def test_data(comm):
 
     with tempfile.NamedTemporaryFile() as ff:
         

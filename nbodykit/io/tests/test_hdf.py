@@ -1,3 +1,4 @@
+from runtests.mpi import MPITest
 from nbodykit.io.hdf import HDFFile
 import os
 import numpy
@@ -33,7 +34,8 @@ def temporary_data():
         os.unlink(tmpfile)
         
         
-def test_data():
+@MPITest([1])
+def test_data(comm):
 
     with temporary_data() as (data, tmpfile):
 
@@ -58,7 +60,8 @@ def test_data():
         # check size
         numpy.testing.assert_equal(f.size, 1024)
 
-def test_nonzero_root():
+@MPITest([1])
+def test_nonzero_root(comm):
     
     with temporary_data() as (data, tmpfile):
         
@@ -73,7 +76,9 @@ def test_nonzero_root():
         try: f = HDFFile(tmpfile, root='Z')
         except ValueError: pass
 
-def test_nonzero_exclude():
+
+@MPITest([1])
+def test_nonzero_exclude(comm):
     
     with temporary_data() as (data, tmpfile):
         
@@ -92,7 +97,8 @@ def test_nonzero_exclude():
         try: f = HDFFile(tmpfile, exclude=['Z'])
         except ValueError: pass
         
-def test_data_mismatch():
+@MPITest([1])
+def test_data_mismatch(comm):
     
     # generate data
     pos = numpy.random.random(size=(1024, 3))
@@ -114,7 +120,8 @@ def test_data_mismatch():
 
     os.unlink(tmpfile) 
         
-def test_empty():
+@MPITest([1])
+def test_empty(comm):
     
     # create empty file
     tmpfile = tempfile.mkstemp()[1]

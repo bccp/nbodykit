@@ -1,10 +1,12 @@
+from runtests.mpi import MPITest
 from nbodykit.io.csv import CSVFile
 import os
 import numpy
 import tempfile
 import pickle
 
-def test_data():
+@MPITest([1])
+def test_data(comm):
 
     with tempfile.NamedTemporaryFile() as ff:    
         
@@ -23,7 +25,8 @@ def test_data():
         # make sure all the columns are there
         assert all(col in f for col in names)
                 
-def test_pickle():
+@MPITest([1])
+def test_pickle(comm):
 
     with tempfile.NamedTemporaryFile() as ff:    
         
@@ -40,7 +43,8 @@ def test_pickle():
         
         numpy.testing.assert_almost_equal(f['a'][:], f2['a'][:])
         
-def test_slicing():
+@MPITest([1])
+def test_slicing(comm):
 
     with tempfile.NamedTemporaryFile() as ff:    
         
@@ -56,7 +60,8 @@ def test_slicing():
         for sl in [slice(0,10), slice(-10, -5), slice(0, 50, 2), slice(-50, None, 3)]:
             numpy.testing.assert_almost_equal(data[sl][:,0], f[sl]['a'], decimal=7)
         
-def test_comma_sep():
+@MPITest([1])
+def test_comma_sep(comm):
 
     with tempfile.NamedTemporaryFile() as ff:    
         
@@ -74,7 +79,8 @@ def test_comma_sep():
         data2 = f.asarray()
         numpy.testing.assert_almost_equal(data, data2[:], decimal=7)
         
-def test_header_fail():
+@MPITest([1])
+def test_header_fail(comm):
 
     with tempfile.NamedTemporaryFile() as ff:    
         
@@ -88,7 +94,8 @@ def test_header_fail():
         try: f = CSVFile(path=ff.name, names=names, blocksize=1000)
         except: pass
         
-def test_blank_lines():
+@MPITest([1])
+def test_blank_lines(comm):
 
     with tempfile.NamedTemporaryFile() as ff:    
         
@@ -104,7 +111,8 @@ def test_blank_lines():
         assert f.size == len(f[:]), "mismatch between 'size' and data read from file"
         assert f.size == 100, "error reading with blank lines'"
 
-def test_dtype():
+@MPITest([1])
+def test_dtype(comm):
 
     with tempfile.NamedTemporaryFile() as ff:  
         
@@ -129,7 +137,9 @@ def test_dtype():
         # make sure data is the same
         assert all(f.dtype[col] == 'f4' for col in names)
 
-def test_comments():
+
+@MPITest([1])
+def test_comments(comm):
 
     with tempfile.NamedTemporaryFile() as ff:    
         
@@ -143,7 +153,8 @@ def test_comments():
         try: f = CSVFile(path=ff.name, names=names, blocksize=1000)
         except: pass
 
-def test_skiprows():
+@MPITest([1])
+def test_skiprows(comm):
     
     with tempfile.NamedTemporaryFile() as ff:    
         
@@ -163,7 +174,8 @@ def test_skiprows():
         data2 = f.asarray()
         numpy.testing.assert_almost_equal(data[25:75], data2[:], decimal=7)
 
-def test_nrows():
+@MPITest([1])
+def test_nrows(comm):
 
     with tempfile.NamedTemporaryFile() as ff:    
         
@@ -183,7 +195,8 @@ def test_nrows():
         data2 = f.asarray()
         numpy.testing.assert_almost_equal(data[:50], data2[:], decimal=7)
 
-def test_usecols():
+@MPITest([1])
+def test_usecols(comm):
 
     with tempfile.NamedTemporaryFile() as ff:    
         
@@ -197,7 +210,8 @@ def test_usecols():
         
         assert f.columns == ['a', 'c', 'e'], "error using 'usecols'"
         
-def test_wrong_names():
+@MPITest([1])
+def test_wrong_names(comm):
 
     with tempfile.NamedTemporaryFile() as ff: 
         
@@ -210,7 +224,8 @@ def test_wrong_names():
         try: f = CSVFile(path=ff.name, names=names, blocksize=1000)
         except ValueError: pass
 
-def test_invalid_keywords():
+@MPITest([1])
+def test_invalid_keywords(comm):
 
     with tempfile.NamedTemporaryFile() as ff:    
         

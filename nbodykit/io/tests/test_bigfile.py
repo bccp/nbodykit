@@ -1,3 +1,4 @@
+from runtests.mpi import MPITest
 from nbodykit.io.bigfile import BigFile
 import shutil
 import numpy
@@ -29,7 +30,8 @@ def temporary_data():
     finally:
         shutil.rmtree(tmpdir)
 
-def test_data():
+@MPITest([1])
+def test_data(comm):
 
     with temporary_data() as (data, tmpfile):
         
@@ -44,7 +46,8 @@ def test_data():
         numpy.testing.assert_almost_equal(data['Velocity'], ff['Velocity'][:])
 
 
-def test_pickle():
+@MPITest([1])
+def test_pickle(comm):
     
     with temporary_data() as (data, tmpfile):
         

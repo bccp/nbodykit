@@ -1,10 +1,12 @@
+from runtests.mpi import MPITest
 from nbodykit.io.binary import BinaryFile
 import os
 import numpy
 import tempfile
 import pickle
 
-def test_data():
+@MPITest([1])
+def test_data(comm):
 
     with tempfile.NamedTemporaryFile() as ff:    
         
@@ -22,7 +24,8 @@ def test_data():
         numpy.testing.assert_almost_equal(pos, f['Position'][:])
         numpy.testing.assert_almost_equal(vel, f['Velocity'][:])
 
-def test_offsets():
+@MPITest([1])
+def test_offsets(comm):
 
     with tempfile.NamedTemporaryFile() as ff:    
         
@@ -49,7 +52,8 @@ def test_offsets():
         try: f = BinaryFile(ff.name, dtype, size=1024, offsets=[('Position',0)])
         except: pass
 
-def test_header():
+@MPITest([1])
+def test_header(comm):
 
     with tempfile.NamedTemporaryFile() as ff:    
         
@@ -70,7 +74,8 @@ def test_header():
         try: f = BinaryFile(ff.name, dtype, header_size=hdr.nbytes-1)
         except ValueError: pass
         
-def test_infer_size():
+@MPITest([1])
+def test_infer_size(comm):
 
     with tempfile.NamedTemporaryFile() as ff:    
         
@@ -87,7 +92,8 @@ def test_infer_size():
         assert f.size == len(f[:]), "error when trying to infer size"
         assert f.size == 1024, "error when trying to infer size"
 
-def test_wrong_size():
+@MPITest([1])
+def test_wrong_size(comm):
 
     with tempfile.NamedTemporaryFile() as ff:    
         
@@ -103,7 +109,8 @@ def test_wrong_size():
         except: pass
 
         
-def test_pickle():
+@MPITest([1])
+def test_pickle(comm):
 
     with tempfile.NamedTemporaryFile() as ff:    
         

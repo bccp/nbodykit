@@ -1,9 +1,11 @@
+from runtests.mpi import MPITest
 from nbodykit.io.csv import CSVFile
 import os
 import numpy
 import tempfile
 
-def test_dask():
+@MPITest([1])
+def test_dask(comm):
 
     with tempfile.NamedTemporaryFile() as ff:    
         
@@ -18,7 +20,8 @@ def test_dask():
         a_dask = f.get_dask('a')
         numpy.testing.assert_almost_equal(a_dask.compute(), data[:,0])
 
-def test_getitem():
+@MPITest([1])
+def test_getitem(comm):
 
     with tempfile.NamedTemporaryFile() as ff:    
         
@@ -67,7 +70,8 @@ def test_getitem():
         try: d2 = d[:,:,:]
         except IndexError: pass
         
-def test_asarray():
+@MPITest([1])
+def test_asarray(comm):
 
     with tempfile.NamedTemporaryFile() as ff:    
         
