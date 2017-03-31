@@ -12,7 +12,9 @@ class FGPA(object):
 
     def __init__(self, source, A, gamma, Nlines, seed):
         self.tau_red = numpy.zeros((80, 10))
-        self.logger.info("We are here!")
+        field = source.paint(mode='real')
+        
+        self.logger.info(field.cnorm())
 
     def save(self, output):
         pass
