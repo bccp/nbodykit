@@ -1,4 +1,4 @@
 [run]
 omit = 
-    **/nbodykit/tests/*
+    **/test_*
     **/nbodykit/extern/*
