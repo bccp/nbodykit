@@ -1,8 +1,10 @@
 from ..extern.six import string_types
-from . import FileType, tools
+from .base import FileType
+from . import tools
 
 import numpy
 import os
+import inspect
 
 class FileStack(FileType):
     """
@@ -26,7 +28,7 @@ class FileStack(FileType):
             the stack
         """
         # check that filetype is subclass of FileType
-        if not issubclass(filetype, FileType):
+        if not inspect.isclass(filetype) or not issubclass(filetype, FileType):
             raise ValueError("the stack of `filetype` objects must be subclasses of `FileType`")
 
         # save the list of relevant files

@@ -3,7 +3,8 @@ import os
 from pandas import read_csv 
     
 from ..extern.six import string_types
-from . import FileType, tools
+from .base import FileType
+from . import tools
 
 class CSVPartition(object):
     """
@@ -96,11 +97,9 @@ def make_partitions(filename, blocksize, config, delimiter="\n"):
     # size in bytes and byte offsets of each partition
     size = os.path.getsize(filename)
     offsets = list(range(0, size, int(blocksize)))
-
-    # ignored commented lines
-    comment = config.get('comment', None)
-    if comment is not None:
-        comment = comment.encode()
+    
+    # skip blank lines
+    skip_blank_lines = config.get('skip_blank_lines', True)
         
     # number of rows to read  
     nrows = config.pop('nrows', None)
@@ -119,10 +118,13 @@ def make_partitions(filename, blocksize, config, delimiter="\n"):
             block = read_block(f, offset, blocksize, delimiter)
             partitions.append(CSVPartition(filename, offset, blocksize, delimiter, **config))
             
+            # count delimiter to get size
             size = block.count(delimiter)
-            if comment is not None:
-                size -= block.count(delimiter+comment)
-                if i == 0 and block.startswith(comment):
+                    
+            # account for blank lines
+            if skip_blank_lines:
+                size -= block.count(delimiter+delimiter)
+                if i == 0 and block.startswith(delimiter):
                     size -= 1
                     
             # account for skiprows
@@ -137,6 +139,8 @@ def make_partitions(filename, blocksize, config, delimiter="\n"):
                 else:
                     nrows -= size # update for next block
             sizes.append(size)
+            
+            
     
     return partitions, sizes
 
@@ -175,7 +179,7 @@ def verify_data(path, names, nrows=10, **config):
         import traceback
         config['names'] = names
         msg = ("error trying to read data with pandas.read_csv; ensure that 'names' matches "
-               "the number of columns in the file\n")
+               "the number of columns in the file and the file contains no comments\n")
         msg += "pandas configuration: %s\n" %str(config)
         msg += "\n%s" %(traceback.format_exc())
         raise ValueError(msg)
@@ -244,8 +248,13 @@ class CSVFile(FileType):
             raise ValueError("'index_col = False' is not supported in CSVFile")
         config['index_col'] = False # no index columns in file
         
+        # manually remove comments 
+        if 'comment' in config and config['comment'] is not None:
+            raise ValueError("please manually remove all comments from file")
+        config['comment'] = None # no comments
+        
         # ensure that no header is passed
-        if 'header' in config and header is not None:
+        if 'header' in config and config['header'] is not None:
             raise ValueError("'header' not equal to None is not supported in CSVFile")
         config['header'] = None # no header
         
@@ -261,6 +270,7 @@ class CSVFile(FileType):
         config['delim_whitespace'] = delim_whitespace
         config['usecols'] = usecols
         config.setdefault('engine', 'c')
+        config.setdefault('skip_blank_lines', True)
         self.pandas_config = config.copy()
         
         # verify the data

@@ -4,6 +4,16 @@ class TPMBinaryFile(BinaryFile):
     """
     Read snapshot files from Martin White's TPM simulations, which
     are stored in a binary format
+    
+    These files are stored column-wise with a format, with a 
+    header of size 28 bytes to begin the file. The columns are:
+    
+    Position : 'f4', 'f8' precision
+        the position data
+    Velocity : 'f4', 'f8' precision
+        the velocity data
+    ID : 'u8' precision
+        integers specfiying the particle ID
     """    
     def __init__(self, path, precision='f4'):
         """

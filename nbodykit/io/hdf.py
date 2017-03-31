@@ -1,5 +1,6 @@
-from . import FileType, tools
-from nbodykit.extern.six import string_types
+from .base import FileType
+from . import tools
+from ..extern.six import string_types
 
 import h5py
 import numpy
@@ -10,7 +11,7 @@ ColumnInfo = namedtuple('ColumnInfo', ['size', 'dtype', 'dset'])
 
 def find_datasets(info, attrs, name, obj):
     """
-    Add a ``ColumnInfo`` named tuple to the ``info`` dict
+    Recursively add a ``ColumnInfo`` named tuple to the ``info`` dict
     if ``obj`` is a Dataset
     
     When ``obj`` is a structured array with named fields, a
@@ -84,21 +85,25 @@ class HDFFile(FileType):
                 find_datasets(info, self.attrs, '', sub)
             else:
                 sub.visititems(lambda *args: find_datasets(info, self.attrs, *args))
-                    
-        # verify all the datasets have a single size
-        sizes = set([info[col].size for col in info])
-        if len(sizes) > 1:
-            msg = "size mismatch in datasets of file; please use ``exclude`` to remove datasets of the wrong size\n"
-            msg += "\n".join(["size of '%s': %d" %(col, info[col].size) for col in info])
-            raise ValueError(msg)
-        self.size = list(sizes)[0]
-    
+                        
         # exclude columns
         for col in list(info):
             absname = os.path.join(self.root, col)
             if any(absname.lstrip('/').startswith(ex) for ex in _exclude):
                 self.logger.info("ignoring excluded column '%s'" %col)
                 info.pop(col)
+                
+        # verify all the datasets have a single size
+        sizes = set([info[col].size for col in info])
+        if len(sizes) > 1:
+            msg = "size mismatch in datasets of file; please use ``exclude`` to remove datasets of the wrong size\n"
+            msg += "\n".join(["size of '%s': %d" %(col, info[col].size) for col in info])
+            raise ValueError(msg)
+        
+        # empty file check
+        if not len(sizes):
+            raise ValueError("HDF file appears to contain datasets")
+        self.size = list(sizes)[0]
     
         # if single Dataset with structured array, allow relative names
         unique_dsets = set([info[col].dset for col in info])
@@ -111,10 +116,6 @@ class HDFFile(FileType):
             if single_structured_arr:
                 name = name.rsplit('/', 1)[-1]
             dtype.append((name, info[col].dtype))
-
-        # empty file check
-        if not len(dtype):
-            raise ValueError("HDF file appears to contain datasets")
         self.dtype = numpy.dtype(dtype)
         
         # set the root properly if columns stored as single structured array
