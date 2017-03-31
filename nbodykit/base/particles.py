@@ -391,7 +391,7 @@ class ParticleSource(object):
         import bigfile
         
         if datasets is None: datasets = columns    
-        if len(datasets) != columns:
+        if len(datasets) != len(columns):
             raise ValueError("`datasets` must have the same length as `columns`")
 
         with bigfile.BigFileMPI(comm=self.comm, filename=output, create=True) as ff:
