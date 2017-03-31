@@ -37,6 +37,9 @@ install:
     # install base dependencies
     - conda install --yes --file requirements-extras.txt
     
+    # submitting coverage to coveralls
+    - pip install coveralls
+    
     # install nbodykit itself
     - pip install .[extras]
 
