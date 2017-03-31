@@ -1,6 +1,4 @@
 [run]
 omit = 
-    # omit test files
-    nbodykit/tests/*
-    # omit external packages
-    nbodykit/extern/*
+    **/nbodykit/tests/*
+    **/nbodykit/extern/*
