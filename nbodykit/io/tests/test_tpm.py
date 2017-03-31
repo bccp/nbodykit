@@ -6,7 +6,8 @@ import tempfile
 @MPITest([1])
 def test_data(comm):
 
-    with tempfile.NamedTemporaryFile() as ff:
+    tmpfile = tempfile.mktemp()
+    with open(tmpfile, 'wb') as ff: 
         
         # generate TPM-format data
         pos = numpy.random.random(size=(1024, 3)).astype('f4')
@@ -33,3 +34,5 @@ def test_data(comm):
         # check wrong precision
         try: f = TPMBinaryFile(ff.name, precision='f16')
         except ValueError: pass
+        
+    os.remove(tmpfile)
