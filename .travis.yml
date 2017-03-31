@@ -41,16 +41,13 @@ install:
     # install base dependencies
     - conda install --yes --file requirements-extras.txt
     
-    # install nbodykit itself (developer mode here to run tests with coverage)
-    - pip install -e .[extras]
+    # install nbodykit itself
+    - pip install .[extras]
 
 script:
-    # run with coverage (using nbodykit/ in current directory)
-    - mpirun -n 4 coverage run -p --source=nbodykit runtests.py --mpisub
+    - python runtests.py --mpirun='mpirun -n 4' --with-coverage
 
 after_success:
-    # combine parallel coverage and report to coveralls
-    - coverage combine
     - coveralls
 
 deploy:
