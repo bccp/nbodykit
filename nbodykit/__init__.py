@@ -83,8 +83,3 @@ def setup_logging(log_level="info"):
 
     _logging_handler.setFormatter(fmt)
     logger.setLevel(levels[log_level])
-
-
-from numpy.testing import Tester
-test = Tester().test
-bench = Tester().bench
