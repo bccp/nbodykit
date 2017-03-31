@@ -1,14 +1,20 @@
-from nbodykit.extern.six import add_metaclass
+from nbodykit.extern.six import add_metaclass, string_types
 from nbodykit.transform import ConstantArray
 
 import abc
 import numpy
 import logging
 import warnings
+import dask.array as da
 
+# default size of Cache for ParticleSource arrays
 CACHE_SIZE = 1e9
 
+
 def column(name=None):
+    """
+    Decorator that defines a function as a column in a ParticleSource
+    """
     def decorator(getter):
         getter.column_name = name
         return getter
@@ -21,9 +27,20 @@ def column(name=None):
     else:
         return decorator
 
+
 def find_columns(cls):
+    """
+    Find all hard-coded column names associated with the input class
+    
+    Returns
+    -------
+    hardcolumns : set
+        a set of the names of all hard-coded columns for the
+        input class ``cls``
+    """
     hardcolumns = []
     
+    # search through the class dict for columns
     for key, value in cls.__dict__.items():
          if hasattr(value, 'column_name'):
             hardcolumns.append(value.column_name)
@@ -34,7 +51,18 @@ def find_columns(cls):
 
     return list(sorted(set(hardcolumns)))
 
+
 def find_column(cls, name):
+    """
+    Find a specific column ``name`` of an input class, or raise
+    an exception if it does not exist
+    
+    Returns
+    -------
+    column : callable
+        the callable that returns the column data
+    """
+    # first search through class
     for key, value in cls.__dict__.items():
         if not hasattr(value, 'column_name'): continue
         if value.column_name == name: return value
@@ -43,27 +71,41 @@ def find_column(cls, name):
         try: return find_column(base, name)
         except: pass
         
-    raise AttributeError("Column %s not found in class %s." % (name, str(cls)))
+    args = (name, str(cls))
+    raise AttributeError("unable to find column '%s' for '%s'" % args)
+
 
 @add_metaclass(abc.ABCMeta)
 class ParticleSource(object):
     """
-    Base class for a source of input particles
+    An abstract base class for a source of particles. This objects behaves
+    like a structured numpy array -- it must have well-defined size
+    when initialized. The ``size`` here represents the number of particles
+    in the source. 
     
-    This combines the process of reading and painting
+    Subclasses of this class must define a ``size`` property.
+    
+    The class stores a series of columns as dask arrays, which can be accessed
+    in a dict-like fashion. 
+    
+    The class handles the generation of particle data, either reading
+    from disk or generating at runtime, and provides the interface for
+    creating a ``ParticleMesh``. The mesh handles the gridding of discrete
+    particle data on to a continuous mesh of cells. 
     """
     logger = logging.getLogger('ParticleSource')
 
     @staticmethod
     def make_column(array):
-        """ convert a numpy array to a column object (dask.array.Array) """
-        import dask.array as da
+        """ 
+        Utility function to convert a numpy array to a column object 
+        (dask.array.Array) 
+        """
         if isinstance(array, da.Array):
             return array
         else:
             return da.from_array(array, chunks=100000)
 
-    # called by the subclasses
     def __init__(self, comm, use_cache=False):
         
         # ensure self.comm is set, though usually already set by the child.
@@ -72,82 +114,160 @@ class ParticleSource(object):
         # initialize a cache
         self.use_cache = use_cache
         
-        # initial dicts of overrided and fallback columns
+        # user-provided overrides for columns
         self._overrides = {}
-        self._fallbacks = {}
         
         # if size is already computed update csize
         # otherwise the subclass shall call update_csize explicitly.
         if self.size is not NotImplemented:
             self.update_csize()
+                        
+    def __len__(self):
+        """
+        The length of ParticleSource is equal to :attr:`size`; this is the 
+        local size of the source on a given rank
+        """
+        return self.size
+
+    def __iter__(self):
+        return iter(self.columns)
+
+    def __contains__(self, col):
+        return col in self.columns
+    
+    def __getitem__(self, sel):
+        """
+        The following types of indexing supported are supported
+        for ParticleSource:
+        
+            1.  strings specifying a column in the ParticleSource; returns
+                a dask array holding the column data
+            2.  boolean arrays specifying a slice of the ParticleSource; 
+                returns a SlicedParticleSource holding only the revelant slice
+            3.  slice object specifying which particles to select
+        """
+        # handle boolean array slices
+        if not isinstance(sel, string_types):
+            
+            # convert slices to boolean arrays
+            if isinstance(sel, (slice, list)):
+                
+                # list must be all integers
+                if isinstance(sel, list) and not numpy.array(sel).dtype == numpy.integer:
+                    raise KeyError("array-like indexing via a list should be a list of integers")
+                
+                index = numpy.zeros(self.size, dtype='?')
+                index[sel] = True; sel = index
+
+            # do the slicing
+            if not numpy.isscalar(sel):
+                return SliceParticleSource(self, sel)
+            else:
+                raise KeyError("strings and boolean arrays are the only supported indexing methods")
+            
+        # get the right column
+        if sel in self._overrides:
+            r = self._overrides[sel]
+        elif sel in self.hardcolumns:
+            r = self.get_hardcolumn(sel)
+        else:
+            raise KeyError("column `%s` is not defined in this source; " %sel + \
+                            "try adding column via `source[column] = data`")
+        
+        # evaluate callables if we need to
+        if callable(r): r = r()
+        
+        # add a column attrs dict
+        if not hasattr(r, 'attrs'): r.attrs = {}        
+        
+        return r
+    
+    def __setitem__(self, col, value):
+        """
+        Add columns to the ParticleSource, overriding any existing columns
+        with the name ``col``
+        """
+        # handle scalar values
+        if numpy.isscalar(value):
+            assert self.size is not NotImplemented, "size is not implemented! cannot set scalar array"
+            value = ConstantArray(value, self.size, chunks=100000)
+        
+        # check the correct size, if we know the size
+        if self.size is not NotImplemented:
+            assert len(value) == self.size, "error setting column, data must be array of size %d" %self.size
+        
+        # add the column to the overrides dict
+        self._overrides[col] = self.make_column(value)
+    
+    @abc.abstractproperty
+    def size(self):
+        """
+        The number of particles in the source on the local rank. This 
+        property must be defined for all subclasses
+        """
+        return NotImplemented
 
     @property
     def use_cache(self):
+        """
+        If set to ``True``, use the builtin cache features of ``dask``
+        to cache data in memory
+        """
         return self._use_cache
         
     @use_cache.setter
     def use_cache(self, val):
+        """
+        Initialize a Cache object of size set by ``CACHE_SIZE``, which
+        is 1 GB by default
+        """
         if val:
             try:
-                # try to add a Cache if we don't have one yet
                 from dask.cache import Cache
                 if not hasattr(self, '_cache'):
                     self._cache = Cache(CACHE_SIZE)
             except ImportError:
                 warnings.warn("caching of ParticleSource requires ``cachey`` module; turning cache off")
         else:
-            if hasattr(self, '_cache'):
-                delattr(self, '_cache')
+            if hasattr(self, '_cache'): delattr(self, '_cache')
         self._use_cache = val
                 
-    def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4',
-            interlaced=False, compensated=False, window='cic',
-            weight='Weight', selection='Selection'
-             ):
+    @property
+    def hardcolumns(self):
         """ 
-            Convert the ParticleSource to a MeshSource
-
-            FIXME: probably add Position, Weight and Selection column names
-
+        A list of the hard-coded columns in the Source. These are usually 
+        member functions marked by @column decorator.
+        
+        Subclasses may override this method and :func:`get_hardcolumn` to bypass
+        the decorator logic.
         """
-        from nbodykit.base.particlemesh import ParticleMeshSource
+        try:
+            self._hardcolumns
+        except AttributeError:
+            self._hardcolumns = find_columns(self.__class__)
+        return self._hardcolumns
 
-        if BoxSize is None:
-            try:
-                BoxSize = self.attrs['BoxSize']
-            except KeyError:
-                raise ValueError("cannot convert particle source to a mesh; "
-                                 "'BoxSize' keyword is not supplied and the particle source does not define one in 'attrs'.")
-
-        if Nmesh is None:
-            try:
-                Nmesh = self.attrs['Nmesh']
-            except KeyError:
-                raise ValueError("cannot convert particle source to a mesh; " 
-                                  "'Nmesh' keyword is not supplied and the particle source does not define one in 'attrs'.")
-
-        r = ParticleMeshSource(self, Nmesh=Nmesh, BoxSize=BoxSize, dtype=dtype, weight=weight, selection=selection)
-
-        r.interlaced = interlaced
-        r.compensated = compensated
-        r.window = window
-        return r
-
-    def update_csize(self):
-        """ set the collective size
-
-            Call this function in __init__ of subclass, 
-            after .size is a valid value (not NotImplemented)
+    @property
+    def columns(self):
         """
-        self._csize = self.comm.allreduce(self.size)
+        All columns in this Source, which include:
+        
+            1.  the columns hard-coded into the class's defintion
+            2.  override columns provided by the user
+        """
+        hcolumns  = list(self.hardcolumns)
+        overrides = list(self._overrides) 
+        return sorted(set(hcolumns + overrides))
 
-        if self.comm.rank == 0:
-            self.logger.debug("rank 0, local number of particles = %d" % self.size)
-            self.logger.info("total number of particles = %d" % self.csize)
-
-        # defaults (these save memory by using ConstantArray)
-        self._fallbacks['Selection'] = ConstantArray(True, self.size, chunks=100000)
-        self._fallbacks['Weight']    = ConstantArray(1.0, self.size, chunks=100000)
+    @property
+    def csize(self):
+        """
+        The total, collective size of the Source, i.e., summed across all 
+        ranks.
+        
+        It is the sum of :attr:`size` across all available ranks.
+        """
+        return self._csize
 
     @property
     def attrs(self):
@@ -159,7 +279,57 @@ class ParticleSource(object):
         except AttributeError:
             self._attrs = {}
             return self._attrs
-            
+    
+    @column
+    def Selection(self):
+        """
+        Override the ``Selection`` column to select a subset slice of a 
+        ParticleSource. 
+        
+        By default, this column is set to ``True`` for all particles.
+        """
+        return ConstantArray(True, self.size, chunks=100000)
+        
+    @column
+    def Weight(self):
+        """
+        When interpolating a ParticleSource on to a mesh, the value of this
+        array is used as the Weight that each particle contributes to a given 
+        mesh cell.
+        
+        By default, this array is set to unity for all particles
+        """
+        return ConstantArray(1.0, self.size, chunks=100000)
+        
+    def get_hardcolumn(self, col):
+        """
+        Construct and return a hard-coded column. These are usually produced by calling
+        member functions marked by the @column decorator.
+
+        Subclasses may override this method and the hardcolumns attribute to bypass
+        the decorator logic.
+        """
+        return find_column(self.__class__, col)(self)
+        
+    def update_csize(self):
+        """ 
+        Set the collective size, :attr:`csize`
+
+        This function should be called in :func:`__init__` of a subclass, 
+        after :attr:`size` has been set to a valid value (not ``NotImplemented``)
+        """
+        if self.size is NotImplemented:
+            raise ValueError(("``size`` cannot be NotImplemented when trying "
+                              "to compute collective size `csize`"))
+        
+        # sum size across all ranks
+        self._csize = self.comm.allreduce(self.size)
+
+        # log some info
+        if self.comm.rank == 0:
+            self.logger.debug("rank 0, local number of particles = %d" %self.size)
+            self.logger.info("total number of particles in %s = %d" %(str(self), self.csize))
+
     def compute(self, *args, **kwargs):
         """
         Our version of :func:`dask.compute` that computes
@@ -184,9 +354,10 @@ class ParticleSource(object):
         """
         import dask
         
-        # XXX find a better place for this function
+        # do not optimize graph (can lead to slower optimizations)
         kwargs.setdefault('optimize_graph', False)
         
+        # use a cache?
         if self.use_cache and hasattr(self, '_cache'):
             with self._cache:
                 toret = dask.compute(*args, **kwargs)
@@ -196,87 +367,32 @@ class ParticleSource(object):
         # do not return tuples of length one
         if len(toret) == 1: toret = toret[0]
         return toret
-
-    def __len__(self):
-        """
-        The length of ParticleSource is equal to :attr:`size`; this is the 
-        local size of the source on a given rank
-        """
-        return self.size
-
-    def __contains__(self, col):
-        return col in self.columns
-
-    @property
-    def hardcolumns(self):
-        """ a list of hard coded columns.
-            These are usually member functions marked by @column decorator.
-
-            Subclasses may override this method and get_hardcolumn to bypass
-            the decorator logic.
-        """
-        try:
-            self._hardcolumns
-        except AttributeError:
-            
-            self._hardcolumns = find_columns(self.__class__)
-        return self._hardcolumns
-
-    def get_hardcolumn(self, col):
-        """ construct and return a hard coded column.
-            These are usually produced by calling member functions marked by @column decorator.
-
-            Subclasses may override this method and the hardcolumns attribute to bypass
-            the decorator logic.
-        """
-        return find_column(self.__class__, col)(self)
-
-
-    @property
-    def columns(self):
-        """
-        The names of the data fields defined for each particle, including overriden columns and fallback columns
-        """
-        return sorted(set(list(self.hardcolumns) + list(self._overrides) + list(self._fallbacks)))
-
-    @property
-    def csize(self):
-        """
-        The collective size of the source, i.e., summed across all ranks
-        """
-        return self._csize
-
-    @abc.abstractproperty
-    def size(self):
-        """
-        The number of particles in the source on the local rank.
-        """
-        return NotImplemented
-
-    def __getitem__(self, col):
-        if col in self._overrides:
-            r = self._overrides[col]
-        elif col in self.hardcolumns:
-            r = self.get_hardcolumn(col)
-        elif col in self._fallbacks:
-            r = self._fallbacks[col]
-        else:
-            raise KeyError("column `%s` is not defined in this source; try adding column via `source[column] = data`" %col)
         
-        if callable(r): r = r()
-        if not hasattr(r, 'attrs'):
-            r.attrs = {}        
-        return r
-
     def save(self, output, columns, datasets=None, header='Header'):
-        """ Save the data source to a bigfile.
+        """ 
+        Save the ParticleSource to a :class:`bigfile.BigFile`
+        
+        Only the selected columns are saved and :attr:`attrs` are saved in 
+        ``header``. The attrs of columns are stored in the datasets.
 
-            selected columns are saved. attrs are saved in header.
-            attrs of columns are stored in the datasets.
+        Parameters
+        ----------
+        output : str
+            the name of the file to write to
+        columns : list of str
+            the names of the columns to save in the file
+        datasets : list of str, optional
+            names for the data set where each column is stored; defaults to 
+            the name of the column
+        header : str, optional
+            the name of the data set holding the header information, where
+            :attr:`attrs` is stored
         """
         import bigfile
-        if datasets is None:
-            datasets = columns
+        
+        if datasets is None: datasets = columns    
+        if len(datasets) != columns:
+            raise ValueError("`datasets` must have the same length as `columns`")
 
         with bigfile.BigFileMPI(comm=self.comm, filename=output, create=True) as ff:
             try:
@@ -295,27 +411,142 @@ class ParticleSource(object):
                         for key in c.attrs:
                             bb.attrs[key] = c.attrs[key]
 
-    def __setitem__(self, col, value):
-
-        # handle scalar values
-        if numpy.isscalar(value):
-            assert self.size is not NotImplemented, "size is not implemented! cannot set scalar array"
-            value = ConstantArray(value, self.size, chunks=100000)
-        
-        # check the correct size, if we know the size
-        if self.size is not NotImplemented:
-            assert len(value) == self.size, "error setting column, data must be array of size %d" %self.size
-        self._overrides[col] = self.make_column(value)
-
     def read(self, columns):
         """
         Return the requested columns as dask arrays
-
-        Currently, this returns a dask array holding the total amount
-        of data for each rank, divided equally amongst the available ranks
+        
+        Parameters
+        ----------
+        columns : list of str
+            the names of the requested columns
+        
+        Returns
+        -------
+        list of dask.array.Array : 
+            the list of column data, in the form of dask arrays
         """
         missing = set(columns) - set(self.columns)
         if len(missing) > 0:
-            raise ValueError("source does not contain columns: %s; try adding columns via `source[column] = data`" %str(missing))
+            raise ValueError("source does not contain columns: %s; " %str(missing) + \
+                             "try adding columns via `source[column] = data`")
 
         return [self[col] for col in columns]
+    
+    def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4', 
+                interlaced=False, compensated=False, window='cic',
+                weight='Weight', selection='Selection'):
+        """ 
+        Convert the ParticleSource to a MeshSource
+                
+        Parameters
+        ----------
+        Nmesh : int, optional
+            the number of cells per side on the mesh; must be provided if
+            not stored in :attr:`attrs`
+        BoxSize : scalar, 3-vector, optional
+            the size of the box; must be provided if
+            not stored in :attr:`attrs`
+        dtype : string, optional
+            the data type of the mesh array
+        interlaced : bool, optional
+            use the interlacing technique of Sefusatti et al. 2015 to reduce 
+            the effects of aliasing on Fourier space quantities computed
+            from the mesh
+        compensated : bool, optional
+            whether to correct for the window introduced by the grid 
+            interpolation scheme
+        window : str, optional
+            the string specifying which window interpolation scheme to use; 
+            see `pmesh.window.methods`
+        weight : str, optional
+            the name of the column specifying the weight for each particle
+        selection : str, optional
+            the name of the column that specifies which (if any) slice
+            of the ParticleSource to take
+                
+        Returns
+        -------
+        mesh : ParticleMeshSource
+            a mesh object that provides an interface for gridding particle
+            data onto a specified mesh
+        """
+        from nbodykit.base.particlemesh import ParticleMeshSource
+        from pmesh.window import methods
+        
+        if window not in methods:
+            raise ValueError("valid window methods: %s" %str(methods))
+        
+        if BoxSize is None:
+            try:
+                BoxSize = self.attrs['BoxSize']
+            except KeyError:
+                raise ValueError(("cannot convert particle source to a mesh; "
+                                  "'BoxSize' keyword is not supplied and the ParticleSource "
+                                  "does not define one in 'attrs'."))
+        if Nmesh is None:
+            try:
+                Nmesh = self.attrs['Nmesh']
+            except KeyError:
+                raise ValueError(("cannot convert particle source to a mesh; " 
+                                  "'Nmesh' keyword is not supplied and the ParticleSource " 
+                                  "does not define one in 'attrs'."))
+
+        r = ParticleMeshSource(self, Nmesh=Nmesh, BoxSize=BoxSize, 
+                                dtype=dtype, weight=weight, selection=selection)
+        r.interlaced = interlaced
+        r.compensated = compensated
+        r.window = window
+        return r
+  
+        
+def SliceParticleSource(parent, index):
+    """
+    Slice a `ParticleSource` according to a boolean index array, 
+    returning a new ParticleSource holding only the data that satisfies 
+    the slice criterion
+    
+    Parameters
+    ----------
+    parent : ParticleSource
+        the parent source that will be sliced
+    index : array_like
+        either a dask or numpy boolean array; this determines which
+        rows are included in the returned object
+    
+    Returns
+    -------
+    sliced : SlicedParticleSource
+        the particle source with the same meta-data as `parent`, and
+        with the sliced data arrays
+    """  
+    # compute the index slice if needed and get the size
+    if isinstance(index, da.Array):
+        index = parent.compute(index)
+    elif isinstance(index, list):
+        index = numpy.array(index)
+    
+    # verify the index is a boolean array
+    if len(index) != len(parent):
+        raise ValueError("slice index has length %d; should be %d" %(len(index), len(parent)))
+    if getattr(index, 'dtype', None) != '?':
+        raise ValueError("index used to slice ParticleSource must be boolean and array-like")
+    
+    # new size is just number of True entries
+    size = index.sum()
+    
+    class SlicedParticleSource(ParticleSource):
+        @property
+        def size(self):
+            return size
+            
+    # initialize empty Source of right size
+    toret = SlicedParticleSource(parent.comm, use_cache=parent.use_cache)
+    
+    # copy over columns
+    for column in parent:
+        toret[column] = parent[column][index]
+    
+    # and the meta-data
+    toret.attrs.update(parent.attrs)
+    
+    return toret

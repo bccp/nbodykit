@@ -3,7 +3,7 @@ import numbers
 from mpi4py import MPI
 
 from pmesh.pm import RealField, ComplexField
-from nbodykit.meshtools import SlabIterator
+from nbodykit.utils.mesh import SlabIterator
 from nbodykit.utils import GatherArray, ScatterArray
 
 def gaussian_complex_fields(pm, linear_power, seed, remove_variance=False, compute_displacement=False):

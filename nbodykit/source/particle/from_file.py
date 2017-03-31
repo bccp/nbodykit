@@ -58,7 +58,8 @@ class File(ParticleSource):
         """
         The union of the columns in the file and any transformed columns
         """
-        return list(self._source.dtype.names)
+        defaults = ParticleSource.hardcolumns.fget(self)
+        return list(self._source.dtype.names) + defaults
 
     def get_hardcolumn(self, col):
         """
@@ -66,7 +67,12 @@ class File(ParticleSource):
 
         Columns are returned as dask arrays
         """
-        start = self.comm.rank * self._source.size // self.comm.size
-        end = (self.comm.rank  + 1) * self._source.size // self.comm.size
-        return self._source.get_dask(col)[start:end]
+        if col in self._source.dtype.names: 
+            start = self.comm.rank * self._source.size // self.comm.size
+            end = (self.comm.rank  + 1) * self._source.size // self.comm.size
+            return self._source.get_dask(col)[start:end]
+        else:
+            return ParticleSource.get_hardcolumn(self, col)
+            
+
 

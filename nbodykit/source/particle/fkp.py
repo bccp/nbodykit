@@ -251,11 +251,11 @@ class FKPCatalog(ParticleSource):
             self.data.use_cache = True
             self.randoms.use_cache = True
                     
-        # define the fallbacks new weight columns: FKPWeight and TotalWeight
+        # add new weight columns: FKPWeight and TotalWeight
         import dask.array as da
         for source in [self.data, self.randoms]:
-            source._fallbacks['FKPWeight'] = ConstantArray(1.0, source.size, chunks=100000)
-            source._fallbacks['TotalWeight'] = ConstantArray(1.0, source.size, chunks=100000)
+            source['FKPWeight'] = ConstantArray(1.0, source.size, chunks=100000)
+            source['TotalWeight'] = ConstantArray(1.0, source.size, chunks=100000)
             
         # prefixed columns in this source return on-demand from "data" or "randoms"
         for name in ['data', 'randoms']:
