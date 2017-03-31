@@ -16,3 +16,4 @@ def test_fgpa(comm):
 
     fgpa = FGPA(source2, 1.0, 1.0, 100, 0)
 
+    assert_array_equal(fgpa.tau_red, 0)
