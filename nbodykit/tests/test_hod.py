@@ -1,4 +1,4 @@
-from mpi4py_test import MPITest
+from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 
