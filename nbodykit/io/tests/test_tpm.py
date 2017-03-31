@@ -2,6 +2,7 @@ from runtests.mpi import MPITest
 from nbodykit.io.tpm import TPMBinaryFile
 import numpy
 import tempfile
+import os
 
 @MPITest([1])
 def test_data(comm):
