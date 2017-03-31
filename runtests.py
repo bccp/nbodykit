@@ -1,7 +1,6 @@
-from mpi4py_test import MPITester
-import sys
+import sys; sys.path.pop(0)
+from runtests.mpi import Tester
 import os.path
 
-tester = MPITester(os.path.abspath(__file__), "nbodykit")
-
+tester = Tester(os.path.abspath(__file__), "nbodykit")
 tester.main(sys.argv[1:])

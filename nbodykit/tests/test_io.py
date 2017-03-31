@@ -1,4 +1,4 @@
-from mpi4py_test import MPITest
+from runtests.mpi import MPITest
 import numpy
 import tempfile
 import shutil

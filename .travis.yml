@@ -30,26 +30,21 @@ install:
     # install specific numpy version and pin it
     - conda install --yes numpy=$NUMPY_VERSION 
     - echo "numpy $NUMPY_VERSION.*" >> $CONDA_PREFIX/conda-meta/pinned
-    
-    # need nose for tests
-    - conda install --yes nose
-    # need coveralls for coverage
-    - pip install coveralls
-    
+        
     # install base dependencies
     - conda install --yes --file requirements.txt
     
     # install base dependencies
     - conda install --yes --file requirements-extras.txt
     
-    # install nbodykit itself (developers may want to add -e)
+    # install nbodykit itself
     - pip install .[extras]
 
 script:
-    - python runtests.py --mpirun='mpirun -np 4' -v --coverage
+    - python runtests.py --mpirun='mpirun -n 4' --with-coverage
 
 after_success:
-    - cd build/test; coveralls
+    - coveralls
 
 deploy:
     - provider: pypi
