@@ -94,7 +94,7 @@ class FOF(object):
         # return a Source
         attrs = self._source.attrs.copy()
         attrs.update(self.attrs)
-        return Array(halos, **attrs)
+        return Array(halos, comm=self.comm, **attrs)
         
     def to_halos(self, particle_mass, cosmo, redshift, mdef='vir'):
         """
