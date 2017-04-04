@@ -37,7 +37,7 @@ def test_data(comm):
             
         # initialize the stack
         path = os.path.join(tmpdir, 'tpm.00*')
-        f = FileStack(path, TPMBinaryFile, precision='f4')
+        f = FileStack(TPMBinaryFile, path, precision='f4')
         
         # check size
         assert f.size == 2048
@@ -49,7 +49,7 @@ def test_data(comm):
         
         # pass a list
         paths = [os.path.join(tmpdir, f) for f in ['tpm.000', 'tpm.001']]
-        f = FileStack(paths, TPMBinaryFile, precision='f4')
+        f = FileStack(TPMBinaryFile, paths, precision='f4')
         
         # check size
         assert f.size == 2048
@@ -79,7 +79,7 @@ def test_single_path(comm):
                 pos[sl].tofile(ff); vel[sl].tofile(ff); uid[sl].tofile(ff)
 
         # single path
-        f = FileStack(os.path.join(tmpdir, 'tpm.000'), TPMBinaryFile, precision='f4')
+        f = FileStack(TPMBinaryFile, os.path.join(tmpdir, 'tpm.000'), precision='f4')
         assert f.size == 1024
         assert f.nfiles == 1
 
@@ -104,7 +104,7 @@ def test_bad_path(comm):
                 pos[sl].tofile(ff); vel[sl].tofile(ff); uid[sl].tofile(ff)
             
         # bad path name
-        try: f = FileStack(ff, TPMBinaryFile, precision='f4')
+        try: f = FileStack(TPMBinaryFile, ff, precision='f4')
         except: pass
         
 
