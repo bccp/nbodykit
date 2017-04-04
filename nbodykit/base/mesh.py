@@ -38,13 +38,27 @@ class MeshSource(object):
         self.attrs['Nmesh'] = self.pm.Nmesh.copy()
 
         self._actions = []
+        self.base = None
+
+    def view(self):
+        view = object.__new__(MeshSource)
+        view.comm = self.comm
+        view.dtype = self.dtype
+        view.pm = self.pm
+        view.attrs.update(self.attrs)
+        view._actions = []
+        view.actions.extend(self.actions)
+        view.base = self
+        return view
 
     @property
     def actions(self):
         return self._actions
 
     def apply(self, func, kind='wavenumber', mode='complex'):
-        self.actions.append((mode, func, kind))
+        view = self.view()
+        view.actions.append((mode, func, kind))
+        return view
 
     def __len__(self):
         """
@@ -53,9 +67,11 @@ class MeshSource(object):
         return 0
 
     def to_real_field(self):
+        if self.base is not None: return self.base.to_real_field()
         return NotImplemented
 
     def to_complex_field(self):
+        if self.base is not None: return self.base.to_complex_field()
         return NotImplemented
 
     def to_field(self, mode='real'):

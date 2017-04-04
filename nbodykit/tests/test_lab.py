@@ -46,7 +46,7 @@ def test_paint(comm):
         kk[kk == 0] = 1
         return v / kk
 
-    source.apply(filter)
+    source = source.apply(filter)
 
     real = source.paint(mode='real')
     complex = source.paint(mode='complex')
