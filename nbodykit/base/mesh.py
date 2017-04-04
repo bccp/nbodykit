@@ -139,7 +139,7 @@ class MeshSource(object):
         var.save = lambda *args, **kwargs : save(var, *args, **kwargs)
         return var
 
-    def preview(self, Nmesh=None, root=0):
+    def preview(self, axes=None, Nmesh=None, root=0):
         """ gathers the mesh into as a numpy array, with
             (reduced resolution). The result is broadcast to
             all ranks, so this uses Nmesh ** 3 per rank.
@@ -150,6 +150,9 @@ class MeshSource(object):
                 The desired Nmesh of the result. Be aware this function
                 allocates memory to hold A full Nmesh on each rank.
 
+            axes : int, array_like
+                The axes to project the preview onto., e.g. (0, 1)
+
             Returns
             -------
             out : array_like
@@ -157,23 +160,10 @@ class MeshSource(object):
 
         """
         field = self.to_field(mode='real')
-        if any(Nmesh != self.attrs['Nmesh']):
-            _Nmesh = self.attrs['Nmesh'].copy()
-            _Nmesh[:] = Nmesh
-            pm = ParticleMesh(BoxSize=self.attrs['BoxSize'],
-                                Nmesh=_Nmesh,
-                                dtype=self.dtype, comm=self.comm)
-            out = pm.create(mode='real')
-            field.resample(out)
-        else:
-            out = field
+        if Nmesh is None:
+            Nmesh = self.pm.Nmesh
 
-        from mpi4py import MPI # for inplace
-
-        r = numpy.zeros(out.cshape, out.dtype)
-        r[out.slices] = out.value
-        self.comm.Allreduce(MPI.IN_PLACE, r)
-        return r
+        return field.preview(Nmesh, axes=axes)
 
 def save(self, output, dataset='Field'):
     import bigfile
