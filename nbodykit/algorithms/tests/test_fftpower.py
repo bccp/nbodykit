@@ -10,7 +10,7 @@ setup_logging("debug")
 def test_fftpower_poles(comm):
     
     CurrentMPIComm.set(comm)
-    source = Source.UniformParticles(nbar=3e-3, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42)
     
     r = FFTPower(source, mode='2d', BoxSize=1024, Nmesh=32, poles=[0,2,4])
     pkmu = r.power['power'].real
@@ -27,7 +27,7 @@ def test_fftpower_poles(comm):
 def test_fftpower_padding(comm):
     
     CurrentMPIComm.set(comm)
-    source = Source.UniformParticles(nbar=3e-3, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42)
 
     r = FFTPower(source, mode='1d', BoxSize=1024, Nmesh=32)
     assert r.attrs['N1'] != 0
@@ -37,7 +37,7 @@ def test_fftpower_padding(comm):
 def test_fftpower_padding(comm):
     
     CurrentMPIComm.set(comm)
-    source = Source.UniformParticles(nbar=3e-3, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42)
 
     r = FFTPower(source, mode='1d', BoxSize=1024, Nmesh=32)
     assert r.attrs['N1'] != 0
@@ -47,7 +47,7 @@ def test_fftpower_padding(comm):
 def test_fftpower_save(comm):
 
     CurrentMPIComm.set(comm)
-    source = Source.UniformParticles(nbar=3e-3, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42)
 
     r = FFTPower(source, mode='2d', Nmesh=32)
     r.save('fftpower-test.json')
@@ -63,7 +63,7 @@ def test_fftpower_save(comm):
 def test_fftpower(comm):
     
     CurrentMPIComm.set(comm)
-    source = Source.UniformParticles(nbar=3e-3, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42)
 
     r = FFTPower(source, mode='1d', Nmesh=32)
     # the zero mode is cleared
@@ -76,7 +76,7 @@ def test_fftpower_mismatch_boxsize(comm):
     CurrentMPIComm.set(comm)
     
     # input sources
-    source1 = Source.UniformParticles(nbar=3e-3, BoxSize=512., seed=42)
-    source2 = Source.LinearMesh(cosmology.NoWiggleEHPower(cosmo, 0.55), BoxSize=1024, Nmesh=32, seed=33)
+    source1 = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42)
+    source2 = LinearMesh(cosmology.NoWiggleEHPower(cosmo, 0.55), BoxSize=1024, Nmesh=32, seed=33)
 
     r = FFTPower(source1, second=source2, mode='1d', BoxSize=1024, Nmesh=32)

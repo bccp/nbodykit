@@ -4,18 +4,18 @@ import abc
 import numpy
 import logging
 from nbodykit.base.mesh import MeshSource
-from nbodykit.base.particles import ParticleSource
+from nbodykit.base.catalog import CatalogSource
 
 # for converting from particle to mesh
 from pmesh import window
 from pmesh.pm import RealField, ComplexField
 
-class ParticleMeshSource(MeshSource, ParticleSource):
-    logger = logging.getLogger('ParticleMeshSource')
+class CatalogMeshSource(MeshSource, CatalogSource):
+    logger = logging.getLogger('CatalogMeshSource')
     def __repr__(self):
-        return "(%s as ParticleMeshSource)" % repr(self.source)
+        return "(%s as CatalogeMeshSource)" % repr(self.source)
 
-    # intended to be used by ParticleSource internally
+    # intended to be used by CatalogSource internally
     def __init__(self, source, BoxSize, Nmesh, dtype, weight, selection, position='Position'):
         # ensure self.comm is set, though usually already set by the child.
         self.comm = source.comm
@@ -29,7 +29,7 @@ class ParticleMeshSource(MeshSource, ParticleSource):
 
         # this will override BoxSize and Nmesh carried from the source, if there is any!
         MeshSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype=dtype, comm=source.comm)
-        ParticleSource.__init__(self, comm=source.comm)
+        CatalogSource.__init__(self, comm=source.comm)
         
         # copy over the overrides
         self._overrides.update(self.source._overrides)
@@ -90,7 +90,7 @@ class ParticleMeshSource(MeshSource, ParticleSource):
         """
         # check for 'Position' column
         if self.position not in self:
-            raise ValueError("in order to paint a ParticleSource to a RealField, add a " + \
+            raise ValueError("in order to paint a CatalogSource to a RealField, add a " + \
                               "column named '%s', representing the particle positions" %self.position)
         pm = self.pm
 

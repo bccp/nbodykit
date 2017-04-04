@@ -1,18 +1,17 @@
+from nbodykit.utils import attrs_to_dict
+from nbodykit.transform import ConstantArray
+from nbodykit.base.catalog import CatalogSource, column
+from nbodykit.base.catalogmesh import CatalogMeshSource
+
 import numpy
 import logging
 import functools
 import contextlib
-
-from nbodykit.utils import attrs_to_dict
-from nbodykit.transform import ConstantArray
-from nbodykit.base.particles import ParticleSource, column
-from nbodykit.base.particlemesh import ParticleMeshSource
-
 from pmesh.pm import RealField, ComplexField
 
-class FKPMeshSource(ParticleMeshSource):
+class FKPMeshSource(CatalogMeshSource):
     """
-    A subclass of :class:`~nbodykit.base.particlemesh.ParticleMeshSource`
+    A subclass of :class:`~nbodykit.base.catalogmesh.CatalogMeshSource`
     designed to paint the FKP density field to a mesh, given
     two catalogs, one for `data` and one for `randoms`
     """
@@ -25,7 +24,7 @@ class FKPMeshSource(ParticleMeshSource):
         self.fkp_weight  = fkp_weight
         self.nbar        = nbar
         
-        ParticleMeshSource.__init__(self, source, BoxSize, Nmesh, dtype, weight, selection)
+        CatalogMeshSource.__init__(self, source, BoxSize, Nmesh, dtype, weight, selection)
         
     @contextlib.contextmanager
     def _set_mesh(self, prefix):
@@ -68,7 +67,7 @@ class FKPMeshSource(ParticleMeshSource):
         """
         # paint -1.0*alpha*N_randoms 
         with self._set_mesh('randoms'):
-            real = ParticleMeshSource.to_real_field(self)
+            real = CatalogMeshSource.to_real_field(self)
             
         # from N/Nbar = 1+delta to un-normalized number
         real[:] *= real.attrs['N'] / numpy.prod(self.pm.Nmesh)
@@ -102,7 +101,7 @@ class FKPMeshSource(ParticleMeshSource):
 
         # paint the data
         with self._set_mesh('data'):
-            real2 = ParticleMeshSource.to_real_field(self)
+            real2 = CatalogMeshSource.to_real_field(self)
         
         # from N/Nbar = 1+delta to un-normalized number 
         real2[:] *= real2.attrs['N'] / numpy.prod(self.pm.Nmesh)
@@ -199,15 +198,15 @@ def FKPColumn(self, which, col):
     source = getattr(self, which)
     return source[col]
 
-class FKPCatalog(ParticleSource):
+class FKPCatalog(CatalogSource):
     """
-    Combine a ``data`` ParticleSource and a ``randoms`` ParticleSource
+    Combine a ``data`` CatalogSource and a ``randoms`` CatalogSource
     into a single unified Source
     
     This main functionality of this class is:
     
         *   provide a uniform interface to accessing columns from the 
-            `data` ParticleSource and `randoms` ParticleSource, using
+            `data` CatalogSource and `randoms` CatalogSource, using
             column names prefixed with "data." or "randoms."
         *   compute the shared :attr:`BoxSize` of the Source, by
             finding the maximum Cartesian extent of the `randoms`
@@ -218,9 +217,9 @@ class FKPCatalog(ParticleSource):
         """
         Parameters
         ----------
-        data : ParticleSource
+        data : CatalogSource
             the Source of particles representing the `data` catalog
-        randoms : ParticleSource
+        randoms : CatalogSource
             the Source of particles representing the `randoms` catalog
         BoxSize : float, 3-vector; optional
             the size of the Cartesian box to use for the unified `data` and 
@@ -244,18 +243,18 @@ class FKPCatalog(ParticleSource):
         self.attrs.update(attrs_to_dict(randoms, 'randoms.'))
         
         # init the base class
-        ParticleSource.__init__(self, comm=self.comm, use_cache=use_cache)
+        CatalogSource.__init__(self, comm=self.comm, use_cache=use_cache)
         
         # turn on cache?
         if self.use_cache:
             self.data.use_cache = True
             self.randoms.use_cache = True
                     
-        # define the fallbacks new weight columns: FKPWeight and TotalWeight
+        # add new weight columns: FKPWeight and TotalWeight
         import dask.array as da
         for source in [self.data, self.randoms]:
-            source._fallbacks['FKPWeight'] = ConstantArray(1.0, source.size, chunks=100000)
-            source._fallbacks['TotalWeight'] = ConstantArray(1.0, source.size, chunks=100000)
+            source['FKPWeight'] = ConstantArray(1.0, source.size, chunks=100000)
+            source['TotalWeight'] = ConstantArray(1.0, source.size, chunks=100000)
             
         # prefixed columns in this source return on-demand from "data" or "randoms"
         for name in ['data', 'randoms']:
@@ -283,7 +282,7 @@ class FKPCatalog(ParticleSource):
         
     def _define_cartesian_box(self):
         """
-        Internal function to put the :attr:`randoms` ParticleSource in a Cartesian box
+        Internal function to put the :attr:`randoms` CatalogSource in a Cartesian box
     
         This function add two necessary attribues:
     

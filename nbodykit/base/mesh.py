@@ -2,7 +2,6 @@ from nbodykit.extern.six import add_metaclass
 import abc
 import numpy
 import logging
-
 from pmesh.pm import ParticleMesh, RealField, ComplexField
 
 @add_metaclass(abc.ABCMeta)

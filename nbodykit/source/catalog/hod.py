@@ -1,6 +1,6 @@
+from nbodykit.base.catalog import column
+from nbodykit.source.catalog.array import ArrayCatalog
 from nbodykit import CurrentMPIComm
-from nbodykit.base.particles import column
-from nbodykit.source.particle.from_numpy import Array
 from nbodykit.utils import GatherArray, ScatterArray
 from nbodykit.extern.six import add_metaclass
 
@@ -18,7 +18,7 @@ def remove_object_dtypes(data):
     return data
         
 @add_metaclass(abc.ABCMeta)
-class HODBase(Array):
+class HODBase(ArrayCatalog):
     """
     A base class to be used for HOD population of a halo catalog.
     
@@ -97,7 +97,7 @@ class HODBase(Array):
             self._model.param_dict[param] = self.attrs[param]
             
         # make the actual source
-        Array.__init__(self, self._makesource(), comm=comm, use_cache=use_cache)
+        ArrayCatalog.__init__(self, self._makesource(), comm=comm, use_cache=use_cache)
             
         # crash with no particles!
         if self.csize == 0:
@@ -194,7 +194,7 @@ class HODBase(Array):
             self._log_populated_stats(data)
         
         # re-initialize with new source
-        Array.__init__(self, ScatterArray(data, self.comm), comm=self.comm, use_cache=self.use_cache)
+        ArrayCatalog.__init__(self, ScatterArray(data, self.comm), comm=self.comm, use_cache=self.use_cache)
         
     def _log_populated_stats(self, data):
         """
@@ -237,9 +237,9 @@ class HODBase(Array):
         rsd_factor = (1+z) / (100*self.cosmo.efunc(z))
         return self['Velocity'] * rsd_factor
 
-class HOD(HODBase):
+class HODCatalog(HODBase):
     """
-    A `ParticleSource` that uses the HOD prescription of 
+    A `CatalogSource` that uses the HOD prescription of 
     Zheng et al. 2007 to populate an input halo catalog with galaxies, 
     and returns the (Position, Velocity) of those galaxies
     

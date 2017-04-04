@@ -1,8 +1,8 @@
-from nbodykit.base.particles import ParticleSource, column
+from nbodykit.base.catalog import CatalogSource, column
 from nbodykit import transform
 import numpy
 
-class HaloCatalog(ParticleSource):
+class HaloCatalog(CatalogSource):
     """
     A wrapper Source class to interface nicely with 
     :class:`halotools.sim_manager.UserSuppliedHaloCatalog`
@@ -13,7 +13,7 @@ class HaloCatalog(ParticleSource):
         """
         Parameters
         ----------
-        source : ParticleSource
+        source : CatalogSource
             the source holding the particles to be interpreted as halos
         particle_mass : float
             the 
@@ -49,7 +49,7 @@ class HaloCatalog(ParticleSource):
         self.attrs['mdef']     = mdef
                 
         # init the base class
-        ParticleSource.__init__(self, comm=comm, use_cache=use_cache)
+        CatalogSource.__init__(self, comm=comm, use_cache=use_cache)
         
     @property
     def size(self):

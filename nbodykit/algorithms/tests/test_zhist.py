@@ -16,7 +16,7 @@ def test_save(comm):
     cosmo = cosmology.Planck15
     
     # create the source
-    source = Source.RandomParticles(N, seed=42)
+    source = RandomCatalog(N, seed=42)
     source['z'] = source.rng.normal(loc=0.5, scale=0.1, size=source.size)
     
     # compute the histogram
@@ -43,7 +43,7 @@ def test_unweighted(comm):
     cosmo = cosmology.Planck15
     
     # create the source
-    source = Source.RandomParticles(N, seed=42)
+    source = RandomCatalog(N, seed=42)
     source['z'] = source.rng.normal(loc=0.5, scale=0.1, size=source.size)
     
     # compute the histogram
@@ -62,7 +62,7 @@ def test_weighted(comm):
     cosmo = cosmology.Planck15
     
     # create the source
-    source = Source.RandomParticles(N, seed=42)
+    source = RandomCatalog(N, seed=42)
     source['z'] = source.rng.normal(loc=0.5, scale=0.1, size=source.size)
     source['weight'] = source.rng.uniform(0, high=1., size=source.size)
     

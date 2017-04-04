@@ -1,21 +1,26 @@
-from nbodykit.base.particles import ParticleSource
+from nbodykit.base.catalog import CatalogSource
 from nbodykit import CurrentMPIComm
 import numpy
 
-class Array(ParticleSource):
+class ArrayCatalog(CatalogSource):
     """
-    A source of particles from numpy array
+    A catalog source initialized from a :mod:`numpy` array
     """
     @CurrentMPIComm.enable
     def __init__(self, data, comm=None, use_cache=False, **kwargs):
         """
         Parameters
         ----------
-        comm : MPI.Communicator
-            the MPI communicator
         data : numpy.array
-            a structured array holding the 
-        
+            a structured numpy array; fields of the array are interpreted
+            as the columns of the catalog
+        comm : MPI Communicator, optional
+            the MPI communicator instance; default (``None``) sets to the
+            current communicator  
+        use_cache : bool, optional
+            whether to cache data read from disk; default is ``False``
+        **kwargs : 
+            additional keywords to store as meta-data in :attr:`attrs`
         """
         self.comm    = comm
         self._source = data
@@ -28,10 +33,10 @@ class Array(ParticleSource):
             if any(dt != dtypes[0] for dt in dtypes):
                 raise ValueError("mismatch between dtypes across ranks in Array")
         
+        CatalogSource.__init__(self, comm=comm, use_cache=use_cache)
+        
         # update the meta-data
         self.attrs.update(kwargs)
-
-        ParticleSource.__init__(self, comm=comm, use_cache=use_cache)
 
     @property
     def size(self):
@@ -42,7 +47,7 @@ class Array(ParticleSource):
         """
         The union of the columns in the file and any transformed columns
         """
-        defaults = ParticleSource.hardcolumns.fget(self)
+        defaults = CatalogSource.hardcolumns.fget(self)
         return list(self._source.dtype.names) + defaults
 
     def get_hardcolumn(self, col):
@@ -54,5 +59,5 @@ class Array(ParticleSource):
         if col in self._source.dtype.names: 
             return self.make_column(self._source[col])
         else:
-            return ParticleSource.get_hardcolumn(self, col)
+            return CatalogSource.get_hardcolumn(self, col)
 

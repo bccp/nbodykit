@@ -1,6 +1,6 @@
 from nbodykit import CurrentMPIComm
-from nbodykit.base.particles import ParticleSource
-from nbodykit.source import Array
+from nbodykit.base.catalog import CatalogSource
+from nbodykit.source import ArrayCatalog
 
 from nbodykit.transform import SkyToUnitSphere
 import numpy
@@ -41,14 +41,14 @@ class FiberCollisions(object):
             the random seed
         """
         # compute the pos
-        ra = ParticleSource.make_column(ra)
-        dec = ParticleSource.make_column(dec)
+        ra = CatalogSource.make_column(ra)
+        dec = CatalogSource.make_column(dec)
         pos = SkyToUnitSphere(ra, dec, degrees=degrees).compute()
         
         # make the source
         dt = numpy.dtype([('Position', (pos.dtype.str, 3))])
         pos = numpy.squeeze(pos.view(dtype=dt))
-        source = Array(pos, BoxSize=numpy.array([2., 2., 2.]))
+        source = ArrayCatalog(pos, BoxSize=numpy.array([2., 2., 2.]))
         
         self.source = source
         self.comm = source.comm
@@ -116,7 +116,7 @@ class FiberCollisions(object):
         for col, x in d: result[col] = x
         
         # make a particle source
-        self.labels = Array(result, comm=self.comm, **self.source.attrs)
+        self.labels = ArrayCatalog(result, comm=self.comm, **self.source.attrs)
 
     def _assign_fibers(self, Label):
         """

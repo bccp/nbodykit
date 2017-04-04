@@ -14,7 +14,7 @@ def test_hod(comm):
     BoxSize = 512
 
     # lognormal particles
-    source = Source.LogNormal(Plin=cosmology.EHPower(cosmo, redshift),
+    source = LogNormalCatalog(Plin=cosmology.EHPower(cosmo, redshift),
                                 nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
     
     # run FOF
@@ -22,7 +22,7 @@ def test_hod(comm):
     halos = r.to_halos(cosmo=cosmo, redshift=redshift, particle_mass=1e12, mdef='vir')
         
     # make the HOD catalog from halotools catalog
-    hod = Source.HOD(halos.to_halotools(), seed=42)
+    hod = HODCatalog(halos.to_halotools(), seed=42)
         
     # RSD offset in 'z' direction
     hod['Position'] += hod['VelocityOffset'] * [0, 0, 1]

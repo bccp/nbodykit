@@ -1,10 +1,10 @@
-from nbodykit.base.particles import ParticleSource, column
+from nbodykit.base.catalog import CatalogSource, column
 from nbodykit import CurrentMPIComm
 
 from numpy.random import RandomState
 import numpy
-from contextlib import contextmanager
-from functools import wraps
+import functools
+import contextlib
 
 N_PER_SEED = 100000
 
@@ -15,7 +15,7 @@ def _mpi_enabled_rng(func):
     
     Designed to be used with :class:`MPIRandomState`
     """
-    @wraps(func)
+    @functools.wraps(func)
     def func_wrapper(*args, **kwargs):
     
         self = func.__self__
@@ -112,7 +112,7 @@ class MPIRandomState(RandomState):
             attr = _mpi_enabled_rng(attr)
         return attr
     
-    @contextmanager
+    @contextlib.contextmanager
     def seeded_context(self, seed):
         """
         A context manager to set and then restore the random seed
@@ -122,9 +122,9 @@ class MPIRandomState(RandomState):
         yield
         self.set_state(startstate)
     
-class RandomParticles(ParticleSource):
+class RandomCatalog(CatalogSource):
     """
-    A source of particles that can have columns added via a 
+    A catalog source that can have columns added via a 
     collective random number generator
     
     The random number generator stored as :attr:`rng` behaves
@@ -133,7 +133,7 @@ class RandomParticles(ParticleSource):
     the number of ranks
     """
     def __repr__(self):
-        return "RandomParticles(seed=%(seed)s)" % self.attrs
+        return "RandomCatalog(seed=%(seed)s)" % self.attrs
 
     @CurrentMPIComm.enable
     def __init__(self, csize, seed=None, comm=None, use_cache=False):
@@ -157,23 +157,23 @@ class RandomParticles(ParticleSource):
         self._size =  self.rng.size
         
         # init the base class
-        ParticleSource.__init__(self, comm=comm, use_cache=use_cache)
+        CatalogSource.__init__(self, comm=comm, use_cache=use_cache)
 
     @property
     def size(self):
         return self._size
 
 
-class UniformParticles(RandomParticles):
+class UniformCatalog(RandomCatalog):
     """
-    A Source which has uniformly-distributed ``Position``
+    A catalog source that has uniformly-distributed ``Position``
     and ``Velocity`` columns
     
     The random numbers generated do not depend on the number of
     ranks, i.e., ``comm.size``.
     """
     def __repr__(self):
-        return "UniformParticles(seed=%(seed)s)" % self.attrs
+        return "UniformCatalog(seed=%(seed)s)" % self.attrs
 
     @CurrentMPIComm.enable
     def __init__(self, nbar, BoxSize, seed=None, comm=None, use_cache=False):
@@ -199,7 +199,7 @@ class UniformParticles(RandomParticles):
         N = rng.poisson(nbar * numpy.prod(self.attrs['BoxSize']))
         if N == 0:
             raise ValueError("no uniform particles generated, try increasing `nbar` parameter")
-        RandomParticles.__init__(self, N, seed=seed, comm=comm, use_cache=use_cache)
+        RandomCatalog.__init__(self, N, seed=seed, comm=comm, use_cache=use_cache)
         
         self._pos = self.rng.uniform(size=(self._size, 3)) * self.attrs['BoxSize']
         self._vel = self.rng.uniform(size=(self._size, 3)) * self.attrs['BoxSize'] * 0.01

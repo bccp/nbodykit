@@ -1,20 +1,21 @@
-from nbodykit.base.particles import ParticleSource, column
+from nbodykit.base.catalog import CatalogSource, column
 from nbodykit import cosmology
 from nbodykit.utils import attrs_to_dict
 from nbodykit import CurrentMPIComm
 
 import numpy
 
-class LogNormal(ParticleSource):
+class LogNormalCatalog(CatalogSource):
     """
-    A source of (biased) particles Poisson-sampled from a log-normal density field
+    A catalog source containing (biased) particles that have 
+    been Poisson-sampled from a log-normal density field
     """
     def __repr__(self):
-        return "LogNormal(seed=%(seed)d, bias=%(bias)g)" %self.attrs
+        return "LogNormalCatalog(seed=%(seed)d, bias=%(bias)g)" %self.attrs
 
     @CurrentMPIComm.enable
     def __init__(self, Plin, nbar, BoxSize, Nmesh, bias=2., seed=None,
-                    comm=None, cosmo=None, redshift=None, use_cache=False):
+                    cosmo=None, redshift=None, comm=None, use_cache=False):
         """
         Parameters
         ----------
@@ -33,12 +34,15 @@ class LogNormal(ParticleSource):
             to the density field
         seed : int, optional
             the global random seed; if set to ``None``, the seed will be set randomly
-        comm : MPI communicator, optional
-            the MPI communicator
         cosmo : nbodykit.cosmology.Cosmology, optional
             this must be supplied if `Plin` does not carry ``cosmo`` attribute
         redshift : float, optional
             this must be supplied if `Plin` does not carry a ``redshift`` attribute
+        comm : MPI Communicator, optional
+            the MPI communicator instance; default (``None``) sets to the
+            current communicator  
+        use_cache : bool, optional
+            whether to cache data read from disk; default is ``False``
         """
         self.comm = comm
         self.Plin = Plin
@@ -73,7 +77,7 @@ class LogNormal(ParticleSource):
         self.attrs['seed'] = seed
 
         # init the base class
-        ParticleSource.__init__(self, comm=comm, use_cache=use_cache)
+        CatalogSource.__init__(self, comm=comm, use_cache=use_cache)
 
         # make the actual source
         self._source, pm = self._makesource(BoxSize=BoxSize, Nmesh=Nmesh)

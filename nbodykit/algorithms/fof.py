@@ -3,7 +3,7 @@ from __future__ import print_function
 import numpy
 import logging
 from mpi4py import MPI
-from nbodykit.source import Array
+from nbodykit.source import ArrayCatalog
         
 class FOF(object):
     """
@@ -25,7 +25,7 @@ class FOF(object):
         """
         Parameters
         ----------
-        source : ParticleSource
+        source : CatalogSource
             the source to run the FOF algorithm on; must support 'Position'
         linking_length : float
             the linking length, either in absolute units, or relative
@@ -84,7 +84,7 @@ class FOF(object):
         
         Returns
         -------
-        ParticleSource : 
+        CatalogSource : 
             a source holding the ('Position', 'Velocity', 'Length')
             of each halo
         """        
@@ -94,7 +94,7 @@ class FOF(object):
         # return a Source
         attrs = self._source.attrs.copy()
         attrs.update(self.attrs)
-        return Array(halos, comm=self.comm, **attrs)
+        return ArrayCatalog(halos, comm=self.comm, **attrs)
         
     def to_halos(self, particle_mass, cosmo, redshift, mdef='vir'):
         """
@@ -107,7 +107,7 @@ class FOF(object):
         
         Parameters
         ----------
-        source : ParticleSource
+        source : CatalogSource
             the source containing info about the particles in each halo
         particle_mass : float
             the particle mass, used to compute the number of particles in 
@@ -136,7 +136,7 @@ class FOF(object):
         # the center-of-mass (Position, Velocity, Length) for each halo
         data = fof_catalog(self._source, self.labels, self.comm)
         data = data[data['Length'] > 0]
-        halos = Array(data, **attrs)
+        halos = ArrayCatalog(data, **attrs)
         
         # add the halo mass column
         halos['Mass'] = particle_mass * halos['Length']
@@ -291,7 +291,7 @@ def fof(source, linking_length, comm):
 
     Parameters
     ----------
-    source: ParticleSource
+    source: CatalogSource
         the input source of particles; must support 'Position' column;
         ``source.attrs['BoxSize']`` is also used
     linking_length: float
@@ -345,7 +345,7 @@ def fof_catalog(source, label, comm,
 
     Parameters
     ----------
-    source: ParticleSource
+    source: CatalogSource
         the parent source of particles from which the center-of-mass
         position and velocity are computed for each halo
     label : array_like

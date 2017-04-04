@@ -14,18 +14,21 @@ class FileStack(FileType):
     This allows data to be accessed across multiple files from
     a single file object
     """    
-    def __init__(self, path, filetype, **kwargs):
+    def __init__(self, filetype, path, *args, **kwargs):
         """
         Parameters
         ----------
+        filetype : FileType subclass
+            the type of file class to initialize
         path : str
             list of file names, or string specifying single file or
             containing a glob-like '*' pattern
-        filetype : FileType subclass
-            the type of file class 
+        *args : 
+            additional arguments to pass to the ``filetype`` instance
+            during initialization
         **kwargs : 
-            arguments passed to ``filetype`` when initializing each file in 
-            the stack
+            additional keyword arguments passed to the ``filetype`` instance
+            during initialization
         """
         # check that filetype is subclass of FileType
         if not inspect.isclass(filetype) or not issubclass(filetype, FileType):

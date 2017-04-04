@@ -17,6 +17,19 @@ class BigFile(FileType):
     """
 
     def __init__(self, path, exclude=None, header='.', dataset='./'):
+        """
+        Parameters
+        ----------
+        path : str
+            the name of the directory holding the bigfile data
+        exclude : list of str; optional
+            the data sets to exlude from loading within bigfile; default
+            is the header
+        header : str; optional
+            the path to the header
+        dataset : str
+            load a specific dataset from the bigfile
+        """
         if not dataset.endswith('/'): dataset = dataset + '/'
 
         import bigfile

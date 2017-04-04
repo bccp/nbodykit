@@ -17,8 +17,8 @@ def test_selection(comm):
     CurrentMPIComm.set(comm)
     cosmo = cosmology.Planck15
     
-    data = Source.RandomParticles(NDATA, seed=42)
-    randoms = Source.RandomParticles(NDATA*10, seed=84)
+    data = RandomCatalog(NDATA, seed=42)
+    randoms = RandomCatalog(NDATA*10, seed=84)
     
     # add the random columns
     for s in [data, randoms]:
@@ -38,7 +38,7 @@ def test_selection(comm):
         s['Selection'] = (s['z'] > 0.4)&(s['z'] < 0.6)
     
     # the FKP source
-    fkp = Source.FKPCatalog(data, randoms)
+    fkp = FKPCatalog(data, randoms)
     fkp = fkp.to_mesh(Nmesh=128, dtype='f8', nbar='NZ', selection='Selection')
 
     # compute the multipoles
@@ -64,8 +64,8 @@ def test_run(comm):
     CurrentMPIComm.set(comm)
     cosmo = cosmology.Planck15
     
-    data = Source.RandomParticles(NDATA, seed=42)
-    randoms = Source.RandomParticles(NDATA*10, seed=84)
+    data = RandomCatalog(NDATA, seed=42)
+    randoms = RandomCatalog(NDATA*10, seed=84)
     
     # add the random columns
     for s in [data, randoms]:
@@ -86,7 +86,7 @@ def test_run(comm):
         s['Weight'] = (1 + P0*s['NZ'])**2
         
     # the FKP source
-    fkp = Source.FKPCatalog(data, randoms)
+    fkp = FKPCatalog(data, randoms)
     fkp = fkp.to_mesh(Nmesh=128, dtype='f8', nbar='NZ', fkp_weight='FKPWeight', comp_weight='Weight', selection='Selection')
 
     # compute the multipoles
@@ -117,8 +117,8 @@ def test_with_zhist(comm):
     CurrentMPIComm.set(comm)
     cosmo = cosmology.Planck15
     
-    data = Source.RandomParticles(NDATA, seed=42, use_cache=True)
-    randoms = Source.RandomParticles(NDATA*10, seed=84, use_cache=True)
+    data = RandomCatalog(NDATA, seed=42, use_cache=True)
+    randoms = RandomCatalog(NDATA*10, seed=84, use_cache=True)
     
     # add the random columns
     for s in [data, randoms]:
@@ -132,7 +132,7 @@ def test_with_zhist(comm):
         s['Position'] = transform.SkyToCartesion(s['ra'], s['dec'], s['z'], cosmo=cosmo)
         
     # initialize the FKP source
-    fkp = Source.FKPCatalog(data, randoms)
+    fkp = FKPCatalog(data, randoms)
     
     # compute NZ from randoms
     zhist = RedshiftHistogram(fkp.randoms, FSKY, cosmo, redshift='z')

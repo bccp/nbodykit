@@ -19,7 +19,7 @@ class Multipoles3PCF(object):
         """
         Parameters
         ----------
-        source : ParticleSource
+        source : CatalogSource
             the input source of particles providing the 'Position' column
         poles : list of int
             the list of multipole numbers to compute
