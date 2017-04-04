@@ -61,7 +61,7 @@ class RedshiftHistogram(object):
         """
         Parameters
         ----------
-        source : ParticleSource
+        source : CatalogSource
             the source of particles holding the redshift column to histogram
         fsky : float
             the sky area fraction, which is used in the volume calculation when

@@ -7,13 +7,13 @@ import logging
 import warnings
 import dask.array as da
 
-# default size of Cache for ParticleSource arrays
+# default size of Cache for CatalogSource arrays
 CACHE_SIZE = 1e9
 
 
 def column(name=None):
     """
-    Decorator that defines a function as a column in a ParticleSource
+    Decorator that defines a function as a column in a CatalogSource
     """
     def decorator(getter):
         getter.column_name = name
@@ -76,7 +76,7 @@ def find_column(cls, name):
 
 
 @add_metaclass(abc.ABCMeta)
-class ParticleSource(object):
+class CatalogSource(object):
     """
     An abstract base class for a source of particles. This objects behaves
     like a structured numpy array -- it must have well-defined size
@@ -93,7 +93,7 @@ class ParticleSource(object):
     creating a ``ParticleMesh``. The mesh handles the gridding of discrete
     particle data on to a continuous mesh of cells. 
     """
-    logger = logging.getLogger('ParticleSource')
+    logger = logging.getLogger('CatalogSource')
 
     @staticmethod
     def make_column(array):
@@ -124,7 +124,7 @@ class ParticleSource(object):
                         
     def __len__(self):
         """
-        The length of ParticleSource is equal to :attr:`size`; this is the 
+        The length of CatalogSource is equal to :attr:`size`; this is the 
         local size of the source on a given rank
         """
         return self.size
@@ -138,12 +138,12 @@ class ParticleSource(object):
     def __getitem__(self, sel):
         """
         The following types of indexing supported are supported
-        for ParticleSource:
+        for CatalogSource:
         
-            1.  strings specifying a column in the ParticleSource; returns
+            1.  strings specifying a column in the CatalogSource; returns
                 a dask array holding the column data
-            2.  boolean arrays specifying a slice of the ParticleSource; 
-                returns a SlicedParticleSource holding only the revelant slice
+            2.  boolean arrays specifying a slice of the CatalogSource; 
+                returns a SlicedCatalogSource holding only the revelant slice
             3.  slice object specifying which particles to select
         """
         # handle boolean array slices
@@ -161,7 +161,7 @@ class ParticleSource(object):
 
             # do the slicing
             if not numpy.isscalar(sel):
-                return SliceParticleSource(self, sel)
+                return SliceCatalogSource(self, sel)
             else:
                 raise KeyError("strings and boolean arrays are the only supported indexing methods")
             
@@ -184,7 +184,7 @@ class ParticleSource(object):
     
     def __setitem__(self, col, value):
         """
-        Add columns to the ParticleSource, overriding any existing columns
+        Add columns to the CatalogSource, overriding any existing columns
         with the name ``col``
         """
         # handle scalar values
@@ -227,7 +227,7 @@ class ParticleSource(object):
                 if not hasattr(self, '_cache'):
                     self._cache = Cache(CACHE_SIZE)
             except ImportError:
-                warnings.warn("caching of ParticleSource requires ``cachey`` module; turning cache off")
+                warnings.warn("caching of CatalogSource requires ``cachey`` module; turning cache off")
         else:
             if hasattr(self, '_cache'): delattr(self, '_cache')
         self._use_cache = val
@@ -284,7 +284,7 @@ class ParticleSource(object):
     def Selection(self):
         """
         Override the ``Selection`` column to select a subset slice of a 
-        ParticleSource. 
+        CatalogSource. 
         
         By default, this column is set to ``True`` for all particles.
         """
@@ -293,7 +293,7 @@ class ParticleSource(object):
     @column
     def Weight(self):
         """
-        When interpolating a ParticleSource on to a mesh, the value of this
+        When interpolating a CatalogSource on to a mesh, the value of this
         array is used as the Weight that each particle contributes to a given 
         mesh cell.
         
@@ -370,7 +370,7 @@ class ParticleSource(object):
         
     def save(self, output, columns, datasets=None, header='Header'):
         """ 
-        Save the ParticleSource to a :class:`bigfile.BigFile`
+        Save the CatalogSource to a :class:`bigfile.BigFile`
         
         Only the selected columns are saved and :attr:`attrs` are saved in 
         ``header``. The attrs of columns are stored in the datasets.
@@ -436,7 +436,7 @@ class ParticleSource(object):
                 interlaced=False, compensated=False, window='cic',
                 weight='Weight', selection='Selection'):
         """ 
-        Convert the ParticleSource to a MeshSource
+        Convert the CatalogSource to a MeshSource
                 
         Parameters
         ----------
@@ -462,15 +462,15 @@ class ParticleSource(object):
             the name of the column specifying the weight for each particle
         selection : str, optional
             the name of the column that specifies which (if any) slice
-            of the ParticleSource to take
+            of the CatalogSource to take
                 
         Returns
         -------
-        mesh : ParticleMeshSource
+        mesh : CatalogMeshSource
             a mesh object that provides an interface for gridding particle
             data onto a specified mesh
         """
-        from nbodykit.base.particlemesh import ParticleMeshSource
+        from nbodykit.base.catalogmesh import CatalogMeshSource
         from pmesh.window import methods
         
         if window not in methods:
@@ -481,17 +481,17 @@ class ParticleSource(object):
                 BoxSize = self.attrs['BoxSize']
             except KeyError:
                 raise ValueError(("cannot convert particle source to a mesh; "
-                                  "'BoxSize' keyword is not supplied and the ParticleSource "
+                                  "'BoxSize' keyword is not supplied and the CatalogSource "
                                   "does not define one in 'attrs'."))
         if Nmesh is None:
             try:
                 Nmesh = self.attrs['Nmesh']
             except KeyError:
                 raise ValueError(("cannot convert particle source to a mesh; " 
-                                  "'Nmesh' keyword is not supplied and the ParticleSource " 
+                                  "'Nmesh' keyword is not supplied and the CatalogSource " 
                                   "does not define one in 'attrs'."))
 
-        r = ParticleMeshSource(self, Nmesh=Nmesh, BoxSize=BoxSize, 
+        r = CatalogMeshSource(self, Nmesh=Nmesh, BoxSize=BoxSize, 
                                 dtype=dtype, weight=weight, selection=selection)
         r.interlaced = interlaced
         r.compensated = compensated
@@ -499,15 +499,15 @@ class ParticleSource(object):
         return r
   
         
-def SliceParticleSource(parent, index):
+def SliceCatalogSource(parent, index):
     """
-    Slice a `ParticleSource` according to a boolean index array, 
-    returning a new ParticleSource holding only the data that satisfies 
+    Slice a `CatalogSource` according to a boolean index array, 
+    returning a new CatalogSource holding only the data that satisfies 
     the slice criterion
     
     Parameters
     ----------
-    parent : ParticleSource
+    parent : CatalogSource
         the parent source that will be sliced
     index : array_like
         either a dask or numpy boolean array; this determines which
@@ -515,7 +515,7 @@ def SliceParticleSource(parent, index):
     
     Returns
     -------
-    sliced : SlicedParticleSource
+    sliced : SlicedCatalogSource
         the particle source with the same meta-data as `parent`, and
         with the sliced data arrays
     """  
@@ -529,18 +529,18 @@ def SliceParticleSource(parent, index):
     if len(index) != len(parent):
         raise ValueError("slice index has length %d; should be %d" %(len(index), len(parent)))
     if getattr(index, 'dtype', None) != '?':
-        raise ValueError("index used to slice ParticleSource must be boolean and array-like")
+        raise ValueError("index used to slice CatalogSource must be boolean and array-like")
     
     # new size is just number of True entries
     size = index.sum()
     
-    class SlicedParticleSource(ParticleSource):
+    class SlicedCatalogSource(CatalogSource):
         @property
         def size(self):
             return size
             
     # initialize empty Source of right size
-    toret = SlicedParticleSource(parent.comm, use_cache=parent.use_cache)
+    toret = SlicedCatalogSource(parent.comm, use_cache=parent.use_cache)
     
     # copy over columns
     for column in parent:

@@ -12,7 +12,7 @@ def test_fftpower(comm):
     CurrentMPIComm.set(comm)
 
     # lognormal particles
-    source = Source.LogNormal(Plin=cosmology.EHPower(cosmo, redshift=0.55),
+    source = LogNormalCatalog(Plin=cosmology.EHPower(cosmo, redshift=0.55),
                     nbar=3e-7, BoxSize=1380., Nmesh=8, seed=42)
                     
     # apply RSD
@@ -32,7 +32,7 @@ def test_paint(comm):
     CurrentMPIComm.set(comm)
 
     # lognormal particles
-    source = Source.LogNormal(Plin=cosmology.EHPower(cosmo, redshift=0.55),
+    source = LogNormalCatalog(Plin=cosmology.EHPower(cosmo, redshift=0.55),
                     nbar=3e-7, BoxSize=1380., Nmesh=8, seed=42)
                     
     # apply RSD

@@ -1,2 +1,2 @@
-from .particle import *
+from .catalog import *
 from .mesh import *

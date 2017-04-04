@@ -54,13 +54,13 @@ class FFTPower(object):
         ----------
         comm : 
             the MPI communicator
-        first : ParticleSource, MeshSource
-            the source for the first field. ParticleSource is automatically converted
+        first : CatalogSource, MeshSource
+            the source for the first field. CatalogSource is automatically converted to MeshSource
         mode : {'1d', '2d'}
             compute either 1d or 2d power spectra
         Nmesh : int
             the number of cells per side in the particle mesh used to paint the source
-        second : ParticleSource, MeshSource; optional
+        second : CatalogSource, MeshSource; optional
             the second source for cross-correlations
         los : array_like ; optional
             the direction to use as the line-of-sight
@@ -86,7 +86,7 @@ class FFTPower(object):
         # grab comm from first source
         self.comm = first.comm 
         
-        # if input is ParticleSource, use defaults to make it into a mesh
+        # if input is CatalogSource, use defaults to make it into a mesh
         if not hasattr(first, 'paint'):
             first = first.to_mesh(BoxSize=BoxSize, Nmesh=Nmesh, dtype='f8', compensated=True)
             
@@ -297,7 +297,7 @@ class FFTPower(object):
 
         Parameters
         ----------
-        sources : list of ParticleSource or MeshSource
+        sources : list of CatalogSource or MeshSource
             the list of sources which the 3D power will be computed
         pm : ParticleMesh
             the particle mesh object that handles the painting and FFTs
