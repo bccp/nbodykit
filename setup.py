@@ -28,6 +28,14 @@ def find_packages(base_path):
                 found.append(package)
     return found
 
+def find_test_data(base_path, pkg_name):
+    data = []
+    for root, dirs, files in os.walk(base_path):
+        for d in dirs:
+            if d == 'data' and root.split('/')[-1] == 'tests':
+                path = os.path.join(root, 'data', '*')
+                data.append(os.path.relpath(path, pkg_name))
+    return data
 
 # the base dependencies
 with open('requirements.txt', 'r') as fh:
@@ -48,6 +56,7 @@ setup(name="nbodykit",
       url="http://github.com/bccp/nbodykit",
       zip_safe=False,
       package_dir = {'nbodykit': 'nbodykit'},
+      package_data = {'nbodykit': find_test_data('.', 'nbodykit')},
       packages = find_packages('.'),
       license='GPL3',
       install_requires=dependencies,
