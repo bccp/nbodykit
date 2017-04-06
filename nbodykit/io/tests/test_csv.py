@@ -4,6 +4,7 @@ import os
 import numpy
 import tempfile
 import pickle
+import pytest
 
 @MPITest([1])
 def test_data(comm):
@@ -71,14 +72,15 @@ def test_comma_sep(comm):
         
         # this must fail
         names =['a', 'b', 'c', 'd', 'e']
-        try: f = CSVFile(path=ff.name, names=names, blocksize=100, delim_whitespace=True)
-        except ValueError: pass
+        with pytest.raises(ValueError): 
+            f = CSVFile(path=ff.name, names=names, blocksize=100, delim_whitespace=True)
 
         # use , as delimiter
         f = CSVFile(path=ff.name, names=names, blocksize=100, delim_whitespace=False, sep=',')
         data2 = f.asarray()
         numpy.testing.assert_almost_equal(data, data2[:], decimal=7)
         
+
 @MPITest([1])
 def test_header_fail(comm):
 
@@ -91,8 +93,9 @@ def test_header_fail(comm):
         
         # this will fail -- header should not be in file
         names =['a', 'b', 'c', 'd', 'e']
-        try: f = CSVFile(path=ff.name, names=names, blocksize=1000)
-        except: pass
+        with pytest.raises(ValueError):
+            f = CSVFile(path=ff.name, names=names, blocksize=1000)
+
         
 @MPITest([1])
 def test_blank_lines(comm):
@@ -150,8 +153,9 @@ def test_comments(comm):
         
         # this should raise an error
         names =['a', 'b', 'c', 'd', 'e']
-        try: f = CSVFile(path=ff.name, names=names, blocksize=1000)
-        except: pass
+        with pytest.raises(ValueError):
+            f = CSVFile(path=ff.name, names=names, blocksize=1000)
+
 
 @MPITest([1])
 def test_skiprows(comm):
@@ -221,8 +225,9 @@ def test_wrong_names(comm):
         
         # wrong number of columns
         names =['a', 'b', 'c']
-        try: f = CSVFile(path=ff.name, names=names, blocksize=1000)
-        except ValueError: pass
+        with pytest.raises(ValueError):
+            f = CSVFile(path=ff.name, names=names, blocksize=1000)
+
 
 @MPITest([1])
 def test_invalid_keywords(comm):
@@ -239,8 +244,5 @@ def test_invalid_keywords(comm):
         # try each bad kewyord
         names =['a', 'b', 'c', 'd', 'e']
         for k,v in bad_kws.items():
-            try: f = CSVFile(path=ff.name, names=names, blocksize=1000, **{k:v})
-            except ValueError: pass
-
-    
-        
+            with pytest.raises(ValueError):
+                f = CSVFile(path=ff.name, names=names, blocksize=1000, **{k:v})

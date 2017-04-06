@@ -5,14 +5,17 @@ import numpy
 import tempfile
 import pickle
 import contextlib
+import pytest
 
-HAVE_H5PY = False
+# h5py is an optional dependency
 try: import h5py
-except: HAVE_H5PY = True
+except ImportError: h5py = None
 
 @contextlib.contextmanager
 def temporary_data():
-    
+    """
+    Write some temporary HDF5 data to disk
+    """
     try:
         # generate data
         dset = numpy.empty(1024, dtype=[('Position', ('f8', 3)), ('Mass', 'f8')])
@@ -35,6 +38,7 @@ def temporary_data():
         
         
 @MPITest([1])
+@pytest.mark.skipif(h5py is None, "h5py is not installed")
 def test_data(comm):
 
     with temporary_data() as (data, tmpfile):
@@ -60,7 +64,9 @@ def test_data(comm):
         # check size
         numpy.testing.assert_equal(f.size, 1024)
 
+
 @MPITest([1])
+@pytest.mark.skipif(h5py is None, "h5py is not installed")
 def test_nonzero_root(comm):
     
     with temporary_data() as (data, tmpfile):
@@ -73,11 +79,12 @@ def test_nonzero_root(comm):
         assert(all(col in ['Mass', 'Position'] for col in f.columns))
         
         # wrong root
-        try: f = HDFFile(tmpfile, root='Z')
-        except ValueError: pass
-
+        with pytest.raises(ValueError):
+            f = HDFFile(tmpfile, root='Z')
+    
 
 @MPITest([1])
+@pytest.mark.skipif(h5py is None, "h5py is not installed")
 def test_nonzero_exclude(comm):
     
     with temporary_data() as (data, tmpfile):
@@ -94,10 +101,12 @@ def test_nonzero_exclude(comm):
         assert all(col in ['Position'] for col in f.columns)
         
         # bad exclude
-        try: f = HDFFile(tmpfile, exclude=['Z'])
-        except ValueError: pass
+        with pytest.raises(ValueError):
+            f = HDFFile(tmpfile, exclude=['Z'])
         
+
 @MPITest([1])
+@pytest.mark.skipif(h5py is None, "h5py is not installed")
 def test_data_mismatch(comm):
     
     # generate data
@@ -111,16 +120,18 @@ def test_data_mismatch(comm):
         ff.create_dataset('Position', data=pos)
     
     # fails due to mismatched sizes
-    try: f = HDFFile(tmpfile)
-    except ValueError: pass
+    with pytest.raises(ValueError):
+        f = HDFFile(tmpfile)
     
     # only one dataset now, so this works
     f = HDFFile(tmpfile, exclude=['Mass'])
     assert f.size == 1024
 
     os.unlink(tmpfile) 
-        
+     
+   
 @MPITest([1])
+@pytest.mark.skipif(h5py is None, "h5py is not installed")
 def test_empty(comm):
     
     # create empty file
@@ -129,8 +140,8 @@ def test_empty(comm):
         ff.create_group('Y') 
     
     # no datasets!
-    try: f = HDFFile(tmpfile)
-    except ValueError: pass
-
+    with pytest.raises(ValueError):
+        f = HDFFile(tmpfile)
+    
     os.unlink(tmpfile) 
         

@@ -6,6 +6,7 @@ import tempfile
 import os
 import shutil
 import contextlib
+import pytest
 
 @contextlib.contextmanager
 def TemporaryDirectory():
@@ -14,6 +15,7 @@ def TemporaryDirectory():
         yield tmpdir
     finally:
         shutil.rmtree(tmpdir)
+
 
 @MPITest([1])
 def test_data(comm):
@@ -58,6 +60,7 @@ def test_data(comm):
         # and add and attrs
         f.attrs['size'] = 2048
         
+
 @MPITest([1])
 def test_single_path(comm):
 
@@ -83,6 +86,7 @@ def test_single_path(comm):
         assert f.size == 1024
         assert f.nfiles == 1
 
+
 @MPITest([1])
 def test_bad_path(comm):
 
@@ -104,9 +108,5 @@ def test_bad_path(comm):
                 pos[sl].tofile(ff); vel[sl].tofile(ff); uid[sl].tofile(ff)
             
         # bad path name
-        try: f = FileStack(TPMBinaryFile, ff, precision='f4')
-        except: pass
-        
-
-        
-        
+        with pytest.raises(ValueError): 
+            f = FileStack(TPMBinaryFile, ff, precision='f4')

@@ -3,6 +3,7 @@ from nbodykit.io.tpm import TPMBinaryFile
 import numpy
 import tempfile
 import os
+import pytest
 
 @MPITest([1])
 def test_data(comm):
@@ -33,7 +34,7 @@ def test_data(comm):
         numpy.testing.assert_almost_equal(uid, f['ID'][:])
         
         # check wrong precision
-        try: f = TPMBinaryFile(ff.name, precision='f16')
-        except ValueError: pass
+        with pytest.raises(ValueError): 
+            f = TPMBinaryFile(ff.name, precision='f16')
         
     os.remove(tmpfile)
