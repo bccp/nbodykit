@@ -276,6 +276,9 @@ class DataSet(object):
     def __repr__(self):
         return self.__str__()
         
+    def __iter__(self):
+        return iter(self.variables)
+        
     def __contains__(self, key):
         return key in self.variables
     
@@ -470,11 +473,6 @@ class DataSet(object):
         edges = state.pop('edges', edges)
         if edges is None:
             raise ValueError("no `edges` found in JSON file; please specify as keyword argument")
-            
-        if len(edges) == 2 and len(dims) == 1:
-            edges = edges[0]
-        if len(dims) == 1:
-            edges = [edges]
             
         # meta-data
         attrs = state.pop('attrs', {})
