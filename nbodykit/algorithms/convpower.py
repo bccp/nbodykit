@@ -35,6 +35,9 @@ def get_real_Ylm(l, m):
     """
     import sympy as sp
     
+    # make sure l,m are integers
+    l = int(l); m = int(m)
+    
     # the relevant cartesian and spherical symbols
     x, y, z, r = sp.symbols('x y z r', real=True, positive=True)
     xhat, yhat, zhat = sp.symbols('xhat yhat zhat', real=True, positive=True)

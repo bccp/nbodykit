@@ -258,9 +258,9 @@ class YlmCache(object):
         import sympy as sp
         from sympy.utilities.lambdify import implemented_function
         
-        self.ells = ells
+        self.ells = list(ells)
         self.max_ell = max(ells)
-        lms = [(l,m) for l in ells for m in range(0, l+1)]
+        lms = [(int(l),int(m)) for l in ells for m in range(0, l+1)]
         
         # compute the Ylm string expressions in parallel
         exprs = []
