@@ -193,7 +193,7 @@ class CatalogMeshSource(MeshSource, CatalogSource):
     def actions(self):
         actions = MeshSource.actions.fget(self)
         if self.compensated:
-            actions.extend(self._get_compensation())
+            actions = self._get_compensation() + actions
         return actions
 
     def _get_compensation(self):
