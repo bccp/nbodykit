@@ -79,10 +79,10 @@ def test_save(comm):
     hod = HODCatalog(halos.to_halotools(), seed=42)
 
     # save to a tmp file
-    hod.save('tmp-hod', ['Position', 'Velocity', 'gal_type'])
+    hod.save('tmp-hod.bigfile', ['Position', 'Velocity', 'gal_type'])
 
     # read tmp file
-    cat = BigFileCatalog('tmp-hod', header="Header")
+    cat = BigFileCatalog('tmp-hod.bigfile', header="Header")
 
     try:
         # check attrs
@@ -98,5 +98,6 @@ def test_save(comm):
         assert nsat1 == nsat2
 
     finally:
+        comm.barrier()
         if comm.rank == 0:
-            shutil.rmtree('tmp-hod')
+            shutil.rmtree('tmp-hod.bigfile')
