@@ -142,6 +142,13 @@ class HODBase(ArrayCatalog):
             self._model.populate_mock(halocat=self._halos, halo_mass_column_key=self.mass,
                                       Num_ptcl_requirement=1, seed=self.attrs['seed'])
 
+            # remap gal_type to integers (cen: 0, sats: 1)
+            galtab = self._model.mock.galaxy_table
+            gal_type = numpy.zeros(len(galtab), dtype='i4')
+            sats = galtab['gal_type'] == 'satellites'
+            gal_type[sats] = 1
+            galtab.replace_column('gal_type', gal_type)
+
             # replace any object dtypes
             data = remove_object_dtypes(self._model.mock.galaxy_table).as_array()
             del self._model.mock.galaxy_table
@@ -212,7 +219,7 @@ class HODBase(ArrayCatalog):
         """
         if len(data) > 0:
 
-            fsat = 1.*(data['gal_type'] == 'satellites').sum()/len(data)
+            fsat = 1.*(data['gal_type'] == 1).sum()/len(data)
             self.logger.info("satellite fraction: %.2f" %fsat)
             self.attrs['fsat'] = fsat
 
