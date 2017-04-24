@@ -1,5 +1,5 @@
 from __future__ import absolute_import
-# the future import is important. or in python 2.7 we try to 
+# the future import is important. or in python 2.7 we try to
 # import this module itself. Due to the unfortnate name conflict!
 
 import numpy
@@ -9,8 +9,8 @@ from ..extern.six import string_types
 
 class BigFile(FileType):
     """
-    A file object to handle the reading of columns of data from 
-    a ``bigfile`` file. ``bigfile`` is the default format of 
+    A file object to handle the reading of columns of data from
+    a ``bigfile`` file. ``bigfile`` is the default format of
     FastPM and MP-Gadget.
 
     https://github.com/rainwoodman/bigfile
@@ -54,19 +54,27 @@ class BigFile(FileType):
             self.size = ds.size
 
             header = ff[header]
-
             attrs = header.attrs
+
+            # reconstruct the dict from the JSON string representation
+            if '__json__' in attrs:
+                import json
+                from nbodykit.utils import JSONDecoder
+                self.attrs.update(json.loads(attrs['__json__'], cls=JSONDecoder))
+
+            # add in any other attrs too
             for k in attrs.keys():
+                if k == '__json__': continue
                 self.attrs[k] = numpy.array(attrs[k], copy=True)
 
     def read(self, columns, start, stop, step=1):
         """
-        Read the specified column(s) over the given range, 
+        Read the specified column(s) over the given range,
         as a dictionary
 
         'start' and 'stop' should be between 0 and :attr:`size`,
         which is the total size of the binary file (in particles)
-        """ 
+        """
         import bigfile
         if isinstance(columns, string_types): columns = [columns]
 
