@@ -5,10 +5,37 @@ from nbodykit import setup_logging
 setup_logging()
 
 @MPITest([4])
-def test_hod(comm):
-    
+def test_no_seed(comm):
+
     CurrentMPIComm.set(comm)
-    
+
+    redshift = 0.55
+    cosmo = cosmology.Planck15
+    BoxSize = 512
+
+    # lognormal particles
+    source = LogNormalCatalog(Plin=cosmology.EHPower(cosmo, redshift),
+                                nbar=3e-3, BoxSize=BoxSize, Nmesh=128)
+
+    # seed is set randomly
+    assert source.attrs['seed'] is not None
+
+    # run FOF
+    r = FOF(source, linking_length=0.2, nmin=20)
+    halos = r.to_halos(cosmo=cosmo, redshift=redshift, particle_mass=1e12, mdef='vir')
+
+    # make the HOD catalog from halotools catalog
+    hod = HODCatalog(halos.to_halotools())
+
+    # seed is set randomly
+    assert hod.attrs['seed'] is not None
+
+
+@MPITest([4])
+def test_hod(comm):
+
+    CurrentMPIComm.set(comm)
+
     redshift = 0.55
     cosmo = cosmology.Planck15
     BoxSize = 512
@@ -16,17 +43,16 @@ def test_hod(comm):
     # lognormal particles
     source = LogNormalCatalog(Plin=cosmology.EHPower(cosmo, redshift),
                                 nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
-    
+
     # run FOF
     r = FOF(source, linking_length=0.2, nmin=20)
     halos = r.to_halos(cosmo=cosmo, redshift=redshift, particle_mass=1e12, mdef='vir')
-        
+
     # make the HOD catalog from halotools catalog
     hod = HODCatalog(halos.to_halotools(), seed=42)
-        
+
     # RSD offset in 'z' direction
     hod['Position'] += hod['VelocityOffset'] * [0, 0, 1]
-    
+
     # compute the power
     r = FFTPower(hod.to_mesh(Nmesh=128), mode='2d', Nmu=5, los=[0,0,1])
-    
