@@ -402,8 +402,15 @@ class CatalogSource(object):
             except:
                 bb = ff.create(header)
             with bb :
-                # dump dictionary as its JSON representation
-                bb.attrs['__json__'] = json.dumps(self.attrs, cls=JSONEncoder)
+                for key in self.attrs:
+                    try:
+                        bb.attrs[key] = self.attrs[key]
+                    except ValueError:
+                        try:
+                            json_str = 'json://'+json.dumps(self.attrs[key], cls=JSONEncoder)
+                            bb.attrs[key] = json_str
+                        except:
+                            raise ValueError("cannot save '%s' key in attrs dictionary" % key)
 
             for column, dataset in zip(columns, datasets):
                 c = self[column]
