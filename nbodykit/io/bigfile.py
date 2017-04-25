@@ -6,6 +6,8 @@ import numpy
 
 from .base import FileType
 from ..extern.six import string_types
+import json
+from nbodykit.utils import JSONDecoder
 
 class BigFile(FileType):
     """
@@ -56,16 +58,15 @@ class BigFile(FileType):
             header = ff[header]
             attrs = header.attrs
 
-            # reconstruct the dict from the JSON string representation
-            if '__json__' in attrs:
-                import json
-                from nbodykit.utils import JSONDecoder
-                self.attrs.update(json.loads(attrs['__json__'], cls=JSONDecoder))
-
-            # add in any other attrs too
+            # copy over the attrs
             for k in attrs.keys():
-                if k == '__json__': continue
-                self.attrs[k] = numpy.array(attrs[k], copy=True)
+
+                # load a JSON representation if str starts with json:://
+                if isinstance(attrs[k], string_types) and attrs[k].startswith('json://'):
+                    self.attrs[k] = json.loads(attrs[k][7:], cls=JSONDecoder)
+                # copy over an array 
+                else:
+                    self.attrs[k] = numpy.array(attrs[k], copy=True)
 
     def read(self, columns, start, stop, step=1):
         """
