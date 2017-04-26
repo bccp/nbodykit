@@ -87,7 +87,7 @@ def test_save(comm):
     try:
         # check attrs
         for name in hod.attrs:
-            numpy.testing.assert_equal(cat.attrs[name], hod.attrs[name])
+            numpy.testing.assert_array_equal(cat.attrs[name], hod.attrs[name])
 
         # check same size
         assert hod.csize == cat.csize
