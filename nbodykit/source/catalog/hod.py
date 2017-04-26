@@ -324,9 +324,13 @@ class HODCatalog(HODBase):
             conc_mass_model = 'dutton_maccio14'
 
         # occupation functions
-        model['centrals_occupation'] = Zheng07Cens(prim_haloprop_key=self.mass)
-        model['satellites_occupation'] = Zheng07Sats(prim_haloprop_key=self.mass, modulate_with_cenocc=True)
-        model['satellites_occupation']._suppress_repeated_param_warning = True
+        cenocc = Zheng07Cens(prim_haloprop_key=self.mass)
+        satocc = Zheng07Sats(prim_haloprop_key=self.mass, modulate_with_cenocc=True, cenocc_model=cenocc)
+        satocc._suppress_repeated_param_warning = True
+
+        # add to model
+        model['centrals_occupation'] = cenocc
+        model['satellites_occupation'] = satocc
 
         # profile functions
         kws = {'cosmology':self.cosmo.engine, 'redshift':self.attrs['redshift'], 'mdef':self.attrs['mdef']}
