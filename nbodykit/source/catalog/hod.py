@@ -142,6 +142,13 @@ class HODBase(ArrayCatalog):
             self._model.populate_mock(halocat=self._halos, halo_mass_column_key=self.mass,
                                       Num_ptcl_requirement=1, seed=self.attrs['seed'])
 
+            # remap gal_type to integers (cen: 0, sats: 1)
+            galtab = self._model.mock.galaxy_table
+            gal_type = numpy.zeros(len(galtab), dtype='i4')
+            sats = galtab['gal_type'] == 'satellites'
+            gal_type[sats] = 1
+            galtab.replace_column('gal_type', gal_type)
+
             # replace any object dtypes
             data = remove_object_dtypes(self._model.mock.galaxy_table).as_array()
             del self._model.mock.galaxy_table
@@ -212,7 +219,7 @@ class HODBase(ArrayCatalog):
         """
         if len(data) > 0:
 
-            fsat = 1.*(data['gal_type'] == 'satellites').sum()/len(data)
+            fsat = 1.*(data['gal_type'] == 1).sum()/len(data)
             self.logger.info("satellite fraction: %.2f" %fsat)
             self.attrs['fsat'] = fsat
 
@@ -317,9 +324,13 @@ class HODCatalog(HODBase):
             conc_mass_model = 'dutton_maccio14'
 
         # occupation functions
-        model['centrals_occupation'] = Zheng07Cens(prim_haloprop_key=self.mass)
-        model['satellites_occupation'] = Zheng07Sats(prim_haloprop_key=self.mass, modulate_with_cenocc=True)
-        model['satellites_occupation']._suppress_repeated_param_warning = True
+        cenocc = Zheng07Cens(prim_haloprop_key=self.mass)
+        satocc = Zheng07Sats(prim_haloprop_key=self.mass, modulate_with_cenocc=True, cenocc_model=cenocc)
+        satocc._suppress_repeated_param_warning = True
+
+        # add to model
+        model['centrals_occupation'] = cenocc
+        model['satellites_occupation'] = satocc
 
         # profile functions
         kws = {'cosmology':self.cosmo.engine, 'redshift':self.attrs['redshift'], 'mdef':self.attrs['mdef']}

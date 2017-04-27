@@ -95,35 +95,43 @@ def test_tomesh(comm):
 
 @MPITest([1, 4])
 def test_save(comm):
+
     cosmo = cosmology.Planck15
     CurrentMPIComm.set(comm)
+
     import tempfile
     import shutil
-    from nbodykit.io.bigfile import BigFile
+
+    # initialize an output directory
     if comm.rank == 0:
         tmpfile = tempfile.mkdtemp()
     else:
         tmpfile = None
-
     tmpfile = comm.bcast(tmpfile)
 
+    # initialize a uniform catalog
     source = UniformCatalog(nbar=0.2e-2, BoxSize=1024., seed=42)
 
+    # add a non-array attrs (saved as JSON)
+    source.attrs['empty'] = None
+
+    # save to a BigFile
     source.save(tmpfile, ['Position', 'Velocity'])
 
+    # load as a BigFileCatalog
     source2 = BigFileCatalog(tmpfile, header='Header', attrs={"Nmesh":32})
 
+    # check sources
     for k in source.attrs:
         assert_array_equal(source2.attrs[k], source.attrs[k])
 
+    # check the data
     def allconcat(data):
         return numpy.concatenate(comm.allgather(data), axis=0)
-
     assert_allclose(allconcat(source['Position']), allconcat(source2['Position']))
     assert_allclose(allconcat(source['Velocity']), allconcat(source2['Velocity']))
 
     comm.barrier()
-
     if comm.rank == 0:
         shutil.rmtree(tmpfile)
 

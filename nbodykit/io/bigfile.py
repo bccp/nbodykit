@@ -1,16 +1,18 @@
 from __future__ import absolute_import
-# the future import is important. or in python 2.7 we try to 
+# the future import is important. or in python 2.7 we try to
 # import this module itself. Due to the unfortnate name conflict!
 
 import numpy
 
 from .base import FileType
 from ..extern.six import string_types
+import json
+from nbodykit.utils import JSONDecoder
 
 class BigFile(FileType):
     """
-    A file object to handle the reading of columns of data from 
-    a ``bigfile`` file. ``bigfile`` is the default format of 
+    A file object to handle the reading of columns of data from
+    a ``bigfile`` file. ``bigfile`` is the default format of
     FastPM and MP-Gadget.
 
     https://github.com/rainwoodman/bigfile
@@ -54,19 +56,26 @@ class BigFile(FileType):
             self.size = ds.size
 
             header = ff[header]
-
             attrs = header.attrs
+
+            # copy over the attrs
             for k in attrs.keys():
-                self.attrs[k] = numpy.array(attrs[k], copy=True)
+
+                # load a JSON representation if str starts with json:://
+                if isinstance(attrs[k], string_types) and attrs[k].startswith('json://'):
+                    self.attrs[k] = json.loads(attrs[k][7:], cls=JSONDecoder)
+                # copy over an array 
+                else:
+                    self.attrs[k] = numpy.array(attrs[k], copy=True)
 
     def read(self, columns, start, stop, step=1):
         """
-        Read the specified column(s) over the given range, 
+        Read the specified column(s) over the given range,
         as a dictionary
 
         'start' and 'stop' should be between 0 and :attr:`size`,
         which is the total size of the binary file (in particles)
-        """ 
+        """
         import bigfile
         if isinstance(columns, string_types): columns = [columns]
 
