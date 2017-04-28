@@ -324,7 +324,7 @@ class FileType(object):
             subshape = (len(self.dtype),)
     
         obj.dtype   = self.dtype[0].base
-        obj.columns = list(self)
+        obj.columns = list(self.columns)
         obj.shape   = (self.size, ) + subshape
         obj.size    = self.size
         if getattr(self, 'base', None) is not None:
