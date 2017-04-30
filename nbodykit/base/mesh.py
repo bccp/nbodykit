@@ -152,7 +152,7 @@ class MeshSource(object):
         var.attrs.update(self.attrs)
 
         # FIXME: this shall probably got to pmesh
-        var.save = lambda *args, **kwargs : save(var, *args, **kwargs)
+        addmethod(var, 'save', save)
         return var
 
     def preview(self, axes=None, Nmesh=None, root=0):
@@ -180,6 +180,13 @@ class MeshSource(object):
             Nmesh = self.pm.Nmesh
 
         return field.preview(Nmesh, axes=axes)
+
+def addmethod(obj, name, func):
+    """ Dirty helper to add a method without making cycles. It replaces the base class! """
+    klass = obj.__class__
+    subclass = type(klass.__name__, (klass,), {})
+    setattr(subclass, name, func)
+    obj.__class__ = subclass
 
 def save(self, output, dataset='Field'):
     import bigfile
