@@ -51,6 +51,6 @@ def test_paint(comm):
     real = source.paint(mode='real')
     complex = source.paint(mode='complex')
 
-    real.save(output="./test_paint-real-%d.bigfile" % comm.size)
-    complex.save(output="./test_paint-complex-%d.bigfile" % comm.size)
+    source.save(output="./test_paint-real-%d.bigfile" % comm.size, mode='real')
+    source.save(output="./test_paint-complex-%d.bigfile" % comm.size, mode='complex')
 
