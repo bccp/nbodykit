@@ -151,8 +151,6 @@ class MeshSource(object):
         var.attrs = attrs
         var.attrs.update(self.attrs)
 
-        # FIXME: this shall probably got to pmesh
-        var.save = lambda *args, **kwargs : save(var, *args, **kwargs)
         return var
 
     def preview(self, axes=None, Nmesh=None, root=0):
@@ -181,27 +179,42 @@ class MeshSource(object):
 
         return field.preview(Nmesh, axes=axes)
 
-def save(self, output, dataset='Field'):
-    import bigfile
-    import warnings
-    with bigfile.BigFileMPI(self.pm.comm, output, create=True) as ff:
-        data = numpy.empty(shape=self.size, dtype=self.dtype)
-        self.ravel(out=data)
-        with ff.create_from_array(dataset, data) as bb:
-            if isinstance(self, RealField):
-                bb.attrs['ndarray.shape'] = self.pm.Nmesh
-                bb.attrs['BoxSize'] = self.pm.BoxSize
-                bb.attrs['Nmesh'] = self.pm.Nmesh
-            elif isinstance(self, ComplexField):
-                bb.attrs['ndarray.shape'] = self.Nmesh, self.Nmesh, self.Nmesh // 2 + 1
-                bb.attrs['BoxSize'] = self.pm.BoxSize
-                bb.attrs['Nmesh'] = self.pm.Nmesh
+    def save(self, output, dataset='Field', mode='real'):
+        """
+            Save the mesh as a BigFileMesh on disk
 
-            for key in self.attrs:
-                # do not override the above values -- they are vectors (from pm)
-                if key in bb.attrs: continue
-                value = numpy.array(self.attrs[key])
-                try:
-                    bb.attrs[key] = value
-                except TypeError:
-                    warnings.warn("attribute %s of type %s is unsupported and lost" % (key, str(value.dtype)))
+            Parameters
+            ----------
+            output : str
+                name of the bigfile file
+            dataset : str
+                name of the bigfile data set.
+            mode : str
+                real or complex; the form of the field to store.
+
+        """
+        import bigfile
+        import warnings
+        field = self.paint(mode=mode)
+
+        with bigfile.BigFileMPI(self.pm.comm, output, create=True) as ff:
+            data = numpy.empty(shape=field.size, dtype=field.dtype)
+            field.ravel(out=data)
+            with ff.create_from_array(dataset, data) as bb:
+                if isinstance(field, RealField):
+                    bb.attrs['ndarray.shape'] = field.pm.Nmesh
+                    bb.attrs['BoxSize'] = field.pm.BoxSize
+                    bb.attrs['Nmesh'] = field.pm.Nmesh
+                elif isinstance(field, ComplexField):
+                    bb.attrs['ndarray.shape'] = field.Nmesh, field.Nmesh, field.Nmesh // 2 + 1
+                    bb.attrs['BoxSize'] = field.pm.BoxSize
+                    bb.attrs['Nmesh'] = field.pm.Nmesh
+
+                for key in field.attrs:
+                    # do not override the above values -- they are vectors (from pm)
+                    if key in bb.attrs: continue
+                    value = numpy.array(field.attrs[key])
+                    try:
+                        bb.attrs[key] = value
+                    except Exception:
+                        warnings.warn("attribute %s of type %s is unsupported and lost" % (key, str(value.dtype)))

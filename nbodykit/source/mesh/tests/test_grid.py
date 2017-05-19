@@ -105,7 +105,7 @@ def test_bigfile_grid(comm):
         output = None
     output = comm.bcast(output)
 
-    real.save(output, dataset='Field')
+    source.save(output, dataset='Field')
 
     # now load it and paint to the algorithm's ParticleMesh
     source = BigFileMesh(path=output, dataset='Field')
@@ -114,14 +114,14 @@ def test_bigfile_grid(comm):
     # compare to direct algorithm result
     assert_array_equal(real, loaded_real)
     
-    complex.save(output, dataset='FieldC')
+    source.save(output, dataset='FieldC', mode='complex')
 
     # now load it and paint to the algorithm's ParticleMesh
     source = BigFileMesh(path=output, dataset='FieldC')
     loaded_real = source.paint(mode="complex")
     
     # compare to direct algorithm result
-    assert_allclose(complex, loaded_real, rtol=1e-5)
+    assert_allclose(complex, loaded_real, atol=1e-7)
     if comm.rank == 0:
         shutil.rmtree(output)
 
