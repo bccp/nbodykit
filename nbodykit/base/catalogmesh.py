@@ -142,7 +142,7 @@ class CatalogMeshSource(MeshSource, CatalogSource):
                 lay = pm.decompose(position, smoothing=0.5 * paintbrush.support)
                 p = lay.exchange(position)
                 w = lay.exchange(weight)
-                real.paint(p, mass=w, method=paintbrush, hold=True)
+                real.paint(p, mass=w, resampler=paintbrush, hold=True)
             else:
                 lay = pm.decompose(position, smoothing=1.0 * paintbrush.support)
                 p = lay.exchange(position)
@@ -153,8 +153,8 @@ class CatalogMeshSource(MeshSource, CatalogSource):
                 # in mesh units
                 shifted = pm.affine.shift(0.5)
 
-                real.paint(p, mass=w, method=paintbrush, hold=True)
-                real2.paint(p, mass=w, method=paintbrush, transform=shifted, hold=True)
+                real.paint(p, mass=w, resampler=paintbrush, hold=True)
+                real2.paint(p, mass=w, resampler=paintbrush, transform=shifted, hold=True)
                 c1 = real.r2c()
                 c2 = real2.r2c()
 
