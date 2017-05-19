@@ -186,7 +186,7 @@ def save(self, output, dataset='Field'):
     import warnings
     with bigfile.BigFileMPI(self.pm.comm, output, create=True) as ff:
         data = numpy.empty(shape=self.size, dtype=self.dtype)
-        self.sort(out=data)
+        self.ravel(out=data)
         with ff.create_from_array(dataset, data) as bb:
             if isinstance(self, RealField):
                 bb.attrs['ndarray.shape'] = self.pm.Nmesh
