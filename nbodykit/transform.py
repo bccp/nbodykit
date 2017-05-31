@@ -25,7 +25,7 @@ def vstack(*cols):
 
     return da.vstack(cols).T
 
-def concatenate(*sources, columns=None):
+def concatenate(*sources, **kwargs):
     """
     Concatenate Source objects together, optionally including only
     certain columns in the returned source
@@ -42,6 +42,8 @@ def concatenate(*sources, columns=None):
     CatalogSource :
         the concatenated catalog source
     """
+    columns = kwargs.get('columns', None)
+    
     # FIXME: new name for CatalogSubset?
     from nbodykit.base.catalog import CatalogSubset
 
