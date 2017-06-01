@@ -39,7 +39,7 @@ class FileCatalogBase(CatalogSource):
         self.attrs.update(self._source.attrs)
 
         if self.comm.rank == 0:
-            self.logger.info("Extra arguments to FileType: %s" %args)
+            self.logger.info("Extra arguments to FileType: %s" % str(args))
 
         CatalogSource.__init__(self, comm=comm, use_cache=use_cache)
 
