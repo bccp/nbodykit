@@ -383,15 +383,13 @@ class Cosmology(dict):
         fz : ndarray, or float if input scalar
             The linear growth rate evaluated at the input redshifts
         """
+        from .background import PerturbationGrowth
+
         z = np.asarray(z)
         a = 1./(1+z)
-        inv_efunc = self.inv_efunc(z)
 
-        # D_z integrand
-        integrand = lambda red: quad(lambda a: a ** (-3) * self.engine.inv_efunc(1/a-1.) ** 3, 0, 1./(1+red))[0]
-        D_z = vectorize_if_needed(integrand, z)
-
-        return a * inv_efunc * self.efunc_prime(z) + inv_efunc**3 / (a**2 * D_z)
+        pt = PerturbationGrowth(self, a=a)
+        return pt.f1(a)
 
     @fittable
     def growth_function(self, z):
@@ -414,12 +412,10 @@ class Cosmology(dict):
         Dz : ndarray, or float if input scalar
             The linear growth function evaluated at the input redshifts
         """
-        # this is 1 / (E(a) * a)**3, with H(a) = H0 * E(a)
-        integrand = lambda a: a ** (-3) * self.engine.inv_efunc(1/a-1.) ** 3
+        from .background import PerturbationGrowth
 
-        # normalize to D(z=0) = 1
-        norm = self.engine.efunc(z) * self._Dz_norm
+        z = np.asarray(z)
+        a = 1./(1+z)
 
-        # be sure to return vectorized quantities
-        f = lambda red: quad(integrand, 0., 1./(1+red))[0]
-        return norm * vectorize_if_needed(f, z)
+        pt = PerturbationGrowth(self, a=a)
+        return pt.D1(a)

@@ -1,5 +1,5 @@
 from .core import Cosmology
-from .perturbation import PerturbationGrowth
+from .background import PerturbationGrowth
 
 from .ehpower import LinearPowerBase, EHPower, NoWiggleEHPower
 

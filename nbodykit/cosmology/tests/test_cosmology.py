@@ -6,6 +6,7 @@ from nbodykit.cosmology import Cosmology
 from nbodykit.cosmology import PerturbationGrowth
 
 from numpy.testing import assert_allclose
+from numpy.testing.decorators import skipif
 import numpy
 from scipy.optimize import check_grad
 
@@ -25,20 +26,46 @@ def test_fast():
 
     assert_allclose(f1, f2, rtol=1e-4)
 
-def test_ode():
-    C = Cosmology(Om0=0.3, Ode0=0.7, Neff=0, Tcmb0=0)
-    assert C.Ogamma0 == 0
-    pt = PerturbationGrowth(C)
+try:
+    from classylss.binding import ClassEngine, Background
+except ImportError:
+    ClassEngine = None
+    pass 
 
-    a = numpy.linspace(0.1, 1.0, 11, endpoint=True)
+@skipif(ClassEngine is None, 'class binding is not installed')
+def test_ode():
+    C = Planck15 
+
+    CC = ClassEngine.from_astropy(C.engine)
+    bg = Background(CC)
+
+    a = numpy.logspace(-2, 0, 11, endpoint=True)
+
+    pt = PerturbationGrowth(C, a=a)
+
     z = 1 / a - 1
-    D1 = pt.D1(a)
+
     f1 = pt.f1(a)
     D2 = pt.D2(a)
     f2 = pt.f2(a)
 
-    assert_allclose(D1, C.growth_function(z), rtol=1e-6)
+    """
+    from scipy.optimize import minimize
 
-    assert_allclose(f1, C.growth_rate(z), rtol=1e-6)
+    def f(a_H):
+        pt.a_H = a_H
+        pt._D1, pt._D2 = pt._solve()
+        D1 = pt.D1(a)
+        D_CC = bg.scale_independent_growth_factor(z)
+        return ((D1 / D_CC - 1) ** 2).sum() ** 0.5
+    a_Hbest = minimize(f, pt.a_H, method='Nelder-Mead', options=dict(xatol=1e-7, fatol=1e-7)).x
+
+    print(a_Hbest)
+    pt.a_H = a_Hbest
+    """
+
+    D1 = pt.D1(a)
+    D_CC = bg.scale_independent_growth_factor(z)
+    assert_allclose(D1, D_CC, rtol=1e-4)
 
 
