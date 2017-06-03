@@ -6,7 +6,7 @@ from nbodykit.cosmology import Cosmology
 from nbodykit.cosmology import PerturbationGrowth
 
 from numpy.testing import assert_allclose
-from numpy.testing.decorators import skipif
+import pytest
 import numpy
 from scipy.optimize import check_grad
 
@@ -32,7 +32,7 @@ except ImportError:
     ClassEngine = None
     pass 
 
-@skipif(ClassEngine is None, 'class binding is not installed')
+@pytest.mark.skipif(ClassEngine is None, reason='class binding is not installed')
 def test_ode():
     C = Planck15 
 
