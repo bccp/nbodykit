@@ -193,16 +193,16 @@ def HaloConcentration(mass, cosmo, redshift, mdef='vir'):
     Dutton and Maccio, "Cold dark matter haloes in the Planck era: evolution
     of structural parameters for Einasto and NFW profiles", 2014, arxiv:1402.7073
     """
-    from halotools.empirical_models import ConcMass
+    from halotools.empirical_models import NFWProfile
 
     if not isinstance(mass, da.Array):
         mass = da.from_array(mass, chunks=100000)
 
     # initialize the model
     kws = {'cosmology':cosmo.engine, 'conc_mass_model':'dutton_maccio14', 'mdef':mdef, 'redshift':redshift}
-    model = ConcMass(**kws)
+    model = NFWProfile(**kws)
 
-    return mass.map_blocks(lambda mass: model.compute_concentration(prim_haloprop=mass), dtype=mass.dtype)
+    return mass.map_blocks(lambda mass: model.conc_NFWmodel(prim_haloprop=mass), dtype=mass.dtype)
 
 def HaloRadius(mass, cosmo, redshift, mdef='vir'):
     """
@@ -237,10 +237,10 @@ def HaloRadius(mass, cosmo, redshift, mdef='vir'):
     radius : dask.array.Array
         a dask array holding the halo radius
     """
-    from halotools.empirical_models import profile_helpers
+    from halotools.empirical_models import halo_mass_to_halo_radius
 
     if not isinstance(mass, da.Array):
         mass = da.from_array(mass, chunks=100000)
 
     kws = {'cosmology':cosmo.engine, 'mdef':mdef, 'redshift':redshift}
-    return mass.map_blocks(lambda mass: profile_helpers.halo_mass_to_halo_radius(mass=mass, **kws), dtype=mass.dtype)
+    return mass.map_blocks(lambda mass: halo_mass_to_halo_radius(mass=mass, **kws), dtype=mass.dtype)
