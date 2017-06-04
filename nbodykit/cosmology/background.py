@@ -37,9 +37,9 @@ class PerturbationGrowth(object):
         if a is None:
             lna = np.log(np.logspace(-7, 0, 1024*10, endpoint=True))
         else:
-            a = np.array(a, copy=True)
+            a = np.array(a, copy=True).ravel() # ensure this is 1-d
             a.sort()
-            if a[0] > 1e-7:
+            if a[0] > 1e-7: # add a high redshift starting point.
                 a = np.concatenate([[1e-7], a])
             lna = np.log(a)
 
