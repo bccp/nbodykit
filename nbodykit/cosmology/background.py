@@ -38,6 +38,8 @@ class PerturbationGrowth(object):
             lna = np.log(np.logspace(-7, 0, 1024*10, endpoint=True))
         else:
             a = np.array(a, copy=True).ravel() # ensure this is 1-d
+            if 1.0 not in a: # ensure redshift 0 is in the list, for normalization
+                a = np.concatenate([[1.0], a])
             a.sort()
             if a[0] > 1e-7: # add a high redshift starting point.
                 a = np.concatenate([[1e-7], a])
@@ -147,7 +149,8 @@ class PerturbationGrowth(object):
         v1 = np.array(v1)
         v2 = np.array(v2)
 
+        ind = abs(self.lna).argmin()
         # normalization to 1 at a=1.0
-        v1 /= v1[-1][0]
-        v2 /= v2[-1][0]
+        v1 /= v1[ind][0]
+        v2 /= v2[ind][0]
         return v1, v2
