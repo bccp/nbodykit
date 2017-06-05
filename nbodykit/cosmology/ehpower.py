@@ -35,6 +35,7 @@ class LinearPowerBase(object):
 
         # redshift
         self.redshift = redshift
+        self.D = self.cosmo.growth_function(self.redshift)
 
     @property
     def attrs(self):
@@ -111,8 +112,7 @@ class LinearPowerBase(object):
             return 1.
         k = np.asarray(k)
         T = self.transfer(k)
-        D = self.cosmo.growth_function(self.redshift)
-        r = D**2 * (self.sigma8/self._sigma8_0)**2 * self._norm * T ** 2 * k ** self.cosmo.n_s
+        r = self.D**2 * (self.sigma8/self._sigma8_0)**2 * self._norm * T ** 2 * k ** self.cosmo.n_s
         r = np.asarray(r)
         r[k == 0] = 1.
         return r
