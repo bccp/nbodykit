@@ -48,6 +48,9 @@ def test_memory_grid(comm):
     assert_allclose(complex, realmesh.to_field(mode='complex'))
     assert_allclose(real, complexmesh.to_field(mode='real'))
 
+    # resampling
+    realmesh = MemoryMesh(real, Nmesh=16)
+
 @MPITest([1,4])
 def test_linear_grid(comm):
     """
