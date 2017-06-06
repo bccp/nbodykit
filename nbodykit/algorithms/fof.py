@@ -74,7 +74,8 @@ class FOF(object):
 
         # the sorted labels
         self.labels = _assign_labels(minid, comm=self.comm, thresh=self.attrs['nmin'])
-                        
+        self.max_label = self.comm.allgather(self.labels.max())
+
     def find_features(self):
         """
         Basd on the particles labels, identify the groups, and return 
