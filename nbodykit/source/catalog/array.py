@@ -4,16 +4,17 @@ import numpy
 
 class ArrayCatalog(CatalogSource):
     """
-    A catalog source initialized from a :mod:`numpy` array
+    A catalog source initialized from a dictionary or structred ndarray object
     """
     @CurrentMPIComm.enable
     def __init__(self, data, comm=None, use_cache=False, **kwargs):
         """
         Parameters
         ----------
-        data : numpy.array
-            a structured numpy array; fields of the array are interpreted
-            as the columns of the catalog
+        data : dict or ndarray
+            a dictionary or structured ndarray; items are interpreted
+            as the columns of the catalog; the length of any item is used
+            as the size of the catalogue.
         comm : MPI Communicator, optional
             the MPI communicator instance; default (``None``) sets to the
             current communicator  
@@ -24,23 +25,35 @@ class ArrayCatalog(CatalogSource):
         """
         self.comm    = comm
         self._source = data
-        if data.dtype.names is None:
-            raise ValueError("input data should be a structured numpy array")
-        
+
+        if hasattr(data, 'dtype'):
+            keys = sorted(data.dtype.names)
+        else:
+            keys = sorted(data.keys())
+
+        dtype = numpy.dtype([(key, (data[key].dtype, data[key].shape[1:])) for key in keys])
+
         # verify data types are the same
-        dtypes = self.comm.gather(data.dtype, root=0)
+        dtypes = self.comm.gather(dtype, root=0)
         if self.comm.rank == 0:
             if any(dt != dtypes[0] for dt in dtypes):
                 raise ValueError("mismatch between dtypes across ranks in Array")
-        
+
+        self._size = len(self._source[keys[0]])
+
+        for key in keys:
+            if len(self._source[key]) != self._size:
+                raise ValueError("column `%s` and column `%s` has different size" % (keys[0], key))
+
+        self._dtype = dtype
         CatalogSource.__init__(self, comm=comm, use_cache=use_cache)
-        
+
         # update the meta-data
         self.attrs.update(kwargs)
 
     @property
     def size(self):
-        return len(self._source)
+        return self._size
         
     @property
     def hardcolumns(self):
@@ -48,7 +61,7 @@ class ArrayCatalog(CatalogSource):
         The union of the columns in the file and any transformed columns
         """
         defaults = CatalogSource.hardcolumns.fget(self)
-        return list(self._source.dtype.names) + defaults
+        return list(self._dtype.names) + defaults
 
     def get_hardcolumn(self, col):
         """
@@ -56,7 +69,7 @@ class ArrayCatalog(CatalogSource):
         
         Columns are returned as dask arrays
         """
-        if col in self._source.dtype.names: 
+        if col in self._dtype.names: 
             return self.make_column(self._source[col])
         else:
             return CatalogSource.get_hardcolumn(self, col)
