@@ -27,6 +27,7 @@ dependencies:
 - cachey
 - h5py
 - halotools
+- matplotlib
 - IPython
 - sphinx_rtd_theme
 - numpydoc
