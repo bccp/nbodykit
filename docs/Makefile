@@ -54,13 +54,13 @@ clean:
 	rm -rf api
 
 html-setup: apidoc plugins-apidoc plugins-list
-	
-plugins-apidoc: apidoc
-	echo ".. include:: nbodykit.plugins.rst" > api/plugins_ref.rst
 
-apidoc: 
+plugins-apidoc: apidoc
+	echo ".. include:: nbodykit.core.rst" > api/plugins_ref.rst
+
+apidoc:
 	bash apidoc.sh
-	
+
 plugins-list:
 	python generate_plugins_list.py
 
@@ -69,8 +69,8 @@ html: html-setup
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 
-gh-pages: 
-	./ghp-import -n -p $(BUILDDIR)/html/ 
+gh-pages:
+	./ghp-import -n -p $(BUILDDIR)/html/
 
 dirhtml:
 	$(SPHINXBUILD) -b dirhtml $(ALLSPHINXOPTS) $(BUILDDIR)/dirhtml

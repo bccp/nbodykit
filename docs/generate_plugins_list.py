@@ -1,18 +1,17 @@
 from __future__ import print_function
 import os
 import sys
-from nbodykit import extensionpoints
+from nbodykit import plugin_manager
 
 dirname = 'plugins-list'
 if not os.path.exists(dirname):
     os.makedirs(dirname)
 
-valid = ['Algorithm', 'DataSource', 'Painter', 'Transfer']
-for expoint_str in valid:
+for expoint_str in plugin_manager.supported_types:
 
-    expoint = extensionpoints.extensionpoints[expoint_str]
+    expoint = plugin_manager.supported_types[expoint_str]
     name = expoint.__name__
-    registry = vars(expoint.registry)
+    registry = plugin_manager[expoint_str]
 
     filename = os.path.join(dirname, name+'.rst')
     print("making %s..." %filename)

@@ -32,3 +32,4 @@ dependencies:
 - sphinx_rtd_theme
 - numpydoc
 - sphinx
+- pytest_pipeline
