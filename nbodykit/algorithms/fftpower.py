@@ -382,23 +382,28 @@ class ProjectedPower(FFTPowerBase):
     def run(self):
         c1 = self._source2field(self.sources[0])
         r1 = c1.preview(self.pm.Nmesh, axes=self.attrs['axes'])
-        c1 = numpy.fft.rfftn(r1)
+        # average along projected axes;
+        # part of product is the rfftn vs r2c (for axes)
+        # the rest is for the mean (Nmesh - axes)
+        c1 = numpy.fft.rfftn(r1) / self.pm.Nmesh.prod()
 
         # compute the auto power of single supplied field
-        if sources[0] is sources[1]:
-            r2 = r1
+        if self.sources[0] is self.sources[1]:
+            c2 = c1
         else:
             c2 = self._source2field(self.sources[1])
             r2 = c2.preview(self.pm.Nmesh, axes=self.attrs['axes'])
-            c2 = numpy.fft.rfftn(r2)
+            c2 = numpy.fft.rfftn(r2) / self.pm.Nmesh.prod() # average along projected axes
 
         pk = c1 * c2.conj()
+        # clear the zero mode
+        pk.flat[0] = 0
 
-        shape = [self.attrs['Nmesh'][i] for i in self.attrs['axes']]
-        boxsize = [self.attrs['BoxSize'][i] for i in self.attrs['axes']]
-        I = numpy.eye(len(shape), dtype='int')
+        shape = numpy.array([self.attrs['Nmesh'][i] for i in self.attrs['axes']], dtype='int')
+        boxsize = numpy.array([self.attrs['BoxSize'][i] for i in self.attrs['axes']])
+        I = numpy.eye(len(shape), dtype='int') * -2 + 1
 
-        k = [numpy.fft.fftfreq(N, 1. / N * 2 * numpy.pi / L ).reshape(kshape) for N, L, kshape in zip(shape, boxsize, I)]
+        k = [numpy.fft.fftfreq(N, 1. / (N * 2 * numpy.pi / L))[:pkshape].reshape(kshape) for N, L, kshape, pkshape in zip(shape, boxsize, I, pk.shape)]
 
         kmag = sum(ki ** 2 for ki in k) ** 0.5
         W = numpy.empty(pk.shape, dtype='f4')
@@ -408,23 +413,24 @@ class ProjectedPower(FFTPowerBase):
 
         dk = self.attrs['dk']
         kmin = self.attrs['kmin']
-        kedges = numpy.arange(kmin, numpy.pi*y3d.Nmesh.min()/y3d.BoxSize.max() + dk/2, dk)
+        kedges = numpy.arange(kmin, numpy.pi * self.attrs['Nmesh'].min() / self.attrs['BoxSize'].max() + dk/2, dk)
 
         xsum = numpy.zeros(len(kedges) + 1)
-        Psum = numpy.zeros(len(kedges) + 1)
+        Psum = numpy.zeros(len(kedges) + 1, dtype='complex128')
         Nsum = numpy.zeros(len(kedges) + 1)
 
         dig = numpy.digitize(kmag.flat, kedges)
-
         xsum.flat += numpy.bincount(dig, weights=(W * kmag).flat, minlength=xsum.size)
-        Psum.flat += numpy.bincount(dig, weights=(W * pk).flat, minlength=xsum.size)
+        Psum.real.flat += numpy.bincount(dig, weights=(W * pk.real).flat, minlength=xsum.size)
+        Psum.imag.flat += numpy.bincount(dig, weights=(W * pk.imag).flat, minlength=xsum.size)
         Nsum.flat += numpy.bincount(dig, weights=W.flat, minlength=xsum.size)
 
         self.power = numpy.empty(len(kedges) - 1, 
                 dtype=[('k', 'f8'), ('power', 'c16'), ('modes', 'f8')])
+
         with numpy.errstate(invalid='ignore'):
             self.power['k'] = (xsum / Nsum)[1:-1]
-            self.power['power'] = (Psum / Nsum)[1:-1]
+            self.power['power'] = (Psum / Nsum)[1:-1] * boxsize.prod() # dimension is 'volume'
             self.power['modes'] = Nsum[1:-1]
 
         self.edges = kedges

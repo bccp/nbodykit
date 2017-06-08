@@ -1,4 +1,4 @@
-from .fftpower import FFTPower
+from .fftpower import FFTPower, ProjectedPower
 from .fof import FOF
 from .convpower import ConvolvedFFTPower
 from .zhist import RedshiftHistogram
