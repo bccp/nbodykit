@@ -10,7 +10,7 @@ from pmesh.pm import ComplexField
 class FFTPowerBase(object):
     """ Base class provides functions for FFT based Power spectrum code """
 
-    def __init__(self, first, second, Nmesh, BoxSize):
+    def __init__(self, first, second, Nmesh, BoxSize, kmin, dk):
         from pmesh.pm import ParticleMesh
         from nbodykit.base.mesh import MeshSource
 
@@ -64,6 +64,12 @@ class FFTPowerBase(object):
         self.attrs['Nmesh']   = self.pm.Nmesh.copy()
         self.attrs['BoxSize'] = self.pm.BoxSize.copy()
 
+        if dk is None:
+            dk = 2 * numpy.pi / self.attrs['BoxSize'].min()
+
+        self.attrs['dk'] = dk
+        self.attrs['kmin'] = kmin
+
         # update the meta-data to return
         self.attrs.update(zip(['Lx', 'Ly', 'Lz'], _BoxSize))
 
@@ -83,6 +89,45 @@ class FFTPowerBase(object):
             if self.comm.rank == 0: self.logger.info('field: %s resampling done' % str(source))
 
         return c
+
+    def save(self, output):
+        """
+        Save the FFTPower result to disk.
+
+        The format is currently JSON.
+        """
+        import json
+        from nbodykit.utils import JSONEncoder
+        
+        # only the master rank writes
+        if self.comm.rank == 0:
+            self.logger.info('measurement done; saving result to %s' % output)
+
+            with open(output, 'w') as ff:
+                json.dump(self.__getstate__(), ff, cls=JSONEncoder) 
+
+    @classmethod
+    @CurrentMPIComm.enable
+    def load(cls, output, comm=None):
+        """ 
+        Load a saved FFTPower result.
+
+        The result has been saved to disk with :func:`FFTPower.save`.
+        """
+        import json
+        from nbodykit.utils import JSONDecoder
+        if comm.rank == 0:
+            with open(output, 'r') as ff:
+                state = json.load(ff, cls=JSONDecoder)
+        else:
+            state = None
+        state = comm.bcast(state)
+        self = object.__new__(cls)
+        self.__setstate__(state)
+        self.comm = comm
+
+        return self
+
 
 
 class FFTPower(FFTPowerBase):
@@ -158,14 +203,12 @@ class FFTPower(FFTPowerBase):
         if poles is None:
             poles = []
 
-        FFTPowerBase.__init__(self, first, second, Nmesh, BoxSize)
+        FFTPowerBase.__init__(self, first, second, Nmesh, BoxSize, kmin, dk)
 
         # save meta-data
         self.attrs['mode']    = mode
         self.attrs['los']     = los
         self.attrs['Nmu']     = Nmu
-        self.attrs['dk']      = dk
-        self.attrs['kmin']    = kmin 
         self.attrs['poles']   = poles
 
         self.run()
@@ -197,8 +240,9 @@ class FFTPower(FFTPowerBase):
 
         # binning in k out to the minimum nyquist frequency 
         # (accounting for possibly anisotropic box)
-        dk = 2*numpy.pi/y3d.BoxSize.min() if self.attrs['dk'] is None else self.attrs['dk']
-        kedges = numpy.arange(self.attrs['kmin'], numpy.pi*y3d.Nmesh.min()/y3d.BoxSize.max() + dk/2, dk)
+        dk = self.attrs['dk']
+        kmin = self.attrs['kmin']
+        kedges = numpy.arange(kmin, numpy.pi*y3d.Nmesh.min()/y3d.BoxSize.max() + dk/2, dk)
 
         # project on to the desired basis
         muedges = numpy.linspace(0, 1, self.attrs['Nmu']+1, endpoint=True)
@@ -253,44 +297,6 @@ class FFTPower(FFTPowerBase):
         self.__dict__.update(state)
         self._make_datasets()
         
-    def save(self, output):
-        """
-        Save the FFTPower result to disk.
-
-        The format is currently JSON.
-        """
-        import json
-        from nbodykit.utils import JSONEncoder
-        
-        # only the master rank writes
-        if self.comm.rank == 0:
-            self.logger.info('measurement done; saving result to %s' % output)
-
-            with open(output, 'w') as ff:
-                json.dump(self.__getstate__(), ff, cls=JSONEncoder) 
-
-    @classmethod
-    @CurrentMPIComm.enable
-    def load(cls, output, comm=None):
-        """ 
-        Load a saved FFTPower result.
-
-        The result has been saved to disk with :func:`FFTPower.save`.
-        """
-        import json
-        from nbodykit.utils import JSONDecoder
-        if comm.rank == 0:
-            with open(output, 'r') as ff:
-                state = json.load(ff, cls=JSONDecoder)
-        else:
-            state = None
-        state = comm.bcast(state)
-        self = object.__new__(cls)
-        self.__setstate__(state)
-        self.comm = comm
-
-        return self
-
     def _make_datasets(self):
         
         if self.attrs['mode'] == '1d':
@@ -361,6 +367,80 @@ class FFTPower(FFTPowerBase):
         self.attrs['shotnoise'] = Pshot
 
         return p3d
+
+class ProjectedPower(FFTPowerBase):
+    logger = logging.getLogger('ProjectedPower')
+    def __init__(self, first, Nmesh=None, BoxSize=None, second=None, axes=(0, 1), dk=None, kmin=0.):
+        FFTPowerBase.__init__(self, first, second, Nmesh, BoxSize, kmin, dk)
+
+        # only deal with 1d and 2d projections.
+        assert len(axes) in (1, 2)
+
+        self.attrs['axes'] = axes
+        self.run()
+
+    def run(self):
+        c1 = self._source2field(self.sources[0])
+        r1 = c1.preview(self.pm.Nmesh, axes=self.attrs['axes'])
+        c1 = numpy.fft.rfftn(r1)
+
+        # compute the auto power of single supplied field
+        if sources[0] is sources[1]:
+            r2 = r1
+        else:
+            c2 = self._source2field(self.sources[1])
+            r2 = c2.preview(self.pm.Nmesh, axes=self.attrs['axes'])
+            c2 = numpy.fft.rfftn(r2)
+
+        pk = c1 * c2.conj()
+
+        shape = [self.attrs['Nmesh'][i] for i in self.attrs['axes']]
+        boxsize = [self.attrs['BoxSize'][i] for i in self.attrs['axes']]
+        I = numpy.eye(len(shape), dtype='int')
+
+        k = [numpy.fft.fftfreq(N, 1. / N * 2 * numpy.pi / L ).reshape(kshape) for N, L, kshape in zip(shape, boxsize, I)]
+
+        kmag = sum(ki ** 2 for ki in k) ** 0.5
+        W = numpy.empty(pk.shape, dtype='f4')
+        W[...] = 2.0
+        W[..., 0] = 1.0
+        W[..., -1] = 1.0
+
+        dk = self.attrs['dk']
+        kmin = self.attrs['kmin']
+        kedges = numpy.arange(kmin, numpy.pi*y3d.Nmesh.min()/y3d.BoxSize.max() + dk/2, dk)
+
+        xsum = numpy.zeros(len(kedges) + 1)
+        Psum = numpy.zeros(len(kedges) + 1)
+        Nsum = numpy.zeros(len(kedges) + 1)
+
+        dig = numpy.digitize(kmag.flat, kedges)
+
+        xsum.flat += numpy.bincount(dig, weights=(W * kmag).flat, minlength=xsum.size)
+        Psum.flat += numpy.bincount(dig, weights=(W * pk).flat, minlength=xsum.size)
+        Nsum.flat += numpy.bincount(dig, weights=W.flat, minlength=xsum.size)
+
+        self.power = numpy.empty(len(kedges) - 1, 
+                dtype=[('k', 'f8'), ('power', 'c16'), ('modes', 'f8')])
+        with numpy.errstate(invalid='ignore'):
+            self.power['k'] = (xsum / Nsum)[1:-1]
+            self.power['power'] = (Psum / Nsum)[1:-1]
+            self.power['modes'] = Nsum[1:-1]
+
+        self.edges = kedges
+
+        self.power = DataSet(['k'], [self.edges], self.power)
+
+    def __getstate__(self):
+        state = dict(
+                     edges=self.edges,
+                     power=self.power.data,
+                     attrs=self.attrs)
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.power = DataSet(['k'], [self.edges], self.power)
 
 def project_to_basis(y3d, edges, los=[0, 0, 1], poles=[]):
     """ 
