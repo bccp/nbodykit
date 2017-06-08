@@ -15,13 +15,6 @@ import sys
 import os
 import shlex
 
-import mock
-MOCK_MODULES = ['mpsort', 'mpi4py', 'scipy', 'scipy.interpolate', 'h5py', 'bigfile', 
-                'kdcount', 'pmesh', 'pmesh.particlemesh', 'pmesh.domain', 'pytest',
-                'astropy']
-for mod_name in MOCK_MODULES:
-    sys.modules[mod_name] = mock.Mock()
-
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
@@ -148,10 +141,10 @@ if not on_rtd:
     html_theme = 'sphinx_rtd_theme'
     html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 else:
-    
+
     # do the html setup
     os.system("make html-setup")
-    
+
 #html_theme = 'nature'
 
 # Theme options are theme-specific and customize the look and feel of a theme
