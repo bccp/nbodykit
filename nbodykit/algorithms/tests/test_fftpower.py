@@ -88,12 +88,12 @@ def test_projectedpower(comm):
     source = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42)
 
     Nmesh = 64
-    rp1 = ProjectedPower(source, Nmesh=Nmesh, axes=[1])
+    rp1 = ProjectedFFTPower(source, Nmesh=Nmesh, axes=[1])
 
     # the zero mode is cleared
     assert_array_equal(rp1.power['power'][0], 0)
 
-    rp2 = ProjectedPower(source, Nmesh=Nmesh, axes=[0, 1])
+    rp2 = ProjectedFFTPower(source, Nmesh=Nmesh, axes=[0, 1])
     # the zero mode is cleared
     assert_array_equal(rp2.power['power'][0], 0)
 

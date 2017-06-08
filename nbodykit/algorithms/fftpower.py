@@ -368,8 +368,8 @@ class FFTPower(FFTPowerBase):
 
         return p3d
 
-class ProjectedPower(FFTPowerBase):
-    logger = logging.getLogger('ProjectedPower')
+class ProjectedFFTPower(FFTPowerBase):
+    logger = logging.getLogger('ProjectedFFTPower')
     def __init__(self, first, Nmesh=None, BoxSize=None, second=None, axes=(0, 1), dk=None, kmin=0.):
         FFTPowerBase.__init__(self, first, second, Nmesh, BoxSize, kmin, dk)
 
