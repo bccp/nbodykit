@@ -80,3 +80,25 @@ def test_fftpower_mismatch_boxsize(comm):
     source2 = LinearMesh(cosmology.NoWiggleEHPower(cosmo, 0.55), BoxSize=1024, Nmesh=32, seed=33)
 
     r = FFTPower(source1, second=source2, mode='1d', BoxSize=1024, Nmesh=32)
+
+@MPITest([1])
+def test_projectedpower(comm):
+    
+    CurrentMPIComm.set(comm)
+    source = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42)
+
+    Nmesh = 64
+    rp1 = ProjectedFFTPower(source, Nmesh=Nmesh, axes=[1])
+
+    # the zero mode is cleared
+    assert_array_equal(rp1.power['power'][0], 0)
+
+    rp2 = ProjectedFFTPower(source, Nmesh=Nmesh, axes=[0, 1])
+    # the zero mode is cleared
+    assert_array_equal(rp2.power['power'][0], 0)
+
+    rf = FFTPower(source, Nmesh=Nmesh, mode='1d')
+
+    # FIXME: why a factor of 2?
+    assert_allclose(rp1.power['power'][1:].mean() * source.attrs['BoxSize'][0] ** 2, rf.power['power'][1:].mean(), rtol=2 * (Nmesh / 2)**-0.5)
+    assert_allclose(rp2.power['power'][1:].mean() * source.attrs['BoxSize'][0], rf.power['power'][1:].mean(), rtol=2 * (Nmesh ** 2 / 2)**-0.5)

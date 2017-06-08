@@ -7,7 +7,130 @@ from nbodykit.dataset import DataSet
 from nbodykit.meshtools import SlabIterator
 from pmesh.pm import ComplexField
 
-class FFTPower(object):
+class FFTPowerBase(object):
+    """ Base class provides functions for FFT based Power spectrum code """
+
+    def __init__(self, first, second, Nmesh, BoxSize, kmin, dk):
+        from pmesh.pm import ParticleMesh
+        from nbodykit.base.mesh import MeshSource
+
+        # grab comm from first source
+        self.comm = first.comm 
+
+        # if input is CatalogSource, use defaults to make it into a mesh
+        if not hasattr(first, 'paint'):
+            first = first.to_mesh(BoxSize=BoxSize, Nmesh=Nmesh, dtype='f8', compensated=True)
+
+        # handle the second input source
+        if second is None:
+            second = first
+        else:
+            # make the second input a mesh if we need to
+            if not hasattr(second, 'paint'):
+                second = second.to_mesh(BoxSize=BoxSize, Nmesh=Nmesh, dtype='f8', compensated=True)
+
+        # check for comm mismatch
+        assert second.comm is first.comm, "communicator mismatch between input sources"
+
+        self.sources = [first, second]
+        assert all([isinstance(src, MeshSource) for src in self.sources]), 'error converting input sources to meshes'
+
+        # using Nmesh from source
+        if Nmesh is None:
+            Nmesh = self.sources[0].attrs['Nmesh']
+
+        _BoxSize = self.sources[0].attrs['BoxSize'].copy()
+        if BoxSize is not None:
+            _BoxSize[:] = BoxSize
+
+        _Nmesh = self.sources[0].attrs['Nmesh'].copy()
+        if _Nmesh is not None:
+            _Nmesh[:] = Nmesh
+
+        # check box sizes
+        if len(self.sources) == 2:
+            if not numpy.array_equal(self.sources[0].attrs['BoxSize'], self.sources[1].attrs['BoxSize']):
+                raise ValueError("BoxSize mismatch between cross-correlation sources")
+            if not numpy.array_equal(self.sources[0].attrs['BoxSize'], _BoxSize):
+                raise ValueError("BoxSize mismatch between sources and the algorithm.")
+
+
+        # setup the particle mesh object
+        self.pm = ParticleMesh(BoxSize=_BoxSize, Nmesh=_Nmesh, dtype='f4', comm=self.comm)
+
+        self.attrs = {}
+
+        # save meta-data
+        self.attrs['Nmesh']   = self.pm.Nmesh.copy()
+        self.attrs['BoxSize'] = self.pm.BoxSize.copy()
+
+        if dk is None:
+            dk = 2 * numpy.pi / self.attrs['BoxSize'].min()
+
+        self.attrs['dk'] = dk
+        self.attrs['kmin'] = kmin
+
+        # update the meta-data to return
+        self.attrs.update(zip(['Lx', 'Ly', 'Lz'], _BoxSize))
+
+        self.attrs.update({'volume':_BoxSize.prod()})
+
+    def _source2field(self, source):
+
+        # step 1: paint the density field to the mesh
+        c = source.paint(mode='complex')
+
+        if self.comm.rank == 0: self.logger.info('field: %s painting done' % str(source))
+
+        if any(c.pm.Nmesh != self.pm.Nmesh):
+            cnew = ComplexField(self.pm)
+            c = c.resample(out=cnew)
+
+            if self.comm.rank == 0: self.logger.info('field: %s resampling done' % str(source))
+
+        return c
+
+    def save(self, output):
+        """
+        Save the FFTPower result to disk.
+
+        The format is currently JSON.
+        """
+        import json
+        from nbodykit.utils import JSONEncoder
+        
+        # only the master rank writes
+        if self.comm.rank == 0:
+            self.logger.info('measurement done; saving result to %s' % output)
+
+            with open(output, 'w') as ff:
+                json.dump(self.__getstate__(), ff, cls=JSONEncoder) 
+
+    @classmethod
+    @CurrentMPIComm.enable
+    def load(cls, output, comm=None):
+        """ 
+        Load a saved FFTPower result.
+
+        The result has been saved to disk with :func:`FFTPower.save`.
+        """
+        import json
+        from nbodykit.utils import JSONDecoder
+        if comm.rank == 0:
+            with open(output, 'r') as ff:
+                state = json.load(ff, cls=JSONDecoder)
+        else:
+            state = None
+        state = comm.bcast(state)
+        self = object.__new__(cls)
+        self.__setstate__(state)
+        self.comm = comm
+
+        return self
+
+
+
+class FFTPower(FFTPowerBase):
     """
     Algorithm to compute the 1d or 2d power spectrum and/or multipoles
     in a periodic box, using a Fast Fourier Transform (FFT)
@@ -73,9 +196,6 @@ class FFTPower(object):
         poles : list of int; optional
             a list of multipole numbers ``ell`` to compute :math:`P_\ell(k)` from :math:`P(k,\mu)`
         """
-        from pmesh.pm import ParticleMesh
-        from nbodykit.base.mesh import MeshSource
-        
         # mode is either '1d' or '2d'
         if mode not in ['1d', '2d']:
             raise ValueError("`mode` should be either '1d' or '2d'")
@@ -83,66 +203,13 @@ class FFTPower(object):
         if poles is None:
             poles = []
 
-        # grab comm from first source
-        self.comm = first.comm 
-        
-        # if input is CatalogSource, use defaults to make it into a mesh
-        if not hasattr(first, 'paint'):
-            first = first.to_mesh(BoxSize=BoxSize, Nmesh=Nmesh, dtype='f8', compensated=True)
-            
-        # handle the second input source
-        if second is None:
-            second = first
-        else:
-            # make the second input a mesh if we need to
-            if not hasattr(second, 'paint'):
-                second = second.to_mesh(BoxSize=BoxSize, Nmesh=Nmesh, dtype='f8', compensated=True)
-                
-        # check for comm mismatch
-        assert second.comm is first.comm, "communicator mismatch between input sources"
-        
-        self.sources = [first, second]
-        assert all([isinstance(src, MeshSource) for src in self.sources]), 'error converting input sources to meshes'
-        
-        # using Nmesh from source
-        if Nmesh is None:
-            Nmesh = self.sources[0].attrs['Nmesh']
-
-        _BoxSize = self.sources[0].attrs['BoxSize'].copy()
-        if BoxSize is not None:
-            _BoxSize[:] = BoxSize
-
-        _Nmesh = self.sources[0].attrs['Nmesh'].copy()
-        if _Nmesh is not None:
-            _Nmesh[:] = Nmesh
-
-        # check box sizes
-        if len(self.sources) == 2:
-            if not numpy.array_equal(self.sources[0].attrs['BoxSize'], self.sources[1].attrs['BoxSize']):
-                raise ValueError("BoxSize mismatch between cross-correlation sources")
-            if not numpy.array_equal(self.sources[0].attrs['BoxSize'], _BoxSize):
-                raise ValueError("BoxSize mismatch between sources and the algorithm.")
-
-
-        # setup the particle mesh object
-        self.pm = ParticleMesh(BoxSize=_BoxSize, Nmesh=_Nmesh, dtype='f4', comm=self.comm)
-
-        self.attrs = {}
+        FFTPowerBase.__init__(self, first, second, Nmesh, BoxSize, kmin, dk)
 
         # save meta-data
         self.attrs['mode']    = mode
         self.attrs['los']     = los
         self.attrs['Nmu']     = Nmu
-        self.attrs['dk']      = dk
-        self.attrs['kmin']    = kmin 
         self.attrs['poles']   = poles
-        self.attrs['Nmesh']   = self.pm.Nmesh.copy()
-        self.attrs['BoxSize'] = self.pm.BoxSize.copy()
-
-        # update the meta-data to return
-        self.attrs.update(zip(['Lx', 'Ly', 'Lz'], _BoxSize))
-
-        self.attrs.update({'volume':_BoxSize.prod()})
 
         self.run()
 
@@ -173,8 +240,9 @@ class FFTPower(object):
 
         # binning in k out to the minimum nyquist frequency 
         # (accounting for possibly anisotropic box)
-        dk = 2*numpy.pi/y3d.BoxSize.min() if self.attrs['dk'] is None else self.attrs['dk']
-        kedges = numpy.arange(self.attrs['kmin'], numpy.pi*y3d.Nmesh.min()/y3d.BoxSize.max() + dk/2, dk)
+        dk = self.attrs['dk']
+        kmin = self.attrs['kmin']
+        kedges = numpy.arange(kmin, numpy.pi*y3d.Nmesh.min()/y3d.BoxSize.max() + dk/2, dk)
 
         # project on to the desired basis
         muedges = numpy.linspace(0, 1, self.attrs['Nmu']+1, endpoint=True)
@@ -229,44 +297,6 @@ class FFTPower(object):
         self.__dict__.update(state)
         self._make_datasets()
         
-    def save(self, output):
-        """
-        Save the FFTPower result to disk.
-
-        The format is currently JSON.
-        """
-        import json
-        from nbodykit.utils import JSONEncoder
-        
-        # only the master rank writes
-        if self.comm.rank == 0:
-            self.logger.info('measurement done; saving result to %s' % output)
-
-            with open(output, 'w') as ff:
-                json.dump(self.__getstate__(), ff, cls=JSONEncoder) 
-
-    @classmethod
-    @CurrentMPIComm.enable
-    def load(cls, output, comm=None):
-        """ 
-        Load a saved FFTPower result.
-
-        The result has been saved to disk with :func:`FFTPower.save`.
-        """
-        import json
-        from nbodykit.utils import JSONDecoder
-        if comm.rank == 0:
-            with open(output, 'r') as ff:
-                state = json.load(ff, cls=JSONDecoder)
-        else:
-            state = None
-        state = comm.bcast(state)
-        self = object.__new__(cls)
-        self.__setstate__(state)
-        self.comm = comm
-
-        return self
-
     def _make_datasets(self):
         
         if self.attrs['mode'] == '1d':
@@ -275,21 +305,6 @@ class FFTPower(object):
             self.power = DataSet(['k', 'mu'], self.edges, self.power, fields_to_sum=['modes'])
         if self.poles is not None:
             self.poles = DataSet(['k'], [self.power.edges['k']], self.poles, fields_to_sum=['modes'])
-            
-    def _source2field(self, source):
-
-        # step 1: paint the density field to the mesh
-        c = source.paint(mode='complex')
-
-        if self.comm.rank == 0: self.logger.info('field: %s painting done' % str(source))
-
-        if any(c.pm.Nmesh != self.pm.Nmesh):
-            cnew = ComplexField(self.pm)
-            c = c.resample(out=cnew)
-
-            if self.comm.rank == 0: self.logger.info('field: %s resampling done' % str(source))
-
-        return c
 
     def _compute_3d_power(self):
         """
@@ -352,6 +367,86 @@ class FFTPower(object):
         self.attrs['shotnoise'] = Pshot
 
         return p3d
+
+class ProjectedFFTPower(FFTPowerBase):
+    logger = logging.getLogger('ProjectedFFTPower')
+    def __init__(self, first, Nmesh=None, BoxSize=None, second=None, axes=(0, 1), dk=None, kmin=0.):
+        FFTPowerBase.__init__(self, first, second, Nmesh, BoxSize, kmin, dk)
+
+        # only deal with 1d and 2d projections.
+        assert len(axes) in (1, 2)
+
+        self.attrs['axes'] = axes
+        self.run()
+
+    def run(self):
+        c1 = self._source2field(self.sources[0])
+        r1 = c1.preview(self.pm.Nmesh, axes=self.attrs['axes'])
+        # average along projected axes;
+        # part of product is the rfftn vs r2c (for axes)
+        # the rest is for the mean (Nmesh - axes)
+        c1 = numpy.fft.rfftn(r1) / self.pm.Nmesh.prod()
+
+        # compute the auto power of single supplied field
+        if self.sources[0] is self.sources[1]:
+            c2 = c1
+        else:
+            c2 = self._source2field(self.sources[1])
+            r2 = c2.preview(self.pm.Nmesh, axes=self.attrs['axes'])
+            c2 = numpy.fft.rfftn(r2) / self.pm.Nmesh.prod() # average along projected axes
+
+        pk = c1 * c2.conj()
+        # clear the zero mode
+        pk.flat[0] = 0
+
+        shape = numpy.array([self.attrs['Nmesh'][i] for i in self.attrs['axes']], dtype='int')
+        boxsize = numpy.array([self.attrs['BoxSize'][i] for i in self.attrs['axes']])
+        I = numpy.eye(len(shape), dtype='int') * -2 + 1
+
+        k = [numpy.fft.fftfreq(N, 1. / (N * 2 * numpy.pi / L))[:pkshape].reshape(kshape) for N, L, kshape, pkshape in zip(shape, boxsize, I, pk.shape)]
+
+        kmag = sum(ki ** 2 for ki in k) ** 0.5
+        W = numpy.empty(pk.shape, dtype='f4')
+        W[...] = 2.0
+        W[..., 0] = 1.0
+        W[..., -1] = 1.0
+
+        dk = self.attrs['dk']
+        kmin = self.attrs['kmin']
+        kedges = numpy.arange(kmin, numpy.pi * self.attrs['Nmesh'].min() / self.attrs['BoxSize'].max() + dk/2, dk)
+
+        xsum = numpy.zeros(len(kedges) + 1)
+        Psum = numpy.zeros(len(kedges) + 1, dtype='complex128')
+        Nsum = numpy.zeros(len(kedges) + 1)
+
+        dig = numpy.digitize(kmag.flat, kedges)
+        xsum.flat += numpy.bincount(dig, weights=(W * kmag).flat, minlength=xsum.size)
+        Psum.real.flat += numpy.bincount(dig, weights=(W * pk.real).flat, minlength=xsum.size)
+        Psum.imag.flat += numpy.bincount(dig, weights=(W * pk.imag).flat, minlength=xsum.size)
+        Nsum.flat += numpy.bincount(dig, weights=W.flat, minlength=xsum.size)
+
+        self.power = numpy.empty(len(kedges) - 1, 
+                dtype=[('k', 'f8'), ('power', 'c16'), ('modes', 'f8')])
+
+        with numpy.errstate(invalid='ignore'):
+            self.power['k'] = (xsum / Nsum)[1:-1]
+            self.power['power'] = (Psum / Nsum)[1:-1] * boxsize.prod() # dimension is 'volume'
+            self.power['modes'] = Nsum[1:-1]
+
+        self.edges = kedges
+
+        self.power = DataSet(['k'], [self.edges], self.power)
+
+    def __getstate__(self):
+        state = dict(
+                     edges=self.edges,
+                     power=self.power.data,
+                     attrs=self.attrs)
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.power = DataSet(['k'], [self.edges], self.power)
 
 def project_to_basis(y3d, edges, los=[0, 0, 1], poles=[]):
     """ 
