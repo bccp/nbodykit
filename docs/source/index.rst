@@ -1,4 +1,11 @@
 
+.. note::
+
+    nbodykit has recently upgraded to version 0.2.x, with significant changes
+    to its API and user interface. The documentation for this new version is
+    under active development. For the documentation for the previous version
+    (0.1.x), please see:
+
 .. image:: _static/nbodykit-logo.gif
    :width: 425 px
    :align: center
@@ -32,14 +39,19 @@ All algorithms are parallel and run with Message Passing Interface (MPI).
 .. _xi: http://github.com/bareid/xi
 .. _`NERSC`: http://www.nersc.gov/systems/
 
-.. note::
+Index
+-----
 
-    nbodykit has recently upgraded to version 0.2.x, with significant changes
-    to its API and user interface. The documentation for this new version is
-    under active development. For the documentation for the previous version
-    (0.1.x), please see:
+**Getting Started**
 
+* :doc:`install`
 
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+   :caption: Getting Started
+
+   install.rst
 
 Get in touch
 ------------
