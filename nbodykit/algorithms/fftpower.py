@@ -7,7 +7,85 @@ from nbodykit.dataset import DataSet
 from nbodykit.meshtools import SlabIterator
 from pmesh.pm import ComplexField
 
-class FFTPower(object):
+class FFTPowerBase(object):
+    """ Base class provides functions for FFT based Power spectrum code """
+
+    def __init__(self, first, second, Nmesh, BoxSize):
+        from pmesh.pm import ParticleMesh
+        from nbodykit.base.mesh import MeshSource
+
+        # grab comm from first source
+        self.comm = first.comm 
+
+        # if input is CatalogSource, use defaults to make it into a mesh
+        if not hasattr(first, 'paint'):
+            first = first.to_mesh(BoxSize=BoxSize, Nmesh=Nmesh, dtype='f8', compensated=True)
+
+        # handle the second input source
+        if second is None:
+            second = first
+        else:
+            # make the second input a mesh if we need to
+            if not hasattr(second, 'paint'):
+                second = second.to_mesh(BoxSize=BoxSize, Nmesh=Nmesh, dtype='f8', compensated=True)
+
+        # check for comm mismatch
+        assert second.comm is first.comm, "communicator mismatch between input sources"
+
+        self.sources = [first, second]
+        assert all([isinstance(src, MeshSource) for src in self.sources]), 'error converting input sources to meshes'
+
+        # using Nmesh from source
+        if Nmesh is None:
+            Nmesh = self.sources[0].attrs['Nmesh']
+
+        _BoxSize = self.sources[0].attrs['BoxSize'].copy()
+        if BoxSize is not None:
+            _BoxSize[:] = BoxSize
+
+        _Nmesh = self.sources[0].attrs['Nmesh'].copy()
+        if _Nmesh is not None:
+            _Nmesh[:] = Nmesh
+
+        # check box sizes
+        if len(self.sources) == 2:
+            if not numpy.array_equal(self.sources[0].attrs['BoxSize'], self.sources[1].attrs['BoxSize']):
+                raise ValueError("BoxSize mismatch between cross-correlation sources")
+            if not numpy.array_equal(self.sources[0].attrs['BoxSize'], _BoxSize):
+                raise ValueError("BoxSize mismatch between sources and the algorithm.")
+
+
+        # setup the particle mesh object
+        self.pm = ParticleMesh(BoxSize=_BoxSize, Nmesh=_Nmesh, dtype='f4', comm=self.comm)
+
+        self.attrs = {}
+
+        # save meta-data
+        self.attrs['Nmesh']   = self.pm.Nmesh.copy()
+        self.attrs['BoxSize'] = self.pm.BoxSize.copy()
+
+        # update the meta-data to return
+        self.attrs.update(zip(['Lx', 'Ly', 'Lz'], _BoxSize))
+
+        self.attrs.update({'volume':_BoxSize.prod()})
+
+    def _source2field(self, source):
+
+        # step 1: paint the density field to the mesh
+        c = source.paint(mode='complex')
+
+        if self.comm.rank == 0: self.logger.info('field: %s painting done' % str(source))
+
+        if any(c.pm.Nmesh != self.pm.Nmesh):
+            cnew = ComplexField(self.pm)
+            c = c.resample(out=cnew)
+
+            if self.comm.rank == 0: self.logger.info('field: %s resampling done' % str(source))
+
+        return c
+
+
+class FFTPower(FFTPowerBase):
     """
     Algorithm to compute the 1d or 2d power spectrum and/or multipoles
     in a periodic box, using a Fast Fourier Transform (FFT)
@@ -73,9 +151,6 @@ class FFTPower(object):
         poles : list of int; optional
             a list of multipole numbers ``ell`` to compute :math:`P_\ell(k)` from :math:`P(k,\mu)`
         """
-        from pmesh.pm import ParticleMesh
-        from nbodykit.base.mesh import MeshSource
-        
         # mode is either '1d' or '2d'
         if mode not in ['1d', '2d']:
             raise ValueError("`mode` should be either '1d' or '2d'")
@@ -83,51 +158,7 @@ class FFTPower(object):
         if poles is None:
             poles = []
 
-        # grab comm from first source
-        self.comm = first.comm 
-        
-        # if input is CatalogSource, use defaults to make it into a mesh
-        if not hasattr(first, 'paint'):
-            first = first.to_mesh(BoxSize=BoxSize, Nmesh=Nmesh, dtype='f8', compensated=True)
-            
-        # handle the second input source
-        if second is None:
-            second = first
-        else:
-            # make the second input a mesh if we need to
-            if not hasattr(second, 'paint'):
-                second = second.to_mesh(BoxSize=BoxSize, Nmesh=Nmesh, dtype='f8', compensated=True)
-                
-        # check for comm mismatch
-        assert second.comm is first.comm, "communicator mismatch between input sources"
-        
-        self.sources = [first, second]
-        assert all([isinstance(src, MeshSource) for src in self.sources]), 'error converting input sources to meshes'
-        
-        # using Nmesh from source
-        if Nmesh is None:
-            Nmesh = self.sources[0].attrs['Nmesh']
-
-        _BoxSize = self.sources[0].attrs['BoxSize'].copy()
-        if BoxSize is not None:
-            _BoxSize[:] = BoxSize
-
-        _Nmesh = self.sources[0].attrs['Nmesh'].copy()
-        if _Nmesh is not None:
-            _Nmesh[:] = Nmesh
-
-        # check box sizes
-        if len(self.sources) == 2:
-            if not numpy.array_equal(self.sources[0].attrs['BoxSize'], self.sources[1].attrs['BoxSize']):
-                raise ValueError("BoxSize mismatch between cross-correlation sources")
-            if not numpy.array_equal(self.sources[0].attrs['BoxSize'], _BoxSize):
-                raise ValueError("BoxSize mismatch between sources and the algorithm.")
-
-
-        # setup the particle mesh object
-        self.pm = ParticleMesh(BoxSize=_BoxSize, Nmesh=_Nmesh, dtype='f4', comm=self.comm)
-
-        self.attrs = {}
+        FFTPowerBase.__init__(self, first, second, Nmesh, BoxSize)
 
         # save meta-data
         self.attrs['mode']    = mode
@@ -136,13 +167,6 @@ class FFTPower(object):
         self.attrs['dk']      = dk
         self.attrs['kmin']    = kmin 
         self.attrs['poles']   = poles
-        self.attrs['Nmesh']   = self.pm.Nmesh.copy()
-        self.attrs['BoxSize'] = self.pm.BoxSize.copy()
-
-        # update the meta-data to return
-        self.attrs.update(zip(['Lx', 'Ly', 'Lz'], _BoxSize))
-
-        self.attrs.update({'volume':_BoxSize.prod()})
 
         self.run()
 
@@ -275,21 +299,6 @@ class FFTPower(object):
             self.power = DataSet(['k', 'mu'], self.edges, self.power, fields_to_sum=['modes'])
         if self.poles is not None:
             self.poles = DataSet(['k'], [self.power.edges['k']], self.poles, fields_to_sum=['modes'])
-            
-    def _source2field(self, source):
-
-        # step 1: paint the density field to the mesh
-        c = source.paint(mode='complex')
-
-        if self.comm.rank == 0: self.logger.info('field: %s painting done' % str(source))
-
-        if any(c.pm.Nmesh != self.pm.Nmesh):
-            cnew = ComplexField(self.pm)
-            c = c.resample(out=cnew)
-
-            if self.comm.rank == 0: self.logger.info('field: %s resampling done' % str(source))
-
-        return c
 
     def _compute_3d_power(self):
         """
