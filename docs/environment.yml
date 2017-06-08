@@ -28,7 +28,7 @@ dependencies:
 - h5py
 - halotools
 - matplotlib
-- IPython==4.0
+- IPython
 - sphinx_rtd_theme
 - numpydoc
 - sphinx
