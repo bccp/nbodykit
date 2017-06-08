@@ -369,8 +369,23 @@ class FFTPower(FFTPowerBase):
         return p3d
 
 class ProjectedFFTPower(FFTPowerBase):
+    """ Projecting the field to a lower dimension then measure power.
+
+        This is not really always physically meaningful, but convenient for making sense
+        of lyman-alpha forest or lensing maps.
+        This is usually called 1d power spectrum or 2d power spectrum.
+    """
     logger = logging.getLogger('ProjectedFFTPower')
     def __init__(self, first, Nmesh=None, BoxSize=None, second=None, axes=(0, 1), dk=None, kmin=0.):
+        """
+            Parameters
+            ----------
+            axes : tuple
+                axes to measure the power on. The axes not in the list will be averaged out. example
+                (0, 1) : project to x,y and measure power
+                (0) : project to x and measure power.
+
+        """
         FFTPowerBase.__init__(self, first, second, Nmesh, BoxSize, kmin, dk)
 
         # only deal with 1d and 2d projections.
