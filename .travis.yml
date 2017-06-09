@@ -27,37 +27,38 @@ before_install:
     - ./miniconda.sh -b -p $HOME/miniconda
     - export PATH=$HOME/miniconda/bin:$PATH
     - conda update --yes conda
-    
-    # set the c++ and fortran compilers 
-    - export CXX=g++-4.8 
+
+    # set the c++ and fortran compilers
+    - export CXX=g++-4.8
     - export F90=gfortran-4.8
 
 install:
     - conda create --yes -n test python=$TRAVIS_PYTHON_VERSION
     - source activate test
-    
+
     # base python setup
     - conda install --yes numpy=$NUMPY_VERSION nose cython mpi4py h5py pandas scipy pytables pyyaml astropy numba dask
     - pip install pytest pytest-cov pytest-pipeline coveralls
-    
+
     # test optional HOD data sources
-    - pip install halotools 
-    
+    - pip install halotools==0.4 # pin on 0.1.x branch
+
     # test optional Zeldovich data source
     - conda install --yes "swig>=3.0"
     - pip install --no-cache-dir classylss # ignore cache due to binaries
 
     # nbodykit and requirements
-    - pip install --pre pfft-python kdcount mpsort pmesh sharedmem bigfile --no-deps
+    - pip install --pre pfft-python kdcount mpsort sharedmem bigfile --no-deps
+    - pip install pmesh==0.1.23 # pin on 0.1.x branch
     - pip install --pre -r requirements.txt -e . # develop mode to track coverage of subproccess
-    
+
 script:
     - py.test nbodykit --cov=nbodykit --cov-report term-missing
     - bash check_tag.sh nbodykit/version.py
 
 after_success:
     - coveralls
-    
+
 deploy:
     - provider: pypi
       distributions: sdist
@@ -68,6 +69,6 @@ deploy:
       on:
         tags   : true
         condition : $TRAVIS_PYTHON_VERSION = "2.7"
-    
+
 #notifications:
 #  email: false
