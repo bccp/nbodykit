@@ -1,0 +1,34 @@
+# environment.yml
+# Configuration file for creating a Conda Environment with dependencies needed for pyRSD.
+# Create the environment by running the following command (after installing Miniconda):
+#   $ conda env create --name nbodykit-docs -f environment.yml
+
+name: nbodykit-docs
+
+channels:
+- defaults
+- bccp
+- astropy
+- conda-forge
+
+dependencies:
+- python=3.5
+- numpy
+- scipy
+- astropy
+- mpi4py
+- runtests
+- pmesh
+- kdcount
+- mpsort
+- bigfile
+- pandas
+- dask
+- cachey
+- h5py
+- halotools
+- matplotlib
+- IPython
+- sphinx_rtd_theme
+- numpydoc
+- sphinx
