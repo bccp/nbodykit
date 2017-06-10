@@ -43,7 +43,7 @@ class FastPMDataSource(DataSource):
                 self.headerblock = 'Header'
             except:
                 header = f['.']
-                self.headerblock = '.''
+                self.headerblock = '.'
 
         try:
             f = f['1/']
