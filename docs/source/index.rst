@@ -4,7 +4,7 @@
     nbodykit has recently upgraded to version 0.2.x, with significant changes
     to its API and user interface. The documentation for this new version is
     under active development. For the documentation for the previous version
-    (0.1.x), please see:
+    (0.1.x), please see http://nbodykit.readthedocs.io/en/0.1.11/.
 
 .. image:: _static/nbodykit-logo.gif
    :width: 425 px
