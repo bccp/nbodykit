@@ -17,7 +17,8 @@ def test_fof(comm):
 
     # compute P(k,mu) and multipoles
     fof = FOF(source, linking_length=0.2, nmin=20)
+    source['Density'] = KDDensity(source, margin=1).density
 
     # save the halos
     peaks = fof.find_features()
-    peaks.save("FOF-%d" % comm.size, ['CMPosition', 'CMVelocity', 'Length'])
+    peaks.save("FOF-%d" % comm.size, ['CMPosition', 'CMVelocity', 'Length', 'PeakPosition', 'PeakVelocity'])

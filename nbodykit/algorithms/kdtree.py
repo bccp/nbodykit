@@ -66,11 +66,13 @@ class KDDensity(object):
         xpos = layout.exchange(pos)
         # wait for scipy 0.19.1
         assert all(self.attrs['BoxSize'] == self.attrs['BoxSize'][0])
+        xpos[...] /= self.attrs['BoxSize']
+        xpos %= 1
 
-        tree = KDTree(xpos, boxsize=self.attrs['BoxSize'][0])
+        tree = KDTree(xpos, boxsize=1.0)
         d, i = tree.query(xpos, k=[8])
         d = d[:, 0]
         d = layout.gather(d, mode=numpy.fmin)
-        self.density = 1 / d ** 3
+        self.density = 1 / (d ** 3 * self.attrs['BoxSize'].prod())
 
 

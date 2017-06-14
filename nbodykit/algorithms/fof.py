@@ -425,11 +425,8 @@ def fof_catalog(source, label, comm,
         dtype.append(('PeakVelocity', ('f4', 3)))
 
         density = source[peakcolumn].compute()
-
-        dmax = equiv_class(label, density, op=numpy.max, dense_labels=True, minlength=len(N))
-
+        dmax = equiv_class(label, density, op=numpy.fmax, dense_labels=True, minlength=len(N), identity=-numpy.inf)
         comm.Allreduce(MPI.IN_PLACE, dmax, op=MPI.MAX)
-
         # remove any non-peak particle from the labels
         label1 = label * (density >= dmax[label])
 
