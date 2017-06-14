@@ -20,4 +20,4 @@ def test_fof(comm):
 
     # save the halos
     peaks = fof.find_features()
-    peaks.save("FOF-%d" % comm.size, ['Position', 'Velocity', 'Length'])
+    peaks.save("FOF-%d" % comm.size, ['CMPosition', 'Velocity', 'Length'])
