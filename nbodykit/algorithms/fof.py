@@ -143,8 +143,10 @@ class FOF(object):
         halos = ArrayCatalog(data, **attrs)
         if posdef == 'cm':
             halos['Position'] = halos['CMPosition']
+            halos['Velocity'] = halos['CMVelocity']
         elif posdef == 'peak':
             halos['Position'] = halos['PeakPosition']
+            halos['Velocity'] = halos['PeakVelocity']
         # add the halo mass column
         halos['Mass'] = particle_mass * halos['Length']
         
@@ -397,7 +399,7 @@ def fof_catalog(source, label, comm,
         if col not in source:
             raise ValueError("the column '%s' is missing from parent source; cannot compute halos" %col)
                 
-    dtype=[('CMPosition', ('f4', 3)),('Velocity', ('f4', 3)),('Length', 'i4')]
+    dtype=[('CMPosition', ('f4', 3)),('CMVelocity', ('f4', 3)),('Length', 'i4')]
     N = count(label, comm=comm)
     
     # make sure BoxSize is there
@@ -420,6 +422,8 @@ def fof_catalog(source, label, comm,
 
     if peakcolumn in source:
         dtype.append(('PeakPosition', ('f4', 3)))
+        dtype.append(('PeakVelocity', ('f4', 3)))
+
         density = source[peakcolumn].compute()
 
         dmax = equiv_class(label, density, op=numpy.max, dense_labels=True, minlength=len(N))
@@ -432,22 +436,25 @@ def fof_catalog(source, label, comm,
         # compute the center of mass on the new labels
         ppos = centerofmass(label1, source.compute(source[position])/BoxSize, boxsize=1.0, comm=comm)
         ppos *= BoxSize
+        pvel = centerofmass(label1, source.compute(source[velocity]), boxsize=None, comm=comm)
 
     dtype = numpy.dtype(dtype)
     if comm.rank == 0:
         catalog = numpy.empty(shape=len(N), dtype=dtype)
 
         catalog['CMPosition'] = hpos
-        catalog['Velocity'] = hvel
+        catalog['CMVelocity'] = hvel
         catalog['Length'] = N
         catalog['Length'][0] = 0
         if 'InitialPosition' in dtype.names:
             catalog['InitialPosition'] = hpos_init
         if 'PeakPosition' in dtype.names:
             catalog['PeakPosition'] = ppos
+        if 'PeakVelocity' in dtype.names:
+            catalog['PeakVelocity'] = pvel
     else:
         catalog = None
-    
+
     return ScatterArray(catalog, comm, root=0)
 
 # -----------------------
