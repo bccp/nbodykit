@@ -20,5 +20,5 @@ def test_fof(comm):
     source['Density'] = KDDensity(source, margin=1).density
 
     # save the halos
-    peaks = fof.find_features()
+    peaks = fof.find_features(peakcolumn='Density')
     peaks.save("FOF-%d" % comm.size, ['CMPosition', 'CMVelocity', 'Length', 'PeakPosition', 'PeakVelocity'])
