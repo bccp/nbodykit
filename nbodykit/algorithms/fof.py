@@ -76,7 +76,7 @@ class FOF(object):
         self.labels = _assign_labels(minid, comm=self.comm, thresh=self.attrs['nmin'])
         self.max_label = self.comm.allgather(self.labels.max())
 
-    def find_features(self):
+    def find_features(self, peakcolumn='Density'):
         """
         Basd on the particles labels, identify the groups, and return 
         the center-of-mass Position, Velocity, and Length of each feature
@@ -90,14 +90,12 @@ class FOF(object):
             of each halo
         """        
         # the center-of-mass (Position, Velocity, Length)
-        halos = fof_catalog(self._source, self.labels, self.comm)
-        
-        # return a Source
+        halos = fof_catalog(self._source, self.labels, self.comm, peakcolumn=peakcolumn)
         attrs = self._source.attrs.copy()
         attrs.update(self.attrs)
         return ArrayCatalog(halos, comm=self.comm, **attrs)
         
-    def to_halos(self, particle_mass, cosmo, redshift, mdef='vir'):
+    def to_halos(self, particle_mass, cosmo, redshift, mdef='vir', posdef='cm', peakcolumn='Density'):
         """
         Return a :class:`HaloCatalog`, holding the center-of-mass position and 
         velocity of each halo, as well as properly scaled mass. The returned catalog 
@@ -121,24 +119,32 @@ class FOF(object):
             string specifying mass definition, used for computing default
             halo radii and concentration; should be 'vir' or 'XXXc' or 
             'XXXm' where 'XXX' is an int specifying the overdensity
-        
+        posdef : str; optional
+            position, can be cm (center of mass) or peak (particle with maximum value
+            on a column)
+
         Returns
         -------
         cat : nbodykit.source.HaloCatalog
             a HaloCatalog at the specified cosmology and redshift
         """
         from nbodykit.source import HaloCatalog
-        
+
+        assert posdef in ['cm', 'peak']
+
         # meta-data
         attrs = self._source.attrs.copy()
         attrs.update(self.attrs)
         attrs['particle_mass'] = particle_mass
         
         # the center-of-mass (Position, Velocity, Length) for each halo
-        data = fof_catalog(self._source, self.labels, self.comm)
+        data = fof_catalog(self._source, self.labels, self.comm, peakcolumn=peakcolumn)
         data = data[data['Length'] > 0]
         halos = ArrayCatalog(data, **attrs)
-        
+        if posdef == 'cm':
+            halos['Position'] = halos['CMPosition']
+        elif posdef == 'peak':
+            halos['Position'] = halos['PeakPosition']
         # add the halo mass column
         halos['Mass'] = particle_mass * halos['Length']
         
@@ -331,8 +337,21 @@ def fof(source, linking_length, comm):
 
     return minid
 
+def fof_find_peaks(source, label, comm,
+                position='Position', column='Density'):
+    """
+    Find position of the peak (maximum) from a given column for a fof result.
+    """
+    Nhalo0 = max(comm.allgather(label.max())) + 1
+
+    N = numpy.bincount(label, minlength=Nhalo0)
+    comm.Allreduce(MPI.IN_PLACE, N, op=MPI.SUM)
+
+    return hpos
+
 def fof_catalog(source, label, comm, 
-                position='Position', velocity='Velocity', initposition='InitialPosition'):
+                position='Position', velocity='Velocity', initposition='InitialPosition',
+                peakcolumn='Density'):
     """ 
     Catalog of FOF groups based on label from a parent source
                 
@@ -378,7 +397,7 @@ def fof_catalog(source, label, comm,
         if col not in source:
             raise ValueError("the column '%s' is missing from parent source; cannot compute halos" %col)
                 
-    dtype=[('Position', ('f4', 3)),('Velocity', ('f4', 3)),('Length', 'i4')]
+    dtype=[('CMPosition', ('f4', 3)),('Velocity', ('f4', 3)),('Length', 'i4')]
     N = count(label, comm=comm)
     
     # make sure BoxSize is there
@@ -399,16 +418,33 @@ def fof_catalog(source, label, comm,
         hpos_init = centerofmass(label, source.compute(source[initposition])/BoxSize, boxsize=1.0, comm=comm)
         hpos_init *= BoxSize
 
+    if peakcolumn in source:
+        dtype.append(('PeakPosition', ('f4', 3)))
+        density = source[peakcolumn].compute()
+
+        dmax = equiv_class(label, density, op=numpy.max, dense_labels=True, minlength=len(N))
+
+        comm.Allreduce(MPI.IN_PLACE, dmax, op=MPI.MAX)
+
+        # remove any non-peak particle from the labels
+        label1 = label * (density >= dmax[label])
+
+        # compute the center of mass on the new labels
+        ppos = centerofmass(label1, source.compute(source[position])/BoxSize, boxsize=1.0, comm=comm)
+        ppos *= BoxSize
+
     dtype = numpy.dtype(dtype)
     if comm.rank == 0:
         catalog = numpy.empty(shape=len(N), dtype=dtype)
 
-        catalog['Position'] = hpos
+        catalog['CMPosition'] = hpos
         catalog['Velocity'] = hvel
         catalog['Length'] = N
         catalog['Length'][0] = 0
         if 'InitialPosition' in dtype.names:
             catalog['InitialPosition'] = hpos_init
+        if 'PeakPosition' in dtype.names:
+            catalog['PeakPosition'] = ppos
     else:
         catalog = None
     
