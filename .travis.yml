@@ -5,7 +5,7 @@ python:
     - 3.6
 
 env:
-    - NUMPY_VERSION=1.11
+    - NUMPY_VERSION=1.12
 
 cache:
     directories:
@@ -22,24 +22,24 @@ before_install:
 install:
     - conda create --yes -n test python=$TRAVIS_PYTHON_VERSION
     - source activate test
-    
+
     # search astropy and bccp channels for dependencies
     - conda config --add channels astropy
     - conda config --add channels bccp
-    
+
     # install specific numpy version and pin it
-    - conda install --yes numpy=$NUMPY_VERSION 
+    - conda install --yes numpy=$NUMPY_VERSION
     - echo "numpy $NUMPY_VERSION.*" >> $CONDA_PREFIX/conda-meta/pinned
-        
+
     # install base dependencies
     - conda install --yes --file requirements.txt
-    
+
     # install base dependencies
     - conda install --yes --file requirements-extras.txt
-    
+
     # submitting coverage to coveralls
     - pip install coveralls
-    
+
     # install nbodykit itself
     - pip install .[extras]
 
