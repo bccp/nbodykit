@@ -5,18 +5,18 @@ from nbodykit import io
 
 class FileCatalogBase(CatalogSource):
     """
-    Base class to create a source of particles from a 
+    Base class to create a source of particles from a
     single file, or multiple files, on disk
-    
+
     Files of a specific type should be subclasses of this class.
-    """        
+    """
     @CurrentMPIComm.enable
     def __init__(self, filetype, args=(), kwargs={}, comm=None, use_cache=False):
         """
         Parameters
         ----------
         filetype : subclass of :class:`nbodykit.io.FileType`
-            the file-like class used to load the data from file; should be a 
+            the file-like class used to load the data from file; should be a
             subclass of :class:`nbodykit.io.FileType`
         path : str, list of str
             the path to the file(s) to load; can be a list of files to load, or
@@ -27,7 +27,7 @@ class FileCatalogBase(CatalogSource):
         """
         self.comm = comm
         self.filetype = filetype
-        
+
         # bcast the FileStack
         if self.comm.rank == 0:
             self._source = FileStack(filetype, *args, **kwargs)
@@ -66,14 +66,14 @@ class FileCatalogBase(CatalogSource):
 
         Columns are returned as dask arrays
         """
-        if col in self._source.dtype.names: 
+        if col in self._source.dtype.names:
             start = self.comm.rank * self._source.size // self.comm.size
             end = (self.comm.rank  + 1) * self._source.size // self.comm.size
             return self._source.get_dask(col)[start:end]
         else:
             return CatalogSource.get_hardcolumn(self, col)
-            
-    
+
+
 def FileCatalogFactory(name, filetype):
     """
     Factory method to create subclasses of :class:`FileCatalogBase`
@@ -84,11 +84,11 @@ def FileCatalogFactory(name, filetype):
         """Add the docstring of the IO class"""
         def dec(f):
             io_doc = cls.__init__.__doc__
-            if io_doc is None: io_doc = "" 
+            if io_doc is None: io_doc = ""
             f.__doc__ =  io_doc + f.__doc__
             return f
         return dec
-    
+
     @wrapdoc(filetype)
     def __init__(self, *args, **kwargs):
         """
@@ -96,7 +96,7 @@ def FileCatalogFactory(name, filetype):
         -----------------------------
         comm : MPI Communicator, optional
             the MPI communicator instance; default (``None``) sets to the
-            current communicator  
+            current communicator
         use_cache : bool, optional
             whether to cache data read from disk; default is ``False``
         attrs : dict; optional
@@ -107,14 +107,15 @@ def FileCatalogFactory(name, filetype):
         attrs = kwargs.pop('attrs', {})
         FileCatalogBase.__init__(self, filetype=filetype, args=args, kwargs=kwargs)
         self.attrs.update(attrs)
-        
-    
+
+
     __doc__ = "A catalog source created using :class:`io.%s` to read data from disk" % filetype.__name__
     newclass = type(name, (FileCatalogBase,),{"__init__": __init__, "__doc__":__doc__})
     return newclass
-    
+
 CSVCatalog       = FileCatalogFactory("CSVCatalog", io.CSVFile)
 BinaryCatalog    = FileCatalogFactory("BinaryCatalog", io.BinaryFile)
 BigFileCatalog   = FileCatalogFactory("BigFileCatalog", io.BigFile)
 HDFCatalog       = FileCatalogFactory("HDFCatalog", io.HDFFile)
 TPMBinaryCatalog = FileCatalogFactory("TPMBinaryCatalog", io.TPMBinaryFile)
+FITSCatalog      = FileCatalogFactory("FITSCatalog", io.FITSFile)
