@@ -11,11 +11,13 @@ and returns a new Source that has the concatenation of all data
 * add a ProjectedFFTPower algorithm, that computes the FFT Power, but can
 project over certain axes, i.e., projected axes have their power averaged over
 * FITSCatalog added to the io module, for reading FITS files
+* KDDensity to quickly estimate local density in density region.
+* FOF also identifies Peak position and velocity.
 
 0.2.3
 ------
 
-* use of ``resampler`` keyword in the `paint`` function for compatibility with pmesh versions >= 0.1.24
+* use of ``resampler`` keyword in the ``paint`` function for compatibility with pmesh versions >= 0.1.24
 * bug fixes and code cleanup
 
 0.2.2
