@@ -46,10 +46,10 @@ class ArrayCatalog(CatalogSource):
                 raise ValueError("column `%s` and column `%s` has different size" % (keys[0], key))
 
         self._dtype = dtype
-        CatalogSource.__init__(self, comm=comm, use_cache=use_cache)
-
         # update the meta-data
         self.attrs.update(kwargs)
+
+        CatalogSource.__init__(self, comm=comm, use_cache=use_cache)
 
     @property
     def size(self):
