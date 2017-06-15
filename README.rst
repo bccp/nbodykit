@@ -32,7 +32,7 @@ Build Status
 ------------
 
 We perform integrated tests of the code, including all built-in algorithms, in a
-miniconda environment for Python 2.7 and Python 3.4. 
+miniconda environment for Python 2.7, 3.5, and 3.6.
 
 .. image:: https://travis-ci.org/bccp/nbodykit.svg?branch=master
     :alt: Build Status
@@ -68,9 +68,9 @@ At NERSC, nbodykit's master branch is built every night.
 
     salloc -N 1
 
-    source /usr/common/contrib/bccp/nbodykit/activate.sh dev
+    source /usr/common/contrib/bccp/nbodykit/conda-activate.sh 3.6
 
-    srun -n 4 python-mpi example.py
+    srun -n 4 python example.py
 
 The file, example.py can be found at
 https://github.com/bccp/nbodykit/blob/master/nersc/example.py
