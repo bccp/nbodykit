@@ -2,14 +2,12 @@
 ------------------
 
 * transform.StackColumns renamed to ``vstack``
-* transform.concatenate function added, which takes a list of source objects,
-and returns a new Source that has the concatenation of all data
+* transform.concatenate function added, which takes a list of source objects, and returns a new Source that has the concatenation of all data
 * compatibility with halotools version 0.5
 * ability to resample a MemoryMesh object
 * bug fixes related to calculation of growth rate in cosmology module
 * ArrayCatalog can now be initialized from a dictionary or structured array
-* add a ProjectedFFTPower algorithm, that computes the FFT Power, but can
-project over certain axes, i.e., projected axes have their power averaged over
+* add a ProjectedFFTPower algorithm, that computes the FFT Power, but can project over certain axes, i.e., projected axes have their power averaged over
 * FITSCatalog added to the io module, for reading FITS files
 * KDDensity to quickly estimate local density in density region.
 * FOF also identifies Peak position and velocity.
