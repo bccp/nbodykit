@@ -14,17 +14,9 @@ class MemoryMesh(MeshSource):
     def __repr__(self):
         return "MemoryMesh()"
 
-    def __init__(self, field, Nmesh=None):
-        if Nmesh is None:
-            Nmesh = field.Nmesh
+    def __init__(self, field):
 
-        MeshSource.__init__(self, field.pm.comm, Nmesh, field.BoxSize, field.pm.dtype)
-
-        if any(field.Nmesh != self.pm.Nmesh):
-            cnew = ComplexField(self.pm)
-            field = field.resample(out=cnew)
-
-            if self.comm.rank == 0: self.logger.info('resampling done')
+        MeshSource.__init__(self, field.pm.comm, field.Nmesh, field.BoxSize, field.pm.dtype)
 
         self.field = field
 

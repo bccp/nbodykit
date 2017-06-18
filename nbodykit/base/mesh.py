@@ -7,11 +7,18 @@ from pmesh.pm import ParticleMesh, RealField, ComplexField
 @add_metaclass(abc.ABCMeta)
 class MeshSource(object):
     """
-    Base class for a source in the form of an input grid
+    Base class for a source in the form of data on an input grid.
 
-    Subclasses must define the :func:`paint` function, which
-    is abstract in this class
+    The MeshSource object remembers the original source together with
+    a sequence of transformations (added via the apply method).
+
+    Subclasses must define either the :func:`to_real_field` function,
+    or :func:`to_complex_field` function, or both.
+    The methods must return a RealField or a ComplexField object.
+
+    dtype is the type of the real numbers, either 'f4' or 'f8'.
     """
+
     logger = logging.getLogger('MeshSource')
 
     # called by the subclasses
@@ -108,13 +115,17 @@ class MeshSource(object):
             self._attrs = {}
             return self._attrs
 
-    def paint(self, mode="real"):
+    def paint(self, mode="real", Nmesh=None):
         """
         Parameters
         ----------
         mode : string
-        real or complex
+            real or complex
+        Nmesh : int or array_like, or None
+            If given and different from the intrinsic Nmesh of the source,
+            resample the mesh to the given resolution
         """
+
         if not mode in ['real', 'complex']:
             raise ValueError('mode must be "real" or "complex"')
 
@@ -148,8 +159,23 @@ class MeshSource(object):
                 kwargs['out'] = Ellipsis
                 var.apply(**kwargs)
 
+        pm = self.pm.resize(Nmesh)
+
+        if any(pm.Nmesh != self.pm.Nmesh):
+            # resample if the output mesh mismatches
+            # XXX: this could be done more efficiently.
+            var1 = pm.create(mode=mode)
+            var.resample(out=var1)
+            var = var1
+
+            if self.comm.rank == 0:
+                self.logger.info('%s resampling from %s to %s done' % (str(self), str(self.pm.Nmesh), str(pm.Nmesh)))
+
         var.attrs = attrs
         var.attrs.update(self.attrs)
+
+        if self.comm.rank == 0:
+            self.logger.info('field: %s painting done' % str(self))
 
         return var
 
