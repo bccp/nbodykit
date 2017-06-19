@@ -1,5 +1,8 @@
-0.2.4 (unreleased)
+0.2.5 (unreleased)
 ------------------
+
+0.2.4
+-----
 
 * transform.StackColumns renamed to ``vstack``
 * transform.concatenate function added, which takes a list of source objects, and returns a new Source that has the concatenation of all data
