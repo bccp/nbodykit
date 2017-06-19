@@ -78,4 +78,6 @@ https://github.com/bccp/nbodykit/blob/master/nersc/example.py
 Documentation
 -------------
 
-The official documentation is hosted on ReadTheDocs at http://nbodykit.readthedocs.org/. 
+The official documentation is hosted on ReadTheDocs at http://nbodykit.readthedocs.org/
+A growing number of additional examples are available at https://github.com/bccp/nbodykit-notebooks/
+
