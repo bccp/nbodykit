@@ -42,8 +42,16 @@ class BigFileMesh(MeshSource):
             # fourier space or config space
             if ff.dtype.kind == 'c':
                 self.isfourier = True
+                if ff.dtype.itemsize == 16:
+                    dtype = 'f8'
+                else:
+                    dtype = 'f4'
             else:
                 self.isfourier = False
+                if ff.dtype.itemsize == 8:
+                    dtype = 'f8'
+                else:
+                    dtype = 'f4'
 
         # determine Nmesh
         if 'ndarray.shape' not in self.attrs:
@@ -55,7 +63,7 @@ class BigFileMesh(MeshSource):
         Nmesh = self.attrs['Nmesh']
         BoxSize = self.attrs['BoxSize']
 
-        MeshSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype='f4', comm=comm)
+        MeshSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype=dtype, comm=comm)
         
     def to_real_field(self):
         """
