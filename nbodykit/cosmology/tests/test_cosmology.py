@@ -26,6 +26,14 @@ def test_fast():
 
     assert_allclose(f1, f2, rtol=1e-4)
 
+def test_clone_m_nu():
+    c1 = Planck15.clone(m_nu=[0, 0, 0])
+    assert_allclose(c1.m_nu, 0)
+
+def test_clone_Om():
+    c1 = Planck15.clone(Om0=0.8)
+    assert_allclose(c1.Om0, 0.8)
+
 try:
     from classylss.binding import ClassEngine, Background
 except ImportError:

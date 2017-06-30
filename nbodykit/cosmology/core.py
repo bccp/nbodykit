@@ -307,6 +307,14 @@ class Cosmology(dict):
         >>> cosmo = Cosmology.from_astropy(Planck15)
         >>> newcos = cosmo.clone(name="Modified Planck 2013", Om0=0.35)
         """
+
+        # convert neutrino mass to a astropy `Quantity`
+        if 'm_nu' in kwargs:
+            m_nu = kwargs['m_nu']
+            if m_nu is not None:
+                m_nu = units.Quantity(m_nu, 'eV')
+            kwargs['m_nu'] = m_nu
+ 
         # filter out astropy-defined parameters and extras
         extras = {k:self[k] for k in self if not hasattr(self.engine, k)}
         extras.update({k:kwargs.pop(k) for k in list(kwargs) if not hasattr(self.engine, k)})
