@@ -21,7 +21,7 @@ def vstack(*cols):
         arrays
     """
     if not all(isinstance(col, da.Array) for col in cols):
-        raise TypeError("all input columns in `StackColumns` must be dask arrays")
+        raise TypeError("all input columns in `vstack` must be dask arrays")
 
     return da.vstack(cols).T
 
@@ -43,7 +43,7 @@ def concatenate(*sources, **kwargs):
         the concatenated catalog source
     """
     columns = kwargs.get('columns', None)
-    
+
     # FIXME: new name for CatalogSubset?
     from nbodykit.base.catalog import CatalogSubset
 
@@ -149,6 +149,9 @@ def SkyToCartesion(ra, dec, redshift, cosmo, degrees=True, interpolate_cdist=Tru
         the cartesian position coordinates, where columns represent
         ``x``, ``y``, and ``z``
     """
+    if not all(isinstance(col, da.Array) for col in [ra, dec, redshift]):
+        raise TypeError("input ra, dec, and redshift objects must be dask arrays")
+
     # pos on the unit sphere
     pos = SkyToUnitSphere(ra, dec, degrees=degrees)
 
