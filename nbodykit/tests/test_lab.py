@@ -14,7 +14,7 @@ def test_fftpower(comm):
     # lognormal particles
     source = LogNormalCatalog(Plin=cosmology.EHPower(cosmo, redshift=0.55),
                     nbar=3e-7, BoxSize=1380., Nmesh=8, seed=42)
-                    
+
     # apply RSD
     source['Position'] += source['VelocityOffset'] * [0,0,1]
 
@@ -22,7 +22,7 @@ def test_fftpower(comm):
     result = FFTPower(source, mode='2d', poles=[0,2,4], los=[0,0,1])
 
     # and save
-    output = "./test_zeldovich-%d.json" % comm.size
+    output = "./test_fftpower-%d.json" % comm.size
     result.save(output)
 
 @MPITest([1, 4])
@@ -34,7 +34,7 @@ def test_paint(comm):
     # lognormal particles
     source = LogNormalCatalog(Plin=cosmology.EHPower(cosmo, redshift=0.55),
                     nbar=3e-7, BoxSize=1380., Nmesh=8, seed=42)
-                    
+
     # apply RSD
     source['Position'] += source['VelocityOffset'] * [0,0,1]
 
@@ -53,4 +53,3 @@ def test_paint(comm):
 
     source.save(output="./test_paint-real-%d.bigfile" % comm.size, mode='real')
     source.save(output="./test_paint-complex-%d.bigfile" % comm.size, mode='complex')
-
