@@ -5,27 +5,64 @@ from numpy.testing import assert_array_equal, assert_allclose
 
 # debug logging
 setup_logging("debug")
-    
+
+@MPITest([4])
+def test_tsc_aliasing(comm):
+
+    CurrentMPIComm.set(comm)
+    source = UniformCatalog(nbar=3e-2, BoxSize=512., seed=42)
+    mesh = source.to_mesh(window='tsc', Nmesh=64, compensated=True)
+
+    # compute the power spectrum -- should be flat shot noise
+    # if the compensation worked
+    r = FFTPower(mesh, mode='1d', kmin=0.02)
+    Pk = r.power['power'].real
+    err = (2*Pk**2/r.power['modes'])**0.5
+
+    # test chi2 < 1.0
+    residual = (Pk-r.attrs['shotnoise'])/err
+    red_chi2 = (residual**2).sum()/len(Pk) # should be about 0.5-0.6
+    assert red_chi2 < 1.0
+
+@MPITest([4])
+def test_cic_aliasing(comm):
+
+    CurrentMPIComm.set(comm)
+    source = UniformCatalog(nbar=3e-2, BoxSize=512., seed=42)
+    mesh = source.to_mesh(window='cic', Nmesh=64, compensated=True)
+
+    # compute the power spectrum -- should be flat shot noise
+    # if the compensation worked
+    r = FFTPower(mesh, mode='1d', kmin=0.02)
+    Pk = r.power['power'].real
+    err = (2*Pk**2/r.power['modes'])**0.5
+
+    # test chi2 < 1.0
+    residual = (Pk-r.attrs['shotnoise'])/err
+    red_chi2 = (residual**2).sum()/len(Pk) # should be about 0.5-0.6
+    assert red_chi2 < 1.0
+
+
 @MPITest([1])
 def test_fftpower_poles(comm):
-    
+
     CurrentMPIComm.set(comm)
     source = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42)
-    
+
     r = FFTPower(source, mode='2d', BoxSize=1024, Nmesh=32, poles=[0,2,4])
     pkmu = r.power['power'].real
     mono = r.poles['power_0'].real
-    
+
     modes_1d = r.power['modes'].sum(axis=-1)
     mono_from_pkmu = numpy.nansum(pkmu*r.power['modes'], axis=-1) / modes_1d
-    
+
     assert_array_equal(modes_1d, r.poles['modes'])
     assert_allclose(mono_from_pkmu, mono)
 
-    
+
 @MPITest([1])
 def test_fftpower_padding(comm):
-    
+
     CurrentMPIComm.set(comm)
     source = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42)
 
@@ -35,7 +72,7 @@ def test_fftpower_padding(comm):
 
 @MPITest([1])
 def test_fftpower_padding(comm):
-    
+
     CurrentMPIComm.set(comm)
     source = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42)
 
@@ -61,7 +98,7 @@ def test_fftpower_save(comm):
 
 @MPITest([1])
 def test_fftpower(comm):
-    
+
     CurrentMPIComm.set(comm)
     source = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42)
 
@@ -71,10 +108,10 @@ def test_fftpower(comm):
 
 @MPITest([1])
 def test_fftpower_mismatch_boxsize(comm):
-    
+
     cosmo = cosmology.Planck15
     CurrentMPIComm.set(comm)
-    
+
     # input sources
     source1 = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42)
     source2 = LinearMesh(cosmology.NoWiggleEHPower(cosmo, 0.55), BoxSize=1024, Nmesh=32, seed=33)
@@ -83,7 +120,7 @@ def test_fftpower_mismatch_boxsize(comm):
 
 @MPITest([1])
 def test_projectedpower(comm):
-    
+
     CurrentMPIComm.set(comm)
     source = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42)
 
