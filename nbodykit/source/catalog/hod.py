@@ -8,12 +8,25 @@ import abc
 import logging
 import numpy
 
+def gal_type_integers(galtab):
+    """
+    Convert ``centrals`` to 0 and ``satellites`` to 1
+    in the input galaxy Table
+
+    This operatio is done in place
+    """
+    gal_type = numpy.zeros(len(galtab), dtype='i4')
+    sats = galtab['gal_type'] == 'satellites'
+    gal_type[sats] = 1
+    galtab.replace_column('gal_type', gal_type)
+
 def remove_object_dtypes(data):
     """
     Utility function to convert 'O' data types to strings
     """
     for col in data.colnames:
         if data.dtype[col] == 'O':
+            logging.warning("converting data column '%s' of type 'O' to Unicode string" %col)
             data.replace_column(col, data[col].astype('U'))
     return data
 
@@ -129,7 +142,8 @@ class HODBase(ArrayCatalog):
         from astropy.table import Table
 
         # gather all halos to root
-        all_halos = GatherArray(self._halos.halo_table.as_array(), self.comm, root=0)
+        halo_table = remove_object_dtypes(self._halos.halo_table)
+        all_halos = GatherArray(halo_table.as_array(), self.comm, root=0)
 
         # root does the mock population
         if self.comm.rank == 0:
@@ -143,11 +157,7 @@ class HODBase(ArrayCatalog):
                                       Num_ptcl_requirement=1, seed=self.attrs['seed'])
 
             # remap gal_type to integers (cen: 0, sats: 1)
-            galtab = self._model.mock.galaxy_table
-            gal_type = numpy.zeros(len(galtab), dtype='i4')
-            sats = galtab['gal_type'] == 'satellites'
-            gal_type[sats] = 1
-            galtab.replace_column('gal_type', gal_type)
+            gal_type_integers(self._model.mock.galaxy_table)
 
             # replace any object dtypes
             data = remove_object_dtypes(self._model.mock.galaxy_table).as_array()
@@ -198,6 +208,9 @@ class HODBase(ArrayCatalog):
             self._model.mock.populate(Num_ptcl_requirement=1,
                                       halo_mass_column_key=self.mass,
                                       seed=self.attrs['seed'])
+
+            # remap gal_type to integers (cen: 0, sats: 1)
+            gal_type_integers(self._model.mock.galaxy_table)
 
             # replace any object dtypes
             data = remove_object_dtypes(self._model.mock.galaxy_table).as_array()
