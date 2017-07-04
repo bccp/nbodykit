@@ -483,6 +483,11 @@ class CatalogSource(object):
         from nbodykit.base.catalogmesh import CatalogMeshSource
         from pmesh.window import methods
 
+        # make sure all of the columns exist
+        for col in [weight, selection]:
+            if col not in self:
+                raise ValueError("column '%s' missing; cannot create mesh" %col)
+
         if window not in methods:
             raise ValueError("valid window methods: %s" %str(methods))
 
