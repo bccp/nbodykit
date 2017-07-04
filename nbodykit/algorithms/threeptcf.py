@@ -15,7 +15,8 @@ class Multipoles3PCF(object):
     """
     logger = logging.getLogger('Multipoles3PCF')
 
-    def __init__(self, source, poles, edges, BoxSize=None, periodic=True, weight='Weight'):
+    def __init__(self, source, poles, edges, BoxSize=None, periodic=True,
+                 weight='Weight', selection='Selection'):
         """
         Parameters
         ----------
@@ -32,11 +33,17 @@ class Multipoles3PCF(object):
             whether to use periodic boundary conditions
         weight : str; optional
             the name of the column in the source specifying the particle weights
+        selection : str; optional
+            if not ``None``, the name of the column to use to select certain objects;
+            should be a boolean array
         """
-        if 'Position' not in source:
-            raise ValueError("the 'Position' column must be defined in the source")
+        # check for all of the necessary columns
+        for col in ['Position', weight, selection]:
+            if col not in source:
+                raise ValueError("the '%s' column must be defined in the source" %col)
 
-        self.source = source
+        # store the subset of the source we selected
+        self.source = source[source[selection]]
         self.comm = source.comm
         self.attrs = {}
 
@@ -52,10 +59,11 @@ class Multipoles3PCF(object):
             raise ValueError("periodic pair counts cannot be computed for Rmax > 0.5 * BoxSize")
 
         # save meta-data
-        self.attrs['edges']    = edges
-        self.attrs['poles']    = poles
+        self.attrs['edges'] = edges
+        self.attrs['poles'] = poles
         self.attrs['periodic'] = periodic
-        self.attrs['weight']   = weight
+        self.attrs['weight'] = weight
+        self.attrs['selection'] = selection
 
         self.run()
 
@@ -191,9 +199,7 @@ class Multipoles3PCF(object):
 
         # normalize according to Eq. 15 of Slepian et al. 2015
         # differs by factor of (4 pi)^2 / (2l+1) from the C++ code
-        #zeta /= (4*numpy.pi)
-        ells = numpy.array(self.attrs['poles'])
-        zeta *= (4*numpy.pi) / (2*ells+1)[:,None,None]
+        zeta /= (4*numpy.pi)
 
         # make a DataSet
         dtype = numpy.dtype([('zeta_%d' %i, zeta.dtype) for i in range(Nell)])
