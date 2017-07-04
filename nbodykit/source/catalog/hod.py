@@ -20,14 +20,13 @@ def gal_type_integers(galtab):
     gal_type[sats] = 1
     galtab.replace_column('gal_type', gal_type)
 
-def remove_object_dtypes(data):
+def find_object_dtypes(data):
     """
     Utility function to convert 'O' data types to strings
     """
     for col in data.colnames:
         if data.dtype[col] == 'O':
-            logging.warning("converting data column '%s' of type 'O' to Unicode string" %col)
-            data.replace_column(col, data[col].astype('U'))
+            raise TypeError("column '%s' is of type 'O'; must convert to integer or string" %col)
     return data
 
 @add_metaclass(abc.ABCMeta)
@@ -142,14 +141,14 @@ class HODBase(ArrayCatalog):
         from astropy.table import Table
 
         # gather all halos to root
-        halo_table = remove_object_dtypes(self._halos.halo_table)
+        halo_table = find_object_dtypes(self._halos.halo_table)
         all_halos = GatherArray(halo_table.as_array(), self.comm, root=0)
 
         # root does the mock population
         if self.comm.rank == 0:
 
             # set the halo table on the root to the Table containing all halo
-            self._halos.halo_table = remove_object_dtypes(Table(data=all_halos, copy=True))
+            self._halos.halo_table = Table(data=all_halos, copy=True)
             del all_halos
 
             # populate
@@ -159,8 +158,8 @@ class HODBase(ArrayCatalog):
             # remap gal_type to integers (cen: 0, sats: 1)
             gal_type_integers(self._model.mock.galaxy_table)
 
-            # replace any object dtypes
-            data = remove_object_dtypes(self._model.mock.galaxy_table).as_array()
+            # crash if any object dtypes
+            data = find_object_dtypes(self._model.mock.galaxy_table).as_array()
             del self._model.mock.galaxy_table
         else:
             data = None
@@ -212,8 +211,8 @@ class HODBase(ArrayCatalog):
             # remap gal_type to integers (cen: 0, sats: 1)
             gal_type_integers(self._model.mock.galaxy_table)
 
-            # replace any object dtypes
-            data = remove_object_dtypes(self._model.mock.galaxy_table).as_array()
+            # crash if any object dtypes
+            data = find_object_dtypes(self._model.mock.galaxy_table).as_array()
             del self._model.mock.galaxy_table
 
         else:

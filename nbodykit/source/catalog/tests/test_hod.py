@@ -95,8 +95,9 @@ def test_object_columns(comm):
     cat.halo_table['test'] = test
 
     # make the HOD
-    hod = HODCatalog(cat, seed=42)
-    test = hod['test'].compute()
+    with pytest.raises(TypeError):
+        hod = HODCatalog(cat, seed=42)
+
 
 @MPITest([4])
 def test_bad_catalog(comm):
