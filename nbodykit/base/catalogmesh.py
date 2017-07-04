@@ -19,8 +19,7 @@ class CatalogMeshSource(MeshSource, CatalogSource):
     def __init__(self, source, BoxSize, Nmesh, dtype, weight, selection, position='Position'):
         # ensure self.comm is set, though usually already set by the child.
         self.comm = source.comm
-
-        self.source    = source
+        self.source = source
         self.position  = position
         self.selection = selection
         self.weight    = weight
@@ -30,10 +29,10 @@ class CatalogMeshSource(MeshSource, CatalogSource):
         # this will override BoxSize and Nmesh carried from the source, if there is any!
         MeshSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype=dtype, comm=source.comm)
         CatalogSource.__init__(self, comm=source.comm)
-        
+
         # copy over the overrides
         self._overrides.update(self.source._overrides)
-        
+
         self.attrs['position'] = self.position
         self.attrs['selection'] = self.selection
         self.attrs['weight'] = self.weight
@@ -79,10 +78,10 @@ class CatalogMeshSource(MeshSource, CatalogSource):
 
     def to_real_field(self):
         """
-        paint : (verb) 
+        paint : (verb)
             interpolate the `Position` column to the particle mesh
             specified by ``pm``
-        
+
         Returns
         -------
         real : pmesh.pm.RealField
@@ -111,7 +110,7 @@ class CatalogMeshSource(MeshSource, CatalogSource):
         # read the necessary data (as dask arrays)
         columns = [self.position, self.weight, self.selection]
         Position, Weight, Selection = self.read(columns)
-        
+
         # ensure the slices are synced, since decomposition is collective
         N = max(pm.comm.allgather(len(Position)))
 
@@ -121,7 +120,7 @@ class CatalogMeshSource(MeshSource, CatalogSource):
             s = slice(i, i + chunksize)
 
             if len(Position) != 0:
-                
+
                 # be sure to use the source to compute
                 position, weight, selection = self.source.compute(Position[s], Weight[s], Selection[s])
             else:
@@ -166,7 +165,7 @@ class CatalogMeshSource(MeshSource, CatalogSource):
 
         N = pm.comm.allreduce(Nlocal)
         nbar = 1.0 * N / numpy.prod(pm.Nmesh)
-        
+
         # make sure we painted something!
         if N == 0:
             raise ValueError("trying to paint particle source to mesh, but no particles were found!")
@@ -213,13 +212,13 @@ class CatalogMeshSource(MeshSource, CatalogSource):
 
 def CompensateTSC(w, v):
     """
-    Return the Fourier-space kernel that accounts for the convolution of 
+    Return the Fourier-space kernel that accounts for the convolution of
     the gridded field with the TSC window function in configuration space
-    
+
     References
     ----------
     see equation 18 (with p=3) of Jing et al 2005 (arxiv:0409240)
-    """ 
+    """
     for i in range(3):
         wi = w[i]
         tmp = (numpy.sinc(0.5 * wi / numpy.pi) ) ** 3
@@ -228,13 +227,13 @@ def CompensateTSC(w, v):
 
 def CompensateCIC(w, v):
     """
-    Return the Fourier-space kernel that accounts for the convolution of 
+    Return the Fourier-space kernel that accounts for the convolution of
     the gridded field with the CIC window function in configuration space
-    
+
     References
     ----------
     see equation 18 (with p=2) of Jing et al 2005 (arxiv:0409240)
-    """     
+    """
     for i in range(3):
         wi = w[i]
         tmp = (numpy.sinc(0.5 * wi / numpy.pi) ) ** 2
@@ -244,14 +243,14 @@ def CompensateCIC(w, v):
 
 def CompensateTSCAliasing(w, v):
     """
-    Return the Fourier-space kernel that accounts for the convolution of 
+    Return the Fourier-space kernel that accounts for the convolution of
     the gridded field with the TSC window function in configuration space,
     as well as the approximate aliasing correction
 
     References
     ----------
     see equation 20 of Jing et al 2005 (arxiv:0409240)
-    """   
+    """
     for i in range(3):
         wi = w[i]
         s = numpy.sin(0.5 * wi)**2
@@ -260,16 +259,15 @@ def CompensateTSCAliasing(w, v):
 
 def CompensateCICAliasing(w, v):
     """
-    Return the Fourier-space kernel that accounts for the convolution of 
+    Return the Fourier-space kernel that accounts for the convolution of
     the gridded field with the CIC window function in configuration space,
     as well as the approximate aliasing correction
 
     References
     ----------
     see equation 20 of Jing et al 2005 (arxiv:0409240)
-    """     
+    """
     for i in range(3):
         wi = w[i]
         v = v / (1 - 2. / 3 * numpy.sin(0.5 * wi) ** 2) ** 0.5
     return v
-
