@@ -85,16 +85,6 @@ class fittable(object):
         else:
             return spl
 
-def vectorize_if_needed(func, *x):
-    """
-    Helper function to vectorize functions on array inputs;
-    borrowed from :mod:`astropy.cosmology.core`
-    """
-    if any(map(isiterable, x)):
-        return np.vectorize(func)(*x)
-    else:
-        return func(*x)
-
 def isiterable(obj):
     """
     Returns `True` if the given object is iterable;
@@ -314,7 +304,7 @@ class Cosmology(dict):
             if m_nu is not None:
                 m_nu = units.Quantity(m_nu, 'eV')
             kwargs['m_nu'] = m_nu
- 
+
         # filter out astropy-defined parameters and extras
         extras = {k:self[k] for k in self if not hasattr(self.engine, k)}
         extras.update({k:kwargs.pop(k) for k in list(kwargs) if not hasattr(self.engine, k)})
