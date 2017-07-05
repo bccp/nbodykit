@@ -1,5 +1,6 @@
 0.2.5 (unreleased)
 ------------------
+* CSVFile and CSVCatalog no longer fails to read the last line of data when the file does not end in a newline
 
 0.2.4
 -----
