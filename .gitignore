@@ -1,2 +1,4 @@
 build
 docs/build
+build.log
+nbodykit.egg-info
