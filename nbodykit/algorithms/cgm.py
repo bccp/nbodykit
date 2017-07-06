@@ -259,7 +259,7 @@ class CylindricalGroups(object):
             # save the valid pairs
             # NOTE: we sorted in ascending order but actually need descending (most massive first)
             # so we've restricted to to centrals with index greater than satellites
-            valid = (sorti>sortj)&(r>0)&(rsky2 <= rperp2)&(abs(rlos) <= self.attrs['rpar'])
+            valid = (sorti>sortj)&(rsky2 <= rperp2)&(abs(rlos) <= self.attrs['rpar'])
             res = numpy.vstack([xx[valid] for xx in [i, j, sorti, sortj, origi, origj]]).T
             dataframe.append(res)
 
