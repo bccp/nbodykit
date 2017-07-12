@@ -9,17 +9,6 @@ from six import string_types
 from nbodykit import CurrentMPIComm
 from nbodykit.source.catalog import ArrayCatalog
 
-def data_to_sort_key(data):
-    """
-    Convert floating type data to unique integers for sorting
-    """
-    if data.dtype == numpy.float64:
-        toret = numpy.fromstring(data.tobytes(), dtype='u8')
-    else:
-        toret = numpy.fromstring(data.tobytes(), dtype='u4')
-
-    return toret
-
 class CylindricalGroups(object):
     """
     Compute groups of objects using a cylindrical grouping method. We identify
@@ -168,7 +157,7 @@ class CylindricalGroups(object):
         rankby_data = list(cols[1:])
 
         # sort the data
-        data = _sort_data(comm, pos, **dict(zip(rankby, rankby_data)))
+        data = _sort_data(comm, pos, rankby, rankby_data)
 
         # global min/max across all ranks
         posmin = numpy.asarray(comm.allgather(pos.min(axis=0))).min(axis=0)
@@ -315,6 +304,7 @@ def cgm(comm, data, domain, rperp, rpar, los, boxsize):
     dataframe = numpy.concatenate(dataframe, axis=0)
     df = pd.DataFrame(dataframe, columns=['i', 'j', 'sort_i', 'sort_j'])
 
+    print("LEN DF = ", len(df), comm.rank)
     # we sort by the correct sorted index in descending order which puts
     # highest priority objects first
     df.sort_values("sort_i", ascending=False, inplace=True)
@@ -325,7 +315,8 @@ def cgm(comm, data, domain, rperp, rpar, los, boxsize):
     # to find centrals, considers objects that could be satellites of another
     # (pairs with sort_j > sort_i)
     possible_cens = df[(df['sort_j']>df.index.values)]
-    possible_cens = possible_cens.drop(centrals) # remove already known centrals
+    possible_cens = possible_cens.drop(centrals)
+    print("HEY 1", len(possible_cens), comm.rank) # remove already known centrals
     _remove_objects_paired_with(possible_cens, centrals) # remove objs paired with cens
 
     # sorted indices of objects that have pairs on other ranks
@@ -393,11 +384,11 @@ def cgm(comm, data, domain, rperp, rpar, los, boxsize):
     fields = ['cgm_type', 'cgm_haloid', 'num_cgm_sats']
     return out[fields]
 
-def _sort_data(comm, pos, **rankby):
+def _sort_data(comm, pos, rankby_names, rankby_data):
     """
-    Sort the input data by the specified columns ``rankby``
+    Sort the input data by the specified columns
 
-    The columns to use to rank are passed in as keywords. If
+    The columns to use to rank are passed in as ``rankby_names``. If
     the dtype of those columns is floating, unique integer
     keys will be generated
     """
@@ -406,14 +397,14 @@ def _sort_data(comm, pos, **rankby):
              ('sortindex', 'u4'),
              ('pos', (pos.dtype.str, 3)),
              ('key', 'u8')]
-    for col in rankby:
-        dtype.append((col, rankby[col].dtype))
+    for col, d in zip(rankby_names, rankby_data):
+        dtype.append((col, d.dtype))
     dtype = numpy.dtype(dtype)
 
     data = numpy.empty(len(pos), dtype=dtype)
     data['pos'] = pos
-    for name in rankby:
-        data[name] = rankby[name]
+    for name, d in zip(rankby_names, rankby_data):
+        data[name] = d
 
     # keep track of the original order
     sizes = comm.allgather(len(pos))
@@ -422,7 +413,7 @@ def _sort_data(comm, pos, **rankby):
 
     # sort the particles by the specified columns and store the
     # corrected sorted index
-    for col in list(rankby.keys())[::-1]:
+    for col in reversed(rankby_names):
         dt = data.dtype[col]
         rankby_name = col
 
@@ -455,7 +446,7 @@ def _remove_objects_paired_with(df, bad_pairs):
     df.set_index('sort_j', inplace=True)
 
     # exception could be raised if no pairs need to be dropped
-    # so just reset index and return 
+    # so just reset index and return
     try:
         to_drop = df.loc[bad_pairs]['sort_i'].values
         df.reset_index(inplace=True)
@@ -509,6 +500,8 @@ def _find_centrals(comm, df, on_other_ranks, centrals, maybes):
     cens_grouped = same_rank_df.groupby('sort_i', sort=False)
     cens_grouped.apply(find_local_centrals)
 
+    print("LOCAL CENTRALS = ", comm.allreduce(len(centrals)))
+
     # the pairs associated with objects that might be satellites
     maybe_cen_groups = df.loc[list(maybes)].dropna()
 
@@ -543,6 +536,7 @@ def _find_centrals(comm, df, on_other_ranks, centrals, maybes):
 
     # get the list of all centrals on all ranks
     new_centrals = comm.bcast(new_centrals)
+    print("NEW CENTRALS = ", len(new_centrals))
     all_centrals = numpy.append(all_centrals, list(new_centrals))
 
     # sort and create unique halo labels
@@ -550,3 +544,9 @@ def _find_centrals(comm, df, on_other_ranks, centrals, maybes):
     labels = numpy.arange(0, len(all_centrals), dtype='i4')
 
     return all_centrals, labels
+
+def data_to_sort_key(data):
+    """
+    Convert floating type data to unique integers for sorting
+    """
+    return numpy.fromstring(data.tobytes(), dtype='u8')
