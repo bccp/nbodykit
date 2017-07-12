@@ -10,39 +10,36 @@ def test_cgm(comm):
 
     CurrentMPIComm.set(comm)
 
-    redshift = 0.55
-    cosmo = cosmology.Planck15
-    BoxSize = 512
+    source = UniformCatalog(3e-4, BoxSize=256, seed=42)
 
-    # lognormal particles
-    source = LogNormalCatalog(Plin=cosmology.EHPower(cosmo, redshift),
-                                nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
+    # add mass
+    logmass = source.rng.uniform(12, 15, size=source.size)
+    source['halo_mvir'] = 10**(logmass)
 
-    # run FOF
-    r = FOF(source, linking_length=0.2, nmin=20)
-    halos = r.to_halos(cosmo=cosmo, redshift=redshift, particle_mass=1e12, mdef='vir')
-
-    # make the HOD catalog from halotools catalog
-    hod = HODCatalog(halos.to_halotools())
+    # add fake galaxy types
+    gal_type = numpy.empty(len(source))
+    gal_type[logmass<14.5] = 0
+    gal_type[logmass>14.5] = 1
+    source['gal_type'] = gal_type
 
     # run the algorithm
     rankby = ['halo_mvir', 'gal_type']
     rpar = 10.0
     rperp = 10.0
-    r = CylindricalGroups(hod, rpar=rpar, rperp=rperp, rankby=rankby, periodic=False, los=[0,0,1])
+    r = CylindricalGroups(source, rpar=rpar, rperp=rperp, rankby=rankby, periodic=False, los=[0,0,1])
 
     # data for direct CGM
-    pos = numpy.concatenate(comm.allgather(hod['Position']), axis=0)
-    mass = numpy.concatenate(comm.allgather(hod['halo_mvir']), axis=0)
-    gal_type = numpy.concatenate(comm.allgather(hod['gal_type']), axis=0)
+    pos = numpy.concatenate(comm.allgather(source['Position']), axis=0)
+    mass = numpy.concatenate(comm.allgather(source['halo_mvir']), axis=0)
+    gal_type = numpy.concatenate(comm.allgather(source['gal_type']), axis=0)
 
     # direct results
     N_cgm, cgm_gal_type, cen_id = direct_nonperiodic_cgm(pos, mass, gal_type, rperp, rpar)
 
     # gather and compare
     N_cgm2 = numpy.concatenate(comm.allgather(r.groups['num_cgm_sats']), axis=0)
-    cen_id2 = numpy.concatenate(comm.allgather(r.groups['cgm_cenid']), axis=0)
-    cgm_gal_type2 = numpy.concatenate(comm.allgather(r.groups['cgm_gal_type']), axis=0)
+    cen_id2 = numpy.concatenate(comm.allgather(r.groups['cgm_haloid']), axis=0)
+    cgm_gal_type2 = numpy.concatenate(comm.allgather(r.groups['cgm_type']), axis=0)
 
     assert_array_equal(N_cgm, N_cgm2)
     assert_array_equal(cen_id, cen_id2)
@@ -83,7 +80,7 @@ def direct_nonperiodic_cgm(pos, mass, gal_type, rperp, rpar):
 
     # sort pos1 by mass and then gal type
     data.sort(order=['mass', 'gal_type'])
-    data = data[::-1] # sort in descending order
+    data = data[::-1]
 
     ii = 0
     while len(data):
@@ -94,11 +91,11 @@ def direct_nonperiodic_cgm(pos, mass, gal_type, rperp, rpar):
         rsky2 = numpy.abs(dr2 - rlos ** 2)
 
         valid = (abs(rlos) <= rpar)&(rsky2 <= rperp**2)
-
         this_cenid = data['origind'][0]
         N_cgm[this_cenid] = valid.sum()
         cgm_gal_type[data['origind'][1:][valid]] = 1
-        cen_id[data['origind'][1:][valid]] = this_cenid
+        cen_id[data['origind'][1:][valid]] = ii
+        cen_id[data['origind'][0]] = ii
 
         # delete central
         data = numpy.delete(data, 0, axis=0)
