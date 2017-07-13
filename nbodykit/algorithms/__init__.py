@@ -5,4 +5,4 @@ from .convpower import ConvolvedFFTPower
 from .zhist import RedshiftHistogram
 from .fibercollisions import FiberCollisions
 from .threeptcf import Multipoles3PCF
-from .paircount import SimulationBoxPairCount
+from .paircount import SimulationBoxPairCount, SurveyDataPairCount
