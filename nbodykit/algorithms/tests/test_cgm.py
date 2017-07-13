@@ -2,11 +2,44 @@ from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 from numpy.testing import assert_array_equal
+import pytest
 
 setup_logging("debug")
 
-@MPITest([1, 4])
-def test_cgm(comm):
+
+@MPITest([4])
+def test_bad_input(comm):
+
+    CurrentMPIComm.set(comm)
+
+    source = UniformCatalog(3e-4, BoxSize=256, seed=42)
+    source['gal_type'] = 1
+
+    # cannot rank by missing column
+    with pytest.raises(ValueError):
+        r = CylindricalGroups(source, 'missing', 10, 10, periodic=True, flat_sky_los=[0,0,1])
+
+    # bad flat_sky_los vector
+    with pytest.raises(ValueError):
+        r = CylindricalGroups(source, 'gal_type', 10, 10, periodic=True, flat_sky_los=[0,0,0,1])
+    with pytest.raises(ValueError):
+        r = CylindricalGroups(source, 'gal_type', 10, 10, periodic=True, flat_sky_los=[1,1,1]) # not a unit vector
+
+    # missing BoxSize!
+    del source.attrs['BoxSize']
+    with pytest.raises(ValueError):
+        r = CylindricalGroups(source, 'gal_type', 10, 10, periodic=True, flat_sky_los=[0,0,1])
+
+    # this should work though -- we specified BoxSize
+    r = CylindricalGroups(source, 'gal_type', 10, 10, BoxSize=256.0, periodic=False)
+
+    # warn if periodic and no line-of-sight
+    with pytest.warns(UserWarning):
+        r = CylindricalGroups(source, 'gal_type', 10, 10, BoxSize=256.0, periodic=True)
+
+
+@MPITest([4])
+def test_periodic_cgm(comm):
 
     CurrentMPIComm.set(comm)
 
@@ -26,7 +59,7 @@ def test_cgm(comm):
     rankby = ['halo_mvir', 'gal_type']
     rpar = 10.0
     rperp = 10.0
-    r = CylindricalGroups(source, rpar=rpar, rperp=rperp, rankby=rankby, periodic=False, los=[0,0,1])
+    r = CylindricalGroups(source, rpar=rpar, rperp=rperp, rankby=rankby, periodic=True, flat_sky_los=[0,0,1])
 
     # data for direct CGM
     pos = numpy.concatenate(comm.allgather(source['Position']), axis=0)
@@ -34,7 +67,8 @@ def test_cgm(comm):
     gal_type = numpy.concatenate(comm.allgather(source['gal_type']), axis=0)
 
     # direct results
-    N_cgm, cgm_gal_type, cen_id = direct_nonperiodic_cgm(pos, mass, gal_type, rperp, rpar)
+    kws = {'periodic':True, 'BoxSize':source.attrs['BoxSize']}
+    N_cgm, cgm_gal_type, cen_id = direct_cgm(pos, mass, gal_type, rperp, rpar, **kws)
 
     # gather and compare
     N_cgm2 = numpy.concatenate(comm.allgather(r.groups['num_cgm_sats']), axis=0)
@@ -46,7 +80,48 @@ def test_cgm(comm):
     assert_array_equal(cgm_gal_type, cgm_gal_type2)
 
 
-def direct_nonperiodic_cgm(pos, mass, gal_type, rperp, rpar):
+@MPITest([1, 4])
+def test_nonperiodic_cgm(comm):
+
+    CurrentMPIComm.set(comm)
+
+    source = UniformCatalog(3e-4, BoxSize=256, seed=42)
+
+    # add mass
+    logmass = source.rng.uniform(12, 15, size=source.size)
+    source['halo_mvir'] = 10**(logmass)
+
+    # add fake galaxy types
+    gal_type = numpy.empty(len(source))
+    gal_type[logmass<14.5] = 0
+    gal_type[logmass>14.5] = 1
+    source['gal_type'] = gal_type
+
+    # run the algorithm
+    rankby = ['halo_mvir', 'gal_type']
+    rpar = 10.0
+    rperp = 10.0
+    r = CylindricalGroups(source, rpar=rpar, rperp=rperp, rankby=rankby, periodic=False, flat_sky_los=[0,0,1])
+
+    # data for direct CGM
+    pos = numpy.concatenate(comm.allgather(source['Position']), axis=0)
+    mass = numpy.concatenate(comm.allgather(source['halo_mvir']), axis=0)
+    gal_type = numpy.concatenate(comm.allgather(source['gal_type']), axis=0)
+
+    # direct results
+    N_cgm, cgm_gal_type, cen_id = direct_cgm(pos, mass, gal_type, rperp, rpar, periodic=False)
+
+    # gather and compare
+    N_cgm2 = numpy.concatenate(comm.allgather(r.groups['num_cgm_sats']), axis=0)
+    cen_id2 = numpy.concatenate(comm.allgather(r.groups['cgm_haloid']), axis=0)
+    cgm_gal_type2 = numpy.concatenate(comm.allgather(r.groups['cgm_type']), axis=0)
+
+    assert_array_equal(N_cgm, N_cgm2)
+    assert_array_equal(cen_id, cen_id2)
+    assert_array_equal(cgm_gal_type, cgm_gal_type2)
+
+
+def direct_cgm(pos, mass, gal_type, rperp, rpar, periodic=False, BoxSize=None):
     """
     Given the position of particles, and the mass and galaxy type data
     to sort by, return the non-periodic CGM results via directly comparing
@@ -54,7 +129,6 @@ def direct_nonperiodic_cgm(pos, mass, gal_type, rperp, rpar):
 
     Notes
     -----
-    * This is non-periodic only
     * The function is not collective; all data must be passed to this function
     * The line-of-sight is assumed to be [0,0,1]
     """
@@ -86,11 +160,15 @@ def direct_nonperiodic_cgm(pos, mass, gal_type, rperp, rpar):
     while len(data):
 
         dr = data['pos'][0] - data['pos'][1:]
+        if periodic:
+            for axis, col in enumerate(dr.T):
+                col[col > BoxSize[axis]*0.5] -= BoxSize[axis]
+                col[col <= -BoxSize[axis]*0.5] += BoxSize[axis]
         dr2 = (dr**2).sum(axis=-1)
-        rlos = dr[:,-1]
-        rsky2 = numpy.abs(dr2 - rlos ** 2)
+        rflat_sky_los = dr[:,-1]
+        rsky2 = numpy.abs(dr2 - rflat_sky_los ** 2)
 
-        valid = (abs(rlos) <= rpar)&(rsky2 <= rperp**2)
+        valid = (abs(rflat_sky_los) <= rpar)&(rsky2 <= rperp**2)
         this_cenid = data['origind'][0]
         N_cgm[this_cenid] = valid.sum()
         cgm_gal_type[data['origind'][1:][valid]] = 1
