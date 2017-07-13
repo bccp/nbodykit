@@ -1,10 +1,10 @@
 import numpy
 import logging
-
 import kdcount
 import mpsort
 import pandas as pd
 from six import string_types
+import warnings
 
 from nbodykit import CurrentMPIComm
 from nbodykit.source.catalog import ArrayCatalog
@@ -38,7 +38,8 @@ class CylindricalGroups(object):
     """
     logger = logging.getLogger('CylindricalGroups')
 
-    def __init__(self, source, rankby, rperp, rpar, periodic=False, los=None, BoxSize=None):
+    def __init__(self, source, rankby, rperp, rpar, flat_sky_los=None,
+                    periodic=False, BoxSize=None):
         """
         Parameters
         ----------
@@ -51,23 +52,27 @@ class CylindricalGroups(object):
         rpar : float
             the radius along the line-of-sight direction; this is 1/2 the
             height of the cylinder
-        rankby : str, list
+        rankby : str, list, ``None``
             a single or list of column names to rank order the input source by
             before computing the cylindrical groups, such that objects ranked first
-            are marked as CGM centrals
+            are marked as CGM centrals; if ``None`` is supplied, no sorting will
+            be done
+        flat_sky_los : bool, optional
+            a unit vector of length 3 providing the line-of-sight direction,
+            assuming a fixed line-of-sight across the box, e.g., [0,0,1] to use
+            the z-axis. If ``None``, the observer at (0,0,0) is used to compute
+            the line-of-sight for each pair
         periodic : bool; optional
             whether to use periodic boundary conditions
-        los : 3-vector, optional
-            a unit vector of length 3 providing the line-of-sight direction; if
-            set to ``None`` the line-of-sight is determined based on an observer
-            based at coordinates (0,0,0). For a simulation box, you can
-            specify e.g., [0,0,1] to use the z-axis
         BoxSize : float, 3-vector; optional
-            the size of the box of the input data; must be provided if
-            ``periodic=True``
+            the size of the box of the input data; must be provided as
+            a keyword or in ``source.attrs`` if ``periodic=True``
         """
         if 'Position' not in source:
             raise ValueError("the 'Position' column must be defined in the input source")
+
+        if rankby is None:
+            rankby = []
 
         if isinstance(rankby, string_types):
             rankby = [rankby]
@@ -88,29 +93,38 @@ class CylindricalGroups(object):
         self.attrs['BoxSize'][:] = BoxSize
 
         # LOS must be unit vector
-        if los is not None:
-            if numpy.isscalar(los) or len(los) != 3:
-                raise ValueError("line-of-sight ``los`` should be vector with length 3")
-            if not numpy.allclose(numpy.einsum('i,i', los, los), 1.0, rtol=1e-5):
-                raise ValueError("line-of-sight ``los`` must be a unit vector")
+        if flat_sky_los is not None:
+            if numpy.isscalar(flat_sky_los) or len(flat_sky_los) != 3:
+                raise ValueError("line-of-sight ``flat_sky_los`` should be vector with length 3")
+            if not numpy.allclose(numpy.einsum('i,i', flat_sky_los, flat_sky_los), 1.0, rtol=1e-5):
+                raise ValueError("line-of-sight ``flat_sky_los`` must be a unit vector")
+
+        # warn if periodic and LOS is None
+        if flat_sky_los is None and periodic:
+            warnings.warn(("CylindricalGroups using periodic boundary conditions "
+                           "with line-of-sight computed from origin (0,0,0); maybe specify a line-of-sight?"))
 
         # save meta-data
         self.attrs['rpar'] = rpar
         self.attrs['rperp'] = rperp
         self.attrs['periodic'] = periodic
         self.attrs['rankby'] = rankby
-        self.attrs['los'] = los
+        self.attrs['flat_sky_los'] = flat_sky_los
 
         # log some info
         if self.comm.rank == 0:
             args = (str(rperp), str(rpar))
             self.logger.info("finding groups with rperp=%s and rpar=%s " %args)
-            if los is None:
+            if flat_sky_los is None:
                 self.logger.info("  using line-of-sight computed using observer at origin (0,0,0)")
             else:
-                self.logger.info("  using line-of-sight vector %s" %str(los))
+                self.logger.info("  using line-of-sight vector %s" %str(flat_sky_los))
             msg = "periodic" if periodic else "non-periodic"
-            self.logger.info("  using %s boundary conditions" %msg)
+            msg = "  using %s boundary conditions" %msg
+            if self.attrs['BoxSize'] is not None:
+                msg += " (BoxSize = %s)" %str(self.attrs['BoxSize'])
+            self.logger.info(msg)
+
 
         self.run()
 
@@ -172,7 +186,7 @@ class CylindricalGroups(object):
         domain = GridND(grid, comm=comm)
 
         # run the CGM algorithm
-        groups = cgm(comm, data, domain, rperp, rpar, self.attrs['los'], boxsize)
+        groups = cgm(comm, data, domain, rperp, rpar, self.attrs['flat_sky_los'], boxsize)
 
         # make the final structured array
         self.groups = ArrayCatalog(groups, comm=self.comm, **self.attrs)
@@ -221,10 +235,11 @@ def cgm(comm, data, domain, rperp, rpar, los, boxsize):
     """
     # whether we do periodic boundary conditions
     periodic = boxsize is not None
+    flat_sky = los is not None
 
     # the maximum distance still inside the cylinder set by rperp,rpar
-    rperp2 = rperp**2
-    rmax = (rperp2 + rpar**2)**0.5
+    rperp2 = rperp**2; rpar2 = rpar**2
+    rmax = (rperp2 + rpar2)**0.5
 
     layout1    = domain.decompose(data['pos'], smoothing=0)
     pos1       = layout1.exchange(data['pos'])
@@ -259,15 +274,21 @@ def cgm(comm, data, domain, rperp, rpar, los, boxsize):
                 col[col <= -boxsize[axis]*0.5] += boxsize[axis]
 
         # los distance
-        rlos =  numpy.einsum("ij,j->i", dr, los)
+        if flat_sky:
+            rlos2 =  numpy.einsum("ij,j->i", dr, los)**2
+        else:
+            center = 0.5 * (r1 + r2)
+            dot2 = numpy.einsum('ij, ij->i', dr, center)**2
+            center2 = numpy.einsum('ij, ij->i', center, center)
+            rlos2 = dot2 / center2
 
         # sky
         dr2 = numpy.einsum('ij, ij->i', dr, dr)
-        rsky2 = numpy.abs(dr2 - rlos ** 2)
+        rsky2 = numpy.abs(dr2 - rlos2)
 
         # save the valid pairs
         # To Be Valid: pairs must be within cylinder (compare rperp and rpar)
-        valid = (rsky2 <= rperp2)&(abs(rlos) <= rpar)
+        valid = (rsky2 <= rperp2)&(rlos2 <= rpar2)
         i = i[valid]; j = j[valid];
 
         # the correctly sorted indices of particles
