@@ -325,7 +325,6 @@ def cgm(comm, data, domain, rperp, rpar, los, boxsize):
     dataframe = numpy.concatenate(dataframe, axis=0)
     df = pd.DataFrame(dataframe, columns=['i', 'j', 'sort_i', 'sort_j'])
 
-    print("LEN DF = ", len(df), comm.rank)
     # we sort by the correct sorted index in descending order which puts
     # highest priority objects first
     df.sort_values("sort_i", ascending=False, inplace=True)
@@ -337,7 +336,6 @@ def cgm(comm, data, domain, rperp, rpar, los, boxsize):
     # (pairs with sort_j > sort_i)
     possible_cens = df[(df['sort_j']>df.index.values)]
     possible_cens = possible_cens.drop(centrals)
-    print("HEY 1", len(possible_cens), comm.rank) # remove already known centrals
     _remove_objects_paired_with(possible_cens, centrals) # remove objs paired with cens
 
     # sorted indices of objects that have pairs on other ranks
@@ -521,8 +519,6 @@ def _find_centrals(comm, df, on_other_ranks, centrals, maybes):
     cens_grouped = same_rank_df.groupby('sort_i', sort=False)
     cens_grouped.apply(find_local_centrals)
 
-    print("LOCAL CENTRALS = ", comm.allreduce(len(centrals)))
-
     # the pairs associated with objects that might be satellites
     maybe_cen_groups = df.loc[list(maybes)].dropna()
 
@@ -557,7 +553,6 @@ def _find_centrals(comm, df, on_other_ranks, centrals, maybes):
 
     # get the list of all centrals on all ranks
     new_centrals = comm.bcast(new_centrals)
-    print("NEW CENTRALS = ", len(new_centrals))
     all_centrals = numpy.append(all_centrals, list(new_centrals))
 
     # sort and create unique halo labels
