@@ -5,12 +5,10 @@ from nbodykit import CurrentMPIComm
 from nbodykit.dataset import DataSet
 
 try:
+    import Corrfunc
     from Corrfunc.mocks import DDsmu_mocks
-    from Corrfunc.theory import DDsmu
-    from Corrfunc.theory import DD
 except:
-    raise ImportError(("please install Corrfunc using either ``conda install -c bccp corrfunc``"
-                       " or from ``pip install pip install git+git://github.com/nickhand/Corrfunc``"))
+    Corrfunc = None
 
 class PairCountBase(object):
     """
@@ -174,6 +172,9 @@ class SimulationBoxPairCount(PairCountBase):
             a DataSet object holding the pair count and correlation
             function results
         """
+        if Corrfunc is None:
+            raise ImportError(("please install Corrfunc using either ``conda install -c bccp corrfunc``"
+                               " or from ``pip install pip install git+git://github.com/nickhand/Corrfunc``"))
         from pmesh.domain import GridND
         from nbodykit.algorithms.fof import split_size_3d
 
@@ -269,7 +270,7 @@ class SimulationBoxPairCount(PairCountBase):
             kws['output_ravg'] = True
             kws.update(self.attrs['config'])
             try:
-                pc = DD(0, 1, redges, **kws)
+                pc = Corrfunc.theory.DD(0, 1, redges, **kws)
             except:
                 raise RuntimeError("error when calling Corrfunc.theory.DD function")
             rcol = 'ravg'
@@ -277,7 +278,7 @@ class SimulationBoxPairCount(PairCountBase):
             kws['output_savg'] = True
             kws.update(self.attrs['config'])
             try:
-                pc = DDsmu(0, 1, redges, 1.0, self.attrs['Nmu'], **kws)
+                pc = Corrfunc.theory.DDsmu(0, 1, redges, 1.0, self.attrs['Nmu'], **kws)
             except:
                 raise RuntimeError("error when calling Corrfunc.theory.DDsmu function")
             pc = pc.reshape((-1, self.attrs['Nmu']))
@@ -402,6 +403,9 @@ class SurveyDataPairCount(PairCountBase):
             a DataSet object holding the pair count and correlation
             function results
         """
+        if Corrfunc is None:
+            raise ImportError(("please install Corrfunc using either ``conda install -c bccp corrfunc``"
+                               " or from ``pip install pip install git+git://github.com/nickhand/Corrfunc``"))
         from pmesh.domain import GridND
         from nbodykit.algorithms.fof import split_size_3d
         from nbodykit.transform import vstack
@@ -488,7 +492,7 @@ class SurveyDataPairCount(PairCountBase):
             kws.update(self.attrs['config'])
 
             try:
-                pc = DDsmu_mocks(0, 1, 1, Nmu, 1.0, redges, **kws)
+                pc = Corrfunc.mocks.DDsmu_mocks(0, 1, 1, Nmu, 1.0, redges, **kws)
             except:
                 raise RuntimeError("error when calling Corrfunc.mocks.DDsmu_mocks function")
             pc = pc.reshape((-1, Nmu))
