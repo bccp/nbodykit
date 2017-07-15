@@ -4,9 +4,13 @@ from six import string_types
 from nbodykit import CurrentMPIComm
 from nbodykit.dataset import DataSet
 
-try: import Corrfunc
-except: raise ImportError(("please download and install ``Corrfunc`` "
-                          " from ``https://github.com/nickhand/Corrfunc``"))
+try:
+    from Corrfunc.mocks import DDsmu_mocks
+    from Corrfunc.theory import DDsmu
+    from Corrfunc.theory import DD
+except:
+    raise ImportError(("please install Corrfunc using either ``conda install -c bccp corrfunc``"
+                       " or from ``pip install pip install git+git://github.com/nickhand/Corrfunc``"))
 
 class PairCountBase(object):
     """
@@ -265,7 +269,7 @@ class SimulationBoxPairCount(PairCountBase):
             kws['output_ravg'] = True
             kws.update(self.attrs['config'])
             try:
-                pc = Corrfunc.theory.DD(0, 1, redges, **kws)
+                pc = DD(0, 1, redges, **kws)
             except:
                 raise RuntimeError("error when calling Corrfunc.theory.DD function")
             rcol = 'ravg'
@@ -273,7 +277,7 @@ class SimulationBoxPairCount(PairCountBase):
             kws['output_savg'] = True
             kws.update(self.attrs['config'])
             try:
-                pc = Corrfunc.theory.DDsmu(0, 1, redges, 1.0, self.attrs['Nmu'], **kws)
+                pc = DDsmu(0, 1, redges, 1.0, self.attrs['Nmu'], **kws)
             except:
                 raise RuntimeError("error when calling Corrfunc.theory.DDsmu function")
             pc = pc.reshape((-1, self.attrs['Nmu']))
@@ -484,7 +488,7 @@ class SurveyDataPairCount(PairCountBase):
             kws.update(self.attrs['config'])
 
             try:
-                pc = Corrfunc.mocks.DDsmu_mocks(0, 1, 1, Nmu, 1.0, redges, **kws)
+                pc = DDsmu_mocks(0, 1, 1, Nmu, 1.0, redges, **kws)
             except:
                 raise RuntimeError("error when calling Corrfunc.mocks.DDsmu_mocks function")
             pc = pc.reshape((-1, Nmu))
