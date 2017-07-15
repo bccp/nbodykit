@@ -1,4 +1,4 @@
-numpy 
+numpy
 scipy
 astropy
 mpi4py
@@ -12,3 +12,4 @@ dask>=0.13
 cachey
 sympy
 numexpr
+Corrfunc
