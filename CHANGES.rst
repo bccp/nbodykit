@@ -1,6 +1,7 @@
 0.2.5 (unreleased)
 ------------------
 * CSVFile and CSVCatalog no longer fails to read the last line of data when the file does not end in a newline
+* CylindricalGroups algorithm added for computing groups of objects using the cylindrical grouping method of arXiv:1611.04165
 
 0.2.4
 -----
