@@ -425,26 +425,40 @@ class SurveyDataPairCount(PairCountBase):
         # get the (periodic-enforced) position
         pos1 = vstack(*[self.source1[col] for col in poscols]) # this is RA, DEC, REDSHIFT
         pos1, w1 = self.source1.compute(pos1, self.source1[self.attrs['weight']])
-        cartpos1, rdist1 = get_cartesian_coords(pos1, self.attrs['cosmo'])
+        cartpos1, rdist1 = get_cartesian_coords(comm, pos1, self.attrs['cosmo'])
         pos1[:,2] = rdist1
         N1 = comm.allreduce(len(pos1))
+
+        # global min/max across all ranks
+        cposmin1 = numpy.asarray(comm.allgather(cartpos1.min(axis=0))).min(axis=0)
+        cposmax1 = numpy.asarray(comm.allgather(cartpos1.max(axis=0))).max(axis=0)
 
         if self.source2 is not None:
             pos2 = vstack(*[self.source2[col] for col in poscols])
             pos2, w2 = self.source2.compute(pos2, self.source2[self.attrs['weight']])
-            cartpos2, rdist2 = get_cartesian_coords(pos2, self.attrs['cosmo'])
+            cartpos2, rdist2 = get_cartesian_coords(comm, pos2, self.attrs['cosmo'])
             pos2[:,2] = rdist2
             N2 = comm.allreduce(len(pos2))
+            cposmin2 = numpy.asarray(comm.allgather(cartpos2.min(axis=0))).min(axis=0)
+            cposmax2 = numpy.asarray(comm.allgather(cartpos2.max(axis=0))).max(axis=0)
         else:
             pos2 = pos1
             w2 = w1
             N2 = N1
             cartpos2 = cartpos1
+            cposmin2 = cposmin1; cposmax2 = cposmax1
 
-        # global min/max across all ranks
-        cposmin = numpy.asarray(comm.allgather(cartpos1.min(axis=0))).min(axis=0)
-        cposmax = numpy.asarray(comm.allgather(cartpos1.max(axis=0))).max(axis=0)
-        BoxSize = abs(cposmax - cposmin)
+        # set up a box size to fit both source1 and source2
+        cposmax = numpy.max([cposmax1, cposmax2], axis=0)
+        cposmin = numpy.min([cposmin1, cposmin2], axis=0)
+
+        # size and center of joint box to hold two sources
+        BoxSize = numpy.ceil(abs(cposmax - cposmin))
+        BoxCenter = 0.5 * (cposmin + cposmax)
+
+        # recenter to 0 to L for the domain decomposition
+        cartpos1 = cartpos1 - BoxCenter + 0.5*BoxSize
+        cartpos2 = cartpos2 - BoxCenter + 0.5*BoxSize
 
         # domain decomposition
         grid = [
@@ -452,13 +466,14 @@ class SurveyDataPairCount(PairCountBase):
             numpy.linspace(0, BoxSize[1], np[1] + 1, endpoint=True),
             numpy.linspace(0, BoxSize[2], np[2] + 1, endpoint=True),
         ]
-        domain = GridND(grid, comm=comm)
+        domain = GridND(grid, comm=comm, periodic=False)
 
+        # decompose source1 particles
         layout = domain.decompose(cartpos1, smoothing=0)
         pos1 = layout.exchange(pos1)
         w1 = layout.exchange(w1)
 
-        # get the position/weight of the secondaries
+        # decompose source2 particles
         rmax = numpy.max(redges)
         if rmax > BoxSize.min() * 0.25:
             pos2 = numpy.concatenate(comm.allgather(pos2), axis=0)
@@ -552,7 +567,7 @@ def verify_input_sources(first, second, BoxSize, required_columns, inspect_boxsi
 
         return _BoxSize
 
-def get_cartesian_coords(pos, cosmo):
+def get_cartesian_coords(comm, pos, cosmo):
     """
     Return cartesian coordinates and comoving distances from RA, DEC, Redshift
 
