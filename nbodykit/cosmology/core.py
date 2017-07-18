@@ -339,6 +339,24 @@ class Cosmology(dict):
         """
         return self.clbackground.hubble_function(z)
 
+    def hubble_function_prime(self, z):
+        """
+        Function giving :func:`hubble_function prime with respect
+        to the scale factor ``a``
+
+        Parameters
+        ----------
+        z : array-like
+            Input redshifts.
+
+        Returns
+        -------
+        efunc : ndarray, or float if input scalar
+            The hubble function prime redshift-scaling with respect
+            to scale factor
+        """
+        return self.clbackground.hubble_function_prime(z)
+
     def efunc(self, z):
         """
         Function giving :func:`efunc with respect

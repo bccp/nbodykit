@@ -93,6 +93,8 @@ class PerturbationGrowth(object):
             )
 
     def E(self, a, order=0):
+        a = np.array(a)
+        a[a>1] = 1
         if order == 0:
             return self.efunc(1/a - 1.0)
         else:
