@@ -36,9 +36,18 @@ All algorithms are parallel and run with Message Passing Interface (MPI).
 
 .. _getting-started:
 
+Getting Started
+---------------
+
+* :doc:`install`
+* :doc:`intro`
+* :doc:`quickstart/index`
+* :doc:`cookbook/index`
+
 .. toctree::
    :maxdepth: 1
    :caption: Getting Started
+   :hidden:
 
    install.rst
    intro.rst
@@ -47,9 +56,19 @@ All algorithms are parallel and run with Message Passing Interface (MPI).
 
 .. _playing-with-data:
 
+Playing with Data
+-----------------
+
+* :doc:`data/reading`
+* :doc:`data/on-demand-io`
+* :doc:`data/common-operations`
+* :doc:`data/painting`
+* :doc:`data/generating`
+
 .. toctree::
   :maxdepth: 1
   :caption: Playing with Data
+  :hidden:
 
   data/reading.rst
   data/on-demand-io.rst
@@ -59,9 +78,17 @@ All algorithms are parallel and run with Message Passing Interface (MPI).
 
 .. _getting-results:
 
+Getting Results
+---------------
+
+* :doc:`algorithms/index`
+* :doc:`batch-mode`
+* :doc:`analyzing-results`
+
 .. toctree::
   :maxdepth: 1
   :caption: Getting Results
+  :hidden:
 
   algorithms/index.rst
   batch-mode.rst
@@ -69,9 +96,18 @@ All algorithms are parallel and run with Message Passing Interface (MPI).
 
 .. _help:
 
+Help and Reference
+------------------
+
+* :doc:`api/index`
+* :doc:`development-guide`
+* :doc:`contact-support`
+* :doc:`changelog`
+
 .. toctree::
   :maxdepth: 1
   :caption: Help and Reference
+  :hidden:
 
   api/index.rst
   development-guide.rst

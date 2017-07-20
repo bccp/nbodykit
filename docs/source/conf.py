@@ -47,6 +47,9 @@ extensions = [
     'matplotlib.sphinxext.plot_directive',
 ]
 
+def setup(app):
+    app.add_stylesheet("custom.css")
+
 import matplotlib.pyplot as plt
 plt.style.use('ggplot')
 plot_rcparams = dict(plt.rcParams)
@@ -80,6 +83,8 @@ author = u'Nick Hand, Yu Feng'
 #
 # The full version, including alpha/beta/rc tags.
 release = nbodykit.__version__
+if 'dev' in release:
+    release = release.rsplit('.', 1)[0]+' - dev'
 
 # Use release as the version.
 version = release
@@ -150,7 +155,7 @@ html_theme_path = sphinx_bootstrap_theme.get_html_theme_path()
 # documentation.
 html_theme_options = dict(
     bootstrap_version = "3",
-    bootswatch_theme = "spacelab",
+    bootswatch_theme = "journal",
     navbar_sidebarrel = False,
     globaltoc_depth = 2,
 )
@@ -251,6 +256,8 @@ html_static_path = ['_static']
 
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'nbodykitdoc'
+
+html_show_sourcelink = False
 
 # -- Options for LaTeX output ---------------------------------------------
 
