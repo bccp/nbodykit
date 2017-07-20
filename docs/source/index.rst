@@ -25,7 +25,10 @@ distinguishes itself from other similar software packages
 
 - reducing wall-clock time by **scaling** to thousands of cores
 
-- **deployment** and availability on large, super computing facilities
+- **deployment** and availability on large, super-computing facilities
+
+- an **interactive** user interface that performs as well in a Jupyter
+  notebook as on super-computing machines
 
 All algorithms are parallel and run with Message Passing Interface (MPI).
 
