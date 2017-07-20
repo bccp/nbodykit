@@ -158,6 +158,10 @@ html_theme_options = dict(
     bootswatch_theme = "journal",
     navbar_sidebarrel = False,
     globaltoc_depth = 2,
+    navbar_links = [
+    ("Quickstart notebooks", "quickstart/index"),
+    ("Cookbook", "cookbook/index"),
+    ],
 )
 
 #html_theme = 'nature'
