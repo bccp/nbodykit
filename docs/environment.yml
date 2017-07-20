@@ -27,6 +27,8 @@ dependencies:
 - cachey
 - h5py
 - halotools
+- fitsio
+- corrfunc
 - IPython
 - sphinx_rtd_theme
 - numpydoc
