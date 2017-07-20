@@ -43,7 +43,13 @@ extensions = [
     'IPython.sphinxext.ipython_directive',
     'IPython.sphinxext.ipython_console_highlighting',
     'sphinx.ext.todo',
+    'nbsphinx',
+    'matplotlib.sphinxext.plot_directive',
 ]
+
+import matplotlib.pyplot as plt
+plt.style.use('ggplot')
+plot_rcparams = dict(plt.rcParams)
 
 autosummary_generate = True
 numpydoc_class_members_toctree = True
@@ -65,8 +71,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'nbodykit'
-copyright = u'2015-2016, Yu Feng, Nick Hand '
-author = u'Yu Feng, Nick Hand'
+copyright = u'2015-2017, Nick Hand, Yu Feng'
+author = u'Nick Hand, Yu Feng'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -130,18 +136,35 @@ todo_include_todos = False
 
 on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
 
-if not on_rtd:
-    import sphinx_rtd_theme
-    html_theme = 'sphinx_rtd_theme'
-    html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
+#if not on_rtd:
+    #import sphinx_rtd_theme
+    #html_theme = 'sphinx_rtd_theme'
+    #html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
+
+import sphinx_bootstrap_theme
+html_theme = 'bootstrap'
+html_theme_path = sphinx_bootstrap_theme.get_html_theme_path()
+
+# Theme options are theme-specific and customize the look and feel of a theme
+# further.  For a list of options available for each theme, see the
+# documentation.
+html_theme_options = dict(
+    bootstrap_version = "3",
+    bootswatch_theme = "spacelab",
+    navbar_sidebarrel = False,
+    globaltoc_depth = 2,
+)
 
 #html_theme = 'nature'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
-#html_theme_options = {}
-
+#html_logo = '_static/nbodykit-logo-white.png'
+# html_theme_options = {
+#     'logo_only': True,
+#     'display_version': False,
+# }
 # Add any paths that contain custom themes here, relative to this directory.
 #html_theme_path = []
 

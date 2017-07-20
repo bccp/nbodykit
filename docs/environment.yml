@@ -31,3 +31,6 @@ dependencies:
 - sphinx_rtd_theme
 - numpydoc
 - sphinx
+- pip
+- pip:
+  - nbsphinx
