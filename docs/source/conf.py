@@ -155,7 +155,7 @@ html_theme_path = sphinx_bootstrap_theme.get_html_theme_path()
 # documentation.
 html_theme_options = dict(
     bootstrap_version = "3",
-    bootswatch_theme = "journal",
+    bootswatch_theme = "readable",
     navbar_sidebarrel = False,
     globaltoc_depth = 2,
     navbar_links = [
