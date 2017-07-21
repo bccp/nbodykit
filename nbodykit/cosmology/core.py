@@ -97,66 +97,72 @@ def isiterable(obj):
         return False
 
 class Cosmology(dict):
-    """
+    r"""
     An extension of the :mod:`astropy.cosmology` framework that can
     store additional, orthogonal parameters and behaves like a read-only
-    dictionary
+    dictionary.
 
     The class relies on :mod:`astropy.cosmology` as the underlying
     "engine" for calculation of cosmological quantities. This "engine"
-    is stored as :attr:`engine` and supports :class:`~astropy.cosmology.LambdaCDM`
+    is stored as the :attr:`engine` attribute and supports
+    :class:`~astropy.cosmology.LambdaCDM`
     and :class:`~astropy.cosmology.wCDM`, and their flat equivalents
 
     Any attributes or functions of the underlying astropy engine
     can be directly accessed as attributes or keys of this class
 
-    ..note::
+    .. note::
 
-    A default set of units is assumed, so attributes stored internally
-    as :class:`astropy.units.Quantity` instances will be returned
-    here as numpy arrays. Those units are:
+        A default set of units is assumed, so attributes stored internally
+        as :class:`astropy.units.Quantity` instances will be returned
+        here as numpy arrays. Those units are:
 
-        - temperature: ``K``
-        - distance: ``Mpc``
-        - density: ``g/cm^3``
-        - neutrino mass: ``eV``
-        - time: ``Gyr``
-        - H0: ``Mpc/km/s``
+        * temperature: ``K``
+        * distance: ``Mpc``
+        * density: ``g/cm^3``
+        * neutrino mass: ``eV``
+        * time: ``Gyr``
+        * H0: ``Mpc/km/s``
 
     .. warning::
 
         This class does not currently support a non-constant dark energy
         equation of state
+
+    Parameters
+    ----------
+    H0 : float
+        the Hubble constant at z=0, in km/s/Mpc
+    Om0 : float
+        matter density/critical density at z=0
+    Ob0 : float
+        baryon density/critical density at z=0
+    Ode0 : float
+        dark energy density/critical density at z=0
+    w0 : float
+        dark energy equation of state
+    Tcmb0 : float
+        temperature of the CMB in K at z=0
+    Neff : float
+        the effective number of neutrino species
+    m_nu : float, array_like
+        mass of neutrino species in eV
+    flat : bool
+        if `True`, automatically set `Ode0` such that `Ok0` is zero
+    name : str
+        a name for the cosmology
+    **kwargs :
+        additional key/value pairs to store in the dictionary
+
+    Attributes
+    ----------
+    engine : :class:`astropy.cosmology.FLRW`
+        the underlying astropy cosmology; any functions or attributes of this
+        object are directly accessible from the main Cosmology object
     """
     def __init__(self, H0=67.6, Om0=0.31, Ob0=0.0486, Ode0=0.69, w0=-1., Tcmb0=2.7255,
                     Neff=3.04, m_nu=0., flat=False, name=None, **kwargs):
 
-        """
-        Parameters
-        ----------
-        H0 : float
-            the Hubble constant at z=0, in km/s/Mpc
-        Om0 : float
-            matter density/critical density at z=0
-        Ob0 : float
-            baryon density/critical density at z=0
-        Ode0 : float
-            dark energy density/critical density at z=0
-        w0 : float
-            dark energy equation of state
-        Tcmb0 : float
-            temperature of the CMB in K at z=0
-        Neff : float
-            the effective number of neutrino species
-        m_nu : float, array_like
-            mass of neutrino species in eV
-        flat : bool
-            if `True`, automatically set `Ode0` such that `Ok0` is zero
-        name : str
-            a name for the cosmology
-        kwargs :
-            additional key/value pairs to store in the dictionary
-        """
         # convert neutrino mass to a astropy `Quantity`
         if m_nu is not None:
             m_nu = units.Quantity(m_nu, 'eV')
@@ -207,7 +213,7 @@ class Cosmology(dict):
         ----------
         cosmo : subclass of :class:`astropy.cosmology.FLRW`
             the astropy cosmology instance
-        ** kwargs :
+        **kwargs :
             extra key/value parameters to store in the dictionary
         """
         valid = ['H0', 'Om0', 'Ob0', 'Ode0', 'w0', 'Tcmb0', 'Neff', 'm_nu']
@@ -276,8 +282,8 @@ class Cosmology(dict):
 
         Returns
         -------
-        newcos : Subclass of FLRW
-        A new instance of this class with the specified changes.
+        newcos : subclass of FLRW
+            A new instance of this class with the specified changes.
 
         Notes
         -----
@@ -317,8 +323,8 @@ class Cosmology(dict):
 
     def efunc_prime(self, z):
         """
-        Function giving the derivative of :func:`efunc with respect
-        to the scale factor ``a``
+        Function giving the derivative of :func:`~Cosmology.efunc` with respect
+        to the scale factor ``a``.
 
         Parameters
         ----------
@@ -391,7 +397,7 @@ class Cosmology(dict):
 
     @fittable
     def growth_function(self, z):
-        """
+        r"""
         Linear growth function :math:`D(z)` at redshift ``z``
 
         .. math::

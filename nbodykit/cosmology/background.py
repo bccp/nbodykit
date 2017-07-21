@@ -2,24 +2,25 @@ import numpy as np
 from scipy.integrate import odeint
 
 class PerturbationGrowth(object):
-    """ Perturbation Growth coefficients
+    """
+    Perturbation Growth coefficients at several orders.
 
-        2-LPT is implemented. 
+    2-LPT is implemented.
 
-        All derivatives are against lna. (order).
+    All derivatives are against ``lna``. (order).
 
-        Formula are derived from Yin Li's notes on 2LPT.
+    .. note::
+        Formulas are derived from Yin Li's notes on 2LPT.
 
+    Parameters
+    ----------
+    cosmo: :class:`~nbodykit.cosmology.core.Cosmology`
+        a astropy Cosmology like object.
+    a : array_like
+        a list of time steps where the factors are exact.
+        other a values are interpolated.
     """
     def __init__(self, cosmo, a=None):
-        """ Parameters
-            ----------
-            cosmo: object,
-                a astropy Cosmology like object.
-            a : array_like
-                a list of time steps where the factors are exact.
-                other a values are interpolated.
-        """
 #        assert cosmo.Ogamma0 == 0
 #        assert cosmo.Onu0 == 0
 
@@ -61,29 +62,30 @@ class PerturbationGrowth(object):
 
     def f2(self, a):
         return self.D2(a, order=1) / self.D2(a, order=0)
-    
+
     def Gp(self, a):
-        """ FastPM growth factor function, eq, 19;
+        """
+        FastPM growth factor function, eq, 19
         """
         return self.D1(a)
 
     def gp(self, a):
         """
-            Notice the derivative of D1 is against ln a but gp is d D1 / da, so
-            gp = D1(a, order=1) / a
+        Notice the derivative of D1 is against ln a but gp is d D1 / da, so
+        gp = D1(a, order=1) / a
         """
         return self.D1(a, order=1) / a
 
     def Gf(self, a):
-        """ FastPM growth factor function, eq, 20
         """
-
+        FastPM growth factor function, eq, 20
+        """
         return self.D1(a, 1) * a ** 2 * self.E(a)
 
     def gf(self, a):
         """
-            Similarly, the derivative is against ln a, so
-            gf = Gf(a, order=1) / a
+        Similarly, the derivative is against ln a, so
+        gf = Gf(a, order=1) / a
         """
         return 1 / a * (
             self.D1(a, 2) * a ** 2 * self.E(a) \

@@ -148,20 +148,21 @@ class LinearPowerBase(object):
 
 class EHPower(LinearPowerBase):
     """
-    Eisenstein & Hu (1998) fitting function with BAO wiggles
+    Linear power spectrum using the Eisenstein & Hu (1998) fitting formula
+    with BAO wiggles.
 
-    From EH 1998, Eqs. 26,28-31.
+    Parameters
+    ----------
+    cosmo : :class:`~nbodykit.cosmology.core.Cosmology`
+        the cosmology instance; must have 'Ob0', 'n_s', and 'sigma8' parameters
+    redshift : float
+        the redshift to compute the power spectrum at
+
+    References
+    ----------
+    Eisenstein & Hu, "Baryonic Features in the Matter Transfer Function", 1998
     """
     def __init__(self, cosmo, redshift):
-        """
-        Parameters
-        ----------
-        cosmo : nbodykit.cosmology.Cosmology
-            the cosmology instance; must have 'Ob0', 'n_s', and 'sigma8'
-            parameters
-        redshift : float
-            the redshift to compute the power spectrum at
-        """
         LinearPowerBase.__init__(self, cosmo, redshift)
         self._set_params()
 
@@ -253,20 +254,21 @@ class EHPower(LinearPowerBase):
 
 class NoWiggleEHPower(LinearPowerBase):
     """
-    Eisenstein & Hu (1998) fitting function without BAO wiggles
+    Linear power spectrum using the Eisenstein & Hu (1998) fitting formula
+    without BAO wiggles.
 
-    From EH 1998, Eqs. 26,28-31.
+    Parameters
+    ----------
+    cosmo : :class:`~nbodykit.cosmology.core.Cosmology`
+        the cosmology instance; must have 'Ob0', 'n_s', and 'sigma8' parameters
+    redshift : float
+        the redshift to compute the power spectrum at
+
+    References
+    ----------
+    Eisenstein & Hu, "Baryonic Features in the Matter Transfer Function", 1998
     """
     def __init__(self, cosmo, redshift):
-        """
-        Parameters
-        ----------
-        cosmo : nbodykit.cosmology.Cosmology
-            the cosmology instance; must have 'Ob0', 'n_s', and 'sigma8'
-            parameters
-        redshift : float
-            the redshift to compute the power spectrum at
-        """
         LinearPowerBase.__init__(self, cosmo, redshift)
         self._set_params()
 
