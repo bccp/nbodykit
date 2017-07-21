@@ -3,7 +3,7 @@ import logging
 
 import kdcount
 from nbodykit import CurrentMPIComm
-from nbodykit.dataset import DataSet
+from nbodykit.binned_statistic import BinnedStatistic
 
 class Multipoles3PCF(object):
     """
@@ -74,8 +74,8 @@ class Multipoles3PCF(object):
 
         Attributes
         ----------
-        poles : :class:`~nbodykit.dataset.DataSet` or ``None``
-            a DataSet object to hold the multipole results
+        poles : :class:`~nbodykit.binned_statistic.BinnedStatistic` or ``None``
+            a BinnedStatistic object to hold the multipole results
         """
         from pmesh.domain import GridND
 
@@ -201,21 +201,21 @@ class Multipoles3PCF(object):
         # differs by factor of (4 pi)^2 / (2l+1) from the C++ code
         zeta /= (4*numpy.pi)
 
-        # make a DataSet
+        # make a BinnedStatistic
         dtype = numpy.dtype([('zeta_%d' %i, zeta.dtype) for i in range(Nell)])
         data = numpy.empty(zeta.shape[-2:], dtype=dtype)
         for i in range(Nell):
             data['zeta_%d' %i] = zeta[i]
 
         # save the result
-        self.poles = DataSet(['r1', 'r2'], [redges, redges], data)
+        self.poles = BinnedStatistic(['r1', 'r2'], [redges, redges], data)
 
     def __getstate__(self):
         return {'poles':self.poles.data, 'attrs':self.attrs}
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-        self.poles = DataSet(['r1', 'r2'], [self.attrs['edges']]*2, self.poles)
+        self.poles = BinnedStatistic(['r1', 'r2'], [self.attrs['edges']]*2, self.poles)
 
     def save(self, output):
         """

@@ -5,8 +5,7 @@ import warnings
 
 from nbodykit import CurrentMPIComm
 from nbodykit.utils import timer
-from nbodykit.dataset import DataSet
-
+from nbodykit.binned_statistic import BinnedStatistic
 from .fftpower import project_to_basis
 from pmesh.pm import ComplexField
 
@@ -20,7 +19,7 @@ def get_real_Ylm(l, m):
     l : int
         the degree of the harmonic
     m : int
-        the order of the harmonic; |m| < l
+        the order of the harmonic; abs(m) < l
 
     Returns
     -------
@@ -188,8 +187,8 @@ class ConvolvedFFTPower(object):
         ----------
         edges : array_like
             the edges of the wavenumber bins
-        poles : :class:`~nbodykit.dataset.DataSet`
-            a DataSet object that behaves similar to a structured array, with
+        poles : :class:`~nbodykit.binned_statistic.BinnedStatistic`
+            a BinnedStatistic object that behaves similar to a structured array, with
             fancy slicing and re-indexing; it holds the measured multipole
             results, as well as the number of modes (``modes``) and average
             wavenumbers values in each bin (``k``)
@@ -204,7 +203,7 @@ class ConvolvedFFTPower(object):
         poles = self._compute_multipoles()
 
         # set all the necessary results
-        self.poles = DataSet(['k'], [self.edges], poles, fields_to_sum=['modes'])
+        self.poles = BinnedStatistic(['k'], [self.edges], poles, fields_to_sum=['modes'])
 
     def to_pkmu(self, mu_edges, max_ell):
         """
@@ -222,7 +221,7 @@ class ConvolvedFFTPower(object):
 
         Returns
         -------
-        pkmu : DataSet
+        pkmu : BinnedStatistic
             a data set holding the :math:`P(k,\mu)` wedges
         """
         from scipy.special import legendre
@@ -262,7 +261,7 @@ class ConvolvedFFTPower(object):
 
         dims = ['k', 'mu']
         edges = [self.poles.edges['k'], mu_edges]
-        return DataSet(dims=dims, edges=edges, data=data, **self.attrs)
+        return BinnedStatistic(dims=dims, edges=edges, data=data, **self.attrs)
 
     def __getstate__(self):
         state = dict(edges=self.edges,
@@ -272,7 +271,7 @@ class ConvolvedFFTPower(object):
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-        self.poles = DataSet(['k'], [self.edges], self.poles, fields_to_sum=['modes'])
+        self.poles = BinnedStatistic(['k'], [self.edges], self.poles, fields_to_sum=['modes'])
 
     def save(self, output):
         """

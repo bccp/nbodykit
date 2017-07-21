@@ -2,7 +2,7 @@ import numpy
 import logging
 from six import string_types
 from nbodykit import CurrentMPIComm
-from nbodykit.dataset import DataSet
+from nbodykit.binned_statistic import BinnedStatistic
 
 try:
     import Corrfunc
@@ -48,10 +48,10 @@ class PairCountBase(object):
         self.__dict__.update(state)
         redges = self.attrs['redges']
         if self.attrs['mode'] == '1d':
-            self.result = DataSet(['r'], [redges], self.result, fields_to_sum=['npairs'])
+            self.result = BinnedStatistic(['r'], [redges], self.result, fields_to_sum=['npairs'])
         else:
             muedges = numpy.linspace(0, 1., self.attrs['Nmu']+1)
-            self.result = DataSet(['r', 'mu'], [redges, muedges], self.result, fields_to_sum=['npairs'])
+            self.result = BinnedStatistic(['r', 'mu'], [redges, muedges], self.result, fields_to_sum=['npairs'])
 
     def save(self, output):
         """
@@ -168,8 +168,8 @@ class SimulationBoxPairCount(PairCountBase):
 
         Attributes
         ----------
-        result : :class:`~nbodykit.dataset.DataSet`
-            a DataSet object holding the pair count and correlation
+        result : :class:`~nbodykit.binned_statistic.BinnedStatistic`
+            a BinnedStatistic object holding the pair count and correlation
             function results
         """
         if Corrfunc is None:
@@ -311,11 +311,11 @@ class SimulationBoxPairCount(PairCountBase):
         # correlation function value
         data['xi'] = (1. * data['npairs'] / RR) - 1.0
 
-        # make the DataSet
+        # make the BinnedStatistic
         if self.attrs['mode'] == '1d':
-            self.result = DataSet(['r'], [redges], data, fields_to_sum=['npairs'])
+            self.result = BinnedStatistic(['r'], [redges], data, fields_to_sum=['npairs'])
         else:
-            self.result = DataSet(['r','mu'], [redges,muedges], data, fields_to_sum=['npairs'])
+            self.result = BinnedStatistic(['r','mu'], [redges,muedges], data, fields_to_sum=['npairs'])
 
 class SurveyDataPairCount(PairCountBase):
     """
@@ -399,8 +399,8 @@ class SurveyDataPairCount(PairCountBase):
 
         Attributes
         ----------
-        result : :class:`~nbodykit.dataset.DataSet`
-            a DataSet object holding the pair count and correlation
+        result : :class:`~nbodykit.binned_statistic.BinnedStatistic`
+            a BinnedStatistic object holding the pair count and correlation
             function results
         """
         if Corrfunc is None:
@@ -511,12 +511,12 @@ class SurveyDataPairCount(PairCountBase):
         data['r'][idx] /= data['npairs'][idx]
         data['weightavg'][idx] /= data['npairs'][idx]
 
-        # make the DataSet
+        # make the BinnedStatistic
         if self.attrs['mode'] == '1d':
-            self.result = DataSet(['r'], [redges], numpy.squeeze(data), fields_to_sum=['npairs'])
+            self.result = BinnedStatistic(['r'], [redges], numpy.squeeze(data), fields_to_sum=['npairs'])
         else:
             muedges = numpy.linspace(0, 1., Nmu+1)
-            self.result = DataSet(['r','mu'], [redges,muedges], data, fields_to_sum=['npairs'])
+            self.result = BinnedStatistic(['r','mu'], [redges,muedges], data, fields_to_sum=['npairs'])
 
 def verify_input_sources(first, second, BoxSize, required_columns, inspect_boxsize=True):
     """

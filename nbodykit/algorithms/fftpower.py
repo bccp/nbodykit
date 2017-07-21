@@ -3,7 +3,7 @@ import numpy
 import logging
 
 from nbodykit import CurrentMPIComm
-from nbodykit.dataset import DataSet
+from nbodykit.binned_statistic import BinnedStatistic
 from nbodykit.meshtools import SlabIterator
 from pmesh.pm import ComplexField
 
@@ -15,7 +15,7 @@ class FFTPowerBase(object):
         from nbodykit.base.mesh import MeshSource
 
         # grab comm from first source
-        self.comm = first.comm 
+        self.comm = first.comm
 
         # if input is CatalogSource, use defaults to make it into a mesh
         if not hasattr(first, 'paint'):
@@ -98,18 +98,18 @@ class FFTPowerBase(object):
         """
         import json
         from nbodykit.utils import JSONEncoder
-        
+
         # only the master rank writes
         if self.comm.rank == 0:
             self.logger.info('measurement done; saving result to %s' % output)
 
             with open(output, 'w') as ff:
-                json.dump(self.__getstate__(), ff, cls=JSONEncoder) 
+                json.dump(self.__getstate__(), ff, cls=JSONEncoder)
 
     @classmethod
     @CurrentMPIComm.enable
     def load(cls, output, comm=None):
-        """ 
+        """
         Load a saved FFTPower result.
 
         The result has been saved to disk with :func:`FFTPower.save`.
@@ -134,14 +134,14 @@ class FFTPower(FFTPowerBase):
     """
     Algorithm to compute the 1d or 2d power spectrum and/or multipoles
     in a periodic box, using a Fast Fourier Transform (FFT)
-    
+
     Notes
     -----
-    The algorithm saves the power spectrum results to a plaintext file, 
+    The algorithm saves the power spectrum results to a plaintext file,
     as well as the meta-data associted with the algorithm. The names of the
     columns saved to file are:
-    
-        - k : 
+
+        - k :
             the mean value for each `k` bin
         - mu : 2D power only
             the mean value for each `mu` bin
@@ -149,33 +149,29 @@ class FFTPower(FFTPowerBase):
             the real and imaginary components of 1D power
         - power_X.real, power_X.imag : multipoles only
             the real and imaginary components for the `X` multipole
-        - modes : 
+        - modes :
             the number of Fourier modes averaged together in each bin
-    
+
     The plaintext files also include meta-data associated with the algorithm:
-    
-        - Lx, Ly, Lz : 
+
+        - Lx, Ly, Lz :
             the length of each side of the box used when computing FFTs
-        - volumne : 
+        - volumne :
             the volume of the box; equal to ``Lx*Ly*Lz``
-        - N1 : 
+        - N1 :
             the number of objects in the 1st catalog
-        - N2 : 
+        - N2 :
             the number of objects in the 2nd catalog; equal to `N1`
             if the power spectrum is an auto spectrum
-    
-    See :func:`nbodykit.files.Read1DPlainText`, :func:`nbodykit.files.Read2DPlainText`
-    and :func:`nbodykit.dataset.Power1dDataSet.from_nbkit`
-    :func:`nbodykit.dataset.Power2dDataSet.from_nbkit` for examples on how to read the
-    the plaintext file.
     """
     logger = logging.getLogger('FFTPower')
-    
-    def __init__(self, first, mode, Nmesh=None, BoxSize=None, second=None, los=[0, 0, 1], Nmu=5, dk=None, kmin=0., poles=[]):
+
+    def __init__(self, first, mode, Nmesh=None, BoxSize=None, second=None,
+                    los=[0, 0, 1], Nmu=5, dk=None, kmin=0., poles=[]):
         """
         Parameters
         ----------
-        comm : 
+        comm :
             the MPI communicator
         first : CatalogSource, MeshSource
             the source for the first field. CatalogSource is automatically converted to MeshSource
@@ -199,7 +195,7 @@ class FFTPower(FFTPowerBase):
         # mode is either '1d' or '2d'
         if mode not in ['1d', '2d']:
             raise ValueError("`mode` should be either '1d' or '2d'")
-            
+
         if poles is None:
             poles = []
 
@@ -218,17 +214,17 @@ class FFTPower(FFTPowerBase):
         Compute the power spectrum in a periodic box, using FFTs. This
         function returns nothing, but attaches several attributes
         to the class (see below).
-        
+
         Attributes
         ----------
         edges : array_like
             the edges of the wavenumber bins
-        power : :class:`~nbodykit.dataset.DataSet`
-            a DataSet object that behaves similar to a structured array, with
-            fancy slicing and re-indexing; it holds the measured :math:`P(k)` or 
+        power : :class:`~nbodykit.binned_statistic.BinnedStatistic`
+            a BinnedStatistic object that behaves similar to a structured array, with
+            fancy slicing and re-indexing; it holds the measured :math:`P(k)` or
             :math:`P(k,\mu)`
-        poles : :class:`~nbodykit.dataset.DataSet` or ``None``
-            a DataSet object to hold the multipole results :math:`P_\ell(k)`;
+        poles : :class:`~nbodykit.binned_statistic.BinnedStatistic` or ``None``
+            a BinnedStatistic object to hold the multipole results :math:`P_\ell(k)`;
             if no multipoles were requested by the user, this is ``None``
         """
 
@@ -238,7 +234,7 @@ class FFTPower(FFTPowerBase):
         # measure the 3D power (y3d is a ComplexField)
         y3d = self._compute_3d_power()
 
-        # binning in k out to the minimum nyquist frequency 
+        # binning in k out to the minimum nyquist frequency
         # (accounting for possibly anisotropic box)
         dk = self.attrs['dk']
         kmin = self.attrs['kmin']
@@ -247,8 +243,8 @@ class FFTPower(FFTPowerBase):
         # project on to the desired basis
         muedges = numpy.linspace(0, 1, self.attrs['Nmu']+1, endpoint=True)
         edges = [kedges, muedges]
-        result, pole_result = project_to_basis(y3d, edges, 
-                                               poles=self.attrs['poles'], 
+        result, pole_result = project_to_basis(y3d, edges,
+                                               poles=self.attrs['poles'],
                                                los=self.attrs['los'])
 
         # format the power results into structured array
@@ -259,20 +255,20 @@ class FFTPower(FFTPowerBase):
         else:
             cols = ['k', 'mu', 'power', 'modes']
             icols = [0, 1, 2, 3]
-            
+
         # power results as a structured array
         dtype = numpy.dtype([(name, result[icol].dtype.str) for icol,name in zip(icols,cols)])
         power = numpy.squeeze(numpy.empty(result[0].shape, dtype=dtype))
         for icol, col in zip(icols, cols):
             power[col][:] = numpy.squeeze(result[icol])
-            
+
         # multipole results as a structured array
         poles = None
         if pole_result is not None:
             k, poles, N = pole_result
             cols = ['k'] + ['power_%d' %l for l in self.attrs['poles']] + ['modes']
             result = [k] + [pole for pole in poles] + [N]
-            
+
             dtype = numpy.dtype([(name, result[icol].dtype.str) for icol,name in enumerate(cols)])
             poles = numpy.empty(result[0].shape, dtype=dtype)
             for icol, col in enumerate(cols):
@@ -282,9 +278,9 @@ class FFTPower(FFTPowerBase):
         self.edges = edges
         self.poles = poles
         self.power = power
-        
+
         self._make_datasets()
-    
+
     def __getstate__(self):
         state = dict(
                      edges=self.edges,
@@ -296,15 +292,15 @@ class FFTPower(FFTPowerBase):
     def __setstate__(self, state):
         self.__dict__.update(state)
         self._make_datasets()
-        
+
     def _make_datasets(self):
-        
+
         if self.attrs['mode'] == '1d':
-            self.power = DataSet(['k'], [self.edges], self.power, fields_to_sum=['modes'])
+            self.power = BinnedStatistic(['k'], [self.edges], self.power, fields_to_sum=['modes'])
         else:
-            self.power = DataSet(['k', 'mu'], self.edges, self.power, fields_to_sum=['modes'])
+            self.power = BinnedStatistic(['k', 'mu'], self.edges, self.power, fields_to_sum=['modes'])
         if self.poles is not None:
-            self.poles = DataSet(['k'], [self.power.edges['k']], self.poles, fields_to_sum=['modes'])
+            self.poles = BinnedStatistic(['k'], [self.power.edges['k']], self.poles, fields_to_sum=['modes'])
 
     def _compute_3d_power(self):
         """
@@ -359,7 +355,7 @@ class FFTPower(FFTPowerBase):
         N1 = c1.attrs.get('N', 0)
         N2 = c2.attrs.get('N', 0)
         self.attrs.update({'N1':N1, 'N2':N2})
-        
+
         # add shotnoise (nonzero only for auto-spectra)
         Pshot = 0
         if sources[0] is sources[1] and N1 > 0:
@@ -440,7 +436,7 @@ class ProjectedFFTPower(FFTPowerBase):
         Psum.imag.flat += numpy.bincount(dig, weights=(W * pk.imag).flat, minlength=xsum.size)
         Nsum.flat += numpy.bincount(dig, weights=W.flat, minlength=xsum.size)
 
-        self.power = numpy.empty(len(kedges) - 1, 
+        self.power = numpy.empty(len(kedges) - 1,
                 dtype=[('k', 'f8'), ('power', 'c16'), ('modes', 'f8')])
 
         with numpy.errstate(invalid='ignore'):
@@ -450,7 +446,7 @@ class ProjectedFFTPower(FFTPowerBase):
 
         self.edges = kedges
 
-        self.power = DataSet(['k'], [self.edges], self.power)
+        self.power = BinnedStatistic(['k'], [self.edges], self.power)
 
     def __getstate__(self):
         state = dict(
@@ -461,28 +457,28 @@ class ProjectedFFTPower(FFTPowerBase):
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-        self.power = DataSet(['k'], [self.edges], self.power)
+        self.power = BinnedStatistic(['k'], [self.edges], self.power)
 
 def project_to_basis(y3d, edges, los=[0, 0, 1], poles=[]):
-    """ 
-    Project a 3D statistic on to the specified basis. The basis will be one 
+    """
+    Project a 3D statistic on to the specified basis. The basis will be one
     of:
-    
+
         - 2D (`x`, `mu`) bins: `mu` is the cosine of the angle to the line-of-sight
         - 2D (`x`, `ell`) bins: `ell` is the multipole number, which specifies
           the Legendre polynomial when weighting different `mu` bins
-    
+
     .. note::
-    
+
         The 2D (`x`, `mu`) bins will be computed only if `poles` is specified.
         See return types for further details.
-    
+
     Notes
     -----
     *   the `mu` range extends from 0.0 to 1.0
     *   the `mu` bins are half-inclusive half-exclusive, except the last bin
         is inclusive on both ends (to include `mu = 1.0`)
-    
+
     Parameters
     ----------
     y3d : RealField or ComplexField
@@ -494,18 +490,18 @@ def project_to_basis(y3d, edges, los=[0, 0, 1], poles=[]):
         respect to; default is [0, 0, 1] for z.
     poles : list of int, optional
         if provided, a list of integers specifying multipole numbers to
-        project the 2d `(x, mu)` bins on to  
+        project the 2d `(x, mu)` bins on to
     hermitian_symmetric : bool, optional
-        Whether the input array `y3d` is Hermitian-symmetric, i.e., the negative 
-        frequency terms are just the complex conjugates of the corresponding 
+        Whether the input array `y3d` is Hermitian-symmetric, i.e., the negative
+        frequency terms are just the complex conjugates of the corresponding
         positive-frequency terms; if ``True``, the positive frequency terms
         will be explicitly double-counted to account for this symmetry
-    
+
     Returns
     -------
     result : tuple
         the 2D binned results; a tuple of ``(xmean_2d, mumean_2d, y2d, N_2d)``, where:
-        
+
         xmean_2d : array_like, (Nx, Nmu)
             the mean `x` value in each 2D bin
         mumean_2d : array_like, (Nx, Nmu)
@@ -514,11 +510,11 @@ def project_to_basis(y3d, edges, los=[0, 0, 1], poles=[]):
             the mean `y3d` value in each 2D bin
         N_2d : array_like, (Nx, Nmu)
             the number of values averaged in each 2D bin
-    
+
     pole_result : tuple or `None`
-        the multipole results; if `poles` supplied it is a tuple of ``(xmean_1d, poles, N_1d)``, 
+        the multipole results; if `poles` supplied it is a tuple of ``(xmean_1d, poles, N_1d)``,
         where:
-    
+
         xmean_1d : array_like, (Nx,)
             the mean `x` value in each 1D multipole bin
         poles : array_like, (Nell, Nx)
@@ -535,9 +531,9 @@ def project_to_basis(y3d, edges, los=[0, 0, 1], poles=[]):
     # setup the bin edges and number of bins
     xedges, muedges = edges
     x2edges = xedges**2
-    Nx = len(xedges) - 1 
+    Nx = len(xedges) - 1
     Nmu = len(muedges) - 1
-    
+
     # always make sure first ell value is monopole, which
     # is just (x, mu) projection since legendre of ell=0 is 1
     do_poles = len(poles) > 0
@@ -545,7 +541,7 @@ def project_to_basis(y3d, edges, los=[0, 0, 1], poles=[]):
     legpoly = [legendre(l) for l in _poles]
     ell_idx = [_poles.index(l) for l in poles]
     Nell = len(_poles)
-    
+
     # valid ell values
     if any(ell < 0 for ell in _poles):
         raise ValueError("in `project_to_basis`, multipole numbers must be non-negative integers")
@@ -555,75 +551,75 @@ def project_to_basis(y3d, edges, los=[0, 0, 1], poles=[]):
     xsum = numpy.zeros((Nx+2, Nmu+2))
     ysum = numpy.zeros((Nell, Nx+2, Nmu+2), dtype=y3d.dtype) # extra dimension for multipoles
     Nsum = numpy.zeros((Nx+2, Nmu+2), dtype='i8')
-    
-    # if input array is Hermitian symmetric, only half of the last 
+
+    # if input array is Hermitian symmetric, only half of the last
     # axis is stored in `y3d`
     symmetry_axis = -1 if hermitian_symmetric else None
-    
+
     # iterate over y-z planes of the coordinate mesh
     for slab in SlabIterator(x3d, axis=0, symmetry_axis=symmetry_axis):
-        
-        # the square of coordinate mesh norm 
+
+        # the square of coordinate mesh norm
         # (either Fourier space k or configuraton space x)
         xslab = slab.norm2()
-        
+
         # if empty, do nothing
         if len(xslab.flat) == 0: continue
 
         # get the bin indices for x on the slab
         dig_x = numpy.digitize(xslab.flat, x2edges)
-    
+
         # make xslab just x
         xslab **= 0.5
-    
+
         # get the bin indices for mu on the slab
         mu = slab.mu(los) # defined with respect to specified LOS
         dig_mu = numpy.digitize(abs(mu).flat, muedges)
-        
+
         # make the multi-index
         multi_index = numpy.ravel_multi_index([dig_x, dig_mu], (Nx+2,Nmu+2))
 
         # sum up x in each bin (accounting for negative freqs)
         xslab[:] *= slab.hermitian_weights
         xsum.flat += numpy.bincount(multi_index, weights=xslab.flat, minlength=xsum.size)
-    
+
         # count number of modes in each bin (accounting for negative freqs)
         Nslab = numpy.ones_like(xslab) * slab.hermitian_weights
         Nsum.flat += numpy.bincount(multi_index, weights=Nslab.flat, minlength=Nsum.size)
 
         # compute multipoles by weighting by Legendre(ell, mu)
         for iell, ell in enumerate(_poles):
-            
+
             # weight the input 3D array by the appropriate Legendre polynomial
             weighted_y3d = legpoly[iell](mu) * y3d[slab.index]
 
-            # add conjugate for this kx, ky, kz, corresponding to 
+            # add conjugate for this kx, ky, kz, corresponding to
             # the (-kx, -ky, -kz) --> need to make mu negative for conjugate
             # Below is identical to the sum of
             # Leg(ell)(+mu) * y3d[:, nonsingular]    (kx, ky, kz)
             # Leg(ell)(-mu) * y3d[:, nonsingular].conj()  (-kx, -ky, -kz)
-            # or 
+            # or
             # weighted_y3d[:, nonsingular] += (-1)**ell * weighted_y3d[:, nonsingular].conj()
             # but numerically more accurate.
             if hermitian_symmetric:
-                
+
                 if ell % 2: # odd, real part cancels
                     weighted_y3d.real[slab.nonsingular] = 0.
                     weighted_y3d.imag[slab.nonsingular] *= 2.
                 else:  # even, imag part cancels
                     weighted_y3d.real[slab.nonsingular] *= 2.
                     weighted_y3d.imag[slab.nonsingular] = 0.
-                    
+
             # sum up the weighted y in each bin
             weighted_y3d *= (2.*ell + 1.)
             ysum[iell,...].real.flat += numpy.bincount(multi_index, weights=weighted_y3d.real.flat, minlength=Nsum.size)
             if numpy.iscomplexobj(ysum):
                 ysum[iell,...].imag.flat += numpy.bincount(multi_index, weights=weighted_y3d.imag.flat, minlength=Nsum.size)
-        
+
         # sum up the absolute mag of mu in each bin (accounting for negative freqs)
         mu[:] *= slab.hermitian_weights
         musum.flat += numpy.bincount(multi_index, weights=abs(mu).flat, minlength=musum.size)
-    
+
     # sum binning arrays across all ranks
     xsum  = comm.allreduce(xsum)
     musum = comm.allreduce(musum)
@@ -640,22 +636,21 @@ def project_to_basis(y3d, edges, los=[0, 0, 1], poles=[]):
     # reshape and slice to remove out of bounds points
     sl = slice(1, -1)
     with numpy.errstate(invalid='ignore'):
-        
+
         # 2D binned results
         y2d       = (ysum[0,...] / Nsum)[sl,sl] # ell=0 is first index
         xmean_2d  = (xsum / Nsum)[sl,sl]
         mumean_2d = (musum / Nsum)[sl, sl]
         N_2d      = Nsum[sl,sl]
-        
+
         # 1D multipole results (summing over mu (last) axis)
         if do_poles:
             N_1d     = Nsum[sl,sl].sum(axis=-1)
             xmean_1d = xsum[sl,sl].sum(axis=-1) / N_1d
             poles    = ysum[:, sl,sl].sum(axis=-1) / N_1d
             poles    = poles[ell_idx,...]
-    
+
     # return y(x,mu) + (possibly empty) multipoles
     result = (xmean_2d, mumean_2d, y2d, N_2d)
     pole_result = (xmean_1d, poles, N_1d) if do_poles else None
     return result, pole_result
-
