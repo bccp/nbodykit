@@ -408,7 +408,7 @@ class SurveyDataPairCount(PairCountBase):
                                " or from ``pip install pip install git+git://github.com/nickhand/Corrfunc``"))
         from pmesh.domain import GridND
         from nbodykit.algorithms.fof import split_size_3d
-        from nbodykit.transform import vstack
+        from nbodykit.transform import StackColumns
 
         # some setup
         redges = self.attrs['redges']
@@ -423,14 +423,14 @@ class SurveyDataPairCount(PairCountBase):
             self.logger.info("using cpu grid decomposition: %s" %str(np))
 
         # get the (periodic-enforced) position
-        pos1 = vstack(*[self.source1[col] for col in poscols]) # this is RA, DEC, REDSHIFT
+        pos1 = StackColumns(*[self.source1[col] for col in poscols]) # this is RA, DEC, REDSHIFT
         pos1, w1 = self.source1.compute(pos1, self.source1[self.attrs['weight']])
         cartpos1, rdist1 = get_cartesian_coords(pos1, self.attrs['cosmo'])
         pos1[:,2] = rdist1
         N1 = comm.allreduce(len(pos1))
 
         if self.source2 is not None:
-            pos2 = vstack(*[self.source2[col] for col in poscols])
+            pos2 = StackColumns(*[self.source2[col] for col in poscols])
             pos2, w2 = self.source2.compute(pos2, self.source2[self.attrs['weight']])
             cartpos2, rdist2 = get_cartesian_coords(pos2, self.attrs['cosmo'])
             pos2[:,2] = rdist2
