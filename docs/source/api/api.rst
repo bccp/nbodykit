@@ -1,0 +1,141 @@
+API Reference
+=============
+
+.. contents::
+   :depth: 2
+   :local:
+   :backlinks: none
+
+The IO Library (:mod:`nbodykit.io`)
+-----------------------------------
+
+Base class:
+
+.. autosummary::
+
+  ~nbodykit.io.base.FileType
+
+Subclasses available from the :mod:`nbodykit.io` module:
+
+.. autosummary::
+
+  ~nbodykit.io.bigfile.BigFile
+  ~nbodykit.io.binary.BinaryFile
+  ~nbodykit.io.csv.CSVFile
+  ~nbodykit.io.fits.FITSFile
+  ~nbodykit.io.hdf.HDFFile
+  ~nbodykit.io.stack.FileStack
+  ~nbodykit.io.tpm.TPMBinaryFile
+
+Cosmology (:mod:`nbodykit.cosmology`)
+-------------------------------------
+
+.. currentmodule:: nbodykit.cosmology
+
+.. autosummary::
+
+  ~core.Cosmology
+  ~ehpower.EHPower
+  ~ehpower.NoWiggleEHPower
+  ~background.PerturbationGrowth
+
+Built-in cosmologies:
+
+===================================== ============================== ====  ===== =======
+Name                                  Source                         H0    Om    Flat
+===================================== ============================== ====  ===== =======
+:attr:`~nbodykit.cosmology.WMAP5`     Komatsu et al. 2009            70.2  0.277 Yes
+:attr:`~nbodykit.cosmology.WMAP7`     Komatsu et al. 2011            70.4  0.272 Yes
+:attr:`~nbodykit.cosmology.WMAP9`     Hinshaw et al. 2013            69.3  0.287 Yes
+:attr:`~nbodykit.cosmology.Planck13`  Planck Collab 2013, Paper XVI  67.8  0.307 Yes
+:attr:`~nbodykit.cosmology.Planck15`  Planck Collab 2015, Paper XIII 67.7  0.307 Yes
+===================================== ============================== ====  ===== =======
+
+Transforming Catalog Data (:mod:`nbodykit.transform`)
+------------------------------------------------------
+
+.. autosummary::
+
+  ~nbodykit.transform.CombineSources
+  ~nbodykit.transform.StackColumns
+  ~nbodykit.transform.ConstantArray
+  ~nbodykit.transform.SkyToUnitSphere
+  ~nbodykit.transform.SkyToCartesion
+  ~nbodykit.transform.HaloConcentration
+  ~nbodykit.transform.HaloRadius
+
+
+
+Data Sources
+---------------
+
+.. autosummary::
+
+    ~nbodykit.base.catalog.CatalogSource
+    ~nbodykit.source.catalog.file.CSVCatalog
+    ~nbodykit.source.catalog.file.BinaryCatalog
+    ~nbodykit.source.catalog.file.BigFileCatalog
+    ~nbodykit.source.catalog.file.HDFCatalog
+    ~nbodykit.source.catalog.file.FITSCatalog
+
+.. _api-algorithms:
+
+Algorithms
+----------
+
+Clustering Statistics
+^^^^^^^^^^^^^^^^^^^^^
+
+.. autosummary::
+
+    ~nbodykit.algorithms.fftpower.FFTPower
+    ~nbodykit.algorithms.fftpower.ProjectedFFTPower
+    ~nbodykit.algorithms.convpower.ConvolvedFFTPower
+    ~nbodykit.algorithms.threeptcf.Multipoles3PCF
+    ~nbodykit.algorithms.paircount.SimulationBoxPairCount
+    ~nbodykit.algorithms.paircount.SurveyDataPairCount
+
+Grouping Methods
+^^^^^^^^^^^^^^^^
+
+.. autosummary::
+
+    ~nbodykit.algorithms.fof.FOF
+    ~nbodykit.algorithms.cgm.CylindricalGroups
+    ~nbodykit.algorithms.fibercollisions.FiberCollisions
+
+Miscellaneous
+^^^^^^^^^^^^^
+
+.. autosummary::
+
+    ~nbodykit.algorithms.kdtree.KDDensity
+    ~nbodykit.algorithms.zhist.RedshiftHistogram
+
+Managing Multiple Tasks (:class:`~nbodykit.batch.TaskManager`)
+--------------------------------------------------------------
+
+.. currentmodule:: nbodykit.batch
+
+.. autosummary::
+
+    TaskManager
+    TaskManager.iterate
+    TaskManager.map
+
+Analyzing Results (:class:`~nbodykit.binned_statistic.BinnedStatistic`)
+-----------------------------------------------------------------------
+
+.. currentmodule:: nbodykit.binned_statistic
+
+.. autosummary::
+
+    BinnedStatistic
+    BinnedStatistic.from_json
+    BinnedStatistic.to_json
+    BinnedStatistic.copy
+    BinnedStatistic.rename_variable
+    BinnedStatistic.average
+    BinnedStatistic.reindex
+    BinnedStatistic.sel
+    BinnedStatistic.squeeze
