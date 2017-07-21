@@ -1,5 +1,21 @@
 import numpy
 from mpi4py import MPI
+import warnings
+import functools
+
+def deprecate(name, alternative, alt_name=None):
+    """
+    This is a decorator which can be used to mark functions
+    as deprecated. It will result in a warning being emmitted
+    when the function is used.
+    """
+    alt_name = alt_name or alternative.__name__
+
+    def wrapper(*args, **kwargs):
+        warnings.warn("%s is deprecated. Use %s instead" % (name, alt_name),
+                      FutureWarning, stacklevel=2)
+        return alternative(*args, **kwargs)
+    return wrapper
 
 def GatherArray(data, comm, root=0):
     """
