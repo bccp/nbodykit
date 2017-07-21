@@ -1,8 +1,8 @@
 import numpy
 import os
 from pandas import read_csv
+from six import string_types
 
-from ..extern.six import string_types
 from .base import FileType
 from . import tools
 
@@ -26,7 +26,7 @@ class CSVPartition(object):
             the size of the bytes block to read
         delimiter : byte str
             how to distinguish separate lines
-        config :
+        **config
             the configuration keywords passed to :func:`pandas.read_csv`
         """
         self.filename  = filename
@@ -197,12 +197,11 @@ def verify_data(path, names, nrows=10, **config):
 
 class CSVFile(FileType):
     """
-    A file object to handle the reading of columns of data from
-    a CSV file
+    A file object to handle the reading of columns of data from a CSV file.
 
     Internally, this class partitions the CSV file into chunks, and
     data is only read from the relevant chunks of the file, using
-    :func:`pandas.read_csv`
+    :func:`pandas.read_csv`.
 
     This setup provides a significant speed-up when reading
     from the end of the file, since the entirety of the data
@@ -215,35 +214,36 @@ class CSVFile(FileType):
         This assumes the delimiter for separate lines is the newline
         character and that all columns in the file represent data
         columns (no "index" column when using ``pandas``)
+
+    Parameters
+    ----------
+    path : str
+        the name of the file to load
+    names : list of str
+        the names of the columns of the csv file; this should give
+        names of all the columns in the file -- pass ``usecols``
+        to select a subset of columns
+    blocksize : int; optional
+        the file will be partitioned into blocks of bytes roughly
+        of this size
+    dtype : dict, str; optional
+        if specified as a string, assume all columns have this dtype,
+        otherwise; each column can have a dtype entry in the dict;
+        if not specified, the data types will be inferred from the file
+    usecols : list; optional
+        a ``pandas.read_csv``; a subset of ``names`` to store, ignoring
+        all other columns
+    delim_whitespace : bool; optional
+        a ``pandas.read_csv`` keyword; if the CSV file is space-separated,
+        set this to ``True``
+    **config :
+        additional keyword arguments that will be passed to
+        :func:`pandas.read_csv`; see the documentation of that
+        function for a full list of possible options
     """
     def __init__(self, path, names, blocksize=32*1024*1024, dtype={},
                     usecols=None, delim_whitespace=True, **config):
-        """
-        Parameters
-        ----------
-        path : str
-            the name of the file to load
-        names : list of str
-            the names of the columns of the csv file; this should give
-            names of all the columns in the file -- pass ``usecols``
-            to select a subset of columns
-        blocksize : int; optional
-            the file will be partitioned into blocks of bytes roughly
-            of this size
-        dtype : dict, str; optional
-            if specified as a string, assume all columns have this dtype,
-            otherwise; each column can have a dtype entry in the dict;
-            if not specified, the data types will be inferred from the file
-        usecols : list; optional
-            a ``pandas.read_csv``; a subset of ``names`` to store, ignoring
-            all other columns
-        delim_whitespace : bool; optional
-            a ``pandas.read_csv`` keyword; if the CSV file is space-separated,
-            set this to ``True``
-        config :
-            additional keyword pairs to pass to :func:`pandas.read_csv`;
-            see the documentation of that function for a full list
-        """
+
         self.path      = path
         self.names     = names if usecols is None else usecols
         self.blocksize = blocksize

@@ -5,33 +5,35 @@ from __future__ import absolute_import
 import numpy
 
 from .base import FileType
-from ..extern.six import string_types
+from six import string_types
 import json
 from nbodykit.utils import JSONDecoder
 
 class BigFile(FileType):
     """
     A file object to handle the reading of columns of data from
-    a ``bigfile`` file. ``bigfile`` is the default format of
-    FastPM and MP-Gadget.
+    a ``bigfile`` file.
+
+    ``bigfile`` is a reproducible, massively
+    parallel IO library for large, hierarchical datasets, and it is the
+    default format of the FastPM and MP-Gadget simulations.
 
     https://github.com/rainwoodman/bigfile
-    """
 
+    Parameters
+    ----------
+    path : str
+        the name of the directory holding the bigfile data
+    exclude : list of str; optional
+        the data sets to exlude from loading within bigfile; default
+        is the header
+    header : str; optional
+        the path to the header
+    dataset : str
+        load a specific dataset from the bigfile
+    """
     def __init__(self, path, exclude=None, header='.', dataset='./'):
-        """
-        Parameters
-        ----------
-        path : str
-            the name of the directory holding the bigfile data
-        exclude : list of str; optional
-            the data sets to exlude from loading within bigfile; default
-            is the header
-        header : str; optional
-            the path to the header
-        dataset : str
-            load a specific dataset from the bigfile
-        """
+
         if not dataset.endswith('/'): dataset = dataset + '/'
 
         import bigfile
@@ -64,7 +66,7 @@ class BigFile(FileType):
                 # load a JSON representation if str starts with json:://
                 if isinstance(attrs[k], string_types) and attrs[k].startswith('json://'):
                     self.attrs[k] = json.loads(attrs[k][7:], cls=JSONDecoder)
-                # copy over an array 
+                # copy over an array
                 else:
                     self.attrs[k] = numpy.array(attrs[k], copy=True)
 

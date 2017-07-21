@@ -1,28 +1,32 @@
 from .base import FileType
 from . import tools
-from ..extern.six import string_types
-
+from six import string_types
 import numpy
-import fitsio
+try: import fitsio
+except ImportError: fitsio = None
 
 class FITSFile(FileType):
     """
     A file object to handle the reading of FITS data using the
-    :mod:`fitsio` package
+    :mod:`fitsio` package.
 
-    This class reads a
+    See also: https://github.com/esheldon/fitsio
+
+    Parameters
+    ----------
+    path : str
+        the file path to load
+    ext: number or string, optional
+        The extension.  Either the numerical extension from zero
+        or a string extension name. If not sent, data is read from
+        the first HDU that has data.
     """
     def __init__(self, path, ext=None):
-        """
-        Parameters
-        ----------
-        path : str
-            the file path to load
-        ext: number or string, optional
-            The extension.  Either the numerical extension from zero
-            or a string extension name. If not sent, data is read from
-            the first HDU that has data.
-        """
+
+        # hide the import exception
+        if fitsio is None:
+            raise ImportError("please install fitsio: ``conda install -c bccp fitsio``")
+
         self.path = path
 
         # try to find the first Table HDU to read if not specified
