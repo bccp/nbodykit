@@ -205,33 +205,33 @@ class FKPCatalog(CatalogSource):
 
     This main functionality of this class is:
 
-        *   provide a uniform interface to accessing columns from the
-            `data` CatalogSource and `randoms` CatalogSource, using
-            column names prefixed with "data." or "randoms."
-        *   compute the shared :attr:`BoxSize` of the Source, by
-            finding the maximum Cartesian extent of the `randoms`
+    *   provide a uniform interface to accessing columns from the
+        `data` CatalogSource and `randoms` CatalogSource, using
+        column names prefixed with "data." or "randoms."
+    *   compute the shared :attr:`BoxSize` of the Source, by
+        finding the maximum Cartesian extent of the `randoms`
+
+    Parameters
+    ----------
+    data : CatalogSource
+        the Source of particles representing the `data` catalog
+    randoms : CatalogSource
+        the Source of particles representing the `randoms` catalog
+    BoxSize : float, 3-vector; optional
+        the size of the Cartesian box to use for the unified `data` and
+        `randoms`; if not provided, the maximum Cartesian extent of the
+        `randoms` defines the box
+    BoxPad : float, 3-vector; optional
+        optionally apply this additional buffer to the extent of the
+        Cartesian box
+    use_cache : bool; optional
+        if ``True``, use the built-in dask cache system to cache
+        data, providing significant speed-ups; requires :mod:`cachey`
     """
     logger = logging.getLogger('FKPCatalog')
 
     def __init__(self, data, randoms, BoxSize=None, BoxPad=0.02, use_cache=True):
-        """
-        Parameters
-        ----------
-        data : CatalogSource
-            the Source of particles representing the `data` catalog
-        randoms : CatalogSource
-            the Source of particles representing the `randoms` catalog
-        BoxSize : float, 3-vector; optional
-            the size of the Cartesian box to use for the unified `data` and
-            `randoms`; if not provided, the maximum Cartesian extent of the
-            `randoms` defines the box
-        BoxPad : float, 3-vector; optional
-            optionally apply this additional buffer to the extent of the
-            Cartesian box
-        use_cache : bool; optional
-            if ``True``, use the built-in dask cache system to cache
-            data, providing significant speed-ups; requires :mod:`cachey`
-        """
+
         # some sanity checks first
         assert data.comm is randoms.comm, "mismatch between communicator of `data` and `randoms"
         self.comm    = data.comm
