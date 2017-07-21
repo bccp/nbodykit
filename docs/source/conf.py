@@ -45,6 +45,32 @@ extensions = [
     'numpydoc'
 ]
 
+
+def run_apidoc(*args):
+
+    from sphinx.apidoc import main
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+    cur_dir = os.path.abspath(os.path.dirname(__file__))
+    module = os.path.join(cur_dir, "..", '..', "nbodykit")
+    output_path = os.path.join(cur_dir, 'api')
+
+    # find test directories to exclude
+    testdirs = []
+    for dirpath, dirnames, filenames in os.walk(module):
+        if 'tests' in dirnames:
+            testdirs.append(os.path.join(dirpath, 'tests'))
+            dirnames.remove('tests')
+
+    # options that will be passed to sphinx-apidoc
+    os.environ['SPHINX_APIDOC_OPTIONS']='members,undoc-members,inherited-members,show-inheritance'
+
+    # call sphinx-apidoc
+    main(['-e', '-o', output_path, module] + testdirs)
+
+def setup(app):
+    app.connect('builder-inited', run_apidoc)
+
+
 numpydoc_show_class_members = True
 napoleon_include_special_with_doc = True
 numpydoc_class_members_toctree = False

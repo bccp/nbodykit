@@ -14,7 +14,7 @@ ALLSPHINXOPTS   = -d $(BUILDDIR)/doctrees $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) sou
 # the i18n builder cannot share the environment and doctrees with the others
 I18NSPHINXOPTS  = $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) source
 
-.PHONY: apidoc help clean html dirhtml singlehtml pickle json htmlhelp qthelp devhelp epub latex latexpdf text man changes linkcheck doctest gettext
+.PHONY: help clean html dirhtml singlehtml pickle json htmlhelp qthelp devhelp epub latex latexpdf text man changes linkcheck doctest gettext
 
 help:
 	@echo "Please use \`make <target>' where <target> is one of"
@@ -43,17 +43,10 @@ clean:
 	rm -rf source/api/nbodykit.*
 	rm -rf source/api/modules.rst
 
-apidoc:
-	SPHINX_APIDOC_OPTIONS=members,undoc-members,inherited-members,show-inheritance sphinx-apidoc \
-	-o source/api -e ../nbodykit $(shell find ../nbodykit -name "*test*" -type d)
-
-html: apidoc
+html:
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
-
-livehtml:
-	sphinx-autobuild -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 
 dirhtml:
 	$(SPHINXBUILD) -b dirhtml $(ALLSPHINXOPTS) $(BUILDDIR)/dirhtml
