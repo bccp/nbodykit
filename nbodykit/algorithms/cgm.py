@@ -12,26 +12,43 @@ from nbodykit.source.catalog import ArrayCatalog
 class CylindricalGroups(object):
     """
     Compute groups of objects using a cylindrical grouping method. We identify
-    all satellites within a given cylindrical volume around a central object
+    all satellites within a given cylindrical volume around a central object.
 
-    Attributes
+    Result are computed when the object is inititalize, and the result is
+    stored in the :attr:`groups` attribute; see the documenation of
+    :func:`~CylindricalGroups.run`.
+
+    Input parameters are stored in the :attr:`attrs` attribute dictionary.
+
+    Parameters
     ----------
-    groups : ArrayCatalog
-        a catalog holding the results of the groups. The length of the
-        catalog is equal to the length of the input size, i.e., the length
-        is equal to the :attr:`size` attribute. The relevant fields are:
+    source : subclass of :class:`~nbodykit.base.catalog.CatalogSource`
+        the input source of particles providing the 'Position' column; the
+        grouping algorithm is run on this catalog
+    rperp : float
+        the radius of the cylinder in the sky plane (i.e., perpendicular
+        to the line-of-sight)
+    rpar : float
+        the radius along the line-of-sight direction; this is 1/2 the
+        height of the cylinder
+    rankby : str, list, ``None``
+        a single or list of column names to rank order the input source by
+        before computing the cylindrical groups, such that objects ranked first
+        are marked as CGM centrals; if ``None`` is supplied, no sorting will
+        be done
+    flat_sky_los : bool, optional
+        a unit vector of length 3 providing the line-of-sight direction,
+        assuming a fixed line-of-sight across the box, e.g., [0,0,1] to use
+        the z-axis. If ``None``, the observer at (0,0,0) is used to compute
+        the line-of-sight for each pair
+    periodic : bool; optional
+        whether to use periodic boundary conditions
+    BoxSize : float, 3-vector; optional
+        the size of the box of the input data; must be provided as
+        a keyword or in ``source.attrs`` if ``periodic=True``
 
-        cgm_type :
-            a flag specifying the type for each object,
-            with 0 specifying CGM central and 1 denoting CGM satellite
-        cgm_haloid :
-            The index of the CGM object this object belongs to; an integer
-            between 0 and the total number of CGM halos
-        num_cgm_sats :
-            The number of satellites in the CGM halo
-
-    Reference
-    ---------
+    References
+    ----------
     Okumura, Teppei, et al. "Reconstruction of halo power spectrum from
     redshift-space galaxy distribution: cylinder-grouping method and halo
     exclusion effect", arXiv:1611.04165, 2016.
@@ -40,34 +57,7 @@ class CylindricalGroups(object):
 
     def __init__(self, source, rankby, rperp, rpar, flat_sky_los=None,
                     periodic=False, BoxSize=None):
-        """
-        Parameters
-        ----------
-        source : CatalogSource
-            the input source of particles providing the 'Position' column; the
-            grouping algorithm is run on this catalog
-        rperp : float
-            the radius of the cylinder in the sky plane (i.e., perpendicular
-            to the line-of-sight)
-        rpar : float
-            the radius along the line-of-sight direction; this is 1/2 the
-            height of the cylinder
-        rankby : str, list, ``None``
-            a single or list of column names to rank order the input source by
-            before computing the cylindrical groups, such that objects ranked first
-            are marked as CGM centrals; if ``None`` is supplied, no sorting will
-            be done
-        flat_sky_los : bool, optional
-            a unit vector of length 3 providing the line-of-sight direction,
-            assuming a fixed line-of-sight across the box, e.g., [0,0,1] to use
-            the z-axis. If ``None``, the observer at (0,0,0) is used to compute
-            the line-of-sight for each pair
-        periodic : bool; optional
-            whether to use periodic boundary conditions
-        BoxSize : float, 3-vector; optional
-            the size of the box of the input data; must be provided as
-            a keyword or in ``source.attrs`` if ``periodic=True``
-        """
+
         if 'Position' not in source:
             raise ValueError("the 'Position' column must be defined in the input source")
 
@@ -135,18 +125,18 @@ class CylindricalGroups(object):
 
         Attributes
         ----------
-        groups : ArrayCatalog
-            a catalog holding the results of the groups. The length of the
+        groups : :class:`~nbodykit.source.catalog.array.ArrayCatalog`
+            a catalog holding the result of the grouping. The length of the
             catalog is equal to the length of the input size, i.e., the length
             is equal to the :attr:`size` attribute. The relevant fields are:
 
-            cgm_type :
+            #. cgm_type :
                 a flag specifying the type for each object,
                 with 0 specifying CGM central and 1 denoting CGM satellite
-            cgm_haloid :
+            #. cgm_haloid :
                 The index of the CGM object this object belongs to; an integer
                 between 0 and the total number of CGM halos
-            num_cgm_sats :
+            #. num_cgm_sats :
                 The number of satellites in the CGM halo
         """
         from pmesh.domain import GridND
@@ -207,14 +197,14 @@ def cgm(comm, data, domain, rperp, rpar, los, boxsize):
     This outputs a structured array with the same length as the input data
     with the following fields for each object in the original data:
 
-        cgm_type :
-            a flag specifying the type for each object,
-            with 0 specifying CGM central and 1 denoting CGM satellite
-        cgm_haloid :
-            The index of the CGM object this object belongs to; an integer
-            between 0 and the total number of CGM halos
-        num_cgm_sats :
-            The number of satellites in the CGM halo
+    #. cgm_type :
+        a flag specifying the type for each object,
+        with 0 specifying CGM central and 1 denoting CGM satellite
+    #. cgm_haloid :
+        The index of the CGM object this object belongs to; an integer
+        between 0 and the total number of CGM halos
+    #. num_cgm_sats :
+        The number of satellites in the CGM halo
 
     Parameters
     ----------
