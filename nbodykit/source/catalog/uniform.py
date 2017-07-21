@@ -76,7 +76,8 @@ class MPIRandomState(RandomState):
         self.size  = stop - start
 
         # generate the full set of seeds from the global seed
-        self._seeds = self.randint(0, high=0xffffffff, size=n_seeds)
+        rng = numpy.random.RandomState(seed=seed)
+        self._seeds = rng.randint(0, high=0xffffffff, size=n_seeds)
 
         # sizes of each chunk
         sizes = [N_PER_SEED]*(N//N_PER_SEED)
