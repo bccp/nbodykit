@@ -74,23 +74,47 @@ def get_real_Ylm(l, m):
 
 class ConvolvedFFTPower(object):
     """
-    Algorithm to compute the power spectrum multipoles using FFTs
+    Algorithm to compute power spectrum multipoles using FFTs
     for a data survey with non-trivial geometry.
 
     Due to the geometry, the estimator computes the true power spectrum
     convolved with the window function (FFT of the geometry).
 
-    This estimator builds upon the work presented in Bianchi et al. 2015
-    and Scoccimarro et al. 2015, but differs in the implementation. This
-    class uses the spherical harmonic addition theorem such that
-    only :math:`2\ell+1` FFTs are required per multipole, rather than the
-    :math:`(\ell+1)(\ell+2)/2` FFTs in the implementation presented by
-    Bianchi et al. and Scoccimarro et al.
+    This estimator implemented in this class is described in detail in
+    Hand et al. 2017 (arxiv:1704.02357). It uses the spherical harmonic
+    addition theorem such that only :math:`2\ell+1` FFTs are required to
+    compute each multipole. This differs from the implementation in
+    Bianchi et al. and Scoccimarro et al., which requires
+    :math:`(\ell+1)(\ell+2)/2` FFTs.
 
-    Thanks to Yin Li for pointing out the spherical harmonic decomposition.
+    Results are computed when the object is inititalized, and the result is
+    stored in the :attr:`poles` attribute. Important meta-data computed
+    during algorithm execution is stored in the :attr:`attrs` dict. See the
+    documenation of :func:`~ConvolvedFFTPower.run`.
+
+    Parameters
+    ----------
+    source : FKPCatalog, FKPMeshSource
+        the source to paint the data/randoms; FKPCatalog is automatically converted
+        to a FKPMeshSource, using default painting parameters
+    poles : list of int
+        a list of integer multipole numbers ``ell`` to compute
+    kmin : float; optional
+        the edge of the first wavenumber bin; default is 0
+    dk : float; optional
+        the spacing in wavenumber to use; if not provided; the fundamental mode of the
+        box is used
+    use_fkp_weights : bool; optional
+        if ``True``, FKP weights will be added using ``P0_FKP`` such that the
+        fkp weight is given by ``1 / (1 + P0*NZ)`` where ``NZ`` is the number density
+        as a function of redshift column
+    P0_FKP : float; optional
+        the value of ``P0`` to use when computing FKP weights; must not be
+        ``None`` if ``use_fkp_weights=True``
 
     References
     ----------
+    * Hand, Nick et al. `An optimal FFT-based anisotropic power spectrum estimator`, 2017
     * Bianchi, Davide et al., `Measuring line-of-sight-dependent Fourier-space clustering using FFTs`,
       MNRAS, 2015
     * Scoccimarro, Roman, `Fast estimators for redshift-space clustering`, Phys. Review D, 2015
@@ -103,26 +127,7 @@ class ConvolvedFFTPower(object):
                     dk=None,
                     use_fkp_weights=False,
                     P0_FKP=None):
-        """
-        Parameters
-        ----------
-        source : FKPCatalog, FKPMeshSource
-            the source to paint the data/randoms; FKPCatalog is automatically converted
-            to a FKPMeshSource, using default painting parameters
-        poles : list of int
-            a list of integer multipole numbers ``ell`` to compute
-        kmin : float; optional
-            the edge of the first wavenumber bin; default is 0
-        dk : float; optional
-            the spacing in wavenumber to use; if not provided; the fundamental mode of the
-            box is used
-        use_fkp_weights : bool; optional
-            if ``True``, FKP weights will be added using ``P0_FKP`` such that the
-            fkp weight is given by ``1 / (1 + P0*NZ)`` where ``NZ`` is the number density
-            as a function of redshift column
-        P0_FKP : float; optional
-            the value of ``P0`` to use when computing FKP weights
-        """
+
         from nbodykit.source.catalog.fkp import FKPMeshSource, FKPCatalog
         if not isinstance(source, (FKPMeshSource, FKPCatalog)):
             raise TypeError("input source should be a FKPCatalog or FKPMeshSource")
@@ -192,6 +197,31 @@ class ConvolvedFFTPower(object):
             fancy slicing and re-indexing; it holds the measured multipole
             results, as well as the number of modes (``modes``) and average
             wavenumbers values in each bin (``k``)
+        attrs : dict
+            dictionary holding input parameters and several important quantites
+            computed during execution:
+
+            #. data.N, randoms.N :
+                the unweighted number of data and randoms objects
+            #. data.W, randoms.W :
+                the weighted number of data and randoms objects, using the
+                column specified as the completeness weights
+            #. alpha :
+                the ratio of ``data.W`` to ``randoms.W``
+            #. data.A, randoms.A :
+                the normalization of the power spectrum, computed from either
+                the "data" or "randoms" catalog (they should be similar).
+                See equations 13 and 14 of arxiv:1312.4611.
+            #. data.S, randoms.S :
+                the shot noise values for the "data" and "random" catalogs;
+                See equation 15 of arxiv:1312.4611.
+            #. shotnoise :
+                the total shot noise for the power spectrum, equal to
+                ``data.S`` + ``randoms.S``; this should be subtracted from
+                the monopole.
+            #. BoxSize :
+                the size of the Cartesian box used to grid the data and
+                randoms objects on a Cartesian mesh.
         """
         pm = self.source.pm
 
@@ -208,7 +238,7 @@ class ConvolvedFFTPower(object):
     def to_pkmu(self, mu_edges, max_ell):
         """
         Invert the measured multipoles :math:`P_\ell(k)` into power
-        spectrum wedges, :math:`P(k,\mu)`
+        spectrum wedges, :math:`P(k,\mu)`.
 
         Parameters
         ----------
@@ -299,7 +329,7 @@ class ConvolvedFFTPower(object):
     def load(cls, output, comm=None):
         """
         Load a saved ConvolvedFFTPower result, which has been saved to
-        disk with :func:`ConvolvedFFTPower.save`
+        disk with :func:`ConvolvedFFTPower.save`.
 
         The current MPI communicator is automatically used
         if the ``comm`` keyword is ``None``
