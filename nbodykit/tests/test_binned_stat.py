@@ -34,7 +34,7 @@ def test_to_json(comm):
 def test_1d_load(comm):
 
     # load plaintext format
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(FutureWarning):
         ds1 = BinnedStatistic.from_plaintext(['k'], os.path.join(data_dir, 'dataset_1d_deprecated.dat'))
 
         # wrong dimensions
@@ -52,7 +52,7 @@ def test_1d_load(comm):
 def test_2d_load(comm):
 
     # load plaintext format
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(FutureWarning):
         ds1 = BinnedStatistic.from_plaintext(['k', 'mu'], os.path.join(data_dir, 'dataset_2d_deprecated.dat'))
 
     # load from JSON
