@@ -71,8 +71,8 @@ def test_str(comm):
     s = str(dataset)
 
     # now just list total number of variables
-    dataset['test1'] = numpy.ones(BinnedStatistic.shape)
-    dataset['test2'] = numpy.ones(BinnedStatistic.shape)
+    dataset['test1'] = numpy.ones(dataset.shape)
+    dataset['test2'] = numpy.ones(dataset.shape)
     s = str(dataset)
 
     # this is the same as str
@@ -110,13 +110,13 @@ def test_array_slice(comm):
 
     # get the first mu column
     sliced = dataset[:,0]
-    assert sliced.shape[0] == BinnedStatistic.shape[0]
+    assert sliced.shape[0] == dataset.shape[0]
     assert len(sliced.shape) == 1
     assert sliced.dims == ['k']
 
     # get the first mu column but keep dimension
     sliced = dataset[:,[0]]
-    assert sliced.shape[0] == BinnedStatistic.shape[0]
+    assert sliced.shape[0] == dataset.shape[0]
     assert sliced.shape[1] == 1
     assert sliced.dims == ['k', 'mu']
 
@@ -140,7 +140,7 @@ def test_list_array_slice(comm):
 def test_variable_set(comm):
 
     dataset = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_2d.json'))
-    modes = numpy.ones(BinnedStatistic.shape)
+    modes = numpy.ones(dataset.shape)
 
     # add new variable
     dataset['TEST'] = modes
@@ -159,7 +159,7 @@ def test_variable_set(comm):
 def test_copy(comm):
 
     dataset = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_2d.json'))
-    copy = BinnedStatistic.copy()
+    copy = dataset.copy()
     for var in dataset:
         testing.assert_array_equal(dataset[var], copy[var])
 
@@ -167,10 +167,10 @@ def test_copy(comm):
 def test_rename_variable(comm):
 
     dataset = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_2d.json'))
-    test = numpy.zeros(BinnedStatistic.shape)
+    test = numpy.zeros(dataset.shape)
     dataset['test'] = test
 
-    BinnedStatistic.rename_variable('test', 'renamed_test')
+    dataset.rename_variable('test', 'renamed_test')
     assert 'renamed_test' in dataset
     assert 'test' not in dataset
 
@@ -181,18 +181,18 @@ def test_sel(comm):
 
     # no exact match fails
     with pytest.raises(IndexError):
-        sliced = BinnedStatistic.sel(k=0.1)
+        sliced = dataset.sel(k=0.1)
 
     # this should be squeezed
-    sliced = BinnedStatistic.sel(k=0.1, method='nearest')
+    sliced = dataset.sel(k=0.1, method='nearest')
     assert len(sliced.dims) == 1
 
     # this is not squeezed
-    sliced = BinnedStatistic.sel(k=[0.1], method='nearest')
+    sliced = dataset.sel(k=[0.1], method='nearest')
     assert sliced.shape[0] == 1
 
     # slice in a specific k-range
-    sliced = BinnedStatistic.sel(k=slice(0.02, 0.15), mu=[0.5], method='nearest')
+    sliced = dataset.sel(k=slice(0.02, 0.15), mu=[0.5], method='nearest')
     assert sliced.shape[1] == 1
     assert numpy.alltrue((sliced['k'] >= 0.02)&(sliced['k'] <= 0.15))
 
@@ -204,7 +204,7 @@ def test_squeeze(comm):
 
     # need to specify which dimension to squeeze
     with pytest.raises(ValueError):
-        squeezed = BinnedStatistic.squeeze()
+        squeezed = dataset.squeeze()
     with pytest.raises(ValueError):
         squeezed = dataset[[0],[0]].squeeze()
 
@@ -227,21 +227,21 @@ def test_average(comm):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
 
-        avg = BinnedStatistic.average('mu')
-        for var in BinnedStatistic.variables:
-            if var in BinnedStatistic._fields_to_sum:
+        avg = dataset.average('mu')
+        for var in dataset.variables:
+            if var in dataset._fields_to_sum:
                 x = numpy.nansum(dataset[var], axis=-1)
             else:
                 x = numpy.nanmean(dataset[var], axis=-1)
             testing.assert_allclose(x, avg[var])
 
         # weighted
-        weights = numpy.random.random(BinnedStatistic.shape)
+        weights = numpy.random.random(dataset.shape)
         dataset['weights'] = weights
-        avg = BinnedStatistic.average('mu', weights='weights')
+        avg = dataset.average('mu', weights='weights')
 
         for var in dataset:
-            if var in BinnedStatistic._fields_to_sum:
+            if var in dataset._fields_to_sum:
                 x = numpy.nansum(dataset[var], axis=-1)
             else:
                 x = numpy.nansum(dataset[var]*dataset['weights'], axis=-1)
@@ -256,18 +256,18 @@ def test_reindex(comm):
     dataset = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_2d.json'))
 
     with pytest.raises(ValueError):
-        new, spacing = BinnedStatistic.reindex('k', 0.005, force=True, return_spacing=True)
+        new, spacing = dataset.reindex('k', 0.005, force=True, return_spacing=True)
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
 
-        weights = numpy.random.random(BinnedStatistic.shape)
+        weights = numpy.random.random(dataset.shape)
         dataset['weights'] = weights
-        new, spacing = BinnedStatistic.reindex('k', 0.02, weights='weights', force=True, return_spacing=True)
+        new, spacing = dataset.reindex('k', 0.02, weights='weights', force=True, return_spacing=True)
 
         diff = numpy.diff(new.coords['k'])
-        assert numpy.alltrue(diff > numpy.diff(BinnedStatistic.coords['k'])[0])
+        assert numpy.alltrue(diff > numpy.diff(dataset.coords['k'])[0])
 
         with pytest.raises(ValueError):
-            new = BinnedStatistic.reindex('mu', 0.4, force=False)
-        new = BinnedStatistic.reindex('mu', 0.4, force=True)
+            new = dataset.reindex('mu', 0.4, force=False)
+        new = dataset.reindex('mu', 0.4, force=True)
