@@ -1,6 +1,6 @@
 from .core import Cosmology
 from .background import PerturbationGrowth
-from .ehpower import EHPower, NoWiggleEHPower
+from .ehpower import LinearPowerBase, EHPower, NoWiggleEHPower
 
 # override these with Cosmology classes below
 from astropy.cosmology import Planck13, Planck15, WMAP5, WMAP7, WMAP9
