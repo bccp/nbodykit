@@ -1,4 +1,4 @@
-from nbodykit.extern.six import add_metaclass, string_types
+from six import add_metaclass, string_types
 from nbodykit.transform import ConstantArray
 
 import abc

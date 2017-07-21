@@ -1,4 +1,4 @@
-from nbodykit.extern.six import add_metaclass
+from six import add_metaclass
 import abc
 import numpy
 import logging

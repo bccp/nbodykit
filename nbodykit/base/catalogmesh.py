@@ -1,10 +1,9 @@
-from nbodykit.extern.six import add_metaclass
-
+from nbodykit.base.mesh import MeshSource
+from nbodykit.base.catalog import CatalogSource
+from six import add_metaclass
 import abc
 import numpy
 import logging
-from nbodykit.base.mesh import MeshSource
-from nbodykit.base.catalog import CatalogSource
 
 # for converting from particle to mesh
 from pmesh import window

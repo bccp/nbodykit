@@ -1,7 +1,7 @@
 import numpy as np
 import abc
 from scipy.integrate import simps
-from nbodykit.extern.six import add_metaclass
+from six import add_metaclass
 
 @add_metaclass(abc.ABCMeta)
 class LinearPowerBase(object):
@@ -97,7 +97,7 @@ class LinearPowerBase(object):
         The amplitude scales with redshift through the square of the
         growth function, evaluated using ``cosmo.growth_function``
 
-        Paramters
+        Parameters
         ---------
         k : float, array_like
             the wavenumbers in units of h/Mpc
@@ -212,9 +212,9 @@ class EHPower(LinearPowerBase):
         """
         Return the transfer function with BAO wiggles
 
-        This is normalized to unity on large scales
+        This is normalized to unity on large scales.
 
-        Paramters
+        Parameters
         ---------
         k : float, array_like
             the wavenumbers in units of h/Mpc
@@ -292,7 +292,7 @@ class NoWiggleEHPower(LinearPowerBase):
 
         This is normalized to unity on large scales
 
-        Paramters
+        Parameters
         ---------
         k : float, array_like
             the wavenumbers in units of h/Mpc
