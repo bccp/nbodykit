@@ -14,7 +14,7 @@ class CylindricalGroups(object):
     Compute groups of objects using a cylindrical grouping method. We identify
     all satellites within a given cylindrical volume around a central object.
 
-    Result are computed when the object is inititalize, and the result is
+    Results are computed when the object is inititalized, and the result is
     stored in the :attr:`groups` attribute; see the documenation of
     :func:`~CylindricalGroups.run`.
 
