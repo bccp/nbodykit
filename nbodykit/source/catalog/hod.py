@@ -2,8 +2,8 @@ from nbodykit.base.catalog import column
 from nbodykit.source.catalog.array import ArrayCatalog
 from nbodykit import CurrentMPIComm
 from nbodykit.utils import GatherArray, ScatterArray
-from nbodykit.extern.six import add_metaclass
 
+from six import add_metaclass
 import abc
 import logging
 import numpy
