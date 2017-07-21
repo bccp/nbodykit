@@ -1,6 +1,9 @@
 API Reference
 =============
 
+The full list of nbodykit modules is available :doc:`here <modules>`. We
+summarize the most important aspects of the API below.
+
 .. contents::
    :depth: 2
    :local:
@@ -65,18 +68,52 @@ Transforming Catalog Data (:mod:`nbodykit.transform`)
   ~nbodykit.transform.HaloRadius
 
 
-
 Data Sources
----------------
+------------
+
+Discrete Particles
+^^^^^^^^^^^^^^^^^^
+
+Base class:
 
 .. autosummary::
 
-    ~nbodykit.base.catalog.CatalogSource
-    ~nbodykit.source.catalog.file.CSVCatalog
-    ~nbodykit.source.catalog.file.BinaryCatalog
-    ~nbodykit.source.catalog.file.BigFileCatalog
-    ~nbodykit.source.catalog.file.HDFCatalog
-    ~nbodykit.source.catalog.file.FITSCatalog
+  ~nbodykit.base.catalog.CatalogSource
+
+And subclasses:
+
+.. autosummary::
+
+  ~nbodykit.source.catalog.file.CSVCatalog
+  ~nbodykit.source.catalog.file.BinaryCatalog
+  ~nbodykit.source.catalog.file.BigFileCatalog
+  ~nbodykit.source.catalog.file.TPMBinaryCatalog
+  ~nbodykit.source.catalog.file.HDFCatalog
+  ~nbodykit.source.catalog.file.FITSCatalog
+  ~nbodykit.source.catalog.array.ArrayCatalog
+  ~nbodykit.source.catalog.fkp.FKPCatalog
+  ~nbodykit.source.catalog.halos.HaloCatalog
+  ~nbodykit.source.catalog.hod.HODCatalog
+  ~nbodykit.source.catalog.lognormal.LogNormalCatalog
+  ~nbodykit.source.catalog.uniform.UniformCatalog
+  ~nbodykit.source.catalog.uniform.RandomCatalog
+
+Data Directly on a Mesh
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Base class:
+
+.. autosummary::
+
+  ~nbodykit.base.mesh.MeshSource
+
+And subclasses:
+
+.. autosummary::
+
+  ~nbodykit.source.mesh.bigfile.BigFileMesh
+  ~nbodykit.source.mesh.linear.LinearMesh
+  ~nbodykit.source.mesh.memory.MemoryMesh
 
 .. _api-algorithms:
 
@@ -139,3 +176,43 @@ Analyzing Results (:class:`~nbodykit.binned_statistic.BinnedStatistic`)
     BinnedStatistic.reindex
     BinnedStatistic.sel
     BinnedStatistic.squeeze
+
+Internal Nuts and Bolts
+------------------------
+
+From CatalogSource to MeshSource
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autosummary::
+
+    ~nbodykit.base.catalogmesh.CatalogMeshSource
+    ~nbodykit.source.catalog.fkp.FKPMeshSource
+
+MPI Utilities
+^^^^^^^^^^^^^
+
+.. autosummary::
+
+    nbodykit.CurrentMPIComm
+    nbodykit.CurrentMPIComm.enable
+    nbodykit.CurrentMPIComm.get
+    nbodykit.utils.GatherArray
+    nbodykit.utils.ScatterArray
+
+General Utilities
+^^^^^^^^^^^^^^^^^
+
+.. autosummary::
+
+    nbodykit.setup_logging
+    nbodykit.utils.JSONEncoder
+    nbodykit.utils.JSONDecoder
+
+Generating Mock Data
+^^^^^^^^^^^^^^^^^^^^
+
+.. autosummary::
+
+    nbodykit.mockmaker.gaussian_complex_fields
+    nbodykit.mockmaker.gaussian_real_fields
+    nbodykit.mockmaker.poisson_sample_to_points
