@@ -52,10 +52,10 @@ Getting Started
    :caption: Getting Started
    :hidden:
 
-   install.rst
-   intro.rst
-   quickstart/index.rst
-   cookbook/index.rst
+   install
+   intro
+   quickstart/index
+   cookbook/index
 
 .. _playing-with-data:
 
@@ -73,11 +73,11 @@ Playing with Data
   :caption: Playing with Data
   :hidden:
 
-  data/reading.rst
-  data/on-demand-io.rst
-  data/common-operations.rst
-  data/painting.rst
-  data/generating.rst
+  data/reading
+  data/on-demand-io
+  data/common-operations
+  data/painting
+  data/generating
 
 .. _getting-results:
 
@@ -93,16 +93,16 @@ Getting Results
   :caption: Getting Results
   :hidden:
 
-  algorithms/index.rst
-  batch-mode.rst
-  analyzing-results.rst
+  algorithms/index
+  batch-mode
+  analyzing-results
 
 .. _help:
 
 Help and Reference
 ------------------
 
-* :doc:`api/index`
+* :doc:`api/api`
 * :doc:`development-guide`
 * :doc:`contact-support`
 * :doc:`changelog`
@@ -112,7 +112,7 @@ Help and Reference
   :caption: Help and Reference
   :hidden:
 
-  api/index.rst
-  development-guide.rst
-  contact-support.rst
-  changelog.rst
+  api/api
+  development-guide
+  contact-support
+  changelog
