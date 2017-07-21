@@ -13,9 +13,6 @@
 # serve to show the default.
 import sys
 import os
-import shlex
-import mock
-
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -39,24 +36,26 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.extlinks',
     'sphinx.ext.mathjax',
-    'numpydoc',
+    'sphinx.ext.napoleon',
     'IPython.sphinxext.ipython_directive',
     'IPython.sphinxext.ipython_console_highlighting',
     'sphinx.ext.todo',
     'nbsphinx',
     'matplotlib.sphinxext.plot_directive',
+    'numpydoc'
 ]
 
-def setup(app):
-    app.add_stylesheet("custom.css")
+numpydoc_show_class_members = True
+napoleon_include_special_with_doc = True
+numpydoc_class_members_toctree = False
+
 
 import matplotlib.pyplot as plt
 plt.style.use('ggplot')
 plot_rcparams = dict(plt.rcParams)
 
-autosummary_generate = True
-numpydoc_class_members_toctree = True
-numpydoc_show_class_members = False
+# document __init__ when it has a docstring
+napoleon_include_init_with_doc = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -161,6 +160,7 @@ html_theme_options = dict(
     navbar_links = [
     ("Quickstart notebooks", "quickstart/index"),
     ("Cookbook", "cookbook/index"),
+    ("API", "api/api")
     ],
 )
 
@@ -349,5 +349,6 @@ intersphinx_mapping = {
     'pandas': ('http://pandas.pydata.org/pandas-docs/stable/', None),
     'numpy': ('http://docs.scipy.org/doc/numpy/', None),
     'xarray': ('http://xarray.pydata.org/en/stable/', None),
-    'astropy': ('http://docs.astropy.org/en/stable/', None)
+    'astropy': ('http://docs.astropy.org/en/stable/', None),
+    'dask': ('http://dask.pydata.org/en/stable/', None)
 }
