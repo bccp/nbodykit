@@ -78,28 +78,24 @@ def find_column(cls, name):
 @add_metaclass(abc.ABCMeta)
 class CatalogSource(object):
     """
-    An abstract base class for a source of particles. This objects behaves
-    like a structured numpy array -- it must have well-defined size
-    when initialized. The ``size`` here represents the number of particles
-    in the source.
+    An abstract base class representing a catalog of discrete particles.
 
-    Subclasses of this class must define a ``size`` property.
+    This objects behaves like a structured numpy array -- it must have a
+    well-defined size when initialized. The ``size`` here represents the
+    number of particles in the source on the local rank.
 
-    The class stores a series of columns as dask arrays, which can be accessed
+    Subclasses of this class must define a ``size`` attribute.
+
+    The information about each particle is stored as a series of
+    columns in the format of dask arrays. These columns can be accessed
     in a dict-like fashion.
-
-    The class handles the generation of particle data, either reading
-    from disk or generating at runtime, and provides the interface for
-    creating a ``ParticleMesh``. The mesh handles the gridding of discrete
-    particle data on to a continuous mesh of cells.
     """
     logger = logging.getLogger('CatalogSource')
 
     @staticmethod
     def make_column(array):
         """
-        Utility function to convert a numpy array to a column object
-        (dask.array.Array)
+        Utility function to convert a numpy array to a :class:`dask.array.Array`.
         """
         if isinstance(array, da.Array):
             return array
@@ -124,8 +120,7 @@ class CatalogSource(object):
 
     def __len__(self):
         """
-        The length of CatalogSource is equal to :attr:`size`; this is the
-        local size of the source on a given rank
+        The local size of the CatalogSource on a given rank.
         """
         return self.size
 
@@ -137,14 +132,13 @@ class CatalogSource(object):
 
     def __getitem__(self, sel):
         """
-        The following types of indexing supported are supported
-        for CatalogSource:
+        The following types of indexing are supported:
 
-            1.  strings specifying a column in the CatalogSource; returns
-                a dask array holding the column data
-            2.  boolean arrays specifying a slice of the CatalogSource;
-                returns a CatalogSubset holding only the revelant slice
-            3.  slice object specifying which particles to select
+        #.  strings specifying a column in the CatalogSource; returns
+            a dask array holding the column data
+        #.  boolean arrays specifying a slice of the CatalogSource;
+            returns a CatalogSubset holding only the revelant slice
+        #.  slice object specifying which particles to select
         """
         # handle boolean array slices
         if not isinstance(sel, string_types):
@@ -185,7 +179,7 @@ class CatalogSource(object):
     def __setitem__(self, col, value):
         """
         Add columns to the CatalogSource, overriding any existing columns
-        with the name ``col``
+        with the name ``col``.
         """
         # handle scalar values
         if numpy.isscalar(value):
@@ -202,16 +196,17 @@ class CatalogSource(object):
     @abc.abstractproperty
     def size(self):
         """
-        The number of particles in the source on the local rank. This
-        property must be defined for all subclasses
+        The number of particles in the CatalogSource on the local rank.
+
+        This property must be defined for all subclasses.
         """
         return NotImplemented
 
     @property
     def use_cache(self):
         """
-        If set to ``True``, use the builtin cache features of ``dask``
-        to cache data in memory
+        If set to ``True``, use the built-in caching features of ``dask``
+        to cache data in memory.
         """
         return self._use_cache
 
@@ -219,7 +214,7 @@ class CatalogSource(object):
     def use_cache(self, val):
         """
         Initialize a Cache object of size set by ``CACHE_SIZE``, which
-        is 1 GB by default
+        is 1 GB by default.
         """
         if val:
             try:
@@ -235,11 +230,11 @@ class CatalogSource(object):
     @property
     def hardcolumns(self):
         """
-        A list of the hard-coded columns in the Source. These are usually
-        member functions marked by @column decorator.
+        A list of the hard-coded columns in the CatalogSource.
 
-        Subclasses may override this method and :func:`get_hardcolumn` to bypass
-        the decorator logic.
+        These columns are usually member functions marked by @column decorator.
+        Subclasses may override this method and use :func:`get_hardcolumn` to
+        bypass the decorator logic.
         """
         try:
             self._hardcolumns
@@ -250,10 +245,8 @@ class CatalogSource(object):
     @property
     def columns(self):
         """
-        All columns in this Source, which include:
-
-            1.  the columns hard-coded into the class's defintion
-            2.  override columns provided by the user
+        All columns in the CatalogSource, including those hard-coded into
+        the class's defintion and override columns provided by the user.
         """
         hcolumns  = list(self.hardcolumns)
         overrides = list(self._overrides)
@@ -262,7 +255,7 @@ class CatalogSource(object):
     @property
     def csize(self):
         """
-        The total, collective size of the Source, i.e., summed across all
+        The total, collective size of the CatalogSource, i.e., summed across all
         ranks.
 
         It is the sum of :attr:`size` across all available ranks.
@@ -272,7 +265,7 @@ class CatalogSource(object):
     @property
     def attrs(self):
         """
-        Dictionary storing relevant meta-data
+        A dictionary storing relevant meta-data about the CatalogSource.
         """
         try:
             return self._attrs
@@ -283,8 +276,7 @@ class CatalogSource(object):
     @column
     def Selection(self):
         """
-        Override the ``Selection`` column to select a subset slice of a
-        CatalogSource.
+        A boolean column that selects a subset slice of the CatalogSource.
 
         By default, this column is set to ``True`` for all particles.
         """
@@ -293,21 +285,22 @@ class CatalogSource(object):
     @column
     def Weight(self):
         """
-        When interpolating a CatalogSource on to a mesh, the value of this
-        array is used as the Weight that each particle contributes to a given
-        mesh cell.
+        The value to use for each particle when interpolating a
+        CatalogSource on to a mesh.
 
-        By default, this array is set to unity for all particles
+        By default, this array is set to unity for all particles.
         """
         return ConstantArray(1.0, self.size, chunks=100000)
 
     def get_hardcolumn(self, col):
         """
-        Construct and return a hard-coded column. These are usually produced by calling
-        member functions marked by the @column decorator.
+        Construct and return a hard-coded column.
 
-        Subclasses may override this method and the hardcolumns attribute to bypass
-        the decorator logic.
+        These are usually produced by calling member functions marked by the
+        @column decorator.
+
+        Subclasses may override this method and the hardcolumns attribute to
+        bypass the decorator logic.
         """
         return find_column(self.__class__, col)(self)
 
@@ -333,10 +326,10 @@ class CatalogSource(object):
     def compute(self, *args, **kwargs):
         """
         Our version of :func:`dask.compute` that computes
-        multiple delayed dask collections at once
+        multiple delayed dask collections at once.
 
         This should be called on the return value of :func:`read`
-        to converts any dask arrays to numpy arrays
+        to converts any dask arrays to numpy arrays.
 
         Parameters
         -----------
@@ -348,9 +341,8 @@ class CatalogSource(object):
         Notes
         -----
         The dask default optimizer induces too many (unnecesarry)
-        IO calls -- we turn this off feature off by default.
-
-        Eventually we want our own optimizer probably.
+        IO calls -- we turn this off feature off by default. Eventually we
+        want our own optimizer probably.
         """
         import dask
 
@@ -370,7 +362,7 @@ class CatalogSource(object):
 
     def save(self, output, columns, datasets=None, header='Header'):
         """
-        Save the CatalogSource to a :class:`bigfile.BigFile`
+        Save the CatalogSource to a :class:`bigfile.BigFile`.
 
         Only the selected columns are saved and :attr:`attrs` are saved in
         ``header``. The attrs of columns are stored in the datasets.
@@ -423,7 +415,7 @@ class CatalogSource(object):
 
     def read(self, columns):
         """
-        Return the requested columns as dask arrays
+        Return the requested columns as dask arrays.
 
         Parameters
         ----------
@@ -432,7 +424,7 @@ class CatalogSource(object):
 
         Returns
         -------
-        list of dask.array.Array :
+        list of :class:`dask.array.Array` :
             the list of column data, in the form of dask arrays
         """
         missing = set(columns) - set(self.columns)
