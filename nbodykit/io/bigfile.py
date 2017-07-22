@@ -12,11 +12,11 @@ from nbodykit.utils import JSONDecoder
 class BigFile(FileType):
     """
     A file object to handle the reading of columns of data from
-    a ``bigfile`` file.
+    a :mod:`bigfile` file.
 
-    ``bigfile`` is a reproducible, massively
-    parallel IO library for large, hierarchical datasets, and it is the
-    default format of the FastPM and MP-Gadget simulations.
+    :mod:`bigfile` is a reproducible, massively parallel IO library for
+    large, hierarchical datasets, and it is the default format of the
+    FastPM and MP-Gadget simulations.
 
     https://github.com/rainwoodman/bigfile
 
