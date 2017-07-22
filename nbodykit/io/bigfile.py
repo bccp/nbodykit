@@ -16,9 +16,11 @@ class BigFile(FileType):
 
     :mod:`bigfile` is a reproducible, massively parallel IO library for
     large, hierarchical datasets, and it is the default format of the
-    FastPM and MP-Gadget simulations.
+    `FastPM <https://github.com/rainwoodman/fastpm>`_ and the
+    `MP-Gadget <https://github.com/bluetides-project/MP-Gadget>`_
+    simulations.
 
-    https://github.com/rainwoodman/bigfile
+    See also: https://github.com/rainwoodman/bigfile
 
     Parameters
     ----------
