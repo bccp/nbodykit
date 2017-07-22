@@ -2,6 +2,12 @@ from nbodykit.base.catalog import CatalogSource
 from nbodykit.io.stack import FileStack
 from nbodykit import CurrentMPIComm
 from nbodykit import io
+from nbodykit.extern import docrep
+import textwrap
+
+__all__ = ['FileCatalogBase', 'CSVCatalog', 'BinaryCatalog', 'BigFileCatalog',
+            'HDFCatalog', 'TPMBinaryCatalog', 'FITSCatalog'
+           ]
 
 class FileCatalogBase(CatalogSource):
     """
@@ -80,36 +86,31 @@ def FileCatalogFactory(name, filetype):
     that use specific classes from :mod:`nbodykit.io` to read
     different types of data from disk
     """
-    def wrapdoc(cls):
-        """Add the docstring of the IO class"""
-        def dec(f):
-            io_doc = cls.__init__.__doc__
-            if io_doc is None: io_doc = ""
-            f.__doc__ =  io_doc + f.__doc__
-            return f
-        return dec
-
-    @wrapdoc(filetype)
     def __init__(self, *args, **kwargs):
-        """
-        Additional Keyword Parameters
-        -----------------------------
-        comm : MPI Communicator, optional
-            the MPI communicator instance; default (``None``) sets to the
-            current communicator
-        use_cache : bool, optional
-            whether to cache data read from disk; default is ``False``
-        attrs : dict; optional
-            dictionary of meta-data to store in :attr:`attrs`
-        """
         comm = kwargs.pop('comm', None)
         use_cache = kwargs.pop('use_cache', False)
         attrs = kwargs.pop('attrs', {})
         FileCatalogBase.__init__(self, filetype=filetype, args=args, kwargs=kwargs)
         self.attrs.update(attrs)
 
+    qualname = '%s.%s' %(filetype.__module__, filetype.__name__)
+    __doc__ = "A CatalogSource that uses :class:`~%s` to read data from disk." % qualname
+    __doc__ += "\n\nParameters\n----------\n%(test.parameters)s"
+    __doc__ +=  textwrap.dedent("""
+    comm : MPI Communicator, optional
+        the MPI communicator instance; default (``None``) sets to the
+        current communicator
+    use_cache : bool, optional
+        whether to cache data read from disk; default is ``False``
+    attrs : dict; optional
+        dictionary of meta-data to store in :attr:`attrs`
+    """)
+    # get the Parameters from the IO libary class
+    d = docrep.DocstringProcessor()
+    d.get_sections(d.dedents(filetype.__doc__), 'test', ['Parameters'])
+    __doc__ = d.dedents(__doc__)
 
-    __doc__ = "A catalog source created using :class:`io.%s` to read data from disk" % filetype.__name__
+    # make the new class object and return it
     newclass = type(name, (FileCatalogBase,),{"__init__": __init__, "__doc__":__doc__})
     return newclass
 
