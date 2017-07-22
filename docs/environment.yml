@@ -30,9 +30,8 @@ dependencies:
 - fitsio
 - corrfunc
 - IPython
-- sphinx_rtd_theme
 - numpydoc
-- sphinx
+- sphinx<1.6
 - matplotlib
 - pip
 - pip:
