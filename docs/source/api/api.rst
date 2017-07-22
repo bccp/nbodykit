@@ -20,15 +20,17 @@ Base class:
 
 Subclasses available from the :mod:`nbodykit.io` module:
 
+.. currentmodule:: nbodykit.io
+
 .. autosummary::
 
-  ~nbodykit.io.bigfile.BigFile
-  ~nbodykit.io.binary.BinaryFile
-  ~nbodykit.io.csv.CSVFile
-  ~nbodykit.io.fits.FITSFile
-  ~nbodykit.io.hdf.HDFFile
-  ~nbodykit.io.stack.FileStack
-  ~nbodykit.io.tpm.TPMBinaryFile
+  ~bigfile.BigFile
+  ~binary.BinaryFile
+  ~csv.CSVFile
+  ~fits.FITSFile
+  ~hdf.HDFFile
+  ~stack.FileStack
+  ~tpm.TPMBinaryFile
 
 Cosmology (:mod:`nbodykit.cosmology`)
 -------------------------------------
@@ -82,21 +84,23 @@ Base class:
 
 And subclasses:
 
+.. currentmodule:: nbodykit.source.catalog
+
 .. autosummary::
 
-  ~nbodykit.source.catalog.file.CSVCatalog
-  ~nbodykit.source.catalog.file.BinaryCatalog
-  ~nbodykit.source.catalog.file.BigFileCatalog
-  ~nbodykit.source.catalog.file.TPMBinaryCatalog
-  ~nbodykit.source.catalog.file.HDFCatalog
-  ~nbodykit.source.catalog.file.FITSCatalog
-  ~nbodykit.source.catalog.array.ArrayCatalog
-  ~nbodykit.source.catalog.fkp.FKPCatalog
-  ~nbodykit.source.catalog.halos.HaloCatalog
-  ~nbodykit.source.catalog.hod.HODCatalog
-  ~nbodykit.source.catalog.lognormal.LogNormalCatalog
-  ~nbodykit.source.catalog.uniform.UniformCatalog
-  ~nbodykit.source.catalog.uniform.RandomCatalog
+  ~file.CSVCatalog
+  ~file.BinaryCatalog
+  ~file.BigFileCatalog
+  ~file.TPMBinaryCatalog
+  ~file.HDFCatalog
+  ~file.FITSCatalog
+  ~array.ArrayCatalog
+  ~fkp.FKPCatalog
+  ~halos.HaloCatalog
+  ~hod.HODCatalog
+  ~lognormal.LogNormalCatalog
+  ~uniform.UniformCatalog
+  ~uniform.RandomCatalog
 
 Data Directly on a Mesh
 ^^^^^^^^^^^^^^^^^^^^^^^
