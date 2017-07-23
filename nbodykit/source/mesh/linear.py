@@ -5,28 +5,32 @@ import numpy
 
 class LinearMesh(MeshSource):
     """
-    A source to generate a ``RealField`` grid directly from a 
-    linear power spectrum function
+    A MeshSource object that generates a ``RealField`` density mesh directly
+    from a linear power spectrum function :math:`P(k)`.
+
+    Parameters
+    ----------
+    Plin: callable
+        the callable linear power spectrum function, which takes the
+        wavenumber as its single argument
+    BoxSize : float, 3-vector of floats
+        the size of the box to generate the grid on
+    Nmesh : int, 3-vector of int
+        the number of the mesh cells per side
+    seed : int, optional
+        the global random seed, used to set the seeds across all ranks
+    remove_variance : bool, optional
+        ``True`` to remove variance from the complex field by fixing the
+        amplitude to :math:`P(k)` and only the phase is random.
+    comm : MPI communicator
+        the MPI communicator
     """
     def __repr__(self):
         return "LinearMesh(seed=%(seed)d)" % self.attrs
 
     @CurrentMPIComm.enable
     def __init__(self, Plin, BoxSize, Nmesh, seed=None, remove_variance=False, comm=None):
-        """
-        Parameters
-        ----------
-        Plin: callable
-            power spectrum of the field.
-        BoxSize : float, 3-vector of floats
-            the size of the box to generate the grid on
-        Nmesh : int, 3-vector of int
-            the number of the mesh points per side
-        seed : int, optional
-            the global random seed, used to set the seeds across all ranks
-        comm : MPI communicator
-            the MPI communicator
-        """        
+
         self.Plin = Plin
 
         # cosmology and communicator
@@ -46,17 +50,18 @@ class LinearMesh(MeshSource):
 
     def to_complex_field(self):
         """
-        Load a grid from file, and paint to the ParticleMesh represented by ``pm``
-        
-        Parameters
-        ----------
-        pm : pmesh.pm.ParticleMesh
-            the particle mesh object to which we will paint the grid
-        
+        Return a ComplexField, generating from the linear power spectrum.
+
+        .. note::
+
+            The density field is normalized to :math:`1+\delta` such that
+            the mean of the return field in real space is unity.
+
         Returns
         -------
-        real : pmesh.pm.RealField
-            an array-like object holding the interpolated grid
+        :class:`pmesh.pm.ComplexField`
+            an array-like object holding the generated linear density
+            field in Fourier space
         """
         # generate linear density field with desired seed
         complex, _ = mockmaker.gaussian_complex_fields(self.pm, self.Plin, self.attrs['seed'], remove_variance=self.attrs['remove_variance'], compute_displacement=False)
@@ -70,4 +75,3 @@ class LinearMesh(MeshSource):
         complex.attrs = {}
         complex.attrs.update(self.attrs)
         return complex
-
