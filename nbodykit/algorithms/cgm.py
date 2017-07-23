@@ -41,9 +41,9 @@ class CylindricalGroups(object):
         assuming a fixed line-of-sight across the box, e.g., [0,0,1] to use
         the z-axis. If ``None``, the observer at (0,0,0) is used to compute
         the line-of-sight for each pair
-    periodic : bool; optional
+    periodic : bool, optional
         whether to use periodic boundary conditions
-    BoxSize : float, 3-vector; optional
+    BoxSize : float, 3-vector, optional
         the size of the box of the input data; must be provided as
         a keyword or in ``source.attrs`` if ``periodic=True``
 

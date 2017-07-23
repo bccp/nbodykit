@@ -15,7 +15,7 @@ def scotts_bin_width(data, comm):
         h = \sigma \sqrt[3]{\frac{24 * \sqrt{\pi}}{n}}
 
     .. note::
-    
+
         This is a collective operation
 
     Parameters
@@ -68,18 +68,18 @@ class RedshiftHistogram(object):
         fsky : float
             the sky area fraction, which is used in the volume calculation when
             normalizing :math:`n(z)`
-        cosmo : nbodykit.cosmology.Cosmology
+        cosmo : :class:`nbodykit.cosmology.core.Cosmology`
             the cosmological parameters, which are used to compute the volume
             from redshift shells when normalizing :math:`n(z)`
-        bins : int or sequence of scalars; optional
+        bins : int or sequence of scalars, optional
             If `bins` is an int, it defines the number of equal-width
             bins in the given range. If `bins` is a sequence, it defines the bin
             edges, including the rightmost edge, allowing for non-uniform bin widths.
             If not provided, Scott's rule is used to estimate the optimal bin width
             from the input data (default)
-        redshift : str; optional
+        redshift : str, optional
             the name of the column specifying the redshift data
-        weight : str; optional
+        weight : str, optional
             the name of the column specifying weights to use when histogramming the data
         """
         # input columns need to be there

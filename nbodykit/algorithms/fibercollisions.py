@@ -32,12 +32,12 @@ class FiberCollisions(object):
         ----------
         ra, dec : array_like
             the RA, DEC arrays
-        collision_radius : float; optional
+        collision_radius : float, optional
             the size of the angular collision radius (in degrees); default
             is 62 arcseconds
-        degrees : bool; optional
+        degrees : bool, optional
             set to `True` if the units of ``ra`` and ``dec`` are degrees
-        seed : int; optional
+        seed : int, optional
             the random seed
         """
         # compute the pos

@@ -49,12 +49,12 @@ class fittable(object):
         ----------
         argname : str
             the name of the variable to interpolate
-        kwargs : dict; optional
+        kwargs : dict, optional
             dict of keywords to pass to the original function
-        bins : int, iterable; optional
+        bins : int, iterable, optional
             either an iterable specifying the bin edges, or an
             integer specifying the number of linearly-spaced bins
-        range : tuple; optional
+        range : tuple, optional
             the range to fit over if `bins` specifies an integer
 
         Returns

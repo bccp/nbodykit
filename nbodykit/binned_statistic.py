@@ -79,7 +79,7 @@ class BinnedStatistic(object):
         a structured array holding the data variables, where the named
         fields interpreted as the variable names. The variable names are
         stored in :attr:`variables`
-    fields_to_sum : list; optional
+    fields_to_sum : list, optional
         the name of fields that will be summed when reindexing, instead
         of averaging
     **kwargs :
@@ -436,9 +436,9 @@ class BinnedStatistic(object):
         ----------
         filename : str
             the name of the file to load
-        key : str; optional
+        key : str, optional
             the name of the key in the JSON file holding the data to load
-        dims : list; optional
+        dims : list, optional
             list of names specifying the dimensions, i.e., ``['k']`` or ``['k', 'mu']``;
             must be supplied if not given in the JSON file
 

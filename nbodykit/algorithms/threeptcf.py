@@ -26,14 +26,14 @@ class Multipoles3PCF(object):
             the list of multipole numbers to compute
         edges : array_like
             the radius bin edges; length of nbins+1
-        BoxSize : float, 3-vector; optional
+        BoxSize : float, 3-vector, optional
             the size of the box; if periodic boundary conditions used, and 'BoxSize'
             not provided in the source 'attrs', it must be provided here
-        periodic : bool; optional
+        periodic : bool, optional
             whether to use periodic boundary conditions
-        weight : str; optional
+        weight : str, optional
             the name of the column in the source specifying the particle weights
-        selection : str; optional
+        selection : str, optional
             if not ``None``, the name of the column to use to select certain objects;
             should be a boolean array
         """

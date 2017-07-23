@@ -99,16 +99,16 @@ class ConvolvedFFTPower(object):
         to a FKPMeshSource, using default painting parameters
     poles : list of int
         a list of integer multipole numbers ``ell`` to compute
-    kmin : float; optional
+    kmin : float, optional
         the edge of the first wavenumber bin; default is 0
-    dk : float; optional
+    dk : float, optional
         the spacing in wavenumber to use; if not provided; the fundamental mode of the
         box is used
-    use_fkp_weights : bool; optional
+    use_fkp_weights : bool, optional
         if ``True``, FKP weights will be added using ``P0_FKP`` such that the
         fkp weight is given by ``1 / (1 + P0*NZ)`` where ``NZ`` is the number density
         as a function of redshift column
-    P0_FKP : float; optional
+    P0_FKP : float, optional
         the value of ``P0`` to use when computing FKP weights; must not be
         ``None`` if ``use_fkp_weights=True``
 

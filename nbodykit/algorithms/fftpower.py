@@ -179,17 +179,17 @@ class FFTPower(FFTPowerBase):
             compute either 1d or 2d power spectra
         Nmesh : int
             the number of cells per side in the particle mesh used to paint the source
-        second : CatalogSource, MeshSource; optional
+        second : CatalogSource, MeshSource, optional
             the second source for cross-correlations
-        los : array_like ; optional
+        los : array_like , optional
             the direction to use as the line-of-sight
-        Nmu : int; optional
+        Nmu : int, optional
             the number of mu bins to use from mu=[0,1]; if `mode = 1d`, then `Nmu` is set to 1
-        dk : float; optional
+        dk : float, optional
             the spacing of k bins to use; if not provided, the fundamental mode of the box is used
         kmin : float, optional
             the lower edge of the first ``k`` bin to use
-        poles : list of int; optional
+        poles : list of int, optional
             a list of multipole numbers ``ell`` to compute :math:`P_\ell(k)` from :math:`P(k,\mu)`
         """
         # mode is either '1d' or '2d'

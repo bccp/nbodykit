@@ -223,17 +223,17 @@ class CSVFile(FileType):
         the names of the columns of the csv file; this should give
         names of all the columns in the file -- pass ``usecols``
         to select a subset of columns
-    blocksize : int; optional
+    blocksize : int, optional
         the file will be partitioned into blocks of bytes roughly
         of this size
-    dtype : dict, str; optional
+    dtype : dict, str, optional
         if specified as a string, assume all columns have this dtype,
         otherwise; each column can have a dtype entry in the dict;
         if not specified, the data types will be inferred from the file
-    usecols : list; optional
+    usecols : list, optional
         a ``pandas.read_csv``; a subset of ``names`` to store, ignoring
         all other columns
-    delim_whitespace : bool; optional
+    delim_whitespace : bool, optional
         a ``pandas.read_csv`` keyword; if the CSV file is space-separated,
         set this to ``True``
     **config :

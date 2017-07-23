@@ -23,7 +23,7 @@ class PairCountBase(object):
             compute paircounts as a function of ``r`` and ``mu`` or just ``r``
         source1 : CatalogSource
             the first source of particles
-        source2 : CatalogSource; optional
+        source2 : CatalogSource, optional
             the second source of particles to cross-correlate
         redges : array_like
             the radius bin edges; length of nbins+1
@@ -114,18 +114,18 @@ class SimulationBoxPairCount(PairCountBase):
             the first source of particles, providing the 'Position' column
         redges : array_like
             the radius bin edges; length of nbins+1
-        BoxSize : float, 3-vector; optional
+        BoxSize : float, 3-vector, optional
             the size of the box; if 'BoxSize' is not provided in the source
             'attrs', it must be provided here
-        source2 : CatalogSource; optional
+        source2 : CatalogSource, optional
             the second source of particles to cross-correlate
-        Nmu : int; optional
+        Nmu : int, optional
             the number of ``mu`` bins, ranging from 0 to 1
         los : str, int; {0,1,2} or {'x', 'y', 'z'}
             the axis of the simulation box to treat as the line-of-sight direction
-        periodic : bool; optional
+        periodic : bool, optional
             whether to use periodic boundary conditions
-        weight : str; optional
+        weight : str, optional
             the name of the column in the source specifying the particle weights
         **config : key/value pairs
             additional keywords to pass to the :func:`Corrfunc.theory.DD`
@@ -353,22 +353,22 @@ class SurveyDataPairCount(PairCountBase):
             the first source of particles, providing the 'Position' column
         redges : array_like
             the radius bin edges; length of nbins+1
-        cosmo : :class:`~nbodykit.cosmology.Cosmology`
+        cosmo : :class:`~nbodykit.cosmology.core.Cosmology`
             the cosmology instance used to convert redshift into comoving distance
-        source2 : CatalogSource; optional
+        source2 : CatalogSource, optional
             the second source of particles to cross-correlate
-        Nmu : int; optional
+        Nmu : int, optional
             the number of ``mu`` bins, ranging from 0 to 1
-        ra : str; optional
+        ra : str, optional
             the name of the column in the source specifying the
             right ascension coordinates in units of degrees; default is 'RA'
-        dec : str; optional
+        dec : str, optional
             the name of the column in the source specifying the declination
             coordinates; default is 'DEC'
-        redshift : str; optional
+        redshift : str, optional
             the name of the column in the source specifying the redshift
             coordinates; default is 'Redshift'
-        weight : str; optional
+        weight : str, optional
             the name of the column in the source specifying the object weights
         **config : key/value pairs
             additional keywords to pass to the :func:`Corrfunc.theory.DD`

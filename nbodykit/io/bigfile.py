@@ -26,10 +26,10 @@ class BigFile(FileType):
     ----------
     path : str
         the name of the directory holding the bigfile data
-    exclude : list of str; optional
+    exclude : list of str, optional
         the data sets to exlude from loading within bigfile; default
         is the header
-    header : str; optional
+    header : str, optional
         the path to the header
     dataset : str
         load a specific dataset from the bigfile

@@ -38,7 +38,7 @@ def CombineSources(*sources, **kwargs):
     ----------
     *sources : subclass of :class:`~nbodykit.base.catalog.CatalogSource`
         the catalog source objects to concatenate together
-    columns : str, list of str; optional
+    columns : str, list of str, optional
         the columns to include in the concatenated catalog
 
     Returns
@@ -102,7 +102,7 @@ def ConstantArray(value, size, chunks=100000):
         the scalar value to fill the array with
     size : int
         the length of the returned dask array
-    chunks : int; optional
+    chunks : int, optional
         the size of the dask array chunks
     """
     toret = numpy.array(value)
@@ -162,7 +162,7 @@ def SkyToCartesion(ra, dec, redshift, cosmo, degrees=True, interpolate_cdist=Tru
         the declination angular coordinate
     redshift : :class:`dask.array.Array`; shape: (N,)
         the redshift coordinate
-    cosmo : :class:`~nbodykit.cosmology.Cosmology`
+    cosmo : :class:`~nbodykit.cosmology.core.Cosmology`
         the cosmology used to meausre the comoving distance from ``redshift``
     degrees : bool, optional
         specifies whether ``ra`` and ``dec`` are in degrees
@@ -209,11 +209,11 @@ def HaloConcentration(mass, cosmo, redshift, mdef='vir'):
     mass : array_like
         either a numpy or dask array specifying the halo mass; units
         assumed to be :math:`M_{\odot}/h`
-    cosmo : :class:`~nbodykit.cosmology.Cosmology`
+    cosmo : :class:`~nbodykit.cosmology.core.Cosmology`
         the cosmology instance used in the analytic formula
     redshift : float
         compute the c(M) relation at this redshift
-    mdef : str; optional
+    mdef : str, optional
         string specifying the halo mass definition to use; should be
         'vir' or 'XXXc' or 'XXXm' where 'XXX' is an int specifying the
         overdensity
@@ -259,19 +259,19 @@ def HaloRadius(mass, cosmo, redshift, mdef='vir'):
     mass : array_like
         either a numpy or dask array specifying the halo mass; units
         assumed to be :math:`M_{\odot}/h`
-    cosmo : :class:`~nbodykit.cosmology.Cosmology`
+    cosmo : :class:`~nbodykit.cosmology.core.Cosmology`
         the cosmology instance
     redshift : float
         compute the density threshold which determines the R(M) relation
         at this redshift
-    mdef : str; optional
+    mdef : str, optional
         string specifying the halo mass definition to use; should be
         'vir' or 'XXXc' or 'XXXm' where 'XXX' is an int specifying the
         overdensity
 
     Returns
     -------
-    radius : dask.array.Array
+    radius : :class:`dask.array.Array`
         a dask array holding the halo radius
     """
     from halotools.empirical_models import halo_mass_to_halo_radius
