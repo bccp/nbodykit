@@ -318,6 +318,11 @@ class HODCatalog(HODBase):
 
         HODBase.__init__(self, halos, seed=seed, use_cache=use_cache, comm=comm, **params)
 
+    def __repr__(self):
+        names = ['logMmin', 'sigma_logM', 'alpha', 'logM0', 'logM1']
+        s = ', '.join(['%s=%.2f' %(k,self.attrs[k]) for k in names])
+        return "HODCatalog(%s)" %s
+
     def _makemodel(self):
         """
         Return the Zheng 07 HOD model.
