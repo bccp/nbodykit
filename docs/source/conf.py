@@ -372,5 +372,6 @@ intersphinx_mapping = {
     'xarray': ('http://xarray.pydata.org/en/stable/', None),
     'astropy': ('http://docs.astropy.org/en/stable/', None),
     'dask': ('http://dask.pydata.org/en/stable/', None),
-    'halotools': ('https://halotools.readthedocs.io/en/latest/', None)
+    'halotools': ('https://halotools.readthedocs.io/en/latest/', None),
+    'pmesh': ('http://rainwoodman.github.io/pmesh/', None)
 }
