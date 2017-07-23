@@ -53,6 +53,14 @@ class FileCatalogBase(CatalogSource):
 
         CatalogSource.__init__(self, comm=comm, use_cache=use_cache)
 
+    def __repr__(self):
+        try:
+            import os
+            args = (self.__class__.__name__, os.path.basename(self._source.path))
+            return "%s(file='%s')" % args
+        except:
+            return CatalogSource.__repr__(self)
+
     @property
     def size(self):
         """
