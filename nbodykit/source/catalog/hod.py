@@ -180,7 +180,7 @@ class HODBase(ArrayCatalog):
 
         Parameters
         ----------
-        seed : int; optional
+        seed : int, optional
             the new seed to use when populating the mock
         params :
             key/value pairs of HOD parameters to update
@@ -268,17 +268,39 @@ class HODBase(ArrayCatalog):
 
 class HODCatalog(HODBase):
     """
-    A `CatalogSource` that uses the HOD prescription of
-    Zheng et al. 2007 to populate an input halo catalog with galaxies,
-    and returns the (Position, Velocity) of those galaxies
+    A `CatalogSource` that uses the HOD prescription of Zheng et al 2007
+    to populate an input halo catalog with galaxies.
 
-    The mock population is done using `halotools` (http://halotools.readthedocs.org)
-    See the documentation for the `halotools` builtin Zheng07 HOD model,
-    for further details regarding the HOD
+    The mock population is done using :mod:`halotools`. See the documentation
+    for :class:`halotools.empirical_models.Zheng07Cens` and
+    :class:`halotools.empirical_models.Zheng07Sats` for further details
+    regarding the HOD.
+
+    .. note::
+         Default HOD values are from
+         `Reid et al. 2014 <https://arxiv.org/abs/1404.3742>`_
+
+    Parameters
+    ----------
+    halos : :class:`~halotools.sim_manager.UserSuppliedHaloCatalog`
+        the halotools table holding the halo data; this object must have
+        the following attributes: `cosmology`, `Lbox`, `redshift`
+    logMmin : float, optional
+        Minimum mass required for a halo to host a central galaxy
+    sigma_logM : float, optional
+        Rate of transition from <Ncen>=0 --> <Ncen>=1
+    alpha : float, optional
+        Power law slope of the relation between halo mass and <Nsat>
+    logM0 : float, optional
+        Low-mass cutoff in <Nsat>
+    logM1 : float, optional
+        Characteristic halo mass where <Nsat> begins to assume a power law form
+    seed : int, optional
+        the random seed to generate deterministic mocks
 
     References
     ----------
-    Zheng et al. (2007), arXiv:0703457
+    `Zheng et al. (2007), arXiv:0703457 <https://arxiv.org/abs/astro-ph/0703457>`_
     """
     logger = logging.getLogger("HOD")
 
@@ -286,27 +308,7 @@ class HODCatalog(HODBase):
     def __init__(self, halos, logMmin=13.031, sigma_logM=0.38,
                     alpha=0.76, logM0=13.27, logM1=14.08,
                     seed=None, use_cache=False, comm=None):
-        """
-        Initialize the Source. Default HOD values from Reid et al. 2014
 
-        Parameters
-        ----------
-        halos : halotools.sim_manager.UserSuppliedHaloCatalog
-            the halotools table holding the halo data; this object must have
-            the following attributes: `cosmology`, `Lbox`, `redshift`
-        logMmin : float; optional
-            Minimum mass required for a halo to host a central galaxy
-        sigma_logM : float; optional
-            Rate of transition from <Ncen>=0 --> <Ncen>=1
-        alpha : float; optional
-            Power law slope of the relation between halo mass and <Nsat>
-        logM0 : float; optional
-            Low-mass cutoff in <Nsat>
-        logM1 : float; optional
-            Characteristic halo mass where <Nsat> begins to assume a power law form
-        seed : int; optional
-            the random seed to generate deterministic mocks
-        """
         params = {}
         params['logMmin'] = logMmin
         params['sigma_logM'] = sigma_logM
@@ -318,7 +320,7 @@ class HODCatalog(HODBase):
 
     def _makemodel(self):
         """
-        Return the Zheng 07 HOD model
+        Return the Zheng 07 HOD model.
 
         This model evaluates Eqs. 2 and 5 of Zheng et al. 2007
         """

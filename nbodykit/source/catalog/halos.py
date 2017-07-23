@@ -4,37 +4,32 @@ import numpy
 
 class HaloCatalog(CatalogSource):
     """
-    A wrapper Source class to interface nicely with
-    :class:`halotools.sim_manager.UserSuppliedHaloCatalog`
+    A wrapper CatalogSource of halo objects to interface nicely with
+    :class:`halotools.sim_manager.UserSuppliedHaloCatalog`.
+
+    Parameters
+    ----------
+    source : CatalogSource
+        the source holding the particles to be interpreted as halos
+    cosmo : :class:`~nbodykit.cosmology.core.Cosmology`
+        the cosmology instance;
+    redshift : float
+        the redshift of the halo catalog
+    mdef : str, optional
+        string specifying mass definition, used for computing default
+        halo radii and concentration; should be 'vir' or 'XXXc' or
+        'XXXm' where 'XXX' is an int specifying the overdensity
+    mass : str, optional
+        the column name specifying the mass of each halo
+    position : str, optional
+        the column name specifying the position of each halo
+    velocity : str, optional
+        the column name specifying the velocity of each halo
     """
     def __init__(self, source, cosmo, redshift, mdef='vir',
-                    mass='Mass', velocity='Velocity', position='Position',
-                     use_cache=False, comm=None):
-        """
-        Parameters
-        ----------
-        source : CatalogSource
-            the source holding the particles to be interpreted as halos
-        particle_mass : float
-            the
-        cosmo : nbodykit.cosmology.Cosmology
-            the cosmology instance;
-        redshift : float
-            the redshift of the halo catalog
-        mdef : str; optional
-            string specifying mass definition, used for computing default
-            halo radii and concentration; should be 'vir' or 'XXXc' or
-            'XXXm' where 'XXX' is an int specifying the overdensity
-        mass : str; optional
-            the column name specifying the mass of each halo
-        position : str; optional
-            the column name specifying the position of each halo
-        velocity : str; optional
-            the column name specifying the velocity of each halo
-        """
-        if comm is None:
-            comm = source.comm
+                 mass='Mass', position='Position', velocity='Velocity'):
 
+        comm = source.comm
         self._source = source
         self.cosmo = cosmo
 
@@ -49,7 +44,7 @@ class HaloCatalog(CatalogSource):
         self.attrs['mdef']     = mdef
 
         # init the base class
-        CatalogSource.__init__(self, comm=comm, use_cache=use_cache)
+        CatalogSource.__init__(self, comm=comm, use_cache=False)
 
     @property
     def size(self):
@@ -57,20 +52,32 @@ class HaloCatalog(CatalogSource):
 
     @column
     def Mass(self):
+        """
+        The halo mass column
+        """
         return self.make_column(self._source[self.attrs['mass']])
 
     @column
     def Position(self):
+        """
+        The halo position column
+        """
         return self.make_column(self._source[self.attrs['position']])
 
     @column
     def Velocity(self):
+        """
+        The halo velocity column
+        """
         return self.make_column(self._source[self.attrs['velocity']])
 
     @column
     def VelocityOffset(self):
         """
-        This multiplies Velocity by 1 / (a*100*E(z)) = 1 / (a H(z)/h)
+        The redshift-space distance offset due to the velocity in units of
+        distance.
+
+        This multiplies ``Velocity`` by :math:`1 / (a 100 E(z)) = 1 / (a H(z)/h)`.
         """
         z = self.attrs['redshift']
         rsd_factor = (1+z) / (100*self.cosmo.efunc(z))
@@ -78,29 +85,35 @@ class HaloCatalog(CatalogSource):
 
     @column
     def Concentration(self):
+        """
+        The halo concentration, computed using :func:`nbodykit.transfrom.HaloConcentration`.
+        """
         z = self.attrs['redshift']
         mdef = self.attrs['mdef']
         return transform.HaloConcentration(self['Mass'], self.cosmo, z, mdef=mdef)
 
     @column
     def Radius(self):
+        """
+        The halo radius, computed using :func:`nbodykit.transfrom.HaloRadius`.
+        """
         z = self.attrs['redshift']
         mdef = self.attrs['mdef']
         return transform.HaloRadius(self['Mass'], self.cosmo, z, mdef=mdef)
 
     def to_halotools(self, BoxSize=None, selection='Selection'):
         """
-        Return the source as a :class:`halotools.sim_manager.UserSuppliedHaloCatalog`.
-        The Halotools catalog only holds the local data, although halos are labeled
-        via the ``halo_id`` column with the global index
+        Return the CatalogSource as a :class:`halotools.sim_manager.UserSuppliedHaloCatalog`.
 
+        The Halotools catalog only holds the local data, although halos are
+        labeled via the ``halo_id`` column using the global index.
 
         Parameters
         ----------
-        BoxSize : float, array_like; optional
+        BoxSize : float, array_like, optional
             the size of the box; note that anisotropic boxes are currently
             not supported by halotools
-        selection : str; optional
+        selection : str, optional
             the name of the column to slice the data on before converting
             to a halotools catalog
 

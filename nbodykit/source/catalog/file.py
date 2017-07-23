@@ -6,31 +6,35 @@ from nbodykit.extern import docrep
 import textwrap
 
 __all__ = ['FileCatalogBase', 'CSVCatalog', 'BinaryCatalog', 'BigFileCatalog',
-            'HDFCatalog', 'TPMBinaryCatalog', 'FITSCatalog'
-           ]
+            'HDFCatalog', 'TPMBinaryCatalog', 'FITSCatalog']
 
 class FileCatalogBase(CatalogSource):
     """
     Base class to create a source of particles from a
-    single file, or multiple files, on disk
+    single file, or multiple files, on disk.
 
     Files of a specific type should be subclasses of this class.
+
+    Parameters
+    ----------
+    filetype : subclass of :class:`nbodykit.io.FileType`
+        the file-like class used to load the data from file; should be a
+        subclass of :class:`nbodykit.io.FileType`
+    args : tuple, optional
+        the arguments to pass to the ``filetype`` class when constructing
+        each file object
+    kwargs : dict, optional
+        the keyword arguments to pass to the ``filetype`` class when
+        constructing each file object
+    comm : MPI Communicator, optional
+        the MPI communicator instance; default (``None``) sets to the
+        current communicator
+    use_cache : bool, optional
+        whether to cache data read from disk; default is ``False``
     """
     @CurrentMPIComm.enable
     def __init__(self, filetype, args=(), kwargs={}, comm=None, use_cache=False):
-        """
-        Parameters
-        ----------
-        filetype : subclass of :class:`nbodykit.io.FileType`
-            the file-like class used to load the data from file; should be a
-            subclass of :class:`nbodykit.io.FileType`
-        path : str, list of str
-            the path to the file(s) to load; can be a list of files to load, or
-            contain a glob-like asterisk pattern
-        args : dict, optional
-            the arguments to pass to the ``filetype`` class when constructing
-            each file object
-        """
+
         self.comm = comm
         self.filetype = filetype
 
@@ -52,7 +56,7 @@ class FileCatalogBase(CatalogSource):
     @property
     def size(self):
         """
-        The local size
+        The local size of the catalog.
         """
         start = self.comm.rank * self._source.size // self.comm.size
         end = (self.comm.rank  + 1) * self._source.size // self.comm.size
@@ -61,16 +65,16 @@ class FileCatalogBase(CatalogSource):
     @property
     def hardcolumns(self):
         """
-        The union of the columns in the file and any transformed columns
+        The union of the columns in the file and any transformed columns.
         """
         defaults = CatalogSource.hardcolumns.fget(self)
         return list(self._source.dtype.names) + defaults
 
     def get_hardcolumn(self, col):
         """
-        Return a column from the underlying file source
+        Return a column from the underlying file source.
 
-        Columns are returned as dask arrays
+        Columns are returned as dask arrays.
         """
         if col in self._source.dtype.names:
             start = self.comm.rank * self._source.size // self.comm.size
@@ -84,7 +88,7 @@ def FileCatalogFactory(name, filetype):
     """
     Factory method to create subclasses of :class:`FileCatalogBase`
     that use specific classes from :mod:`nbodykit.io` to read
-    different types of data from disk
+    different types of data from disk.
     """
     def __init__(self, *args, **kwargs):
         comm = kwargs.pop('comm', None)
@@ -102,7 +106,7 @@ def FileCatalogFactory(name, filetype):
         current communicator
     use_cache : bool, optional
         whether to cache data read from disk; default is ``False``
-    attrs : dict; optional
+    attrs : dict, optional
         dictionary of meta-data to store in :attr:`attrs`
     """)
     # get the Parameters from the IO libary class

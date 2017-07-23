@@ -46,21 +46,21 @@ def _mpi_enabled_rng(func):
 
 class MPIRandomState(RandomState):
     """
-    Wrapper around :class:`numpy.random.RandomState` that can return
-    random numbers in parallel, independent of the number of ranks
+    A wrapper around :class:`numpy.random.RandomState` that can return
+    random numbers in parallel, independent of the number of ranks.
+
+    Parameters
+    ----------
+    comm : MPI communicator
+        the MPI communicator
+    seed : int
+        the global seed that seeds all other random seeds
+    N : int
+        the total size of the random numbers to generate; we return chunks of
+        the total on each CPU, based on the CPU's rank
     """
     def __init__(self, comm, seed, N):
-        """
-        Parameters
-        ----------
-        comm : MPI communicator
-            the MPI communicator
-        seed : int
-            the global seed that seeds all other random seeds
-        N : int
-            the total size of the random numbers to generate; we return chunks of
-            the total on each CPU, based on the CPU's rank
-        """
+
         RandomState.__init__(self, seed=seed)
 
         # the number of seeds to generate N particles
@@ -125,29 +125,29 @@ class MPIRandomState(RandomState):
 
 class RandomCatalog(CatalogSource):
     """
-    A catalog source that can have columns added via a
-    collective random number generator
+    A CatalogSource that can have columns added via a
+    collective random number generator.
 
     The random number generator stored as :attr:`rng` behaves
     as :class:`numpy.random.RandomState` but generates random
     numbers only on the local rank in a manner independent of
-    the number of ranks
+    the number of ranks.
+
+    Parameters
+    ----------
+    csize : int
+        the desired collective size of the Source
+    seed : int, optional
+        the global seed for the random number generator
+    comm : MPI communicator
+        the MPI communicator; set automatically if None
     """
     def __repr__(self):
         return "RandomCatalog(seed=%(seed)s)" % self.attrs
 
     @CurrentMPIComm.enable
     def __init__(self, csize, seed=None, comm=None, use_cache=False):
-        """
-        Parameters
-        ----------
-        csize : int
-            the desired collective size of the Source
-        seed : int; optional
-            the global seed for the random number generator
-        comm : MPI communicator
-            the MPI communicator; set automatically if None
-        """
+
         self.comm = comm
 
         # set the seed randomly if it is None
@@ -160,7 +160,7 @@ class RandomCatalog(CatalogSource):
         # generate the seeds from the global seed
         if csize == 0:
             raise ValueError("no random particles generated!")
-        self.rng = MPIRandomState(comm, seed, csize)
+        self._rng = MPIRandomState(comm, seed, csize)
         self._size =  self.rng.size
 
         # init the base class
@@ -168,34 +168,46 @@ class RandomCatalog(CatalogSource):
 
     @property
     def size(self):
+        """The number of particles on the local rank"""
         return self._size
+
+    @property
+    def rng(self):
+        """
+        A :class:`MPIRandomState` that behaves as
+        :class:`numpy.random.RandomState` but generates random
+        numbers in a manner independent of the number of ranks.
+        """
+        return self._rng
 
 
 class UniformCatalog(RandomCatalog):
     """
-    A catalog source that has uniformly-distributed ``Position``
-    and ``Velocity`` columns
+    A CatalogSource that has uniformly-distributed ``Position``
+    and ``Velocity`` columns.
 
     The random numbers generated do not depend on the number of
-    ranks, i.e., ``comm.size``.
+    available ranks.
+
+    Parameters
+    ----------
+    nbar : float
+        the desired number density of particles in the box
+    BoxSize : float, 3-vector
+        the size of the box
+    seed : int, optional
+        the random seed
+    comm :
+        the MPI communicator
+    use_cache : bool, optional
+        whether to cache data on disk
     """
     def __repr__(self):
         return "UniformCatalog(seed=%(seed)s)" % self.attrs
 
     @CurrentMPIComm.enable
     def __init__(self, nbar, BoxSize, seed=None, comm=None, use_cache=False):
-        """
-        Parameters
-        ----------
-        nbar : float
-            the desired number density of particles in the box
-        BoxSize : float, 3-vector
-            the size of the box
-        seed : int; optional
-            the random seed
-        comm :
-            the MPI communicator
-        """
+
         self.comm    = comm
 
         _BoxSize = numpy.empty(3, dtype='f8')
@@ -213,8 +225,14 @@ class UniformCatalog(RandomCatalog):
 
     @column
     def Position(self):
+        """
+        The position of particles, uniformly distributed in :attr:`BoxSize`
+        """
         return self.make_column(self._pos)
 
     @column
     def Velocity(self):
+        """
+        The velocity of particles, uniformly distributed in ``0.01 x BoxSize``
+        """
         return self.make_column(self._vel)

@@ -12,8 +12,9 @@ from pmesh.pm import RealField, ComplexField
 class FKPMeshSource(CatalogMeshSource):
     """
     A subclass of :class:`~nbodykit.base.catalogmesh.CatalogMeshSource`
-    designed to paint the FKP density field to a mesh, given
-    two catalogs, one for `data` and one for `randoms`
+    designed to paint the FKP density field to a mesh.
+
+    This requires ``data`` and ``randoms`` CatalogSource objects.
     """
     logger = logging.getLogger('FKPMeshSource')
 
@@ -200,31 +201,31 @@ def FKPColumn(self, which, col):
 
 class FKPCatalog(CatalogSource):
     """
-    Combine a ``data`` CatalogSource and a ``randoms`` CatalogSource
-    into a single unified Source
+    Combine a `data` CatalogSource and a `randoms` CatalogSource
+    into a single object.
 
     This main functionality of this class is:
 
     *   provide a uniform interface to accessing columns from the
         `data` CatalogSource and `randoms` CatalogSource, using
         column names prefixed with "data." or "randoms."
-    *   compute the shared :attr:`BoxSize` of the Source, by
+    *   compute the shared :attr:`BoxSize` of the source, by
         finding the maximum Cartesian extent of the `randoms`
 
     Parameters
     ----------
     data : CatalogSource
-        the Source of particles representing the `data` catalog
+        the CatalogSource of particles representing the `data` catalog
     randoms : CatalogSource
-        the Source of particles representing the `randoms` catalog
-    BoxSize : float, 3-vector; optional
+        the CatalogSource of particles representing the `randoms` catalog
+    BoxSize : float, 3-vector, optional
         the size of the Cartesian box to use for the unified `data` and
         `randoms`; if not provided, the maximum Cartesian extent of the
         `randoms` defines the box
-    BoxPad : float, 3-vector; optional
+    BoxPad : float, 3-vector, optional
         optionally apply this additional buffer to the extent of the
         Cartesian box
-    use_cache : bool; optional
+    use_cache : bool, optional
         if ``True``, use the built-in dask cache system to cache
         data, providing significant speed-ups; requires :mod:`cachey`
     """
@@ -278,13 +279,13 @@ class FKPCatalog(CatalogSource):
     @property
     def size(self):
         """
-        This is not implemented because we actually have size of `data` and `randoms`
+        Not implemented because we have sizes of `data` and `randoms`
         """
         return NotImplemented
 
     def _define_cartesian_box(self):
         """
-        Internal function to put the :attr:`randoms` CatalogSource in a Cartesian box
+        Internal function to put the :attr:`randoms` CatalogSource in a Cartesian box.
 
         This function add two necessary attribues:
 
@@ -347,44 +348,45 @@ class FKPCatalog(CatalogSource):
             self.logger.info("cartesian coordinate range: %s : %s" %(str(pos_min), str(pos_max)))
             self.logger.info("BoxCenter = %s" %str(self.attrs['BoxCenter']))
 
-    def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4', interlaced=False, compensated=False,
-                window='cic', fkp_weight='FKPWeight', comp_weight='Weight', selection='Selection',
-                nbar='NZ'):
+    def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4', interlaced=False,
+                compensated=False, window='cic', fkp_weight='FKPWeight',
+                comp_weight='Weight', selection='Selection', nbar='NZ'):
 
         """
-        Convert the FKPCatalog to a mesh, which knows how to "paint" the catalog
+        Convert the FKPCatalog to a mesh, which knows how to "paint" the
+        FKP density field.
 
-        Additional keywords to the :func:`to_mesh` function include the FKP weight column,
-        completeness weight column, and the column specifying the number density as a
-        function of redshift.
+        Additional keywords to the :func:`to_mesh` function include the
+        FKP weight column, completeness weight column, and the column
+        specifying the number density as a function of redshift.
 
         Parameters
         ----------
-        Nmesh : int, 3-vector; optional
+        Nmesh : int, 3-vector, optional
             the number of cells per box side; if not specified in `attrs`, this
             must be provided
-        BoxSize : float, 3-vector; optional
+        BoxSize : float, 3-vector, optional
             the size of the box; if provided, this will use the default value in `attrs`
-        dtype : str, dtype; optional
+        dtype : str, dtype, optional
             the data type of the mesh when painting
-        interlaced : bool; optional
+        interlaced : bool, optional
             whether to use interlacing to reduce aliasing when painting the particles
             on the mesh
-        compensated : bool; optional
+        compensated : bool, optional
             whether to apply a Fourier-space transfer function to account for the
             effects of the gridding + aliasing
-        window : str; optional
+        window : str, optional
             the string name of the window to use when interpolating the particles
             to the mesh; see ``pmesh.window.methods`` for choices
-        fkp_weight : str; optional
+        fkp_weight : str, optional
             the name of the column in the source specifying the FKP weight; this
             weight is applied to the FKP density field: ``n_data - alpha*n_randoms``
-        comp_weight : str; optional
+        comp_weight : str, optional
             the name of the column in the source specifying the completeness weight;
             this weight is applied to the individual fields, either ``n_data``  or ``n_random``
-        selection : str; optional
+        selection : str, optional
             the name of the column used to select a subset of the source when painting
-        nbar : str; optional
+        nbar : str, optional
             the name of the column specifying the number density as a function of redshift
         """
         # verify that all of the required columns exist
