@@ -166,13 +166,6 @@ todo_include_todos = False
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 
-on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
-
-#if not on_rtd:
-    #import sphinx_rtd_theme
-    #html_theme = 'sphinx_rtd_theme'
-    #html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
-
 import sphinx_bootstrap_theme
 html_theme = 'bootstrap'
 html_theme_path = sphinx_bootstrap_theme.get_html_theme_path()
@@ -378,5 +371,6 @@ intersphinx_mapping = {
     'numpy': ('http://docs.scipy.org/doc/numpy/', None),
     'xarray': ('http://xarray.pydata.org/en/stable/', None),
     'astropy': ('http://docs.astropy.org/en/stable/', None),
-    'dask': ('http://dask.pydata.org/en/stable/', None)
+    'dask': ('http://dask.pydata.org/en/stable/', None),
+    'halotools': ('https://halotools.readthedocs.io/en/latest/', None)
 }
