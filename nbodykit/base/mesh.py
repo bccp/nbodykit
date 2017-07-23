@@ -1,20 +1,24 @@
-from six import add_metaclass
-import abc
 import numpy
 import logging
 from pmesh.pm import ParticleMesh, RealField, ComplexField
 
-@add_metaclass(abc.ABCMeta)
 class MeshSource(object):
     """
-    Base class for a source in the form of an input grid
+    Base class for a source in the form of an input grid.
 
-    Subclasses must define the :func:`paint` function, which
-    is abstract in this class
+    Parameters
+    ----------
+    comm :
+        the global MPI communicator
+    Nmesh : int, array_like
+        the number of cells per grid size
+    BoxSize : array_like
+        the size of the box
+    dtype : str
+        the desired data type of the grid
     """
     logger = logging.getLogger('MeshSource')
 
-    # called by the subclasses
     def __init__(self, comm, Nmesh, BoxSize, dtype):
 
         # ensure self.comm is set, though usually already set by the child.
@@ -40,6 +44,12 @@ class MeshSource(object):
         self.base = None
 
     def view(self):
+        """
+        Return a "view" of the MeshSource, in the spirit of
+        numpy's ndarray view.
+
+        This returns a new MeshSource whose memory is owned by ``self``.
+        """
         view = object.__new__(MeshSource)
         view.comm = self.comm
         view.dtype = self.dtype
@@ -52,28 +62,103 @@ class MeshSource(object):
 
     @property
     def actions(self):
+        """
+        A list of actions to apply to the density field when interpolating
+        to the mesh.
+
+        This stores tuples of ``(mode, func, kind)``; see :func:`apply`
+        for more details.
+        """
         return self._actions
 
     def apply(self, func, kind='wavenumber', mode='complex'):
+        """
+        Return a view of the mesh, with :attr:`actions` updated to
+        apply the specified function, either in Fourier space or
+        configuration space, based on ``mode``
+
+        Parameters
+        ----------
+        func : callable
+            func(x, y) where x is a list of ``r`` (``k``) values that broadcasts
+            into a full array, when ``mode`` is 'real' ('complex');
+            the value of x depends on ``kind``. ``y`` is the value of
+            the mesh field on the corresponding locations.
+        kind : string, optional
+            The kind of value in x.
+
+            - When ``mode`` is 'complex':
+
+              - 'wavenumber' means wavenumber from [- 2 pi / L * N / 2, 2 pi / L * N / 2).
+              - 'circular' means circular frequency from [- pi, pi).
+              - 'index' means [0, Nmesh )
+
+            - When ``mode`` is 'real':
+
+              - 'relative' means distance from [-0.5 Boxsize, 0.5 BoxSize).
+              - 'index' means [0, Nmesh )
+        mode : 'complex' or 'real', optional
+            whether to apply the function to the mesh in configuration space
+            or Fourier space
+
+        Returns
+        -------
+        MeshSource :
+            a view of the mesh object with the :attr:`actions` attribute
+            updated to include the new action
+        """
+        assert mode in ['complex', 'real'], "``mode`` should be 'complex' or 'real'"
+        if mode == 'real':
+            assert kind in ['relative', 'index']
+        else:
+            assert kind in ['wavenumber', 'circular', 'index']
+
         view = self.view()
         view.actions.append((mode, func, kind))
         return view
 
     def __len__(self):
         """
-        Set the length of a grid source to be 0
+        Length of a mesh source is zero
         """
         return 0
 
     def to_real_field(self):
+        """
+        Convert the mesh source to the configuration-space field,
+        returning a :class:`pmesh.pm.RealField` object.
+
+        Not implemented in the base class, unless object is a view.
+        """
         if self.base is not None: return self.base.to_real_field()
         return NotImplemented
 
     def to_complex_field(self):
+        """
+        Convert the mesh source to the Fourier-space field,
+        returning a :class:`pmesh.pm.ComplexField` object.
+
+        Not implemented in the base class, unless object is a view.
+        """
         if self.base is not None: return self.base.to_complex_field()
         return NotImplemented
 
     def to_field(self, mode='real'):
+        """
+        Convert the mesh to an array-like "field" object, either in Fourier
+        space or configuration space, based on ``mode``.
+
+        Parameters
+        ----------
+        mode : 'real' or 'complex'
+            the return type of the field
+
+        Returns
+        -------
+        :class:`~pmesh.pm.RealField`, :class:`~pmesh.pm.ComplexField` :
+            either a RealField of ComplexField, storing the value of the field
+            on the mesh
+        """
         if mode == 'real':
             real = self.to_real_field()
             if real is NotImplemented:
@@ -100,7 +185,7 @@ class MeshSource(object):
     @property
     def attrs(self):
         """
-        Dictionary storing relevant meta-data
+        A dictionary storing relevant meta-data about the MeshSource.
         """
         try:
             return self._attrs
@@ -110,10 +195,22 @@ class MeshSource(object):
 
     def paint(self, mode="real"):
         """
+        Paint the density on the mesh and apply
+        any transformation functions specified in :attr:`actions`.
+
+        The return type of the Field object is specified by ``mode``
+
         Parameters
         ----------
-        mode : string
-        real or complex
+        mode : 'real' or 'complex'
+            the type of the returned Field object, either a RealField or
+            ComplexField
+
+        Returns
+        -------
+        :class:`~pmesh.pm.RealField`, :class:`~pmesh.pm.ComplexField` :
+            either a RealField of ComplexField, with the functions in
+            :attrs:`actions` applied to it
         """
         if not mode in ['real', 'complex']:
             raise ValueError('mode must be "real" or "complex"')
@@ -154,24 +251,25 @@ class MeshSource(object):
         return var
 
     def preview(self, axes=None, Nmesh=None, root=0):
-        """ gathers the mesh into as a numpy array, with
-            (reduced resolution). The result is broadcast to
-            all ranks, so this uses Nmesh ** 3 per rank.
+        """
+        Gather the mesh into as a numpy array, with
+        (reduced) resolution. The result is broadcast to
+        all ranks, so this uses :math:`Nmesh^3` per rank.
 
-            Parameters
-            ----------
-            Nmesh : int, array_like
-                The desired Nmesh of the result. Be aware this function
-                allocates memory to hold A full Nmesh on each rank.
+        Parameters
+        ----------
+        Nmesh : int, array_like
+            The desired Nmesh of the result. Be aware this function
+            allocates memory to hold a full ``Nmesh`` on each rank.
+        axes : int, array_like
+            The axes to project the preview onto., e.g. (0, 1)
+        root : int, optional
+            the rank number to treat as root when gathering to a single rank
 
-            axes : int, array_like
-                The axes to project the preview onto., e.g. (0, 1)
-
-            Returns
-            -------
-            out : array_like
-                An numpy array for the real density field.
-
+        Returns
+        -------
+        out : array_like
+            An numpy array holding the real density field.
         """
         field = self.to_field(mode='real')
         if Nmesh is None:
@@ -181,17 +279,17 @@ class MeshSource(object):
 
     def save(self, output, dataset='Field', mode='real'):
         """
-            Save the mesh as a BigFileMesh on disk
+        Save the mesh as a :class:`~nbodykit.source.mesh.bigfile.BigFileMesh`
+        on disk, either in real or complex space.
 
-            Parameters
-            ----------
-            output : str
-                name of the bigfile file
-            dataset : str
-                name of the bigfile data set.
-            mode : str
-                real or complex; the form of the field to store.
-
+        Parameters
+        ----------
+        output : str
+            name of the bigfile file
+        dataset : str, optional
+            name of the bigfile data set where the field is stored
+        mode : str, optional
+            real or complex; the form of the field to store
         """
         import bigfile
         import warnings
