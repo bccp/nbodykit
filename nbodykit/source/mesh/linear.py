@@ -5,8 +5,8 @@ import numpy
 
 class LinearMesh(MeshSource):
     """
-    A MeshSource object that generates a ``RealField`` density mesh directly
-    from a linear power spectrum function :math:`P(k)`.
+    A MeshSource object that generates a :class:`~pmesh.pm.RealField` density
+    mesh from a linear power spectrum function :math:`P(k)`.
 
     Parameters
     ----------

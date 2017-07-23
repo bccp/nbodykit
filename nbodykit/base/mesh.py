@@ -145,8 +145,11 @@ class MeshSource(object):
 
     def to_field(self, mode='real'):
         """
-        Convert the mesh to an array-like "field" object, either in Fourier
+        Return the mesh as a :mod:`pmesh` Field object, either in Fourier
         space or configuration space, based on ``mode``.
+
+        This will call :func:`to_real_field` or :func:`to_complex_field`
+        based on ``mode``.
 
         Parameters
         ----------
@@ -198,7 +201,8 @@ class MeshSource(object):
         Paint the density on the mesh and apply
         any transformation functions specified in :attr:`actions`.
 
-        The return type of the Field object is specified by ``mode``
+        The return type of the :mod:`pmesh` Field object is specified by
+        ``mode``. This calls :func:`to_field` to convert the mesh to a Field. 
 
         Parameters
         ----------

@@ -310,7 +310,7 @@ class CatalogSource(object):
 
     def update_csize(self):
         """
-        Set the collective size, :attr:`csize`
+        Set the collective size, :attr:`csize`.
 
         This function should be called in :func:`__init__` of a subclass,
         after :attr:`size` has been set to a valid value (not ``NotImplemented``)
@@ -442,7 +442,8 @@ class CatalogSource(object):
                 interlaced=False, compensated=False, window='cic',
                 weight='Weight', selection='Selection'):
         """
-        Convert the CatalogSource to a MeshSource
+        Convert the CatalogSource to a MeshSource, using the specified
+        parameters. 
 
         Parameters
         ----------

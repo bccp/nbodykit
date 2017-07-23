@@ -10,6 +10,30 @@ from pmesh import window
 from pmesh.pm import RealField, ComplexField
 
 class CatalogMeshSource(MeshSource, CatalogSource):
+    """
+    A class to convert a CatalogSource to a MeshSource, by interpolating
+    the position of the discrete particles on to a mesh.
+
+    Parameters
+    ----------
+    source : CatalogSource
+        the input catalog that we wish to interpolate to a mesh
+    BoxSize :
+        the size of the box
+    Nmesh : int, 3-vector
+        the number of cells per mesh side
+    dtype : str
+        the data type of the values stored on mesh
+    weight : str
+        column in ``source`` that specifies the weight value for each
+        particle in the ``source`` to use when gridding
+    selection : str
+        column in ``source`` that selects the subset of particles to grid
+        to the mesh
+    position : str, optional
+        column in ``source`` specifying the position coordinates; default
+        is ``Position``
+    """
     logger = logging.getLogger('CatalogMeshSource')
     def __repr__(self):
         return "(%s as CatalogeMeshSource)" % repr(self.source)
@@ -41,17 +65,31 @@ class CatalogMeshSource(MeshSource, CatalogSource):
 
     @property
     def size(self):
+        """
+        The number of local particles.
+        """
         return self.source.size
 
     @property
     def hardcolumns (self):
+        """
+        The names of the hard-coded columns in the source.
+        """
         return self.source.hardcolumns
 
     def get_hardcolumn(self, col):
+        """
+        Return a hard-coded column
+        """
         return self.source.get_hardcolumn(col)
 
     @property
     def interlaced(self):
+        """
+        Whether to use interlacing when interpolating the density field.
+
+        See also: `Sefusatti et al. <https://arxiv.org/abs/1512.07295>`
+        """
         return self.attrs['interlaced']
 
     @interlaced.setter
@@ -60,6 +98,13 @@ class CatalogMeshSource(MeshSource, CatalogSource):
 
     @property
     def window(self):
+        """
+        String specifying the name of the interpolation kernel when
+        gridding the density field.
+
+        .. note::
+            Valid values must be in :attr:`pmesh.window.methods`
+        """
         return self.attrs['window']
 
     @window.setter
@@ -69,6 +114,11 @@ class CatalogMeshSource(MeshSource, CatalogSource):
 
     @property
     def compensated(self):
+        """
+        Boolean flag to indicate whether to correct for the windowing
+        kernel introduced when interpolating the discrete particles to
+        a continuous field.
+        """
         return self.attrs['compensated']
 
     @compensated.setter
@@ -77,13 +127,17 @@ class CatalogMeshSource(MeshSource, CatalogSource):
 
     def to_real_field(self):
         """
-        paint : (verb)
-            interpolate the `Position` column to the particle mesh
-            specified by ``pm``
+        Paint the density field, by interpolating the ``Position`` column
+        on to the mesh.
+
+        .. note::
+
+            The density field on the mesh is normalized as :math:`1+\delta`,
+            such that the collective mean of the field is unity.
 
         Returns
         -------
-        real : pmesh.pm.RealField
+        real : :class:`pmesh.pm.RealField`
             the painted real field
         """
         # check for 'Position' column
@@ -189,12 +243,29 @@ class CatalogMeshSource(MeshSource, CatalogSource):
 
     @property
     def actions(self):
+        """
+        The actions to apply to the interpolated density field, optionally
+        included the compensation correction.
+        """
         actions = MeshSource.actions.fget(self)
         if self.compensated:
             actions = self._get_compensation() + actions
         return actions
 
     def _get_compensation(self):
+        """
+        Return the compensation function, which corrects for the
+        windowing kernel.
+
+        The compensation function is computed as:
+
+            * if ``interlaced = True``:
+              * :func:`CompensateCIC` if using CIC window
+              * :func:`CompensateTSC` if using TSC window
+            * if ``interlaced = False``:
+              * :func:`CompensateCICAliasing` if using CIC window
+              * :func:`CompensateTSCAliasing` if using TSC window
+        """
         if self.interlaced:
             d = {'cic' : CompensateCIC,
                  'tsc' : CompensateTSC}
@@ -212,11 +283,19 @@ class CatalogMeshSource(MeshSource, CatalogSource):
 def CompensateTSC(w, v):
     """
     Return the Fourier-space kernel that accounts for the convolution of
-    the gridded field with the TSC window function in configuration space
+    the gridded field with the TSC window function in configuration space.
 
-    References
+    .. note::
+        see equation 18 (with p=3) of
+        `Jing et al 2005 <https://arxiv.org/abs/astro-ph/0409240>`_
+
+    Parameters
     ----------
-    see equation 18 (with p=3) of Jing et al 2005 (arxiv:0409240)
+    w : list of arrays
+        the list of "circular" coordinate arrays, ranging from
+        :math:`[-\pi, \pi)`.
+    v : array_like
+        the field array
     """
     for i in range(3):
         wi = w[i]
@@ -229,9 +308,17 @@ def CompensateCIC(w, v):
     Return the Fourier-space kernel that accounts for the convolution of
     the gridded field with the CIC window function in configuration space
 
-    References
+    .. note::
+        see equation 18 (with p=2) of
+        `Jing et al 2005 <https://arxiv.org/abs/astro-ph/0409240>`_
+
+    Parameters
     ----------
-    see equation 18 (with p=2) of Jing et al 2005 (arxiv:0409240)
+    w : list of arrays
+        the list of "circular" coordinate arrays, ranging from
+        :math:`[-\pi, \pi)`.
+    v : array_like
+        the field array
     """
     for i in range(3):
         wi = w[i]
@@ -246,9 +333,17 @@ def CompensateTSCAliasing(w, v):
     the gridded field with the TSC window function in configuration space,
     as well as the approximate aliasing correction
 
-    References
+    .. note::
+        see equation 20 of
+        `Jing et al 2005 <https://arxiv.org/abs/astro-ph/0409240>`_
+
+    Parameters
     ----------
-    see equation 20 of Jing et al 2005 (arxiv:0409240)
+    w : list of arrays
+        the list of "circular" coordinate arrays, ranging from
+        :math:`[-\pi, \pi)`.
+    v : array_like
+        the field array
     """
     for i in range(3):
         wi = w[i]
@@ -262,9 +357,17 @@ def CompensateCICAliasing(w, v):
     the gridded field with the CIC window function in configuration space,
     as well as the approximate aliasing correction
 
-    References
+    .. note::
+        see equation 20 of
+        `Jing et al 2005 <https://arxiv.org/abs/astro-ph/0409240>`_
+
+    Parameters
     ----------
-    see equation 20 of Jing et al 2005 (arxiv:0409240)
+    w : list of arrays
+        the list of "circular" coordinate arrays, ranging from
+        :math:`[-\pi, \pi)`.
+    v : array_like
+        the field array
     """
     for i in range(3):
         wi = w[i]
