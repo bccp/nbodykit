@@ -118,6 +118,10 @@ class CatalogSource(object):
         if self.size is not NotImplemented:
             self.update_csize()
 
+    def __repr__(self):
+        size = "%d" %self.size if self.size is not NotImplemented else "NotImplemented"
+        return "%s(size=%s)" %(self.__class__.__name__, size)
+
     def __len__(self):
         """
         The local size of the CatalogSource on a given rank.
