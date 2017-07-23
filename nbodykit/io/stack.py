@@ -34,6 +34,8 @@ class FileStack(FileType):
         if not inspect.isclass(filetype) or not issubclass(filetype, FileType):
             raise ValueError("the stack of `filetype` objects must be subclasses of `FileType`")
 
+        self.path = path
+        
         # save the list of relevant files
         if isinstance(path, list):
             filenames = path
