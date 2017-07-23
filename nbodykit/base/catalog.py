@@ -510,23 +510,23 @@ class CatalogSubset(CatalogSource):
     """
     A subset of a CatalogSource holding only a portion
     of the original source
+
+    Parameters
+    ----------
+    size : int
+        the size of the new source; this was likely determined by
+        the number of particles passing the selection criterion
+    comm : MPI communicator
+        the MPI communicator; this should be the same as the
+        comm of the object that we are selecting from
+    use_cache : bool, optional
+        whether to cache results
+    **columns :
+        the data arrays that will be added to this source; keys
+        represent the column names
     """
     def __init__(self, size, comm, use_cache=False, **columns):
-        """
-        Parameters
-        ----------
-        size : int
-            the size of the new source; this was likely determined by
-            the number of particles passing the selection criterion
-        comm : MPI communicator
-            the MPI communicator; this should be the same as the
-            comm of the object that we are selecting from
-        use_cache : bool; optional
-            whether to cache results
-        **columns :
-            the data arrays that will be added to this source; keys
-            represent the column names
-        """
+
         self._size = size
         CatalogSource.__init__(self, comm=comm, use_cache=use_cache)
 
@@ -540,9 +540,10 @@ class CatalogSubset(CatalogSource):
 
 def get_catalog_subset(parent, index):
     """
-    Select a subset of a CatalogSource according to a boolean index array,
-    returning a CatalogSubset holding only the data that satisfies
-    the slice criterion
+    Select a subset of a CatalogSource according to a boolean index array.
+
+    Returns a CatalogSubset holding only the data that satisfies
+    the slice criterion.
 
     Parameters
     ----------
