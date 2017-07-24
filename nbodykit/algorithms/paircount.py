@@ -1,8 +1,11 @@
 import numpy
 import logging
 from six import string_types
+
 from nbodykit import CurrentMPIComm
 from nbodykit.binned_statistic import BinnedStatistic
+from nbodykit.utils import split_size_3d
+from pmesh.domain import GridND
 
 try:
     import Corrfunc
@@ -14,22 +17,22 @@ class PairCountBase(object):
     """
     Base class for pair counting algorithms, either for a simulation box
     or survey data
+
+    Parameters
+    ----------
+    mode : {'1d', '2d'}
+        compute paircounts as a function of ``r`` and ``mu`` or just ``r``
+    source1 : CatalogSource
+        the first source of particles
+    source2 : CatalogSource, optional
+        the second source of particles to cross-correlate
+    redges : array_like
+        the radius bin edges; length of nbins+1
+    Nmu : int
+        the number of ``mu`` bins to use; bins range from [0,1]
     """
     def __init__(self, mode, source1, source2, redges, Nmu):
-        """
-        Parameters
-        ----------
-        mode : {'1d', '2d'}
-            compute paircounts as a function of ``r`` and ``mu`` or just ``r``
-        source1 : CatalogSource
-            the first source of particles
-        source2 : CatalogSource, optional
-            the second source of particles to cross-correlate
-        redges : array_like
-            the radius bin edges; length of nbins+1
-        Nmu : int
-            the number of ``mu`` bins to use; bins range from [0,1]
-        """
+
         assert mode in ['1d', '2d'], "PairCount mode must be '1d' or '2d'"
         self.source1 = source1
         self.source2 = source2
@@ -55,7 +58,7 @@ class PairCountBase(object):
 
     def save(self, output):
         """
-        Save result as a JSON file
+        Save result as a JSON file with name ``output``
         """
         import json
         from nbodykit.utils import JSONEncoder
@@ -89,48 +92,54 @@ class PairCountBase(object):
 
 class SimulationBoxPairCount(PairCountBase):
     """
-    Count (weighted) pairs of objects in a simulation box using the :mod:`Corrfunc` package
+    Count (weighted) pairs of objects in a simulation box using the
+    :mod:`Corrfunc` package.
 
-    This uses the :func:`Corrfunc.theory.DD` and :func:`Corrfunc.theory.DDsmu`
-    functions to count pairs.
+    This uses the :func:`Corrfunc.theory.DD.DD` and
+    :func:`Corrfunc.theory.DDsmu.DDsmu` functions to count pairs.
+
+    Results are computed when the object is inititalized. See the documenation
+    of :func:`~SimulationBoxPairCount.run` for the attributes storing the
+    results.
 
     .. note::
 
         The algorithm expects the positions of particles in a simulation box to
         be the Cartesian ``x``, ``y``, and ``z`` vectors. To compute
         pair counts on survey data, using right ascension, declination, and
-        redshift, see :class:`SurveyDataPairCount`
+        redshift, see :class:`SurveyDataPairCount`.
+
+    Parameters
+    ----------
+    mode : {'1d', '2d'}
+        compute pair counts as a function of ``r`` and ``mu`` or just ``r``
+    source1 : CatalogSource
+        the first source of particles, providing the 'Position' column
+    redges : array_like
+        the radius bin edges; length of nbins+1
+    BoxSize : float, 3-vector, optional
+        the size of the box; if 'BoxSize' is not provided in the source
+        'attrs', it must be provided here
+    source2 : CatalogSource, optional
+        the second source of particles to cross-correlate
+    Nmu : int, optional
+        the number of ``mu`` bins, ranging from 0 to 1
+    los : {'x', 'y', 'z'}, int, optional
+        the axis of the simulation box to treat as the line-of-sight direction;
+        this can be provided as string identifying one of 'x', 'y', 'z' or
+        the equivalent integer number of the axis
+    periodic : bool, optional
+        whether to use periodic boundary conditions
+    weight : str, optional
+        the name of the column in the source specifying the particle weights
+    **config : key/value pairs
+        additional keywords to pass to the :mod:`Corrfunc` function
     """
     logger = logging.getLogger('SimulationBoxPairCount')
 
     def __init__(self, mode, source1, redges, BoxSize=None, periodic=True,
                     source2=None, Nmu=5, los='z', weight='Weight', **config):
-        """
-        Parameters
-        ----------
-        mode : {'1d', '2d'}
-            compute paircounts as a function of ``r`` and ``mu`` or just ``r``
-        source1 : CatalogSource
-            the first source of particles, providing the 'Position' column
-        redges : array_like
-            the radius bin edges; length of nbins+1
-        BoxSize : float, 3-vector, optional
-            the size of the box; if 'BoxSize' is not provided in the source
-            'attrs', it must be provided here
-        source2 : CatalogSource, optional
-            the second source of particles to cross-correlate
-        Nmu : int, optional
-            the number of ``mu`` bins, ranging from 0 to 1
-        los : str, int; {0,1,2} or {'x', 'y', 'z'}
-            the axis of the simulation box to treat as the line-of-sight direction
-        periodic : bool, optional
-            whether to use periodic boundary conditions
-        weight : str, optional
-            the name of the column in the source specifying the particle weights
-        **config : key/value pairs
-            additional keywords to pass to the :func:`Corrfunc.theory.DD`
-            function
-        """
+
         if isinstance(los, string_types):
             assert los in 'xyz', "``los`` should be one of 'x', 'y', 'z'"
             los = 'xyz'.index(los)
@@ -164,19 +173,29 @@ class SimulationBoxPairCount(PairCountBase):
         """
         Calculate the 3D pair-counts in a simulation box as a function
         of separation ``r`` or separation and angle to line-of-sight
-        (``r``, ``mu``)
+        (``r``, ``mu``). This adds the following attributes to the class:
+
+        - :attr:`result`
 
         Attributes
         ----------
         result : :class:`~nbodykit.binned_statistic.BinnedStatistic`
             a BinnedStatistic object holding the pair count and correlation
-            function results
+            function results. The coordinate grid is either ``r`` or
+            ``r`` and ``mu``. It stores the following variables:
+
+            - ``r``: the mean separation value in the bin
+            - ``xi``: the mean correlation function value in the bin, computed as
+              :math:`DD/RR - 1`, where :math:`RR` is the number of random pairs
+              in the bin
+            - ``npairs``: the number of pairs in the bin
+            - ``weightavg``: the average weight value in the bin; each pair
+              contributes the product of the individual weight values
         """
         if Corrfunc is None:
             raise ImportError(("please install Corrfunc using either ``conda install -c bccp corrfunc``"
                                " or from ``pip install pip install git+git://github.com/nickhand/Corrfunc``"))
-        from pmesh.domain import GridND
-        from nbodykit.algorithms.fof import split_size_3d
+
 
         # some setup
         redges = self.attrs['redges']
@@ -320,60 +339,59 @@ class SimulationBoxPairCount(PairCountBase):
 class SurveyDataPairCount(PairCountBase):
     """
     Count (weighted) pairs of objects from a survey data catalog using the
-    :mod:`Corrfunc` package
+    :mod:`Corrfunc` package.
 
-    This uses the :func:`Corrfunc.mocks.DD` and :func:`Corrfunc.mocks.DDsmu`
-    functions to count pairs.
+    This uses the:func:`Corrfunc.mocks.DDsmu_mocks.DDsmu_mocks`
+    function to count pairs.
+
+    Results are computed when the object is inititalized. See the documenation
+    of :func:`~SurveyDataPairCount.run` for the attributes storing the
+    results.
 
     .. note::
 
         The algorithm expects the positions of particles from a survey catalog
         be the sky coordinates, right ascension and declination, and redshift.
         To compute pair counts in a simulation box, using the Cartesian
-        coordinate vectors, see :class:`SimulationBoxPairCount`
+        coordinate vectors, see :class:`SimulationBoxPairCount`.
 
     .. warning::
         The right ascension and declination columns should be specified
-        in degrees
+        in degrees.
+
+    Parameters
+    ----------
+    mode : {'1d', '2d'}
+        compute paircounts as a function of ``r`` and ``mu`` or just ``r``
+    source1 : CatalogSource
+        the first source of particles, providing the 'Position' column
+    redges : array_like
+        the radius bin edges; length of nbins+1
+    cosmo : :class:`~nbodykit.cosmology.core.Cosmology`
+        the cosmology instance used to convert redshift into comoving distance
+    source2 : CatalogSource, optional
+        the second source of particles to cross-correlate
+    Nmu : int, optional
+        the number of ``mu`` bins, ranging from 0 to 1
+    ra : str, optional
+        the name of the column in the source specifying the
+        right ascension coordinates in units of degrees; default is 'RA'
+    dec : str, optional
+        the name of the column in the source specifying the declination
+        coordinates; default is 'DEC'
+    redshift : str, optional
+        the name of the column in the source specifying the redshift
+        coordinates; default is 'Redshift'
+    weight : str, optional
+        the name of the column in the source specifying the object weights
+    **config : key/value pairs
+        additional keywords to pass to the :mod:`Corrfunc` function
     """
     logger = logging.getLogger('SurveyDataPairCount')
 
     def __init__(self, mode, source1, redges, cosmo, source2=None, Nmu=5,
                     ra='RA', dec='DEC', redshift='Redshift', weight='Weight', **config):
-        """
-        .. note::
-            The right ascension and declination columns should be specified
-            in degrees
 
-        Parameters
-        ----------
-        mode : {'1d', '2d'}
-            compute paircounts as a function of ``r`` and ``mu`` or just ``r``
-        source1 : CatalogSource
-            the first source of particles, providing the 'Position' column
-        redges : array_like
-            the radius bin edges; length of nbins+1
-        cosmo : :class:`~nbodykit.cosmology.core.Cosmology`
-            the cosmology instance used to convert redshift into comoving distance
-        source2 : CatalogSource, optional
-            the second source of particles to cross-correlate
-        Nmu : int, optional
-            the number of ``mu`` bins, ranging from 0 to 1
-        ra : str, optional
-            the name of the column in the source specifying the
-            right ascension coordinates in units of degrees; default is 'RA'
-        dec : str, optional
-            the name of the column in the source specifying the declination
-            coordinates; default is 'DEC'
-        redshift : str, optional
-            the name of the column in the source specifying the redshift
-            coordinates; default is 'Redshift'
-        weight : str, optional
-            the name of the column in the source specifying the object weights
-        **config : key/value pairs
-            additional keywords to pass to the :func:`Corrfunc.theory.DD`
-            function
-        """
         # verify the input sources
         verify_input_sources(source1, source2, None, [ra, dec, redshift, weight], inspect_boxsize=False)
 
@@ -395,19 +413,25 @@ class SurveyDataPairCount(PairCountBase):
         """
         Calculate the 3D pair-counts of a survey data catalog as a function
         of separation ``r`` or separation and angle to line-of-sight
-        (``r``, ``mu``)
+        (``r``, ``mu``). This adds the following attribute:
+
+        - :attr:`result`
 
         Attributes
         ----------
         result : :class:`~nbodykit.binned_statistic.BinnedStatistic`
             a BinnedStatistic object holding the pair count and correlation
-            function results
+            function results. The coordinate grid is either ``r`` or
+            ``r`` and ``mu``. It stores the following variables:
+
+            - ``r``: the mean separation value in the bin
+            - ``npairs``: the number of pairs in the bin
+            - ``weightavg``: the average weight value in the bin; each pair
+              contributes the product of the individual weight values
         """
         if Corrfunc is None:
             raise ImportError(("please install Corrfunc using either ``conda install -c bccp corrfunc``"
                                " or from ``pip install pip install git+git://github.com/nickhand/Corrfunc``"))
-        from pmesh.domain import GridND
-        from nbodykit.algorithms.fof import split_size_3d
         from nbodykit.transform import StackColumns
 
         # some setup

@@ -5,83 +5,42 @@ from mpi4py import MPI
 from nbodykit import CurrentMPIComm
 from nbodykit.transform import ConstantArray
 
-def scotts_bin_width(data, comm):
-    r"""
-    Return the optimal histogram bin width using Scott's rule,
-    defined as:
-
-    .. math::
-
-        h = \sigma \sqrt[3]{\frac{24 * \sqrt{\pi}}{n}}
-
-    .. note::
-
-        This is a collective operation
-
-    Parameters
-    ----------
-    data : array_like
-        the array that we are histograming
-    comm :
-        the MPI communicator
-
-    Returns
-    -------
-    dx : float
-        the bin spacing
-    edges : array_like
-        the array holding the bin edges
-    """
-    # compute the mean
-    csum = comm.allreduce(data.sum())
-    csize = comm.allreduce(data.size)
-    cmean = csum / csize
-
-    # std dev
-    rsum = comm.allreduce((abs(data - cmean)**2).sum())
-    sigma = (rsum / csize)**0.5
-
-    dx = sigma * (24. * numpy.sqrt(numpy.pi) / csize) ** (1. / 3)
-    maxval = comm.allreduce(data.max(), op=MPI.MAX)
-    minval = comm.allreduce(data.min(), op=MPI.MIN)
-
-    Nbins = numpy.ceil((maxval - minval) * 1. / dx)
-    Nbins = max(1, Nbins)
-    edges = minval + dx * numpy.arange(Nbins + 1)
-    return dx, edges
-
 class RedshiftHistogram(object):
     """
     Compute the mean number density as a function of redshift
-    :math:`n(z)` from an input Source of particles.
+    :math:`n(z)` from an input CatalogSource of particles.
 
-    .. warning:: The units of the number density are :math:`(\mathrm{Mpc}/h)^{-3}`
+    Results are computed when the object is inititalized. See the documenation
+    of :func:`~RedshiftHistogram.run` for the attributes storing the results.
+
+    .. note::
+        The units of the number density are :math:`(\mathrm{Mpc}/h)^{-3}`
+
+    Parameters
+    ----------
+    source : CatalogSource
+        the source of particles holding the redshift column to histogram
+    fsky : float
+        the sky area fraction, which is used in the volume calculation when
+        normalizing :math:`n(z)`
+    cosmo : :class:`nbodykit.cosmology.core.Cosmology`
+        the cosmological parameters, which are used to compute the volume
+        from redshift shells when normalizing :math:`n(z)`
+    bins : int or sequence of scalars, optional
+        If `bins` is an int, it defines the number of equal-width
+        bins in the given range. If `bins` is a sequence, it defines the bin
+        edges, including the rightmost edge, allowing for non-uniform bin widths.
+        If not provided, Scott's rule is used to estimate the optimal bin width
+        from the input data (default)
+    redshift : str, optional
+        the name of the column specifying the redshift data
+    weight : str, optional
+        the name of the column specifying weights to use when histogramming the data
     """
     logger = logging.getLogger('RedshiftHistogram')
 
     def __init__(self, source, fsky, cosmo, bins=None, redshift='Redshift', weight=None):
-        """
-        Parameters
-        ----------
-        source : CatalogSource
-            the source of particles holding the redshift column to histogram
-        fsky : float
-            the sky area fraction, which is used in the volume calculation when
-            normalizing :math:`n(z)`
-        cosmo : :class:`nbodykit.cosmology.core.Cosmology`
-            the cosmological parameters, which are used to compute the volume
-            from redshift shells when normalizing :math:`n(z)`
-        bins : int or sequence of scalars, optional
-            If `bins` is an int, it defines the number of equal-width
-            bins in the given range. If `bins` is a sequence, it defines the bin
-            edges, including the rightmost edge, allowing for non-uniform bin widths.
-            If not provided, Scott's rule is used to estimate the optimal bin width
-            from the input data (default)
-        redshift : str, optional
-            the name of the column specifying the redshift data
-        weight : str, optional
-            the name of the column specifying weights to use when histogramming the data
-        """
+
         # input columns need to be there
         for col in [redshift, weight]:
             if col is not None and col not in source:
@@ -120,8 +79,16 @@ class RedshiftHistogram(object):
     def run(self):
         """
         Run the algorithm, which computes the histogram. This function
-        does not return anything, but adds several attributes
-        to the class (see below).
+        does not return anything, but adds the following attributes
+        to the class:
+
+        - :attr:`bin_edges`
+        - :attr:`bin_centers`
+        - :attr:`dV`
+        - :attr:`nbar`
+
+        .. note::
+            All ranks store the same result attributes.
 
         Attributes
         ----------
@@ -218,3 +185,48 @@ class RedshiftHistogram(object):
         self.__setstate__(state)
         self.comm = comm
         return self
+
+def scotts_bin_width(data, comm):
+    r"""
+    Return the optimal histogram bin width using Scott's rule,
+    defined as:
+
+    .. math::
+
+        h = \sigma \sqrt[3]{\frac{24 * \sqrt{\pi}}{n}}
+
+    .. note::
+
+        This is a collective operation
+
+    Parameters
+    ----------
+    data : array_like
+        the array that we are histograming
+    comm :
+        the MPI communicator
+
+    Returns
+    -------
+    dx : float
+        the bin spacing
+    edges : array_like
+        the array holding the bin edges
+    """
+    # compute the mean
+    csum = comm.allreduce(data.sum())
+    csize = comm.allreduce(data.size)
+    cmean = csum / csize
+
+    # std dev
+    rsum = comm.allreduce((abs(data - cmean)**2).sum())
+    sigma = (rsum / csize)**0.5
+
+    dx = sigma * (24. * numpy.sqrt(numpy.pi) / csize) ** (1. / 3)
+    maxval = comm.allreduce(data.max(), op=MPI.MAX)
+    minval = comm.allreduce(data.min(), op=MPI.MIN)
+
+    Nbins = numpy.ceil((maxval - minval) * 1. / dx)
+    Nbins = max(1, Nbins)
+    edges = minval + dx * numpy.arange(Nbins + 1)
+    return dx, edges

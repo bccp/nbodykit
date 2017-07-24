@@ -4,11 +4,12 @@ import numpy
 import logging
 from mpi4py import MPI
 from nbodykit.source import ArrayCatalog
+from nbodykit.utils import split_size_3d
 
 class FOF(object):
     """
     A friend-of-friend halo finder that computes the a label for
-    each particle, denoting which halo it belongs to
+    each particle, denoting which halo it belongs to.
 
     Friend-of-friend was first used by Davis et al 1985 to define
     halos in hierachical structure formation of cosmological simulations.
@@ -18,24 +19,31 @@ class FOF(object):
     The underlying local FOF algorithm is from :mod:`kdcount.cluster`,
     which is an adaptation of the implementation in Volker Springel's
     Gadget and Martin White's PM.
+
+    Results are computed when the object is inititalized. See the documenation
+    of :func:`~FOF.run` for the attributes storing the results.
+
+    For returning a CatalogSource of the FOF halos, see :func:`find_features`
+    and for computing a halo catalog with added analytic information for
+    a specific redshift and cosmology, see :func:`to_halos`.
+
+    Parameters
+    ----------
+    source : CatalogSource
+        the source to run the FOF algorithm on; must support 'Position'
+    linking_length : float
+        the linking length, either in absolute units, or relative
+        to the mean particle separation
+    nmin : int
+        halo with fewer particles are ignored
+    absolute : bool, optional
+        If `True`, the linking length is in absolute units, otherwise it is
+        relative to the mean particle separation; default is `False`
     """
     logger = logging.getLogger('FOF')
 
     def __init__(self, source, linking_length, nmin, absolute=False):
-        """
-        Parameters
-        ----------
-        source : CatalogSource
-            the source to run the FOF algorithm on; must support 'Position'
-        linking_length : float
-            the linking length, either in absolute units, or relative
-            to the mean particle separation
-        nmin : int
-            halo with fewer particles are ignored
-        absolute : bool, optional
-            If `True`, the linking length is in absolute units, otherwise it is
-            relative to the mean particle separation; default is `False`
-        """
+
         self.comm = source.comm
         self._source = source
 
@@ -61,13 +69,20 @@ class FOF(object):
         Run the FOF algorithm. This function returns nothing, but does
         attach several attributes to the class instance:
 
-        Each attribute is scattered evenly across all ranks.
+        - attr:`labels`
+        - :attr:`max_labels`
+
+        .. note::
+            The :attr:`labels` array is scattered evenly across all ranks.
 
         Attributes
         ----------
-        labels : array_like
-            an array holding the number of particles in the input
-            source that specifies which halo each particle belongs to
+        labels : array_like, length: :attr:`size`
+            an array the label that specifies which FOF halo each particle
+            belongs to
+        max_label : int
+            the maximum label across all ranks; this represents the total
+            number of FOF halos found
         """
         # run the FOF
         minid = fof(self._source, self._linking_length, self.comm)
@@ -78,19 +93,21 @@ class FOF(object):
 
     def find_features(self, peakcolumn=None):
         """
-        Basd on the particles labels, identify the groups, and return
-        the center-of-mass CMPosition, CMVelocity, and Length of each feature
-        if a peakcolumn is given, the PeakPosition and PeakVelocity is also
-        calculated for the particle at the peak value of the column.
+        Based on the particle labels, identify the groups, and return
+        the center-of-mass ``CMPosition``, ``CMVelocity``, and Length of each
+        feature.
+
+        If a ``peakcolumn`` is given, the ``PeakPosition`` and ``PeakVelocity``
+        is also calculated for the particle at the peak value of the column.
 
         Data is scattered evenly across all ranks.
 
         Returns
         -------
-        CatalogSource :
+        :class:`~nbodykit.source.catalog.array.ArrayCatalog` :
             a source holding the ('CMPosition', 'CMVelocity', 'Length')
-            of each feature, optionaly, PeakPosition, PeakVelocity are also included
-            if peakcolumn is not None
+            of each feature; optionaly, ``PeakPosition``, ``PeakVelocity`` are
+            also included if ``peakcolumn`` is not None
         """
         # the center-of-mass (Position, Velocity, Length)
         halos = fof_catalog(self._source, self.labels, self.comm, peakcolumn=peakcolumn)
@@ -98,22 +115,23 @@ class FOF(object):
         attrs.update(self.attrs)
         return ArrayCatalog(halos, comm=self.comm, **attrs)
 
-    def to_halos(self, particle_mass, cosmo, redshift, mdef='vir', posdef='cm', peakcolumn='Density'):
+    def to_halos(self, particle_mass, cosmo, redshift, mdef='vir',
+                    posdef='cm', peakcolumn='Density'):
         """
-        Return a :class:`HaloCatalog`, holding the center-of-mass position and
-        velocity of each halo, as well as properly scaled mass. The returned catalog
-        also has default analytic prescriptions for halo radius and concentration.
+        Return a :class:`~nbodykit.source.catalog.halos.HaloCatalog`, holding
+        the center-of-mass position and velocity of each FOF halo, as well as
+        the properly scaled mass, for a given cosmology and redshift.
 
-        The data is scattered evenly across all ranks. Note that a copy of
-        the data stored :attr:`halos` is returned.
+        The returned catalog also has default analytic prescriptions for
+        halo radius and concentration.
+
+        The data is scattered evenly across all ranks.
 
         Parameters
         ----------
-        source : CatalogSource
-            the source containing info about the particles in each halo
         particle_mass : float
-            the particle mass, used to compute the number of particles in
-            each halo to a total mass
+            the particle mass, which is used to convert the number of particles
+            in each halo to a total mass
         cosmo : :class:`nbodykit.cosmology.core.Cosmology`
             the cosmology of the catalog
         redshift : float
@@ -131,12 +149,12 @@ class FOF(object):
 
         Returns
         -------
-        cat : nbodykit.source.HaloCatalog
+        :class:`~nbodykit.source.catalog.halos.HaloCatalog`
             a HaloCatalog at the specified cosmology and redshift
         """
         from nbodykit.source import HaloCatalog
 
-        assert posdef in ['cm', 'peak']
+        assert posdef in ['cm', 'peak'], "``posdef`` should be 'cm' or 'peak'"
 
         # meta-data
         attrs = self._source.attrs.copy()
@@ -177,10 +195,10 @@ def _assign_labels(minid, comm, thresh):
     minid : array_like, ('i8')
         The minimum particle id of the halo. All particles of a halo
         have the same minid
-    thresh : int
-        halo with less than thresh particles are merged into halo 0
     comm : py:class:`MPI.Comm`
         communicator. since this is a collective operation
+    thresh : int
+        halo with less than thresh particles are merged into halo 0
 
     Returns
     -------
@@ -473,27 +491,6 @@ def fof_catalog(source, label, comm,
 # -----------------------
 # Helpers
 # -----------------------
-def split_size_3d(s):
-    """ Split `s` into two integers,
-        a and d, such that a * d == s and a <= d
-
-        returns:  a, d
-    """
-    a = int(s** 0.33333) + 1
-    d = s
-    while a > 1:
-        if s % a == 0:
-            s = s // a
-            break
-        a = a - 1
-    b = int(s**0.5) + 1
-    while b > 1:
-        if s % b == 0:
-            s = s // b
-            break
-        b = b - 1
-    return a, b, s
-
 def equiv_class(labels, values, op, dense_labels=False, identity=None, minlength=None):
     """
     apply operation to equivalent classes by label, on values

@@ -8,7 +8,24 @@ from nbodykit.meshtools import SlabIterator
 from pmesh.pm import ComplexField
 
 class FFTPowerBase(object):
-    """ Base class provides functions for FFT based Power spectrum code """
+    """
+    Base class provides functions for periodic FFT based Power spectrum code
+
+    Parameters
+    ----------
+    first : CatalogSource
+        the first catalog source
+    second : CatalogSource, None
+        the second source, or None for auto-correlations
+    Nmesh : int, 3-vector
+        the number of cells per mesh size
+    BoxSize : 3-vector
+        the size of the box
+    kmin : float
+        the edge of the first ``k`` bin
+    dk : float
+        the size of the linearly spaced ``k`` bins
+    """
 
     def __init__(self, first, second, Nmesh, BoxSize, kmin, dk):
         from pmesh.pm import ParticleMesh
@@ -112,7 +129,7 @@ class FFTPowerBase(object):
         """
         Load a saved FFTPower result.
 
-        The result has been saved to disk with :func:`FFTPower.save`.
+        The result has been saved to disk with :func:`save`.
         """
         import json
         from nbodykit.utils import JSONDecoder
@@ -128,70 +145,50 @@ class FFTPowerBase(object):
 
         return self
 
-
-
 class FFTPower(FFTPowerBase):
     """
     Algorithm to compute the 1d or 2d power spectrum and/or multipoles
-    in a periodic box, using a Fast Fourier Transform (FFT)
+    in a periodic box, using a Fast Fourier Transform (FFT).
 
-    Notes
-    -----
-    The algorithm saves the power spectrum results to a plaintext file,
-    as well as the meta-data associted with the algorithm. The names of the
-    columns saved to file are:
+    This computes the power spectrum as the square of the Fourier modes of the
+    density field, which are computed via a FFT.
 
-        - k :
-            the mean value for each `k` bin
-        - mu : 2D power only
-            the mean value for each `mu` bin
-        - power.real, power.imag : 1D/2D power only
-            the real and imaginary components of 1D power
-        - power_X.real, power_X.imag : multipoles only
-            the real and imaginary components for the `X` multipole
-        - modes :
-            the number of Fourier modes averaged together in each bin
+    Results are computed when the object is inititalized. See the documenation
+    of :func:`~FFTPower.run` for the attributes storing the results.
 
-    The plaintext files also include meta-data associated with the algorithm:
-
-        - Lx, Ly, Lz :
-            the length of each side of the box used when computing FFTs
-        - volumne :
-            the volume of the box; equal to ``Lx*Ly*Lz``
-        - N1 :
-            the number of objects in the 1st catalog
-        - N2 :
-            the number of objects in the 2nd catalog; equal to `N1`
-            if the power spectrum is an auto spectrum
+    Parameters
+    ----------
+    first : CatalogSource, MeshSource
+        the source for the first field; if a CatalogSource is provided, it
+        is automatically converted to MeshSource using the default painting
+        parameters (via :func:`~nbodykit.base.catalogmesh.CatalogMeshSource.to_mesh`)
+    mode : {'1d', '2d'}
+        compute either 1d or 2d power spectra
+    Nmesh : int, optional
+        the number of cells per side in the particle mesh used to paint the source
+    BoxSize : int, 3-vector, optional
+        the size of the box
+    second : CatalogSource, MeshSource, optional
+        the second source for cross-correlations
+    los : array_like , optional
+        the direction to use as the line-of-sight; must be a unit vector
+    Nmu : int, optional
+        the number of mu bins to use from :math:`\mu=[0,1]`;
+        if `mode = 1d`, then ``Nmu`` is set to 1
+    dk : float, optional
+        the linear spacing of ``k`` bins to use; if not provided, the
+        fundamental mode  of the box is used
+    kmin : float, optional
+        the lower edge of the first ``k`` bin to use
+    poles : list of int, optional
+        a list of multipole numbers ``ell`` to compute :math:`P_\ell(k)`
+        from :math:`P(k,\mu)`
     """
     logger = logging.getLogger('FFTPower')
 
     def __init__(self, first, mode, Nmesh=None, BoxSize=None, second=None,
                     los=[0, 0, 1], Nmu=5, dk=None, kmin=0., poles=[]):
-        """
-        Parameters
-        ----------
-        comm :
-            the MPI communicator
-        first : CatalogSource, MeshSource
-            the source for the first field. CatalogSource is automatically converted to MeshSource
-        mode : {'1d', '2d'}
-            compute either 1d or 2d power spectra
-        Nmesh : int
-            the number of cells per side in the particle mesh used to paint the source
-        second : CatalogSource, MeshSource, optional
-            the second source for cross-correlations
-        los : array_like , optional
-            the direction to use as the line-of-sight
-        Nmu : int, optional
-            the number of mu bins to use from mu=[0,1]; if `mode = 1d`, then `Nmu` is set to 1
-        dk : float, optional
-            the spacing of k bins to use; if not provided, the fundamental mode of the box is used
-        kmin : float, optional
-            the lower edge of the first ``k`` bin to use
-        poles : list of int, optional
-            a list of multipole numbers ``ell`` to compute :math:`P_\ell(k)` from :math:`P(k,\mu)`
-        """
+
         # mode is either '1d' or '2d'
         if mode not in ['1d', '2d']:
             raise ValueError("`mode` should be either '1d' or '2d'")
@@ -199,13 +196,19 @@ class FFTPower(FFTPowerBase):
         if poles is None:
             poles = []
 
+        # check los
+        if numpy.isscalar(los) or len(los) != 3:
+            raise ValueError("line-of-sight ``los`` should be vector with length 3")
+        if not numpy.allclose(numpy.einsum('i,i', los, los), 1.0, rtol=1e-5):
+            raise ValueError("line-of-sight ``los`` must be a unit vector")
+
         FFTPowerBase.__init__(self, first, second, Nmesh, BoxSize, kmin, dk)
 
         # save meta-data
-        self.attrs['mode']    = mode
-        self.attrs['los']     = los
-        self.attrs['Nmu']     = Nmu
-        self.attrs['poles']   = poles
+        self.attrs['mode'] = mode
+        self.attrs['los'] = los
+        self.attrs['Nmu'] = Nmu
+        self.attrs['poles'] = poles
 
         self.run()
 
@@ -213,19 +216,56 @@ class FFTPower(FFTPowerBase):
         """
         Compute the power spectrum in a periodic box, using FFTs. This
         function returns nothing, but attaches several attributes
-        to the class (see below).
+        to the class:
+
+        - :attr:`edges`
+        - :attr:`power`
+        - :attr:`poles`
 
         Attributes
         ----------
         edges : array_like
             the edges of the wavenumber bins
         power : :class:`~nbodykit.binned_statistic.BinnedStatistic`
-            a BinnedStatistic object that behaves similar to a structured array, with
-            fancy slicing and re-indexing; it holds the measured :math:`P(k)` or
-            :math:`P(k,\mu)`
+            a BinnedStatistic object that holds the measured :math:`P(k)` or
+            :math:`P(k,\mu)`. It stores the following variables:
+
+            - k :
+                the mean value for each ``k`` bin
+            - mu : ``mode=2d`` only
+                the mean value for each ``mu`` bin
+            - power.real, power.imag :
+                the real and imaginary components of the power
+            - modes :
+                the number of Fourier modes averaged together in each bin
+
         poles : :class:`~nbodykit.binned_statistic.BinnedStatistic` or ``None``
-            a BinnedStatistic object to hold the multipole results :math:`P_\ell(k)`;
-            if no multipoles were requested by the user, this is ``None``
+            a BinnedStatistic object to hold the multipole results
+            :math:`P_\ell(k)`; if no multipoles were requested by the user,
+            this is ``None``. It stores the following variables:
+
+            - k :
+                the mean value for each ``k`` bin
+            - power_X.real, power_X.imag :
+                the real and imaginary components for the :math:`\ell=X`
+                multipole
+            - modes :
+                the number of Fourier modes averaged together in each bin
+
+        attrs : dict
+            dictionary of meta-data; in addition to storing the input parameters,
+            it includes the following fields computed during the algorithm
+            execution:
+
+            - shotnoise : float
+                the power Poisson shot noise, equal to :math:`V/N`, where
+                :math:`V` is the volume of the box and `N` is the total
+                number of objects; if a cross-correlation is computed, this
+                will be equal to zero
+            - N1 : int
+                the total number of objects in the first source
+            - N2 : int
+                the total number of objects in the second source
         """
 
         # only need one mu bin if 1d case is requested
@@ -306,16 +346,6 @@ class FFTPower(FFTPowerBase):
         """
         Compute and return the 3D power from two input sources
 
-        Parameters
-        ----------
-        sources : list of CatalogSource or MeshSource
-            the list of sources which the 3D power will be computed
-        pm : ParticleMesh
-            the particle mesh object that handles the painting and FFTs
-        comm : MPI.Communicator, optional
-            the communicator to pass to the ParticleMesh object. If not
-            provided, ``MPI.COMM_WORLD`` is used
-
         Returns
         -------
         p3d : array_like (complex)
@@ -365,32 +395,74 @@ class FFTPower(FFTPowerBase):
         return p3d
 
 class ProjectedFFTPower(FFTPowerBase):
-    """ Projecting the field to a lower dimension then measure power.
+    """
+    The power spectrum of a field, projected over certain axes.
 
-        This is not really always physically meaningful, but convenient for making sense
-        of lyman-alpha forest or lensing maps.
-        This is usually called 1d power spectrum or 2d power spectrum.
+    This is not really always physically meaningful, but convenient for
+    making sense of Lyman-Alpha forest or lensing maps.
+
+    This is usually called the 1d power spectrum or 2d power spectrum.
+
+    Results are computed when the object is inititalized. See the documenation
+    of :func:`~ProjectedFFTPower.run` for the attributes storing the results.
+
+    Parameters
+    ----------
+    first : CatalogSource, MeshSource
+        the source for the first field; if a CatalogSource is provided, it
+        is automatically converted to MeshSource using the default painting
+        parameters (via :func:`~nbodykit.base.catalogmesh.CatalogMeshSource.to_mesh`)
+    Nmesh : int, optional
+        the number of cells per side in the particle mesh used to paint the source
+    BoxSize : int, 3-vector, optional
+        the size of the box
+    second : CatalogSource, MeshSource, optional
+        the second source for cross-correlations
+    axes : tuple
+        axes to measure the power on. The axes not in the list will be averaged out. example
+        (0, 1) : project to x,y and measure power
+        (0) : project to x and measure power.
+    dk : float, optional
+        the linear spacing of ``k`` bins to use; if not provided, the
+        fundamental mode  of the box is used
+    kmin : float, optional
+        the lower edge of the first ``k`` bin to use
     """
     logger = logging.getLogger('ProjectedFFTPower')
-    def __init__(self, first, Nmesh=None, BoxSize=None, second=None, axes=(0, 1), dk=None, kmin=0.):
-        """
-            Parameters
-            ----------
-            axes : tuple
-                axes to measure the power on. The axes not in the list will be averaged out. example
-                (0, 1) : project to x,y and measure power
-                (0) : project to x and measure power.
 
-        """
+    def __init__(self, first, Nmesh=None, BoxSize=None, second=None,
+                    axes=(0, 1), dk=None, kmin=0.):
+
         FFTPowerBase.__init__(self, first, second, Nmesh, BoxSize, kmin, dk)
 
         # only deal with 1d and 2d projections.
-        assert len(axes) in (1, 2)
+        assert len(axes) in (1, 2), "length of ``axes`` in ProjectedFFTPower should be 1 or 2"
 
         self.attrs['axes'] = axes
         self.run()
 
     def run(self):
+        """
+        Run the algorithm. This attaches the following attributes to the class:
+
+        - :attr:`edges`
+        - :attr:`power`
+
+        Attributes
+        ----------
+        edges : array_like
+            the edges of the wavenumber bins
+        power : :class:`~nbodykit.binned_statistic.BinnedStatistic`
+            a BinnedStatistic object that holds the projected power.
+            It stores the following variables:
+
+            - k :
+                the mean value for each ``k`` bin
+            - power.real, power.imag :
+                the real and imaginary components of the projected power
+            - modes :
+                the number of Fourier modes averaged together in each bin
+        """
         c1 = self._source2field(self.sources[0])
         r1 = c1.preview(self.pm.Nmesh, axes=self.attrs['axes'])
         # average along projected axes;
@@ -464,9 +536,9 @@ def project_to_basis(y3d, edges, los=[0, 0, 1], poles=[]):
     Project a 3D statistic on to the specified basis. The basis will be one
     of:
 
-        - 2D (`x`, `mu`) bins: `mu` is the cosine of the angle to the line-of-sight
-        - 2D (`x`, `ell`) bins: `ell` is the multipole number, which specifies
-          the Legendre polynomial when weighting different `mu` bins
+    - 2D (`x`, `mu`) bins: `mu` is the cosine of the angle to the line-of-sight
+    - 2D (`x`, `ell`) bins: `ell` is the multipole number, which specifies
+      the Legendre polynomial when weighting different `mu` bins
 
     .. note::
 
@@ -502,24 +574,24 @@ def project_to_basis(y3d, edges, los=[0, 0, 1], poles=[]):
     result : tuple
         the 2D binned results; a tuple of ``(xmean_2d, mumean_2d, y2d, N_2d)``, where:
 
-        xmean_2d : array_like, (Nx, Nmu)
+        - xmean_2d : array_like, (Nx, Nmu)
             the mean `x` value in each 2D bin
-        mumean_2d : array_like, (Nx, Nmu)
+        - mumean_2d : array_like, (Nx, Nmu)
             the mean `mu` value in each 2D bin
-        y2d : array_like, (Nx, Nmu)
+        - y2d : array_like, (Nx, Nmu)
             the mean `y3d` value in each 2D bin
-        N_2d : array_like, (Nx, Nmu)
+        - N_2d : array_like, (Nx, Nmu)
             the number of values averaged in each 2D bin
 
     pole_result : tuple or `None`
         the multipole results; if `poles` supplied it is a tuple of ``(xmean_1d, poles, N_1d)``,
         where:
 
-        xmean_1d : array_like, (Nx,)
+        - xmean_1d : array_like, (Nx,)
             the mean `x` value in each 1D multipole bin
-        poles : array_like, (Nell, Nx)
+        - poles : array_like, (Nell, Nx)
             the mean multipoles value in each 1D bin
-        N_1d : array_like, (Nx,)
+        - N_1d : array_like, (Nx,)
             the number of values averaged in each 1D bin
     """
     comm = y3d.pm.comm

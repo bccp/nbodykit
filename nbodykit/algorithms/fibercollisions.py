@@ -10,36 +10,45 @@ class FiberCollisions(object):
     """
     Run an angular FOF algorithm to determine fiber collision
     groups from an input catalog, and then assign fibers such that
-    the maximum amount of object receive a fiber. This amounts
-    to determining the following population of objects:
+    the maximum amount of object receive a fiber.
 
-        * population 1:
-            the maximal "clean" sample of objects in which each object is not
-            angularly collided with any other object in this subsample
-        * population 2:
-            the potentially-collided objects; these objects are those
-            that are fiber collided + those that have been "resolved"
-            due to multiple coverage in tile overlap regions
+    This amounts to determining the following population of objects:
 
-    See Guo et al. 2010 (http://arxiv.org/abs/1111.6598)for further details
+    - population 1:
+        the maximal "clean" sample of objects in which each object is not
+        angularly collided with any other object in this subsample
+    - population 2:
+        the potentially-collided objects; these objects are those
+        that are fiber collided + those that have been "resolved"
+        due to multiple coverage in tile overlap regions
+
+    Results are computed when the object is inititalized. See the documenation
+    of :func:`~FiberCollisions.run` for the attributes storing the results.
+
+    Parameters
+    ----------
+    ra : array_like
+        the right ascension coordinate column
+    dec : array_like
+        the declination coordinate column
+    collision_radius : float, optional
+        the size of the angular collision radius (in degrees); default
+        is 62 arcseconds
+    seed : int, optional
+        the random seed to use when determining which objects get fibers
+    degrees : bool, optional
+        set to `True` if the units of ``ra`` and ``dec`` are degrees
+
+    References
+    ----------
+    - `Guo et al. 2010 <http://arxiv.org/abs/1111.6598>`_
     """
     logger = logging.getLogger('FiberCollisions')
 
     @CurrentMPIComm.enable
-    def __init__(self, ra, dec, collision_radius=62/60./60., seed=None, degrees=True, comm=None):
-        """
-        Parameters
-        ----------
-        ra, dec : array_like
-            the RA, DEC arrays
-        collision_radius : float, optional
-            the size of the angular collision radius (in degrees); default
-            is 62 arcseconds
-        degrees : bool, optional
-            set to `True` if the units of ``ra`` and ``dec`` are degrees
-        seed : int, optional
-            the random seed
-        """
+    def __init__(self, ra, dec, collision_radius=62/60./60., seed=None,
+                    degrees=True, comm=None):
+
         # compute the pos
         ra = CatalogSource.make_column(ra)
         dec = CatalogSource.make_column(dec)
@@ -70,28 +79,36 @@ class FiberCollisions(object):
         if self.comm.rank == 0:
             self.logger.info("collision radius in degrees = %.4f" %collision_radius)
 
-        # compute and init the base class
+        # compute
         self.run()
 
     def run(self):
         """
-        Compute the FOF collision groups and assign fibers, such that
-        the maximum number of objects receive fibers. It attaches
-        the following attribute:
+        Run the fiber assignment algorithm. This attaches the following
+        attribute to the object:
+
+        - :attr:`labels`
+
+        .. note::
+
+            The :attr:`labels` attribute has a 1-to-1 correspondence with
+            the rows in the input source.
 
         Attributes
         ----------
-        labels: ParticleSouce
-            Label :
+        labels: :class:`~nbodykit.source.catalog.array.ArrayCatalog`; size: :attr:`size`
+            a CatalogSource that has the following columns:
+
+            - Label :
                 the group labels for each object in the input
-                DataSource; label == 0 objects are not in a group
-            Collided :
-                a flag array specifying which objects are
-                collided, i.e., do not receive a fiber
-            NeighborID :
-                for those objects that are collided, this
-                gives the (global) index of the nearest neighbor
-                on the sky (0-indexed), else it is set to -1
+                CatalogSource; label == 0 objects are not in a group
+            - Collided :
+                a flag array specifying which objects are collided, i.e., do
+                not receive a fiber
+            - NeighborID :
+                for those objects that are collided, this gives the (global)
+                index of the nearest neighbor on the sky (0-indexed) in
+                the input catalog ``source``, else it is set to -1
         """
         from astropy.utils.misc import NumpyRNGContext
         from nbodykit.algorithms import FOF
@@ -127,7 +144,7 @@ class FiberCollisions(object):
 
     def _assign_fibers(self, Label):
         """
-        Initernal function to divide the data by collision group
+        Internal function to divide the data by collision group
         across ranks and assign fibers, such that the minimum
         number of objects are collided out of the survey
         """
