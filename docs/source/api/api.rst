@@ -121,8 +121,8 @@ And subclasses:
 
 .. _api-algorithms:
 
-Algorithms
-----------
+Algorithms (:mod:`nbodykit.algorithms`)
+---------------------------------------
 
 Clustering Statistics
 ^^^^^^^^^^^^^^^^^^^^^
