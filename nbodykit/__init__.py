@@ -8,12 +8,16 @@ dask.set_options(get=dask.get)
 
 class CurrentMPIComm(object):
     """
-    The current MPI communicator
+    A class to faciliate getting and setting the current MPI communicator.
     """
     _instance = None
 
     @staticmethod
     def enable(func):
+        """
+        Decorator to attach the current MPI communicator to the input
+        keyword arguments of ``func``, via the ``comm`` keyword.
+        """
         import functools
         @functools.wraps(func)
         def wrapped(*args, **kwargs):
@@ -26,8 +30,8 @@ class CurrentMPIComm(object):
     @classmethod
     def get(cls):
         """
-        Get the communicator, return ``MPI.COMM_WORLD``
-        if the comm has not be explicitly set yet
+        Get the current MPI communicator, returning ``MPI.COMM_WORLD``
+        if it has not be explicitly set yet.
         """
         # initialize MPI and set the comm if we need to
         if not cls._instance:
@@ -39,14 +43,19 @@ class CurrentMPIComm(object):
     @classmethod
     def set(cls, comm):
         """
-        Set the communicator to the input value
+        Set the current MPI communicator to the input value.
         """
         cls._instance = comm
 
 _logging_handler = None
 def setup_logging(log_level="info"):
     """
-    Set the basic configuration of all loggers
+    Turn on logging, with the specified level.
+
+    Parameters
+    ----------
+    log_level : 'info', 'debug', 'warning'
+        the logging level to set; logging below this level is ignored
     """
 
     # This gives:

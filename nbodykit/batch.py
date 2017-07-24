@@ -53,7 +53,7 @@ def enum(*sequential, **named):
 class TaskManager(object):
     """
     An MPI task manager that distributes tasks over a set of MPI processes,
-    using a specified number of independent workers to compute tasks.
+    using a specified number of independent workers to compute each task.
 
     Given the specified number of independent workers (which compute
     tasks in parallel), the total number of available CPUs will be
@@ -267,7 +267,7 @@ class TaskManager(object):
 
     def iterate(self, tasks):
         """
-        A generator that iterates through a series of tasks in parallel
+        A generator that iterates through a series of tasks in parallel.
 
         Notes
         -----

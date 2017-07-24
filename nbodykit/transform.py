@@ -31,8 +31,8 @@ def StackColumns(*cols):
 
 def CombineSources(*sources, **kwargs):
     """
-    Concatenate Source objects together, optionally including only
-    certain columns in the returned source
+    Concatenate CatalogSource objects together, optionally including only
+    certain columns in the returned source.
 
     Parameters
     ----------
@@ -199,7 +199,8 @@ def SkyToCartesion(ra, dec, redshift, cosmo, degrees=True, interpolate_cdist=Tru
 def HaloConcentration(mass, cosmo, redshift, mdef='vir'):
     """
     Return halo concentration from halo mass, based on the analytic fitting
-    formulas presented in Dutton and Maccio 2014.
+    formulas presented in
+    `Dutton and Maccio 2014 <https://arxiv.org/abs/1402.7073>`_.
 
     .. note::
         The units of the input mass are assumed to be :math:`M_{\odot}/h`

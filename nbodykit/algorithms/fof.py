@@ -8,7 +8,7 @@ from nbodykit.utils import split_size_3d
 
 class FOF(object):
     """
-    A friend-of-friend halo finder that computes the a label for
+    A friend-of-friend halo finder that computes the label for
     each particle, denoting which halo it belongs to.
 
     Friend-of-friend was first used by Davis et al 1985 to define

@@ -396,7 +396,7 @@ class FFTPower(FFTPowerBase):
 
 class ProjectedFFTPower(FFTPowerBase):
     """
-    The power spectrum of a field, projected over certain axes.
+    The power spectrum of a field in a periodic box, projected over certain axes.
 
     This is not really always physically meaningful, but convenient for
     making sense of Lyman-Alpha forest or lensing maps.

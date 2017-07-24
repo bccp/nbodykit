@@ -175,7 +175,7 @@ class SimulationBoxPairCount(PairCountBase):
         of separation ``r`` or separation and angle to line-of-sight
         (``r``, ``mu``). This adds the following attributes to the class:
 
-        - :attr:`result`
+        - :attr:`SimulationBoxPairCount.result`
 
         Attributes
         ----------
@@ -415,7 +415,7 @@ class SurveyDataPairCount(PairCountBase):
         of separation ``r`` or separation and angle to line-of-sight
         (``r``, ``mu``). This adds the following attribute:
 
-        - :attr:`result`
+        - :attr:`SurveyDataPairCount.result`
 
         Attributes
         ----------

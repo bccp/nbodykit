@@ -12,7 +12,8 @@ from pmesh.pm import RealField, ComplexField
 class FKPMeshSource(CatalogMeshSource):
     """
     A subclass of :class:`~nbodykit.base.catalogmesh.CatalogMeshSource`
-    designed to paint the FKP density field to a mesh.
+    designed to paint a :class:`~nbodykit.source.catalog.fkp.FKPCatalog` to
+    a mesh.
 
     This requires ``data`` and ``randoms`` CatalogSource objects.
     """
@@ -201,8 +202,9 @@ def FKPColumn(self, which, col):
 
 class FKPCatalog(CatalogSource):
     """
-    Combine a `data` CatalogSource and a `randoms` CatalogSource
-    into a single object.
+    An interface for simultaneous modeling of a `data` CatalogSource and a
+    `randoms` CatalogSource, in the spirt of
+    `Feldman, Kaiser, and Peacock, 1994 <https://arxiv.org/abs/astro-ph/9304022>`_.
 
     This main functionality of this class is:
 
@@ -228,6 +230,10 @@ class FKPCatalog(CatalogSource):
     use_cache : bool, optional
         if ``True``, use the built-in dask cache system to cache
         data, providing significant speed-ups; requires :mod:`cachey`
+
+    References
+    ----------
+    * Feldman, Kaiser, and Peacock, 1994.
     """
     logger = logging.getLogger('FKPCatalog')
 

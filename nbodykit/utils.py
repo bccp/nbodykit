@@ -50,7 +50,7 @@ def deprecate(name, alternative, alt_name=None):
 
 def GatherArray(data, comm, root=0):
     """
-    Gather the input data array from all ranks to the specified ``root``
+    Gather the input data array from all ranks to the specified ``root``.
 
     This uses `Gatherv`, which avoids mpi4py pickling, and also
     avoids the 2 GB mpi4py limit for bytes using a custom datatype
@@ -166,9 +166,9 @@ def GatherArray(data, comm, root=0):
 def ScatterArray(data, comm, root=0, counts=None):
     """
     Scatter the input data array across all ranks, assuming `data` is
-    initially only on `root` (and `None` on other ranks)
+    initially only on `root` (and `None` on other ranks).
 
-    This uses `Scatterv`, which avoids mpi4py pickling, and also
+    This uses ``Scatterv``, which avoids mpi4py pickling, and also
     avoids the 2 GB mpi4py limit for bytes using a custom datatype
 
     Parameters
@@ -279,8 +279,13 @@ import json
 from astropy.units import Quantity, Unit
 
 class JSONEncoder(json.JSONEncoder):
+    """
+    A subclass of :class:`json.JSONEncoder` that can also handle numpy arrays,
+    complex values, and :class:`astropy.units.Quantity` objects.
+    """
     def default(self, obj):
 
+        # astropy quantity
         if isinstance(obj, Quantity):
 
             d = {}
@@ -295,9 +300,11 @@ class JSONEncoder(json.JSONEncoder):
             d['__data__'] = value
             return d
 
+        # complex values
         elif isinstance(obj, complex):
             return {'__complex__': [obj.real, obj.imag ]}
 
+        # numpy arrays
         elif isinstance(obj, numpy.ndarray):
             value = obj
             dtype = obj.dtype
@@ -318,6 +325,10 @@ class JSONEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 class JSONDecoder(json.JSONDecoder):
+    """
+    A subclass of :class:`json.JSONDecoder` that can also handle numpy arrays,
+    complex values, and :class:`astropy.units.Quantity` objects.
+    """
     @staticmethod
     def hook(value):
         def fixdtype(dtype):
