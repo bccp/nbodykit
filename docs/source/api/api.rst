@@ -200,6 +200,7 @@ MPI Utilities
     nbodykit.CurrentMPIComm
     nbodykit.CurrentMPIComm.enable
     nbodykit.CurrentMPIComm.get
+    nbodykit.CurrentMPIComm.set
     nbodykit.utils.GatherArray
     nbodykit.utils.ScatterArray
 
