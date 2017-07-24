@@ -88,7 +88,7 @@ class CatalogMeshSource(MeshSource, CatalogSource):
         """
         Whether to use interlacing when interpolating the density field.
 
-        See also: `Sefusatti et al. <https://arxiv.org/abs/1512.07295>`
+        See also: `Sefusatti et al. <https://arxiv.org/abs/1512.07295>`_
         """
         return self.attrs['interlaced']
 

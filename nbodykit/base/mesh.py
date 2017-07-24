@@ -219,7 +219,7 @@ class MeshSource(object):
         -------
         :class:`~pmesh.pm.RealField`, :class:`~pmesh.pm.ComplexField` :
             either a RealField of ComplexField, with the functions in
-            :attrs:`actions` applied to it
+            :attr:`actions` applied to it
         """
         if not mode in ['real', 'complex']:
             raise ValueError('mode must be "real" or "complex"')
