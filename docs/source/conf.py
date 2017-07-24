@@ -374,5 +374,6 @@ intersphinx_mapping = {
     'dask': ('http://dask.pydata.org/en/stable/', None),
     'halotools': ('https://halotools.readthedocs.io/en/latest/', None),
     'pmesh': ('http://rainwoodman.github.io/pmesh/', None),
-    'Corrfunc': ('http://corrfunc.readthedocs.io/en/master/', None)
+    'Corrfunc': ('http://corrfunc.readthedocs.io/en/master/', None),
+    'h5py': ('http://docs.h5py.org/en/latest/', None)
 }

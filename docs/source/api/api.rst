@@ -9,6 +9,8 @@ summarize the most important aspects of the API below.
    :local:
    :backlinks: none
 
+.. _api-io:
+
 The IO Library (:mod:`nbodykit.io`)
 -----------------------------------
 
@@ -31,6 +33,9 @@ Subclasses available from the :mod:`nbodykit.io` module:
   ~hdf.HDFFile
   ~stack.FileStack
   ~tpm.TPMBinaryFile
+
+
+.. _api-cosmology:
 
 Cosmology (:mod:`nbodykit.cosmology`)
 -------------------------------------
@@ -56,6 +61,8 @@ Name                                  Source                         H0    Om   
 :attr:`~nbodykit.cosmology.Planck15`  Planck Collab 2015, Paper XIII 67.7  0.307 Yes
 ===================================== ============================== ====  ===== =======
 
+.. _api-transform:
+
 Transforming Catalog Data (:mod:`nbodykit.transform`)
 ------------------------------------------------------
 
@@ -73,8 +80,10 @@ Transforming Catalog Data (:mod:`nbodykit.transform`)
 Data Sources
 ------------
 
-Discrete Particles
-^^^^^^^^^^^^^^^^^^
+.. _api-discrete-data:
+
+Discrete Objects
+^^^^^^^^^^^^^^^^
 
 Base class:
 
@@ -101,6 +110,18 @@ And subclasses:
   ~lognormal.LogNormalCatalog
   ~uniform.UniformCatalog
   ~uniform.RandomCatalog
+
+
+Interpolating Objects to a Mesh
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autosummary::
+
+    ~nbodykit.base.catalogmesh.CatalogMeshSource
+    ~nbodykit.source.catalog.fkp.FKPMeshSource
+
+
+.. _api-data-mesh:
 
 Data Directly on a Mesh
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -183,14 +204,6 @@ Analyzing Results (:class:`~nbodykit.binned_statistic.BinnedStatistic`)
 
 Internal Nuts and Bolts
 ------------------------
-
-From CatalogSource to MeshSource
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. autosummary::
-
-    ~nbodykit.base.catalogmesh.CatalogMeshSource
-    ~nbodykit.source.catalog.fkp.FKPMeshSource
 
 MPI Utilities
 ^^^^^^^^^^^^^

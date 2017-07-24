@@ -66,16 +66,11 @@ work.
 Insulating Data from Algorithms
 -------------------------------
 
-A major goal of the project is to provide a unified treatment of
-both simulation and observational datasets, allowing nbodykit to
-be used in the analysis of not only N-body simulations, but also
-data from current and future large-scale structure surveys.
+nbodykit aims to provide a unified treatment of
+both simulation and observational datasets, allowing it to
+be used in the analysis of data from not only N-body simulations, but also
+from current and future large-scale structure surveys.
 
-Discrete Catalogs of Particles
-------------------------------
-
-From Catalogs to Mesh Data
---------------------------
 
 Running your Favorite Algorithm
 -------------------------------

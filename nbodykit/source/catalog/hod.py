@@ -268,7 +268,7 @@ class HODBase(ArrayCatalog):
 
 class HODCatalog(HODBase):
     """
-    A `CatalogSource` that uses the HOD prescription of Zheng et al 2007
+    A CatalogSource that uses the HOD prescription of Zheng et al 2007
     to populate an input halo catalog with galaxies.
 
     The mock population is done using :mod:`halotools`. See the documentation

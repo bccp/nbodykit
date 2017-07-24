@@ -62,22 +62,18 @@ Getting Started
 Playing with Data
 -----------------
 
-* :doc:`data/reading`
-* :doc:`data/on-demand-io`
-* :doc:`data/common-operations`
-* :doc:`data/painting`
-* :doc:`data/generating`
+* :doc:`catalogs/index`
+* :doc:`painting`
+* :doc:`mesh-data`
 
 .. toctree::
   :maxdepth: 1
   :caption: Playing with Data
   :hidden:
 
-  data/reading
-  data/on-demand-io
-  data/common-operations
-  data/painting
-  data/generating
+  catalogs/index
+  painting
+  mesh-data
 
 .. _getting-results:
 

@@ -3,7 +3,10 @@ from nbodykit.io.stack import FileStack
 from nbodykit import CurrentMPIComm
 from nbodykit import io
 from nbodykit.extern import docrep
+
+from six import string_types
 import textwrap
+import os
 
 __all__ = ['FileCatalogBase', 'CSVCatalog', 'BinaryCatalog', 'BigFileCatalog',
             'HDFCatalog', 'TPMBinaryCatalog', 'FITSCatalog']
@@ -54,12 +57,17 @@ class FileCatalogBase(CatalogSource):
         CatalogSource.__init__(self, comm=comm, use_cache=use_cache)
 
     def __repr__(self):
-        try:
-            import os
-            args = (self.__class__.__name__, os.path.basename(self._source.path))
-            return "%s(file='%s')" % args
-        except:
+        if self.size is NotImplemented:
             return CatalogSource.__repr__(self)
+        else:
+            path = self._source.path
+            name = self.__class__.__name__
+            if isinstance(path, string_types):
+                args = (name, self.size, os.path.basename(path))
+                return "%s(size=%d, file='%s')" % args
+            else:
+                args = (name, self.size, self._source.nfiles)
+                return "%s(size=%d, nfiles=%d)" % args
 
     @property
     def size(self):
@@ -92,11 +100,59 @@ class FileCatalogBase(CatalogSource):
             return CatalogSource.get_hardcolumn(self, col)
 
 
-def FileCatalogFactory(name, filetype):
+def _make_docstring(filetype, examples):
+    """
+    Internal function to generate the doc strings for the built-in
+    CatalogSource objects that rely on :mod:`nbodykit.io` classes
+    to read data from disk.
+    """
+
+    qualname = '%s.%s' %(filetype.__module__, filetype.__name__)
+    __doc__ = """A CatalogSource that uses :class:`~{qualname}` to read data from disk.
+
+Multiple files can be read at once by supplying a list of file
+names or a glob asterisk pattern as the ``path`` argument. See
+:ref:`reading-multiple-files` for examples.
+
+Parameters
+----------
+%(test.parameters)s
+comm : MPI Communicator, optional
+    the MPI communicator instance; default (``None``) sets to the
+    current communicator
+use_cache : bool, optional
+    whether to cache data read from disk; default is ``False``
+attrs : dict, optional
+    dictionary of meta-data to store in :attr:`attrs`
+""".format(qualname=qualname)
+
+    if examples is not None:
+        __doc__ += """
+Examples
+--------
+See more examples `here <nbodykit.rtfd.io/en/docs/catalogs/reading.html#%s>`_
+""" %examples
+
+    # get the Parameters from the IO libary class
+    d = docrep.DocstringProcessor()
+    d.get_sections(d.dedents(filetype.__doc__), 'test', ['Parameters'])
+    return d.dedents(__doc__)
+
+def FileCatalogFactory(name, filetype, examples=None):
     """
     Factory method to create subclasses of :class:`FileCatalogBase`
     that use specific classes from :mod:`nbodykit.io` to read
     different types of data from disk.
+
+    Parameters
+    ----------
+    name : str
+        the name of the catalog class to create
+    filetype : subclass of :class:`nbodykit.io.base.FileType`
+        the subclass of the FileType that reads a specific type of data
+    examples : str, optional
+        if given, a documentation cross-reference link where examples can be
+        found
     """
     def __init__(self, *args, **kwargs):
         comm = kwargs.pop('comm', None)
@@ -105,30 +161,16 @@ def FileCatalogFactory(name, filetype):
         FileCatalogBase.__init__(self, filetype=filetype, args=args, kwargs=kwargs)
         self.attrs.update(attrs)
 
-    qualname = '%s.%s' %(filetype.__module__, filetype.__name__)
-    __doc__ = "A CatalogSource that uses :class:`~%s` to read data from disk." % qualname
-    __doc__ += "\n\nParameters\n----------\n%(test.parameters)s"
-    __doc__ +=  textwrap.dedent("""
-    comm : MPI Communicator, optional
-        the MPI communicator instance; default (``None``) sets to the
-        current communicator
-    use_cache : bool, optional
-        whether to cache data read from disk; default is ``False``
-    attrs : dict, optional
-        dictionary of meta-data to store in :attr:`attrs`
-    """)
-    # get the Parameters from the IO libary class
-    d = docrep.DocstringProcessor()
-    d.get_sections(d.dedents(filetype.__doc__), 'test', ['Parameters'])
-    __doc__ = d.dedents(__doc__)
+        # make the doc string for this class
+        __doc__ = _make_docstring(filetype, examples)
 
     # make the new class object and return it
     newclass = type(name, (FileCatalogBase,),{"__init__": __init__, "__doc__":__doc__})
     return newclass
 
-CSVCatalog       = FileCatalogFactory("CSVCatalog", io.CSVFile)
-BinaryCatalog    = FileCatalogFactory("BinaryCatalog", io.BinaryFile)
-BigFileCatalog   = FileCatalogFactory("BigFileCatalog", io.BigFile)
-HDFCatalog       = FileCatalogFactory("HDFCatalog", io.HDFFile)
+CSVCatalog       = FileCatalogFactory("CSVCatalog", io.CSVFile, examples='reading-csv-data')
+BinaryCatalog    = FileCatalogFactory("BinaryCatalog", io.BinaryFile, examples='reading-binary-data')
+BigFileCatalog   = FileCatalogFactory("BigFileCatalog", io.BigFile, examples='reading-bigfile-data')
+HDFCatalog       = FileCatalogFactory("HDFCatalog", io.HDFFile, examples='reading-hdf-data')
 TPMBinaryCatalog = FileCatalogFactory("TPMBinaryCatalog", io.TPMBinaryFile)
-FITSCatalog      = FileCatalogFactory("FITSCatalog", io.FITSFile)
+FITSCatalog      = FileCatalogFactory("FITSCatalog", io.FITSFile, examples='reading-fits-data')

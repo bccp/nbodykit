@@ -35,7 +35,7 @@ class FileStack(FileType):
             raise ValueError("the stack of `filetype` objects must be subclasses of `FileType`")
 
         self.path = path
-        
+
         # save the list of relevant files
         if isinstance(path, list):
             filenames = path
@@ -49,7 +49,7 @@ class FileStack(FileType):
                 filenames = [os.path.abspath(path)]
         else:
             raise ValueError("'path' should be a string or a list of strings")
-        self.files = [filetype(fn, **kwargs) for fn in filenames]
+        self.files = [filetype(fn, *args, **kwargs) for fn in filenames]
         self.sizes = numpy.array([len(f) for f in self.files], dtype='i8')
 
         # set dtype and size
