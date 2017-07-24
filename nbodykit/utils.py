@@ -3,6 +3,37 @@ from mpi4py import MPI
 import warnings
 import functools
 
+def split_size_3d(s):
+    """
+    Split `s` into three integers, a, b, c, such
+    that a * b * c == s and a <= b <= c
+
+    Parameters
+    -----------
+    s : int
+        integer to split
+
+    Returns
+    -------
+    a, b, c: int
+        integers such that a * b * c == s and a <= b <= c
+    """
+    a = int(s** 0.3333333) + 1
+    d = s
+    while a > 1:
+        if s % a == 0:
+            s = s // a
+            break
+        a = a - 1
+    b = int(s ** 0.5) + 1
+    while b > 1:
+        if s % b == 0:
+            s = s // b
+            break
+        b = b - 1
+    c = s
+    return a, b, c
+
 def deprecate(name, alternative, alt_name=None):
     """
     This is a decorator which can be used to mark functions
