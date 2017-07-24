@@ -373,5 +373,6 @@ intersphinx_mapping = {
     'astropy': ('http://docs.astropy.org/en/stable/', None),
     'dask': ('http://dask.pydata.org/en/stable/', None),
     'halotools': ('https://halotools.readthedocs.io/en/latest/', None),
-    'pmesh': ('http://rainwoodman.github.io/pmesh/', None)
+    'pmesh': ('http://rainwoodman.github.io/pmesh/', None),
+    'Corrfunc': ('http://corrfunc.readthedocs.io/en/master/', None)
 }
