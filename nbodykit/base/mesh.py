@@ -6,6 +6,11 @@ class MeshSource(object):
     """
     Base class for a source in the form of an input grid.
 
+    .. note:
+
+        Subclasses of this class must implement either :func:`to_real_field`
+        or :func:`to_complex_field`
+
     Parameters
     ----------
     comm :
@@ -202,7 +207,7 @@ class MeshSource(object):
         any transformation functions specified in :attr:`actions`.
 
         The return type of the :mod:`pmesh` Field object is specified by
-        ``mode``. This calls :func:`to_field` to convert the mesh to a Field. 
+        ``mode``. This calls :func:`to_field` to convert the mesh to a Field.
 
         Parameters
         ----------
