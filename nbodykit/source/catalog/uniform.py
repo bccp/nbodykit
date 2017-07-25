@@ -143,7 +143,8 @@ class RandomCatalog(CatalogSource):
         the MPI communicator; set automatically if None
     """
     def __repr__(self):
-        return "RandomCatalog(seed=%(seed)s)" % self.attrs
+        args = (self.size, self.attrs['seed'])
+        return "RandomCatalog(size=%d, seed=%s)" % args
 
     @CurrentMPIComm.enable
     def __init__(self, csize, seed=None, comm=None, use_cache=False):
@@ -203,7 +204,8 @@ class UniformCatalog(RandomCatalog):
         whether to cache data on disk
     """
     def __repr__(self):
-        return "UniformCatalog(seed=%(seed)s)" % self.attrs
+        args = (self.size, self.attrs['seed'])
+        return "UniformCatalog(size=%d, seed=%s)" % args
 
     @CurrentMPIComm.enable
     def __init__(self, nbar, BoxSize, seed=None, comm=None, use_cache=False):
