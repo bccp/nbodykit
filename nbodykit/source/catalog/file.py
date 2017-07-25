@@ -8,8 +8,9 @@ from six import string_types
 import textwrap
 import os
 
-__all__ = ['FileCatalogBase', 'CSVCatalog', 'BinaryCatalog', 'BigFileCatalog',
-            'HDFCatalog', 'TPMBinaryCatalog', 'FITSCatalog']
+__all__ = ['FileCatalogFactory', 'FileCatalogBase',
+           'CSVCatalog', 'BinaryCatalog', 'BigFileCatalog',
+           'HDFCatalog', 'TPMBinaryCatalog', 'FITSCatalog']
 
 class FileCatalogBase(CatalogSource):
     """
@@ -130,7 +131,7 @@ attrs : dict, optional
         __doc__ += """
 Examples
 --------
-See more examples `here <nbodykit.rtfd.io/en/docs/catalogs/reading.html#%s>`_
+Examples can be found :ref:`here <%s>`.
 """ %examples
 
     # get the Parameters from the IO libary class
@@ -161,16 +162,16 @@ def FileCatalogFactory(name, filetype, examples=None):
         FileCatalogBase.__init__(self, filetype=filetype, args=args, kwargs=kwargs)
         self.attrs.update(attrs)
 
-        # make the doc string for this class
-        __doc__ = _make_docstring(filetype, examples)
+    # make the doc string for this class
+    __doc__ = _make_docstring(filetype, examples)
 
     # make the new class object and return it
     newclass = type(name, (FileCatalogBase,),{"__init__": __init__, "__doc__":__doc__})
     return newclass
 
-CSVCatalog       = FileCatalogFactory("CSVCatalog", io.CSVFile, examples='reading-csv-data')
-BinaryCatalog    = FileCatalogFactory("BinaryCatalog", io.BinaryFile, examples='reading-binary-data')
-BigFileCatalog   = FileCatalogFactory("BigFileCatalog", io.BigFile, examples='reading-bigfile-data')
-HDFCatalog       = FileCatalogFactory("HDFCatalog", io.HDFFile, examples='reading-hdf-data')
+CSVCatalog       = FileCatalogFactory("CSVCatalog", io.CSVFile, examples='csv-data')
+BinaryCatalog    = FileCatalogFactory("BinaryCatalog", io.BinaryFile, examples='binary-data')
+BigFileCatalog   = FileCatalogFactory("BigFileCatalog", io.BigFile, examples='bigfile-data')
+HDFCatalog       = FileCatalogFactory("HDFCatalog", io.HDFFile, examples='hdf-data')
 TPMBinaryCatalog = FileCatalogFactory("TPMBinaryCatalog", io.TPMBinaryFile)
-FITSCatalog      = FileCatalogFactory("FITSCatalog", io.FITSFile, examples='reading-fits-data')
+FITSCatalog      = FileCatalogFactory("FITSCatalog", io.FITSFile, examples='fits-data')
