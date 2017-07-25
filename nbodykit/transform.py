@@ -151,8 +151,13 @@ def SkyToUnitSphere(ra, dec, degrees=True):
 
 def SkyToCartesion(ra, dec, redshift, cosmo, degrees=True, interpolate_cdist=True):
     """
-    Convert sky coordinates (``ra``, ``dec``, ``redshift``) to Cartesian
-    coordinates.
+    Convert sky coordinates (``ra``, ``dec``, ``redshift``) to a
+    Cartesian ``Position`` column.
+
+
+    .. warning::
+
+        The returned Cartesian position is in units of Mpc/h.
 
     Parameters
     -----------
@@ -174,7 +179,7 @@ def SkyToCartesion(ra, dec, redshift, cosmo, degrees=True, interpolate_cdist=Tru
     -------
     pos : :class:`dask.array.Array`; shape: (N,3)
         the cartesian position coordinates, where columns represent
-        ``x``, ``y``, and ``z``
+        ``x``, ``y``, and ``z`` in units of Mpc/h
 
     Raises
     ------
