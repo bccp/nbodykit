@@ -58,17 +58,14 @@ class FileCatalogBase(CatalogSource):
         CatalogSource.__init__(self, comm=comm, use_cache=use_cache)
 
     def __repr__(self):
-        if self.size is NotImplemented:
-            return CatalogSource.__repr__(self)
+        path = self._source.path
+        name = self.__class__.__name__
+        if isinstance(path, string_types):
+            args = (name, self.size, os.path.basename(path))
+            return "%s(size=%d, file='%s')" % args
         else:
-            path = self._source.path
-            name = self.__class__.__name__
-            if isinstance(path, string_types):
-                args = (name, self.size, os.path.basename(path))
-                return "%s(size=%d, file='%s')" % args
-            else:
-                args = (name, self.size, self._source.nfiles)
-                return "%s(size=%d, nfiles=%d)" % args
+            args = (name, self.size, self._source.nfiles)
+            return "%s(size=%d, nfiles=%d)" % args
 
     @property
     def size(self):
