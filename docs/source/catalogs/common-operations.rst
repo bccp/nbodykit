@@ -1,5 +1,14 @@
 .. currentmodule:: nbodykit.base.catalog
 
+.. ipython:: python
+    :suppress:
+
+    import tempfile, os
+    startdir = os.path.abspath('.')
+    tmpdir = tempfile.mkdtemp()
+    os.chdir(tmpdir)
+
+
 .. _common-operations:
 
 Common Data Operations
@@ -270,3 +279,10 @@ max values using functions available in the :mod:`dask.array` module.
 
     print("min(sin(ra)) = ", src.compute(sin_ra.min()))
     print("max(sin(ra)) = ", src.compute(sin_ra.max()))
+
+.. ipython:: python
+    :suppress:
+
+    import shutil
+    os.chdir(startdir)
+    shutil.rmtree(tmpdir)
