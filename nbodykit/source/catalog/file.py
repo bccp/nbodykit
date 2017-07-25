@@ -21,9 +21,9 @@ class FileCatalogBase(CatalogSource):
 
     Parameters
     ----------
-    filetype : subclass of :class:`nbodykit.io.FileType`
+    filetype : subclass of :class:`~nbodykit.io.base.FileType`
         the file-like class used to load the data from file; should be a
-        subclass of :class:`nbodykit.io.FileType`
+        subclass of :class:`nbodykit.io.base.FileType`
     args : tuple, optional
         the arguments to pass to the ``filetype`` class when constructing
         each file object
@@ -141,9 +141,9 @@ Examples can be found :ref:`here <%s>`.
 
 def FileCatalogFactory(name, filetype, examples=None):
     """
-    Factory method to create subclasses of :class:`FileCatalogBase`
-    that use specific classes from :mod:`nbodykit.io` to read
-    different types of data from disk.
+    Factory method to create a :class:`~nbodykit.base.catalog.CatalogSource`
+    that uses a subclass of :mod:`nbodykit.io.base.FileType` to read
+    data from disk.
 
     Parameters
     ----------
@@ -154,6 +154,11 @@ def FileCatalogFactory(name, filetype, examples=None):
     examples : str, optional
         if given, a documentation cross-reference link where examples can be
         found
+
+    Returns
+    -------
+    subclass of :class:`FileCatalogBase` :
+        the ``CatalogSource`` object that reads data using ``filetype``
     """
     def __init__(self, *args, **kwargs):
         comm = kwargs.pop('comm', None)
