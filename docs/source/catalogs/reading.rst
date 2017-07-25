@@ -43,11 +43,19 @@ keywords that this function does. The partitioning step provides a significant
 speed-up when reading from the end of the file, since the entirety of the data
 does not need to be read first.
 
-.. note::
-  By default, the class reads space-separated data with no comments or header
-  lines in the input data file.
+**Caveats**
 
-As an example, here we generate 5 columns for 100 fake objects and write
+- By default, the class reads space-separated columns, but this can be
+  changed by setting ``delim_whitespace=False`` and changing the ``delimiter``
+  keyword
+- A :mod:`pandas` index column is not supported -- all columns should represent
+  data columns to read.
+- Commented lines in the file are not supported -- please remove all comments
+  from the file before loading into nbodykit.
+- There should not be a header line in the file -- column names should be passed
+  to :class:`~file.CSVCatalog` via the ``names`` argument.
+
+As an example, below we generate 5 columns for 100 fake objects and write
 to a plaintext file:
 
 .. ipython:: python
@@ -79,10 +87,15 @@ Binary Data
 
 The :class:`~file.BinaryCatalog` object reads binary data that is stored
 on disk in a column-major format. The class can read any numpy data type
-and can handle arbitrary byte offsets between columns. However, the column
-data must be stored in successive order in the binary file (column-major).
+and can handle arbitrary byte offsets between columns.
 
-For example,
+**Caveats**
+
+- Columns must be stored in consecutive order in the binary file
+  (column-major format).
+
+For example, below we save a ``Position`` and ``Velocity`` column to a binary
+file and read it with :class:`~file.BinaryCatalog`:
 
 .. ipython:: python
 
@@ -107,13 +120,24 @@ HDF Data
 ^^^^^^^^
 
 The :class:`~file.HDFCatalog` object uses the :mod:`h5py` module to read
-HDF files. The class supports reading columns stored in :class:`h5py.Dataset`
+HDF5 files. The class supports reading columns stored in :class:`h5py.Dataset`
 objects and in :class:`h5py.Group` objects, assuming that all arrays are of the
 same length since the catalog has a fixed size. Columns stored in different
 datasets or groups can be accessed via their full path in the HDF file.
 
+**Caveats**
+
+- :class:`~file.HDFCatalog` attempts to load all possible datasets or groups
+  from the HDF5 file. This can present problems if the data has different lengths.
+  Use the ``exclude`` keyword to explicitly exclude data that has the wrong
+  size.
+
 In the example below, we load fake data from both the dataset "Data1" and
-from the group "Data2" in an example HDF5 file:
+from the group "Data2" in an example HDF5 file. "Data1" is a single structured
+numpy array with ``Position`` and ``Velocity`` columns, while "Data2" is a
+group storing the ``Position`` and ``Velocity`` columns separately. nbodykit
+is able to load both types of data from HDF5 files, and the corresponding
+column names are the full paths of the data in the file.
 
 .. ipython:: python
 
@@ -148,8 +172,13 @@ The `bigfile <https://github.com/rainwoodman/bigfile>`_ package is a massively
 parallel IO library for large, hierarchical datasets, and nbodykit supports
 reading data stored in this format using :class:`~file.BigFileCatalog`.
 
-Below, we read "Position" and "Velocity" columns, stored in the :mod:`bigfile`
-format:
+**Caveats**
+
+- As for :class:`~file.HDFCatalog`, datasets of the wrong size stored in a
+bigfile format should be explicitly excluded using the ``exclude`` keyword.
+
+Below, we read ``Position`` and ``Velocity`` columns, stored in the
+:mod:`bigfile` format:
 
 .. ipython:: python
 
@@ -187,7 +216,13 @@ The `FITS <https://fits.gsfc.nasa.gov>`_ data format is supported via the
 `fitsio <https://github.com/esheldon/fitsio>`_ package to perform the read
 operation.
 
-For example, below we read "Position" and "Velocity" data from a FITS file:
+**Caveats**
+
+- The FITS file must contain a readable binary table of data.
+- Specific extensions to read can be passed via the ``ext`` keyword. By default,
+  data is read from the first HDU that has readable data. 
+
+For example, below we read ``Position`` and ``Velocity`` data from a FITS file:
 
 .. ipython:: python
 
