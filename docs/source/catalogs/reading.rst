@@ -20,16 +20,17 @@ nbodykit provides support for initializing
 :class:`~nbodykit.base.catalog.CatalogSource` objects by reading tabular data
 stored on disk in a variety of formats:
 
-* :ref:`reading-csv-data`
-* :ref:`reading-binary-data`
-* :ref:`reading-hdf-data`
-* :ref:`reading-bigfile-data`
-* :ref:`reading-fits-data`
+* :ref:`csv-data`
+* :ref:`binary-data`
+* :ref:`hdf-data`
+* :ref:`bigfile-data`
+* :ref:`fits-data`
 
 In this section, we provide short examples illustrating how to read data
-stored in each of these formats.
+stored in each of these formats. If your data format is not currently
+supported, please see :ref:`custom-data-format`.
 
-.. _reading-csv-data:
+.. _csv-data:
 
 Plaintext Data
 ^^^^^^^^^^^^^^
@@ -69,7 +70,7 @@ to a plaintext file:
     print("total size = ", f.csize)
 
 
-.. _reading-binary-data:
+.. _binary-data:
 
 Binary Data
 ^^^^^^^^^^^
@@ -98,7 +99,7 @@ For example,
     print("columns = ", f.columns) # default Weight,Selection also present
     print("total size = ", f.csize)
 
-.. _reading-hdf-data:
+.. _hdf-data:
 
 HDF Data
 ^^^^^^^^
@@ -137,7 +138,7 @@ from the group "Data2" in an example HDF5 file:
     print("columns = ", f.columns) # default Weight,Selection also present
     print("total size = ", f.csize)
 
-.. _reading-bigfile-data:
+.. _bigfile-data:
 
 Bigfile Data
 ^^^^^^^^^^^^
@@ -175,7 +176,7 @@ format:
     print("columns = ", f.columns) # default Weight,Selection also present
     print("total size = ", f.csize)
 
-.. _reading-fits-data:
+.. _fits-data:
 
 FITS Data
 ^^^^^^^^^
@@ -272,9 +273,100 @@ Using a list of file names
     # combined catalog is 100+100=200
     print("total size = ", f.csize)
 
+.. _custom-data-format:
+
 Reading a Custom Data Format
 ----------------------------
 
+.. currentmodule:: nbodykit.io
+
+Users can implement their own subclasses of :class:`CatalogSource` for reading
+custom data formats with a few easy steps. The core functionality of the
+:class:`CatalogSource` classes described in this section use the
+:mod:`nbodykit.io` module for reading data from disk. This module implements the
+:class:`nbodykit.io.base.FileType` base class, which is an abstract
+class that behaves like a :obj:`file`-like object. For the built-in
+file formats discussed in this section, we have implemented the following
+subclasses of :class:`~nbodykit.io.base.FileType` in the :mod:`nbodykit.io`
+module: :class:`~csv.CSVFile`, :class:`~binary.BinaryFile`,
+:class:`~bigfile.BigFile`, :class:`~hdf.HDFFile`, and :class:`~fits.FITSFile`.
+
+To make a valid subclass of :class:`~nbodykit.io.base.FileType`, users must:
+
+#. Implement the :func:`~nbodykit.io.base.FileType.read` function that reads
+   a range of the data from disk.
+#. Set the :attr:`size` in the :func:`__init__` function, specifying the total
+   size of the data on disk.
+#. Set the :attr:`dtype` in the :func:`__init__` function, specifying the type
+   of data stored on disk.
+
+Once we have the custom subclass implemented, the
+:func:`nbodykit.source.catalog.file.FileCatalogFactory` function can
+be used to automatically create a custom :class:`CatalogSource` object
+from the subclass.
+
+As a toy example, we will illustrate how this is done for data saved
+using the numpy ``.npy`` format. First, we will implement our
+subclass of the :class:`~nbodykit.io.base.FileType` class:
+
+.. ipython:: python
+
+    from nbodykit.io.base import FileType
+
+    class NPYFile(FileType):
+        """
+        A file-like object to read numpy ``.npy`` files
+        """
+        def __init__(self, path):
+            self.path = path
+            self.attrs = {}
+            # load the data and set size and dtype
+            self._data = numpy.load(self.path)
+            self.size = len(self._data) # total size
+            self.dtype = self._data.dtype # data dtype
+        def read(self, columns, start, stop, step=1):
+            """
+            Read the specified column(s) over the given range
+            """
+            return self._data[start:stop:step]
+
+And now generate the subclass of :class:`SourceCatalog`:
+
+.. ipython:: python
+
+    from nbodykit.source.catalog.file import FileCatalogFactory
+
+    NPYCatalog = FileCatalogFactory('NPYCatalog', NPYFile)
+
+And finally, we will generate some fake data, save it to a ``.npy`` file,
+and then load it with our new ``NPYCatalog`` class:
+
+.. ipython:: python
+
+    # generate the fake data
+    data = numpy.empty(1024, dtype=[('Position', ('f8', 3)), ('Mass', 'f8')])
+    data['Position'] = numpy.random.random(size=(1024, 3))
+    data['Mass'] = numpy.random.random(size=1024)
+
+    # save to a npy file
+    numpy.save("npy-example.npy", data)
+
+    # and now load the data
+    f = NPYCatalog("npy-example.npy")
+
+    print(f)
+    print("columns = ", f.columns) # default Weight,Selection also present
+    print("total size = ", f.csize)
+
+This toy example illustrates how custom data formats can be incorporated
+into nbodykit, but users should take care to optimize their storage
+solutions for more complex applications. In particulars, data storage formats
+that are stored in column-major format and allow data slices from arbitrary
+locations to be read should be favored. This enables large speed-ups when
+reading data in parallel. On the contrary, our simple toy example class
+:class:`NPYFile` reads the entirety of the data before returning
+a certain slice in the :func:`read` function. In general, this should be
+avoided if at all possible.
 
 
 .. ipython:: python
