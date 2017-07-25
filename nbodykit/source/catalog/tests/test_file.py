@@ -35,6 +35,8 @@ def test_hdf(comm):
 @MPITest([1])
 def test_csv(comm):
 
+    CurrentMPIComm.set(comm)
+    
     with tempfile.NamedTemporaryFile() as ff:
 
         # generate data
@@ -76,8 +78,8 @@ def test_stack_glob(comm):
     # make sure all the columns are there
     assert all(col in f for col in names)
 
-    os.unlink('test-glob-1.dat')
-    os.unlink('test-glob-2.dat')
+    os.unlink(tmpfile1)
+    os.unlink(tmpfile2)
 
 @MPITest([1])
 def test_stack_list(comm):
@@ -103,5 +105,5 @@ def test_stack_list(comm):
     # make sure all the columns are there
     assert all(col in f for col in names)
 
-    os.unlink('test-list-1.dat')
-    os.unlink('test-list-2.dat')
+    os.unlink(tmpfile1)
+    os.unlink(tmpfile2)
