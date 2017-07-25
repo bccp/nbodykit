@@ -335,6 +335,9 @@ class CatalogSource(object):
         This should be called on the return value of :func:`read`
         to converts any dask arrays to numpy arrays.
 
+        If :attr:`use_cache` is ``True``, this internally caches data, using
+        dask's built-in cache features.
+
         Parameters
         -----------
         args : object
@@ -443,7 +446,7 @@ class CatalogSource(object):
                 weight='Weight', selection='Selection'):
         """
         Convert the CatalogSource to a MeshSource, using the specified
-        parameters. 
+        parameters.
 
         Parameters
         ----------
