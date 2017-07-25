@@ -57,9 +57,11 @@ to a plaintext file:
 
     # generate some fake ASCII data
     data = numpy.random.random(size=(100,5))
+
+    # save to a plaintext file
     numpy.savetxt('csv-example.dat', data, fmt='%.7e')
 
-    # name each of the input columns
+    # name each of the 5 input columns
     names =['a', 'b', 'c', 'd', 'e']
 
     # read the data
@@ -86,7 +88,7 @@ For example,
 
     from nbodykit.source.catalog import BinaryCatalog
 
-    # generate some fake data
+    # generate some fake data and save to a binary file
     with open('binary-example.dat', 'wb') as ff:
         pos = numpy.random.random(size=(1024, 3)) # fake Position column
         vel = numpy.random.random(size=(1024, 3)) # fake Velocity column
@@ -123,13 +125,12 @@ from the group "Data2" in an example HDF5 file:
     dset['Position'] = numpy.random.random(size=(1024, 3))
     dset['Mass'] = numpy.random.random(size=1024)
 
-    # write to file
+    # write to a HDF5 file
     with h5py.File('hdf-example.dat' , 'w') as ff:
         ff.create_dataset('Data1', data=dset)
         grp = ff.create_group('Data2')
         grp.create_dataset('Position', data=dset['Position']) # column as dataset
         grp.create_dataset('Mass', data=dset['Mass']) # column as dataset
-
 
     # read the data
     f = HDFCatalog('hdf-example.dat')
@@ -160,7 +161,7 @@ format:
     data['Position'] = numpy.random.random(size=(512, 3))
     data['Velocity'] = numpy.random.random(size=(512,3))
 
-    # write using bigfile
+    # save fake data to a BigFile
     with bigfile.BigFile('bigfile-example', create=True) as tmpff:
         with tmpff.create("Position", dtype=('f4', 3), size=512) as bb:
             bb.write(0, data['Position'])
@@ -198,7 +199,7 @@ For example, below we read "Position" and "Velocity" data from a FITS file:
     dset['Position'] = numpy.random.random(size=(1024, 3))
     dset['Mass'] = numpy.random.random(size=1024)
 
-    # write to file
+    # write to a FITS file using fitsio
     fitsio.write('fits-example.dat', dset, extname='Data')
 
     # read the data
@@ -234,10 +235,10 @@ As an example, below, we read data from two plaintext files into a single
     # generate data
     data = numpy.random.random(size=(100,5))
 
-    # save the first data file
+    # save the first plaintext data file
     numpy.savetxt('csv-example-1.dat', data, fmt='%.7e')
 
-    # and the second data file
+    # and the second plaintext data file
     numpy.savetxt('csv-example-2.dat', data, fmt='%.7e')
 
 
@@ -254,7 +255,7 @@ Using a glob pattern
 
     print(f)
 
-    # combined catalog is 100+100=200
+    # combined catalog size is 100+100=200
     print("total size = ", f.csize)
 
 Using a list of file names
@@ -270,7 +271,7 @@ Using a list of file names
 
     print(f)
 
-    # combined catalog is 100+100=200
+    # combined catalog size is 100+100=200
     print("total size = ", f.csize)
 
 .. _custom-data-format:
