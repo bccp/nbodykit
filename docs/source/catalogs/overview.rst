@@ -1,7 +1,13 @@
 .. currentmodule:: nbodykit.base.catalog
 
-Overview
-========
+Dealing with Discrete Data
+==========================
+
+The main interface for dealing with data in the form of catalogs of discrete
+objects is provided by subclasses of the
+:class:`nbodykit.base.catalog.CatalogSource` object.
+In this section, we provide an overview of the class and note important
+things to know. 
 
 .. contents::
    :depth: 2

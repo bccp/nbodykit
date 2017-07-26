@@ -175,7 +175,7 @@ reading data stored in this format using :class:`~file.BigFileCatalog`.
 **Caveats**
 
 - As for :class:`~file.HDFCatalog`, datasets of the wrong size stored in a
-bigfile format should be explicitly excluded using the ``exclude`` keyword.
+  bigfile format should be explicitly excluded using the ``exclude`` keyword.
 
 Below, we read ``Position`` and ``Velocity`` columns, stored in the
 :mod:`bigfile` format:
@@ -220,7 +220,7 @@ operation.
 
 - The FITS file must contain a readable binary table of data.
 - Specific extensions to read can be passed via the ``ext`` keyword. By default,
-  data is read from the first HDU that has readable data. 
+  data is read from the first HDU that has readable data.
 
 For example, below we read ``Position`` and ``Velocity`` data from a FITS file:
 
