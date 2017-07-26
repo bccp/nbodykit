@@ -1,0 +1,8 @@
+.dropdown-menu.globaltoc {
+  overflow: scroll;
+}
+
+.caption {
+  margin-left: 5px;
+  font-weight: bold
+}
