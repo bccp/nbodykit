@@ -121,7 +121,7 @@ Interpolating Objects to a Mesh
     ~nbodykit.source.catalog.fkp.FKPMeshSource
 
 
-.. _api-data-mesh:
+.. _api-mesh-data:
 
 Data Directly on a Mesh
 ^^^^^^^^^^^^^^^^^^^^^^^

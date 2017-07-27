@@ -7,7 +7,7 @@ The main interface for dealing with data in the form of catalogs of discrete
 objects is provided by subclasses of the
 :class:`nbodykit.base.catalog.CatalogSource` object.
 In this section, we provide an overview of the class and note important
-things to know. 
+things to know.
 
 .. contents::
    :depth: 2
@@ -33,6 +33,16 @@ the information about the objects in the catalog; common columns are
 that are valid for a given catalog can be accessed via the
 :attr:`CatalogSource.columns` attribute.
 
+Use Cases
+---------
+
+The :class:`CatalogSource` is an abstract base class -- it cannot be directly
+initialized. Instead, nbodykit includes several specialized catalog objects
+in the :mod:`nbodykit.source.catalog` module. In general, these subclasses
+fall into two categories:
+
+#. Reading data from disk (see :ref:`reading-catalogs`)
+#. Generating mock data at run time (see :ref:`mock-catalogs`)
 
 Requirements
 ------------
@@ -80,16 +90,11 @@ By default, all :class:`CatalogSource` objects include two default columns:
   A boolean column that selects a subset slice of the :class:`CatalogSource`.
   By default, this column is set to ``True`` for all objects.
 
-Use Cases
----------
+Storing Meta-data
+-----------------
 
-The :class:`CatalogSource` is an abstract base class -- it cannot be directly
-initialized. Instead, nbodykit includes several specialized catalog objects
-in the :mod:`nbodykit.source.catalog` module. In general, these subclasses
-fall into two categories:
-
-#. Reading data from disk (see :ref:`reading-catalogs`)
-#. Generating mock data at run time (see :ref:`mock-catalogs`)
+For all :class:`CatalogSource` objects, the input parameters and additional
+meta-data are stored in the :attr:`CatalogSource.attrs` dictionary attribute.
 
 API
 ---
