@@ -37,6 +37,7 @@ extensions = [
     'sphinx.ext.extlinks',
     'sphinx.ext.mathjax',
     'sphinx.ext.napoleon',
+    'sphinx.ext.viewcode',
     'IPython.sphinxext.ipython_directive',
     'IPython.sphinxext.ipython_console_highlighting',
     'sphinx.ext.todo',
@@ -79,7 +80,7 @@ numpydoc_class_members_toctree = False
 
 
 import matplotlib.pyplot as plt
-plt.style.use('ggplot')
+plt.style.use('seaborn-notebook')
 plot_rcparams = dict(plt.rcParams)
 
 # document __init__ when it has a docstring
