@@ -88,9 +88,8 @@ Data on a Mesh
 --------------
 
 * :doc:`Overview <mesh/overview>`
-* :doc:`mesh/painting`
-* :doc:`mesh/reading`
-* :doc:`mesh/generating`
+* :doc:`mesh/creating`
+* :doc:`mesh/common-operations`
 
 .. toctree::
   :maxdepth: 1
@@ -98,9 +97,8 @@ Data on a Mesh
   :hidden:
 
   Overview <mesh/overview>
-  mesh/painting
-  mesh/reading
-  mesh/generating
+  mesh/creating
+  mesh/common-operations
 
 .. _getting-results:
 
