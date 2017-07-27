@@ -36,7 +36,7 @@ class CatalogMeshSource(MeshSource, CatalogSource):
     """
     logger = logging.getLogger('CatalogMeshSource')
     def __repr__(self):
-        return "(%s as CatalogeMeshSource)" % repr(self.source)
+        return "(%s as CatalogMeshSource)" % repr(self.source)
 
     # intended to be used by CatalogSource internally
     def __init__(self, source, BoxSize, Nmesh, dtype, weight, selection, position='Position'):
@@ -88,7 +88,9 @@ class CatalogMeshSource(MeshSource, CatalogSource):
         """
         Whether to use interlacing when interpolating the density field.
 
-        See also: `Sefusatti et al. <https://arxiv.org/abs/1512.07295>`_
+        See :ref:`the documentation <interlacing>` for further details.
+
+        See also: Section 3.1 of `Sefusatti et al. 2015 <https://arxiv.org/abs/1512.07295>`_
         """
         return self.attrs['interlaced']
 
@@ -101,6 +103,8 @@ class CatalogMeshSource(MeshSource, CatalogSource):
         """
         String specifying the name of the interpolation kernel when
         gridding the density field.
+
+        See :ref:`the documentation <window-kernel>` for further details.
 
         .. note::
             Valid values must be in :attr:`pmesh.window.methods`
@@ -118,6 +122,8 @@ class CatalogMeshSource(MeshSource, CatalogSource):
         Boolean flag to indicate whether to correct for the windowing
         kernel introduced when interpolating the discrete particles to
         a continuous field.
+
+        See :ref:`the documentation <compensation>` for further details.
         """
         return self.attrs['compensated']
 
@@ -259,12 +265,12 @@ class CatalogMeshSource(MeshSource, CatalogSource):
 
         The compensation function is computed as:
 
-            * if ``interlaced = True``:
-              * :func:`CompensateCIC` if using CIC window
-              * :func:`CompensateTSC` if using TSC window
-            * if ``interlaced = False``:
-              * :func:`CompensateCICAliasing` if using CIC window
-              * :func:`CompensateTSCAliasing` if using TSC window
+        - if ``interlaced = True``:
+          - :func:`CompensateCIC` if using CIC window
+          - :func:`CompensateTSC` if using TSC window
+        - if ``interlaced = False``:
+          - :func:`CompensateCICAliasing` if using CIC window
+          - :func:`CompensateTSCAliasing` if using TSC window
         """
         if self.interlaced:
             d = {'cic' : CompensateCIC,

@@ -263,7 +263,7 @@ class MeshSource(object):
         """
         Gather the mesh into as a numpy array, with
         (reduced) resolution. The result is broadcast to
-        all ranks, so this uses :math:`Nmesh^3` per rank.
+        all ranks, so this uses :math:`\mathrm{Nmesh}^3` per rank.
 
         Parameters
         ----------
