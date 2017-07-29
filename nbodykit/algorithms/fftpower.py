@@ -336,11 +336,11 @@ class FFTPower(FFTPowerBase):
     def _make_datasets(self):
 
         if self.attrs['mode'] == '1d':
-            self.power = BinnedStatistic(['k'], [self.edges], self.power, fields_to_sum=['modes'])
+            self.power = BinnedStatistic(['k'], [self.edges], self.power, fields_to_sum=['modes'], **self.attrs)
         else:
-            self.power = BinnedStatistic(['k', 'mu'], self.edges, self.power, fields_to_sum=['modes'])
+            self.power = BinnedStatistic(['k', 'mu'], self.edges, self.power, fields_to_sum=['modes'], **self.attrs)
         if self.poles is not None:
-            self.poles = BinnedStatistic(['k'], [self.power.edges['k']], self.poles, fields_to_sum=['modes'])
+            self.poles = BinnedStatistic(['k'], [self.power.edges['k']], self.poles, fields_to_sum=['modes'], **self.attrs)
 
     def _compute_3d_power(self):
         """
