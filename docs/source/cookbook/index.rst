@@ -1,6 +1,8 @@
+.. _cookbook:
+
 The Cookbook
 ============
 
 
-.. plot:: cookbook/fftpower.py
-   :include-source:
+.. toctree::
+    lognormal.ipynb

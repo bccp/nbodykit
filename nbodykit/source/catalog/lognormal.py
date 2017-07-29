@@ -37,6 +37,11 @@ class LogNormalCatalog(CatalogSource):
         current communicator
     use_cache : bool, optional
         whether to cache data read from disk; default is ``False``
+
+    References
+    ----------
+    `Cole and Jones, 1991 <http://adsabs.harvard.edu/abs/1991MNRAS.248....1C>`_
+    `Agrawal et al. 2017 <https://arxiv.org/abs/1706.09195>`_
     """
     def __repr__(self):
         return "LogNormalCatalog(seed=%(seed)d, bias=%(bias)g)" %self.attrs
@@ -145,7 +150,7 @@ class LogNormalCatalog(CatalogSource):
 
         # RSD in the Zel'dovich approx bring in extra factor of f
         # add this to both velocity and velocity offset
-        disp[:] *= (1 + f)
+        disp[:] *= f
 
         # velocity from displacement (assuming Mpc/h)
         # this is f * H(z) * a / h = f 100 E(z) a --> converts from Mpc/h to km/s

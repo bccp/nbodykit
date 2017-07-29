@@ -30,8 +30,8 @@ distinguishes itself from other similar software packages
 
 - **deployment** and availability on large, super-computing facilities
 
-- an **interactive** user interface that performs as well in a Jupyter
-  notebook as on super-computing machines
+- an **interactive** user interface that performs as well in a `Jupyter
+  notebook`_ as on super-computing machines
 
 All algorithms are parallel and run with Message Passing Interface (MPI).
 For a list of the algorithms currently implemented, see :ref:`available-algorithms`.
@@ -42,6 +42,7 @@ The source code is publicly available at https://github.com/bccp/nbodykit.
 .. _pynbody: https://github.com/pynbody/pynbody
 .. _yt: http://yt-project.org/
 .. _xi: http://github.com/bareid/xi
+.. _Jupyter notebook: http://jupyter-notebook.rtfd.io
 
 .. _getting-started:
 
@@ -72,6 +73,7 @@ Discrete Data Catalogs
 * :doc:`catalogs/reading`
 * :doc:`catalogs/on-demand-io`
 * :doc:`catalogs/common-operations`
+* :doc:`catalogs/mock-data`
 
 .. toctree::
   :maxdepth: 1
@@ -80,9 +82,9 @@ Discrete Data Catalogs
 
   Overview <catalogs/overview>
   catalogs/reading
-  catalogs/generating
   catalogs/on-demand-io
   catalogs/common-operations
+  catalogs/mock-data
 
 Data on a Mesh
 --------------

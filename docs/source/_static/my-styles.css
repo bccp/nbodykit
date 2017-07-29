@@ -6,3 +6,7 @@
   margin-left: 5px;
   font-weight: bold
 }
+
+.navbar-default .navbar-nav > li > a:hover, .navbar-default .navbar-nav > li > a:focus {
+color: black;  /*Sets the text hover color on navbar*/
+}

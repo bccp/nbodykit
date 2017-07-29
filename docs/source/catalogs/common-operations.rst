@@ -110,6 +110,60 @@ are used, as expected.
   print("Velocity = ", src.compute(src['Velocity'])) # all equal to 2
   print("Position = ", src.compute(src['Position'])) # all equal to 3
 
+.. _adding-rsd:
+
+Adding Redshift-space Distortions
+---------------------------------
+
+A useful operation in large-scale structure is the mapping of positions
+in simulations from real space to redshift space, referred to
+as `redshift space distortion <https://arxiv.org/abs/astro-ph/9708102>`_ (RSD).
+This operation can be easily performed by combining the ``Position`` and
+``Velocity`` columns to overwrite the ``Position`` column. As first
+found by `Kaiser 1987 <http://adsabs.harvard.edu/abs/1987MNRAS.227....1K>`_,
+the mapping from real to redshift space is:
+
+.. math::
+
+    s = r + \frac{v \cdot \hat{n}}{a H},
+
+where :math:`r` is the position in real space,
+:math:`s` is the position in redshift space, :math:`v` is the velocity,
+:math:`\hat{n}` is the line-of-sight direction, :math:`a` is the scale factor,
+and :math:`H` is the Hubble parameter at :math:`a`.
+
+For example, if we wish to add RSD along the ``z`` axis of a simulation box
+
+.. ipython:: python
+
+    # apply RSD along the z axis
+    line_of_sight = [0,0,1]
+
+    # redshift and cosmology
+    redshift =  0.55; cosmo = cosmology.Planck15
+
+    # the RSD normalization factor
+    rsd_factor = (1+redshift) / (100 * cosmo.efunc(redshift))
+
+    # update Position, applying RSD
+    src['Position'] = src['Position'] + rsd_factor * src['Velocity'] * line_of_sight
+
+Note that the operation above assumes ``Position`` is in units of
+:math:`\mathrm{Mpc}/h`.
+
+For catalogs in nbodykit that generate mock data, such as the
+:ref:`log-normal catalogs <lognormal-mock-data>` or :ref:`HOD catalogs <hod-mock-data>`,
+there is an additional column ``VelocityOffset`` available to facilitate
+RSD operations. This column has units of :math:`\mathrm{Mpc}/h` and
+includes the ``rsd_factor`` above. Thus, this allows users to add RSD
+simply by using:
+
+.. code-block:: python
+
+    src['Position'] = src['Position'] + src['VelocityOffset'] * line_of_sight
+
+
+
 Selecting a Subset
 ------------------
 

@@ -60,8 +60,8 @@ def setup_logging(log_level="info"):
 
     # This gives:
     #
-    # [ 000000.43 ]   0:waterfall 06-28 14:49  measurestats    INFO     Nproc = [2, 1, 1]
-    # [ 000000.43 ]   0:waterfall 06-28 14:49  measurestats    INFO     Rmax = 120
+    # [ 000000.43 ]   0: 06-28 14:49  measurestats    INFO     Nproc = [2, 1, 1]
+    # [ 000000.43 ]   0: 06-28 14:49  measurestats    INFO     Rmax = 120
     import logging
 
     levels = {
@@ -75,11 +75,10 @@ def setup_logging(log_level="info"):
     t0 = time.time()
 
     rank = MPI.COMM_WORLD.rank
-    name = MPI.Get_processor_name().split('.')[0]
 
     class Formatter(logging.Formatter):
         def format(self, record):
-            s1 = ('[ %09.2f ] % 3d:%s ' % (time.time() - t0, rank, name))
+            s1 = ('[ %09.2f ] % 3d: ' % (time.time() - t0, rank))
             return s1 + logging.Formatter.format(self, record)
 
     fmt = Formatter(fmt='%(asctime)s %(name)-15s %(levelname)-8s %(message)s',

@@ -16,7 +16,7 @@ def gaussian_complex_fields(pm, linear_power, seed, remove_variance=False, compu
 
     .. math::
 
-        v(x) = \frac{\psi(x)}{f a H}
+        v(x) = f a H \psi(x)
 
     Notes
     -----

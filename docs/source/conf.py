@@ -92,7 +92,9 @@ templates_path = ['_templates']
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 # source_suffix = ['.rst', '.md']
-source_suffix = '.rst'
+source_suffix = ['.rst']
+
+html_sourcelink_suffix = ''
 
 # The encoding of source files.
 #source_encoding = 'utf-8-sig'
@@ -132,7 +134,7 @@ version = release
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = ['build']
+exclude_patterns = ['build', '**.ipynb_checkpoints']
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.
@@ -283,7 +285,7 @@ html_static_path = ['_static']
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'nbodykitdoc'
 
-html_show_sourcelink = False
+html_show_sourcelink = True
 
 # -- Options for LaTeX output ---------------------------------------------
 

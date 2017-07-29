@@ -39,11 +39,11 @@ By Example
 
 The dask array functionality is best illustrated by example. Here, we
 initialize a :class:`~nbodykit.source.catalog.uniform.UniformCatalog`
-that generates objects with uniformly-distributed position and velocity columns.
+that generates objects with uniformly distributed position and velocity columns.
 
 .. ipython:: python
 
-  from nbodykit.source.catalog import UniformCatalog
+  from nbodykit.lab import UniformCatalog
 
   cat = UniformCatalog(nbar=100, BoxSize=1.0, seed=42)
 
