@@ -9,9 +9,10 @@ nbodykit includes several methods for generating mock catalogs, with varying
 levels of sophistication. These :class:`~nbodykit.base.catalog.CatalogSource`
 objects allow users to create catalogs of objects at run time and include:
 
-* :ref:`random-mock-data`
-* :ref:`lognormal-mock-data`
-* :ref:`hod-mock-data`
+.. contents::
+   :depth: 2
+   :local:
+   :backlinks: none
 
 .. _random-mock-data:
 
@@ -193,13 +194,214 @@ distortions (see :ref:`adding-rsd`), such that RSD can be added using:
 
 .. note::
 
-  For worked examples using log-normal mocks, see the :ref:`cookbook/lognormal.ipynb`
-  of :ref:`cookbook`.
+  For worked examples using log-normal mocks, see the :ref:`cookbook/lognormal-mocks.ipynb`
+  section of :ref:`cookbook`.
 
 .. _hod-mock-data:
 
 Halo Occupation Distribution Mocks
 ----------------------------------
 
+nbodykit includes functionality to generate mock galaxy catalogs using the
+`Halo Occupation Distribution`_ (HOD) technique in the :class:`~hod.HODCatalog`
+class. The HOD technique populates a catalog of halos with galaxies based on
+a functional form for the probability that a halo of mass :math:`M` hosts
+:math:`N` objects, :math:`P(N|M)`. The functional form of the HOD used by
+:class:`~hod.HODCatalog` is the form used in `Zheng et al 2007`_.
+The average number of galaxies in a halo of mass :math:`M` is
 
-.. _Cole and Jones 1991: <http://adsabs.harvard.edu/abs/1991MNRAS.248....1C>
+.. math::
+
+    \langle N_\mathrm{gal}(M) \rangle = N_\mathrm{cen}(M) ( 1 + N_\mathrm{sat}(M)),
+
+where the occupation functions for central and satellite are given by
+
+.. math::
+
+    N_\mathrm{cen}(M) = \frac{1}{2} \left (1  +  \mathrm{erf}
+                \left[ \frac{\log_{10}M - \log_{10}M_\mathrm{min}}{\sigma_{\log_{10}M}}
+                \right]
+                \right),
+
+.. math::
+
+    N_\mathrm{sat}(M) = \left ( \frac{M - M_0}{M_1} \right )^\alpha.
+
+This HOD parametrization has 5 parameters, which can be summarized as:
+
+=============================== ========== ======= =======================================================================================
+Parameter                       Name       Default Description
+:math:`\log_{10}M_\mathrm{min}` logMmin    13.031  Minimum mass required for a halo to host a central galaxy
+:math:`\sigma_{\log_{10}M}`     sigma_logM 0.38    Rate of transition from :math:`N_\mathrm{cen}=0` to :math:`N_\mathrm{cen}=1`
+:math:`\alpha`                  alpha      0.76    Power law slope of the relation between halo mass and :math:`N_\mathrm{sat}`
+:math:`\log_{10}M_0`            logM0      13.27   Low-mass cutoff in :math:`N_\mathrm{sat}`
+:math:`\log_{10}M_1`            logM1      14.08   Characteristic halo mass where :math:`N_\mathrm{sat}` begins to assume a power law form
+=============================== ========== ======= =======================================================================================
+
+The default values of the HOD parameters are taken from
+`Reid et al. 2014 <https://arxiv.org/abs/1404.3742>`_.
+
+This form of the HOD clustering description assumes the galaxy -- halo connection
+depends only on the halo mass. Thus, given a catalog of halo objects, with
+associated mass values, users can quickly generate realistic galaxy catalogs
+with the :class:`~hod.HODCatalog`.
+
+Interfacing with :mod:`halotools`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Internally, the :class:`~hod.HODCatalog` class uses the :mod:`halotools`
+package to perform the halo population step. For further details,
+see the documentation for :class:`halotools.empirical_models.Zheng07Cens` and
+:class:`halotools.empirical_models.Zheng07Sats`, as well as
+:ref:`this tutorial <zheng07_composite_model>` on the Zheng 07 HOD model.
+
+The catalog of halos input to the :class:`~hod.HODCatalog` class must be of type
+:class:`halotools.sim_manager.UserSuppliedHaloCatalog`, the tabular
+data format preferred by :mod:`halotools`. nbodykit includes the
+:class:`~halos.HaloCatalog` class in order to interface nicely with the
+:mod:`halotools`. In particular, this catalog object
+includes a :func:`~halos.HaloCatalog.to_halotools` function to create a
+:class:`~halotools.sim_manager.UserSuppliedHaloCatalog` from the data columns
+in the :class:`~halos.HaloCatalog` object.
+
+Given a :class:`CatalogSource` object, the class:`~halos.HaloCatalog` object
+interprets the objects as halos, using a specified redshift, cosmology,
+and mass definition, to add several analytic columns to the catalog, including
+:func:`~halos.HaloCatalog.Radius` and :func:`~halos.HaloCatalog.Concentration`.
+
+For example, below we generate uniform particles in a box and then interpret
+them as halos by specifying a redshift and cosmology:
+
+.. ipython:: python
+
+    from nbodykit.lab import HaloCatalog, cosmology
+
+    # uniform objects in a box
+    cat = UniformCatalog(nbar=100, BoxSize=1.0, seed=42)
+
+    # add a Mass column to the objects
+    cat['Mass'] = 10**(cat.rng.uniform(12, 15, size=cat.size))
+
+    # initialize the halos
+    halos = HaloCatalog(cat, cosmo=cosmology.Planck15, redshift=0., mdef='vir', position='Position', velocity='Velocity', mass='Mass')
+
+    print(halos.columns)
+
+And using the :func:`~halos.HaloCatalog.to_halotools` function, we can create
+the :class:`halotools.sim_manager.UserSuppliedHaloCatalog` object needed
+to initialize the :class:`~hod.HODCatalog` object.
+
+.. ipython:: python
+
+    halocat = halos.to_halotools()
+
+    print(halocat)
+
+    print(halocat.halo_table[:10])
+
+**Caveats**
+
+- The units of the halo position, velocity, and mass input to
+  :class:`~halos.HaloCatalog` are assumed to be :math:`\mathrm{Mpc}/h`, km/s,
+  and :math:`M_\odot/h`, respectively. These units are necessary to interface
+  with :mod:`halotools`.
+- The mass definition input to :class:`~halos.HaloCatalog` can be "vir" for
+  to use virial masses, or an overdensity factor with respect to the critical
+  or mean density, i.e. "200c", "500c", or "200m", "500m".
+- If using the built-in friends-of-friends finder class,
+  :class:`~nbodykit.algorithms.fof.FOF`, to identify halos, the user can use
+  the :func:`~nbodykit.algorithms.fof.FOF.to_halos` function
+  to directly produce a :class:`~halos.HaloCatalog` from the FOF objects.
+- By default, the halo concentration values are generated using the input mass
+  definition and the analytic formulas from
+  `Dutton and Maccio 2014 <https://arxiv.org/abs/1402.7073>`_. Users can
+  overwrite this column with their own values if they wish to use custom
+  concentration values when generating HOD catalogs.
+
+The :class:`~hod.HODCatalog` Class
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Users can initialize the HOD catalog directly from the
+:class:`~halotools.sim_manager.UserSuppliedHaloCatalog` object and the desired
+HOD parameters. The :class:`~hod.HODCatalog` object will include all of the
+columns from the :class:`~halotools.sim_manager.UserSuppliedHaloCatalog` object,
+with the usual columns ``Position``, ``Velocity``, and ``VelocityOffset``
+for the generated galaxies. The additional columns are:
+
+#. **conc_NFWmodel**: the concentration of the halo
+#. **gal_type**: the galaxy type, 0 for centrals and 1 for satellites
+#. **halo_id**: the global ID of the halo this galaxy belongs to, between 0 and :attr:`csize`
+#. **halo_local_id**: the local ID of the halo this galaxy belongs to, between 0 and :attr:`size`
+#. **halo_mvir**: the halo mass
+#. **halo_nfw_conc**: alias of ``conc_NFWmodel``
+#. **halo_num_centrals**: the number of centrals that this halo hosts, either 0 or 1
+#. **halo_num_satellites**: the number of satellites that this halo hosts
+#. **halo_rvir**: the halo radius
+#. **halo_upid**: equal to -1; should be ignored by the user
+#. **halo_vx, halo_vy, halo_vz**: the three components of the halo velocity
+#. **halo_x, halo_y, halo_z**: the three components of the halo position
+#. **host_centric_distance**: the distance from this galaxy to the center of the halo
+#. **vx, vy, vz**: the three components of the galaxy velocity, equal to ``Velocity``
+#. **x,y,z**: the three components of the galaxy position, equal to ``Position``
+
+.. ipython:: python
+
+    from nbodykit.lab import HODCatalog
+    hod = HODCatalog(halocat, alpha=0.5, sigma_logM=0.40, seed=42)
+
+    print("total number of HOD galaxies = ", hod.csize)
+    print(hod.columns)
+
+    print("number of centrals = ", hod.compute((hod['gal_type']==0).sum()))
+    print("number of satellites = ", hod.compute((hod['gal_type']==1).sum()))
+
+**Caveats**
+
+- The HOD population step requires the halo concentration
+
+Repopulating a HOD Catalog
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+We can also quickly repopulate a HOD catalog in place, generating a new
+set of galaxies for the same set of halos, either changing the random seed
+or the HOD parameters. For example,
+
+.. ipython:: python
+
+    # repopulate, just changing the random seed
+    hod.repopulate(seed=84)
+    print("total number of HOD galaxies = ", hod.csize)
+
+    print("number of centrals = ", hod.compute((hod['gal_type']==0).sum()))
+    print("number of satellites = ", hod.compute((hod['gal_type']==1).sum()))
+
+    # re-populate with new parameters
+    hod.repopulate(logM0=13.2, logM1=14.5)
+    print("total number of HOD galaxies = ", hod.csize)
+
+    print("number of centrals = ", hod.compute((hod['gal_type']==0).sum()))
+    print("number of satellites = ", hod.compute((hod['gal_type']==1).sum()))
+
+.. note::
+
+  For worked examples using HOD mocks, see the :ref:`cookbook/hod-mocks.ipynb`
+  section of :ref:`cookbook`.
+
+.. _custom-hod-mocks:
+
+Using a Custom HOD Model
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Users can implement catalogs that use custom HOD modeling by subclassing
+the :class:`~hod.HODBase` class. This base class is abstract, and subclasses must
+implement the :func:`~hod.HODBase.__makemodel__` function. This function
+returns a :class:`~halotools.empirical_models.factories.hod_model_factory.HodModelFactory`
+object, which is the :mod:`halotools` object responsible for supporting
+custom HOD models. For more information on designing your own HOD model
+using :mod:`halotools`, see `this series of tutorials`_.
+
+
+.. _Cole and Jones 1991: http://adsabs.harvard.edu/abs/1991MNRAS.248....1C
+.. _Halo Occupation Distribution: https://arxiv.org/abs/astro-ph/0212357
+.. _Zheng et al 2007: https://arxiv.org/abs/astro-ph/0703457
+.. _this series of tutorials: http://halotools.rtfd.io/en/latest/quickstart_and_tutorials/tutorials/model_building/composing_models/hod_modeling/hod_modeling_tutorial0.html

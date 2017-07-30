@@ -153,8 +153,7 @@ def SkyToCartesion(ra, dec, redshift, cosmo, degrees=True, interpolate_cdist=Tru
     """
     Convert sky coordinates (``ra``, ``dec``, ``redshift``) to a
     Cartesian ``Position`` column.
-
-
+    
     .. warning::
 
         The returned Cartesian position is in units of Mpc/h.

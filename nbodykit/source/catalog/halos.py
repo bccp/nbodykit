@@ -29,6 +29,13 @@ class HaloCatalog(CatalogSource):
     def __init__(self, source, cosmo, redshift, mdef='vir',
                  mass='Mass', position='Position', velocity='Velocity'):
 
+        # make sure all of the columns are there
+        for name, col in zip(['mass', 'position', 'velocity'], [mass, position, velocity]):
+            if col is None:
+                raise ValueError("the %s column cannot be None in HaloCatalog" %name)
+            if col not in source:
+                raise ValueError("input source is missing the %s column; '%s' does not exist" %(name, col))
+
         comm = source.comm
         self._source = source
         self.cosmo = cosmo
@@ -53,21 +60,21 @@ class HaloCatalog(CatalogSource):
     @column
     def Mass(self):
         """
-        The halo mass column
+        The halo mass column, assumed to be in units of :math:`M_\odot/h`.
         """
         return self.make_column(self._source[self.attrs['mass']])
 
     @column
     def Position(self):
         """
-        The halo position column
+        The halo position column, assumed to be in units of :math:`\mathrm{Mpc}/h`.
         """
         return self.make_column(self._source[self.attrs['position']])
 
     @column
     def Velocity(self):
         """
-        The halo velocity column
+        The halo velocity column, assumed to be in units of km/s.
         """
         return self.make_column(self._source[self.attrs['velocity']])
 
@@ -75,7 +82,7 @@ class HaloCatalog(CatalogSource):
     def VelocityOffset(self):
         """
         The redshift-space distance offset due to the velocity in units of
-        distance.
+        distance. The assumed units are :math:`\mathrm{Mpc}/h`.
 
         This multiplies ``Velocity`` by :math:`1 / (a 100 E(z)) = 1 / (a H(z)/h)`.
         """
@@ -86,7 +93,10 @@ class HaloCatalog(CatalogSource):
     @column
     def Concentration(self):
         """
-        The halo concentration, computed using :func:`nbodykit.transfrom.HaloConcentration`.
+        The halo concentration, computed using :func:`nbodykit.transform.HaloConcentration`.
+
+        This uses the analytic formulas for concentration from
+        `Dutton and Maccio 2014 <https://arxiv.org/abs/1402.7073>`_.
         """
         z = self.attrs['redshift']
         mdef = self.attrs['mdef']
@@ -95,7 +105,9 @@ class HaloCatalog(CatalogSource):
     @column
     def Radius(self):
         """
-        The halo radius, computed using :func:`nbodykit.transfrom.HaloRadius`.
+        The halo radius, computed using :func:`nbodykit.transform.HaloRadius`.
+
+        Assumed units of :math:`\mathrm{Mpc}/h`.
         """
         z = self.attrs['redshift']
         mdef = self.attrs['mdef']

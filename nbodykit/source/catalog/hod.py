@@ -34,7 +34,7 @@ class HODBase(ArrayCatalog):
     """
     A base class to be used for HOD population of a halo catalog.
 
-    The user must supply the :func:`_makemodel` function, which returns
+    The user must supply the :func:`__makemodel__` function, which returns
     the halotools composite HOD model.
 
     This abstraction allows the user to potentially implement several
@@ -106,7 +106,7 @@ class HODBase(ArrayCatalog):
         self.attrs.update({'cosmo.%s' %k : cosmo[k] for k in cosmo})
 
         # make the model!
-        self._model = self._makemodel()
+        self._model = self.__makemodel__()
 
         # set the HOD params
         for param in self._model.param_dict:
@@ -115,22 +115,29 @@ class HODBase(ArrayCatalog):
             self._model.param_dict[param] = self.attrs[param]
 
         # make the actual source
-        ArrayCatalog.__init__(self, self._makesource(), comm=comm, use_cache=use_cache)
+        ArrayCatalog.__init__(self, self.__makesource__(), comm=comm, use_cache=use_cache)
 
         # crash with no particles!
         if self.csize == 0:
             raise ValueError("no particles in catalog after populating HOD")
 
     @abc.abstractmethod
-    def _makemodel(self):
+    def __makemodel__(self):
         """
         Abstract class to be overwritten by user; this should return
         the HOD model instance that will be used to do the mock
-        population
+        population.
+
+        See :ref:`the documentation <custom-hod-mocks>` for more details.
+
+        Returns
+        -------
+        :class:`~halotools.empirical_models.factories.hod_model_factory.HodModelFactory`
+            the halotools object implementing the HOD model
         """
         pass
 
-    def _makesource(self):
+    def __makesource__(self):
         """
         Make the source of galaxies by performing the halo HOD population
 
@@ -276,6 +283,29 @@ class HODCatalog(HODBase):
     :class:`halotools.empirical_models.Zheng07Sats` for further details
     regarding the HOD.
 
+    The columns generated in this catalog are:
+
+    #. **Position**: the galaxy position
+    #. **Velocity**: the galaxy velocity
+    #. **VelocityOffset**: the RSD velocity offset, in units of distance
+    #. **conc_NFWmodel**: the concentration of the halo
+    #. **gal_type**: the galaxy type, 0 for centrals and 1 for satellites
+    #. **halo_id**: the global ID of the halo this galaxy belongs to, between 0 and :attr:`csize`
+    #. **halo_local_id**: the local ID of the halo this galaxy belongs to, between 0 and :attr:`size`
+    #. **halo_mvir**: the halo mass
+    #. **halo_nfw_conc**: alias of ``conc_NFWmodel``
+    #. **halo_num_centrals**: the number of centrals that this halo hosts, either 0 or 1
+    #. **halo_num_satellites**: the number of satellites that this halo hosts
+    #. **halo_rvir**: the halo radius
+    #. **halo_upid**: equal to -1; should be ignored by the user
+    #. **halo_vx, halo_vy, halo_vz**: the three components of the halo velocity
+    #. **halo_x, halo_y, halo_z**: the three components of the halo position
+    #. **host_centric_distance**: the distance from this galaxy to the center of the halo
+    #. **vx, vy, vz**: the three components of the galaxy velocity, equal to ``Velocity``
+    #. **x,y,z**: the three components of the galaxy position, equal to ``Position``
+
+    For futher details, please see the :ref:`documentation <hod-mock-data>`.
+
     .. note::
          Default HOD values are from
          `Reid et al. 2014 <https://arxiv.org/abs/1404.3742>`_
@@ -323,7 +353,7 @@ class HODCatalog(HODBase):
         s = ', '.join(['%s=%.2f' %(k,self.attrs[k]) for k in names])
         return "HODCatalog(%s)" %s
 
-    def _makemodel(self):
+    def __makemodel__(self):
         """
         Return the Zheng 07 HOD model.
 
