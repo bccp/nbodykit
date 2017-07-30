@@ -31,7 +31,7 @@ distinguishes itself from other similar software packages
 - **deployment** and availability on large, super-computing facilities
 
 - an **interactive** user interface that performs as well in a `Jupyter
-  notebook`_ as on super-computing machines
+  notebook`_ as on a super-computing machine
 
 All algorithms are parallel and run with Message Passing Interface (MPI).
 For a list of the algorithms currently implemented, see :ref:`available-algorithms`.
