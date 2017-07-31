@@ -5,7 +5,10 @@ import logging
 from nbodykit import CurrentMPIComm
 from nbodykit.dataset import DataSet
 from nbodykit.meshtools import SlabIterator
-from pmesh.pm import ComplexField
+from pmesh.pm import ComplexField, Field
+from nbodykit.base.catalog import CatalogSource
+from nbodykit.base.mesh import MeshSource
+from nbodykit.source.mesh import MemoryMesh
 
 class FFTPowerBase(object):
     """ Base class provides functions for FFT based Power spectrum code """
@@ -14,55 +17,30 @@ class FFTPowerBase(object):
         from pmesh.pm import ParticleMesh
         from nbodykit.base.mesh import MeshSource
 
-        # grab comm from first source
-        self.comm = first.comm 
-
-        # if input is CatalogSource, use defaults to make it into a mesh
-        if not hasattr(first, 'paint'):
-            first = first.to_mesh(BoxSize=BoxSize, Nmesh=Nmesh, dtype='f8', compensated=True)
-
-        # handle the second input source
-        if second is None:
-            second = first
+        first = _cast_source(first, Nmesh=Nmesh, BoxSize=BoxSize)
+        if second is not None:
+            second = _cast_source(second, Nmesh=Nmesh, BoxSize=BoxSize)
         else:
-            # make the second input a mesh if we need to
-            if not hasattr(second, 'paint'):
-                second = second.to_mesh(BoxSize=BoxSize, Nmesh=Nmesh, dtype='f8', compensated=True)
+            second = first
+
+        self.first = first
+        self.second = second
+
+        # grab comm from first source
+        self.comm = first.comm
 
         # check for comm mismatch
         assert second.comm is first.comm, "communicator mismatch between input sources"
 
-        self.sources = [first, second]
-        assert all([isinstance(src, MeshSource) for src in self.sources]), 'error converting input sources to meshes'
-
-        # using Nmesh from source
-        if Nmesh is None:
-            Nmesh = self.sources[0].attrs['Nmesh']
-
-        _BoxSize = self.sources[0].attrs['BoxSize'].copy()
-        if BoxSize is not None:
-            _BoxSize[:] = BoxSize
-
-        _Nmesh = self.sources[0].attrs['Nmesh'].copy()
-        if _Nmesh is not None:
-            _Nmesh[:] = Nmesh
-
         # check box sizes
-        if len(self.sources) == 2:
-            if not numpy.array_equal(self.sources[0].attrs['BoxSize'], self.sources[1].attrs['BoxSize']):
-                raise ValueError("BoxSize mismatch between cross-correlation sources")
-            if not numpy.array_equal(self.sources[0].attrs['BoxSize'], _BoxSize):
-                raise ValueError("BoxSize mismatch between sources and the algorithm.")
-
-
-        # setup the particle mesh object
-        self.pm = ParticleMesh(BoxSize=_BoxSize, Nmesh=_Nmesh, dtype='f4', comm=self.comm)
-
-        self.attrs = {}
+        if not numpy.array_equal(first.attrs['BoxSize'], second.attrs['BoxSize']):
+            raise ValueError("BoxSize mismatch between sources and the algorithm.")
 
         # save meta-data
-        self.attrs['Nmesh']   = self.pm.Nmesh.copy()
-        self.attrs['BoxSize'] = self.pm.BoxSize.copy()
+        self.attrs = {}
+
+        self.attrs['Nmesh'] = first.attrs['Nmesh'].copy()
+        self.attrs['BoxSize'] = first.attrs['BoxSize'].copy()
 
         if dk is None:
             dk = 2 * numpy.pi / self.attrs['BoxSize'].min()
@@ -71,24 +49,9 @@ class FFTPowerBase(object):
         self.attrs['kmin'] = kmin
 
         # update the meta-data to return
-        self.attrs.update(zip(['Lx', 'Ly', 'Lz'], _BoxSize))
+        self.attrs.update(zip(['Lx', 'Ly', 'Lz'], self.attrs['BoxSize']))
 
-        self.attrs.update({'volume':_BoxSize.prod()})
-
-    def _source2field(self, source):
-
-        # step 1: paint the density field to the mesh
-        c = source.paint(mode='complex')
-
-        if self.comm.rank == 0: self.logger.info('field: %s painting done' % str(source))
-
-        if any(c.pm.Nmesh != self.pm.Nmesh):
-            cnew = ComplexField(self.pm)
-            c = c.resample(out=cnew)
-
-            if self.comm.rank == 0: self.logger.info('field: %s resampling done' % str(source))
-
-        return c
+        self.attrs.update({'volume':self.attrs['BoxSize'].prod()})
 
     def save(self, output):
         """
@@ -310,34 +273,18 @@ class FFTPower(FFTPowerBase):
         """
         Compute and return the 3D power from two input sources
 
-        Parameters
-        ----------
-        sources : list of CatalogSource or MeshSource
-            the list of sources which the 3D power will be computed
-        pm : ParticleMesh
-            the particle mesh object that handles the painting and FFTs
-        comm : MPI.Communicator, optional
-            the communicator to pass to the ParticleMesh object. If not
-            provided, ``MPI.COMM_WORLD`` is used
-
         Returns
         -------
         p3d : array_like (complex)
             the 3D complex array holding the power spectrum
         """
-        sources = self.sources
-        pm = self.pm
-        comm = self.comm
-
-        rank = comm.rank
-
-        c1 = self._source2field(self.sources[0])
+        c1 = self.first.paint(mode='complex', Nmesh=self.attrs['Nmesh'])
 
         # compute the auto power of single supplied field
-        if sources[0] is sources[1]:
+        if self.first is self.second:
             c2 = c1
         else:
-            c2 = self._source2field(self.sources[1])
+            c2 = self.second.paint(mode='complex', Nmesh=self.attrs['Nmesh'])
 
         # calculate the 3d power spectrum, slab-by-slab to save memory
         p3d = c1
@@ -359,10 +306,10 @@ class FFTPower(FFTPowerBase):
         N1 = c1.attrs.get('N', 0)
         N2 = c2.attrs.get('N', 0)
         self.attrs.update({'N1':N1, 'N2':N2})
-        
+
         # add shotnoise (nonzero only for auto-spectra)
         Pshot = 0
-        if sources[0] is sources[1] and N1 > 0:
+        if self.first is self.second and N1 > 0:
             Pshot = self.attrs['BoxSize'].prod() / N1
         self.attrs['shotnoise'] = Pshot
 
@@ -395,20 +342,20 @@ class ProjectedFFTPower(FFTPowerBase):
         self.run()
 
     def run(self):
-        c1 = self._source2field(self.sources[0])
-        r1 = c1.preview(self.pm.Nmesh, axes=self.attrs['axes'])
+        c1 = self.first.paint(Nmesh=self.attrs['Nmesh'], mode='complex')
+        r1 = c1.preview(self.attrs['Nmesh'], axes=self.attrs['axes'])
         # average along projected axes;
         # part of product is the rfftn vs r2c (for axes)
         # the rest is for the mean (Nmesh - axes)
-        c1 = numpy.fft.rfftn(r1) / self.pm.Nmesh.prod()
+        c1 = numpy.fft.rfftn(r1) / self.attrs['Nmesh'].prod()
 
         # compute the auto power of single supplied field
-        if self.sources[0] is self.sources[1]:
+        if self.first is self.second:
             c2 = c1
         else:
-            c2 = self._source2field(self.sources[1])
-            r2 = c2.preview(self.pm.Nmesh, axes=self.attrs['axes'])
-            c2 = numpy.fft.rfftn(r2) / self.pm.Nmesh.prod() # average along projected axes
+            c2 = self.second.paint(Nmesh=self.attrs['Nmesh'], mode='complex')
+            r2 = c2.preview(self.attrs['Nmesh'], axes=self.attrs['axes'])
+            c2 = numpy.fft.rfftn(r2) / self.attrs['Nmesh'].prod() # average along projected axes
 
         pk = c1 * c2.conj()
         # clear the zero mode
@@ -660,3 +607,27 @@ def project_to_basis(y3d, edges, los=[0, 0, 1], poles=[]):
     pole_result = (xmean_1d, poles, N_1d) if do_poles else None
     return result, pole_result
 
+
+def _cast_source(source, BoxSize, Nmesh):
+    """ cast an object to a MeshSource. BoxSize and Nmesh is used
+        only on CatalogSource
+    """
+    if isinstance(source, Field):
+        # if input is a Field object, wrap it as a MeshSource.
+        source = MemoryMesh(source)
+    elif isinstance(source, CatalogSource):
+        # if input is CatalogSource, use defaults to make it into a mesh
+        if not isinstance(source, MeshSource):
+            source = source.to_mesh(BoxSize=BoxSize, Nmesh=Nmesh, dtype='f8', compensated=True)
+
+    # now we are having a MeshSource
+    # paint the density field to the mesh
+    if not isinstance(source, MeshSource):
+        raise TypeError("Unknown type of source: %s" % str(type(source)))
+    if BoxSize is not None and any(source.attrs['BoxSize'] != BoxSize):
+            raise ValueError("Mismatched boxsize")
+    if Nmesh is not None and any(source.attrs['Nmesh'] != Nmesh):
+        if any(source.attrs['BoxSize'] != BoxSize):
+            raise ValueError("Mismatched boxsize")
+
+    return source
