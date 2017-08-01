@@ -24,7 +24,7 @@ class FKPMeshSource(CatalogMeshSource):
         self.fkp_weight  = fkp_weight
         self.nbar        = nbar
 
-        CatalogMeshSource.__init__(self, source, BoxSize, Nmesh, dtype, weight, selection)
+        CatalogMeshSource.__init__(self, source, BoxSize, Nmesh, dtype, weight, 'Value', selection)
 
     @contextlib.contextmanager
     def _set_mesh(self, prefix):
@@ -48,12 +48,14 @@ class FKPMeshSource(CatalogMeshSource):
         self.position  = prefix+'.'+pos
         self.weight    = prefix+'.'+weight
         self.selection = prefix+'.'+sel
+        self.value = prefix+'.'+'Value'
         yield
 
         # restore
         self.position  = pos
         self.weight    = weight
         self.selection = sel
+        self.value = 'Value'
 
     def to_real_field(self):
         """

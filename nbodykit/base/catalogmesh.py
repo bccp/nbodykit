@@ -16,13 +16,14 @@ class CatalogMeshSource(MeshSource, CatalogSource):
         return "(%s as CatalogeMeshSource)" % repr(self.source)
 
     # intended to be used by CatalogSource internally
-    def __init__(self, source, BoxSize, Nmesh, dtype, weight, selection, position='Position'):
+    def __init__(self, source, BoxSize, Nmesh, dtype, weight, value, selection, position='Position'):
         # ensure self.comm is set, though usually already set by the child.
         self.comm = source.comm
         self.source = source
         self.position  = position
         self.selection = selection
         self.weight    = weight
+        self.value      = value
 
         self.attrs.update(source.attrs)
 
@@ -36,6 +37,7 @@ class CatalogMeshSource(MeshSource, CatalogSource):
         self.attrs['position'] = self.position
         self.attrs['selection'] = self.selection
         self.attrs['weight'] = self.weight
+        self.attrs['value'] = self.value
         self.attrs['compensated'] = True
         self.attrs['interlaced'] = False
         self.attrs['window'] = 'cic'
@@ -108,8 +110,8 @@ class CatalogMeshSource(MeshSource, CatalogSource):
             real2[...] = 0
 
         # read the necessary data (as dask arrays)
-        columns = [self.position, self.weight, self.selection]
-        Position, Weight, Selection = self.read(columns)
+        columns = [self.position, self.weight, self.value, self.selection]
+        Position, Weight, Mass, Selection = self.read(columns)
 
         # ensure the slices are synced, since decomposition is collective
         N = max(pm.comm.allgather(len(Position)))
@@ -122,26 +124,33 @@ class CatalogMeshSource(MeshSource, CatalogSource):
             if len(Position) != 0:
 
                 # be sure to use the source to compute
-                position, weight, selection = self.source.compute(Position[s], Weight[s], Selection[s])
+                position, weight, value, selection = self.source.compute(Position[s], Weight[s], Mass[s], Selection[s])
             else:
                 # workaround a potential dask issue on empty dask arrays
                 position = numpy.empty((0, 3), dtype=Position.dtype)
                 weight = None
+                value = None
                 selection = None
 
             if weight is None:
                 weight = numpy.ones(len(position))
 
+            if value is None:
+                value = numpy.ones(len(position))
+
             if selection is not None:
                 position = position[selection]
                 weight   = weight[selection]
+                value     = value[selection]
 
-            Nlocal += len(position)
+            Nlocal += value.sum()
+
             if not self.interlaced:
                 lay = pm.decompose(position, smoothing=0.5 * paintbrush.support)
                 p = lay.exchange(position)
                 w = lay.exchange(weight)
-                real.paint(p, mass=w, resampler=paintbrush, hold=True)
+                v = lay.exchange(value)
+                real.paint(p, mass=w * v, resampler=paintbrush, hold=True)
             else:
                 lay = pm.decompose(position, smoothing=1.0 * paintbrush.support)
                 p = lay.exchange(position)
@@ -152,8 +161,8 @@ class CatalogMeshSource(MeshSource, CatalogSource):
                 # in mesh units
                 shifted = pm.affine.shift(0.5)
 
-                real.paint(p, mass=w, resampler=paintbrush, hold=True)
-                real2.paint(p, mass=w, resampler=paintbrush, transform=shifted, hold=True)
+                real.paint(p, mass=w * v, resampler=paintbrush, hold=True)
+                real2.paint(p, mass=w * v, resampler=paintbrush, transform=shifted, hold=True)
                 c1 = real.r2c()
                 c2 = real2.r2c()
 
