@@ -63,6 +63,8 @@ the imagery of "painting" the mesh. More generally, the :func:`~MeshSource.paint
 function is responsible for filling in the mesh with data, which could also
 involve reading data from disk or generating mock fields directly on the mesh.
 
+.. _mesh-normalization:
+
 Normalization of the Painted Field
 ----------------------------------
 

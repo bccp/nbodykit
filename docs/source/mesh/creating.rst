@@ -6,15 +6,17 @@ Creating a Mesh
 ~~~~~~~~~~~~~~~
 
 In this section, we outline how users interact with data on a mesh
-in nbodykit. The main ways to create a mesh include :ref:`converting a catalog
-of objects to a mesh <catalog-to-mesh>`, :ref:`generating fields directly on
-the mesh <gaussian-meshes>`, and initializing a :ref:`new mesh from a field already
-stored in memory <memory-mesh>`.
+in nbodykit. The main ways to create a mesh include:
+
+.. contents::
+   :depth: 2
+   :local:
+   :backlinks: none
 
 .. _catalog-to-mesh:
 
-Converting a :class:`CatalogSource` to a Mesh
-=============================================
+Converting a ``CatalogSource`` to a Mesh
+========================================
 
 Users can create mesh objects from :class:`~CatalogSource`
 objects by specifying the desired number of cells per mesh side via the
@@ -39,6 +41,8 @@ a box of side length :math:`1` :math:`\mathrm{Mpc}/h`.
   The :func:`~CatalogSource.to_mesh` operation does not perform any interpolation
   operations -- it merely initializes a new object that sets up the mesh with
   the configuration provided by the user.
+
+.. _setting-mesh-params:
 
 Setting the Parameters of the Mesh
 ----------------------------------
@@ -79,6 +83,10 @@ specifying ``db6``, ``db12``, or ``db20``. The closely related Symlet
 wavelet can be used by specifying ``sym6``, ``sym12``, or ``sym20``.
 For more information on using wavelet kernels for mass assignment,
 see `Cui et al. 2008 <https://arxiv.org/pdf/0804.0070.pdf>`_.
+
+Note that the non-traditional interpolation windows can be considerably slower
+than the ``cic`` or ``tsc`` methods. For this reason, nbodykit uses the
+``cic`` interpolation window by default.
 
 .. note::
 
@@ -134,6 +142,29 @@ Window  Interlacing Compensation Function                                    Ref
     is defined in nbodykit, and if ``compensated`` is set to ``True``, an
     exception will be raised.
 
+.. _weighted-painting:
+
+Painting a Weighted Density Field
+---------------------------------
+
+By default, each object in a :class:`CatalogSource` object contributes a
+weight of 1 to the mesh, and the density field on the mesh is normalized as
+:math:`1+\delta` (see :ref:`mesh-normalization`). Users can change this
+behavior by specifying the name of a column in the :class:`CatalogSource` to
+use as weights via the ``weight`` keyword of the :func:`~CatalogSource.to_mesh`
+function. By default, the ``weight`` keyword is set to the ``Weight`` column, a
+:ref:`default column <catalog-source-default-columns>` in all
+:class:`CatalogSource` objects that gives each object a weight of 1.
+
+Painting a Subset of the ``CatalogSource``
+------------------------------------------
+
+By passing the ``selection`` keyword to the :func:`~CatalogSource.to_mesh`
+function, users can specify a boolean column that selects a subset of the
+:class:`CatalogSource` object. By default, the ``selection`` keyword is set
+to the ``Selection`` column, a
+:ref:`default column <catalog-source-default-columns>` in all
+:class:`CatalogSource` objects that is set to ``True`` for all objects.
 
 .. _gaussian-meshes:
 
