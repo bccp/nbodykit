@@ -273,11 +273,11 @@ class CatalogMeshSource(MeshSource, CatalogSource):
           - :func:`CompensateTSCAliasing` if using TSC window
         """
         if self.interlaced:
-            d = {'cic' : CompensateCIC,
-                 'tsc' : CompensateTSC}
+            d = {'cic' : self.CompensateCIC,
+                 'tsc' : self.CompensateTSC}
         else:
-            d = {'cic' : CompensateCICAliasing,
-                 'tsc' : CompensateTSCAliasing}
+            d = {'cic' : self.CompensateCICAliasing,
+                 'tsc' : self.CompensateTSCAliasing}
 
         if not self.window in d:
             raise ValueError("compensation for window %s is not defined" % self.window)
@@ -286,96 +286,100 @@ class CatalogMeshSource(MeshSource, CatalogSource):
 
         return [('complex', filter, "circular")]
 
-def CompensateTSC(w, v):
-    """
-    Return the Fourier-space kernel that accounts for the convolution of
-    the gridded field with the TSC window function in configuration space.
+    @staticmethod
+    def CompensateTSC(w, v):
+        """
+        Return the Fourier-space kernel that accounts for the convolution of
+        the gridded field with the TSC window function in configuration space.
 
-    .. note::
-        see equation 18 (with p=3) of
-        `Jing et al 2005 <https://arxiv.org/abs/astro-ph/0409240>`_
+        .. note::
+            see equation 18 (with p=3) of
+            `Jing et al 2005 <https://arxiv.org/abs/astro-ph/0409240>`_
 
-    Parameters
-    ----------
-    w : list of arrays
-        the list of "circular" coordinate arrays, ranging from
-        :math:`[-\pi, \pi)`.
-    v : array_like
-        the field array
-    """
-    for i in range(3):
-        wi = w[i]
-        tmp = (numpy.sinc(0.5 * wi / numpy.pi) ) ** 3
-        v = v / tmp
-    return v
+        Parameters
+        ----------
+        w : list of arrays
+            the list of "circular" coordinate arrays, ranging from
+            :math:`[-\pi, \pi)`.
+        v : array_like
+            the field array
+        """
+        for i in range(3):
+            wi = w[i]
+            tmp = (numpy.sinc(0.5 * wi / numpy.pi) ) ** 3
+            v = v / tmp
+        return v
 
-def CompensateCIC(w, v):
-    """
-    Return the Fourier-space kernel that accounts for the convolution of
-    the gridded field with the CIC window function in configuration space
+    @staticmethod
+    def CompensateCIC(w, v):
+        """
+        Return the Fourier-space kernel that accounts for the convolution of
+        the gridded field with the CIC window function in configuration space
 
-    .. note::
-        see equation 18 (with p=2) of
-        `Jing et al 2005 <https://arxiv.org/abs/astro-ph/0409240>`_
+        .. note::
+            see equation 18 (with p=2) of
+            `Jing et al 2005 <https://arxiv.org/abs/astro-ph/0409240>`_
 
-    Parameters
-    ----------
-    w : list of arrays
-        the list of "circular" coordinate arrays, ranging from
-        :math:`[-\pi, \pi)`.
-    v : array_like
-        the field array
-    """
-    for i in range(3):
-        wi = w[i]
-        tmp = (numpy.sinc(0.5 * wi / numpy.pi) ) ** 2
-        tmp[wi == 0.] = 1.
-        v = v / tmp
-    return v
+        Parameters
+        ----------
+        w : list of arrays
+            the list of "circular" coordinate arrays, ranging from
+            :math:`[-\pi, \pi)`.
+        v : array_like
+            the field array
+        """
+        for i in range(3):
+            wi = w[i]
+            tmp = (numpy.sinc(0.5 * wi / numpy.pi) ) ** 2
+            tmp[wi == 0.] = 1.
+            v = v / tmp
+        return v
 
-def CompensateTSCAliasing(w, v):
-    """
-    Return the Fourier-space kernel that accounts for the convolution of
-    the gridded field with the TSC window function in configuration space,
-    as well as the approximate aliasing correction
+    @staticmethod
+    def CompensateTSCAliasing(w, v):
+        """
+        Return the Fourier-space kernel that accounts for the convolution of
+        the gridded field with the TSC window function in configuration space,
+        as well as the approximate aliasing correction
 
-    .. note::
-        see equation 20 of
-        `Jing et al 2005 <https://arxiv.org/abs/astro-ph/0409240>`_
+        .. note::
+            see equation 20 of
+            `Jing et al 2005 <https://arxiv.org/abs/astro-ph/0409240>`_
 
-    Parameters
-    ----------
-    w : list of arrays
-        the list of "circular" coordinate arrays, ranging from
-        :math:`[-\pi, \pi)`.
-    v : array_like
-        the field array
-    """
-    for i in range(3):
-        wi = w[i]
-        s = numpy.sin(0.5 * wi)**2
-        v = v / (1 - s + 2./15 * s**2) ** 0.5
-    return v
+        Parameters
+        ----------
+        w : list of arrays
+            the list of "circular" coordinate arrays, ranging from
+            :math:`[-\pi, \pi)`.
+        v : array_like
+            the field array
+        """
+        for i in range(3):
+            wi = w[i]
+            s = numpy.sin(0.5 * wi)**2
+            v = v / (1 - s + 2./15 * s**2) ** 0.5
+        return v
 
-def CompensateCICAliasing(w, v):
-    """
-    Return the Fourier-space kernel that accounts for the convolution of
-    the gridded field with the CIC window function in configuration space,
-    as well as the approximate aliasing correction
+    @staticmethod
+    def CompensateCICAliasing(w, v):
+        """
+        Return the Fourier-space kernel that accounts for the convolution of
+        the gridded field with the CIC window function in configuration space,
+        as well as the approximate aliasing correction
 
-    .. note::
-        see equation 20 of
-        `Jing et al 2005 <https://arxiv.org/abs/astro-ph/0409240>`_
+        .. note::
+            see equation 20 of
+            `Jing et al 2005 <https://arxiv.org/abs/astro-ph/0409240>`_
 
-    Parameters
-    ----------
-    w : list of arrays
-        the list of "circular" coordinate arrays, ranging from
-        :math:`[-\pi, \pi)`.
-    v : array_like
-        the field array
-    """
-    for i in range(3):
-        wi = w[i]
-        v = v / (1 - 2. / 3 * numpy.sin(0.5 * wi) ** 2) ** 0.5
-    return v
+        Parameters
+        ----------
+        w : list of arrays
+            the list of "circular" coordinate arrays, ranging from
+            :math:`[-\pi, \pi)`.
+        v : array_like
+            the field array
+        """
+        for i in range(3):
+            wi = w[i]
+            v = v / (1 - 2. / 3 * numpy.sin(0.5 * wi) ** 2) ** 0.5
+        return v
