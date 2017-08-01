@@ -155,6 +155,7 @@ class CatalogMeshSource(MeshSource, CatalogSource):
                 lay = pm.decompose(position, smoothing=1.0 * paintbrush.support)
                 p = lay.exchange(position)
                 w = lay.exchange(weight)
+                v = lay.exchange(value)
 
                 H = pm.BoxSize / pm.Nmesh
 
