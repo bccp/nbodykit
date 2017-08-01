@@ -4,10 +4,13 @@ from __future__ import absolute_import
 
 from nbodykit.base.mesh import MeshSource
 from nbodykit import CurrentMPIComm
+from nbodykit.utils import JSONDecoder
 from bigfile import BigFileMPI
-import numpy
-
 from pmesh.pm import ParticleMesh, ComplexField, RealField
+
+import numpy
+import json
+from six import string_types
 
 class BigFileMesh(MeshSource):
     """
@@ -42,7 +45,11 @@ class BigFileMesh(MeshSource):
         self.attrs.update(kwargs)
         with BigFileMPI(comm=self.comm, filename=path)[dataset] as ff:
             for key in ff.attrs:
-                self.attrs[key] = numpy.squeeze(ff.attrs[key])
+                v = ff.attrs[key]
+                if isinstance(v, string_types) and v.startswith('json://'):
+                    self.attrs[key] = json.loads(v[7:], cls=JSONDecoder)
+                else:
+                    self.attrs[key] = numpy.squeeze(v)
 
             # fourier space or config space
             if ff.dtype.kind == 'c':

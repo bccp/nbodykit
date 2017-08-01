@@ -320,8 +320,12 @@ class MeshSource(object):
                 for key in field.attrs:
                     # do not override the above values -- they are vectors (from pm)
                     if key in bb.attrs: continue
-                    value = numpy.array(field.attrs[key])
+                    value = field.attrs[key]
                     try:
                         bb.attrs[key] = value
-                    except Exception:
-                        warnings.warn("attribute %s of type %s is unsupported and lost" % (key, str(value.dtype)))
+                    except ValueError:
+                        try:
+                            json_str = 'json://'+json.dumps(value, cls=JSONEncoder)
+                            bb.attrs[key] = json_str
+                        except:
+                            warnings.warn("attribute %s of type %s is unsupported and lost while saving MeshSource" % (key, type(value)))
