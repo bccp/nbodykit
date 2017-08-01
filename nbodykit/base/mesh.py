@@ -4,12 +4,18 @@ from pmesh.pm import ParticleMesh, RealField, ComplexField
 
 class MeshSource(object):
     """
-    Base class for a source in the form of an input grid.
+    Base class for a source in the form of data on an input grid.
+
+    The MeshSource object remembers the original source together with
+    a sequence of transformations (added via the apply method).
+
+    ``dtype`` is the type of the real numbers, either 'f4' or 'f8'.
 
     .. note:
 
         Subclasses of this class must implement either :func:`to_real_field`
-        or :func:`to_complex_field`
+        or :func:`to_complex_field`. The methods must return either a
+        :class:`pmesh.pm.RealField` or a :class:`pmesh.pm.ComplexField` object.
 
     Parameters
     ----------
@@ -201,7 +207,7 @@ class MeshSource(object):
             self._attrs = {}
             return self._attrs
 
-    def paint(self, mode="real"):
+    def paint(self, mode="real", Nmesh=None):
         """
         Paint the density on the mesh and apply
         any transformation functions specified in :attr:`actions`.
@@ -214,6 +220,9 @@ class MeshSource(object):
         mode : 'real' or 'complex'
             the type of the returned Field object, either a RealField or
             ComplexField
+        Nmesh : int or array_like, or None
+            If given and different from the intrinsic Nmesh of the source,
+            resample the mesh to the given resolution
 
         Returns
         -------
@@ -254,8 +263,23 @@ class MeshSource(object):
                 kwargs['out'] = Ellipsis
                 var.apply(**kwargs)
 
+        pm = self.pm.resize(Nmesh)
+
+        if any(pm.Nmesh != self.pm.Nmesh):
+            # resample if the output mesh mismatches
+            # XXX: this could be done more efficiently.
+            var1 = pm.create(mode=mode)
+            var.resample(out=var1)
+            var = var1
+
+            if self.comm.rank == 0:
+                self.logger.info('%s resampling from %s to %s done' % (str(self), str(self.pm.Nmesh), str(pm.Nmesh)))
+
         var.attrs = attrs
         var.attrs.update(self.attrs)
+
+        if self.comm.rank == 0:
+            self.logger.info('field: %s painting done' % str(self))
 
         return var
 
@@ -302,6 +326,9 @@ class MeshSource(object):
         """
         import bigfile
         import warnings
+        import json
+        from nbodykit.utils import JSONEncoder
+
         field = self.paint(mode=mode)
 
         with bigfile.BigFileMPI(self.pm.comm, output, create=True) as ff:
