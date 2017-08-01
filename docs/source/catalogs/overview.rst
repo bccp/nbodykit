@@ -77,6 +77,8 @@ right ascension, declination, and redshift coordinates. See :ref:`common-operati
 for more details about how to construct the ``Position`` column for
 these cases.
 
+.. _catalog-source-default-columns:
+
 Default Columns
 ---------------
 
