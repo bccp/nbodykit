@@ -2,6 +2,7 @@ from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 from numpy.testing import assert_array_equal, assert_allclose
+import pytest
 
 # debug logging
 setup_logging("debug")
@@ -117,6 +118,20 @@ def test_fftpower_mismatch_boxsize(comm):
     source2 = LinearMesh(cosmology.NoWiggleEHPower(cosmo, 0.55), BoxSize=1024, Nmesh=32, seed=33)
 
     r = FFTPower(source1, second=source2, mode='1d', BoxSize=1024, Nmesh=32)
+
+@MPITest([1])
+def test_fftpower_mismatch_boxsize_fail(comm):
+
+    cosmo = cosmology.Planck15
+    CurrentMPIComm.set(comm)
+
+    # input sources
+    mesh1 = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42).to_mesh(Nmesh=32)
+    mesh2 = LinearMesh(cosmology.NoWiggleEHPower(cosmo, 0.55), BoxSize=1024, Nmesh=32, seed=33)
+
+    # raises an exception b/c meshes have different box sizes
+    with pytest.raises(ValueError):
+        r = FFTPower(mesh1, second=mesh2, mode='1d', BoxSize=1024, Nmesh=32)
 
 @MPITest([1])
 def test_projectedpower(comm):
