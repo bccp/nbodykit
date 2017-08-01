@@ -158,26 +158,26 @@ function was applied properly.
 Resampling a Mesh
 -----------------
 
-Users can resample a mesh to by painting the mesh to either a
-:class:`~pmesh.pm.RealField` or :class:`~pmesh.pm.ComplexField` and
-initializing a new :class:`MemoryMesh` object with a different value for ``Nmesh``.
+Users can resample a mesh by specifying the ``Nmesh`` keyword to the
+:func:`MeshSource.paint` function. a different value for ``Nmesh``.
 For example, below we resample the our original
 :class:`~nbodykit.source.mesh.linear.LinearMesh` object, changing the mesh
 resolution from ``Nmesh=128`` to ``Nmesh=32``.
 
 .. ipython:: python
 
-    from nbodykit.lab import MemoryMesh
+    from nbodykit.lab import LinearMesh, cosmology
 
-    print("original Nmesh = ", mesh.attrs['Nmesh'])
+    # linear mesh
+    Plin = cosmology.EHPower(cosmology.Planck15, redshift=0.55)
+    source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42)
 
-    # the original complex field
-    cfield = mesh.paint(mode='complex')
+    # paint, re-sampling to Nmesh=32
+    real = source.paint(mode='real', Nmesh=32)
 
-    # initialize a re-sampled mesh
-    resampled_mesh = MemoryMesh(cfield, Nmesh=32)
-
-    print("new Nmesh = ", resampled_mesh.attrs['Nmesh'])
+    print("original Nmesh = ", source.attrs['Nmesh'])
+    print("resampled Nmesh = ", real.Nmesh)
+    print("shape of resampled density field = ", real.cshape)
 
 .. ipython:: python
     :suppress:

@@ -15,8 +15,21 @@ structure data analysis.
     Each notebook is available for download by clicking the "Source" link
     in the navigation bar at the top of the page.
 
+Data Recipes
+------------
+
 .. toctree::
   :maxdepth: 1
 
   lognormal-mocks.ipynb
   hod-mocks.ipynb
+
+Algorithm Recipes
+-----------------
+
+.. toctree::
+  :maxdepth: 1
+
+  fftpower.ipynb
+  interlacing.ipynb
+  interpolation-windows.ipynb
