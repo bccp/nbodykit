@@ -8,10 +8,10 @@ from nbodykit.utils import split_size_3d
 
 class FOF(object):
     """
-    A friend-of-friend halo finder that computes the label for
+    A friends-of-friends halo finder that computes the label for
     each particle, denoting which halo it belongs to.
 
-    Friend-of-friend was first used by Davis et al 1985 to define
+    Friends-of-friends was first used by Davis et al 1985 to define
     halos in hierachical structure formation of cosmological simulations.
     The algorithm is also known as DBSCAN in computer science.
     The subroutine here implements a parallel version of the FOF.
@@ -316,9 +316,9 @@ def _fof_merge(layout, minid, comm):
 
 def fof(source, linking_length, comm):
     """
-    Run Friend-of-friend halo finder.
+    Run Friends-of-friends halo finder.
 
-    Friend-of-friend was first used by Davis et al 1985 to define
+    Friends-of-friends was first used by Davis et al 1985 to define
     halos in hierachical structure formation of cosmological simulations.
     The algorithm is also known as DBSCAN in computer science.
     The subroutine here implements a parallel version of the FOF.
