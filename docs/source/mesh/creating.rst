@@ -252,6 +252,7 @@ For example,
 .. ipython:: python
 
     from nbodykit.lab import ArrayMesh
+    import numpy
 
     # generate data on a 8^3 mesh
     data = numpy.random.random(size=(8,8,8))
