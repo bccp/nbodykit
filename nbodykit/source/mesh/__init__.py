@@ -1,3 +1,4 @@
 from .bigfile import BigFileMesh
 from .linear import LinearMesh
-from .memory import MemoryMesh
+from .field import FieldMesh
+from .array import ArrayMesh

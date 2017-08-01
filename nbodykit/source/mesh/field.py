@@ -3,9 +3,9 @@ from nbodykit import CurrentMPIComm, mockmaker
 from nbodykit.utils import attrs_to_dict
 from pmesh.pm import RealField, ComplexField
 
-class MemoryMesh(MeshSource):
+class FieldMesh(MeshSource):
     """
-    A MeshSource initialized from an in-memory field object, either a
+    A MeshSource initialized from an in-memory Field object, either a
     :class:`pmesh.pm.RealField` or :class:`pmesh.pm.ComplexField`.
 
     .. note::
@@ -20,22 +20,11 @@ class MemoryMesh(MeshSource):
         than the ``Nmesh`` of the input Field, the Field will be re-sampled
     """
     def __repr__(self):
-        return "MemoryMesh()"
+        return "FieldMesh()"
 
-    def __init__(self, field, Nmesh=None):
+    def __init__(self, field):
 
-        if Nmesh is None:
-            Nmesh = field.Nmesh
-
-        MeshSource.__init__(self, field.pm.comm, Nmesh, field.BoxSize, field.pm.dtype)
-
-        # resample the Field
-        if any(field.Nmesh != self.pm.Nmesh):
-            cnew = ComplexField(self.pm)
-            field = field.resample(out=cnew)
-
-            if self.comm.rank == 0: self.logger.info('resampling done')
-
+        MeshSource.__init__(self, field.pm.comm, field.Nmesh, field.BoxSize, field.pm.dtype)
         self.field = field
 
     def to_complex_field(self):
