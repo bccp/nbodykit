@@ -47,7 +47,7 @@ with open('requirements-extras.txt', 'r') as fh:
     extras['extras'] = [l.strip() for l in fh][1:]
     extras['full'] = extras['extras'] #
 
-setup(name="nbodykit", 
+setup(name="nbodykit",
       version=find_version("nbodykit/version.py"),
       author="Yu Feng, Nick Hand, et al",
       maintainer="Yu Feng",
@@ -62,4 +62,3 @@ setup(name="nbodykit",
       install_requires=dependencies,
       extras_require=extras
 )
-
