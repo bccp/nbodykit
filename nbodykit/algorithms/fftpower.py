@@ -450,7 +450,7 @@ class ProjectedFFTPower(FFTPowerBase):
         dk = self.attrs['dk']
         kmin = self.attrs['kmin']
         axes = list(self.attrs['axes'])
-        kedges = numpy.arange(kmin, numpy.pi * self.pm.Nmesh[axes].min() / self.pm.BoxSize[axes].max() + dk/2, dk)
+        kedges = numpy.arange(kmin, numpy.pi * self.attrs['Nmesh'][axes].min() / self.attrs['BoxSize'][axes].max() + dk/2, dk)
 
         xsum = numpy.zeros(len(kedges) + 1)
         Psum = numpy.zeros(len(kedges) + 1, dtype='complex128')
