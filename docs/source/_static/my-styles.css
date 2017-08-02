@@ -10,3 +10,8 @@
 .navbar-default .navbar-nav > li > a:hover, .navbar-default .navbar-nav > li > a:focus {
 color: black;  /*Sets the text hover color on navbar*/
 }
+
+.note a:link,
+.note a:visited {
+  color: #0a3055;
+}
