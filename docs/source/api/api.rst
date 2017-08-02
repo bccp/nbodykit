@@ -138,7 +138,8 @@ And subclasses:
 
   ~nbodykit.source.mesh.bigfile.BigFileMesh
   ~nbodykit.source.mesh.linear.LinearMesh
-  ~nbodykit.source.mesh.memory.MemoryMesh
+  ~nbodykit.source.mesh.field.FieldMesh
+  ~nbodykit.source.mesh.array.ArrayMesh
 
 .. _api-algorithms:
 

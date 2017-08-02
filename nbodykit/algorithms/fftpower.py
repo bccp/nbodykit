@@ -193,8 +193,8 @@ class FFTPower(FFTPowerBase):
                 the mean value for each ``k`` bin
             - mu : ``mode=2d`` only
                 the mean value for each ``mu`` bin
-            - power.real, power.imag :
-                the real and imaginary components of the power
+            - power :
+                complex array storing the real and imaginary components of the power
             - modes :
                 the number of Fourier modes averaged together in each bin
 
@@ -205,9 +205,9 @@ class FFTPower(FFTPowerBase):
 
             - k :
                 the mean value for each ``k`` bin
-            - power_X.real, power_X.imag :
-                the real and imaginary components for the :math:`\ell=X`
-                multipole
+            - power_L :
+                complex array storing the real and imaginary components for
+                the :math:`\ell=L` multipole
             - modes :
                 the number of Fourier modes averaged together in each bin
 

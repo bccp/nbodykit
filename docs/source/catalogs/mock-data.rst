@@ -401,7 +401,7 @@ custom HOD models. For more information on designing your own HOD model
 using :mod:`halotools`, see `this series of tutorials`_.
 
 
-.. _Cole and Jones 1991: http://adsabs.harvard.edu/abs/1991MNRAS.248....1C
+.. _Coles and Jones 1991: http://adsabs.harvard.edu/abs/1991MNRAS.248....1C
 .. _Halo Occupation Distribution: https://arxiv.org/abs/astro-ph/0212357
 .. _Zheng et al 2007: https://arxiv.org/abs/astro-ph/0703457
 .. _this series of tutorials: http://halotools.rtfd.io/en/latest/quickstart_and_tutorials/tutorials/model_building/composing_models/hod_modeling/hod_modeling_tutorial0.html

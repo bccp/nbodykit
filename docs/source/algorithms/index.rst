@@ -17,8 +17,9 @@ Power Spectrum Algorithms
 .. toctree::
   :maxdepth: 1
 
-  periodic-power
+  fftpower
   survey-power
+  projected-fftpower
 
 Correlation Function Algorithms
 -------------------------------
