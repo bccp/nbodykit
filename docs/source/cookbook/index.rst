@@ -23,7 +23,7 @@ Data Recipes
 
   lognormal-mocks.ipynb
   hod-mocks.ipynb
-
+  
 Algorithm Recipes
 -----------------
 

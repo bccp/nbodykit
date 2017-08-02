@@ -17,7 +17,7 @@ The :class:`FFTPower` class computes the 1d power spectrum :math:`P(k)`, 2d
 power spectrum :math:`P(k,\mu)`, and/or multipoles :math:`P_\ell(k)` for data
 in a simulation box, using a Fast Fourier Transform (FFT). Here, we provide
 a brief overview of the algorithm itself as well as the key things to know for
-the user to get up and running quickly.
+the user to get up and running quickly
 
 .. contents::
    :depth: 2
@@ -26,7 +26,8 @@ the user to get up and running quickly.
 
 .. note::
 
-    See this `cookbook recipe <../cookbook/fftpower.html>`__ for a detailed
+    To jump right into the :class:`FFTPower` algorithm, see this
+    `cookbook recipe <../cookbook/fftpower.html>`__ for a detailed
     walk-through of the :class:`FFTPower` algorithm.
 
 The Algorithm
