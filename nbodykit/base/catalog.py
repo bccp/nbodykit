@@ -443,7 +443,7 @@ class CatalogSource(object):
 
     def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4',
                 interlaced=False, compensated=False, window='cic',
-                weight='Weight', selection='Selection'):
+                weight='Weight', selection='Selection', position='Position'):
         """
         Convert the CatalogSource to a MeshSource, using the specified
         parameters.
@@ -473,6 +473,9 @@ class CatalogSource(object):
         selection : str, optional
             the name of the column that specifies which (if any) slice
             of the CatalogSource to take
+        position : str, optional
+            the name of the column that specifies the position data of the
+            objects in the catalog
 
         Returns
         -------
@@ -506,8 +509,8 @@ class CatalogSource(object):
                                   "'Nmesh' keyword is not supplied and the CatalogSource "
                                   "does not define one in 'attrs'."))
 
-        r = CatalogMeshSource(self, Nmesh=Nmesh, BoxSize=BoxSize,
-                                dtype=dtype, weight=weight, selection=selection)
+        r = CatalogMeshSource(self, Nmesh=Nmesh, BoxSize=BoxSize, dtype=dtype,
+                                weight=weight, selection=selection, position=position)
         r.interlaced = interlaced
         r.compensated = compensated
         r.window = window
