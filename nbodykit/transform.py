@@ -29,7 +29,7 @@ def StackColumns(*cols):
 
     return da.vstack(cols).T
 
-def CombineSources(*sources, **kwargs):
+def ConcatenateSources(*sources, **kwargs):
     """
     Concatenate CatalogSource objects together, optionally including only
     certain columns in the returned source.
@@ -52,7 +52,7 @@ def CombineSources(*sources, **kwargs):
     >>> source1 = UniformCatalog(nbar=100, BoxSize=1.0)
     >>> source2 = UniformCatalog(nbar=100, BoxSize=1.0)
     >>> print(source1.csize, source2.csize)
-    >>> combined = transform.CombineSources(source1, source2, columns=['Position', 'Velocity'])
+    >>> combined = transform.ConcatenateSources(source1, source2, columns=['Position', 'Velocity'])
     >>> print(combined.csize)
     """
     columns = kwargs.get('columns', None)
@@ -87,7 +87,7 @@ def CombineSources(*sources, **kwargs):
 
 # deprecated functions
 vstack = deprecate("nbodykit.transform.vstack", StackColumns, "nbodykit.transform.StackColumns")
-concatenate = deprecate("nbodykit.transform.concatenate", CombineSources, "nbodykit.transform.CombineSources")
+concatenate = deprecate("nbodykit.transform.concatenate", ConcatenateSources, "nbodykit.transform.ConcatenateSources")
 
 def ConstantArray(value, size, chunks=100000):
     """
@@ -153,7 +153,7 @@ def SkyToCartesion(ra, dec, redshift, cosmo, degrees=True, interpolate_cdist=Tru
     """
     Convert sky coordinates (``ra``, ``dec``, ``redshift``) to a
     Cartesian ``Position`` column.
-    
+
     .. warning::
 
         The returned Cartesian position is in units of Mpc/h.

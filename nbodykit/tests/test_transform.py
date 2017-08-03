@@ -65,17 +65,17 @@ def test_combine(comm):
     s2 = UniformCatalog(3e-6, 2600)
 
     # concatenate all columns
-    cat = transform.CombineSources(s1, s2)
+    cat = transform.ConcatenateSources(s1, s2)
 
     # check the size and columns
     assert cat.size == s1.size + s2.size
     assert set(cat.columns) == set(s1.columns)
 
     # only one column
-    cat = transform.CombineSources(s1, s2, columns='Position')
+    cat = transform.ConcatenateSources(s1, s2, columns='Position')
     pos = numpy.concatenate([s1['Position'], s2['Position']], axis=0)
     numpy.testing.assert_array_equal(pos, cat['Position'])
 
     # fail on invalid column
     with pytest.raises(ValueError):
-        cat = transform.CombineSources(s1, s2, columns='InvalidColumn')
+        cat = transform.ConcatenateSources(s1, s2, columns='InvalidColumn')
