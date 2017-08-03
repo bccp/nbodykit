@@ -289,8 +289,10 @@ class CatalogSource(object):
     @column
     def Weight(self):
         """
-        The value to use for each particle when interpolating a
-        CatalogSource on to a mesh.
+        The column giving the weight to use for each particle on the mesh.
+
+        The mesh field is a weighted average of ``Value``, with the weights
+        given by `Weight`.
 
         By default, this array is set to unity for all particles.
         """
@@ -301,12 +303,14 @@ class CatalogSource(object):
         """
         When interpolating a CatalogSource on to a mesh, the value of this
         array is used as the Value that each particle contributes to a given
-        mesh cell. The mesh field is a weighted average of Value.
+        mesh cell.
 
-        By default, this array is set to unity for all particles
+        The mesh field is a weighted average of ``Value``, with the weights
+        given by `Weight`.
+
+        By default, this array is set to unity for all particles.
         """
         return ConstantArray(1.0, self.size, chunks=100000)
-
 
     def get_hardcolumn(self, col):
         """

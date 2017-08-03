@@ -135,8 +135,21 @@ class CatalogMeshSource(MeshSource, CatalogSource):
 
     def to_real_field(self):
         """
-        Paint the density field, by interpolating the ``Position`` column
+        Paint the density field, by interpolating the position column
         on to the mesh.
+
+        This computes the following meta-data attributes in the process of
+        painting, returned in the :attr:`attrs` attributes of the
+
+        - N : int
+            the (unweighted) total number of objects painted to the mesh
+        - W : float
+            the weighted number of total objects, equal to the collective
+            sum of the 'weight' column
+        - shotnoise : float
+            the Poisson shot noise, equal to the volume divided by ``W``
+        - num_per_cell : float
+            the mean number of weighted objects per cell
 
         .. note::
 
@@ -146,7 +159,7 @@ class CatalogMeshSource(MeshSource, CatalogSource):
         Returns
         -------
         real : :class:`pmesh.pm.RealField`
-            the painted real field
+            the painted real field; this has a ``attrs`` dict storing meta-data
         """
         # check for 'Position' column
         if self.position not in self:
@@ -154,7 +167,8 @@ class CatalogMeshSource(MeshSource, CatalogSource):
                               "column named '%s', representing the particle positions" %self.position)
         pm = self.pm
 
-        Nlocal = 0 # number of particles read on local rank
+        Nlocal = 0 # (unweighted) number of particles read on local rank
+        Wlocal = 0 # (weighted) number of particles read on local rank
 
         # the paint brush window
         paintbrush = window.methods[self.window]
@@ -199,10 +213,11 @@ class CatalogMeshSource(MeshSource, CatalogSource):
 
             if selection is not None:
                 position = position[selection]
-                weight   = weight[selection]
-                value     = value[selection]
+                weight = weight[selection]
+                value = value[selection]
 
-            Nlocal += value.sum()
+            Nlocal += len(position)
+            Wlocal += weight.sum()
 
             if not self.interlaced:
                 lay = pm.decompose(position, smoothing=0.5 * paintbrush.support)
@@ -232,17 +247,29 @@ class CatalogMeshSource(MeshSource, CatalogSource):
 
                 c1.c2r(real)
 
+        # unweighted number of objects
         N = pm.comm.allreduce(Nlocal)
-        nbar = 1.0 * N / numpy.prod(pm.Nmesh)
+
+        # weighted number of objects
+        W = pm.comm.allreduce(Wlocal)
+
+        # weighted number density (objs/cell)
+        nbar = 1.0 * W / numpy.prod(pm.Nmesh)
 
         # make sure we painted something!
         if N == 0:
-            raise ValueError("trying to paint particle source to mesh, but no particles were found!")
-        shotnoise = numpy.prod(pm.BoxSize) / N
+            raise ValueError(("trying to paint particle source to mesh, "
+                              "but no particles were found!"))
 
+        # shot noise is volume / weighted number
+        shotnoise = numpy.prod(pm.BoxSize) / W
+
+        # save some meta-data
         real.attrs = {}
         real.attrs['shotnoise'] = shotnoise
         real.attrs['N'] = N
+        real.attrs['W'] = W
+        real.attrs['num_per_cell'] = nbar
 
         csum = real.csum()
         if pm.comm.rank == 0:
