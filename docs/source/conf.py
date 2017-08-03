@@ -57,7 +57,7 @@ def run_apidoc(*args):
 
     # find directories to exclude
     exclude_dirs = []
-    bad = ['tests', 'extern']
+    bad = ['tests', 'extern', 'style']
     for dirpath, dirnames, filenames in os.walk(module):
         for b in bad:
             if b in dirnames:
@@ -371,7 +371,7 @@ texinfo_documents = [
 intersphinx_mapping = {
     'python': ('https://docs.python.org/2.7/', None),
     'pandas': ('http://pandas.pydata.org/pandas-docs/stable/', None),
-    'numpy': ('http://docs.scipy.org/doc/numpy/', None),
+    'numpy': ('https://docs.scipy.org/doc/numpy/', None),
     'xarray': ('http://xarray.pydata.org/en/stable/', None),
     'astropy': ('http://docs.astropy.org/en/stable/', None),
     'dask': ('http://dask.pydata.org/en/stable/', None),
