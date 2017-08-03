@@ -115,6 +115,10 @@ class FFTPower(FFTPowerBase):
     Results are computed when the object is inititalized. See the documenation
     of :func:`~FFTPower.run` for the attributes storing the results.
 
+    .. note::
+        A full tutorial on the class is available in the documentation
+        :ref:`here <fftpower>`.
+
     Parameters
     ----------
     first : CatalogSource, MeshSource
@@ -372,9 +376,10 @@ class ProjectedFFTPower(FFTPowerBase):
     second : CatalogSource, MeshSource, optional
         the second source for cross-correlations
     axes : tuple
-        axes to measure the power on. The axes not in the list will be averaged out. example
-        (0, 1) : project to x,y and measure power
-        (0) : project to x and measure power.
+        axes to measure the power on. The axes not in the list will be averaged out.
+        For example:
+        - (0, 1) : project to x,y and measure power
+        - (0) : project to x and measure power.
     dk : float, optional
         the linear spacing of ``k`` bins to use; if not provided, the
         fundamental mode  of the box is used
@@ -411,8 +416,9 @@ class ProjectedFFTPower(FFTPowerBase):
 
             - k :
                 the mean value for each ``k`` bin
-            - power.real, power.imag :
-                the real and imaginary components of the projected power
+            - power :
+                complex array holding the real and imaginary components of the
+                projected power
             - modes :
                 the number of Fourier modes averaged together in each bin
         """
