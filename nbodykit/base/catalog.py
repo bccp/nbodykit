@@ -296,6 +296,18 @@ class CatalogSource(object):
         """
         return ConstantArray(1.0, self.size, chunks=100000)
 
+    @column
+    def Value(self):
+        """
+        When interpolating a CatalogSource on to a mesh, the value of this
+        array is used as the Value that each particle contributes to a given
+        mesh cell. The mesh field is a weighted average of Value.
+
+        By default, this array is set to unity for all particles
+        """
+        return ConstantArray(1.0, self.size, chunks=100000)
+
+
     def get_hardcolumn(self, col):
         """
         Construct and return a hard-coded column.
@@ -441,9 +453,9 @@ class CatalogSource(object):
 
         return [self[col] for col in columns]
 
-    def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4',
-                interlaced=False, compensated=False, window='cic',
-                weight='Weight', selection='Selection', position='Position'):
+    def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4', interlaced=False,
+                compensated=False, window='cic', weight='Weight',
+                value='Value', selection='Selection', position='Position'):
         """
         Convert the CatalogSource to a MeshSource, using the specified
         parameters.
@@ -470,6 +482,8 @@ class CatalogSource(object):
             see `pmesh.window.methods`
         weight : str, optional
             the name of the column specifying the weight for each particle
+        value: str, optional
+            the name of the column specifying the field value for each particle
         selection : str, optional
             the name of the column that specifies which (if any) slice
             of the CatalogSource to take
@@ -510,7 +524,8 @@ class CatalogSource(object):
                                   "does not define one in 'attrs'."))
 
         r = CatalogMeshSource(self, Nmesh=Nmesh, BoxSize=BoxSize, dtype=dtype,
-                                weight=weight, selection=selection, position=position)
+                                weight=weight, selection=selection,
+                                value=value, position=position)
         r.interlaced = interlaced
         r.compensated = compensated
         r.window = window
