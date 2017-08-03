@@ -15,3 +15,8 @@ color: black;  /*Sets the text hover color on navbar*/
 .note a:visited {
   color: #0a3055;
 }
+
+.important a:link,
+.important a:visited {
+  color: #0a3055;
+}
