@@ -67,13 +67,13 @@ to a plaintext file:
     data = numpy.random.random(size=(100,5))
 
     # save to a plaintext file
-    numpy.savetxt('csv-example.dat', data, fmt='%.7e')
+    numpy.savetxt('csv-example.txt', data, fmt='%.7e')
 
     # name each of the 5 input columns
     names =['a', 'b', 'c', 'd', 'e']
 
     # read the data
-    f = CSVCatalog('csv-example.dat', names)
+    f = CSVCatalog('csv-example.txt', names)
 
     print(f)
     print("columns = ", f.columns) # default Weight,Selection also present
@@ -150,14 +150,14 @@ column names are the full paths of the data in the file.
     dset['Mass'] = numpy.random.random(size=1024)
 
     # write to a HDF5 file
-    with h5py.File('hdf-example.dat' , 'w') as ff:
+    with h5py.File('hdf-example.hdf5' , 'w') as ff:
         ff.create_dataset('Data1', data=dset)
         grp = ff.create_group('Data2')
         grp.create_dataset('Position', data=dset['Position']) # column as dataset
         grp.create_dataset('Mass', data=dset['Mass']) # column as dataset
 
     # read the data
-    f = HDFCatalog('hdf-example.dat')
+    f = HDFCatalog('hdf-example.hdf5')
 
     print(f)
     print("columns = ", f.columns) # default Weight,Selection also present
@@ -235,10 +235,10 @@ For example, below we read ``Position`` and ``Velocity`` data from a FITS file:
     dset['Mass'] = numpy.random.random(size=1024)
 
     # write to a FITS file using fitsio
-    fitsio.write('fits-example.dat', dset, extname='Data')
+    fitsio.write('fits-example.fits', dset, extname='Data')
 
     # read the data
-    f = FITSCatalog('fits-example.dat', ext='Data')
+    f = FITSCatalog('fits-example.fits', ext='Data')
 
     print(f)
     print("columns = ", f.columns) # default Weight,Selection also present
@@ -270,11 +270,11 @@ As an example, below, we read data from two plaintext files into a single
     # generate data
     data = numpy.random.random(size=(100,5))
 
-    # save the first plaintext data file
-    numpy.savetxt('csv-example-1.dat', data, fmt='%.7e')
+    # save first 40 rows of data to file
+    numpy.savetxt('csv-example-1.txt', data[:40], fmt='%.7e')
 
-    # and the second plaintext data file
-    numpy.savetxt('csv-example-2.dat', data, fmt='%.7e')
+    # save the remaining 60 rows to another file
+    numpy.savetxt('csv-example-2.txt', data[40:], fmt='%.7e')
 
 
 Using a glob pattern
@@ -290,7 +290,7 @@ Using a glob pattern
 
     print(f)
 
-    # combined catalog size is 100+100=200
+    # combined catalog size is 40+60=100
     print("total size = ", f.csize)
 
 Using a list of file names
@@ -302,11 +302,11 @@ Using a list of file names
     names =['a', 'b', 'c', 'd', 'e']
 
     # read with a list of the file names
-    f = CSVCatalog(['csv-example-1.dat', 'csv-example-2.dat'], names)
+    f = CSVCatalog(['csv-example-1.txt', 'csv-example-2.txt'], names)
 
     print(f)
 
-    # combined catalog size is 100+100=200
+    # combined catalog size is 40+60=100
     print("total size = ", f.csize)
 
 .. _custom-data-format:

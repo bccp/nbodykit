@@ -47,12 +47,12 @@ along two axes:
     @savefig density-preview.png
     imshow(density)
 
-.. _saving-loading-mesh:
-
 .. note::
 
     The previewed mesh result is broadcast to all ranks, so each rank
     allocates :math:`\mathrm{Nmesh}^3` in memory.
+
+.. _saving-loading-mesh:
 
 Saving and Loading a Mesh
 -------------------------

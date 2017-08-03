@@ -1,4 +1,14 @@
+currentmodule:: nbodykit.algorithms.fftpower
+
 .. _projected-fftpower:
 
-Power Spectrum of a Projected Field (:class:`~nbodykit.algorithms.fftpower.ProjectedFFTPower`)
-==============================================================================================
+.. ipython:: python
+    :suppress:
+
+    import tempfile, os
+    startdir = os.path.abspath('.')
+    tmpdir = tempfile.mkdtemp()
+    os.chdir(tmpdir)
+
+Power Spectrum of a Projected Field (:class:`ProjectedFFTPower`)
+================================================================

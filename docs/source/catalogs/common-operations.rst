@@ -60,7 +60,7 @@ directly setting them:
   cat['Mass'] = numpy.random.random(size=len(cat))
   print("contains 'Mass'? :", 'Mass' in cat)
 
-  cat['Type'] = "central"
+  cat['Type'] = b"central"
 
   print(cat['Mass'])
   print(cat['Type'])
@@ -217,12 +217,12 @@ below.
 
 .. _combining-sources:
 
-Combining ``CatalogSource`` Objects
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Concatenating ``CatalogSource`` Objects
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 When two :class:`CatalogSource` objects have the same columns, they can be
-combined together into a single object using the
-:func:`nbodykit.transform.CombineSources` function. For example,
+concatenated together into a single object using the
+:func:`nbodykit.transform.ConcatenateSources` function. For example,
 
 .. ipython:: python
 
@@ -231,7 +231,7 @@ combined together into a single object using the
     cat1 = UniformCatalog(nbar=50, BoxSize=1.0, seed=42)
     cat2 = UniformCatalog(nbar=150, BoxSize=1.0, seed=42)
 
-    combined = transform.CombineSources(cat1, cat2)
+    combined = transform.ConcatenateSources(cat1, cat2)
 
     print("total size = %d + %d = %d" %(cat1.size, cat2.size, combined.size))
 
@@ -318,11 +318,17 @@ For more general column transformations, users should take advantage of the
 package in a manner optimized for dask arrays. The module can be accessed from the
 :mod:`nbodykit.transform` module as :mod:`nbodykit.transform.da`.
 
-For a full list of functions available in the :mod:`dask.array` module,
-please see the
-`dask array documentation <http://dask.pydata.org/en/latest/array-api.html>`_.
 
-As an example, below we convert an array holding right ascension values from
+.. important::
+
+    For a full list of functions available in the :mod:`dask.array` module,
+    please see the
+    `dask array documentation <http://dask.pydata.org/en/latest/array-api.html>`__.
+    We strongly recommend that new users read through this documentation
+    and familiarize themselves with the functionality provided by
+    the :mod:`dask.array` module.
+
+As a simple illustration, below we convert an array holding right ascension values from
 degrees to radians, compute the sine of the array, and find the min and
 max values using functions available in the :mod:`dask.array` module.
 

@@ -6,7 +6,7 @@ Dealing with Discrete Data
 The main interface for dealing with data in the form of catalogs of discrete
 objects is provided by subclasses of the
 :class:`nbodykit.base.catalog.CatalogSource` object.
-In this section, we provide an overview of the class and note important
+In this section, we provide an overview of this class and note important
 things to know.
 
 .. contents::
@@ -23,7 +23,7 @@ fields describing each object, such as the position coordinates, velocity,
 mass, etc. Given this input data, the user wishes to use nbodykit to perform a
 task, i.e., computing the power spectrum or grouping together objects with a
 friends-of-friends algorithm. To achieve these goals, nbodykit provides the
-:class:`nbodykit.base.catalog.CatalogSource` object.
+:class:`nbodykit.base.catalog.CatalogSource` base class.
 
 The :class:`CatalogSource` object behaves much like a
 `numpy structured array <https://docs.scipy.org/doc/numpy/user/basics.rec.html>`_,

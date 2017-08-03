@@ -68,7 +68,7 @@ Transforming Catalog Data (:mod:`nbodykit.transform`)
 
 .. autosummary::
 
-  ~nbodykit.transform.CombineSources
+  ~nbodykit.transform.ConcatenateSources
   ~nbodykit.transform.StackColumns
   ~nbodykit.transform.ConstantArray
   ~nbodykit.transform.SkyToUnitSphere
