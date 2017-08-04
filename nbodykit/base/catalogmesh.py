@@ -9,7 +9,7 @@ import logging
 from pmesh import window
 from pmesh.pm import RealField, ComplexField
 
-class CatalogMeshSource(MeshSource, CatalogSource):
+class CatalogMesh(MeshSource, CatalogSource):
     """
     A class to convert a CatalogSource to a MeshSource, by interpolating
     the position of the discrete particles on to a mesh.
@@ -34,19 +34,21 @@ class CatalogMeshSource(MeshSource, CatalogSource):
         column in ``source`` specifying the position coordinates; default
         is ``Position``
     """
-    logger = logging.getLogger('CatalogMeshSource')
+    logger = logging.getLogger('CatalogMesh')
     def __repr__(self):
-        return "(%s as CatalogMeshSource)" % repr(self.source)
+        return "(%s as CatalogMesh)" % repr(self.source)
 
     # intended to be used by CatalogSource internally
-    def __init__(self, source, BoxSize, Nmesh, dtype, weight, value, selection, position='Position'):
+    def __init__(self, source, BoxSize, Nmesh, dtype, weight,
+                    value, selection, position='Position'):
+
         # ensure self.comm is set, though usually already set by the child.
         self.comm = source.comm
         self.source = source
-        self.position  = position
+        self.position = position
         self.selection = selection
-        self.weight    = weight
-        self.value      = value
+        self.weight = weight
+        self.value = value
 
         self.attrs.update(source.attrs)
 
@@ -133,7 +135,7 @@ class CatalogMeshSource(MeshSource, CatalogSource):
     def compensated(self, value):
         self.attrs['compensated'] = value
 
-    def to_real_field(self):
+    def to_real_field(self, out=None, normalize=True):
         """
         Paint the density field, by interpolating the position column
         on to the mesh.
@@ -163,8 +165,10 @@ class CatalogMeshSource(MeshSource, CatalogSource):
         """
         # check for 'Position' column
         if self.position not in self:
-            raise ValueError("in order to paint a CatalogSource to a RealField, add a " + \
-                              "column named '%s', representing the particle positions" %self.position)
+            msg = "in order to paint a CatalogSource to a RealField, add a "
+            msg += "column named '%s', representing the particle positions" %self.position
+            raise ValueError(msg)
+
         pm = self.pm
 
         Nlocal = 0 # (unweighted) number of particles read on local rank
@@ -174,8 +178,13 @@ class CatalogMeshSource(MeshSource, CatalogSource):
         paintbrush = window.methods[self.window]
 
         # initialize the RealField to returns
-        real = RealField(pm)
-        real[:] = 0
+        if out is not None:
+            assert isinstance(out, RealField), "output of to_real_field must be a RealField"
+            numpy.testing.assert_array_equal(out.pm.Nmesh, pm.Nmesh)
+            real = out
+        else:
+            real = RealField(pm)
+            real[:] = 0
 
         # need 2nd field if interlacing
         if self.interlaced:
@@ -254,7 +263,7 @@ class CatalogMeshSource(MeshSource, CatalogSource):
         W = pm.comm.allreduce(Wlocal)
 
         # weighted number density (objs/cell)
-        nbar = 1.0 * W / numpy.prod(pm.Nmesh)
+        nbar = 1. * W / numpy.prod(pm.Nmesh)
 
         # make sure we painted something!
         if N == 0:
@@ -277,10 +286,11 @@ class CatalogMeshSource(MeshSource, CatalogSource):
             self.logger.info("sum is %g ", csum)
             self.logger.info("normalized the convention to 1 + delta")
 
-        if nbar > 0:
-            real[...] /= nbar
-        else:
-            real[...] = 1
+        if normalize:
+            if nbar > 0:
+                real[...] /= nbar
+            else:
+                real[...] = 1
 
         return real
 

@@ -12,3 +12,4 @@ from .uniform import UniformCatalog, RandomCatalog
 from .fkp import FKPCatalog
 from .halos import HaloCatalog
 from .hod import HODCatalog
+from .species import MultipleSpeciesCatalog

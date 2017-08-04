@@ -94,9 +94,9 @@ class ConvolvedFFTPower(object):
 
     Parameters
     ----------
-    source : FKPCatalog, FKPMeshSource
+    source : FKPCatalog, FKPCatalogMesh
         the source to paint the data/randoms; FKPCatalog is automatically converted
-        to a FKPMeshSource, using default painting parameters
+        to a FKPCatalogMesh, using default painting parameters
     poles : list of int
         a list of integer multipole numbers ``ell`` to compute
     kmin : float, optional
@@ -128,9 +128,10 @@ class ConvolvedFFTPower(object):
                     use_fkp_weights=False,
                     P0_FKP=None):
 
-        from nbodykit.source.catalog.fkp import FKPMeshSource, FKPCatalog
-        if not isinstance(source, (FKPMeshSource, FKPCatalog)):
-            raise TypeError("input source should be a FKPCatalog or FKPMeshSource")
+        from nbodykit.source.catalog import FKPCatalog
+        from nbodykit.source.catalogmesh import FKPCatalogMesh
+        if not isinstance(source, (FKPCatalogMesh, FKPCatalog)):
+            raise TypeError("input source should be a FKPCatalog or FKPCatalogMesh")
 
         if not hasattr(source, 'paint'):
             source = source.to_mesh(Nmesh=Nmesh)
@@ -155,14 +156,14 @@ class ConvolvedFFTPower(object):
             for name in ['data', 'randoms']:
 
                 # print a warning if we are overwriting a non-default column
-                old_fkp_weights = self.source[name+'.'+self.source.fkp_weight]
+                old_fkp_weights = self.source[name+'/'+self.source.fkp_weight]
                 if self.source.compute(old_fkp_weights.sum()) != len(old_fkp_weights):
                     warn = "it appears that we are overwriting FKP weights for the '%s' " %name
                     warn += "source in FKPCatalog when using 'use_fkp_weights=True' in ConvolvedFFTPower"
                     warnings.warn(warn)
 
-                nbar = self.source[name+'.'+self.source.nbar]
-                self.source[name+'.'+self.source.fkp_weight] = 1.0 / (1. + P0_FKP * nbar)
+                nbar = self.source[name+'/'+self.source.nbar]
+                self.source[name+'/'+self.source.fkp_weight] = 1.0 / (1. + P0_FKP * nbar)
 
         self.attrs = {}
         self.attrs['poles']           = poles
@@ -403,15 +404,15 @@ class ConvolvedFFTPower(object):
         Ylms = [[get_real_Ylm(l,m) for m in range(-l, l+1)] for l in poles[1:]]
 
         # paint the FKP density field to the mesh (paints: data - alpha*randoms, essentially)
-        rfield = self.source.to_real_field() # just paint the real field (without any additional compensation)
+        rfield = self.source.paint(mode='real') # just paint the real field (without any additional compensation)
         meta = rfield.attrs.copy()
         if rank == 0: self.logger.info('%s painting done' %self.source.window)
 
         # first, check if normalizations from data and randoms are similar
         # if not, n(z) column is probably wrong
-        if not numpy.allclose(meta['data.A'], meta['randoms.A'], rtol=0.05):
+        if not numpy.allclose(meta['data.norm'], meta['randoms.norm'], rtol=0.05):
             msg = "normalization in ConvolvedFFTPower different by more than 5%; algorithm requires they must be similar\n"
-            msg += "\trandoms.A = %.6f, data.A = %.6f\n" %(meta['randoms.A'], meta['data.A'])
+            msg += "\trandoms.norm = %.6f, data.norm = %.6f\n" %(meta['randoms.norm'], meta['data.norm'])
             msg += "\tpossible discrepancies could be related to normalization of n(z) column ('%s')\n" %self.source.nbar
             msg += "\tor the consistency of the FKP weight column ('%s') for 'data' and 'randoms';\n" %self.source.fkp_weight
             msg += "\tn(z) columns for 'data' and 'randoms' should be normalized to represent n(z) of the data catalog"
@@ -446,7 +447,7 @@ class ConvolvedFFTPower(object):
         kgrid = [k/knorm for k in kgrid]
 
         # proper normalization: same as equation 49 of Scoccimarro et al. 2015
-        norm = 1. / meta['randoms.A']
+        norm = 1. / meta['randoms.norm']
 
         # loop over the higher order multipoles (ell > 0)
         start = time.time()
@@ -530,6 +531,6 @@ class ConvolvedFFTPower(object):
                 self.attrs[key] = meta[key]
 
         if rank == 0:
-            self.logger.info("normalized power spectrum with randoms.A = %.6f" %meta['randoms.A'])
+            self.logger.info("normalized power spectrum with `randoms.norm = %.6f`" %meta['randoms.norm'])
 
         return result

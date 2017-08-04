@@ -134,7 +134,7 @@ class MeshSource(object):
         """
         return 0
 
-    def to_real_field(self):
+    def to_real_field(self, out=None, normalize=True):
         """
         Convert the mesh source to the configuration-space field,
         returning a :class:`pmesh.pm.RealField` object.
@@ -144,7 +144,7 @@ class MeshSource(object):
         if self.base is not None: return self.base.to_real_field()
         return NotImplemented
 
-    def to_complex_field(self):
+    def to_complex_field(self, out=None):
         """
         Convert the mesh source to the Fourier-space field,
         returning a :class:`pmesh.pm.ComplexField` object.
@@ -154,7 +154,7 @@ class MeshSource(object):
         if self.base is not None: return self.base.to_complex_field()
         return NotImplemented
 
-    def to_field(self, mode='real'):
+    def to_field(self, mode='real', out=None):
         """
         Return the mesh as a :mod:`pmesh` Field object, either in Fourier
         space or configuration space, based on ``mode``.

@@ -124,7 +124,7 @@ class FFTPower(FFTPowerBase):
     first : CatalogSource, MeshSource
         the source for the first field; if a CatalogSource is provided, it
         is automatically converted to MeshSource using the default painting
-        parameters (via :func:`~nbodykit.base.catalogmesh.CatalogMeshSource.to_mesh`)
+        parameters (via :func:`~nbodykit.base.catalogmesh.CatalogMesh.to_mesh`)
     mode : {'1d', '2d'}
         compute either 1d or 2d power spectra
     Nmesh : int, optional
@@ -368,7 +368,7 @@ class ProjectedFFTPower(FFTPowerBase):
     first : CatalogSource, MeshSource
         the source for the first field; if a CatalogSource is provided, it
         is automatically converted to MeshSource using the default painting
-        parameters (via :func:`~nbodykit.base.catalogmesh.CatalogMeshSource.to_mesh`)
+        parameters (via :func:`~nbodykit.base.catalogmesh.CatalogMesh.to_mesh`)
     Nmesh : int, optional
         the number of cells per side in the particle mesh used to paint the source
     BoxSize : int, 3-vector, optional

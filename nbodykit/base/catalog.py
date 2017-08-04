@@ -75,8 +75,7 @@ def find_column(cls, name):
     raise AttributeError("unable to find column '%s' for '%s'" % args)
 
 
-@add_metaclass(abc.ABCMeta)
-class CatalogSource(object):
+class CatalogSourceBase(object):
     """
     An abstract base class representing a catalog of discrete particles.
 
@@ -90,7 +89,7 @@ class CatalogSource(object):
     columns in the format of dask arrays. These columns can be accessed
     in a dict-like fashion.
     """
-    logger = logging.getLogger('CatalogSource')
+    logger = logging.getLogger('CatalogSourceBase')
 
     @staticmethod
     def make_column(array):
@@ -112,21 +111,6 @@ class CatalogSource(object):
 
         # user-provided overrides for columns
         self._overrides = {}
-
-        # if size is already computed update csize
-        # otherwise the subclass shall call update_csize explicitly.
-        if self.size is not NotImplemented:
-            self.update_csize()
-
-    def __repr__(self):
-        size = "%d" %self.size if self.size is not NotImplemented else "NotImplemented"
-        return "%s(size=%s)" %(self.__class__.__name__, size)
-
-    def __len__(self):
-        """
-        The local size of the CatalogSource on a given rank.
-        """
-        return self.size
 
     def __iter__(self):
         return iter(self.columns)
@@ -150,9 +134,23 @@ class CatalogSource(object):
             # convert slices to boolean arrays
             if isinstance(sel, (slice, list)):
 
+                # select a subset of list of string column names
+                if isinstance(sel, list) and all(isinstance(ss, string_types) for ss in sel):
+                    invalid = set(sel) - set(self.columns)
+                    if len(invalid):
+                        msg = "cannot select subset of columns from "
+                        msg += "CatalogSource due to invalid columns: %s" % str(invalid)
+                        raise KeyError(msg)
+
+                    # return a CatalogSource only holding the selected columns
+                    subset_data = {col:self[col] for col in sel}
+                    toret = CatalogSubset(self.size, self.comm, use_cache=self.use_cache, **subset_data)
+                    toret.attrs.update(self.attrs)
+                    return toret
+
                 # list must be all integers
                 if isinstance(sel, list) and not numpy.array(sel).dtype == numpy.integer:
-                    raise KeyError("array-like indexing via a list should be a list of integers")
+                    raise KeyError("array like indexing via a list should be a list of integers")
 
                 index = numpy.zeros(self.size, dtype='?')
                 index[sel] = True; sel = index
@@ -182,29 +180,10 @@ class CatalogSource(object):
 
     def __setitem__(self, col, value):
         """
-        Add columns to the CatalogSource, overriding any existing columns
+        Add new columns to the CatalogSource, overriding any existing columns
         with the name ``col``.
         """
-        # handle scalar values
-        if numpy.isscalar(value):
-            assert self.size is not NotImplemented, "size is not implemented! cannot set scalar array"
-            value = ConstantArray(value, self.size, chunks=100000)
-
-        # check the correct size, if we know the size
-        if self.size is not NotImplemented:
-            assert len(value) == self.size, "error setting column, data must be array of size %d" %self.size
-
-        # add the column to the overrides dict
         self._overrides[col] = self.make_column(value)
-
-    @abc.abstractproperty
-    def size(self):
-        """
-        The number of particles in the CatalogSource on the local rank.
-
-        This property must be defined for all subclasses.
-        """
-        return NotImplemented
 
     @property
     def use_cache(self):
@@ -257,16 +236,6 @@ class CatalogSource(object):
         return sorted(set(hcolumns + overrides))
 
     @property
-    def csize(self):
-        """
-        The total, collective size of the CatalogSource, i.e., summed across all
-        ranks.
-
-        It is the sum of :attr:`size` across all available ranks.
-        """
-        return self._csize
-
-    @property
     def attrs(self):
         """
         A dictionary storing relevant meta-data about the CatalogSource.
@@ -277,40 +246,7 @@ class CatalogSource(object):
             self._attrs = {}
             return self._attrs
 
-    @column
-    def Selection(self):
-        """
-        A boolean column that selects a subset slice of the CatalogSource.
 
-        By default, this column is set to ``True`` for all particles.
-        """
-        return ConstantArray(True, self.size, chunks=100000)
-
-    @column
-    def Weight(self):
-        """
-        The column giving the weight to use for each particle on the mesh.
-
-        The mesh field is a weighted average of ``Value``, with the weights
-        given by `Weight`.
-
-        By default, this array is set to unity for all particles.
-        """
-        return ConstantArray(1.0, self.size, chunks=100000)
-
-    @column
-    def Value(self):
-        """
-        When interpolating a CatalogSource on to a mesh, the value of this
-        array is used as the Value that each particle contributes to a given
-        mesh cell.
-
-        The mesh field is a weighted average of ``Value``, with the weights
-        given by `Weight`.
-
-        By default, this array is set to unity for all particles.
-        """
-        return ConstantArray(1.0, self.size, chunks=100000)
 
     def get_hardcolumn(self, col):
         """
@@ -323,25 +259,6 @@ class CatalogSource(object):
         bypass the decorator logic.
         """
         return find_column(self.__class__, col)(self)
-
-    def update_csize(self):
-        """
-        Set the collective size, :attr:`csize`.
-
-        This function should be called in :func:`__init__` of a subclass,
-        after :attr:`size` has been set to a valid value (not ``NotImplemented``)
-        """
-        if self.size is NotImplemented:
-            raise ValueError(("``size`` cannot be NotImplemented when trying "
-                              "to compute collective size `csize`"))
-
-        # sum size across all ranks
-        self._csize = self.comm.allreduce(self.size)
-
-        # log some info
-        if self.comm.rank == 0:
-            self.logger.debug("rank 0, local number of particles = %d" %self.size)
-            self.logger.info("total number of particles in %s = %d" %(str(self), self.csize))
 
     def compute(self, *args, **kwargs):
         """
@@ -452,8 +369,9 @@ class CatalogSource(object):
         """
         missing = set(columns) - set(self.columns)
         if len(missing) > 0:
-            raise ValueError("source does not contain columns: %s; " %str(missing) + \
-                             "try adding columns via `source[column] = data`")
+            msg = "source does not contain columns: %s; " %str(missing)
+            msg += "try adding columns via `source[column] = data`"
+            raise ValueError(msg)
 
         return [self[col] for col in columns]
 
@@ -497,11 +415,11 @@ class CatalogSource(object):
 
         Returns
         -------
-        mesh : CatalogMeshSource
+        mesh : CatalogMesh
             a mesh object that provides an interface for gridding particle
             data onto a specified mesh
         """
-        from nbodykit.base.catalogmesh import CatalogMeshSource
+        from nbodykit.base.catalogmesh import CatalogMesh
         from pmesh.window import methods
 
         # make sure all of the columns exist
@@ -527,13 +445,141 @@ class CatalogSource(object):
                                   "'Nmesh' keyword is not supplied and the CatalogSource "
                                   "does not define one in 'attrs'."))
 
-        r = CatalogMeshSource(self, Nmesh=Nmesh, BoxSize=BoxSize, dtype=dtype,
+        r = CatalogMesh(self, Nmesh=Nmesh, BoxSize=BoxSize, dtype=dtype,
                                 weight=weight, selection=selection,
                                 value=value, position=position)
         r.interlaced = interlaced
         r.compensated = compensated
         r.window = window
         return r
+
+
+@add_metaclass(abc.ABCMeta)
+class CatalogSource(CatalogSourceBase):
+    """
+    An abstract base class representing a catalog of discrete particles.
+
+    This objects behaves like a structured numpy array -- it must have a
+    well-defined size when initialized. The ``size`` here represents the
+    number of particles in the source on the local rank.
+
+    Subclasses of this class must define a ``size`` attribute.
+
+    The information about each particle is stored as a series of
+    columns in the format of dask arrays. These columns can be accessed
+    in a dict-like fashion.
+    """
+    logger = logging.getLogger('CatalogSource')
+
+    def __init__(self, comm, use_cache=False):
+
+        # init the base class
+        CatalogSourceBase.__init__(self, comm, use_cache=use_cache)
+
+        # if size is already computed update csize
+        # otherwise the subclass shall call update_csize explicitly.
+        if self.size is not NotImplemented:
+            self.update_csize()
+
+    def __repr__(self):
+        size = "%d" %self.size if self.size is not NotImplemented else "NotImplemented"
+        return "%s(size=%s)" %(self.__class__.__name__, size)
+
+    def __len__(self):
+        """
+        The local size of the CatalogSource on a given rank.
+        """
+        return self.size
+
+    def __setitem__(self, col, value):
+        """
+        Add columns to the CatalogSource, overriding any existing columns
+        with the name ``col``.
+        """
+        # handle scalar values
+        if numpy.isscalar(value):
+            assert self.size is not NotImplemented, "size is not implemented! cannot set scalar array"
+            value = ConstantArray(value, self.size, chunks=100000)
+
+        # check the correct size, if we know the size
+        if self.size is not NotImplemented:
+            assert len(value) == self.size, "error setting column, data must be array of size %d" %self.size
+
+        # call the base __setitem__
+        CatalogSourceBase.__setitem__(self, col, value)
+
+    @abc.abstractproperty
+    def size(self):
+        """
+        The number of particles in the CatalogSource on the local rank.
+
+        This property must be defined for all subclasses.
+        """
+        return NotImplemented
+
+    @property
+    def csize(self):
+        """
+        The total, collective size of the CatalogSource, i.e., summed across all
+        ranks.
+
+        It is the sum of :attr:`size` across all available ranks.
+        """
+        return self._csize
+
+    @column
+    def Selection(self):
+        """
+        A boolean column that selects a subset slice of the CatalogSource.
+
+        By default, this column is set to ``True`` for all particles.
+        """
+        return ConstantArray(True, self.size, chunks=100000)
+
+    @column
+    def Weight(self):
+        """
+        The column giving the weight to use for each particle on the mesh.
+
+        The mesh field is a weighted average of ``Value``, with the weights
+        given by `Weight`.
+
+        By default, this array is set to unity for all particles.
+        """
+        return ConstantArray(1.0, self.size, chunks=100000)
+
+    @column
+    def Value(self):
+        """
+        When interpolating a CatalogSource on to a mesh, the value of this
+        array is used as the Value that each particle contributes to a given
+        mesh cell.
+
+        The mesh field is a weighted average of ``Value``, with the weights
+        given by `Weight`.
+
+        By default, this array is set to unity for all particles.
+        """
+        return ConstantArray(1.0, self.size, chunks=100000)
+
+    def update_csize(self):
+        """
+        Set the collective size, :attr:`csize`.
+
+        This function should be called in :func:`__init__` of a subclass,
+        after :attr:`size` has been set to a valid value (not ``NotImplemented``)
+        """
+        if self.size is NotImplemented:
+            raise ValueError(("``size`` cannot be NotImplemented when trying "
+                              "to compute collective size `csize`"))
+
+        # sum size across all ranks
+        self._csize = self.comm.allreduce(self.size)
+
+        # log some info
+        if self.comm.rank == 0:
+            self.logger.debug("rank 0, local number of particles = %d" %self.size)
+            self.logger.info("total number of particles in %s = %d" %(str(self), self.csize))
 
 
 class CatalogSubset(CatalogSource):

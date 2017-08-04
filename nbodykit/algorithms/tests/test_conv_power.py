@@ -170,15 +170,15 @@ def test_run(comm):
     pkmu = r.to_pkmu(mu_edges=mu_edges, max_ell=4)
 
     # normalization
-    assert_allclose(r.attrs['data.A'], NDATA*NBAR)
-    assert_allclose(r.attrs['randoms.A'], NDATA*NBAR)
+    assert_allclose(r.attrs['data.norm'], NDATA*NBAR)
+    assert_allclose(r.attrs['randoms.norm'], NDATA*NBAR)
 
     # shotnoise
-    S_data = r.attrs['data.W']/r.attrs['randoms.A']
-    assert_allclose(S_data, r.attrs['data.S'])
+    S_data = r.attrs['data.W']/r.attrs['randoms.norm']
+    assert_allclose(S_data, r.attrs['data.shotnoise'])
 
-    S_ran = r.attrs['randoms.W']/r.attrs['randoms.A']*r.attrs['alpha']**2
-    assert_allclose(S_ran, r.attrs['randoms.S'])
+    S_ran = r.attrs['randoms.W']/r.attrs['randoms.norm']*r.attrs['alpha']**2
+    assert_allclose(S_ran, r.attrs['randoms.shotnoise'])
 
 @MPITest([1, 4])
 def test_with_zhist(comm):
@@ -197,20 +197,20 @@ def test_with_zhist(comm):
     fkp = FKPCatalog(data, randoms)
 
     # compute NZ from randoms
-    zhist = RedshiftHistogram(fkp.randoms, FSKY, cosmo, redshift='z')
+    zhist = RedshiftHistogram(randoms, FSKY, cosmo, redshift='z')
 
     # add n(z) from randoms to the FKP source
     nofz = InterpolatedUnivariateSpline(zhist.bin_centers, zhist.nbar)
-    fkp['randoms.NZ'] = nofz(randoms['z'])
-    fkp['data.NZ'] = nofz(data['z'])
+    fkp['randoms/NZ'] = nofz(randoms['z'])
+    fkp['data/NZ'] = nofz(data['z'])
 
     # normalize NZ to the total size of the data catalog
     alpha = 1.0 * data.csize / randoms.csize
-    fkp['randoms.NZ'] *= alpha
-    fkp['data.NZ'] *= alpha
+    fkp['randoms/NZ'] *= alpha
+    fkp['data/NZ'] *= alpha
 
     # compute the multipoles
     r = ConvolvedFFTPower(fkp.to_mesh(Nmesh=128), poles=[0,2,4], dk=0.005)
 
-    assert_allclose(r.attrs['data.A'], 0.000388338522187, rtol=1e-5)
-    assert_allclose(r.attrs['randoms.A'], 0.000395808747269, rtol=1e-5)
+    assert_allclose(r.attrs['data.norm'], 0.000388338522187, rtol=1e-5)
+    assert_allclose(r.attrs['randoms.norm'], 0.000395808747269, rtol=1e-5)
