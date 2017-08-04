@@ -27,6 +27,9 @@ class CatalogMesh(MeshSource, CatalogSource):
     weight : str
         column in ``source`` that specifies the weight value for each
         particle in the ``source`` to use when gridding
+    value : str
+        column in ``source`` that specifies the field value for each particle;
+        the mesh stores a weighted average of this column
     selection : str
         column in ``source`` that selects the subset of particles to grid
         to the mesh
@@ -141,7 +144,8 @@ class CatalogMesh(MeshSource, CatalogSource):
         on to the mesh.
 
         This computes the following meta-data attributes in the process of
-        painting, returned in the :attr:`attrs` attributes of the
+        painting, returned in the :attr:`attrs` attributes of the returned
+        RealField object:
 
         - N : int
             the (unweighted) total number of objects painted to the mesh
