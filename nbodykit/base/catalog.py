@@ -185,6 +185,23 @@ class CatalogSourceBase(object):
         """
         self._overrides[col] = self.make_column(value)
 
+    def __delitem__(self, col):
+        """
+        Delete a column; cannot delete a "hard-coded" column
+        """
+        if col not in self.columns:
+            raise ValueError("no such column, cannot delete it")
+
+        if col in self.hardcolumns:
+            raise ValueError("cannot delete a hard-coded column")
+
+        if col in self._overrides:
+            del self._overrides[col]
+            return
+            
+        raise ValueError("unable to delete column '%s' from CatalogSource" %col)
+
+
     @property
     def use_cache(self):
         """
