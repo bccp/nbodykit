@@ -3,14 +3,17 @@ import logging
 
 class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
     """
-    A subclass of :class:`~nbodykit.base.catalogmesh.CatalogMesh`
+    A subclass of
+    :class:`~nbodykit.source.catalogmesh.species.MultipleSpeciesCatalogMesh`
     designed to paint a :class:`~nbodykit.source.catalog.fkp.FKPCatalog` to
     a mesh.
 
-    This requires ``data`` and ``randoms`` CatalogSource objects.
+    The multiple species here are ``data`` and ``randoms`` CatalogSource
+    objects, where ``randoms`` is a catalog of randomly distributed objects
+    with no instrinsic clustering that defines the survey volume.
 
     Internally, all of the columns in ``data`` and ``randoms`` are stored,
-    with names prefixed by ``data.`` or ``randoms.``
+    with names prefixed by ``data/`` or ``randoms/``.
 
     Parameters
     ----------
@@ -48,9 +51,12 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         self.comp_weight = comp_weight
         self.fkp_weight = fkp_weight
         self.nbar = nbar
+        self._position = position
 
         MultipleSpeciesCatalogMesh.__init__(self, source, BoxSize, Nmesh, dtype,
-                                            'TotalWeight', 'Value', selection, position=position)
+                                            'TotalWeight', 'Value', selection,
+                                            position='RecenteredPosition')
+
 
     def to_real_field(self):
         """
@@ -60,13 +66,50 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
 
         .. math::
 
-            F(x) = w_fkp(x) * [w_comp(x)*n_data(x) - alpha * w_comp(x)*n_randoms(x)]
+            F(x) = w_\mathrm{fkp}(x) * [w_\mathrm{comp}(x)*n_\mathrm{data}(x) -
+                        \alpha * w_\mathrm{comp}(x)*n_\mathrm{randoms}(x)]
+
+
+        This computes the following meta-data attributes in the process of
+        painting, returned in the :attr:`attrs` attributes of the returned
+        RealField object:
+
+        - randoms.W, data.W :
+            the weighted sum of randoms and data objects; see
+            :func:`weighted_total`
+        - alpha : float
+            the ratio of ``data.W`` to ``randoms.W``
+        - randoms.norm, data.norm : float
+            the power spectrum normalization; see :func:`normalization`
+        - randoms.shotnoise, data.shotnoise: float
+            the shot noise for each sample; see :func:`shotnoise`
+        - shotnoise : float
+            the total shot noise, equal to the sum of ``randoms.shotnoise``
+            and ``data.shotnoise``
+        - randoms.num_per_cell, data.num_per_cell : float
+            the mean number of weighted objects per cell for each sample
+        - num_per_cell : float
+            the mean number of weighted objects per cell
+
+        Returns
+        -------
+        :class:`~pmesh.pm.RealField` :
+            the field object holding the FKP density field in real space
         """
+        # add necessary FKP columns first
+        for i, name in enumerate(self.source.species):
+
+            # total weight for the mesh is completeness weight x FKP weight
+            self[name+'/TotalWeight'] = self[name+'/'+self.comp_weight] * self[name+'/'+self.fkp_weight]
+
+            # position on the mesh is re-centered to [-BoxSize/2, BoxSize/2]
+            self[name+'/RecenteredPosition'] = self[name+'/'+self._position] - self.source.attrs['BoxCenter']
+
         attrs = {}
 
         # determine alpha, the weighted number ratio
         for name in self.source.species:
-            attrs[name+'.W'] = self._weighted_total(name)
+            attrs[name+'.W'] = self.weighted_total(name)
         attrs['alpha'] = attrs['data.W'] / attrs['randoms.W']
 
         # randoms get an additional weight of -alpha
@@ -77,8 +120,8 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
 
         # the rest of the meta-data
         for name in self.source.species:
-            attrs[name + '.norm'] = self._normalization(name)
-            attrs[name + '.shotnoise'] = self._shotnoise(name)
+            attrs[name + '.norm'] = self.normalization(name)
+            attrs[name + '.shotnoise'] = self.shotnoise(name)
 
         # finish the statistics
         attrs['randoms.norm'] *= attrs['alpha']
@@ -93,18 +136,23 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         # update the meta-data
         real.attrs.update(attrs)
 
+        # delete columns we added while painting
+        for i, name in enumerate(self.source.species):
+            del self[name+'/TotalWeight']
+            del self[name+'/RecenteredPosition']
+
         return real
 
-    def _normalization(self, name):
+    def normalization(self, name):
         """
         Compute the power spectrum normalization, using either the
-        `data` or `randoms` source
+        ``data`` or ``randoms`` source.
 
-        This computes
+        This computes:
 
         .. math::
 
-            A = \sum \bar{n} w_\mathrm[comp] w_\mathrm{fkp}^2
+            A = \sum \bar{n} w_\mathrm{comp} w_\mathrm{fkp}^2
 
         References
         ----------
@@ -122,16 +170,16 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         A = self.source.compute(A.sum())
         return self.comm.allreduce(A)
 
-    def _shotnoise(self, name):
+    def shotnoise(self, name):
         """
         Compute the power spectrum shot noise, using either the
-        `data` or `randoms` source
+        ``data`` or ``randoms`` source.
 
-        This computes
+        This computes:
 
         .. math::
 
-            S = \sum (w_\mathrm[comp] w_\mathrm{fkp})^2
+            S = \sum (w_\mathrm{comp} w_\mathrm{fkp})^2
 
         References
         ----------
@@ -148,12 +196,12 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         S = self.source.compute(S.sum())
         return self.comm.allreduce(S)
 
-    def _weighted_total(self, name):
+    def weighted_total(self, name):
         """
         Compute the weighted total number of objects, using either the
-        `data` or `randoms` source
+        ``data`` or ``randoms`` source:
 
-        This is just the sum of the completeness weights:
+        This is the sum of the completeness weights:
 
         .. math::
 

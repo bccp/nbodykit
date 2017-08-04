@@ -6,7 +6,7 @@ import functools
 
 def OnDemandColumn(source, col):
     """
-    Return column from the source on-demand
+    Return a column from the source on-demand.
     """
     return source[col]
 
@@ -14,13 +14,29 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
     """
     A CatalogSource interface for handling multiples species
     of particles.
+
+    Parameters
+    ----------
+    names : list of str
+        list of strings specifying the names of the various species;
+        data columns are prefixed with "species/" where "species" is
+        in ``names``
+    *species : two or more CatalogSource objects
+        catalogs to be combined into a single catalog, which give the
+        data for different species of particles; as many catalogs
+        as names must be provided
+    use_cache : bool, optional
+        whether to cache data when reading; default is ``True``
     """
     logger = logging.getLogger('MultipleSpeciesCatalog')
 
     def __repr__(self):
         return "MultipleSpeciesCatalog(species=%s)" %self.attrs['species']
 
-    def __init__(self, names, *species, use_cache=True):
+    def __init__(self, names, *species, **kwargs):
+
+        # whether to use the cache
+        use_cache = kwargs.get('use_cache', True)
 
         # input checks
         if len(species) < 2:
@@ -79,21 +95,15 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
                 compensated=False, window='cic', weight='Weight',
                 selection='Selection', value='Value', position='Position'):
         """
-        Convert the FKPCatalog to a mesh, which knows how to "paint" the
-        FKP density field.
-
-        Additional keywords to the :func:`to_mesh` function include the
-        FKP weight column, completeness weight column, and the column
-        specifying the number density as a function of redshift.
+        Convert the catalog to a mesh, which knows how to "paint" the
+        the combined density field, summed over all particle species.
 
         Parameters
         ----------
-        Nmesh : int, 3-vector, optional
-            the number of cells per box side; if not specified in `attrs`, this
-            must be provided
-        BoxSize : float, 3-vector, optional
-            the size of the box; if provided, this will use the default value
-            in `attrs`
+        Nmesh : int, 3-vector
+            the number of cells per box side
+        BoxSize : float, 3-vector
+            the size of the box
         dtype : str, dtype, optional
             the data type of the mesh when painting
         interlaced : bool, optional
@@ -124,7 +134,7 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
                 if _col not in self:
                     raise ValueError("the '%s' species is missing the '%s' column" %(name, col))
 
-        # initialize the FKP mesh
+        # initialize the mesh
         kws = {'Nmesh':Nmesh, 'BoxSize':BoxSize, 'dtype':dtype, 'selection':selection}
         mesh = MultipleSpeciesCatalogMesh(self,
                                           Nmesh=Nmesh,

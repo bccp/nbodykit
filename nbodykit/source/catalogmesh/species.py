@@ -10,6 +10,31 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
     A subclass of :class:`~nbodykit.base.catalogmesh.CatalogMesh`
     designed to paint the density field from a sum of multiple types
     of particles.
+
+    The :func:`paint` function paints the density field summed over
+    all particle species.
+
+    Parameters
+    ----------
+    source : CatalogSource
+        the input catalog that we wish to interpolate to a mesh
+    BoxSize :
+        the size of the box
+    Nmesh : int, 3-vector
+        the number of cells per mesh side
+    dtype : str
+        the data type of the values stored on mesh
+    weight : str
+        column in ``source`` that specifies the weight value for each
+        particle in the ``source`` to use when gridding
+    value : str
+        column in ``source`` that specifies the field value for each particle;
+        the mesh stores a weighted average of this column
+    selection : str
+        column in ``source`` that selects the subset of particles to grid
+    position : str, optional
+        column in ``source`` specifying the position coordinates; default
+        is ``Position``
     """
     logger = logging.getLogger('MultipleSpeciesCatalogMesh')
 
@@ -58,6 +83,22 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
         """
         Paint the density field holding the sum of all particle species,
         returning a :class:`~pmesh.pm.RealField` object.
+
+        Meta-data computed for each particle is stored in the :attr:`attrs`
+        attribute of the returned RealField, with keys that are prefixed by
+        the species name.
+
+        Parameters
+        ----------
+        normalize : bool, optional
+            if ``True``, normalize the density field as :math:`1+\delta`,
+            dividing by the total mean number of objects per cell, as given
+            by the ``num_per_cell`` meta-data value in :attr:`attrs`
+
+        Returns
+        -------
+        RealField :
+            the RealField holding the painted density field
         """
         # track the sum of the mean number of objects per cell across species
         attrs = {'num_per_cell':0.}
