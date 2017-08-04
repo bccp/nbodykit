@@ -104,21 +104,28 @@ And subclasses:
   ~file.HDFCatalog
   ~file.FITSCatalog
   ~array.ArrayCatalog
-  ~fkp.FKPCatalog
   ~halos.HaloCatalog
   ~hod.HODCatalog
   ~lognormal.LogNormalCatalog
   ~uniform.UniformCatalog
   ~uniform.RandomCatalog
+  ~fkp.FKPCatalog
+  ~species.MultipleSpeciesCatalog
 
 
 Interpolating Objects to a Mesh
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+The base class:
+
 .. autosummary::
 
-    ~nbodykit.base.catalogmesh.CatalogMeshSource
-    ~nbodykit.source.catalog.fkp.FKPMeshSource
+    ~nbodykit.base.catalogmesh.CatalogMesh
+
+And subclasses:
+
+    ~nbodykit.source.catalogmesh.species.MultipleSpeciesCatalogMesh
+    ~nbodykit.source.catalogmesh.fkp.FKPCatalogMesh
 
 
 .. _api-mesh-data:
