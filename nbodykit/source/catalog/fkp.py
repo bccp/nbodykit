@@ -7,17 +7,19 @@ import logging
 
 class FKPCatalog(MultipleSpeciesCatalog):
     """
-    An interface for simultaneous modeling of a `data` CatalogSource and a
-    `randoms` CatalogSource, in the spirt of
+    An interface for simultaneous modeling of a ``data`` CatalogSource and a
+    ``randoms`` CatalogSource, in the spirit of
     `Feldman, Kaiser, and Peacock, 1994 <https://arxiv.org/abs/astro-ph/9304022>`_.
 
     This main functionality of this class is:
 
     *   provide a uniform interface to accessing columns from the
-        `data` CatalogSource and `randoms` CatalogSource, using
-        column names prefixed with "data." or "randoms."
+        ``data`` CatalogSource and ``randoms`` CatalogSource, using
+        column names prefixed with "data/" or "randoms/"
     *   compute the shared :attr:`BoxSize` of the source, by
-        finding the maximum Cartesian extent of the `randoms`
+        finding the maximum Cartesian extent of the ``randoms``
+    *   provide an interface to a mesh object, which knows how to paint the
+        FKP density field from the ``data`` and ``randoms``
 
     Parameters
     ----------
@@ -69,11 +71,11 @@ class FKPCatalog(MultipleSpeciesCatalog):
 
         This function add two necessary attribues:
 
-        1. :attr:`BoxSize` : array_like, (3,)
+        #. :attr:`BoxSize` : array_like, (3,)
             if not provided, the BoxSize in each direction is computed from
             the maximum extent of the Cartesian coordinates of the :attr:`randoms`
             Source, with an optional, additional padding
-        2. :attr:`BoxCenter`: array_like, (3,)
+        #. :attr:`BoxCenter`: array_like, (3,)
             the mean coordinate value in each direction; this is used to re-center
             the Cartesian coordinates of the :attr:`data` and :attr:`randoms`
             to the range of ``[-BoxSize/2, BoxSize/2]``
@@ -181,14 +183,5 @@ class FKPCatalog(MultipleSpeciesCatalog):
         mesh.interlaced = interlaced
         mesh.compensated = compensated
         mesh.window = window
-
-        # add some additional internal columns to the mesh
-        for i, name in enumerate(self.species):
-
-            # total weight for the mesh is completeness weight x FKP weight
-            mesh[name+'/TotalWeight'] = self[name+'/'+comp_weight] * self[name+'/'+fkp_weight]
-
-            # position on the mesh is re-centered to [-BoxSize/2, BoxSize/2]
-            mesh[name+'/'+position] = self[name+'/'+position] - self.attrs['BoxCenter']
 
         return mesh
