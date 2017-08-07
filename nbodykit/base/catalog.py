@@ -125,8 +125,10 @@ class CatalogSourceBase(object):
         #.  strings specifying a column in the CatalogSource; returns
             a dask array holding the column data
         #.  boolean arrays specifying a slice of the CatalogSource;
-            returns a CatalogSubset holding only the revelant slice
+            returns a CatalogCopy holding only the revelant slice
         #.  slice object specifying which particles to select
+        #.  list of strings specifying column names; returns a CatalogCopy
+            holding only the selected columnss
         """
         # handle boolean array slices
         if not isinstance(sel, string_types):
@@ -144,7 +146,7 @@ class CatalogSourceBase(object):
 
                     # return a CatalogSource only holding the selected columns
                     subset_data = {col:self[col] for col in sel}
-                    toret = CatalogSubset(self.size, self.comm, use_cache=self.use_cache, **subset_data)
+                    toret = CatalogCopy(self.size, self.comm, use_cache=self.use_cache, **subset_data)
                     toret.attrs.update(self.attrs)
                     return toret
 
@@ -198,7 +200,7 @@ class CatalogSourceBase(object):
         if col in self._overrides:
             del self._overrides[col]
             return
-            
+
         raise ValueError("unable to delete column '%s' from CatalogSource" %col)
 
 
@@ -525,6 +527,21 @@ class CatalogSource(CatalogSourceBase):
         # call the base __setitem__
         CatalogSourceBase.__setitem__(self, col, value)
 
+    def copy(self):
+        """
+        Return a copy of the CatalogSource object
+
+        Returns
+        -------
+        CatalogCopy :
+            the new CatalogSource object holding the copied data columns
+        """
+        if self.size is NotImplemented:
+            return ValueError("cannot copy a CatalogSource that does not have `size` implemented")
+
+        data = {col:self[col] for col in self.columns}
+        return CatalogCopy(self.size, comm=self.comm, use_cache=self.use_cache, **data)
+
     @abc.abstractproperty
     def size(self):
         """
@@ -599,10 +616,10 @@ class CatalogSource(CatalogSourceBase):
             self.logger.info("total number of particles in %s = %d" %(str(self), self.csize))
 
 
-class CatalogSubset(CatalogSource):
+class CatalogCopy(CatalogSource):
     """
-    A subset of a CatalogSource holding only a portion
-    of the original source
+    A CatalogSource object that holds column data copied from an
+    original source
 
     Parameters
     ----------
@@ -633,14 +650,15 @@ class CatalogSubset(CatalogSource):
 
 def get_catalog_subset(parent, index):
     """
-    Select a subset of a CatalogSource according to a boolean index array.
+    Select a subset of a :class:`CatalogSource` according to a boolean
+    index array.
 
-    Returns a CatalogSubset holding only the data that satisfies
+    Returns a :class:`CatalogCopy` holding only the data that satisfies
     the slice criterion.
 
     Parameters
     ----------
-    parent : CatalogSource
+    parent : :class:`CatalogSource`
         the parent source that will be sliced
     index : array_like
         either a dask or numpy boolean array; this determines which
@@ -648,7 +666,7 @@ def get_catalog_subset(parent, index):
 
     Returns
     -------
-    subset : CatalogSubset
+    subset : :class:`CatalogCopy`
         the particle source with the same meta-data as `parent`, and
         with the sliced data arrays
     """
@@ -669,7 +687,7 @@ def get_catalog_subset(parent, index):
 
     # initialize subset Source of right size
     subset_data = {col:parent[col][index] for col in parent}
-    toret = CatalogSubset(size, parent.comm, use_cache=parent.use_cache, **subset_data)
+    toret = CatalogCopy(size, parent.comm, use_cache=parent.use_cache, **subset_data)
 
     # and the meta-data
     toret.attrs.update(parent.attrs)

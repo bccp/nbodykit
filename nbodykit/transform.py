@@ -55,11 +55,9 @@ def ConcatenateSources(*sources, **kwargs):
     >>> combined = transform.ConcatenateSources(source1, source2, columns=['Position', 'Velocity'])
     >>> print(combined.csize)
     """
+    from nbodykit.base.catalog import CatalogCopy
+
     columns = kwargs.get('columns', None)
-
-    # FIXME: new name for CatalogSubset?
-    from nbodykit.base.catalog import CatalogSubset
-
     if isinstance(columns, string_types):
         columns = [columns]
 
@@ -83,7 +81,7 @@ def ConcatenateSources(*sources, **kwargs):
     for col in columns:
         data[col] = da.concatenate([src[col] for src in sources], axis=0)
 
-    return CatalogSubset(size, sources[0].comm, use_cache=sources[0].use_cache, **data)
+    return CatalogCopy(size, sources[0].comm, use_cache=sources[0].use_cache, **data)
 
 # deprecated functions
 vstack = deprecate("nbodykit.transform.vstack", StackColumns, "nbodykit.transform.StackColumns")
