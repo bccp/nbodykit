@@ -41,13 +41,14 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
         # input checks
         if len(species) < 2:
             raise ValueError("need at least 2 particle species to initialize MultipleSpeciesCatalog")
+        if len(set(species)) != len(species):
+            raise ValueError("each species must have a unique name")
         if not all(cat.comm is species[0].comm for cat in species):
             raise ValueError("communicator mismatch in MultipleSpeciesCatalog")
         if len(names) != len(species):
             raise ValueError("a name must be provided for each species catalog provided")
 
         self.comm = species[0].comm
-        self._sources = species
         self.species = names
         self.attrs['species'] = names
 
@@ -55,7 +56,11 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
         for cat, name in zip(species, names):
             self.attrs.update(attrs_to_dict(cat, name + '.'))
 
+        # no size!
         self.size = NotImplemented
+
+        # store the local sizes of each species catalog
+        self._sizes = [source.size for source in species]
 
         # init the base class
         CatalogSourceBase.__init__(self, self.comm, use_cache=use_cache)
@@ -66,10 +71,36 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
 
         # prefixed columns in this source return on-demand from their
         # respective source objects
-        for name, source in zip(names, self._sources):
+        for name, source in zip(names, species):
             for col in source.columns:
                 f = functools.partial(OnDemandColumn, col=col, source=source)
                 self._overrides[name+'/'+col] = f
+
+    def __getitem__(self, key):
+        """
+        This modifies the behavior of :func:`CatalogSourceBase.__getitem__`
+        such that if ``key`` is a species name, a
+        :class:`~nbodykit.base.catalog.CatalogCopy` will be returned that
+        holds that data only for the species.
+        """
+        # return a new CatalogSource holding only the specific species
+        if key in self.species:
+            from nbodykit.base.catalog import CatalogCopy
+
+            # get the data columns for this species
+            data = {}
+            for col in self:
+                if col.startswith(key):
+                    name = col.split('/')[-1]
+                    data[name] = self[col]
+
+            # size of the underlying source
+            size = self._sizes[self.species.index(key)]
+
+            return CatalogCopy(size, self.comm, use_cache=self.use_cache, **data)
+
+        # base class __getitem__
+        return CatalogSourceBase.__getitem__(self, key)
 
     def __setitem__(self, col, value):
         """

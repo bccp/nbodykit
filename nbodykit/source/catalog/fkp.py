@@ -55,7 +55,7 @@ class FKPCatalog(MultipleSpeciesCatalog):
             for col in ['FKPWeight', 'TotalWeight']:
                 _col = name + '/' + col
                 if _col not in self:
-                    self[_col] = ConstantArray(1.0, self._sources[i].size, chunks=100000)
+                    self[_col] = ConstantArray(1.0, self._sizes[i], chunks=100000)
 
         # determine the BoxSize
         if numpy.isscalar(BoxSize):

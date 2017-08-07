@@ -49,35 +49,37 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
         CatalogMesh.__init__(self, source, BoxSize, Nmesh, dtype, weight,
                             value, selection, position=position)
 
-        # store the column names
-        self._colnames = {'position':position, 'weight':weight, 'value':value,
-                          'selection':selection}
-
-    @contextlib.contextmanager
-    def _set_species(self, name):
+    def __getitem__(self, key):
         """
-        Internal context manager to set the appropriate
-        column names needed for painting, based on the input ``name``.
+        If indexed by a species name, return a CatalogMesh object holding
+        only the data columns for that species with the same parameters as
+        the current object.
 
-        Parameters
-        ----------
-        name : str
-            the name of one of the species, which determines which columns
-            to use when painting to the mesh.
+        If not a species name, this has the same behavior as
+        :func:`CatalogSource.__getitem__`.
         """
-        # simple sanity check
-        if name not in self.source.species:
-            raise ValueError("'name' should be one of: %s" %str(self.source.species))
+        # return a new CatalogMesh object if key is a species name
+        if key in self.source.species:
+            from nbodykit.base.catalog import CatalogCopy
 
-        # update the column names to "species/name"
-        for col in self._colnames:
-            setattr(self, col, name+'/'+self._colnames[col])
+            # get the data columns for this species
+            data = {}
+            for col in self:
+                if col.startswith(key):
+                    name = col.split('/')[-1]
+                    data[name] = self[col]
 
-        yield # do not need to yield anything
+            # a CatalogView holding only the data from the selected species
+            size = self.source._sizes[self.source.species.index(key)]
+            cat = CatalogCopy(size, self.source.comm, use_cache=self.source.use_cache, **data)
 
-        # restore the original values
-        for col in self._colnames:
-            setattr(self, col, self._colnames[col])
+            # return a new CatalogMesh for selected species
+            return CatalogMesh(cat, self.attrs['BoxSize'], self.attrs['Nmesh'],
+                                self.dtype, self.weight, self.value,
+                                self.selection, position=self.position)
+
+        # return the base class behavior
+        return CatalogMesh.__getitem__(self, key)
 
     def to_real_field(self, normalize=True):
         """
@@ -108,16 +110,21 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
 
         # loop over each species
         for name in self.source.species:
-            with self._set_species(name):
 
-                # paint the un-normalized density field for this species
-                real = CatalogMesh.to_real_field(self, out=real, normalize=False)
+            if self.pm.comm.rank == 0:
+                self.logger.info("painting the '%s' species" %name)
 
-                # add to the mean number of objects per cell
-                attrs['num_per_cell'] += real.attrs['num_per_cell']
+            # get a CatalogMesh for this species
+            species_mesh = self[name]
 
-                # store the meta-data for this species, with a prefix
-                attrs.update(attrs_to_dict(real, name+'.'))
+            # paint the un-normalized density field for this species
+            real = species_mesh.to_real_field(out=real, normalize=False)
+
+            # add to the mean number of objects per cell
+            attrs['num_per_cell'] += real.attrs['num_per_cell']
+
+            # store the meta-data for this species, with a prefix
+            attrs.update(attrs_to_dict(real, name+'.'))
 
         # # normalize the field by nbar -> this is now 1+delta
         if normalize:

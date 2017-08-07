@@ -404,7 +404,7 @@ class ConvolvedFFTPower(object):
         Ylms = [[get_real_Ylm(l,m) for m in range(-l, l+1)] for l in poles[1:]]
 
         # paint the FKP density field to the mesh (paints: data - alpha*randoms, essentially)
-        rfield = self.source.paint(mode='real') # just paint the real field (without any additional compensation)
+        rfield = self.source.to_real_field() # just paint the real field (without any additional compensation)
         meta = rfield.attrs.copy()
         if rank == 0: self.logger.info('%s painting done' %self.source.window)
 
