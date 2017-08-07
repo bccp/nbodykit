@@ -124,6 +124,8 @@ The base class:
 
 And subclasses:
 
+.. autosummary::
+  
     ~nbodykit.source.catalogmesh.species.MultipleSpeciesCatalogMesh
     ~nbodykit.source.catalogmesh.fkp.FKPCatalogMesh
 
