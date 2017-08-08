@@ -34,3 +34,4 @@ Algorithm Recipes
   interlacing.ipynb
   interpolation-windows.ipynb
   convpower.ipynb
+  boss-dr12-data.ipynb
