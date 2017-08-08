@@ -160,6 +160,14 @@ which we refer to as the "data" and "randoms" catalogs, respectively.
 The :class:`CatalogSource` object responsible for handling these two types
 of catalogs is the :class:`~nbodykit.source.catalog.fkp.FKPCatalog` class.
 
+The :class:`~nbodykit.source.catalog.fkp.FKPCatalog` determines the size of
+the Cartesian box that the  "data" and "randoms" are placed in, which is then
+also used during the FFT operation. By default, the box size is determined
+automatically from the maximum extent of the "randoms" positions.
+In this automatic case, the size of the box can be artificially extended and
+padded with zeros via the ``BoxPad`` keyword.
+Users can also specify a desired box size by passing in the ``BoxSize`` keyword.
+
 Most importantly, the :class:`~nbodykit.source.catalog.fkp.FKPCatalog`
 object can be converted to a mesh object,
 :class:`~nbodykit.source.catalogmesh.fkp.FKPCatalogMesh`, via the
@@ -365,6 +373,16 @@ atrribute.
 #. BoxSize :
     the size of the Cartesian box used to grid the "data" and
     "randoms" objects on the Cartesian mesh.
+
+From :math:`P_\ell(k)` to :math:`P(k,\mu)`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The :func:`ConvolvedFFTPower.to_pkmu` allows users to rotate the measured
+multipoles, stored as the :attr:`ConvolvedFFTPower.poles` attribute, into
+:math:`P(k,\mu)` wedges (bins in :math:`\mu`). The function returns a
+:class:`~nbodykit.binned_statistic.BinnedStatistic` holding the
+binned :math:`P(k,\mu)` data. 
+
 
 Saving and Loading
 ------------------

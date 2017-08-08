@@ -96,6 +96,9 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         - num_per_cell : float
             the mean number of weighted objects per cell
 
+        For further details on the meta-data, see
+        :ref:`the documentation <fkp-meta-data>`.
+
         Returns
         -------
         :class:`~pmesh.pm.RealField` :

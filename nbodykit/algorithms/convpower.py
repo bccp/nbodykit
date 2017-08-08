@@ -227,6 +227,9 @@ class ConvolvedFFTPower(object):
             #. BoxSize :
                 the size of the Cartesian box used to grid the data and
                 randoms objects on a Cartesian mesh.
+
+            For further details on the meta-data, see 
+            :ref:`the documentation <fkp-meta-data>`.
         """
         pm = self.source.pm
 
