@@ -23,7 +23,7 @@ Data Recipes
 
   lognormal-mocks.ipynb
   hod-mocks.ipynb
-  
+
 Algorithm Recipes
 -----------------
 
@@ -33,3 +33,4 @@ Algorithm Recipes
   fftpower.ipynb
   interlacing.ipynb
   interpolation-windows.ipynb
+  convpower.ipynb
