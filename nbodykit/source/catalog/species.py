@@ -27,11 +27,17 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
         as names must be provided
     use_cache : bool, optional
         whether to cache data when reading; default is ``True``
+
+    Examples
+    --------
+    >>> source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42)
+    >>> source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84)
+    >>> cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2)
     """
     logger = logging.getLogger('MultipleSpeciesCatalog')
 
     def __repr__(self):
-        return "MultipleSpeciesCatalog(species=%s)" %self.attrs['species']
+        return "MultipleSpeciesCatalog(species=%s)" %str(self.attrs['species'])
 
     def __init__(self, names, *species, **kwargs):
 
@@ -41,7 +47,7 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
         # input checks
         if len(species) < 2:
             raise ValueError("need at least 2 particle species to initialize MultipleSpeciesCatalog")
-        if len(set(species)) != len(species):
+        if len(set(names)) != len(names):
             raise ValueError("each species must have a unique name")
         if not all(cat.comm is species[0].comm for cat in species):
             raise ValueError("communicator mismatch in MultipleSpeciesCatalog")
