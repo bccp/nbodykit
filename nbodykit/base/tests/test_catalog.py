@@ -117,7 +117,7 @@ def test_slice(comm):
     with pytest.raises(KeyError):
         col = source['BAD_COLUMN']
 
-@MPITest([1])
+@MPITest([1 ,4])
 def test_transform(comm):
     cosmo = cosmology.Planck15
     CurrentMPIComm.set(comm)
@@ -138,3 +138,62 @@ def test_transform(comm):
     assert_allclose(source['Position'], 3)
 
     mesh = source.to_mesh()
+
+@MPITest([1, 4])
+def test_getitem_columns(comm):
+    CurrentMPIComm.set(comm)
+
+    source = UniformCatalog(nbar=0.2e-3, BoxSize=1024., seed=42)
+
+    # bad column name
+    with pytest.raises(KeyError):
+        subset = source[['Position', 'BAD_COLUMN']]
+
+    subset = source[['Position']]
+
+    for col in subset:
+        assert_array_equal(subset[col].compute(), source[col].compute())
+
+@MPITest([1, 4])
+def test_delitem(comm):
+
+    CurrentMPIComm.set(comm)
+    source = UniformCatalog(nbar=0.2e-3, BoxSize=1024., seed=42)
+
+    # add a test column
+    test = numpy.ones(source.size)
+    source['test'] = test
+
+    # cannot delete hard coded column
+    with pytest.raises(ValueError):
+        del source['Position']
+
+    # cannot delete missing column
+    with pytest.raises(ValueError):
+        del source['BAD_COLUMN']
+
+    assert 'test' in source
+    del source['test']
+    assert 'test' not in source
+
+@MPITest([1, 4])
+def test_copy(comm):
+
+    CurrentMPIComm.set(comm)
+    source = UniformCatalog(nbar=0.2e-3, BoxSize=1024., seed=42)
+
+    # store original data
+    data = {}
+    for col in source:
+        data[col] = source[col].compute()
+
+    # make copy
+    copy = source.copy()
+
+    # modify original
+    source['Position'] += 100.
+    source['Velocity'] *= 10.
+
+    # check data is equal to original
+    for col in copy:
+        assert_array_equal(copy[col].compute(), data[col])
