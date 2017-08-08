@@ -51,15 +51,20 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         self.comp_weight = comp_weight
         self.fkp_weight = fkp_weight
         self.nbar = nbar
+
+        # store the input position column
         self._position = position
 
+        # init the base
+        # NOTE: FKP must paint the Position recentered to [-L/2, L/2]
+        # so we store that in an internal column "_RecenteredPosition"
         MultipleSpeciesCatalogMesh.__init__(self, source, BoxSize, Nmesh, dtype,
-                                            'TotalWeight', 'Value', selection,
-                                            position='RecenteredPosition')
+                                            '_TotalWeight', 'Value', selection,
+                                            position='_RecenteredPosition')
 
 
     def to_real_field(self):
-        """
+        r"""
         Paint the FKP density field, returning a ``RealField``.
 
         Given the ``data`` and ``randoms`` catalogs, this paints:
@@ -97,13 +102,15 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
             the field object holding the FKP density field in real space
         """
         # add necessary FKP columns first
+        # NOTE: these are internal columns and will be deleted so successive
+        # calls to this function remain valid
         for i, name in enumerate(self.source.species):
 
-            # total weight for the mesh is completeness weight x FKP weight
-            self[name+'/TotalWeight'] = self[name+'/'+self.comp_weight] * self[name+'/'+self.fkp_weight]
+            # a total weight for the mesh is completeness weight x FKP weight
+            self[name+'/_TotalWeight'] = self[name+'/'+self.comp_weight] * self[name+'/'+self.fkp_weight]
 
             # position on the mesh is re-centered to [-BoxSize/2, BoxSize/2]
-            self[name+'/RecenteredPosition'] = self[name+'/'+self._position] - self.source.attrs['BoxCenter']
+            self[name+'/_RecenteredPosition'] = self[name+'/'+self._position] - self.source.attrs['BoxCenter']
 
         attrs = {}
 
@@ -113,7 +120,7 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         attrs['alpha'] = attrs['data.W'] / attrs['randoms.W']
 
         # randoms get an additional weight of -alpha
-        self['randoms/TotalWeight'] *= -1.0 * attrs['alpha']
+        self['randoms/_TotalWeight'] *= -1.0 * attrs['alpha']
 
         # paint w_data*n_data - alpha*w_randoms*n_randoms
         real = MultipleSpeciesCatalogMesh.to_real_field(self, normalize=False)
@@ -136,10 +143,10 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         # update the meta-data
         real.attrs.update(attrs)
 
-        # delete columns we added while painting
+        # delete the INTERNAL columns we added while painting
         for i, name in enumerate(self.source.species):
-            del self[name+'/TotalWeight']
-            del self[name+'/RecenteredPosition']
+            del self[name+'/_TotalWeight']
+            del self[name+'/_RecenteredPosition']
 
         return real
 
