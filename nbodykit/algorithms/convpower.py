@@ -92,6 +92,10 @@ class ConvolvedFFTPower(object):
     during algorithm execution is stored in the :attr:`attrs` dict. See the
     documenation of :func:`~ConvolvedFFTPower.run`.
 
+    .. note::
+        A full tutorial on the class is available in the documentation
+        :ref:`here <convpower>`.
+
     Parameters
     ----------
     source : FKPCatalog, FKPCatalogMesh
