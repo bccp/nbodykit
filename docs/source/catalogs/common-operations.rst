@@ -163,7 +163,6 @@ simply by using:
     src['Position'] = src['Position'] + src['VelocityOffset'] * line_of_sight
 
 
-
 Selecting a Subset
 ------------------
 
@@ -202,10 +201,33 @@ For example,
   the user wishes to select a single row, a list of length one can be used to
   select the specific row.
 
+Selecting a Subset of Columns from a ``CatalogSource``
+------------------------------------------------------
+
+A subset of columns can be selected from a :class:`CatalogSource` object by
+indexing the catalog with a list of the names of the desired columns.
+For example,
+
+.. ipython:: python
+
+    print("columns in catalog = ", cat.columns)
+
+    # select only entries where select = True
+    subcat = cat[['Position', 'Mass']]
+
+    # the selected columns + default columns
+    print("columns in subset = ", subcat.columns)
+
+**Caveats**
+
+- When selecting a subset of columns, note that in addition to the desired columns,
+  the sub-catalog will also contain the
+  :ref:`default columns <catalog-source-default-columns>`. 
+
 .. _transform-ops:
 
-The :mod:`nbodykit.transform` module
-------------------------------------
+The ``nbodykit.transform`` module
+---------------------------------
 
 The :mod:`nbodykit.transform` module includes several commonly used functions
 for convenience. We describe a few of the most common use cases in the sub-sections

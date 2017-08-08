@@ -576,7 +576,7 @@ class CatalogSource(CatalogSourceBase):
         The column giving the weight to use for each particle on the mesh.
 
         The mesh field is a weighted average of ``Value``, with the weights
-        given by `Weight`.
+        given by ``Weight``.
 
         By default, this array is set to unity for all particles.
         """
@@ -590,7 +590,7 @@ class CatalogSource(CatalogSourceBase):
         mesh cell.
 
         The mesh field is a weighted average of ``Value``, with the weights
-        given by `Weight`.
+        given by ``Weight``.
 
         By default, this array is set to unity for all particles.
         """

@@ -82,15 +82,35 @@ these cases.
 Default Columns
 ---------------
 
-By default, all :class:`CatalogSource` objects include two default columns:
+By default, all :class:`CatalogSource` objects include several default columns:
 
-* ``Weight``
-  The value to use for each particle when interpolating a :class:`CatalogSource`
-  on to a mesh. By default, this array is set to unity for all objects.
+The ``Weight`` Column
+^^^^^^^^^^^^^^^^^^^^^
 
-* ``Selection``
-  A boolean column that selects a subset slice of the :class:`CatalogSource`.
-  By default, this column is set to ``True`` for all objects.
+The weight to use for each particle when interpolating a :class:`CatalogSource`
+on to a mesh. The mesh field is a weighted average of ``Value``, with the weights
+given by ``Weight``.
+
+By default, this array is set to unity for all objects.
+
+The ``Value`` Column
+^^^^^^^^^^^^^^^^^^^^
+
+When interpolating a :class:`CatalogSource` on to a mesh, the value of this
+array is used as the field value that each particle contributes to a given
+mesh cell. The mesh field is a weighted average of ``Value``, with the weights
+given by `Weight`.
+
+By default, this array is set to unity for all objects.
+
+The ``Selection`` Column
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+A boolean column that selects a subset slice of the :class:`CatalogSource`.
+When converting a :class:`CatalogSource` to a mesh object, only the objects
+where the ``Selection`` column is ``True`` will be painted to the mesh.
+
+By default, this column is set to ``True`` for all objects.
 
 Storing Meta-data
 -----------------
