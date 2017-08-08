@@ -36,7 +36,7 @@ a box of side length :math:`1` :math:`\mathrm{Mpc}/h`.
 
     print(mesh)
 
-.. note::
+.. important::
 
   The :func:`~CatalogSource.to_mesh` operation does not perform any interpolation
   operations -- it merely initializes a new object that sets up the mesh with
@@ -160,6 +160,16 @@ function, users can specify a boolean column that selects a subset of the
 to the ``Selection`` column, a
 :ref:`default column <catalog-source-default-columns>` in all
 :class:`CatalogSource` objects that is set to ``True`` for all objects.
+
+Painting a Column other than ``Position``
+-----------------------------------------
+
+By default, nbodykit assumes that the ``Position`` column is the name of
+the column holding the Cartesian coordinates of the objects in the catalog. Thus,
+the :func:`~CatalogSource.to_mesh` function uses this column, by default, to
+paint a catalog to a mesh. The user can change this behavior by specifying
+the name of the desired column using the
+``position`` keyword of the :func:`~CatalogSource.to_mesh` function.
 
 .. _gaussian-meshes:
 
