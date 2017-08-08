@@ -175,6 +175,7 @@ class CatalogMesh(MeshSource, CatalogSource):
 
         pm = self.pm
 
+        fullsize = 0 # track how many were selected out
         Nlocal = 0 # (unweighted) number of particles read on local rank
         Wlocal = 0 # (weighted) number of particles read on local rank
 
@@ -197,7 +198,7 @@ class CatalogMesh(MeshSource, CatalogSource):
 
         # read the necessary data (as dask arrays)
         columns = [self.position, self.weight, self.value, self.selection]
-        Position, Weight, Mass, Selection = self.read(columns)
+        Position, Weight, Value, Selection = self.read(columns)
 
         # ensure the slices are synced, since decomposition is collective
         N = max(pm.comm.allgather(len(Position)))
@@ -210,7 +211,8 @@ class CatalogMesh(MeshSource, CatalogSource):
             if len(Position) != 0:
 
                 # be sure to use the source to compute
-                position, weight, value, selection = self.source.compute(Position[s], Weight[s], Mass[s], Selection[s])
+                position, weight, value, selection = \
+                    self.source.compute(Position[s], Weight[s], Value[s], Selection[s])
             else:
                 # workaround a potential dask issue on empty dask arrays
                 position = numpy.empty((0, 3), dtype=Position.dtype)
@@ -224,20 +226,28 @@ class CatalogMesh(MeshSource, CatalogSource):
             if value is None:
                 value = numpy.ones(len(position))
 
+            # track all particles, before Selection applied
+            fullsize += len(position)
+
+            # apply any Selections
             if selection is not None:
                 position = position[selection]
                 weight = weight[selection]
                 value = value[selection]
 
+            # track total (selected) number and sum of weights
             Nlocal += len(position)
             Wlocal += weight.sum()
 
+            # no interlacing
             if not self.interlaced:
                 lay = pm.decompose(position, smoothing=0.5 * paintbrush.support)
                 p = lay.exchange(position)
                 w = lay.exchange(weight)
                 v = lay.exchange(value)
                 real.paint(p, mass=w * v, resampler=paintbrush, hold=True)
+
+            # interlacing: use 2 meshes separated by 1/2 cell size
             else:
                 lay = pm.decompose(position, smoothing=1.0 * paintbrush.support)
                 p = lay.exchange(position)
@@ -249,11 +259,13 @@ class CatalogMesh(MeshSource, CatalogSource):
                 # in mesh units
                 shifted = pm.affine.shift(0.5)
 
+                # paint to two shifted meshes
                 real.paint(p, mass=w * v, resampler=paintbrush, hold=True)
                 real2.paint(p, mass=w * v, resampler=paintbrush, transform=shifted, hold=True)
                 c1 = real.r2c()
                 c2 = real2.r2c()
 
+                # and then combine
                 for k, s1, s2 in zip(c1.slabs.x, c1.slabs, c2.slabs):
                     kH = sum(k[i] * H[i] for i in range(3))
                     s1[...] = s1[...] * 0.5 + s2[...] * 0.5 * numpy.exp(0.5 * 1j * kH)
@@ -265,6 +277,9 @@ class CatalogMesh(MeshSource, CatalogSource):
 
         # weighted number of objects
         W = pm.comm.allreduce(Wlocal)
+
+        # the full size; should be equal to csize
+        fullsize = pm.comm.allreduce(fullsize)
 
         # weighted number density (objs/cell)
         nbar = 1. * W / numpy.prod(pm.Nmesh)
@@ -286,6 +301,7 @@ class CatalogMesh(MeshSource, CatalogSource):
 
         csum = real.csum()
         if pm.comm.rank == 0:
+            self.logger.info("painted %d out of %d objects to mesh" %(N,fullsize))
             self.logger.info("mean particles per cell is %g", nbar)
             self.logger.info("sum is %g ", csum)
             self.logger.info("normalized the convention to 1 + delta")
