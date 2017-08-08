@@ -159,18 +159,18 @@ class FKPCatalog(MultipleSpeciesCatalog):
 
         from nbodykit.source.catalogmesh import FKPCatalogMesh
 
-        # first, define the Cartesian box
-        self._define_cartesian_box(position)
-
-        if BoxSize is None:
-            BoxSize = self.attrs['BoxSize']
-
         if Nmesh is None:
             try:
                 Nmesh = self.attrs['Nmesh']
             except KeyError:
                 raise ValueError("cannot convert FKP source to a mesh; 'Nmesh' keyword is not "
                                  "supplied and the FKP source does not define one in 'attrs'.")
+
+        # first, define the Cartesian box
+        self._define_cartesian_box(position)
+
+        if BoxSize is None:
+            BoxSize = self.attrs['BoxSize']
 
         # initialize the FKP mesh
         kws = {'Nmesh':Nmesh, 'BoxSize':BoxSize, 'dtype':dtype, 'selection':selection}

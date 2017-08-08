@@ -144,7 +144,7 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         return real
 
     def normalization(self, name):
-        """
+        r"""
         Compute the power spectrum normalization, using either the
         ``data`` or ``randoms`` source.
 
@@ -171,7 +171,7 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         return self.comm.allreduce(A)
 
     def shotnoise(self, name):
-        """
+        r"""
         Compute the power spectrum shot noise, using either the
         ``data`` or ``randoms`` source.
 
@@ -197,7 +197,7 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         return self.comm.allreduce(S)
 
     def weighted_total(self, name):
-        """
+        r"""
         Compute the weighted total number of objects, using either the
         ``data`` or ``randoms`` source:
 
