@@ -73,10 +73,18 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
             size = self.source._sizes[self.source.species.index(key)]
             cat = CatalogCopy(size, self.source.comm, use_cache=self.source.use_cache, **data)
 
-            # return a new CatalogMesh for selected species
-            return CatalogMesh(cat, self.attrs['BoxSize'], self.attrs['Nmesh'],
+            # initialize a new CatalogMesh for selected species
+            mesh = CatalogMesh(cat, self.attrs['BoxSize'], self.attrs['Nmesh'],
                                 self.dtype, self.weight, self.value,
                                 self.selection, position=self.position)
+
+            # propagate additional parameters
+            mesh.interlaced = self.interlaced
+            mesh.compensated = self.compensated
+            mesh.window = self.window
+
+            # and return
+            return mesh
 
         # return the base class behavior
         return CatalogMesh.__getitem__(self, key)
