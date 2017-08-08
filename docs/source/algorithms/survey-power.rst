@@ -2,17 +2,8 @@
 
 .. _convpower:
 
-.. ipython:: python
-    :suppress:
-
-    import tempfile, os
-    startdir = os.path.abspath('.')
-    tmpdir = tempfile.mkdtemp()
-    os.chdir(tmpdir)
-
 Power Spectrum Multipoles of Survey Data (:class:`ConvolvedFFTPower`)
 =====================================================================
-
 
 The :class:`ConvolvedFFTPower` class computes the power spectrum multipoles
 :math:`P_\ell(k)` for data from a survey that includes non-trivial
@@ -34,6 +25,8 @@ and detail important things to know for the user to get up and running quickly.
     To jump right into the :class:`ConvoledFFTPower` algorithm, see this
     `cookbook recipe <../cookbook/convpower.html>`_ for a detailed
     walk-through of the :class:`ConvolvedFFTPower` algorithm.
+
+.. _fkp-background:
 
 Some Background
 ---------------
@@ -67,7 +60,9 @@ order :math:`\ell`. The weighted density field :math:`F(\vr)` is defined as
 where :math:`n_g'` and :math:`n_s'` are the number densities for the
 galaxy catalog and synthetic catalog of randoms object, respectively, and
 :math:`\alpha'` is the ratio of the number of real galaxies to random galaxies.
-The normalization :math:`A` is given by
+Often, the catalog of random objects has a much higher number density than the
+galaxy catalog, and the factor of :math:`\alpha'` re-normalizes to the proper
+number density. The normalization :math:`A` is given by
 
 .. math::
     :label: A-integral
@@ -77,9 +72,9 @@ The normalization :math:`A` is given by
 The shot noise :math:`P_\ell^{\rm noise}` in equation :eq:`Pell` is
 
 .. math::
-    :label:  Pshot
+    :label: Pshot
 
-    P_\ell^{\rm noise}(\vk) = (1 + \alpha') \int \d\vr \ \bar{n}(\vr) \wfkp^2(\vr) \L_\ell (\vkhat \cdot \vrhat).
+    P_\ell^{\rm noise}(\vk) = (1 + \alpha') \int \d\vr \ n'_g(\vr) \wfkp^2(\vr) \L_\ell (\vkhat \cdot \vrhat).
 
 The FKP weights, first derived in
 `Feldman, Kaiser, and Peacock 1994`__, minimize the variance of the estimator
@@ -94,7 +89,7 @@ as :math:`w_\mathrm{FKP}`, these weights are given by
 where :math:`P_0` is the power spectrum amplitude in units of
 :math:`h^{-3} \mathrm{Mpc}^3` where the estimator is optimized. For typically
 galaxy survey analyses, a value of order :math:`P_0 = 10^{4} \ h^{-3} \mathrm{Mpc}^3`
-is assumed.
+is usually assumed.
 
 In our notation, quantities marked with a prime (:math:`'`) include
 completeness weights. These weights, denoted as :math:`w_c`,
@@ -102,7 +97,9 @@ help account for systematic variations in the number density fields. Typically
 the weights for the random catalog are unity, but for full generality we
 allow for the possibility of non-unity weights for :math:`n_s` as well.
 For example, :math:`\alpha' = N'_\mathrm{gal} / N'_\mathrm{ran}`, where
-:math:`N'_\mathrm{gal} = \sum_i^{N_\mathrm{gal}} w_c,i`.
+:math:`N'_\mathrm{gal} = \sum_i^{N_\mathrm{gal}} w_c^i`.
+
+.. _fkp-algorithm:
 
 The Algorithm
 -------------
@@ -139,119 +136,165 @@ of the :mod:`pmesh` package and
 use the `real form of the spherical harmonics`_ :math:`\Ylm`.
 
 We use the symbolic manipulation functionality
-available in the \texttt{sympy} Python package \cite{sympy} to compute the
-spherical harmonic expressions in equation~\ref{eq:real-Ylm} in terms
+available in the `SymPy`_ Python package to compute the
+spherical harmonic expressions in terms
 of Cartesian vectors. This allows the user to specify the desired multipoles
-at runtime, enabling the code to be used to compute multipoles of arbitrary $\ell$.
-Testing and development of the code was performed on the
-Cray XC-40 system Cori at the National Energy Research Supercomputing Center (NERSC),
-and the code exhibits strong scaling, with a roughly linear reduction in wall-clock
-time as the number of available processors increases. When computing all even
-multipoles up to $\lmax = 16$ (requiring in total 153 FFTs), our
-implementation takes roughly 90 seconds using 64 processors on Cori.
+at runtime, enabling the code to be used to compute multipoles of arbitrary
+:math:`\ell`.
 
-For the results presented in this work, we place the galaxies and random objects
-on a Cartesian grid using the Triangular Shaped Cloud (TSC) prescription
-to compute the density field $F(\vr)$ of equation~\ref{eq:FKP-density}. We use the
-interlaced grid technique of \cite{SefusattiEtAl16} to limit the effects of
-aliasing, and we correct for any artifacts of the TSC gridding using the
-correction factor of \cite{Jing05}. The interlacing scheme
-allows computation of the FFTs on a $512^3$ grid with accuracy comparable
-to the results when using a $1024^3$ grid, but with a wall-clock time that is
-$\sim8\times$ smaller. When using interlacing, the catalog of galaxies is
-interpolated on to two meshes separated by half of the size of a grid cell.
-We sum these two density fields in Fourier space and inverse Fourier Transform
-back to configuration space. We then apply the spherical harmonic weightings of
-equation~\ref{eq:real-Ylm} to this combined density field
-and proceed with computing the terms in equation~\ref{eq:Fell}.
-The speed-up provided by interlacing is particularly
-powerful when computing large $\ell$ multipoles. When combined with TSC
-interpolation, we are able to measure power spectra up to the
-Nyquist frequency at $k \simeq 0.4 \ h \mathrm{Mpc}^{-1}$ with
-fractional errors at the level of $10^{-3}$ \cite{SefusattiEtAl16}.
+.. _fkp-getting-started:
 
-The Functionality
------------------
+Getting Started
+---------------
 
-Users can compute the various quantities using the :class:`FFTPower`:
+Here, we outline the necessary steps for users to get started using the
+:class:`ConvolvedFFTPower` algorithm to compute the power spectrum multipoles
+from an input data catalog.
 
-Auto power spectra and cross power spectra
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The ``FKPCatalog`` Class
+^^^^^^^^^^^^^^^^^^^^^^^^
 
-Both auto and cross spectra are supported. Users can compute cross power spectra
-by passing a second mesh object to the :class:`FFTPower` class using
-the ``second`` keyword. The first mesh object should always be specified as
-the ``first`` argument.
+The :class:`ConvolvedFFTPower` algorithm requires a galaxy catalog and a
+synthetic catalog of random objects without any clustering signal,
+which we refer to as the "data" and "randoms" catalogs, respectively.
+The :class:`CatalogSource` object responsible for handling these two types
+of catalogs is the :class:`~nbodykit.source.catalog.fkp.FKPCatalog` class.
 
-1D Power Spectrum, :math:`P(k)`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Most importantly, the :class:`~nbodykit.source.catalog.fkp.FKPCatalog`
+object can be converted to a mesh object,
+:class:`~nbodykit.source.catalogmesh.fkp.FKPCatalogMesh`, via the
+:func:`~nbodykit.source.catalog.fkp.FKPCatalog.to_mesh` function. This
+mesh object knows how to paint the FKP weighted density field,
+given by equation :eq:`F`, to the mesh using the discrete object data from the
+"data" and "randoms" catalogs. With the FKP density field painted to the
+mesh, the :class:`ConvolvedFFTPower` algorithm uses equations :eq:`Pell-ours`
+and :eq:`Fell` to compute the multipoles specified by the user.
 
-The 1D power spectrum :math:`P(k)` can be computed by specifying the
-``mode`` argument as "1d". The wavenumber binning will be linear, and can be
-customized by specifying the ``dk`` and ``kmin`` attributes. By default,
-the edge of the last wavenumber bin is the
-`Nyquist frequency <https://en.wikipedia.org/wiki/Nyquist_frequency>`_, given
-by :math:`k_\mathrm{Nyq} = \pi N_\mathrm{mesh} / L_\mathrm{box}`. If ``dk``
-is not specified, then the fundamental mode of the box is used:
-:math:`2\pi/L_\mathrm{box}`.
+From Sky to Cartesian Coordinates
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-2D Power Spectrum, :math:`P(k,\mu)`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The ``Position`` column, holding the Cartesian coordinates,
+is required for both the "data" and "randoms" catalogs.
+We provide the function :func:`nbodykit.transform.SkyToCartesion` for converting
+sky coordinates, in the form of right ascension, declination, and redshift,
+to Cartesian coordinates. The conversion from redshift to comoving distance
+requires a cosmology instance, which can be specified via the
+:class:`~nbodykit.cosmology.core.Cosmology` class.
 
-The 2D power spectrum :math:`P(k,\mu)` can be computed by specifying the
-``mode`` argument as "2d". The number of :math:`\mu` bins is specified via
-the ``Nmu`` keyword. The bins range from :math:`\mu=0` to :math:`\mu=1`.
+For more details, see :ref:`sky-to-cartesian`.
 
-Multipoles of :math:`P(k,\mu)`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. _fkp-nbar:
 
-The :class:`FFTPower` class can also compute the multipoles of the 2D power
-spectrum, defined as
+Specifying :math:`n'_g(z)`
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The number density of the "data" catalog as a function of redshift, in units
+of :math:`h^{3} \mathrm{Mpc}^{-3}`, is required to properly normalize the
+power spectrum using equation :eq:`A-integral` and compute the shot noise
+via equation :eq:`Pshot`.  The "data" and "randoms" catalog should contain a
+column that gives this quantity, evaluated at the redshift of each object in
+the catalogs.
+
+When converting from a :class:`~nbodykit.source.catalog.fkp.FKPCatalog`
+to a :class:`~nbodykit.source.catalogmesh.fkp.FKPCatalogMesh`, the name
+of the :math:`n'_g(z)` column should be passed as the ``nbar`` keyword to the
+:func:`~nbodykit.source.catalog.fkp.FKPCatalog.to_mesh` function. The
+:math:`n'_g(z)` column should have the same name in the "data" and "randoms"
+catalogs.
+
+By default, the name of the ``nbar`` column is set to ``NZ``. If this
+column is missing from the "data" or "randoms" catalog, an exception
+will be raised.
+
+Note that the :class:`~nbodykit.algorithms.zhist.RedshiftHistogram` algorithm
+can compute a weighted :math:`n(z)` for an input catalog and may be useful
+for this algorithm if the :math:`n_g(z)` needs to be computed by the user.
+
+.. important::
+
+    The objects in the "randoms" catalog should follow the same redshift
+    distribution as the "data" catalog, but often will have an overall number
+    density 10, 50, or 100 times the number density of the "data" catalog.
+    Even if the "randoms" catalog has a higher number density, the
+    ``nbar`` column in both the "data" and "randoms" catalogs should hold
+    the number density on the same scale, corresponding to the value of
+    :math:`n_g(z)` at the redshift of the objects in the catalogs.
+
+Using Completeness Weights
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The :class:`ConvolvedFFTPower` algorithm supports the use of completeness
+weights to account for systematic variations in the number density of the
+"data" and "randoms" objects. In our notation in the earlier
+:ref:`background section <fkp-background>`, quantities marked with a
+prime (:math:`'`) include completeness weights. The weighted and
+unweighted number densities of the "data" and "randoms" fields are
+then related by:
 
 .. math::
 
-    P_\ell(k) = (2\ell + 1) \int_0^1 d\mu P(k,\mu) \mathcal{L}_\ell(\mu),
+    n'_g(\vr) &= w_{c,g}(\vr) n_g(\vr),
 
-where :math:`\mathcal{L}_\ell` is the Legendre polynomial of order
-:math:`\ell`. Users can specify which multipoles they wish to compute
-by passing a list of the desired :math:`\ell` values as the ``poles``
-keyword to the :class:`FFTPower` class.
+    n'_s(\vr) &= w_{c,s}(\vr) n_s(\vr),
 
-For example, we can compute both :math:`P(k,\mu)` and :math:`P_\ell(k)`
-for a uniform catalog of objects using:
+Typically the weights for the random catalog are unity, but for full generality,
+we allow for the possibility of non-unity weights for :math:`n_s` as well.
+For example, :math:`\alpha' = N'_\mathrm{gal} / N'_\mathrm{ran}`, where
+:math:`N'_\mathrm{gal} = \sum_i^{N_\mathrm{gal}} w_{c,g}^i` and
+:math:`N'_\mathrm{ran} = \sum_i^{N_\mathrm{ran}} w_{c,s}^i`.
 
-.. ipython:: python
+When converting from a :class:`~nbodykit.source.catalog.fkp.FKPCatalog`
+to a :class:`~nbodykit.source.catalogmesh.fkp.FKPCatalogMesh`, the name
+of the completeness weight column should be passed as the ``comp_weight``
+keyword to the :func:`~nbodykit.source.catalog.fkp.FKPCatalog.to_mesh` function.
 
-    from nbodykit.lab import UniformCatalog, FFTPower
+By default, the name of the ``comp_weight`` column is set to ``Weight``,
+which has a value of unity for all objects.  If specifying a different name,
+the column should have the same name in both the "data" and "randoms"
+catalogs.
 
-    cat = UniformCatalog(nbar=100, BoxSize=1.0, seed=42)
+Using FKP Weights
+^^^^^^^^^^^^^^^^^
 
-    r = FFTPower(cat, mode='2d', Nmesh=32, Nmu=5, poles=[0,2,4])
+Users can also specify the name of a column in the "data" and "randoms"
+catalogs that represents an FKP weight for each object, as given by
+equation :eq:`wfkp`. The FKP weights do not weight the individual number
+density fields as the completeness weights do, but rather they weight
+the combined field, :math:`n'_g(\vr) - \alpha' n'_s(\vr)` (see equation
+:eq:`F`).
+
+When converting from a :class:`~nbodykit.source.catalog.fkp.FKPCatalog`
+to a :class:`~nbodykit.source.catalogmesh.fkp.FKPCatalogMesh`, the name
+of the completeness weight column should be passed as the ``fkp_weight``
+keyword to the :func:`~nbodykit.source.catalog.fkp.FKPCatalog.to_mesh` function.
+
+By default, the name of the ``fkp_weight`` column is set to ``FKPWeight``,
+which has a value of unity for all objects.  If specifying a different name,
+the column should have the same name in both the "data" and "randoms"
+catalogs.
+
+The :class:`ConvolvedFFTPower` algorithm can also automatically generate
+and use FKP weights from the input ``nbar`` column if the user specifies
+the ``use_fkp_weights`` keyword of the algorithm to be ``True``. In this case,
+the user must also specify the ``P0_FKP`` keyword, which gives the desired
+:math:`P_0` value to use in equation :eq:`wfkp`.
+
 
 The Results
 -----------
 
-The power spectrum results are stored in two attributes of the
-initialized :class:`FFTPower` object:
-:attr:`~FFTPower.power` and :attr:`~FFTPower.poles`. These attributes are
-:class:`~nbodykit.binned_statistic.BinnedStatistic` objects, which
-behave like structured numpy arrays and store
-the measured results on a coordinate grid defined by the bins.
-See :ref:`analyzing-results` for a full tutorial on using
+The Multipoles
+^^^^^^^^^^^^^^
+
+The multipole results are stored as the :attr:`~ConvolvedFFTPower.poles`
+attribute of the initialized :class:`ConvolvedFFTPower` object.
+This attribute is a :class:`~nbodykit.binned_statistic.BinnedStatistic` object,
+which behaves like a structured numpy array and stores
+the measured results on a coordinate grid defined by the wavenumber bins
+specified by the user. See :ref:`analyzing-results` for a full tutorial on using
 the :class:`BinnedStatistic` class.
 
-The :attr:`~FFTPower.power` attribute stores the following variables:
-
-- k :
-    the mean value for each ``k`` bin
-- mu : if ``mode=2d``
-    the mean value for each ``mu`` bin
-- power :
-    complex array storing the real and imaginary components of the power
-- modes :
-    the number of Fourier modes averaged together in each bin
-
-The :attr:`~FFTPower.poles` attribute stores the following variables:
+The :attr:`~ConvolvedFFTPower.poles` attribute stores the following variables:
 
 - k :
     the mean value for each ``k`` bin
@@ -264,84 +307,94 @@ The :attr:`~FFTPower.poles` attribute stores the following variables:
 Note that measured power results for bins where ``modes`` is zero (no data points
 to average over) are set to ``NaN``.
 
-In our example, the ``power`` and ``poles`` attributes are:
+.. _fkp-meta-data:
 
-.. ipython:: python
+The Meta-data
+^^^^^^^^^^^^^
 
-    # the 2D power spectrum results
-    print(r.power)
-    print("variables = ", r.power.variables)
-    for name in r.power.variables:
-        var = r.power[name]
-        print("'%s' has shape %s and dtype %s" %(name, var.shape, var.dtype))
+Several important meta-data calculations are also performed during the
+algorithm's execution. This meta-data is stored in both the
+:attr:`ConvolvedFFTPower.attrs` attribute and the :attr:`ConvolvedFFTPower.poles.attrs`
+atrribute.
 
-    # the multipole results
-    print(r.poles)
-    print("variables = ", r.poles.variables)
-    for name in r.poles.variables:
-        var = r.poles[name]
-        print("'%s' has shape %s and dtype %s" %(name, var.shape, var.dtype))
+#. data.N, randoms.N :
+    the unweighted number of data and randoms objects
+#. data.W, randoms.W :
+    the weighted number of data and randoms objects, using the
+    column specified as the completeness weights. This is given by:
 
-These attributes also store meta-data computed during the power calculation
-in the ``attrs`` dictionary.  Most importantly, the ``shotnoise`` key
-gives the Poisson shot noise, :math:`P_\mathrm{shot} = V / N`, where *V*
-is the volume of the simulation box and *N* is the number of objects. The keys
-``N1`` and ``N2`` store the number of objects
+    .. math::
 
-In our example, the meta-data is:
+        W_\mathrm{data} &= \sum_\mathrm{data} w_c
 
-.. ipython:: python
+        W_\mathrm{ran} &= \sum_\mathrm{randoms} w_c
 
-    for k in r.power.attrs:
-      print("%s = %s" %(k, str(r.power.attrs[k])))
+#. alpha :
+    the ratio of ``data.W`` to ``randoms.W``
+#. data.norm, randoms.norm :
+    the normalization :math:`A` of the power spectrum, computed from either
+    the "data" or "randoms" catalog (they should be similar).
+    They are given by:
+
+    .. math::
+          :label: A-sum
+
+          A_\mathrm{data} &= \sum_\mathrm{data} n'_g w_c \wfkp^2
+
+          A_\mathrm{ran} &= \alpha \sum_\mathrm{randoms} n'_g w_c \wfkp^2
+
+#. data.shotnoise, randoms.shotnoise :
+    the contributions to the monopole shot noise from the "data" and "random"
+    catalogs. These values are given by:
+
+    .. math::
+
+        P^\mathrm{shot}_\mathrm{data} &= A_\mathrm{ran}^{-1} \sum_\mathrm{data} (w_c \wfkp)^2
+
+        P^\mathrm{shot}_\mathrm{ran} &= \alpha^2 A_\mathrm{ran}^{-1} \sum_\mathrm{randoms} (w_c \wfkp)^2
+
+#. shotnoise :
+    the total shot noise for the monopole power spectrum, which should be
+    subtracted from the monopole measurement in :attr:`ConvolvedFFTPower.poles`.
+    This is computed as:
+
+    .. math::
+
+        P^\mathrm{shot} = P^\mathrm{shot}_\mathrm{data} + P^\mathrm{shot}_\mathrm{ran}
+
+#. BoxSize :
+    the size of the Cartesian box used to grid the "data" and
+    "randoms" objects on the Cartesian mesh.
 
 Saving and Loading
 ------------------
 
 Results can easily be saved and loaded from disk in a reproducible manner
-using the :func:`FFTPower.save` and :class:`FFTPower.load` functions.
-The :class:`~FFTPower.save` function stores the state of the algorithm,
-including the meta-data in the :attr:`FFTPower.attrs` dictionary, in a
-JSON plaintext format.
-
-.. ipython:: python
-
-    # save to file
-    r.save("fftpower-example.json")
-
-    # load from file
-    r2 = FFTPower.load("fftpower-example.json")
-
-    print(r2.power)
-    print(r2.poles)
-    print(r2.attrs)
+using the :func:`ConvolvedFFTPower.save` and :class:`ConvolvedFFTPower.load`
+functions. The :class:`~ConvolvedFFTPower.save` function stores the state of
+the algorithm, including the meta-data in the :attr:`ConvolvedFFTPower.attrs`
+dictionary, in a JSON plaintext format.
 
 Common Pitfalls
 ---------------
 
-The default configuration of nbodykit should lead to reasonable results
-when using the :class:`FFTPower` algorithm. When performing custom, more complex
-analyses, some of the more common pitfalls are:
+Some of the more common issues users run into are:
 
-- When the results of :class:`FFTPower` do not seem to make sense, the most common
-  culprit is usually the configuration of the mesh, and whether or not the mesh
-  is "compensated". In the language of nbodykit, "compensated" refers to whether
-  the effects of the interpolation window used to paint the density field have
-  been de-convolved in Fourier space. See the section :class:`catalog-to-mesh`
-  for detailed notes on this procedure.
+- The ``Position`` column is missing from the input "data" and "randoms" catalogs.
+  The input position columns for this algorithm are assumed to be in terms
+  of the right ascension, declination, and redshifts, and users must add
+  the ``Position`` column holding the Cartesian coordinates explicitly to both
+  the "data" and "randoms" catalogs.
 
-- Be wary of normalization issues when painting weighted density fields. See
-  :ref:`mesh-normalization` for the default normalization scheme and :ref:`mesh-apply`
-  for notes on applying arbitrary functions to the mesh while painting. The
-  section :ref:`weighted-painting` describes the procedure to use when
-  painting a weighted density field.
+- Normalization issues may occur if the number density columns in the "data"
+  and "randoms" catalogs are on different scales. Similar issues may arise
+  if the FKP weight column uses number density values on different scales. In
+  all cases, the number density to be used should be that of the data, denoted
+  as :math:`n'_g(z)`. The algorithm will compute the power spectrum normalization
+  from both the "data" and "randoms" catalogs (as given by equation :eq:`A-sum`).
+  If the values do not agree, there is likely an issue with varying
+  number density scales, and the algorithm will raise an exception.
 
-.. ipython:: python
-    :suppress:
-
-    import shutil
-    os.chdir(startdir)
-    shutil.rmtree(tmpdir)
 
 .. _Hand et al 2017: https://arxiv.org/abs/1704.02357
 .. _Bianchi et al 2015: https://arxiv.org/abs/1505.05341
@@ -350,3 +403,4 @@ analyses, some of the more common pitfalls are:
 __ FKP_
 .. _Yamamoto et al 2006: https://arxiv.org/abs/astro-ph/0505115
 .. _real form of the spherical harmonics: https://en.wikipedia.org/wiki/Spherical_harmonics#Real_form
+.. _SymPy: http://www.sympy.org
