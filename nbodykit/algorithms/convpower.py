@@ -209,16 +209,16 @@ class ConvolvedFFTPower(object):
                 column specified as the completeness weights
             #. alpha :
                 the ratio of ``data.W`` to ``randoms.W``
-            #. data.A, randoms.A :
+            #. data.norm, randoms.norm :
                 the normalization of the power spectrum, computed from either
                 the "data" or "randoms" catalog (they should be similar).
                 See equations 13 and 14 of arxiv:1312.4611.
-            #. data.S, randoms.S :
+            #. data.shotnoise, randoms.shotnoise :
                 the shot noise values for the "data" and "random" catalogs;
                 See equation 15 of arxiv:1312.4611.
             #. shotnoise :
                 the total shot noise for the power spectrum, equal to
-                ``data.S`` + ``randoms.S``; this should be subtracted from
+                ``data.shotnoise`` + ``randoms.shotnoise``; this should be subtracted from
                 the monopole.
             #. BoxSize :
                 the size of the Cartesian box used to grid the data and
@@ -234,7 +234,7 @@ class ConvolvedFFTPower(object):
         poles = self._compute_multipoles()
 
         # set all the necessary results
-        self.poles = BinnedStatistic(['k'], [self.edges], poles, fields_to_sum=['modes'])
+        self.poles = BinnedStatistic(['k'], [self.edges], poles, fields_to_sum=['modes'], **self.attrs)
 
     def to_pkmu(self, mu_edges, max_ell):
         """
