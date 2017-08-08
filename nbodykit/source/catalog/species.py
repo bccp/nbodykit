@@ -1,6 +1,7 @@
 from nbodykit.base.catalog import CatalogSourceBase, column
 from nbodykit.utils import attrs_to_dict
 
+import numpy
 import logging
 import functools
 
@@ -125,6 +126,11 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
         if fields[0] not in self.species:
             args = (fields[0], str(self.species))
             raise ValueError("species '%s' is not valid; should be one of %s" %args)
+
+        # check size
+        size = self._sizes[self.species.index(fields[0])]
+        if not numpy.isscalar(value):
+            assert len(value) == size, "error setting '%s' column, data must be array of size %d" % (col,size)
 
         return CatalogSourceBase.__setitem__(self, col, value)
 

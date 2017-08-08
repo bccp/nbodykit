@@ -47,6 +47,7 @@ def test_bad_input(comm):
         source1.comm = None
         cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2)
 
+
 @MPITest([1, 4])
 def test_getitem(comm):
 
@@ -84,3 +85,7 @@ def test_setitem(comm):
     test = numpy.ones(source1.size)*10
     cat['data/test'] = test
     assert_array_equal(cat['data/test'].compute(), test)
+
+    # bad size
+    with pytest.raises(AssertionError):
+        cat['data/test'] = test[:10]
