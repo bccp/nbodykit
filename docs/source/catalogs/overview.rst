@@ -82,35 +82,33 @@ these cases.
 Default Columns
 ---------------
 
-By default, all :class:`CatalogSource` objects include several default columns:
+By default, all :class:`CatalogSource` objects include several default columns.
+These columns are used broadly throughout nbodykit and can be summarized as
+follows:
 
-The ``Weight`` Column
-^^^^^^^^^^^^^^^^^^^^^
+============= ======================= =================
+**Name**      **Description**         **Default Value**
+``Weight``    |Weight-Description|    1.0
+``Value``     |Value-Description|     1.0
+``Selection`` |Selection-Description| ``True``
+============= ======================= =================
 
-The weight to use for each particle when interpolating a :class:`CatalogSource`
-on to a mesh. The mesh field is a weighted average of ``Value``, with the weights
-given by ``Weight``.
+.. |Weight-Description| replace::
+  The weight to use for each particle when interpolating a :class:`CatalogSource`
+  on to a mesh. The mesh field is a weighted average of ``Value``, with the weights
+  given by ``Weight``.
 
-By default, this array is set to unity for all objects.
+.. |Value-Description| replace::
+  When interpolating a :class:`CatalogSource` on to a mesh, the value of this
+  array is used as the field value that each particle contributes to a given
+  mesh cell. The mesh field is a weighted average of ``Value``, with the weights
+  given by `Weight`. For example, the ``Value`` column could represent
+  ``Velocity``, in which case the field painted to the mesh will be momentum.
 
-The ``Value`` Column
-^^^^^^^^^^^^^^^^^^^^
-
-When interpolating a :class:`CatalogSource` on to a mesh, the value of this
-array is used as the field value that each particle contributes to a given
-mesh cell. The mesh field is a weighted average of ``Value``, with the weights
-given by `Weight`.
-
-By default, this array is set to unity for all objects.
-
-The ``Selection`` Column
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-A boolean column that selects a subset slice of the :class:`CatalogSource`.
-When converting a :class:`CatalogSource` to a mesh object, only the objects
-where the ``Selection`` column is ``True`` will be painted to the mesh.
-
-By default, this column is set to ``True`` for all objects.
+.. |Selection-Description| replace::
+  A boolean column that selects a subset slice of the :class:`CatalogSource`.
+  When converting a :class:`CatalogSource` to a mesh object, only the objects
+  where the ``Selection`` column is ``True`` will be painted to the mesh.
 
 Storing Meta-data
 -----------------

@@ -88,6 +88,15 @@ class CatalogSourceBase(object):
     The information about each particle is stored as a series of
     columns in the format of dask arrays. These columns can be accessed
     in a dict-like fashion.
+
+    All subclasses of this class contain the following default columns:
+
+    #. ``Weight``
+    #. ``Value``
+    #. ``Selection``
+
+    For a full description of these default columns, see
+    :ref:`the documentation <catalog-source-default-columns>`.
     """
     logger = logging.getLogger('CatalogSourceBase')
 
