@@ -425,48 +425,24 @@ class SurveyDataPairCount(PairCountBase):
         # get the (periodic-enforced) position
         pos1 = vstack(*[self.source1[col] for col in poscols]) # this is RA, DEC, REDSHIFT
         pos1, w1 = self.source1.compute(pos1, self.source1[self.attrs['weight']])
-        cartpos1, rdist1 = get_cartesian_coords(pos1, self.attrs['cosmo'])
+        rdist1 = get_comoving_dist(comm, pos1, self.attrs['cosmo'])
         pos1[:,2] = rdist1
         N1 = comm.allreduce(len(pos1))
 
         if self.source2 is not None:
             pos2 = vstack(*[self.source2[col] for col in poscols])
             pos2, w2 = self.source2.compute(pos2, self.source2[self.attrs['weight']])
-            cartpos2, rdist2 = get_cartesian_coords(pos2, self.attrs['cosmo'])
+            rdist2 = get_comoving_dist(comm, pos2, self.attrs['cosmo'])
             pos2[:,2] = rdist2
             N2 = comm.allreduce(len(pos2))
         else:
             pos2 = pos1
             w2 = w1
             N2 = N1
-            cartpos2 = cartpos1
 
-        # global min/max across all ranks
-        cposmin = numpy.asarray(comm.allgather(cartpos1.min(axis=0))).min(axis=0)
-        cposmax = numpy.asarray(comm.allgather(cartpos1.max(axis=0))).max(axis=0)
-        BoxSize = abs(cposmax - cposmin)
-
-        # domain decomposition
-        grid = [
-            numpy.linspace(0, BoxSize[0], np[0] + 1, endpoint=True),
-            numpy.linspace(0, BoxSize[1], np[1] + 1, endpoint=True),
-            numpy.linspace(0, BoxSize[2], np[2] + 1, endpoint=True),
-        ]
-        domain = GridND(grid, comm=comm)
-
-        layout = domain.decompose(cartpos1, smoothing=0)
-        pos1 = layout.exchange(pos1)
-        w1 = layout.exchange(w1)
-
-        # get the position/weight of the secondaries
-        rmax = numpy.max(redges)
-        if rmax > BoxSize.min() * 0.25:
-            pos2 = numpy.concatenate(comm.allgather(pos2), axis=0)
-            w2   = numpy.concatenate(comm.allgather(w2), axis=0)
-        else:
-            layout  = domain.decompose(cartpos2, smoothing=rmax)
-            pos2 = layout.exchange(pos2)
-            w2   = layout.exchange(w2)
+        # the source2 particles
+        pos2 = numpy.concatenate(comm.allgather(pos2), axis=0)
+        w2   = numpy.concatenate(comm.allgather(w2), axis=0)
 
         # log the sizes of the trees
         self.logger.info('rank %d correlating %d x %d' %(comm.rank, len(pos1), len(pos2)))
@@ -552,18 +528,13 @@ def verify_input_sources(first, second, BoxSize, required_columns, inspect_boxsi
 
         return _BoxSize
 
-def get_cartesian_coords(pos, cosmo):
+def get_comoving_dist(comm, pos, cosmo):
     """
-    Return cartesian coordinates and comoving distances from RA, DEC, Redshift
+    Return comoving distances from RA, DEC, Redshift
 
     ``pos`` has 3 columns giving: ra, dec, redshift
     """
     ra, dec, redshift = numpy.deg2rad(pos[:,0]), numpy.deg2rad(pos[:,1]), pos[:,2]
-
-    # unit sphere cartesian vectors
-    x = numpy.cos( dec ) * numpy.cos( ra )
-    y = numpy.cos( dec ) * numpy.sin( ra )
-    z = numpy.sin( dec )
 
     # compute comoving distance
     zmin, zmax = redshift.min(), redshift.max()
@@ -571,4 +542,4 @@ def get_cartesian_coords(pos, cosmo):
     comoving_distance = cosmo.comoving_distance.fit('z', bins=zbins)
     rdist = comoving_distance(redshift).value * cosmo.h
 
-    return rdist[:,None]*numpy.vstack([x,y,z]).T, rdist
+    return rdist
