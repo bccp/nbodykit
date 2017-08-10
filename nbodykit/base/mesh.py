@@ -215,6 +215,9 @@ class MeshSource(object):
         The return type of the :mod:`pmesh` Field object is specified by
         ``mode``. This calls :func:`to_field` to convert the mesh to a Field.
 
+        See the :ref:`painting-mesh <documentation>` on painting for more
+        details on painting catalogs to a mesh.
+
         Parameters
         ----------
         mode : 'real' or 'complex'
