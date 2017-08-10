@@ -24,6 +24,15 @@ Data Recipes
   lognormal-mocks.ipynb
   hod-mocks.ipynb
 
+
+.. _cookbook-painting:
+
+Painting Recipes
+----------------
+
+* :ref:`cookbook/painting.ipynb#Painting-the-Overdensity-Field`
+* :ref:`cookbook/painting.ipynb#Painting-the-Line-of-sight-Momentum-Field`
+
 Algorithm Recipes
 -----------------
 
