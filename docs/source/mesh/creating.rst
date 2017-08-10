@@ -38,9 +38,11 @@ a box of side length :math:`1` :math:`\mathrm{Mpc}/h`.
 
 .. important::
 
-  The :func:`~CatalogSource.to_mesh` operation does not perform any interpolation
-  operations -- it merely initializes a new object that sets up the mesh with
-  the configuration provided by the user.
+  The :func:`~CatalogSource.to_mesh` operation does not perform any
+  interpolation operations, which nbodykit refers to as "painting" the mesh.
+  This function merely initializes a new object that sets up the mesh with
+  the configuration provided by the user. For more details and examples of
+  painting a catalog of discrete objects to a mesh, see :ref:`painting-mesh`.
 
 .. _window-kernel:
 
@@ -71,9 +73,10 @@ the `Lanczos kernel`_ with size :math:`a=2` or :math:`a=3` by specifying
 ``lanczos2`` or ``lanczos3``. Support for wavelet-based kernels is also
 provided. The `Daubechies`_ wavelet with various sizes can be used by
 specifying ``db6``, ``db12``, or ``db20``. The closely related Symlet
-wavelet can be used by specifying ``sym6``, ``sym12``, or ``sym20``.
-For more information on using wavelet kernels for mass assignment,
-see `Cui et al. 2008 <https://arxiv.org/pdf/0804.0070.pdf>`_.
+wavelet can be used by specifying ``sym6``, ``sym12``, or ``sym20``. These
+are symmetric Daubechies wavelets and tend to perform better than the
+non-symmetric versions. For more information on using wavelet kernels for
+mass assignment, see `Cui et al. 2008 <https://arxiv.org/pdf/0804.0070.pdf>`_.
 
 Note that the non-traditional interpolation windows can be considerably slower
 than the ``cic`` or ``tsc`` methods. For this reason, nbodykit uses the
@@ -139,37 +142,46 @@ Window  Interlacing Compensation Function                                    Ref
 
 .. _weighted-painting:
 
-Painting a Weighted Density Field
----------------------------------
+Additional Mesh Configuration Options
+-------------------------------------
 
-By default, each object in a :class:`CatalogSource` object contributes a
-weight of 1 to the mesh, and the density field on the mesh is normalized as
-:math:`1+\delta` (see :ref:`mesh-normalization`). Users can change this
-behavior by specifying the name of a column in the :class:`CatalogSource` to
-use as weights via the ``weight`` keyword of the :func:`~CatalogSource.to_mesh`
-function. By default, the ``weight`` keyword is set to the ``Weight`` column, a
-:ref:`default column <catalog-source-default-columns>` in all
-:class:`CatalogSource` objects that gives each object a weight of 1.
+The :func:`~CatalogSource.to_mesh` function supports additional keywords
+for customizing the painting process. These keywords are:
 
-Painting a Subset of the ``CatalogSource``
-------------------------------------------
+- ``weight``:
 
-By passing the ``selection`` keyword to the :func:`~CatalogSource.to_mesh`
-function, users can specify a boolean column that selects a subset of the
-:class:`CatalogSource` object. By default, the ``selection`` keyword is set
-to the ``Selection`` column, a
-:ref:`default column <catalog-source-default-columns>` in all
-:class:`CatalogSource` objects that is set to ``True`` for all objects.
+  The ``weight`` keyword can be used to select a column to use as weights
+  when painting objects to a mesh. By default, each object in a
+  :class:`CatalogSource` object contributes a weight of 1 to the mesh, and the
+  density field on the mesh is normalized as :math:`1+\delta`. See
+  :ref:`cookbook/painting.ipynb#Painting-Multiple-Species-of-Particles`
+  for an example of using the ``weight`` keyword.
 
-Painting a Column other than ``Position``
------------------------------------------
+- ``value``:
 
-By default, nbodykit assumes that the ``Position`` column is the name of
-the column holding the Cartesian coordinates of the objects in the catalog. Thus,
-the :func:`~CatalogSource.to_mesh` function uses this column, by default, to
-paint a catalog to a mesh. The user can change this behavior by specifying
-the name of the desired column using the
-``position`` keyword of the :func:`~CatalogSource.to_mesh` function.
+  The ``value`` keyword can be used to select a column to use as the field
+  value when painting a mesh. The mesh field is a weighted average of ``value``,
+  with the weights given by ``weight``. By default, the value is set to unity,
+  such that the field on the mesh is :math:`1+\delta`. See
+  :ref:`cookbook/painting.ipynb#Painting-the-Line-of-sight-Momentum-Field`
+  for an example of using the ``value`` keyword to paint the momentum field.
+
+- ``selection``:
+
+  The ``selection`` keyword specifies a boolean column that selects a
+  subset of the :class:`CatalogSource` object to paint to the mesh. By default,
+  the ``selection`` keyword is set to the ``Selection`` column, a
+  :ref:`default column <catalog-source-default-columns>` in all
+  :class:`CatalogSource` objects that is set to ``True`` for all objects.
+
+- ``position``:
+
+  By default, nbodykit assumes that the ``Position`` column is the name of
+  the column holding the Cartesian coordinates of the objects in the catalog. Thus,
+  the :func:`~CatalogSource.to_mesh` function uses this column, by default, to
+  paint a catalog to a mesh. The user can change this behavior by specifying
+  the name of the desired column using the
+  ``position`` keyword of the :func:`~CatalogSource.to_mesh` function.
 
 .. _gaussian-meshes:
 
