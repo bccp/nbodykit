@@ -125,7 +125,7 @@ The base class:
 And subclasses:
 
 .. autosummary::
-  
+
     ~nbodykit.source.catalogmesh.species.MultipleSpeciesCatalogMesh
     ~nbodykit.source.catalogmesh.fkp.FKPCatalogMesh
 
@@ -154,6 +154,8 @@ And subclasses:
 
 Algorithms (:mod:`nbodykit.algorithms`)
 ---------------------------------------
+
+.. _api-clustering-statistics:
 
 Clustering Statistics
 ^^^^^^^^^^^^^^^^^^^^^
