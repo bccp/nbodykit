@@ -63,26 +63,8 @@ the imagery of "painting" the mesh. More generally, the :func:`~MeshSource.paint
 function is responsible for filling in the mesh with data, which could also
 involve reading data from disk or generating mock fields directly on the mesh.
 
-.. _mesh-normalization:
-
-Normalization of the Painted Field
-----------------------------------
-
-By default, the density field is normalized as :math:`1+\delta`. Here,
-:math:`\delta` is the overdensity field, given by
-
-.. math::
-
-  \delta(x) = \frac{N - \bar{N}}{\bar{N}}
-
-where :math:`N` is the number of objects per mesh cell and :math:`\bar{N}` is
-the mean number of objects per mesh cell. Thus, by default the mean of the
-:class:`~pmesh.pm.RealField` object in configuration space is normalized to
-unity.
-
-Users can apply arbitrary functions in either configuration space or
-Fourier space to the mesh in order to re-normalize the field.
-See :ref:`mesh-apply`.
+For further details and examples of painting a catalog of discrete objects
+to a mesh, see :ref:`painting-mesh`.
 
 Fields: ``RealField`` and ``ComplexField``
 ------------------------------------------
