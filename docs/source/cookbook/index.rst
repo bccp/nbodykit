@@ -32,6 +32,7 @@ Painting Recipes
 
 * :ref:`cookbook/painting.ipynb#Painting-the-Overdensity-Field`
 * :ref:`cookbook/painting.ipynb#Painting-the-Line-of-sight-Momentum-Field`
+* :ref:`cookbook/painting.ipynb#Painting-Multiple-Species-of-Particles`
 
 Algorithm Recipes
 -----------------
