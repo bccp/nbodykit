@@ -345,8 +345,12 @@ class FFTPower(FFTPowerBase):
 
         # add shotnoise (nonzero only for auto-spectra)
         Pshot = 0
-        if self.first is self.second and N1 > 0:
-            Pshot = self.attrs['BoxSize'].prod() / N1
+        if self.first is self.second:
+            if 'shotnoise' not in c1.attrs:
+                import warnings
+                warnings.warn("no 'shotnoise' found for auto power spectrum in FFTPower")
+            else:
+                Pshot = c1.attrs['shotnoise']
         self.attrs['shotnoise'] = Pshot
 
         return p3d

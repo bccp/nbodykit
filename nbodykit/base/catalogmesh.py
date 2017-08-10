@@ -153,7 +153,7 @@ class CatalogMesh(MeshSource, CatalogSource):
             the weighted number of total objects, equal to the collective
             sum of the 'weight' column
         - shotnoise : float
-            the Poisson shot noise, equal to the volume divided by ``W``
+            the Poisson shot noise, equal to the volume divided by ``N``
         - num_per_cell : float
             the mean number of weighted objects per cell
 
@@ -289,8 +289,8 @@ class CatalogMesh(MeshSource, CatalogSource):
             raise ValueError(("trying to paint particle source to mesh, "
                               "but no particles were found!"))
 
-        # shot noise is volume / weighted number
-        shotnoise = numpy.prod(pm.BoxSize) / W
+        # shot noise is volume / un-weighted number
+        shotnoise = numpy.prod(pm.BoxSize) / N
 
         # save some meta-data
         real.attrs = {}

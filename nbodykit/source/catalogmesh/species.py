@@ -90,13 +90,22 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
         return CatalogMesh.__getitem__(self, key)
 
     def to_real_field(self, normalize=True):
-        """
+        r"""
         Paint the density field holding the sum of all particle species,
         returning a :class:`~pmesh.pm.RealField` object.
 
         Meta-data computed for each particle is stored in the :attr:`attrs`
         attribute of the returned RealField, with keys that are prefixed by
-        the species name.
+        the species name. In particular, the total shot noise for the
+        mesh is defined as:
+
+        .. math::
+
+            P_\mathrm{shot} = \sum_i (W_i/W_\mathrm{tot})^2 P_{\mathrm{shot},i},
+
+        where the sum is over all species in the catalog, ``W_i`` is the
+        sum of the ``Weight`` column for the :math:`i^\mathrm{th}` species,
+        and :math:`W_\mathrm{tot}` is the sum of :math:`W_i` across all species.
 
         Parameters
         ----------
@@ -108,10 +117,11 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
         Returns
         -------
         RealField :
-            the RealField holding the painted density field
+            the RealField holding the painted density field, with a
+            :attr:`attrs` dictionary attribute holding the meta-data
         """
         # track the sum of the mean number of objects per cell across species
-        attrs = {'num_per_cell':0.}
+        attrs = {'num_per_cell':0., 'N':0}
 
         # initialize an empty real field
         real = self.pm.create(mode='real', zeros=True)
@@ -128,8 +138,9 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
             # paint the un-normalized density field for this species
             real = species_mesh.to_real_field(out=real, normalize=False)
 
-            # add to the mean number of objects per cell
+            # add to the mean number of objects per cell and total number
             attrs['num_per_cell'] += real.attrs['num_per_cell']
+            attrs['N'] += real.attrs['N']
 
             # store the meta-data for this species, with a prefix
             attrs.update(attrs_to_dict(real, name+'.'))
@@ -142,8 +153,12 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
         real.attrs.clear()
         real.attrs.update(attrs)
 
-        # add the total shot noise
-        nbar = attrs['num_per_cell'] * numpy.prod(self.pm.Nmesh)
-        real.attrs['shotnoise'] = numpy.prod(self.pm.BoxSize) / nbar
+        # compute total shot noise by summing of shot noise each species
+        real.attrs['shotnoise'] = 0
+        total_weight = sum(real.attrs['%s.W' %name] for name in self.source.species)
+        for name in self.source.species:
+            this_Pshot = real.attrs['%s.shotnoise' %name]
+            this_weight = real.attrs['%s.W' %name]
+            real.attrs['shotnoise'] += (this_weight/total_weight)**2 * this_Pshot
 
         return real
