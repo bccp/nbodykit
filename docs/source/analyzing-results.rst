@@ -5,12 +5,14 @@
 Analyzing your Results
 ======================
 
-Several nbodykit algorithms compute two-point clustering statistics,
-and we provide the :class:`BinnedStatistic` class for analyzing these results.
-The class is designed to hold data variables at fixed coordinates,
-i.e., a grid of :math:`(r, \mu)` or :math:`(k, \mu)` bins.
-The :class:`BinnedStatistic` class is modeled after the syntax of
-:class:`xarray.Dataset`.
+Several nbodykit algorithms compute binned clustering statistics
+and store the results as a :class:`BinnedStatistic` object. In this section,
+we provide an overview of some of the functionality of this class to help
+users better analyze their results using nbodykit.
+
+The :class:`BinnedStatistic` class is designed to hold data variables at
+fixed coordinates, i.e., a grid of :math:`(r, \mu)` or :math:`(k, \mu)` bins
+and is modeled after the syntax of the :class:`xarray.Dataset` object.
 
 .. ipython:: python
    :suppress:

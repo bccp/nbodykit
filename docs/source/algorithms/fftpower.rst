@@ -242,10 +242,10 @@ analyses, some of the more common pitfalls are:
   for detailed notes on this procedure.
 
 - Be wary of normalization issues when painting weighted density fields. See
-  :ref:`mesh-normalization` for the default normalization scheme and :ref:`mesh-apply`
-  for notes on applying arbitrary functions to the mesh while painting. The
-  section :ref:`weighted-painting` describes the procedure to use when
-  painting a weighted density field.
+  :ref:`painting-mesh` for further details on painting meshes and :ref:`mesh-apply`
+  for notes on applying arbitrary functions to the mesh while painting. See
+  the :ref:`cookbook/painting.ipynb` recipe in the cookbook for examples
+  of more advanced painting uses.
 
 .. ipython:: python
     :suppress:
