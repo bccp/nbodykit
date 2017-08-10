@@ -91,6 +91,7 @@ Data on a Mesh
 
 * :doc:`Overview <mesh/overview>`
 * :doc:`mesh/creating`
+* :doc:`mesh/painting`
 * :doc:`mesh/common-operations`
 
 .. toctree::
@@ -100,6 +101,7 @@ Data on a Mesh
 
   Overview <mesh/overview>
   mesh/creating
+  mesh/painting
   mesh/common-operations
 
 .. _getting-results:
