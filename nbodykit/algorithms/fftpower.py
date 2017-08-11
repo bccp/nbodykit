@@ -5,10 +5,9 @@ import logging
 from nbodykit import CurrentMPIComm
 from nbodykit.binned_statistic import BinnedStatistic
 from nbodykit.meshtools import SlabIterator
-from pmesh.pm import ComplexField, Field
 from nbodykit.base.catalog import CatalogSource
 from nbodykit.base.mesh import MeshSource
-from nbodykit.source.mesh import FieldMesh
+from nbodykit.base.catalogmesh import CatalogMesh
 
 class FFTPowerBase(object):
     """
@@ -32,7 +31,6 @@ class FFTPowerBase(object):
 
     def __init__(self, first, second, Nmesh, BoxSize, kmin, dk):
         from pmesh.pm import ParticleMesh
-        from nbodykit.base.mesh import MeshSource
 
         first = _cast_source(first, Nmesh=Nmesh, BoxSize=BoxSize)
         if second is not None:
@@ -562,7 +560,7 @@ def project_to_basis(y3d, edges, los=[0, 0, 1], poles=[]):
     """
     comm = y3d.pm.comm
     x3d = y3d.x
-    hermitian_symmetric = isinstance(y3d, ComplexField)
+    hermitian_symmetric = numpy.iscomplexobj(y3d)
 
     from scipy.special import legendre
 
@@ -698,9 +696,12 @@ def _cast_source(source, BoxSize, Nmesh):
     Cast an object to a MeshSource. BoxSize and Nmesh is used
     only on CatalogSource
     """
+    from pmesh.pm import Field
+    from nbodykit.source.mesh import FieldMesh
+
     if isinstance(source, Field):
         # if input is a Field object, wrap it as a MeshSource.
-        source = MemoryMesh(source)
+        source = FieldMesh(source)
     elif isinstance(source, CatalogSource):
         # if input is CatalogSource, use defaults to make it into a mesh
         if not isinstance(source, MeshSource):
