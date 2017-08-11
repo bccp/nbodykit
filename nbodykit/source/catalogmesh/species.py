@@ -73,6 +73,11 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
             size = self.source._sizes[self.source.species.index(key)]
             cat = CatalogCopy(size, self.source.comm, use_cache=self.source.use_cache, **data)
 
+            # copy over the meta data
+            for k in self.attrs:
+                if k.startswith(key+'.'):
+                    cat.attrs[k[len(key)+1:]] = self.attrs[k]
+
             # initialize a new CatalogMesh for selected species
             mesh = CatalogMesh(cat, self.attrs['BoxSize'], self.attrs['Nmesh'],
                                 self.dtype, self.weight, self.value,

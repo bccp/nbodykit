@@ -104,7 +104,15 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
             # size of the underlying source
             size = self._sizes[self.species.index(key)]
 
-            return CatalogCopy(size, self.comm, use_cache=self.use_cache, **data)
+            # the returned object
+            toret = CatalogCopy(size, self.comm, use_cache=self.use_cache, **data)
+
+            # copy over the meta data
+            for k in self.attrs:
+                if k.startswith(key+'.'):
+                    toret.attrs[k[len(key)+1:]] = self.attrs[k]
+
+            return toret
 
         # base class __getitem__
         return CatalogSourceBase.__getitem__(self, key)

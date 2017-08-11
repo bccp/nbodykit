@@ -63,6 +63,9 @@ def test_getitem(comm):
         for col in source:
             assert col in subcat
             assert_array_equal(subcat[col].compute(), source[col].compute())
+        for k in subcat.attrs:
+            assert k in source.attrs
+
 
 @MPITest([1, 4])
 def test_setitem(comm):

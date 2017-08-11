@@ -549,7 +549,9 @@ class CatalogSource(CatalogSourceBase):
             return ValueError("cannot copy a CatalogSource that does not have `size` implemented")
 
         data = {col:self[col] for col in self.columns}
-        return CatalogCopy(self.size, comm=self.comm, use_cache=self.use_cache, **data)
+        toret = CatalogCopy(self.size, comm=self.comm, use_cache=self.use_cache, **data)
+        toret.attrs.update(self.attrs)
+        return toret
 
     @abc.abstractproperty
     def size(self):

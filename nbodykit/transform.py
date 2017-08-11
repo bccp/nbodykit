@@ -34,6 +34,10 @@ def ConcatenateSources(*sources, **kwargs):
     Concatenate CatalogSource objects together, optionally including only
     certain columns in the returned source.
 
+    .. note::
+        The returned catalog object carries the meta-data from only
+        the first catalog supplied to this function (in the ``attrs`` dict).
+
     Parameters
     ----------
     *sources : subclass of :class:`~nbodykit.base.catalog.CatalogSource`
@@ -81,7 +85,9 @@ def ConcatenateSources(*sources, **kwargs):
     for col in columns:
         data[col] = da.concatenate([src[col] for src in sources], axis=0)
 
-    return CatalogCopy(size, sources[0].comm, use_cache=sources[0].use_cache, **data)
+    toret = CatalogCopy(size, sources[0].comm, use_cache=sources[0].use_cache, **data)
+    toret.attrs.update(sources[0].attrs)
+    return toret
 
 # deprecated functions
 vstack = deprecate("nbodykit.transform.vstack", StackColumns, "nbodykit.transform.StackColumns")

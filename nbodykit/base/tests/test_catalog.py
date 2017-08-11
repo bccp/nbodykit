@@ -197,3 +197,7 @@ def test_copy(comm):
     # check data is equal to original
     for col in copy:
         assert_array_equal(copy[col].compute(), data[col])
+
+    # check meta-data
+    for k in source.attrs:
+        assert k in copy.attrs
