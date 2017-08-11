@@ -1,34 +1,42 @@
 from __future__ import absolute_import
-# the future import is important. or in python 2.7 we try to 
+# the future import is important. or in python 2.7 we try to
 # import this module itself. Due to the unfortnate name conflict!
 
 from nbodykit.base.mesh import MeshSource
 from nbodykit import CurrentMPIComm
+from nbodykit.utils import JSONDecoder
 from bigfile import BigFileMPI
-import numpy
-
 from pmesh.pm import ParticleMesh, ComplexField, RealField
+
+import numpy
+import json
+from six import string_types
 
 class BigFileMesh(MeshSource):
     """
-    Read a grid that was stored on disk using :mod:`bigfile`
-    
-    This can read grids stored using the ``PaintGrid`` algorithm
+    A MeshSource object that reads a mesh from disk using :mod:`bigfile`.
+
+    This can read meshes that have been stored with the
+    :func:`~nbodykit.base.mesh.MeshSource.save` function of MeshSource objects.
+
+    Parameters
+    ----------
+    path : str
+        the name of the file to load
+    dataset : str
+        the name of the dataset in the Bigfile holding the grid
+    comm : MPI.Communicator
+        the MPI communicator
+    **kwargs :
+        extra meta-data to be stored in the :attr:`attrs` dict
     """
+    def __repr__(self):
+        import os
+        return "BigFileMesh(file=%s)" % os.path.basename(self.path)
+
     @CurrentMPIComm.enable
     def __init__(self, path, dataset, comm=None, **kwargs):
-        """
-        Parameters
-        ----------
-        path : str
-            the name of the file to load
-        dataset : str
-            the name of the dataset in the Bigfile holding the grid
-        comm : MPI.Communicator
-            the MPI communicator
-        **kwargs : 
-            extra meta-data to be stored in the :attr:`attrs` dict
-        """
+
         self.path    = path
         self.dataset = dataset
         self.comm    = comm
@@ -37,7 +45,11 @@ class BigFileMesh(MeshSource):
         self.attrs.update(kwargs)
         with BigFileMPI(comm=self.comm, filename=path)[dataset] as ff:
             for key in ff.attrs:
-                self.attrs[key] = numpy.squeeze(ff.attrs[key])
+                v = ff.attrs[key]
+                if isinstance(v, string_types) and v.startswith('json://'):
+                    self.attrs[key] = json.loads(v[7:], cls=JSONDecoder)
+                else:
+                    self.attrs[key] = numpy.squeeze(v)
 
             # fourier space or config space
             if ff.dtype.kind == 'c':
@@ -64,22 +76,20 @@ class BigFileMesh(MeshSource):
         BoxSize = self.attrs['BoxSize']
 
         MeshSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype=dtype, comm=comm)
-        
+
     def to_real_field(self):
         """
-        Load a grid from file, and paint to the ParticleMesh represented by ``pm``
-        
-        Parameters
-        ----------
-        pm : pmesh.pm.ParticleMesh
-            the particle mesh object to which we will paint the grid
-        
+        Return the RealField stored on disk.
+
+        .. note::
+            The mesh stored on disk must be stored with ``mode=real``
+
         Returns
         -------
         real : pmesh.pm.RealField
-            an array-like object holding the interpolated grid
+            an array-like object holding the mesh loaded from disk in
+            configuration space
         """
-        
         if self.isfourier:
             return NotImplemented
 
@@ -97,6 +107,18 @@ class BigFileMesh(MeshSource):
         return real2
 
     def to_complex_field(self):
+        """
+        Return the ComplexField stored on disk.
+
+        .. note::
+            The mesh stored on disk must be stored with ``mode=complex``
+
+        Returns
+        -------
+        real : pmesh.pm.ComplexField
+            an array-like object holding the mesh loaded from disk in Fourier
+            space
+        """
         if not self.isfourier:
             return NotImplemented
         pmread = self.pm

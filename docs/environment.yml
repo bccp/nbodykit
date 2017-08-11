@@ -27,7 +27,13 @@ dependencies:
 - cachey
 - h5py
 - halotools
+- fitsio
+- corrfunc
 - IPython
-- sphinx_rtd_theme
 - numpydoc
-- sphinx
+- sphinx<1.6
+- matplotlib
+- pip
+- pip:
+  - nbsphinx
+  - sphinx_bootstrap_theme

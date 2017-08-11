@@ -3,3 +3,4 @@ include README.rst
 include requirements.txt
 include requirements-extras.txt
 include runtests.py
+include nbodykit/style/*mplstyle

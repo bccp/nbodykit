@@ -33,7 +33,7 @@ def test_sky_to_cartesian(comm):
         s['Position1'] = transform.SkyToCartesion(s['ra'].compute(), s['dec'], s['z'], cosmo)
 
 @MPITest([1, 4])
-def test_vstack(comm):
+def test_stack_columns(comm):
     CurrentMPIComm.set(comm)
 
     # make source
@@ -45,7 +45,7 @@ def test_vstack(comm):
     s['z'] = s.rng.uniform(0, 2600., size=s.size)
 
     # stack
-    s['Position'] = transform.vstack(s['x'], s['y'], s['z'])
+    s['Position'] = transform.StackColumns(s['x'], s['y'], s['z'])
 
     # test equality
     x, y, z = s.compute(s['x'], s['y'], s['z'])
@@ -54,10 +54,10 @@ def test_vstack(comm):
 
     # requires dask array
     with pytest.raises(TypeError):
-        s['Position'] = transform.vstack(x,y,z)
+        s['Position'] = transform.StackColumns(x,y,z)
 
 @MPITest([1, 4])
-def test_concatenate(comm):
+def test_combine(comm):
     CurrentMPIComm.set(comm)
 
     # make two sources
@@ -65,17 +65,17 @@ def test_concatenate(comm):
     s2 = UniformCatalog(3e-6, 2600)
 
     # concatenate all columns
-    cat = transform.concatenate(s1, s2)
+    cat = transform.ConcatenateSources(s1, s2)
 
     # check the size and columns
     assert cat.size == s1.size + s2.size
     assert set(cat.columns) == set(s1.columns)
 
     # only one column
-    cat = transform.concatenate(s1, s2, columns='Position')
+    cat = transform.ConcatenateSources(s1, s2, columns='Position')
     pos = numpy.concatenate([s1['Position'], s2['Position']], axis=0)
     numpy.testing.assert_array_equal(pos, cat['Position'])
 
     # fail on invalid column
     with pytest.raises(ValueError):
-        cat = transform.concatenate(s1, s2, columns='InvalidColumn')
+        cat = transform.ConcatenateSources(s1, s2, columns='InvalidColumn')

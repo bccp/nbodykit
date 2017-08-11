@@ -1,38 +1,40 @@
-from ..extern.six import string_types
 from .base import FileType
 from . import tools
-
+from six import string_types
 import numpy
 import os
 import inspect
 
 class FileStack(FileType):
     """
-    A file object that offers a continuous view of a stack of 
-    subclasses of :class:`FileType` instances
-    
+    A file object that offers a continuous view of a stack of subclasses of
+    :class:`~nbodykit.io.base.FileType` instances.
+
     This allows data to be accessed across multiple files from
-    a single file object
-    """    
+    a single file object. The "stack" is a concatenation
+    of one file to the end of the previous file.
+
+    Parameters
+    ----------
+    filetype : subclass of :class:`~nbodykit.io.base.FileType`
+        the type of file class to initialize
+    path : str
+        list of file names, or string specifying single file or
+        containing a glob-like '*' pattern
+    *args :
+        additional arguments to pass to the ``filetype`` instance
+        during initialization
+    **kwargs :
+        additional keyword arguments passed to the ``filetype`` instance
+        during initialization
+    """
     def __init__(self, filetype, path, *args, **kwargs):
-        """
-        Parameters
-        ----------
-        filetype : FileType subclass
-            the type of file class to initialize
-        path : str
-            list of file names, or string specifying single file or
-            containing a glob-like '*' pattern
-        *args : 
-            additional arguments to pass to the ``filetype`` instance
-            during initialization
-        **kwargs : 
-            additional keyword arguments passed to the ``filetype`` instance
-            during initialization
-        """
+
         # check that filetype is subclass of FileType
         if not inspect.isclass(filetype) or not issubclass(filetype, FileType):
             raise ValueError("the stack of `filetype` objects must be subclasses of `FileType`")
+
+        self.path = path
 
         # save the list of relevant files
         if isinstance(path, list):
@@ -47,7 +49,7 @@ class FileStack(FileType):
                 filenames = [os.path.abspath(path)]
         else:
             raise ValueError("'path' should be a string or a list of strings")
-        self.files = [filetype(fn, **kwargs) for fn in filenames]
+        self.files = [filetype(fn, *args, **kwargs) for fn in filenames]
         self.sizes = numpy.array([len(f) for f in self.files], dtype='i8')
 
         # set dtype and size
@@ -63,14 +65,14 @@ class FileStack(FileType):
             return self.files[0].attrs
         else:
             return {}
-                    
+
     @property
     def nfiles(self):
         """
         The number of files in the FileStack
         """
         return len(self.files)
-                
+
     def read(self, columns, start, stop, step=1):
         """
         Read the specified column(s) over the given range,

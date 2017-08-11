@@ -1,7 +1,7 @@
 import numpy as np
 import abc
 from scipy.integrate import simps
-from nbodykit.extern.six import add_metaclass
+from six import add_metaclass
 
 @add_metaclass(abc.ABCMeta)
 class LinearPowerBase(object):
@@ -97,7 +97,7 @@ class LinearPowerBase(object):
         The amplitude scales with redshift through the square of the
         growth function, evaluated using ``cosmo.growth_function``
 
-        Paramters
+        Parameters
         ---------
         k : float, array_like
             the wavenumbers in units of h/Mpc
@@ -148,20 +148,21 @@ class LinearPowerBase(object):
 
 class EHPower(LinearPowerBase):
     """
-    Eisenstein & Hu (1998) fitting function with BAO wiggles
+    Linear power spectrum using the Eisenstein & Hu (1998) fitting formula
+    with BAO wiggles.
 
-    From EH 1998, Eqs. 26,28-31.
+    Parameters
+    ----------
+    cosmo : :class:`~nbodykit.cosmology.core.Cosmology`
+        the cosmology instance; must have 'Ob0', 'n_s', and 'sigma8' parameters
+    redshift : float
+        the redshift to compute the power spectrum at
+
+    References
+    ----------
+    Eisenstein & Hu, "Baryonic Features in the Matter Transfer Function", 1998
     """
     def __init__(self, cosmo, redshift):
-        """
-        Parameters
-        ----------
-        cosmo : nbodykit.cosmology.Cosmology
-            the cosmology instance; must have 'Ob0', 'n_s', and 'sigma8'
-            parameters
-        redshift : float
-            the redshift to compute the power spectrum at
-        """
         LinearPowerBase.__init__(self, cosmo, redshift)
         self._set_params()
 
@@ -212,9 +213,9 @@ class EHPower(LinearPowerBase):
         """
         Return the transfer function with BAO wiggles
 
-        This is normalized to unity on large scales
+        This is normalized to unity on large scales.
 
-        Paramters
+        Parameters
         ---------
         k : float, array_like
             the wavenumbers in units of h/Mpc
@@ -253,20 +254,21 @@ class EHPower(LinearPowerBase):
 
 class NoWiggleEHPower(LinearPowerBase):
     """
-    Eisenstein & Hu (1998) fitting function without BAO wiggles
+    Linear power spectrum using the Eisenstein & Hu (1998) fitting formula
+    without BAO wiggles.
 
-    From EH 1998, Eqs. 26,28-31.
+    Parameters
+    ----------
+    cosmo : :class:`~nbodykit.cosmology.core.Cosmology`
+        the cosmology instance; must have 'Ob0', 'n_s', and 'sigma8' parameters
+    redshift : float
+        the redshift to compute the power spectrum at
+
+    References
+    ----------
+    Eisenstein & Hu, "Baryonic Features in the Matter Transfer Function", 1998
     """
     def __init__(self, cosmo, redshift):
-        """
-        Parameters
-        ----------
-        cosmo : nbodykit.cosmology.Cosmology
-            the cosmology instance; must have 'Ob0', 'n_s', and 'sigma8'
-            parameters
-        redshift : float
-            the redshift to compute the power spectrum at
-        """
         LinearPowerBase.__init__(self, cosmo, redshift)
         self._set_params()
 
@@ -292,7 +294,7 @@ class NoWiggleEHPower(LinearPowerBase):
 
         This is normalized to unity on large scales
 
-        Paramters
+        Parameters
         ---------
         k : float, array_like
             the wavenumbers in units of h/Mpc

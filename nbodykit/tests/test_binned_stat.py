@@ -1,6 +1,6 @@
 from runtests.mpi import MPITest
 from nbodykit import setup_logging
-from nbodykit.dataset import DataSet
+from nbodykit.binned_statistic import BinnedStatistic
 
 import pytest
 import tempfile
@@ -14,99 +14,99 @@ setup_logging("debug")
 
 @MPITest([1])
 def test_to_json(comm):
-    
+
     # load from JSON
-    ds1 = DataSet.from_json(os.path.join(data_dir, 'dataset_1d.json'))
-    
+    ds1 = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_1d.json'))
+
     # to JSON
     with tempfile.NamedTemporaryFile(delete=False) as ff:
         ds1.to_json(ff.name)
-    ds2 = DataSet.from_json(ff.name) 
-        
+    ds2 = BinnedStatistic.from_json(ff.name)
+
     # same data?
     for name in ds1:
         testing.assert_almost_equal(ds1[name], ds2[name])
-        
+
     # cleanup
     os.remove(ff.name)
 
 @MPITest([1])
 def test_1d_load(comm):
-    
+
     # load plaintext format
-    with pytest.warns(DeprecationWarning):
-        ds1 = DataSet.from_plaintext(['k'], os.path.join(data_dir, 'dataset_1d_deprecated.dat'))
-        
+    with pytest.warns(FutureWarning):
+        ds1 = BinnedStatistic.from_plaintext(['k'], os.path.join(data_dir, 'dataset_1d_deprecated.dat'))
+
         # wrong dimensions
         with pytest.raises(ValueError):
-            ds1 = DataSet.from_plaintext(['k', 'mu'], os.path.join(data_dir, 'dataset_1d_deprecated.dat'))
-        
+            ds1 = BinnedStatistic.from_plaintext(['k', 'mu'], os.path.join(data_dir, 'dataset_1d_deprecated.dat'))
+
     # load from JSON
-    ds2 = DataSet.from_json(os.path.join(data_dir, 'dataset_1d.json'))
-    
+    ds2 = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_1d.json'))
+
     # same data?
     for name in ds1:
         testing.assert_almost_equal(ds1[name], ds2[name])
-        
+
 @MPITest([1])
 def test_2d_load(comm):
-    
+
     # load plaintext format
-    with pytest.warns(DeprecationWarning):
-        ds1 = DataSet.from_plaintext(['k', 'mu'], os.path.join(data_dir, 'dataset_2d_deprecated.dat'))
-        
+    with pytest.warns(FutureWarning):
+        ds1 = BinnedStatistic.from_plaintext(['k', 'mu'], os.path.join(data_dir, 'dataset_2d_deprecated.dat'))
+
     # load from JSON
-    ds2 = DataSet.from_json(os.path.join(data_dir, 'dataset_2d.json'))
-    
+    ds2 = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_2d.json'))
+
     # same data?
     for name in ds1:
         testing.assert_almost_equal(ds1[name], ds2[name])
 
 @MPITest([1])
 def test_str(comm):
-    
-    dataset = DataSet.from_json(os.path.join(data_dir, 'dataset_2d.json'))
-    
+
+    dataset = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_2d.json'))
+
     # list all variable names
     s = str(dataset)
-    
+
     # now just list total number of variables
     dataset['test1'] = numpy.ones(dataset.shape)
     dataset['test2'] = numpy.ones(dataset.shape)
     s = str(dataset)
-    
+
     # this is the same as str
     r = repr(dataset)
 
 @MPITest([1])
 def test_getitem(comm):
 
-    dataset = DataSet.from_json(os.path.join(data_dir, 'dataset_2d.json'))
+    dataset = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_2d.json'))
 
     # invalid key
     with pytest.raises(KeyError):
         bad = dataset['error']
 
-    # slice columns 
+    # slice columns
     sliced = dataset[['k', 'mu', 'power']]
     sliced = dataset[('k', 'mu', 'power')]
 
     # invalid slice
     with pytest.raises(KeyError):
         bad =dataset[['k', 'mu', 'error']]
-        
+
     # too many dims in slice
     with pytest.raises(IndexError):
         bad = dataset[0,0,0]
-        
+
     # cannot access single element of 2D power
     with pytest.raises(IndexError):
         bad = dataset[0,0]
 
 @MPITest([1])
 def test_array_slice(comm):
-    
-    dataset = DataSet.from_json(os.path.join(data_dir, 'dataset_2d.json'))
+
+    dataset = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_2d.json'))
 
     # get the first mu column
     sliced = dataset[:,0]
@@ -124,8 +124,8 @@ def test_array_slice(comm):
 @MPITest([1])
 def test_list_array_slice(comm):
 
-    dataset = DataSet.from_json(os.path.join(data_dir, 'dataset_2d.json'))
-    
+    dataset = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_2d.json'))
+
     # get the first and last mu column
     sliced = dataset[:,[0, -1]]
     assert len(sliced.shape) == 2
@@ -139,17 +139,17 @@ def test_list_array_slice(comm):
 @MPITest([1])
 def test_variable_set(comm):
 
-    dataset = DataSet.from_json(os.path.join(data_dir, 'dataset_2d.json'))
+    dataset = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_2d.json'))
     modes = numpy.ones(dataset.shape)
-    
+
     # add new variable
     dataset['TEST'] = modes
     assert 'TEST' in dataset
-    
+
     # override existing variable
     dataset['modes'] = modes
     assert numpy.all(dataset['modes'] == 1.0)
-    
+
     # needs right shape
     with pytest.raises(ValueError):
         dataset['TEST'] = 10.
@@ -158,18 +158,18 @@ def test_variable_set(comm):
 @MPITest([1])
 def test_copy(comm):
 
-    dataset = DataSet.from_json(os.path.join(data_dir, 'dataset_2d.json'))
+    dataset = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_2d.json'))
     copy = dataset.copy()
     for var in dataset:
         testing.assert_array_equal(dataset[var], copy[var])
 
 @MPITest([1])
 def test_rename_variable(comm):
-    
-    dataset = DataSet.from_json(os.path.join(data_dir, 'dataset_2d.json'))
+
+    dataset = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_2d.json'))
     test = numpy.zeros(dataset.shape)
     dataset['test'] = test
-    
+
     dataset.rename_variable('test', 'renamed_test')
     assert 'renamed_test' in dataset
     assert 'test' not in dataset
@@ -177,8 +177,8 @@ def test_rename_variable(comm):
 @MPITest([1])
 def test_sel(comm):
 
-    dataset = DataSet.from_json(os.path.join(data_dir, 'dataset_2d.json'))
-    
+    dataset = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_2d.json'))
+
     # no exact match fails
     with pytest.raises(IndexError):
         sliced = dataset.sel(k=0.1)
@@ -199,8 +199,8 @@ def test_sel(comm):
 
 @MPITest([1])
 def test_squeeze(comm):
-    
-    dataset = DataSet.from_json(os.path.join(data_dir, 'dataset_2d.json'))
+
+    dataset = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_2d.json'))
 
     # need to specify which dimension to squeeze
     with pytest.raises(ValueError):
@@ -212,7 +212,7 @@ def test_squeeze(comm):
     with pytest.raises(ValueError):
         squeezed = sliced.squeeze('k')
     squeezed = sliced.squeeze('mu')
-    
+
     assert len(squeezed.dims) == 1
     assert squeezed.shape[0] == sliced.shape[0]
 
@@ -220,8 +220,8 @@ def test_squeeze(comm):
 @MPITest([1])
 def test_average(comm):
     import warnings
-    
-    dataset = DataSet.from_json(os.path.join(data_dir, 'dataset_2d.json'))
+
+    dataset = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_2d.json'))
 
     # unweighted
     with warnings.catch_warnings():
@@ -244,7 +244,7 @@ def test_average(comm):
             if var in dataset._fields_to_sum:
                 x = numpy.nansum(dataset[var], axis=-1)
             else:
-                x = numpy.nansum(dataset[var]*dataset['weights'], axis=-1)  
+                x = numpy.nansum(dataset[var]*dataset['weights'], axis=-1)
                 x /= dataset['weights'].sum(axis=-1)
             testing.assert_allclose(x, avg[var])
 
@@ -253,8 +253,8 @@ def test_average(comm):
 def test_reindex(comm):
     import warnings
 
-    dataset = DataSet.from_json(os.path.join(data_dir, 'dataset_2d.json'))
-    
+    dataset = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_2d.json'))
+
     with pytest.raises(ValueError):
         new, spacing = dataset.reindex('k', 0.005, force=True, return_spacing=True)
 

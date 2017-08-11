@@ -8,22 +8,22 @@ from nbodykit.utils import GatherArray, ScatterArray
 
 def gaussian_complex_fields(pm, linear_power, seed, remove_variance=False, compute_displacement=False):
     r"""
-    Make a Gaussian realization of a overdensity field, :math:`\delta(x)`
+    Make a Gaussian realization of a overdensity field, :math:`\delta(x)`.
 
     If specified, also compute the corresponding 1st order Lagrangian
-    displacement field (Zel'dovich approximation):math:`\psi(x)`,
+    displacement field (Zel'dovich approximation) :math:`\psi(x)`,
     which is related to the linear velocity field via:
 
     .. math::
 
-        v(x) = \frac{\psi(x)}{f a H}
+        v(x) = f a H \psi(x)
 
     Notes
     -----
     This computes the overdensity field using the following steps:
 
-        1. Generate complex variates with unity variance
-        2. Scale the Fourier field by :math:`(P(k) / V)^{1/2}`
+    #. Generate complex variates with unity variance
+    #. Scale the Fourier field by :math:`(P(k) / V)^{1/2}`
 
     After step 2, the complex field has unity variance. This
     is equivalent to generating real-space normal variates
@@ -127,7 +127,7 @@ def gaussian_complex_fields(pm, linear_power, seed, remove_variance=False, compu
 def gaussian_real_fields(pm, linear_power, seed, compute_displacement=False):
     r"""
     Make a Gaussian realization of a overdensity field in
-    real-space :math:`\delta(x)`
+    real-space :math:`\delta(x)`.
 
     If specified, also compute the corresponding linear Zel'dovich
     displacement field :math:`\psi(x)`, which is related to the
@@ -136,7 +136,7 @@ def gaussian_real_fields(pm, linear_power, seed, compute_displacement=False):
     Notes
     -----
     See the docstring for :func:`gaussian_complex_fields` for the
-    steps involved in generating the fields
+    steps involved in generating the fields.
 
     Parameters
     ----------
@@ -212,10 +212,10 @@ def poisson_sample_to_points(delta, displacement, pm, nbar, bias=1., seed=None, 
 
     The steps in this function:
 
-        1. Apply a biased, lognormal transformation to the input ``delta`` field
-        2. Poisson sample the overdensity field to discrete points
-        3. Disribute the positions of particles uniformly within the mesh cells,
-           and assign the displacement field at each cell to the particles
+    #.  Apply a biased, lognormal transformation to the input ``delta`` field
+    #.  Poisson sample the overdensity field to discrete points
+    #.  Disribute the positions of particles uniformly within the mesh cells,
+        and assign the displacement field at each cell to the particles
 
     Parameters
     ----------

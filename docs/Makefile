@@ -40,7 +40,8 @@ help:
 
 clean:
 	rm -rf $(BUILDDIR)/*
-	rm -rf source/generated/*
+	rm -rf source/api/nbodykit.*
+	rm -rf source/api/modules.rst
 
 html:
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html

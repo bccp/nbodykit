@@ -2,3 +2,6 @@ build
 docs/build
 build.log
 nbodykit.egg-info
+docs/source/api/nbodykit.*
+docs/source/api/modules.rst
+docs/source/savefig

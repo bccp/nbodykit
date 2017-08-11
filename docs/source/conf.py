@@ -13,9 +13,6 @@
 # serve to show the default.
 import sys
 import os
-import shlex
-import mock
-
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -39,15 +36,55 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.extlinks',
     'sphinx.ext.mathjax',
-    'numpydoc',
+    'sphinx.ext.napoleon',
+    'sphinx.ext.viewcode',
     'IPython.sphinxext.ipython_directive',
     'IPython.sphinxext.ipython_console_highlighting',
     'sphinx.ext.todo',
+    'nbsphinx',
+    'matplotlib.sphinxext.plot_directive',
+    'numpydoc'
 ]
 
-autosummary_generate = True
-numpydoc_class_members_toctree = True
-numpydoc_show_class_members = False
+
+def run_apidoc(*args):
+
+    from sphinx import apidoc
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+    cur_dir = os.path.abspath(os.path.dirname(__file__))
+    module = os.path.join(cur_dir, "..", '..', "nbodykit")
+    output_path = os.path.join(cur_dir, 'api')
+
+    # find directories to exclude
+    exclude_dirs = []
+    bad = ['tests', 'extern', 'style']
+    for dirpath, dirnames, filenames in os.walk(module):
+        for b in bad:
+            if b in dirnames:
+                exclude_dirs.append(os.path.join(dirpath, b))
+                dirnames.remove(b)
+
+    # options that will be passed to sphinx-apidoc
+    apidoc.OPTIONS = ['members', 'undoc-members', 'inherited-members', 'show-inheritance']
+
+    # call sphinx-apidoc
+    apidoc.main(['sphinx-apidoc', '-e', '-o', output_path, module] + exclude_dirs)
+
+def setup(app):
+    app.connect('builder-inited', run_apidoc)
+
+
+numpydoc_show_class_members = True
+napoleon_include_special_with_doc = True
+numpydoc_class_members_toctree = False
+
+
+import matplotlib.pyplot as plt
+plt.style.use('seaborn-notebook')
+plot_rcparams = dict(plt.rcParams)
+
+# document __init__ when it has a docstring
+napoleon_include_init_with_doc = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -55,7 +92,9 @@ templates_path = ['_templates']
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 # source_suffix = ['.rst', '.md']
-source_suffix = '.rst'
+source_suffix = ['.rst']
+
+html_sourcelink_suffix = ''
 
 # The encoding of source files.
 #source_encoding = 'utf-8-sig'
@@ -65,8 +104,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'nbodykit'
-copyright = u'2015-2016, Yu Feng, Nick Hand '
-author = u'Yu Feng, Nick Hand'
+copyright = u'2015-2017, Nick Hand, Yu Feng'
+author = u'Nick Hand, Yu Feng'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -74,6 +113,8 @@ author = u'Yu Feng, Nick Hand'
 #
 # The full version, including alpha/beta/rc tags.
 release = nbodykit.__version__
+if 'dev' in release:
+    release = release.rsplit('.', 1)[0]+' - dev'
 
 # Use release as the version.
 version = release
@@ -93,7 +134,7 @@ version = release
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = ['build']
+exclude_patterns = ['build', '**.ipynb_checkpoints']
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.
@@ -128,20 +169,34 @@ todo_include_todos = False
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 
-on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
+import sphinx_bootstrap_theme
+html_theme = 'bootstrap'
+html_theme_path = sphinx_bootstrap_theme.get_html_theme_path()
 
-if not on_rtd:
-    import sphinx_rtd_theme
-    html_theme = 'sphinx_rtd_theme'
-    html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
+# Theme options are theme-specific and customize the look and feel of a theme
+# further.  For a list of options available for each theme, see the
+# documentation.
+html_theme_options = dict(
+    bootstrap_version = "3",
+    bootswatch_theme = "readable",
+    navbar_sidebarrel = False,
+    globaltoc_depth = 2,
+    navbar_links = [
+    ("Cookbook", "cookbook/index"),
+    ("API", "api/api")
+    ],
+)
 
 #html_theme = 'nature'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
-#html_theme_options = {}
-
+#html_logo = '_static/nbodykit-logo-white.png'
+# html_theme_options = {
+#     'logo_only': True,
+#     'display_version': False,
+# }
 # Add any paths that contain custom themes here, relative to this directory.
 #html_theme_path = []
 
@@ -229,6 +284,8 @@ html_static_path = ['_static']
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'nbodykitdoc'
 
+html_show_sourcelink = True
+
 # -- Options for LaTeX output ---------------------------------------------
 
 latex_elements = {
@@ -313,7 +370,12 @@ texinfo_documents = [
 intersphinx_mapping = {
     'python': ('https://docs.python.org/2.7/', None),
     'pandas': ('http://pandas.pydata.org/pandas-docs/stable/', None),
-    'numpy': ('http://docs.scipy.org/doc/numpy/', None),
+    'numpy': ('https://docs.scipy.org/doc/numpy/', None),
     'xarray': ('http://xarray.pydata.org/en/stable/', None),
-    'astropy': ('http://docs.astropy.org/en/stable/', None)
+    'astropy': ('http://docs.astropy.org/en/stable/', None),
+    'dask': ('http://dask.pydata.org/en/stable/', None),
+    'halotools': ('https://halotools.readthedocs.io/en/latest/', None),
+    'pmesh': ('http://rainwoodman.github.io/pmesh/', None),
+    'Corrfunc': ('http://corrfunc.readthedocs.io/en/master/', None),
+    'h5py': ('http://docs.h5py.org/en/latest/', None)
 }

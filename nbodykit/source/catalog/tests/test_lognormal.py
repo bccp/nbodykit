@@ -40,8 +40,7 @@ def test_lognormal_velocity(comm):
     source = LogNormalCatalog(Plin=cosmology.EHPower(cosmo, 0.55),
                 nbar=0.5e-2, BoxSize=1024., Nmesh=32, seed=42)
 
-    source['Weight'] = source['Velocity'][:, 0] ** 2
-
+    source['Value'] = source['Velocity'][:, 0]**2
     mesh = source.to_mesh(compensated=False)
 
     real = mesh.paint(mode='real')

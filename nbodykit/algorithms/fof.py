@@ -4,41 +4,49 @@ import numpy
 import logging
 from mpi4py import MPI
 from nbodykit.source import ArrayCatalog
-        
+from nbodykit.utils import split_size_3d
+
 class FOF(object):
     """
-    A friend-of-friend halo finder that computes the a label for
-    each particle, denoting which halo it belongs to
+    A friends-of-friends halo finder that computes the label for
+    each particle, denoting which halo it belongs to.
 
-    Friend-of-friend was first used by Davis et al 1985 to define
+    Friends-of-friends was first used by Davis et al 1985 to define
     halos in hierachical structure formation of cosmological simulations.
-    The algorithm is also known as DBSCAN in computer science. 
-    The subroutine here implements a parallel version of the FOF. 
+    The algorithm is also known as DBSCAN in computer science.
+    The subroutine here implements a parallel version of the FOF.
 
-    The underlying local FOF algorithm is from :mod:`kdcount.cluster`, 
-    which is an adaptation of the implementation in Volker Springel's 
+    The underlying local FOF algorithm is from :mod:`kdcount.cluster`,
+    which is an adaptation of the implementation in Volker Springel's
     Gadget and Martin White's PM.
+
+    Results are computed when the object is inititalized. See the documenation
+    of :func:`~FOF.run` for the attributes storing the results.
+
+    For returning a CatalogSource of the FOF halos, see :func:`find_features`
+    and for computing a halo catalog with added analytic information for
+    a specific redshift and cosmology, see :func:`to_halos`.
+
+    Parameters
+    ----------
+    source : CatalogSource
+        the source to run the FOF algorithm on; must support 'Position'
+    linking_length : float
+        the linking length, either in absolute units, or relative
+        to the mean particle separation
+    nmin : int
+        halo with fewer particles are ignored
+    absolute : bool, optional
+        If `True`, the linking length is in absolute units, otherwise it is
+        relative to the mean particle separation; default is `False`
     """
     logger = logging.getLogger('FOF')
 
     def __init__(self, source, linking_length, nmin, absolute=False):
-        """
-        Parameters
-        ----------
-        source : CatalogSource
-            the source to run the FOF algorithm on; must support 'Position'
-        linking_length : float
-            the linking length, either in absolute units, or relative
-            to the mean particle separation
-        nmin : int
-            halo with fewer particles are ignored
-        absolute : bool; optional
-            If `True`, the linking length is in absolute units, otherwise it is 
-            relative to the mean particle separation; default is `False`
-        """
+
         self.comm = source.comm
         self._source = source
-        
+
         if 'Position' not in source:
             raise ValueError("cannot compute FOF without 'Position' column")
 
@@ -46,29 +54,36 @@ class FOF(object):
         self.attrs['linking_length'] = linking_length
         self.attrs['nmin'] = nmin
         self.attrs['absolute'] = absolute
-        
+
         # linking length relative to mean separation
         if not absolute:
             mean_separation = pow(numpy.prod(source.attrs['BoxSize']) / source.csize, 1.0 / len(source.attrs['Nmesh']))
             linking_length *= mean_separation
         self._linking_length = linking_length
-        
+
         # and run
         self.run()
-    
+
     def run(self):
         """
         Run the FOF algorithm. This function returns nothing, but does
         attach several attributes to the class instance:
-        
-        Each attribute is scattered evenly across all ranks.
-        
+
+        - attr:`labels`
+        - :attr:`max_labels`
+
+        .. note::
+            The :attr:`labels` array is scattered evenly across all ranks.
+
         Attributes
         ----------
-        labels : array_like
-            an array holding the number of particles in the input
-            source that specifies which halo each particle belongs to
-        """                
+        labels : array_like, length: :attr:`size`
+            an array the label that specifies which FOF halo each particle
+            belongs to
+        max_label : int
+            the maximum label across all ranks; this represents the total
+            number of FOF halos found
+        """
         # run the FOF
         minid = fof(self._source, self._linking_length, self.comm)
 
@@ -78,65 +93,68 @@ class FOF(object):
 
     def find_features(self, peakcolumn=None):
         """
-        Basd on the particles labels, identify the groups, and return 
-        the center-of-mass CMPosition, CMVelocity, and Length of each feature
-        if a peakcolumn is given, the PeakPosition and PeakVelocity is also
-        calculated for the particle at the peak value of the column.
+        Based on the particle labels, identify the groups, and return
+        the center-of-mass ``CMPosition``, ``CMVelocity``, and Length of each
+        feature.
+
+        If a ``peakcolumn`` is given, the ``PeakPosition`` and ``PeakVelocity``
+        is also calculated for the particle at the peak value of the column.
 
         Data is scattered evenly across all ranks.
 
         Returns
         -------
-        CatalogSource : 
+        :class:`~nbodykit.source.catalog.array.ArrayCatalog` :
             a source holding the ('CMPosition', 'CMVelocity', 'Length')
-            of each feature, optionaly, PeakPosition, PeakVelocity are also included
-            if peakcolumn is not None
-        """        
+            of each feature; optionaly, ``PeakPosition``, ``PeakVelocity`` are
+            also included if ``peakcolumn`` is not None
+        """
         # the center-of-mass (Position, Velocity, Length)
         halos = fof_catalog(self._source, self.labels, self.comm, peakcolumn=peakcolumn)
         attrs = self._source.attrs.copy()
         attrs.update(self.attrs)
         return ArrayCatalog(halos, comm=self.comm, **attrs)
 
-    def to_halos(self, particle_mass, cosmo, redshift, mdef='vir', posdef='cm', peakcolumn='Density'):
+    def to_halos(self, particle_mass, cosmo, redshift, mdef='vir',
+                    posdef='cm', peakcolumn='Density'):
         """
-        Return a :class:`HaloCatalog`, holding the center-of-mass position and 
-        velocity of each halo, as well as properly scaled mass. The returned catalog 
-        also has default analytic prescriptions for halo radius and concentration.
+        Return a :class:`~nbodykit.source.catalog.halos.HaloCatalog`, holding
+        the center-of-mass position and velocity of each FOF halo, as well as
+        the properly scaled mass, for a given cosmology and redshift.
 
-        The data is scattered evenly across all ranks. Note that a copy of 
-        the data stored :attr:`halos` is returned.
+        The returned catalog also has default analytic prescriptions for
+        halo radius and concentration.
+
+        The data is scattered evenly across all ranks.
 
         Parameters
         ----------
-        source : CatalogSource
-            the source containing info about the particles in each halo
         particle_mass : float
-            the particle mass, used to compute the number of particles in 
-            each halo to a total mass
-        cosmo : nbodykit.cosmology.Cosmology
+            the particle mass, which is used to convert the number of particles
+            in each halo to a total mass
+        cosmo : :class:`nbodykit.cosmology.core.Cosmology`
             the cosmology of the catalog
         redshift : float
             the redshift of the catalog
-        mdef : str; optional
+        mdef : str, optional
             string specifying mass definition, used for computing default
-            halo radii and concentration; should be 'vir' or 'XXXc' or 
+            halo radii and concentration; should be 'vir' or 'XXXc' or
             'XXXm' where 'XXX' is an int specifying the overdensity
-        posdef : str; optional
+        posdef : str, optional
             position, can be cm (center of mass) or peak (particle with maximum value
             on a column)
-        peakcolumn : str ; optional
-            when posdef is 'peak', this is the column in source for identifying 
+        peakcolumn : str , optional
+            when posdef is 'peak', this is the column in source for identifying
             particles at the peak for the position and velocity.
 
         Returns
         -------
-        cat : nbodykit.source.HaloCatalog
+        :class:`~nbodykit.source.catalog.halos.HaloCatalog`
             a HaloCatalog at the specified cosmology and redshift
         """
         from nbodykit.source import HaloCatalog
 
-        assert posdef in ['cm', 'peak']
+        assert posdef in ['cm', 'peak'], "``posdef`` should be 'cm' or 'peak'"
 
         # meta-data
         attrs = self._source.attrs.copy()
@@ -160,12 +178,12 @@ class FOF(object):
             halos['Velocity'] = halos['PeakVelocity']
         # add the halo mass column
         halos['Mass'] = particle_mass * halos['Length']
-        
+
         coldefs = {'mass':'Mass', 'velocity':'Velocity', 'position':'Position'}
         return HaloCatalog(halos, cosmo, redshift, mdef=mdef, **coldefs)
-        
+
 def _assign_labels(minid, comm, thresh):
-    """ 
+    """
     Convert minid to sequential labels starting from 0.
 
     This routine is used to assign halo label to particles with
@@ -175,12 +193,12 @@ def _assign_labels(minid, comm, thresh):
     Parameters
     ----------
     minid : array_like, ('i8')
-        The minimum particle id of the halo. All particles of a halo 
+        The minimum particle id of the halo. All particles of a halo
         have the same minid
-    thresh : int
-        halo with less than thresh particles are merged into halo 0
     comm : py:class:`MPI.Comm`
         communicator. since this is a collective operation
+    thresh : int
+        halo with less than thresh particles are merged into halo 0
 
     Returns
     -------
@@ -188,36 +206,36 @@ def _assign_labels(minid, comm, thresh):
         The new labels of particles. Note that this is ordered
         by the size of halo, with the exception 0 represents all
         particles that are in halos that contain less than thresh particles.
-    
+
     """
     from mpi4py import MPI
 
     dtype = numpy.dtype([
-            ('origind', 'u8'), 
+            ('origind', 'u8'),
             ('fofid', 'u8'),
             ])
     data = numpy.empty(len(minid), dtype=dtype)
     # assign origind for recovery of ordering, since
-    # we need to work in sorted fofid 
+    # we need to work in sorted fofid
     data['fofid'] = minid
     data['origind'] = numpy.arange(len(data), dtype='u4')
     data['origind'] += sum(comm.allgather(len(data))[:comm.rank]) \
- 
+
     data = DistributedArray(data, comm)
 
     # first attempt is to assign fofid for each group
     data.sort('fofid')
     label = data['fofid'].unique_labels()
-    
+
     N = label.bincount()
-    
+
     # now eliminate those with less than thresh particles
     small = N.local <= thresh
 
     Nlocal = label.bincount(local=True)
     # mask == True for particles in small halos
     mask = numpy.repeat(small, Nlocal)
- 
+
     # globally shift halo id by one
     label.local += 1
     label.local[mask] = 0
@@ -230,9 +248,9 @@ def _assign_labels(minid, comm, thresh):
     data['fofid'].local[:] = data['fofid'].unique_labels().local[:]
 
     data.sort('origind')
-    
+
     label = data['fofid'].local.view('i8').copy()
-    
+
     del data
 
     Nhalo0 = max(comm.allgather(label.max())) + 1
@@ -244,7 +262,7 @@ def _assign_labels(minid, comm, thresh):
     P = numpy.arange(Nhalo0, dtype='i4')
     P[arg] = numpy.arange(len(arg), dtype='i4') + 1
     label = P[label]
-        
+
     return label
 
 def _fof_local(layout, pos, boxsize, ll, comm):
@@ -254,7 +272,7 @@ def _fof_local(layout, pos, boxsize, ll, comm):
 
     pos = layout.exchange(pos)
     data = cluster.dataset(pos, boxsize=boxsize)
-    
+
     fof = cluster.fof(data, linking_length=ll, np=0)
     labels = fof.labels
     del fof
@@ -282,7 +300,7 @@ def _fof_merge(layout, minid, comm):
         # if no rank has merged any, we are done
         # gl is the global label (albeit with some holes)
         total = comm.allreduce(merged.sum())
-            
+
         if total == 0:
             del minid_new
             break
@@ -298,15 +316,15 @@ def _fof_merge(layout, minid, comm):
 
 def fof(source, linking_length, comm):
     """
-    Run Friend-of-friend halo finder.
+    Run Friends-of-friends halo finder.
 
-    Friend-of-friend was first used by Davis et al 1985 to define
+    Friends-of-friends was first used by Davis et al 1985 to define
     halos in hierachical structure formation of cosmological simulations.
-    The algorithm is also known as DBSCAN in computer science. 
-    The subroutine here implements a parallel version of the FOF. 
+    The algorithm is also known as DBSCAN in computer science.
+    The subroutine here implements a parallel version of the FOF.
 
-    The underlying local FOF algorithm is from `kdcount.cluster`, 
-    which is an adaptation of the implementation in Volker Springel's 
+    The underlying local FOF algorithm is from `kdcount.cluster`,
+    which is an adaptation of the implementation in Volker Springel's
     Gadget and Martin White's PM. It could have been done faster.
 
     Parameters
@@ -331,7 +349,7 @@ def fof(source, linking_length, comm):
     BoxSize = source.attrs.get('BoxSize', None)
     if BoxSize is None:
         raise ValueError("cannot compute FOF clustering of source without 'BoxSize' in ``attrs`` dict")
-        
+
     grid = [
         numpy.linspace(0, BoxSize[0], np[0] + 1, endpoint=True),
         numpy.linspace(0, BoxSize[1], np[1] + 1, endpoint=True),
@@ -362,18 +380,18 @@ def fof_find_peaks(source, label, comm,
 
     return hpos
 
-def fof_catalog(source, label, comm, 
+def fof_catalog(source, label, comm,
                 position='Position', velocity='Velocity', initposition='InitialPosition',
                 peakcolumn=None):
-    """ 
+    """
     Catalog of FOF groups based on label from a parent source
-                
-    This is a collective operation -- the returned halo catalog will be 
+
+    This is a collective operation -- the returned halo catalog will be
     equally distributed across all ranks
-    
+
     Notes
     -----
-    This computes the center-of-mass position and velocity in the same 
+    This computes the center-of-mass position and velocity in the same
     units as the corresponding columns ``source``
 
     Parameters
@@ -386,41 +404,41 @@ def fof_catalog(source, label, comm,
         belongs to
     comm: MPI.Comm
         the mpi communicator. Must agree with the datasource
-    position : str; optional
+    position : str, optional
         the column name specifying the position
-    velocity : str; optional
-        the column name specifying the velocity 
-    initposition : str; optional
+    velocity : str, optional
+        the column name specifying the velocity
+    initposition : str, optional
         the column name specifying the initial position; this is only
         computed if available
-    peakcolumn : str; optional
+    peakcolumn : str, optional
         if not None, find PeakPostion and PeakVelocity based on the
         value of peakcolumn
 
     Returns
     -------
     catalog: array_like
-        A 1-d array of type 'Position', 'Velocity', 'Length'. 
+        A 1-d array of type 'Position', 'Velocity', 'Length'.
         The center mass position and velocity of the FOF halo, and
         Length is the number of particles in a halo. The catalog is
         sorted such that the most massive halo is first. ``catalog[0]``
         does not correspond to any halo.
     """
     from nbodykit.utils import ScatterArray
-    
+
     # make sure all of the columns are there
     for col in [position, velocity]:
         if col not in source:
             raise ValueError("the column '%s' is missing from parent source; cannot compute halos" %col)
-                
+
     dtype=[('CMPosition', ('f4', 3)),('CMVelocity', ('f4', 3)),('Length', 'i4')]
     N = count(label, comm=comm)
-    
+
     # make sure BoxSize is there
     BoxSize = source.attrs.get('BoxSize', None)
     if BoxSize is None:
         raise ValueError("cannot compute halo catalog from source without 'BoxSize' in ``attrs`` dict")
-        
+
     # center of mass position
     hpos = centerofmass(label, source.compute(source[position])/BoxSize, boxsize=1.0, comm=comm)
     hpos *= BoxSize
@@ -428,7 +446,7 @@ def fof_catalog(source, label, comm,
     # center of mass velocity
     hvel = centerofmass(label, source.compute(source[velocity]), boxsize=None, comm=comm)
 
-    # center of mass initial position 
+    # center of mass initial position
     if initposition in source:
         dtype.append(('InitialPosition', ('f4', 3)))
         hpos_init = centerofmass(label, source.compute(source[initposition])/BoxSize, boxsize=1.0, comm=comm)
@@ -473,32 +491,11 @@ def fof_catalog(source, label, comm,
 # -----------------------
 # Helpers
 # -----------------------
-def split_size_3d(s):
-    """ Split `s` into two integers, 
-        a and d, such that a * d == s and a <= d
-
-        returns:  a, d
-    """
-    a = int(s** 0.33333) + 1
-    d = s
-    while a > 1:
-        if s % a == 0:
-            s = s // a
-            break
-        a = a - 1 
-    b = int(s**0.5) + 1
-    while b > 1:
-        if s % b == 0:
-            s = s // b
-            break
-        b = b - 1
-    return a, b, s
-
 def equiv_class(labels, values, op, dense_labels=False, identity=None, minlength=None):
     """
     apply operation to equivalent classes by label, on values
 
-    Parameters 
+    Parameters
     ----------
     labels : array_like
         the label of objects, starting from 0.
@@ -513,7 +510,7 @@ def equiv_class(labels, values, op, dense_labels=False, identity=None, minlength
 
     Returns
     -------
-    result : 
+    result :
         the value of each equivalent class
 
     Examples
@@ -573,7 +570,7 @@ def replacesorted(arr, sorted, b, out=None):
     ----------
     arr : array_like
         input array
-    sorted   : array_like 
+    sorted   : array_like
         sorted
 
     b   : array_like
@@ -637,7 +634,7 @@ class DistributedArray(object):
 
     def unique_labels(self):
         """
-        Assign unique labels to sorted local. 
+        Assign unique labels to sorted local.
 
         .. warning ::
 
@@ -650,12 +647,12 @@ class DistributedArray(object):
 
         """
         prev, next = self.topology.prev(), self.topology.next()
-         
+
         junk, label = numpy.unique(self.local, return_inverse=True)
         if len(self.local) == 0:
             Nunique = 0
         else:
-            # watch out: this is to make sure after shifting first 
+            # watch out: this is to make sure after shifting first
             # labels on the next rank is the same as my last label
             # when there is a spill-over.
             if next == self.local[-1]:
@@ -687,7 +684,7 @@ class DistributedArray(object):
 
         Examples
         --------
-        if the local array is [ (0, 0), (0, 1)], 
+        if the local array is [ (0, 0), (0, 1)],
         Then the counts array is [ (3, ), (3, 1)]
         """
         prev = self.topology.prev()
@@ -726,16 +723,16 @@ class EmptyRankType(object):
 EmptyRank = EmptyRankType()
 
 class LinearTopology(object):
-    """ Helper object for the topology of a distributed array 
-    """ 
+    """ Helper object for the topology of a distributed array
+    """
     def __init__(self, local, comm):
         self.local = local
         self.comm = comm
 
     def heads(self):
         """
-        The first items on each rank. 
-        
+        The first items on each rank.
+
         Returns
         -------
         heads : list
@@ -750,8 +747,8 @@ class LinearTopology(object):
 
     def tails(self):
         """
-        The last items on each rank. 
-        
+        The last items on each rank.
+
         Returns
         -------
         tails: list
@@ -768,7 +765,7 @@ class LinearTopology(object):
         The item before the local data.
 
         This method fetches the last item before the local data.
-        If the rank before is empty, the rank before is used. 
+        If the rank before is empty, the rank before is used.
 
         If no item is before this rank, EmptyRank is returned
 
@@ -794,9 +791,9 @@ class LinearTopology(object):
         """
         The item after the local data.
 
-        This method the first item after the local data. 
-        If the rank after current rank is empty, 
-        item after that rank is used. 
+        This method the first item after the local data.
+        If the rank after current rank is empty,
+        item after that rank is used.
 
         If no item is after local data, EmptyRank is returned.
 
@@ -818,7 +815,7 @@ class LinearTopology(object):
 
         next = heads[self.comm.rank + 1]
         return next
-    
+
 def centerofmass(label, pos, boxsize=1.0, comm=MPI.COMM_WORLD):
     """
     Calulate the center of mass of particles of the same label.
@@ -839,7 +836,7 @@ def centerofmass(label, pos, boxsize=1.0, comm=MPI.COMM_WORLD):
         size of the periodic box, or None if no periodic boundary is assumed.
     comm : :py:class:`MPI.Comm`
         communicator for the collective operation.
-    
+
     Returns
     -------
     hpos : array_like (float, 3)
@@ -862,7 +859,7 @@ def centerofmass(label, pos, boxsize=1.0, comm=MPI.COMM_WORLD):
     else:
         dpos = pos
     dpos = equiv_class(label, dpos, op=numpy.add, dense_labels=True, minlength=len(N))
-    
+
     comm.Allreduce(MPI.IN_PLACE, dpos, op=MPI.SUM)
     dpos /= N[:, None]
 
@@ -872,7 +869,7 @@ def centerofmass(label, pos, boxsize=1.0, comm=MPI.COMM_WORLD):
     else:
         hpos = dpos
     return hpos
-    
+
 def count(label, comm=MPI.COMM_WORLD):
     """
     Count the number of particles of the same label.
@@ -886,7 +883,7 @@ def count(label, comm=MPI.COMM_WORLD):
         Halo label of particles, >=0
     comm : :py:class:`MPI.Comm`
         communicator for the collective operation.
-    
+
     Returns
     -------
     count : array_like

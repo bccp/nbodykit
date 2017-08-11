@@ -7,8 +7,41 @@ import numpy
 
 class LogNormalCatalog(CatalogSource):
     """
-    A catalog source containing (biased) particles that have 
-    been Poisson-sampled from a log-normal density field
+    A CatalogSource containing biased particles that have
+    been Poisson-sampled from a log-normal density field.
+
+    Parameters
+    ----------
+    Plin : callable
+        callable specifying the linear power spectrum
+    nbar : float
+        the number density of the particles in the box, assumed constant across
+        the box; this is used when Poisson sampling the density field
+    BoxSize : float, 3-vector of floats
+        the size of the box to generate the grid on
+    Nmesh : int
+        the mesh size to use when generating the density and displacement
+        fields, which are Poisson-sampled to particles
+    bias : float, optional
+        the desired bias of the particles; applied while applying a log-normal
+        transformation to the density field
+    seed : int, optional
+        the global random seed; if set to ``None``, the seed will be set
+        randomly
+    cosmo : :class:`nbodykit.cosmology.core.Cosmology`, optional
+        this must be supplied if ``Plin`` does not carry ``cosmo`` attribute
+    redshift : float, optional
+        this must be supplied if ``Plin`` does not carry a ``redshift`` attribute
+    comm : MPI Communicator, optional
+        the MPI communicator instance; default (``None``) sets to the
+        current communicator
+    use_cache : bool, optional
+        whether to cache data read from disk; default is ``False``
+
+    References
+    ----------
+    `Cole and Jones, 1991 <http://adsabs.harvard.edu/abs/1991MNRAS.248....1C>`_
+    `Agrawal et al. 2017 <https://arxiv.org/abs/1706.09195>`_
     """
     def __repr__(self):
         return "LogNormalCatalog(seed=%(seed)d, bias=%(bias)g)" %self.attrs
@@ -16,37 +49,10 @@ class LogNormalCatalog(CatalogSource):
     @CurrentMPIComm.enable
     def __init__(self, Plin, nbar, BoxSize, Nmesh, bias=2., seed=None,
                     cosmo=None, redshift=None, comm=None, use_cache=False):
-        """
-        Parameters
-        ----------
-        Plin : callable
-            callable specifying the linear power spectrum
-        nbar : float
-            the number density of the particles in the box, assumed constant across the box; 
-            this is used when Poisson sampling the density field
-        BoxSize : float, 3-vector of floats
-            the size of the box to generate the grid on
-        Nmesh : int
-            the mesh size to use when generating the density and displacement fields, which
-            are Poisson-sampled to particles
-        bias : float, optional
-            the desired bias of the particles; applied while applying a log-normal transformation
-            to the density field
-        seed : int, optional
-            the global random seed; if set to ``None``, the seed will be set randomly
-        cosmo : nbodykit.cosmology.Cosmology, optional
-            this must be supplied if `Plin` does not carry ``cosmo`` attribute
-        redshift : float, optional
-            this must be supplied if `Plin` does not carry a ``redshift`` attribute
-        comm : MPI Communicator, optional
-            the MPI communicator instance; default (``None``) sets to the
-            current communicator  
-        use_cache : bool, optional
-            whether to cache data read from disk; default is ``False``
-        """
+
         self.comm = comm
         self.Plin = Plin
-        
+
         # try to infer cosmo or redshift from Plin
         if cosmo is None:
             cosmo = getattr(self.Plin, 'cosmo', None)
@@ -57,7 +63,7 @@ class LogNormalCatalog(CatalogSource):
         if redshift is None:
             raise ValueError("'redshift' must be passed if 'Plin' does not have 'redshift' attribute")
         self.cosmo = cosmo
-        
+
         # try to add attrs from the Plin
         if isinstance(Plin, cosmology.LinearPowerBase):
             self.attrs.update(Plin.attrs)
@@ -68,7 +74,7 @@ class LogNormalCatalog(CatalogSource):
         self.attrs['nbar']     = nbar
         self.attrs['redshift'] = redshift
         self.attrs['bias']     = bias
-        
+
         # set the seed randomly if it is None
         if seed is None:
             if self.comm.rank == 0:
@@ -86,7 +92,7 @@ class LogNormalCatalog(CatalogSource):
 
         # recompute _csize to the real size
         self.update_csize()
-        
+
         # crash with no particles!
         if self.csize == 0:
             raise ValueError("no particles in LogNormal source; try increasing ``nbar`` parameter")
@@ -110,7 +116,7 @@ class LogNormalCatalog(CatalogSource):
         Velocity in km/s
         """
         return self.make_column(self._source['Velocity'])
-        
+
     @column
     def VelocityOffset(self):
         """
@@ -119,7 +125,7 @@ class LogNormalCatalog(CatalogSource):
         return self.make_column(self._source['VelocityOffset'])
 
     def _makesource(self, BoxSize, Nmesh):
-        
+
         from nbodykit import mockmaker
         from pmesh.pm import ParticleMesh
 
@@ -141,11 +147,11 @@ class LogNormalCatalog(CatalogSource):
 
         # move particles from initial position based on the Zeldovich displacement
         pos[:] = (pos + disp) % BoxSize
-                
+
         # RSD in the Zel'dovich approx bring in extra factor of f
         # add this to both velocity and velocity offset
-        disp[:] *= (1 + f)
-        
+        disp[:] *= f
+
         # velocity from displacement (assuming Mpc/h)
         # this is f * H(z) * a / h = f 100 E(z) a --> converts from Mpc/h to km/s
         z = self.attrs['redshift']
@@ -162,5 +168,5 @@ class LogNormalCatalog(CatalogSource):
         source['Position'][:] = pos[:] # in Mpc/h
         source['Velocity'][:] = vel[:] # in km/s
         source['VelocityOffset'][:] = disp[:] # in Mpc/h
-        
+
         return source, pm

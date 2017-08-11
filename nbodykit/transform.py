@@ -1,52 +1,67 @@
 import numpy
 import dask.array as da
-import dask
 from six import string_types
+from nbodykit.utils import deprecate
 
-def vstack(*cols):
+def StackColumns(*cols):
     """
-    Stack the input dask arrays vertically, column by column
+    Stack the input dask arrays vertically, column by column.
 
-    This uses :func:`dask.array.vstack`
+    This uses :func:`dask.array.vstack`.
 
     Parameters
     ----------
-    cols : dask arrays
-        the dask arrays to stack vertically
+    *cols : :class:`dask.array.Array`
+        the dask arrays to stack vertically together
 
     Returns
     -------
-    dask.array.Array
-        the dask array where columns correspond to the input
-        arrays
+    :class:`dask.array.Array` :
+        the dask array where columns correspond to the input arrays
+
+    Raises
+    ------
+    TypeError
+        If the input columns are not dask arrays
     """
     if not all(isinstance(col, da.Array) for col in cols):
         raise TypeError("all input columns in `vstack` must be dask arrays")
 
     return da.vstack(cols).T
 
-def concatenate(*sources, **kwargs):
+def ConcatenateSources(*sources, **kwargs):
     """
-    Concatenate Source objects together, optionally including only
-    certain columns in the returned source
+    Concatenate CatalogSource objects together, optionally including only
+    certain columns in the returned source.
+
+    .. note::
+        The returned catalog object carries the meta-data from only
+        the first catalog supplied to this function (in the ``attrs`` dict).
 
     Parameters
     ----------
-    *sources : CatalogSource
-        the catalogs to concatenate
-    columns : str, list of str; optional
+    *sources : subclass of :class:`~nbodykit.base.catalog.CatalogSource`
+        the catalog source objects to concatenate together
+    columns : str, list of str, optional
         the columns to include in the concatenated catalog
 
     Returns
     -------
     CatalogSource :
-        the concatenated catalog source
+        the concatenated catalog source object
+
+    Examples
+    --------
+    >>> from nbodykit.lab import *
+    >>> source1 = UniformCatalog(nbar=100, BoxSize=1.0)
+    >>> source2 = UniformCatalog(nbar=100, BoxSize=1.0)
+    >>> print(source1.csize, source2.csize)
+    >>> combined = transform.ConcatenateSources(source1, source2, columns=['Position', 'Velocity'])
+    >>> print(combined.csize)
     """
+    from nbodykit.base.catalog import CatalogCopy
+
     columns = kwargs.get('columns', None)
-
-    # FIXME: new name for CatalogSubset?
-    from nbodykit.base.catalog import CatalogSubset
-
     if isinstance(columns, string_types):
         columns = [columns]
 
@@ -70,13 +85,17 @@ def concatenate(*sources, **kwargs):
     for col in columns:
         data[col] = da.concatenate([src[col] for src in sources], axis=0)
 
-    return CatalogSubset(size, sources[0].comm, use_cache=sources[0].use_cache, **data)
+    toret = CatalogCopy(size, sources[0].comm, use_cache=sources[0].use_cache, **data)
+    toret.attrs.update(sources[0].attrs)
+    return toret
 
+# deprecated functions
+vstack = deprecate("nbodykit.transform.vstack", StackColumns, "nbodykit.transform.StackColumns")
+concatenate = deprecate("nbodykit.transform.concatenate", ConcatenateSources, "nbodykit.transform.ConcatenateSources")
 
 def ConstantArray(value, size, chunks=100000):
     """
-    Return a dask array of the specified ``size`` holding a
-    single value
+    Return a dask array of the specified ``size`` holding a single value.
 
     This uses numpy's "stride tricks" to avoid replicating
     the data in memory for each element of the array.
@@ -87,7 +106,7 @@ def ConstantArray(value, size, chunks=100000):
         the scalar value to fill the array with
     size : int
         the length of the returned dask array
-    chunks : int; optional
+    chunks : int, optional
         the size of the dask array chunks
     """
     toret = numpy.array(value)
@@ -97,22 +116,32 @@ def ConstantArray(value, size, chunks=100000):
 
 def SkyToUnitSphere(ra, dec, degrees=True):
     """
-    Convert sky coordinates (ra, dec) coordinates to
-    cartesian coordinates on the unit sphere
+    Convert sky coordinates (``ra``, ``dec``) to Cartesian coordinates on
+    the unit sphere.
 
     Parameters
     -----------
-    ra, dec : dask.array, (N,)
-        the input sky coordinates giving (ra, dec)
+    ra : :class:`dask.array.Array`; shape: (N,)
+        the right ascension angular coordinate
+    dec : :class:`dask.array.Array`; ; shape: (N,)
+        the declination angular coordinate
     degrees : bool, optional
-        specifies whether ``ra`` and ``dec`` are in degrees
+        specifies whether ``ra`` and ``dec`` are in degrees or radians
 
     Returns
     -------
-    pos : dask.array, (N,3)
+    pos : :class:`dask.array.Array`; shape: (N,3)
         the cartesian position coordinates, where columns represent
         ``x``, ``y``, and ``z``
+
+    Raises
+    ------
+    TypeError
+        If the input columns are not dask arrays
     """
+    if not all(isinstance(col, da.Array) for col in [ra, dec]):
+        raise TypeError("both ``ra`` and ``dec`` must be dask arrays")
+
     # put into radians from degrees
     if degrees:
         ra  = da.deg2rad(ra)
@@ -126,16 +155,22 @@ def SkyToUnitSphere(ra, dec, degrees=True):
 
 def SkyToCartesion(ra, dec, redshift, cosmo, degrees=True, interpolate_cdist=True):
     """
-    Convert sky coordinates (ra, dec, redshift) coordinates to
-    cartesian coordinates, scaled to the comoving distance if `unit_sphere = False`,
-    else on the unit sphere
+    Convert sky coordinates (``ra``, ``dec``, ``redshift``) to a
+    Cartesian ``Position`` column.
 
+    .. warning::
+
+        The returned Cartesian position is in units of Mpc/h.
 
     Parameters
     -----------
-    ra, dec, redshift : dask.array, (N,)
-        the input sky coordinates giving (ra, dec, redshift)
-    cosmo : astropy.cosmology.FLRW
+    ra : :class:`dask.array.Array`; shape: (N,)
+        the right ascension angular coordinate
+    dec : :class:`dask.array.Array`; shape: (N,)
+        the declination angular coordinate
+    redshift : :class:`dask.array.Array`; shape: (N,)
+        the redshift coordinate
+    cosmo : :class:`~nbodykit.cosmology.core.Cosmology`
         the cosmology used to meausre the comoving distance from ``redshift``
     degrees : bool, optional
         specifies whether ``ra`` and ``dec`` are in degrees
@@ -145,9 +180,14 @@ def SkyToCartesion(ra, dec, redshift, cosmo, degrees=True, interpolate_cdist=Tru
 
     Returns
     -------
-    pos : dask.array, (N,3)
+    pos : :class:`dask.array.Array`; shape: (N,3)
         the cartesian position coordinates, where columns represent
-        ``x``, ``y``, and ``z``
+        ``x``, ``y``, and ``z`` in units of Mpc/h
+
+    Raises
+    ------
+    TypeError
+        If the input columns are not dask arrays
     """
     if not all(isinstance(col, da.Array) for col in [ra, dec, redshift]):
         raise TypeError("input ra, dec, and redshift objects must be dask arrays")
@@ -167,7 +207,8 @@ def SkyToCartesion(ra, dec, redshift, cosmo, degrees=True, interpolate_cdist=Tru
 def HaloConcentration(mass, cosmo, redshift, mdef='vir'):
     """
     Return halo concentration from halo mass, based on the analytic fitting
-    formulas presented in Dutton and Maccio 2014 (arxiv:1402.7073)
+    formulas presented in
+    `Dutton and Maccio 2014 <https://arxiv.org/abs/1402.7073>`_.
 
     .. note::
         The units of the input mass are assumed to be :math:`M_{\odot}/h`
@@ -177,19 +218,19 @@ def HaloConcentration(mass, cosmo, redshift, mdef='vir'):
     mass : array_like
         either a numpy or dask array specifying the halo mass; units
         assumed to be :math:`M_{\odot}/h`
-    cosmo : nbodykit.cosmology.Cosmology
+    cosmo : :class:`~nbodykit.cosmology.core.Cosmology`
         the cosmology instance used in the analytic formula
     redshift : float
         compute the c(M) relation at this redshift
-    mdef : str; optional
+    mdef : str, optional
         string specifying the halo mass definition to use; should be
         'vir' or 'XXXc' or 'XXXm' where 'XXX' is an int specifying the
         overdensity
 
     Returns
     -------
-    concen : dask.array.Array
-        a dask array holding the analytic concentration
+    concen : :class:`dask.array.Array`
+        a dask array holding the analytic concentration values
 
     References
     ----------
@@ -208,13 +249,15 @@ def HaloConcentration(mass, cosmo, redshift, mdef='vir'):
     return mass.map_blocks(lambda mass: model.conc_NFWmodel(prim_haloprop=mass), dtype=mass.dtype)
 
 def HaloRadius(mass, cosmo, redshift, mdef='vir'):
-    """
+    r"""
     Return halo radius from halo mass, based on the specified mass definition.
-    This is independent of halo profile, and simply returns:
+    This is independent of halo profile, and simply returns
 
-        ``radius = (mass * 3.0 / 4.0 / pi / rho)**(1.0 / 3.0)``
+    .. math::
 
-    where ``rho`` is the density threshold, which depends on cosmology,
+        R = \left [ 3 M /(4\pi\Delta) \right]^{1/3}
+
+    where :math:`\Delta` is the density threshold, which depends on cosmology,
     redshift, and mass definition
 
     .. note::
@@ -225,19 +268,19 @@ def HaloRadius(mass, cosmo, redshift, mdef='vir'):
     mass : array_like
         either a numpy or dask array specifying the halo mass; units
         assumed to be :math:`M_{\odot}/h`
-    cosmo : nbodykit.cosmology.Cosmology
+    cosmo : :class:`~nbodykit.cosmology.core.Cosmology`
         the cosmology instance
     redshift : float
         compute the density threshold which determines the R(M) relation
         at this redshift
-    mdef : str; optional
+    mdef : str, optional
         string specifying the halo mass definition to use; should be
         'vir' or 'XXXc' or 'XXXm' where 'XXX' is an int specifying the
         overdensity
 
     Returns
     -------
-    radius : dask.array.Array
+    radius : :class:`dask.array.Array`
         a dask array holding the halo radius
     """
     from halotools.empirical_models import halo_mass_to_halo_radius

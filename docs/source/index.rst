@@ -1,61 +1,143 @@
-
-.. note::
-
-    nbodykit has recently upgraded to version 0.2.x, with significant changes
-    to its API and user interface. The documentation for this new version is
-    under active development. For the documentation for the previous version
-    (0.1.x), please see http://nbodykit.readthedocs.io/en/0.1.11/.
+|
+|
 
 .. image:: _static/nbodykit-logo.gif
    :width: 425 px
    :align: center
 
 |
+|
 
-a massively parallel large-scale structure toolkit
+a massively parallel, large-scale structure toolkit
 ===================================================
 
-**nbodykit** is an open source project and Python package providing
-a set of algorithms useful in the analysis of cosmological
-datasets from N-body simulations and large-scale structure surveys.
+**nbodykit** is a massively parallel, open source project and Python
+package providing a set of state-of-the-art, large-scale structure algorithms
+useful in the analysis of cosmological datasets from N-body simulations and
+observational surveys.
 
 Driven by the optimism regarding the abundance and availability of
 large-scale computing resources in the future, the development of nbodykit
 distinguishes itself from other similar software packages
-(i.e., `nbodyshop`_, `pynbody`_, `yt`_, `xi`_) by focusing on :
+(i.e., `nbodyshop`_, `pynbody`_, `yt`_, `xi`_) by focusing on:
 
 - a **unified** treatment of simulation and observational datasets by
   insulating algorithms from data containers
 
+- support for a wide **variety of data** formats, as well as **large volumes of data**
+
 - reducing wall-clock time by **scaling** to thousands of cores
 
-- **deployment** and availability on large, super computing facilities
+- **deployment** and availability on large, super-computing facilities
+
+- an **interactive** user interface that performs as well in a `Jupyter
+  notebook`_ as on a super-computing machine
 
 All algorithms are parallel and run with Message Passing Interface (MPI).
+For a list of the algorithms currently implemented, see :ref:`available-algorithms`.
+
+The source code is publicly available at https://github.com/bccp/nbodykit.
 
 .. _nbodyshop: http://www-hpcc.astro.washington.edu/tools/tools.html
 .. _pynbody: https://github.com/pynbody/pynbody
 .. _yt: http://yt-project.org/
 .. _xi: http://github.com/bareid/xi
-.. _`NERSC`: http://www.nersc.gov/systems/
+.. _Jupyter notebook: http://jupyter-notebook.rtfd.io
 
-Index
------
+.. _getting-started:
 
-**Getting Started**
+Getting Started
+---------------
 
 * :doc:`install`
+* :doc:`intro`
+* :doc:`quickstart/index`
+* :doc:`cookbook/index`
 
 .. toctree::
    :maxdepth: 1
-   :hidden:
    :caption: Getting Started
+   :hidden:
 
-   install.rst
+   install
+   intro
+   quickstart/index
+   cookbook/index
 
-Get in touch
-------------
+.. _playing-with-data:
 
-- Report bugs, suggest feature ideas, or view the source code `on GitHub`_.
+Discrete Data Catalogs
+----------------------
 
-.. _on GitHub: http://github.com/bccp/nbodykit
+* :doc:`Overview <catalogs/overview>`
+* :doc:`catalogs/reading`
+* :doc:`catalogs/on-demand-io`
+* :doc:`catalogs/common-operations`
+* :doc:`catalogs/mock-data`
+
+.. toctree::
+  :maxdepth: 1
+  :caption: Discrete Data Catalogs
+  :hidden:
+
+  Overview <catalogs/overview>
+  catalogs/reading
+  catalogs/on-demand-io
+  catalogs/common-operations
+  catalogs/mock-data
+
+Data on a Mesh
+--------------
+
+* :doc:`Overview <mesh/overview>`
+* :doc:`mesh/creating`
+* :doc:`mesh/painting`
+* :doc:`mesh/common-operations`
+
+.. toctree::
+  :maxdepth: 1
+  :caption: Data on a Mesh
+  :hidden:
+
+  Overview <mesh/overview>
+  mesh/creating
+  mesh/painting
+  mesh/common-operations
+
+.. _getting-results:
+
+Getting Results
+---------------
+
+* :doc:`algorithms/index`
+* :doc:`batch-mode`
+* :doc:`analyzing-results`
+
+.. toctree::
+  :maxdepth: 1
+  :caption: Getting Results
+  :hidden:
+
+  algorithms/index
+  batch-mode
+  analyzing-results
+
+.. _help:
+
+Help and Reference
+------------------
+
+* :doc:`api/api`
+* :doc:`development-guide`
+* :doc:`contact-support`
+* :doc:`changelog`
+
+.. toctree::
+  :maxdepth: 1
+  :caption: Help and Reference
+  :hidden:
+
+  api/api
+  development-guide
+  contact-support
+  changelog

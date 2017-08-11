@@ -5,8 +5,7 @@ import warnings
 
 from nbodykit import CurrentMPIComm
 from nbodykit.utils import timer
-from nbodykit.dataset import DataSet
-
+from nbodykit.binned_statistic import BinnedStatistic
 from .fftpower import project_to_basis
 from pmesh.pm import ComplexField
 
@@ -20,7 +19,7 @@ def get_real_Ylm(l, m):
     l : int
         the degree of the harmonic
     m : int
-        the order of the harmonic; |m| < l
+        the order of the harmonic; abs(m) < l
 
     Returns
     -------
@@ -75,23 +74,51 @@ def get_real_Ylm(l, m):
 
 class ConvolvedFFTPower(object):
     """
-    Algorithm to compute the power spectrum multipoles using FFTs
+    Algorithm to compute power spectrum multipoles using FFTs
     for a data survey with non-trivial geometry.
 
     Due to the geometry, the estimator computes the true power spectrum
     convolved with the window function (FFT of the geometry).
 
-    This estimator builds upon the work presented in Bianchi et al. 2015
-    and Scoccimarro et al. 2015, but differs in the implementation. This
-    class uses the spherical harmonic addition theorem such that
-    only :math:`2\ell+1` FFTs are required per multipole, rather than the
-    :math:`(\ell+1)(\ell+2)/2` FFTs in the implementation presented by
-    Bianchi et al. and Scoccimarro et al.
+    This estimator implemented in this class is described in detail in
+    Hand et al. 2017 (arxiv:1704.02357). It uses the spherical harmonic
+    addition theorem such that only :math:`2\ell+1` FFTs are required to
+    compute each multipole. This differs from the implementation in
+    Bianchi et al. and Scoccimarro et al., which requires
+    :math:`(\ell+1)(\ell+2)/2` FFTs.
 
-    Thanks to Yin Li for pointing out the spherical harmonic decomposition.
+    Results are computed when the object is inititalized, and the result is
+    stored in the :attr:`poles` attribute. Important meta-data computed
+    during algorithm execution is stored in the :attr:`attrs` dict. See the
+    documenation of :func:`~ConvolvedFFTPower.run`.
+
+    .. note::
+        A full tutorial on the class is available in the documentation
+        :ref:`here <convpower>`.
+
+    Parameters
+    ----------
+    source : FKPCatalog, FKPCatalogMesh
+        the source to paint the data/randoms; FKPCatalog is automatically converted
+        to a FKPCatalogMesh, using default painting parameters
+    poles : list of int
+        a list of integer multipole numbers ``ell`` to compute
+    kmin : float, optional
+        the edge of the first wavenumber bin; default is 0
+    dk : float, optional
+        the spacing in wavenumber to use; if not provided; the fundamental mode of the
+        box is used
+    use_fkp_weights : bool, optional
+        if ``True``, FKP weights will be added using ``P0_FKP`` such that the
+        fkp weight is given by ``1 / (1 + P0*NZ)`` where ``NZ`` is the number density
+        as a function of redshift column
+    P0_FKP : float, optional
+        the value of ``P0`` to use when computing FKP weights; must not be
+        ``None`` if ``use_fkp_weights=True``
 
     References
     ----------
+    * Hand, Nick et al. `An optimal FFT-based anisotropic power spectrum estimator`, 2017
     * Bianchi, Davide et al., `Measuring line-of-sight-dependent Fourier-space clustering using FFTs`,
       MNRAS, 2015
     * Scoccimarro, Roman, `Fast estimators for redshift-space clustering`, Phys. Review D, 2015
@@ -104,29 +131,11 @@ class ConvolvedFFTPower(object):
                     dk=None,
                     use_fkp_weights=False,
                     P0_FKP=None):
-        """
-        Parameters
-        ----------
-        source : FKPCatalog, FKPMeshSource
-            the source to paint the data/randoms; FKPCatalog is automatically converted
-            to a FKPMeshSource, using default painting parameters
-        poles : list of int
-            a list of integer multipole numbers ``ell`` to compute
-        kmin : float; optional
-            the edge of the first wavenumber bin; default is 0
-        dk : float; optional
-            the spacing in wavenumber to use; if not provided; the fundamental mode of the
-            box is used
-        use_fkp_weights : bool; optional
-            if ``True``, FKP weights will be added using ``P0_FKP`` such that the
-            fkp weight is given by ``1 / (1 + P0*NZ)`` where ``NZ`` is the number density
-            as a function of redshift column
-        P0_FKP : float; optional
-            the value of ``P0`` to use when computing FKP weights
-        """
-        from nbodykit.source.catalog.fkp import FKPMeshSource, FKPCatalog
-        if not isinstance(source, (FKPMeshSource, FKPCatalog)):
-            raise TypeError("input source should be a FKPCatalog or FKPMeshSource")
+
+        from nbodykit.source.catalog import FKPCatalog
+        from nbodykit.source.catalogmesh import FKPCatalogMesh
+        if not isinstance(source, (FKPCatalogMesh, FKPCatalog)):
+            raise TypeError("input source should be a FKPCatalog or FKPCatalogMesh")
 
         if not hasattr(source, 'paint'):
             source = source.to_mesh(Nmesh=Nmesh)
@@ -151,14 +160,14 @@ class ConvolvedFFTPower(object):
             for name in ['data', 'randoms']:
 
                 # print a warning if we are overwriting a non-default column
-                old_fkp_weights = self.source[name+'.'+self.source.fkp_weight]
+                old_fkp_weights = self.source[name+'/'+self.source.fkp_weight]
                 if self.source.compute(old_fkp_weights.sum()) != len(old_fkp_weights):
                     warn = "it appears that we are overwriting FKP weights for the '%s' " %name
                     warn += "source in FKPCatalog when using 'use_fkp_weights=True' in ConvolvedFFTPower"
                     warnings.warn(warn)
 
-                nbar = self.source[name+'.'+self.source.nbar]
-                self.source[name+'.'+self.source.fkp_weight] = 1.0 / (1. + P0_FKP * nbar)
+                nbar = self.source[name+'/'+self.source.nbar]
+                self.source[name+'/'+self.source.fkp_weight] = 1.0 / (1. + P0_FKP * nbar)
 
         self.attrs = {}
         self.attrs['poles']           = poles
@@ -188,11 +197,39 @@ class ConvolvedFFTPower(object):
         ----------
         edges : array_like
             the edges of the wavenumber bins
-        poles : :class:`~nbodykit.dataset.DataSet`
-            a DataSet object that behaves similar to a structured array, with
+        poles : :class:`~nbodykit.binned_statistic.BinnedStatistic`
+            a BinnedStatistic object that behaves similar to a structured array, with
             fancy slicing and re-indexing; it holds the measured multipole
             results, as well as the number of modes (``modes``) and average
             wavenumbers values in each bin (``k``)
+        attrs : dict
+            dictionary holding input parameters and several important quantites
+            computed during execution:
+
+            #. data.N, randoms.N :
+                the unweighted number of data and randoms objects
+            #. data.W, randoms.W :
+                the weighted number of data and randoms objects, using the
+                column specified as the completeness weights
+            #. alpha :
+                the ratio of ``data.W`` to ``randoms.W``
+            #. data.norm, randoms.norm :
+                the normalization of the power spectrum, computed from either
+                the "data" or "randoms" catalog (they should be similar).
+                See equations 13 and 14 of arxiv:1312.4611.
+            #. data.shotnoise, randoms.shotnoise :
+                the shot noise values for the "data" and "random" catalogs;
+                See equation 15 of arxiv:1312.4611.
+            #. shotnoise :
+                the total shot noise for the power spectrum, equal to
+                ``data.shotnoise`` + ``randoms.shotnoise``; this should be subtracted from
+                the monopole.
+            #. BoxSize :
+                the size of the Cartesian box used to grid the data and
+                randoms objects on a Cartesian mesh.
+
+            For further details on the meta-data, see 
+            :ref:`the documentation <fkp-meta-data>`.
         """
         pm = self.source.pm
 
@@ -204,12 +241,12 @@ class ConvolvedFFTPower(object):
         poles = self._compute_multipoles()
 
         # set all the necessary results
-        self.poles = DataSet(['k'], [self.edges], poles, fields_to_sum=['modes'])
+        self.poles = BinnedStatistic(['k'], [self.edges], poles, fields_to_sum=['modes'], **self.attrs)
 
     def to_pkmu(self, mu_edges, max_ell):
         """
         Invert the measured multipoles :math:`P_\ell(k)` into power
-        spectrum wedges, :math:`P(k,\mu)`
+        spectrum wedges, :math:`P(k,\mu)`.
 
         Parameters
         ----------
@@ -222,7 +259,7 @@ class ConvolvedFFTPower(object):
 
         Returns
         -------
-        pkmu : DataSet
+        pkmu : BinnedStatistic
             a data set holding the :math:`P(k,\mu)` wedges
         """
         from scipy.special import legendre
@@ -262,7 +299,7 @@ class ConvolvedFFTPower(object):
 
         dims = ['k', 'mu']
         edges = [self.poles.edges['k'], mu_edges]
-        return DataSet(dims=dims, edges=edges, data=data, **self.attrs)
+        return BinnedStatistic(dims=dims, edges=edges, data=data, **self.attrs)
 
     def __getstate__(self):
         state = dict(edges=self.edges,
@@ -272,7 +309,7 @@ class ConvolvedFFTPower(object):
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-        self.poles = DataSet(['k'], [self.edges], self.poles, fields_to_sum=['modes'])
+        self.poles = BinnedStatistic(['k'], [self.edges], self.poles, fields_to_sum=['modes'])
 
     def save(self, output):
         """
@@ -300,7 +337,7 @@ class ConvolvedFFTPower(object):
     def load(cls, output, comm=None):
         """
         Load a saved ConvolvedFFTPower result, which has been saved to
-        disk with :func:`ConvolvedFFTPower.save`
+        disk with :func:`ConvolvedFFTPower.save`.
 
         The current MPI communicator is automatically used
         if the ``comm`` keyword is ``None``
@@ -380,9 +417,9 @@ class ConvolvedFFTPower(object):
 
         # first, check if normalizations from data and randoms are similar
         # if not, n(z) column is probably wrong
-        if not numpy.allclose(meta['data.A'], meta['randoms.A'], rtol=0.05):
+        if not numpy.allclose(meta['data.norm'], meta['randoms.norm'], rtol=0.05):
             msg = "normalization in ConvolvedFFTPower different by more than 5%; algorithm requires they must be similar\n"
-            msg += "\trandoms.A = %.6f, data.A = %.6f\n" %(meta['randoms.A'], meta['data.A'])
+            msg += "\trandoms.norm = %.6f, data.norm = %.6f\n" %(meta['randoms.norm'], meta['data.norm'])
             msg += "\tpossible discrepancies could be related to normalization of n(z) column ('%s')\n" %self.source.nbar
             msg += "\tor the consistency of the FKP weight column ('%s') for 'data' and 'randoms';\n" %self.source.fkp_weight
             msg += "\tn(z) columns for 'data' and 'randoms' should be normalized to represent n(z) of the data catalog"
@@ -417,7 +454,7 @@ class ConvolvedFFTPower(object):
         kgrid = [k/knorm for k in kgrid]
 
         # proper normalization: same as equation 49 of Scoccimarro et al. 2015
-        norm = 1. / meta['randoms.A']
+        norm = 1. / meta['randoms.norm']
 
         # loop over the higher order multipoles (ell > 0)
         start = time.time()
@@ -501,6 +538,6 @@ class ConvolvedFFTPower(object):
                 self.attrs[key] = meta[key]
 
         if rank == 0:
-            self.logger.info("normalized power spectrum with randoms.A = %.6f" %meta['randoms.A'])
+            self.logger.info("normalized power spectrum with `randoms.norm = %.6f`" %meta['randoms.norm'])
 
         return result

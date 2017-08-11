@@ -2,8 +2,8 @@ from nbodykit.base.catalog import column
 from nbodykit.source.catalog.array import ArrayCatalog
 from nbodykit import CurrentMPIComm
 from nbodykit.utils import GatherArray, ScatterArray
-from nbodykit.extern.six import add_metaclass
 
+from six import add_metaclass
 import abc
 import logging
 import numpy
@@ -34,7 +34,7 @@ class HODBase(ArrayCatalog):
     """
     A base class to be used for HOD population of a halo catalog.
 
-    The user must supply the :func:`_makemodel` function, which returns
+    The user must supply the :func:`__makemodel__` function, which returns
     the halotools composite HOD model.
 
     This abstraction allows the user to potentially implement several
@@ -106,7 +106,7 @@ class HODBase(ArrayCatalog):
         self.attrs.update({'cosmo.%s' %k : cosmo[k] for k in cosmo})
 
         # make the model!
-        self._model = self._makemodel()
+        self._model = self.__makemodel__()
 
         # set the HOD params
         for param in self._model.param_dict:
@@ -115,22 +115,29 @@ class HODBase(ArrayCatalog):
             self._model.param_dict[param] = self.attrs[param]
 
         # make the actual source
-        ArrayCatalog.__init__(self, self._makesource(), comm=comm, use_cache=use_cache)
+        ArrayCatalog.__init__(self, self.__makesource__(), comm=comm, use_cache=use_cache)
 
         # crash with no particles!
         if self.csize == 0:
             raise ValueError("no particles in catalog after populating HOD")
 
     @abc.abstractmethod
-    def _makemodel(self):
+    def __makemodel__(self):
         """
         Abstract class to be overwritten by user; this should return
         the HOD model instance that will be used to do the mock
-        population
+        population.
+
+        See :ref:`the documentation <custom-hod-mocks>` for more details.
+
+        Returns
+        -------
+        :class:`~halotools.empirical_models.HodModelFactory`
+            the halotools object implementing the HOD model
         """
         pass
 
-    def _makesource(self):
+    def __makesource__(self):
         """
         Make the source of galaxies by performing the halo HOD population
 
@@ -180,7 +187,7 @@ class HODBase(ArrayCatalog):
 
         Parameters
         ----------
-        seed : int; optional
+        seed : int, optional
             the new seed to use when populating the mock
         params :
             key/value pairs of HOD parameters to update
@@ -268,17 +275,62 @@ class HODBase(ArrayCatalog):
 
 class HODCatalog(HODBase):
     """
-    A `CatalogSource` that uses the HOD prescription of
-    Zheng et al. 2007 to populate an input halo catalog with galaxies,
-    and returns the (Position, Velocity) of those galaxies
+    A CatalogSource that uses the HOD prescription of Zheng et al 2007
+    to populate an input halo catalog with galaxies.
 
-    The mock population is done using `halotools` (http://halotools.readthedocs.org)
-    See the documentation for the `halotools` builtin Zheng07 HOD model,
-    for further details regarding the HOD
+    The mock population is done using :mod:`halotools`. See the documentation
+    for :class:`halotools.empirical_models.Zheng07Cens` and
+    :class:`halotools.empirical_models.Zheng07Sats` for further details
+    regarding the HOD.
+
+    The columns generated in this catalog are:
+
+    #. **Position**: the galaxy position
+    #. **Velocity**: the galaxy velocity
+    #. **VelocityOffset**: the RSD velocity offset, in units of distance
+    #. **conc_NFWmodel**: the concentration of the halo
+    #. **gal_type**: the galaxy type, 0 for centrals and 1 for satellites
+    #. **halo_id**: the global ID of the halo this galaxy belongs to, between 0 and :attr:`csize`
+    #. **halo_local_id**: the local ID of the halo this galaxy belongs to, between 0 and :attr:`size`
+    #. **halo_mvir**: the halo mass
+    #. **halo_nfw_conc**: alias of ``conc_NFWmodel``
+    #. **halo_num_centrals**: the number of centrals that this halo hosts, either 0 or 1
+    #. **halo_num_satellites**: the number of satellites that this halo hosts
+    #. **halo_rvir**: the halo radius
+    #. **halo_upid**: equal to -1; should be ignored by the user
+    #. **halo_vx, halo_vy, halo_vz**: the three components of the halo velocity
+    #. **halo_x, halo_y, halo_z**: the three components of the halo position
+    #. **host_centric_distance**: the distance from this galaxy to the center of the halo
+    #. **vx, vy, vz**: the three components of the galaxy velocity, equal to ``Velocity``
+    #. **x,y,z**: the three components of the galaxy position, equal to ``Position``
+
+    For futher details, please see the :ref:`documentation <hod-mock-data>`.
+
+    .. note::
+         Default HOD values are from
+         `Reid et al. 2014 <https://arxiv.org/abs/1404.3742>`_
+
+    Parameters
+    ----------
+    halos : :class:`~halotools.sim_manager.UserSuppliedHaloCatalog`
+        the halotools table holding the halo data; this object must have
+        the following attributes: `cosmology`, `Lbox`, `redshift`
+    logMmin : float, optional
+        Minimum mass required for a halo to host a central galaxy
+    sigma_logM : float, optional
+        Rate of transition from <Ncen>=0 --> <Ncen>=1
+    alpha : float, optional
+        Power law slope of the relation between halo mass and <Nsat>
+    logM0 : float, optional
+        Low-mass cutoff in <Nsat>
+    logM1 : float, optional
+        Characteristic halo mass where <Nsat> begins to assume a power law form
+    seed : int, optional
+        the random seed to generate deterministic mocks
 
     References
     ----------
-    Zheng et al. (2007), arXiv:0703457
+    `Zheng et al. (2007), arXiv:0703457 <https://arxiv.org/abs/astro-ph/0703457>`_
     """
     logger = logging.getLogger("HOD")
 
@@ -286,27 +338,7 @@ class HODCatalog(HODBase):
     def __init__(self, halos, logMmin=13.031, sigma_logM=0.38,
                     alpha=0.76, logM0=13.27, logM1=14.08,
                     seed=None, use_cache=False, comm=None):
-        """
-        Initialize the Source. Default HOD values from Reid et al. 2014
 
-        Parameters
-        ----------
-        halos : halotools.sim_manager.UserSuppliedHaloCatalog
-            the halotools table holding the halo data; this object must have
-            the following attributes: `cosmology`, `Lbox`, `redshift`
-        logMmin : float; optional
-            Minimum mass required for a halo to host a central galaxy
-        sigma_logM : float; optional
-            Rate of transition from <Ncen>=0 --> <Ncen>=1
-        alpha : float; optional
-            Power law slope of the relation between halo mass and <Nsat>
-        logM0 : float; optional
-            Low-mass cutoff in <Nsat>
-        logM1 : float; optional
-            Characteristic halo mass where <Nsat> begins to assume a power law form
-        seed : int; optional
-            the random seed to generate deterministic mocks
-        """
         params = {}
         params['logMmin'] = logMmin
         params['sigma_logM'] = sigma_logM
@@ -316,9 +348,14 @@ class HODCatalog(HODBase):
 
         HODBase.__init__(self, halos, seed=seed, use_cache=use_cache, comm=comm, **params)
 
-    def _makemodel(self):
+    def __repr__(self):
+        names = ['logMmin', 'sigma_logM', 'alpha', 'logM0', 'logM1']
+        s = ', '.join(['%s=%.2f' %(k,self.attrs[k]) for k in names])
+        return "HODCatalog(%s)" %s
+
+    def __makemodel__(self):
         """
-        Return the Zheng 07 HOD model
+        Return the Zheng 07 HOD model.
 
         This model evaluates Eqs. 2 and 5 of Zheng et al. 2007
         """

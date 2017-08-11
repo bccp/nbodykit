@@ -3,11 +3,40 @@ import logging
 
 import kdcount
 from nbodykit import CurrentMPIComm
-from nbodykit.dataset import DataSet
+from nbodykit.binned_statistic import BinnedStatistic
+from pmesh.domain import GridND
+from nbodykit.utils import split_size_3d
 
 class Multipoles3PCF(object):
     """
-    Compute the multipoles of the three-point correlation function
+    Compute the multipoles of the isotropic, three-point correlation function
+    in configuration space.
+
+    This uses the algorithm of Slepian and Eisenstein, 2015 which scales
+    as :math:`\mathcal{O}(N^2)`, where :math:`N` is the number of objects.
+
+    Results are computed when the object is inititalized. See the documenation
+    of :func:`~Multipoles3PCF.run` for the attributes storing the results.
+
+    Parameters
+    ----------
+    source : CatalogSource
+        the input source of particles providing the 'Position' column
+    poles : list of int
+        the list of multipole numbers to compute
+    edges : array_like
+        the edges of the bins of separation to use; length of nbins+1
+    BoxSize : float, 3-vector, optional
+        the size of the box; if periodic boundary conditions used, and 'BoxSize'
+        not provided in the source :attr:`attrs`, it must be provided here
+    periodic : bool, optional
+        whether to use periodic boundary conditions when computing separations
+        between objects
+    weight : str, optional
+        the name of the column in the source specifying the particle weights
+    selection : str, optional
+        if not ``None``, the name of the column to use to select certain objects;
+        should be the name of a boolean column
 
     References
     ----------
@@ -17,26 +46,7 @@ class Multipoles3PCF(object):
 
     def __init__(self, source, poles, edges, BoxSize=None, periodic=True,
                  weight='Weight', selection='Selection'):
-        """
-        Parameters
-        ----------
-        source : CatalogSource
-            the input source of particles providing the 'Position' column
-        poles : list of int
-            the list of multipole numbers to compute
-        edges : array_like
-            the radius bin edges; length of nbins+1
-        BoxSize : float, 3-vector; optional
-            the size of the box; if periodic boundary conditions used, and 'BoxSize'
-            not provided in the source 'attrs', it must be provided here
-        periodic : bool; optional
-            whether to use periodic boundary conditions
-        weight : str; optional
-            the name of the column in the source specifying the particle weights
-        selection : str; optional
-            if not ``None``, the name of the column to use to select certain objects;
-            should be a boolean array
-        """
+
         # check for all of the necessary columns
         for col in ['Position', weight, selection]:
             if col not in source:
@@ -72,13 +82,17 @@ class Multipoles3PCF(object):
         Compute the three-point CF multipoles. This attaches the following
         the attributes to the class:
 
+        - :attr:`poles`
+
         Attributes
         ----------
-        poles : :class:`~nbodykit.dataset.DataSet` or ``None``
-            a DataSet object to hold the multipole results
+        poles : :class:`~nbodykit.binned_statistic.BinnedStatistic`
+            a BinnedStatistic object to hold the multipole results; the
+            binned statistics stores the multipoles as variables ``zeta_0``,
+            ``zeta_1``, etc for :math:`\ell=0,1,` etc. The coordinates
+            of the binned statistic are ``r1`` and ``r2``, which give the
+            separations between the three objects in CF
         """
-        from pmesh.domain import GridND
-
         redges = self.attrs['edges']
         comm   = self.comm
         nbins  = len(redges)-1
@@ -90,18 +104,9 @@ class Multipoles3PCF(object):
             boxsize = None
 
         # determine processor division for domain decomposition
-        for Nx in range(int(comm.size**0.3333) + 1, 0, -1):
-            if comm.size % Nx == 0: break
-        else:
-            Nx = 1
-        for Ny in range(int(comm.size**0.5) + 1, 0, -1):
-            if (comm.size // Nx) % Ny == 0: break
-        else:
-            Ny = 1
-        Nz = comm.size // Nx // Ny
-        Nproc = [Nx, Ny, Nz]
+        np = split_size_3d(comm.size)
         if self.comm.rank == 0:
-            self.logger.info("using cpu grid decomposition: %s" %str(Nproc))
+            self.logger.info("using cpu grid decomposition: %s" %str(np))
 
         # output zeta
         zeta = numpy.zeros((Nell,nbins,nbins), dtype='f8')
@@ -124,7 +129,7 @@ class Multipoles3PCF(object):
         posmax = numpy.asarray(comm.allgather(pos.max(axis=0))).max(axis=0)
 
         # domain decomposition
-        grid = [numpy.linspace(posmin[i], posmax[i], Nproc[i]+1, endpoint=True) for i in range(3)]
+        grid = [numpy.linspace(posmin[i], posmax[i], np[i]+1, endpoint=True) for i in range(3)]
         domain = GridND(grid, comm=comm)
 
         layout = domain.decompose(pos, smoothing=0)
@@ -201,25 +206,25 @@ class Multipoles3PCF(object):
         # differs by factor of (4 pi)^2 / (2l+1) from the C++ code
         zeta /= (4*numpy.pi)
 
-        # make a DataSet
+        # make a BinnedStatistic
         dtype = numpy.dtype([('zeta_%d' %i, zeta.dtype) for i in range(Nell)])
         data = numpy.empty(zeta.shape[-2:], dtype=dtype)
         for i in range(Nell):
             data['zeta_%d' %i] = zeta[i]
 
         # save the result
-        self.poles = DataSet(['r1', 'r2'], [redges, redges], data)
+        self.poles = BinnedStatistic(['r1', 'r2'], [redges, redges], data)
 
     def __getstate__(self):
         return {'poles':self.poles.data, 'attrs':self.attrs}
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-        self.poles = DataSet(['r1', 'r2'], [self.attrs['edges']]*2, self.poles)
+        self.poles = BinnedStatistic(['r1', 'r2'], [self.attrs['edges']]*2, self.poles)
 
     def save(self, output):
         """
-        Save result as a JSON file
+        Save the :attr:`poles` result to a JSON file with name ``output``
         """
         import json
         from nbodykit.utils import JSONEncoder
@@ -233,14 +238,15 @@ class Multipoles3PCF(object):
 
     @classmethod
     @CurrentMPIComm.enable
-    def load(cls, output, comm=None):
+    def load(cls, filename, comm=None):
         """
-        Load a result has been saved to disk with :func:`save`.
+        Load a Multipoles3PCF result from ``filename`` that has been saved to
+        disk with :func:`~Multipoles3PCF.save`.
         """
         import json
         from nbodykit.utils import JSONDecoder
         if comm.rank == 0:
-            with open(output, 'r') as ff:
+            with open(filename, 'r') as ff:
                 state = json.load(ff, cls=JSONDecoder)
         else:
             state = None
@@ -257,7 +263,7 @@ class YlmCache(object):
 
     During calculation, the necessary power of Cartesian unit
     vectors are cached in memory to avoid repeated calculations
-    for separate harmonics
+    for separate harmonics.
     """
     def __init__(self, ells, comm):
 

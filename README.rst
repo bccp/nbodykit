@@ -1,26 +1,26 @@
 nbodykit: a massively parallel large-scale structure toolkit
 ============================================================
 
-**nbodykit** is an open source project and Python package providing 
-a set of algorithms useful in the analysis of cosmological 
+**nbodykit** is an open source project and Python package providing
+a set of algorithms useful in the analysis of cosmological
 datasets from N-body simulations and large-scale structure surveys.
 
-Driven by the optimism regarding the abundance and availability of 
+Driven by the optimism regarding the abundance and availability of
 large-scale computing resources in the future, the development of nbodykit
 distinguishes itself from other similar software packages
 (i.e., `nbodyshop`_, `pynbody`_, `yt`_, `xi`_) by focusing on :
 
-- a **unified** treatment of simulation and observational datasets by 
+- a **unified** treatment of simulation and observational datasets by
   insulating algorithms from data containers
 
 - reducing wall-clock time by **scaling** to thousands of cores
 
-- **deployment** and availability on large, super computing facilities
+- **deployment** and availability on large, super-computing facilities
 
-All algorithms are parallel and run with Message Passing Interface (MPI). 
+- an **interactive** user interface that performs as well in a `Jupyter
+  notebook <http://jupyter.org>`_ as on super-computing machines
 
-For users using the `NERSC`_ super-computers, we provide a ready-to-use tarball 
-of nbodykit and its dependencies; see `Using nbodykit on NERSC <http://nbodykit.readthedocs.io/en/latest/installing.html#using-nbodykit-on-nersc>`_ for more details.
+All algorithms are parallel and run with Message Passing Interface (MPI).
 
 .. _nbodyshop: http://www-hpcc.astro.washington.edu/tools/tools.html
 .. _pynbody: https://github.com/pynbody/pynbody
@@ -37,47 +37,36 @@ miniconda environment for Python 2.7, 3.5, and 3.6.
 .. image:: https://travis-ci.org/bccp/nbodykit.svg?branch=master
     :alt: Build Status
     :target: https://travis-ci.org/bccp/nbodykit
-.. image:: https://coveralls.io/repos/github/bccp/nbodykit/badge.svg?branch=master 
+.. image:: https://coveralls.io/repos/github/bccp/nbodykit/badge.svg?branch=master
     :alt: Test Coverage
     :target: https://coveralls.io/github/bccp/nbodykit?branch=master
 .. image:: https://img.shields.io/pypi/v/nbodykit.svg
    :alt: PyPi
    :target: https://pypi.python.org/pypi/nbodykit/
 
+Documentation
+-------------
+
+The official documentation is hosted on ReadTheDocs at http://nbodykit.readthedocs.org/.
+A growing number of additional examples are available at https://github.com/bccp/nbodykit-notebooks/
+
 Installation
 ------------
 
-We recommend using the anaconda distribution of Python.
+We recommend using the Anaconda distribution of Python. To obtain the
+dependencies and install a package on OSX or Linux, use
 
-To obtain the dependencies and install a package on OSX or Linux, use
+.. code-block:: bash
 
-.. code::
-
-    conda install -c bccp nbodykit
+    $ conda install -c bccp nbodykit
 
 We are considering support for Windows, but this depends on the status
 of `mpi4py`.
 
-For manual install, please refer to .travis.yml, the build section:
+Using nbodykit on NERSC
+-----------------------
 
-- https://github.com/bccp/nbodykit/blob/master/.travis.yml
-
-At NERSC, nbodykit's master branch is built every night.
-
-.. code::
-
-    salloc -N 1
-
-    source /usr/common/contrib/bccp/nbodykit/conda-activate.sh 3.6
-
-    srun -n 4 python example.py
-
-The file, example.py can be found at
-https://github.com/bccp/nbodykit/blob/master/nersc/example.py
-
-Documentation
--------------
-
-The official documentation is hosted on ReadTheDocs at http://nbodykit.readthedocs.org/
-A growing number of additional examples are available at https://github.com/bccp/nbodykit-notebooks/
-
+On the Cori and Edison machines at NERSC, we maintain a nightly conda build of
+the latest stable release of nbodykit. See
+`nbodykit on NERSC <http://nbodykit.readthedocs.io/en/docs/install.html#nbodykit-on-NERSC>`_
+for more details.

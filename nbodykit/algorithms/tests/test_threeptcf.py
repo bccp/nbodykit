@@ -18,7 +18,7 @@ def test_threeptcf(comm):
     # load the test data
     filename = os.path.join(data_dir, 'threeptcf_data.dat')
     cat = CSVCatalog(filename, names=['x', 'y', 'z', 'w'])
-    cat['Position'] = transform.vstack(cat['x'], cat['y'], cat['z'])
+    cat['Position'] = transform.StackColumns(cat['x'], cat['y'], cat['z'])
     cat['Position'] *= BoxSize
 
     # r binning
