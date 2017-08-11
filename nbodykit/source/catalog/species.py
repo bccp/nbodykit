@@ -142,7 +142,7 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
 
         return CatalogSourceBase.__setitem__(self, col, value)
 
-    def to_mesh(self, Nmesh, BoxSize, dtype='f4', interlaced=False,
+    def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4', interlaced=False,
                 compensated=False, window='cic', weight='Weight',
                 selection='Selection', value='Value', position='Position'):
         """
@@ -151,10 +151,12 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
 
         Parameters
         ----------
-        Nmesh : int, 3-vector
-            the number of cells per box side
-        BoxSize : float, 3-vector
-            the size of the box
+        Nmesh : int, 3-vector, optional
+            the number of cells per box side; can be inferred from ``attrs``
+            if the value is the same for all species
+        BoxSize : float, 3-vector, optional
+            the size of the box; can be inferred from ``attrs``
+            if the value is the same for all species
         dtype : str, dtype, optional
             the data type of the mesh when painting
         interlaced : bool, optional
@@ -185,6 +187,13 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
                 if _col not in self:
                     raise ValueError("the '%s' species is missing the '%s' column" %(name, col))
 
+        # try to find BoxSize and Nmesh
+        if BoxSize is None:
+            BoxSize = check_species_metadata('BoxSize', self.attrs, self.species)
+        if Nmesh is None:
+            Nmesh = check_species_metadata('Nmesh', self.attrs, self.species)
+
+
         # initialize the mesh
         kws = {'Nmesh':Nmesh, 'BoxSize':BoxSize, 'dtype':dtype, 'selection':selection}
         mesh = MultipleSpeciesCatalogMesh(self,
@@ -200,3 +209,24 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
         mesh.window = window
 
         return mesh
+
+def check_species_metadata(name, attrs, species):
+    """
+    Check to see if there is a single value for
+    ``name`` in the meta-data of all the species
+    """
+    _val = attrs.get(species[0]+'.'+name, None)
+    one_value = True
+    if _val is not None:
+        for s in species[1:]:
+            other = attrs.get(s+'.'+name, None)
+            if not numpy.array_equal(_val, other):
+                one_value = False
+    else:
+        one_value = False
+
+    if not one_value:
+        raise ValueError("please specify the ``%s`` keyword; " %name + \
+                         "no valid values in ``attrs`` dict")
+
+    return _val

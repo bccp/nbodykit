@@ -7,6 +7,28 @@ import pytest
 
 setup_logging()
 
+@MPITest([1])
+def test_boxsize_nmesh(comm):
+
+    CurrentMPIComm.set(comm)
+
+    # the catalog
+    source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42)
+    source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84)
+    cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2, use_cache=True)
+
+    # this should work (infer BoxSize)
+    mesh = cat.to_mesh(Nmesh=32)
+
+    # this should not work (no Nmesh to infer)
+    with pytest.raises(ValueError):
+        mesh = cat.to_mesh()
+
+    # this not should work
+    cat.attrs['data.BoxSize'] *= 10.
+    with pytest.raises(ValueError):
+        mesh = cat.to_mesh(Nmesh=32)
+
 @MPITest([1, 4])
 def test_getitem(comm):
 
