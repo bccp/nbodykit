@@ -35,8 +35,7 @@ measurement :math:`P(k,\mu)`.
   import matplotlib.pyplot as plt
   plt.style.use(style.notebook)
 
-  basename = os.path.abspath('.')
-  data_dir = os.path.join(basename.split('docs')[0], 'docs', 'data')
+  data_dir = os.path.join(os.environ['SOURCE_DIR'], 'data')
 
 .. ipython:: python
 

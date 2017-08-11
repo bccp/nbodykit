@@ -46,6 +46,7 @@ extensions = [
     'numpydoc'
 ]
 
+os.environ['SOURCE_DIR'] = os.path.split(__file__)[0]
 
 def run_apidoc(*args):
 
