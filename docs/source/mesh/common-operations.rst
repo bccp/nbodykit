@@ -36,7 +36,7 @@ along two axes:
 .. ipython:: python
 
     from nbodykit.lab import LinearMesh, cosmology
-    from pylab import *
+    from matplotlib import pyplot as plt
 
     cosmo = cosmology.Planck15
     Plin = cosmology.EHPower(cosmo, redshift=0)
@@ -45,7 +45,7 @@ along two axes:
 
     density = mesh.preview(Nmesh=64, axes=(0,1))
     @savefig density-preview.png
-    imshow(density)
+    plt.imshow(density)
 
 .. note::
 
@@ -121,7 +121,7 @@ The units of the ``x`` coordinate arrays depend upon the values of the
 The various cases are:
 
 =========== ============== ==============================
-mode        kind           range of ``x`` argument
+**mode**    **kind**       **range of the "x" argument**
 ``real``    ``relative``   :math:`[-L/2, L/2)`
 ``real``    ``index``      :math:`[0, N)`
 ``complex`` ``wavenumber`` :math:`[- \pi N/L, \pi N / L)`
@@ -130,6 +130,12 @@ mode        kind           range of ``x`` argument
 =========== ============== ==============================
 
 Here, :math:`L` is the size of the box and `N` is the number of cells per mesh side.
+
+One common use of the :func:`MeshSource.apply` functionality is applying
+compensation function to the mesh to correct for the interpolation window.
+The table of built-in compensation functions in the
+:ref:`compensation` section provide examples of the syntax needed to apply
+functions to the mesh.
 
 In the example below, we apply a filter function in Fourier space that divides
 the mesh by the squared norm of the wavenumber ``k`` on the mesh, and then
@@ -159,8 +165,8 @@ Resampling a Mesh
 -----------------
 
 Users can resample a mesh by specifying the ``Nmesh`` keyword to the
-:func:`MeshSource.paint` function. a different value for ``Nmesh``.
-For example, below we resample the our original
+:func:`MeshSource.paint` function.
+For example, below we resample a
 :class:`~nbodykit.source.mesh.linear.LinearMesh` object, changing the mesh
 resolution from ``Nmesh=128`` to ``Nmesh=32``.
 

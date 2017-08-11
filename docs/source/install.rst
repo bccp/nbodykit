@@ -175,12 +175,17 @@ should be added to the beginning of the user's job script:
   # can also specify 2.7 or 3.5 here
   source /usr/common/contrib/bccp/conda-activate.sh 3.6
 
+
 If instead the user wishes to install the latest development version
-of nbodykit, the following line should also be added to the job script:
+of nbodykit, the following lines should be added to the job script:
 
 .. code-block:: bash
 
-  # install nbodykit from the tip of master
+  # first load python 3.6 with latest stable nbodykit
+  # can also specify 2.7 or 3.5 here
+  source /usr/common/contrib/bccp/conda-activate.sh 3.6
+
+  # overwrite nbodykit with the latest version from the tip of master
   bcast-pip git+git://github.com/bccp/nbodykit.git
 
 In the nbodykit source directory, we include an example Python script

@@ -52,15 +52,11 @@ class ArrayMesh(MeshSource):
         MeshSource.__init__(self, comm, Nmesh, BoxSize, empty.real.dtype)
 
         self.field = self.pm.create(mode='real')
-        print("FUCK", self.field.pm.comm.size)
-        if comm.rank == 0:
-            print("HEY 1", self.comm.rank, array.shape, self.field.shape)
+
         if comm.rank != root:
             array = empty # ignore data from other ranks.
         else:
             array = array.ravel()
-
-        print("HEY 2", self.comm.rank, array.shape, self.field.shape)
 
         # fill the field with the array
         self.field.unravel(array)

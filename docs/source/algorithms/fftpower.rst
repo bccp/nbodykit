@@ -27,7 +27,7 @@ the user to get up and running quickly.
 .. note::
 
     To jump right into the :class:`FFTPower` algorithm, see this
-    `cookbook recipe <../cookbook/fftpower.html>`__ for a detailed
+    :ref:`cookbook recipe <cookbook/fftpower.ipynb>` for a detailed
     walk-through of the :class:`FFTPower` algorithm.
 
 The Algorithm
@@ -42,7 +42,8 @@ are as follows:
    Data must be painted on to a discrete mesh to compute the power spectrum.
    There are several ways to generate data on a mesh (see :ref:`creating-mesh`),
    but the most common is painting a discrete catalog of objects
-   on to a mesh (see :ref:`catalog-to-mesh`). The :class:`FFTPower` class accepts
+   on to a mesh (see :ref:`catalog-to-mesh` and :ref:`painting-mesh`).
+   The :class:`FFTPower` class accepts
    input data in either the form of a :class:`~nbodykit.base.mesh.MeshSource`
    or a :class:`~nbodykit.base.catalog.CatalogSource`. In the latter case,
    the catalog is automatically converted to a mesh using the default parameters
@@ -56,10 +57,10 @@ are as follows:
 
 #. **FFT the mesh to Fourier space**
 
-   Once the density field is painted the mesh, the Fourier transform
-   of the field :math:`\delta(\mathbf{x})` is performed in parallel to obtain the complex
-   modes of the overdensity field, :math:`\delta(\mathbf{k})`. The field is stored using
-   the :class:`~pmesh.pm.ComplexField` object.
+   Once the density field is painted to the mesh, the Fourier transform
+   of the field :math:`\delta(\vx)` is performed in parallel to obtain the complex
+   modes of the overdensity field, :math:`\delta(\vk)`. The field is stored
+   using the :class:`~pmesh.pm.ComplexField` object.
 
 #. **Generate the 3D power spectrum on the mesh**
 
@@ -84,7 +85,8 @@ are as follows:
 The Functionality
 -----------------
 
-Users can compute the various quantities using the :class:`FFTPower`:
+Users can compute various quantities using the :class:`FFTPower`. We'll discuss
+the available functionality briefly in the sub-sections below.
 
 Auto power spectra and cross power spectra
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -197,7 +199,7 @@ These attributes also store meta-data computed during the power calculation
 in the ``attrs`` dictionary.  Most importantly, the ``shotnoise`` key
 gives the Poisson shot noise, :math:`P_\mathrm{shot} = V / N`, where *V*
 is the volume of the simulation box and *N* is the number of objects. The keys
-``N1`` and ``N2`` store the number of objects
+``N1`` and ``N2`` store the number of objects.
 
 In our example, the meta-data is:
 
@@ -206,11 +208,17 @@ In our example, the meta-data is:
     for k in r.power.attrs:
       print("%s = %s" %(k, str(r.power.attrs[k])))
 
+.. note::
+
+    The shot noise is not subtracted from any measured results. Users can
+    access the Poisson shot noise value in the meta-data :attr:`attrs`
+    dictionary.
+
 Saving and Loading
 ------------------
 
 Results can easily be saved and loaded from disk in a reproducible manner
-using the :func:`FFTPower.save` and :class:`FFTPower.load` functions.
+using the :func:`FFTPower.save` and :func:`FFTPower.load` functions.
 The :class:`~FFTPower.save` function stores the state of the algorithm,
 including the meta-data in the :attr:`FFTPower.attrs` dictionary, in a
 JSON plaintext format.
@@ -238,13 +246,13 @@ analyses, some of the more common pitfalls are:
   culprit is usually the configuration of the mesh, and whether or not the mesh
   is "compensated". In the language of nbodykit, "compensated" refers to whether
   the effects of the interpolation window used to paint the density field have
-  been de-convolved in Fourier space. See the section :class:`catalog-to-mesh`
-  for detailed notes on this procedure.
+  been de-convolved in Fourier space. See the :ref:`catalog-to-mesh`
+  section for detailed notes on this procedure.
 
 - Be wary of normalization issues when painting weighted density fields. See
   :ref:`painting-mesh` for further details on painting meshes and :ref:`mesh-apply`
   for notes on applying arbitrary functions to the mesh while painting. See
-  the :ref:`cookbook/painting.ipynb` recipe in the cookbook for examples
+  :ref:`cookbook/painting.ipynb <this cookbook recipe>` for examples
   of more advanced painting uses.
 
 .. ipython:: python

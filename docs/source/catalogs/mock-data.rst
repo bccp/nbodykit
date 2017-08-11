@@ -19,7 +19,8 @@ objects allow users to create catalogs of objects at run time and include:
 Randomly Distributed Objects
 ----------------------------
 
-nbodykit :class:`~nbodykit.base.catalogs.CatalogSource` subclasses that
+nbodykit includes two subclasses of
+:class:`~nbodykit.base.catalogs.CatalogSource` that
 generate particles randomly in a box: :class:`~uniform.RandomCatalog`
 and :class:`~uniform.UniformCatalog`. While these catalogs do not produce
 realistic cosmological distributions of objects, they are especially useful
@@ -33,10 +34,11 @@ for generating catalogs quickly and for testing purposes.
 The :class:`~uniform.RandomCatalog` class includes a random number generator
 with the functionality of :class:`numpy.random.RandomState` that generates
 random numbers in parallel and in a manner that is independent of the number
-of MPI ranks being used. The random number generator is stored as the
-:attr:`~uniform.RandomCatalog.rng` attribute. Users can use this random
-number generator to add columns to the catalog, using the :ref:`syntax to add
-columns <adding-columns>`.
+of MPI ranks being used. This property is especially useful for running
+reproducible tests where the number of CPUs might vary. The random number
+generator is stored as the :attr:`~uniform.RandomCatalog.rng` attribute.
+Users can use this random number generator to add columns to the catalog,
+using the :ref:`syntax to add columns <adding-columns>`.
 
 For example,
 
@@ -45,7 +47,7 @@ For example,
     from nbodykit.lab import RandomCatalog
     import numpy
 
-    # initialize the catalog with no columns yet
+    # initialize a catalog with only the default columns
     cat = RandomCatalog(csize=100) # collective size of 100
     print("columns = ", cat.columns) # only the default columns present
 
@@ -117,56 +119,57 @@ using the Zel'dovich approximation to model non-linear evolution.
 Given a linear power spectrum function, redshift, and linear bias
 supplied by the user, this class performs the following steps:
 
-**Generating Gaussian initial conditions**
+**Generate Gaussian initial conditions**
 
-First, a Gaussian overdensity field :math:`\delta_L(k)` is generated in
-Fourier space with a power spectrum given by the input function specified by
+First, a Gaussian overdensity field :math:`\delta_L(\vk)` is generated in
+Fourier space with a power spectrum given by a function specified by
 the user. We also generate linear velocity fields from the overdensity field
-in the :math:`i^\mathrm{th}` direction in Fourier space, using
+in Fourier space, using
 
 .. math::
 
-    v_i(k) = \frac{i f a H }{k^2} k_i \delta_L(k).
+    \vv(\vk) = i f a H \delta_L(\vk) \frac{\vk}{k^2}.
 
 where :math:`f` is the logarithmic growth rate, :math:`a` is the scale factor,
-and :math:`H` is the Hubble parameter at :math:`a`.
+and :math:`H` is the Hubble parameter at :math:`a`. Note that bold variables
+reflect vector quantities.
 
-Finally, we Fourier transform :math:`\delta_L(k)` and :math:`v(k)` to
+Finally, we Fourier transform :math:`\delta_L(\vk)` and :math:`\vv(\vk)` to
 configuration space. These fields serve as the "initial conditions". They
-will be evolved forward in time and Poisson-sampled to create the final catalog.
+will be evolved forward in time and Poisson sampled to create the final catalog.
 
-**Performing the log-normal transformation**
+**Perform the log-normal transformation**
 
 Next, we perform a log-normal transformation on the density field :math:`\delta`.
 As first discussed in `Coles and Jones 1991`_, the distribution of galaxies
 on intermediate to large scales can be well-approximated by a log-normal
-distribution. An additional nice property of a log-normal field is that
-it follows the natural constraint :math:`\delta(x) \ge -1` of density
-contrasts by definition. This property does not hold true for Gaussian
+distribution. An additional useful property of a log-normal field is that
+it follows the natural constraint :math:`\delta(\vx) \ge -1` of density
+contrasts by definition. This property does not generally hold true for Gaussian
 realizations of the overdensity field.
 
 The new, transformed density field is given by
 
 .. math::
 
-    \delta(x) = e^{-\sigma^2 + b_L \delta_L(x)} - 1,
+    \delta(\vx) = e^{-\sigma^2 + b_L \delta_L(\vx)} - 1,
 
 where the normalization factor :math:`\sigma^2` ensures that the mean of
-the :math:`\delta(x)` vanishes and :math:`b_L` is the Lagrangian bias
-factor, which is related to the final linear bias as :math:`b_L = b_1 - 1`.
+the :math:`\delta(\vx)` vanishes and :math:`b_L` is the Lagrangian bias
+factor, which is related to the final, linear bias as :math:`b_L = b_1 - 1`.
 Here, :math:`b_1` is the value input by the user as the ``bias`` keyword
 to the :class:`~lognormal.LogNormalCatalog` class.
 
-**Poisson-sampling the density field**
+**Poisson sample the density field**
 
 We then generate discrete positions of objects by Poisson sampling the
 overdensity field in each cell of the mesh. We assign each object the
 velocity of the mesh cell that it is located in, and objects are placed randomly
-inside their cells. The desired number density of objects in the box is specified
-by the user as the ``nbar`` parameter to the
+inside their cells. The desired number density of objects in the box is
+specified by the user as the ``nbar`` parameter to the
 :class:`~lognormal.LogNormalCatalog` class.
 
-**Applying the Zel'dovich approximation**
+**Apply the Zel'dovich approximation**
 
 Finally, we evolve the overdensity field according to the
 `Zel'dovich approximation <https://arxiv.org/abs/1401.5466>`_, which is 1st
@@ -175,11 +178,11 @@ of each object according to the linear velocity field,
 
 .. math::
 
-    r(x) = r_0(x) + \frac{v(x)}{f a H},
+    \vr(\vx) = \vr_0(\vx) + \frac{\vv(\vx)}{f a H},
 
-where :math:`r(x)` is the final position of the objects, :math:`r_0(x)` is the
-initial position, and :math:`v(x)` is the velocity assigned
-in the previous step.
+where :math:`\vr(\vx)` is the final position of the objects,
+:math:`\vr_0(\vx)` is the initial position, and :math:`\vv(\vx)` is the
+velocity assigned in the previous step.
 
 After this step, we have a catalog of discrete objects, with a ``Position``
 column in units of :math:`\mathrm{Mpc}/h`, a ``Velocity`` columns in units
@@ -194,8 +197,8 @@ distortions (see :ref:`adding-rsd`), such that RSD can be added using:
 
 .. note::
 
-  For worked examples using log-normal mocks, see the :ref:`cookbook/lognormal-mocks.ipynb`
-  section of :ref:`cookbook`.
+  For examples using log-normal mocks, see the
+  :ref:`cookbook/lognormal-mocks.ipynb` recipe in :ref:`cookbook`.
 
 .. _hod-mock-data:
 
@@ -203,7 +206,7 @@ Halo Occupation Distribution Mocks
 ----------------------------------
 
 nbodykit includes functionality to generate mock galaxy catalogs using the
-`Halo Occupation Distribution`_ (HOD) technique in the :class:`~hod.HODCatalog`
+`Halo Occupation Distribution`_ (HOD) technique via the :class:`~hod.HODCatalog`
 class. The HOD technique populates a catalog of halos with galaxies based on
 a functional form for the probability that a halo of mass :math:`M` hosts
 :math:`N` objects, :math:`P(N|M)`. The functional form of the HOD used by
@@ -212,31 +215,29 @@ The average number of galaxies in a halo of mass :math:`M` is
 
 .. math::
 
-    \langle N_\mathrm{gal}(M) \rangle = N_\mathrm{cen}(M) ( 1 + N_\mathrm{sat}(M)),
+    \langle N_\mathrm{gal}(M) \rangle = N_\mathrm{cen}(M) \left [ 1 + N_\mathrm{sat}(M) \right],
 
-where the occupation functions for central and satellite are given by
+where the occupation functions for centrals and satellites are given by
 
 .. math::
 
-    N_\mathrm{cen}(M) = \frac{1}{2} \left (1  +  \mathrm{erf}
+    N_\mathrm{cen}(M) &= \frac{1}{2} \left (1  +  \mathrm{erf}
                 \left[ \frac{\log_{10}M - \log_{10}M_\mathrm{min}}{\sigma_{\log_{10}M}}
                 \right]
                 \right),
 
-.. math::
-
-    N_\mathrm{sat}(M) = \left ( \frac{M - M_0}{M_1} \right )^\alpha.
+    N_\mathrm{sat}(M) &= \left ( \frac{M - M_0}{M_1} \right )^\alpha.
 
 This HOD parametrization has 5 parameters, which can be summarized as:
 
-=============================== ========== ======= =======================================================================================
-Parameter                       Name       Default Description
-:math:`\log_{10}M_\mathrm{min}` logMmin    13.031  Minimum mass required for a halo to host a central galaxy
-:math:`\sigma_{\log_{10}M}`     sigma_logM 0.38    Rate of transition from :math:`N_\mathrm{cen}=0` to :math:`N_\mathrm{cen}=1`
-:math:`\alpha`                  alpha      0.76    Power law slope of the relation between halo mass and :math:`N_\mathrm{sat}`
-:math:`\log_{10}M_0`            logM0      13.27   Low-mass cutoff in :math:`N_\mathrm{sat}`
-:math:`\log_{10}M_1`            logM1      14.08   Characteristic halo mass where :math:`N_\mathrm{sat}` begins to assume a power law form
-=============================== ========== ======= =======================================================================================
+=============================== ============== =========== =======================================================================================
+**Parameter**                   **Name**       **Default** **Description**
+:math:`\log_{10}M_\mathrm{min}` ``logMmin``    13.031      Minimum mass required for a halo to host a central galaxy
+:math:`\sigma_{\log_{10}M}`     ``sigma_logM`` 0.38        Rate of transition from :math:`N_\mathrm{cen}=0` to :math:`N_\mathrm{cen}=1`
+:math:`\alpha`                  ``alpha``      0.76        Power law slope of the relation between halo mass and :math:`N_\mathrm{sat}`
+:math:`\log_{10}M_0`            ``logM0``      13.27       Low-mass cutoff in :math:`N_\mathrm{sat}`
+:math:`\log_{10}M_1`            ``logM1``      14.08       Characteristic halo mass where :math:`N_\mathrm{sat}` begins to assume a power law form
+=============================== ============== =========== =======================================================================================
 
 The default values of the HOD parameters are taken from
 `Reid et al. 2014 <https://arxiv.org/abs/1404.3742>`_.
@@ -244,10 +245,12 @@ The default values of the HOD parameters are taken from
 This form of the HOD clustering description assumes the galaxy -- halo connection
 depends only on the halo mass. Thus, given a catalog of halo objects, with
 associated mass values, users can quickly generate realistic galaxy catalogs
-with the :class:`~hod.HODCatalog`.
+using this class.
 
-Interfacing with :mod:`halotools`
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. _halo-catalog:
+
+Interfacing with :mod:`halotools` via a :class:`~halos.HaloCatalog`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Internally, the :class:`~hod.HODCatalog` class uses the :mod:`halotools`
 package to perform the halo population step. For further details,
@@ -258,13 +261,13 @@ see the documentation for :class:`halotools.empirical_models.Zheng07Cens` and
 The catalog of halos input to the :class:`~hod.HODCatalog` class must be of type
 :class:`halotools.sim_manager.UserSuppliedHaloCatalog`, the tabular
 data format preferred by :mod:`halotools`. nbodykit includes the
-:class:`~halos.HaloCatalog` class in order to interface nicely with the
+:class:`~halos.HaloCatalog` class in order to interface nicely with
 :mod:`halotools`. In particular, this catalog object
 includes a :func:`~halos.HaloCatalog.to_halotools` function to create a
 :class:`~halotools.sim_manager.UserSuppliedHaloCatalog` from the data columns
 in the :class:`~halos.HaloCatalog` object.
 
-Given a :class:`CatalogSource` object, the class:`~halos.HaloCatalog` object
+Given a :class:`CatalogSource` object, the :class:`~halos.HaloCatalog` object
 interprets the objects as halos, using a specified redshift, cosmology,
 and mass definition, to add several analytic columns to the catalog, including
 :func:`~halos.HaloCatalog.Radius` and :func:`~halos.HaloCatalog.Concentration`.
@@ -305,16 +308,18 @@ to initialize the :class:`~hod.HODCatalog` object.
   :class:`~halos.HaloCatalog` are assumed to be :math:`\mathrm{Mpc}/h`, km/s,
   and :math:`M_\odot/h`, respectively. These units are necessary to interface
   with :mod:`halotools`.
-- The mass definition input to :class:`~halos.HaloCatalog` can be "vir" for
+- The mass definition input to :class:`~halos.HaloCatalog` can be "vir"
   to use virial masses, or an overdensity factor with respect to the critical
   or mean density, i.e. "200c", "500c", or "200m", "500m".
-- If using the built-in friends-of-friends finder class,
+- If using the built-in friends-of-friends (FOF) finder class,
   :class:`~nbodykit.algorithms.fof.FOF`, to identify halos, the user can use
   the :func:`~nbodykit.algorithms.fof.FOF.to_halos` function
-  to directly produce a :class:`~halos.HaloCatalog` from the FOF objects.
-- By default, the halo concentration values are generated using the input mass
+  to directly produce a :class:`~halos.HaloCatalog` from the result of running
+  the FOF algorithm.
+- By default, the halo concentration values stored in the ``Concentration``
+  column of a :class:`HaloCatalog` object are generated using the input mass
   definition and the analytic formulas from
-  `Dutton and Maccio 2014 <https://arxiv.org/abs/1402.7073>`_. Users can
+  `Dutton and Maccio 2014`_. Users can
   overwrite this column with their own values if they wish to use custom
   concentration values when generating HOD catalogs.
 
@@ -330,19 +335,31 @@ for the generated galaxies. The additional columns are:
 
 #. **conc_NFWmodel**: the concentration of the halo
 #. **gal_type**: the galaxy type, 0 for centrals and 1 for satellites
-#. **halo_id**: the global ID of the halo this galaxy belongs to, between 0 and :attr:`csize`
-#. **halo_local_id**: the local ID of the halo this galaxy belongs to, between 0 and :attr:`size`
-#. **halo_mvir**: the halo mass
+#. **halo_id**: the global ID of the halo that this galaxy belongs to,
+   between 0 and :attr:`csize`
+#. **halo_local_id**: the local ID of the halo that this galaxy belongs to,
+   between 0 and :attr:`size`
+#. **halo_mvir**: the halo mass, in units of :math:`M_\odot/h`
 #. **halo_nfw_conc**: alias of ``conc_NFWmodel``
-#. **halo_num_centrals**: the number of centrals that this halo hosts, either 0 or 1
+#. **halo_num_centrals**: the number of centrals that this halo hosts,
+   either 0 or 1
 #. **halo_num_satellites**: the number of satellites that this halo hosts
-#. **halo_rvir**: the halo radius
+#. **halo_rvir**: the halo radius, in units of :math:`\mathrm{Mpc}/h`
 #. **halo_upid**: equal to -1; should be ignored by the user
-#. **halo_vx, halo_vy, halo_vz**: the three components of the halo velocity
-#. **halo_x, halo_y, halo_z**: the three components of the halo position
-#. **host_centric_distance**: the distance from this galaxy to the center of the halo
-#. **vx, vy, vz**: the three components of the galaxy velocity, equal to ``Velocity``
-#. **x,y,z**: the three components of the galaxy position, equal to ``Position``
+#. **halo_vx, halo_vy, halo_vz**: the three components of the halo velocity,
+   in units of km/s
+#. **halo_x, halo_y, halo_z**: the three components of the halo position,
+   in units of :math:`\mathrm{Mpc}/h`
+#. **host_centric_distance**: the distance from this galaxy to the center of
+   the halo, in units of :math:`\mathrm{Mpc}/h`
+#. **vx, vy, vz**: the three components of the galaxy velocity, equal to
+   ``Velocity``, in units of km/s
+#. **x,y,z**: the three components of the galaxy position, equal to
+   ``Position``, in units of :math:`\mathrm{Mpc}/h`
+
+Below we initialize a :class:`~hod.HODCatalog` of galaxies and compute the
+number of centrals and satellites in the catalog, using the ``gal_type``
+column.
 
 .. ipython:: python
 
@@ -357,7 +374,11 @@ for the generated galaxies. The additional columns are:
 
 **Caveats**
 
-- The HOD population step requires the halo concentration
+- The HOD population step requires halo concentration. If the user wishes to
+  uses custom concentration values, the
+  :class:`~halotools.sim_manager.UserSuppliedHaloCatalog` table should contain
+  a ``halo_nfw_conc`` column. Otherwise, the analytic prescriptions from
+  `Dutton and Maccio 2014`_ are used.
 
 Repopulating a HOD Catalog
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -384,8 +405,8 @@ or the HOD parameters. For example,
 
 .. note::
 
-  For worked examples using HOD mocks, see the :ref:`cookbook/hod-mocks.ipynb`
-  section of :ref:`cookbook`.
+  For examples using HOD mocks, see the :ref:`cookbook/hod-mocks.ipynb`
+  recipe in :ref:`cookbook`.
 
 .. _custom-hod-mocks:
 
@@ -395,13 +416,13 @@ Using a Custom HOD Model
 Users can implement catalogs that use custom HOD modeling by subclassing
 the :class:`~hod.HODBase` class. This base class is abstract, and subclasses must
 implement the :func:`~hod.HODBase.__makemodel__` function. This function
-returns a :class:`~halotools.empirical_models.factories.hod_model_factory.HodModelFactory`
+returns a :class:`~halotools.empirical_models.HodModelFactory`
 object, which is the :mod:`halotools` object responsible for supporting
 custom HOD models. For more information on designing your own HOD model
-using :mod:`halotools`, see `this series of tutorials`_.
-
+using :mod:`halotools`, see
+:ref:`this series of halotools tutorials <hod_modeling_tutorial0>`.
 
 .. _Coles and Jones 1991: http://adsabs.harvard.edu/abs/1991MNRAS.248....1C
 .. _Halo Occupation Distribution: https://arxiv.org/abs/astro-ph/0212357
 .. _Zheng et al 2007: https://arxiv.org/abs/astro-ph/0703457
-.. _this series of tutorials: http://halotools.rtfd.io/en/latest/quickstart_and_tutorials/tutorials/model_building/composing_models/hod_modeling/hod_modeling_tutorial0.html
+.. _Dutton and Maccio 2014: https://arxiv.org/abs/1402.7073

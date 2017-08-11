@@ -8,19 +8,33 @@
     tmpdir = tempfile.mkdtemp()
     os.chdir(tmpdir)
 
+    numpy.random.seed(42)
+
 
 .. _common-operations:
 
 Common Data Operations
 ======================
 
+Here, we detail some of the most common operations when dealing with
+data in the form of a :class:`CatalogSource`. The native format for data columns
+in a :class:`CatalogSource` object is the dask array. Be sure to read
+the :ref:`previous section <on-demand-io>` for an introduction to dask arrays
+before proceeding.
+
+The dask array format allows users to easily
+manipulate columns in their input data and feed any transformed data into one
+of the nbodykit algorithms. This provides a fast and easy way to transform
+the data while hiding the implementation details
+needed to compute these transformations internally. In this section, we'll
+provide examples of some of these data transformations to get users
+acclimated to dask arrays quickly.
+
 .. contents::
    :depth: 2
    :local:
    :backlinks: none
 
-Here, we detail some of the most common operations when dealing with
-data in the form of a :class:`CatalogSource`.
 To help illustrate these operations, we'll initialize the nbodykit "lab"
 and load a catalog of uniformly distributed objects.
 
@@ -35,8 +49,8 @@ Accessing Data Columns
 -----------------------
 
 Specific columns can be accessed by indexing the catalog object using the
-column's name, and a :class:`dask.array.Array` object is returned (see
-:ref:`what-is-dask-array` for further details on dask arrays.)
+column name, and a :class:`dask.array.Array` object is returned (see
+:ref:`what-is-dask-array` for more details on dask arrays).
 
 .. ipython:: python
 
@@ -45,6 +59,45 @@ column's name, and a :class:`dask.array.Array` object is returned (see
 
   print(position)
   print(velocity)
+
+While in the format of the dask array, data columns can easily be manipulated
+by the user. For example, here we normalize the position coordinates to the
+range 0 to 1 by dividing by the box size:
+
+.. ipython:: python
+
+  # normalize the position
+  normed_position = position / cat.attrs['BoxSize']
+
+  print(normed_position)
+
+Note that the normalized position array is also a dask array and that the
+actual normalization operation is yet to occur. This makes these kinds of
+data transformations very fast for the user.
+
+Computing Data Columns
+----------------------
+
+Columns can be converted from :class:`dask.array.Array` objects to
+numpy arrays using the :func:`~CatalogSource.compute` function (see
+:ref:`evaluating-dask-array` for further details on computing dask arrays).
+
+.. ipython:: python
+
+  position, velocity = cat.compute(cat['Position'], cat['Velocity'])
+
+  print(type(position))
+  print(type(velocity))
+
+We can also compute the max of the normalized position coordinates from
+the previous section:
+
+.. ipython:: python
+
+  maxpos = normed_position.max(axis=0)
+  print(maxpos)
+
+  print(cat.compute(maxpos))
 
 .. _adding-columns:
 
@@ -56,10 +109,16 @@ directly setting them:
 
 .. ipython:: python
 
-  print("contains 'Mass'? :", 'Mass' in cat)
-  cat['Mass'] = numpy.random.random(size=len(cat))
+  # no "Mass" column originally
   print("contains 'Mass'? :", 'Mass' in cat)
 
+  # add a random array as the "Mass" column
+  cat['Mass'] = numpy.random.random(size=len(cat))
+
+  # "Mass" exists!
+  print("contains 'Mass'? :", 'Mass' in cat)
+
+  # can also add scalar values -- converted to correct length
   cat['Type'] = b"central"
 
   print(cat['Mass'])
@@ -117,7 +176,7 @@ Adding Redshift-space Distortions
 
 A useful operation in large-scale structure is the mapping of positions
 in simulations from real space to redshift space, referred to
-as `redshift space distortion <https://arxiv.org/abs/astro-ph/9708102>`_ (RSD).
+as `redshift space distortions <https://arxiv.org/abs/astro-ph/9708102>`_ (RSD).
 This operation can be easily performed by combining the ``Position`` and
 ``Velocity`` columns to overwrite the ``Position`` column. As first
 found by `Kaiser 1987 <http://adsabs.harvard.edu/abs/1987MNRAS.227....1K>`_,
@@ -125,14 +184,14 @@ the mapping from real to redshift space is:
 
 .. math::
 
-    s = r + \frac{v \cdot \hat{n}}{a H},
+    s = r + \frac{\vv \cdot \nhat}}{a H},
 
-where :math:`r` is the position in real space,
-:math:`s` is the position in redshift space, :math:`v` is the velocity,
-:math:`\hat{n}` is the line-of-sight direction, :math:`a` is the scale factor,
-and :math:`H` is the Hubble parameter at :math:`a`.
+where :math:`r` is the line-of-sight position in real space,
+:math:`s` is the line-of-sight position in redshift space, :math:`\vv` is the
+velocity vector, :math:`\vnhat` is the line-of-sight unit vector, :math:`a` is
+the scale factor, and :math:`H` is the Hubble parameter at :math:`a`.
 
-For example, if we wish to add RSD along the ``z`` axis of a simulation box
+As an example, below we add RSD along the ``z`` axis of a simulation box:
 
 .. ipython:: python
 
@@ -140,7 +199,7 @@ For example, if we wish to add RSD along the ``z`` axis of a simulation box
     line_of_sight = [0,0,1]
 
     # redshift and cosmology
-    redshift =  0.55; cosmo = cosmology.Planck15
+    redshift =  0.55; cosmo = cosmology.Cosmology(Om0=0.31, H0=70)
 
     # the RSD normalization factor
     rsd_factor = (1+redshift) / (100 * cosmo.efunc(redshift))
@@ -148,12 +207,18 @@ For example, if we wish to add RSD along the ``z`` axis of a simulation box
     # update Position, applying RSD
     src['Position'] = src['Position'] + rsd_factor * src['Velocity'] * line_of_sight
 
-Note that the operation above assumes ``Position`` is in units of
-:math:`\mathrm{Mpc}/h`.
+The RSD factor is known as the conformal Hubble parameter
+:math:`\mathcal{H} = a H(a)`. This calculation requires a cosmology,
+which can be specified via the
+:class:`~nbodykit.cosmology.core.Cosmology` class. We use the
+:func:`~nbodykit.cosmology.core.Cosmology.efunc` function which returns
+:math:`E(z)`, where the Hubble parameter is defined as :math:`H(z) = 100h\ E(z)`
+in units of km/s/Mpc. Note that the operation above assumes the ``Position``
+column is in units of :math:`\mathrm{Mpc}/h`.
 
 For catalogs in nbodykit that generate mock data, such as the
 :ref:`log-normal catalogs <lognormal-mock-data>` or :ref:`HOD catalogs <hod-mock-data>`,
-there is an additional column ``VelocityOffset`` available to facilitate
+there is an additional column, ``VelocityOffset``, available to facilitate
 RSD operations. This column has units of :math:`\mathrm{Mpc}/h` and
 includes the ``rsd_factor`` above. Thus, this allows users to add RSD
 simply by using:
@@ -166,11 +231,11 @@ simply by using:
 Selecting a Subset
 ------------------
 
-A subset of :class:`CatalogSource` object can be selected using slice notation.
+A subset of a :class:`CatalogSource` object can be selected using slice notation.
 There are two ways to select a subset:
 
-#. use a boolean array, which specifies which objects of the catalog to select
-#. use a slice object specifying which objects to select
+#. use a boolean array, which specifies which rows of the catalog to select
+#. use a slice object specifying which rows of the catalog to select
 
 For example,
 
@@ -212,7 +277,7 @@ For example,
 
     print("columns in catalog = ", cat.columns)
 
-    # select only entries where select = True
+    # select Position + Mass
     subcat = cat[['Position', 'Mass']]
 
     # the selected columns + default columns
@@ -222,7 +287,8 @@ For example,
 
 - When selecting a subset of columns, note that in addition to the desired columns,
   the sub-catalog will also contain the
-  :ref:`default columns <catalog-source-default-columns>`. 
+  :ref:`default columns <catalog-source-default-columns>` (``Weight``, ``Value``,
+  and ``Selection``).
 
 .. _transform-ops:
 
@@ -242,13 +308,11 @@ below.
 Concatenating ``CatalogSource`` Objects
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-When two :class:`CatalogSource` objects have the same columns, they can be
+When :class:`CatalogSource` objects have the same columns, they can be
 concatenated together into a single object using the
 :func:`nbodykit.transform.ConcatenateSources` function. For example,
 
 .. ipython:: python
-
-    from nbodykit.lab import *
 
     cat1 = UniformCatalog(nbar=50, BoxSize=1.0, seed=42)
     cat2 = UniformCatalog(nbar=150, BoxSize=1.0, seed=42)
@@ -263,13 +327,12 @@ concatenated together into a single object using the
 Stacking Columns Together
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Another common occurrence is that the user needs to combine separate
-data columns as the columns of a new array. For example, often the Cartesian
-position coordinates ``x``, ``y``, and ``z`` are saved as separate columns,
-and the ``Position`` column must be added to a catalog from these individual
-columns. We provide the :func:`nbodykit.transform.StackColumns` for
-this exact purpose. For example,
-
+Another common use case is when users need to combine separate
+data columns vertically, as the columns of a new array. For example, often the
+Cartesian position coordinates ``x``, ``y``, and ``z`` are stored as separate
+columns, and the ``Position`` column must be added to a catalog from these
+individual columns. We provide the :func:`nbodykit.transform.StackColumns`
+function for this exact purpose. For example,
 
 .. ipython:: python
 
@@ -311,8 +374,8 @@ as the ``Position`` column.
     src = RandomCatalog(100, seed=42)
 
     # add random (ra, dec, z) coordinates
-    src['z']   = src.rng.normal(loc=0.5, scale=0.1, size=src.size)
-    src['ra']  = src.rng.uniform(low=0, high=360, size=src.size)
+    src['z'] = src.rng.normal(loc=0.5, scale=0.1, size=src.size)
+    src['ra'] = src.rng.uniform(low=0, high=360, size=src.size)
     src['dec'] = src.rng.uniform(low=-180, high=180., size=src.size)
 
     # initialize a set of cosmology parameters
@@ -323,8 +386,8 @@ as the ``Position`` column.
 
 **Caveats**
 
-- Whether the right ascension and declination arrays are in degrees should be
-  specified via the ``degrees`` keyword.
+- Whether the right ascension and declination arrays are in degrees
+  (as opposed to radians) should be specified via the ``degrees`` keyword.
 - The units of the returned ``Position`` column are :math:`\mathrm{Mpc}/h`.
 - By default, the redshift to comoving distance calculation uses interpolated
   results for significant speed-ups. Set ``interpolate_cdist`` to ``False``
@@ -344,8 +407,7 @@ package in a manner optimized for dask arrays. The module can be accessed from t
 .. important::
 
     For a full list of functions available in the :mod:`dask.array` module,
-    please see the
-    `dask array documentation <http://dask.pydata.org/en/latest/array-api.html>`__.
+    please see the :doc:`dask array documentation <dask:array-api>`.
     We strongly recommend that new users read through this documentation
     and familiarize themselves with the functionality provided by
     the :mod:`dask.array` module.

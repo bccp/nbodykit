@@ -128,7 +128,7 @@ attrs : dict, optional
         __doc__ += """
 Examples
 --------
-Examples can be found :ref:`here <%s>`.
+Please see :ref:`the documentation <%s>` for examples.
 """ %examples
 
     # get the Parameters from the IO libary class

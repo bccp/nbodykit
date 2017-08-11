@@ -132,7 +132,7 @@ class HODBase(ArrayCatalog):
 
         Returns
         -------
-        :class:`~halotools.empirical_models.factories.hod_model_factory.HodModelFactory`
+        :class:`~halotools.empirical_models.HodModelFactory`
             the halotools object implementing the HOD model
         """
         pass

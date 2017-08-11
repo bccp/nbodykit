@@ -21,9 +21,10 @@ identical to a numpy array, except for one key difference. When performing
 manipulations on a numpy array, the operations are performed immediately.
 This is not the case for dask arrays. Instead, dask arrays store these
 operations in a task graph and only evaluate the operations when the user
-specifies so via a call to a :func:`compute` function. Often the first
-task in this graph is loading the data from disk, so dask provides
-on-demand IO, allowing the user to control when data is read from disk.
+specifies to via a call to a :func:`compute` function. When using
+nbodykit, often the first task in this graph is loading data from disk.
+Thus, dask provides nbodykit with on-demand IO functionality, allowing the user
+to control when data is read from disk.
 
 It is useful to describe a bit more about the nuts and bolts of the dask
 array to illustrate its full power. The dask array object
@@ -32,7 +33,9 @@ on these smaller "chunks". This allows array computations to be
 performed on large data that does not fit into memory
 (but can be stored on disk). Particularly useful on laptops and other
 systems with limited memory, it extends the maximum size of useable datasets
-from the size of memory to the size of the disk storage.
+from the size of memory to the size of the disk storage. For further details,
+please see the introduction to the dask array in the
+:doc:`dask documentation <dask:array-overview>`.
 
 By Example
 ----------
@@ -86,11 +89,11 @@ Here, we see that the result of our calls to :func:`dask.array.min` and
 has not yet been performed but instead added to the internal dask task graph.
 
 For a full list of the available functionality, please see the
-`dask array documentation <http://dask.pydata.org/en/latest/array-api.html>`_.
-Most of the most commonly used functions in numpy have implementations in the
-:mod:`dask.array` module. In addition to these functions, dask arrays support
-the usual array arithmetic operations. For example, to re-scale the
-position coordinate array:
+:doc:`dask array documentation <dask:array-api>`.
+A large subset of the most commonly used functions in numpy have
+implementations in the :mod:`dask.array` module. In addition to these
+functions, dask arrays support the usual array arithmetic operations. For
+example, to rescale the position coordinate array, use
 
 .. ipython:: python
 
@@ -133,8 +136,8 @@ Caching with Dask
 
 Subclasses of :class:`CatalogSource` accept the ``use_cache`` keyword, which
 can turn on an internal cache to use when evaluating dask arrays. Often
-the most expensive task of evaluating a dask array is loading the data
-from disk. With this feature turned on, the :class:`CatalogSource` object will
+the most expensive task when evaluating a dask array is loading the data
+from disk. With this feature is turned on, the :class:`CatalogSource` object will
 cache intermediate results, such that repeated calls to
 :func:`CatalogSource.compute` do not repeat expensive IO operations.
 
@@ -159,8 +162,8 @@ at once, we can analyze large amounts of data from a single catalog with ease.
 
 A common use case is examining a directory of large binary outputs from a
 N-body simulation on a laptop. Often the user wishes to select a smaller subsample
-of the catalog or perform some trivial data inspection to verify that accuracy of
+of the catalog or perform some trivial data inspection to verify the accuracy of
 the data. These tasks become straightforward with nbodykit, using the functionality
 provided by the :class:`CatalogSource` object and the :mod:`dask` package.
-The nbodykit :class:`CatalogSource` interface remains the same, regardless
-of the size of the data that the user is loading.
+Regardless of the size of the data that the user is loading, the nbodykit
+:class:`CatalogSource` interface remains the same.

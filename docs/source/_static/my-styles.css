@@ -11,12 +11,29 @@
 color: black;  /*Sets the text hover color on navbar*/
 }
 
+.note {
+  color: #0a3055;
+}
+
+.important {
+  color: #0a3055;
+}
+
+.warning {
+  color: #0a3055;
+}
+
+.warning a:link,
+.warning a:visited {
+  color: #E0FFFF;
+}
+
 .note a:link,
 .note a:visited {
-  color: #0a3055;
+  color: #E0FFFF;
 }
 
 .important a:link,
 .important a:visited {
-  color: #0a3055;
+  color: #E0FFFF;
 }

@@ -182,7 +182,6 @@ html_theme_options = dict(
     navbar_sidebarrel = False,
     globaltoc_depth = 2,
     navbar_links = [
-    ("Quickstart notebooks", "quickstart/index"),
     ("Cookbook", "cookbook/index"),
     ("API", "api/api")
     ],

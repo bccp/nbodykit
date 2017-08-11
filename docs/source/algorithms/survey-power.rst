@@ -6,11 +6,11 @@ Power Spectrum Multipoles of Survey Data (:class:`ConvolvedFFTPower`)
 =====================================================================
 
 The :class:`ConvolvedFFTPower` class computes the power spectrum multipoles
-:math:`P_\ell(k)` for data from a survey that includes non-trivial
+:math:`P_\ell(k)` for data from an observational survey that includes non-trivial
 selection effects. The input data is expected to be in the form of
 angular coordinates (right ascension and declination) and redshift.
 The measured power spectrum multipoles represent the true multipoles convolved
-with the window function. Here, the window function refers to the the Fourier
+with the window function. Here, the window function refers to the Fourier
 transform of the survey volume. In this section, we provide an overview of the
 FFT-based algorithm used to compute the multipoles
 and detail important things to know for the user to get up and running quickly.
@@ -22,9 +22,9 @@ and detail important things to know for the user to get up and running quickly.
 
 .. note::
 
-    To jump right into the :class:`ConvoledFFTPower` algorithm, see this
-    `cookbook recipe <../cookbook/convpower.html>`_ for a detailed
-    walk-through of the :class:`ConvolvedFFTPower` algorithm.
+    To jump right into the :class:`ConvolvedFFTPower` algorithm, see this
+    `cookbook recipe <cookbook/convpower.ipynb>`_ for a detailed
+    walk-through of the algorithm.
 
 .. _fkp-background:
 
@@ -79,7 +79,7 @@ The shot noise :math:`P_\ell^{\rm noise}` in equation :eq:`Pell` is
 The FKP weights, first derived in
 `Feldman, Kaiser, and Peacock 1994`__, minimize the variance of the estimator
 at a desired power spectrum value. Denoted as
-as :math:`w_\mathrm{FKP}`, these weights are given by
+:math:`w_\mathrm{FKP}`, these weights are given by
 
 .. math::
     :label: wfkp
@@ -114,7 +114,7 @@ theorem to express equation :eq:`Pell` as
 .. math::
     :label: Pell-ours
 
-    P_\ell(k) = \frac{2\ell+1}{I} \int \frac{\d\Omega_k}{4\pi} F_0(\vk) F_\ell(-\vk),
+    P_\ell(k) = \frac{2\ell+1}{A} \int \frac{\d\Omega_k}{4\pi} F_0(\vk) F_\ell(-\vk),
 
 where
 
@@ -168,15 +168,15 @@ In this automatic case, the size of the box can be artificially extended and
 padded with zeros via the ``BoxPad`` keyword.
 Users can also specify a desired box size by passing in the ``BoxSize`` keyword.
 
-Most importantly, the :class:`~nbodykit.source.catalog.fkp.FKPCatalog`
+The :class:`~nbodykit.source.catalog.fkp.FKPCatalog`
 object can be converted to a mesh object,
 :class:`~nbodykit.source.catalogmesh.fkp.FKPCatalogMesh`, via the
 :func:`~nbodykit.source.catalog.fkp.FKPCatalog.to_mesh` function. This
 mesh object knows how to paint the FKP weighted density field,
-given by equation :eq:`F`, to the mesh using the discrete object data from the
-"data" and "randoms" catalogs. With the FKP density field painted to the
-mesh, the :class:`ConvolvedFFTPower` algorithm uses equations :eq:`Pell-ours`
-and :eq:`Fell` to compute the multipoles specified by the user.
+given by equation :eq:`F`, to the mesh using the "data" and "randoms" catalogs.
+With the FKP density field painted to the mesh, the :class:`ConvolvedFFTPower`
+algorithm uses equations :eq:`Pell-ours` and :eq:`Fell` to compute the
+multipoles specified by the user.
 
 From Sky to Cartesian Coordinates
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -198,7 +198,7 @@ Specifying :math:`n'_g(z)`
 
 The number density of the "data" catalog as a function of redshift, in units
 of :math:`h^{3} \mathrm{Mpc}^{-3}`, is required to properly normalize the
-power spectrum using equation :eq:`A-integral` and compute the shot noise
+power spectrum using equation :eq:`A-integral` and to compute the shot noise
 via equation :eq:`Pshot`.  The "data" and "randoms" catalog should contain a
 column that gives this quantity, evaluated at the redshift of each object in
 the catalogs.
@@ -216,17 +216,18 @@ will be raised.
 
 Note that the :class:`~nbodykit.algorithms.zhist.RedshiftHistogram` algorithm
 can compute a weighted :math:`n(z)` for an input catalog and may be useful
-for this algorithm if the :math:`n_g(z)` needs to be computed by the user.
+if the user needs to compute :math:`n_g(z)`.
 
 .. important::
 
-    The objects in the "randoms" catalog should follow the same redshift
-    distribution as the "data" catalog, but often will have an overall number
-    density 10, 50, or 100 times the number density of the "data" catalog.
-    Even if the "randoms" catalog has a higher number density, the
-    ``nbar`` column in both the "data" and "randoms" catalogs should hold
-    the number density on the same scale, corresponding to the value of
-    :math:`n_g(z)` at the redshift of the objects in the catalogs.
+    By construction, the objects in the "randoms" catalog should follow the
+    same redshift distribution as the "data" catalog. Often, the "randoms"
+    will have an overall number density that is 10, 50, or 100 times the number
+    density of the "data" catalog. Even if the "randoms" catalog has a higher
+    number density, the ``nbar`` column in both the "data" and "randoms"
+    catalogs should hold number density values on the same scale, corresponding
+    to the value of :math:`n_g(z)` at the redshift of the objects in the
+    catalogs.
 
 Using Completeness Weights
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -256,16 +257,16 @@ to a :class:`~nbodykit.source.catalogmesh.fkp.FKPCatalogMesh`, the name
 of the completeness weight column should be passed as the ``comp_weight``
 keyword to the :func:`~nbodykit.source.catalog.fkp.FKPCatalog.to_mesh` function.
 
-By default, the name of the ``comp_weight`` column is set to ``Weight``,
-which has a value of unity for all objects.  If specifying a different name,
-the column should have the same name in both the "data" and "randoms"
-catalogs.
+By default, the name of the ``comp_weight`` column is set to the
+default column ``Weight``, which has a value of unity for all objects.
+If specifying a different name, the column should have the same name in both
+the "data" and "randoms" catalogs.
 
 Using FKP Weights
 ^^^^^^^^^^^^^^^^^
 
 Users can also specify the name of a column in the "data" and "randoms"
-catalogs that represents an FKP weight for each object, as given by
+catalogs that represents a FKP weight for each object, as given by
 equation :eq:`wfkp`. The FKP weights do not weight the individual number
 density fields as the completeness weights do, but rather they weight
 the combined field, :math:`n'_g(\vr) - \alpha' n'_s(\vr)` (see equation
@@ -273,7 +274,7 @@ the combined field, :math:`n'_g(\vr) - \alpha' n'_s(\vr)` (see equation
 
 When converting from a :class:`~nbodykit.source.catalog.fkp.FKPCatalog`
 to a :class:`~nbodykit.source.catalogmesh.fkp.FKPCatalogMesh`, the name
-of the completeness weight column should be passed as the ``fkp_weight``
+of the FKP weight column should be passed as the ``fkp_weight``
 keyword to the :func:`~nbodykit.source.catalog.fkp.FKPCatalog.to_mesh` function.
 
 By default, the name of the ``fkp_weight`` column is set to ``FKPWeight``,
@@ -314,6 +315,13 @@ The :attr:`~ConvolvedFFTPower.poles` attribute stores the following variables:
 
 Note that measured power results for bins where ``modes`` is zero (no data points
 to average over) are set to ``NaN``.
+
+.. note::
+
+    The shot noise is not subtracted from any measured results. Users can
+    access the shot noise value for monopole, computed according to
+    equation :eq:`Pshot` in the meta-data :attr:`attrs` dictionary. Shot
+    noise for multipoles with :math:`\ell>0` is assumed to be zero.
 
 .. _fkp-meta-data:
 
@@ -381,14 +389,14 @@ The :func:`ConvolvedFFTPower.to_pkmu` allows users to rotate the measured
 multipoles, stored as the :attr:`ConvolvedFFTPower.poles` attribute, into
 :math:`P(k,\mu)` wedges (bins in :math:`\mu`). The function returns a
 :class:`~nbodykit.binned_statistic.BinnedStatistic` holding the
-binned :math:`P(k,\mu)` data. 
+binned :math:`P(k,\mu)` data.
 
 
 Saving and Loading
 ------------------
 
 Results can easily be saved and loaded from disk in a reproducible manner
-using the :func:`ConvolvedFFTPower.save` and :class:`ConvolvedFFTPower.load`
+using the :func:`ConvolvedFFTPower.save` and :func:`ConvolvedFFTPower.load`
 functions. The :class:`~ConvolvedFFTPower.save` function stores the state of
 the algorithm, including the meta-data in the :attr:`ConvolvedFFTPower.attrs`
 dictionary, in a JSON plaintext format.

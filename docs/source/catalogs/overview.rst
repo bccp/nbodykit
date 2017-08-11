@@ -26,7 +26,7 @@ friends-of-friends algorithm. To achieve these goals, nbodykit provides the
 :class:`nbodykit.base.catalog.CatalogSource` base class.
 
 The :class:`CatalogSource` object behaves much like a
-`numpy structured array <https://docs.scipy.org/doc/numpy/user/basics.rec.html>`_,
+:doc:`numpy structured array <numpy:user/basics.rec>`,
 where the fields of the array are referred to as "columns". These columns store
 the information about the objects in the catalog; common columns are
 "Position", "Velocity", "Mass", etc. A list of the column names
@@ -37,9 +37,9 @@ Use Cases
 ---------
 
 The :class:`CatalogSource` is an abstract base class -- it cannot be directly
-initialized. Instead, nbodykit includes several specialized catalog objects
-in the :mod:`nbodykit.source.catalog` module. In general, these subclasses
-fall into two categories:
+initialized. Instead, nbodykit includes several specialized catalog subclasses
+of :class:`CatalogSource` in the :mod:`nbodykit.source.catalog` module. In
+general, these subclasses fall into two categories:
 
 #. Reading data from disk (see :ref:`reading-catalogs`)
 #. Generating mock data at run time (see :ref:`mock-catalogs`)
@@ -59,7 +59,7 @@ is stored in two attributes:
 - :attr:`CatalogSource.csize` : the **collective**, global size of the catalog,
   equal to the sum of :attr:`~CatalogSource.size` across all MPI ranks
 
-So, the user can think of a :class:`CatalogSource` object has storing
+So, the user can think of a :class:`CatalogSource` object as storing
 information for a total of :attr:`~CatalogSource.csize` objects, which is
 divided amongst the available MPI ranks such that each process only stores
 information about :attr:`~CatalogSource.size` objects.
@@ -72,8 +72,8 @@ should be a ``(N,3)`` array giving the Cartesian position of each of the ``N``
 objects in the catalog.
 
 Often, the user will have the Cartesian coordinates
-stored as separate columns or have the object positions in terms of
-right ascension, declination, and redshift coordinates. See :ref:`common-operations`
+stored as separate columns or have the object coordinates in terms of
+right ascension, declination, and redshift. See :ref:`common-operations`
 for more details about how to construct the ``Position`` column for
 these cases.
 
@@ -82,7 +82,7 @@ these cases.
 Default Columns
 ---------------
 
-By default, all :class:`CatalogSource` objects include several default columns.
+All :class:`CatalogSource` objects include several default columns.
 These columns are used broadly throughout nbodykit and can be summarized as
 follows:
 
@@ -102,8 +102,9 @@ follows:
   When interpolating a :class:`CatalogSource` on to a mesh, the value of this
   array is used as the field value that each particle contributes to a given
   mesh cell. The mesh field is a weighted average of ``Value``, with the weights
-  given by `Weight`. For example, the ``Value`` column could represent
-  ``Velocity``, in which case the field painted to the mesh will be momentum.
+  given by ``Weight``. For example, the ``Value`` column could represent
+  ``Velocity``, in which case the field painted to the mesh will be momentum
+  (mass-weighted velocity).
 
 .. |Selection-Description| replace::
   A boolean column that selects a subset slice of the :class:`CatalogSource`.
@@ -114,7 +115,7 @@ Storing Meta-data
 -----------------
 
 For all :class:`CatalogSource` objects, the input parameters and additional
-meta-data are stored in the :attr:`CatalogSource.attrs` dictionary attribute.
+meta-data are stored in the :attr:`~CatalogSource.attrs` dictionary attribute.
 
 API
 ---

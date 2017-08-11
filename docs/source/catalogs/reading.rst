@@ -94,8 +94,8 @@ and can handle arbitrary byte offsets between columns.
 - Columns must be stored in consecutive order in the binary file
   (column-major format).
 
-For example, below we save a ``Position`` and ``Velocity`` column to a binary
-file and read it with :class:`~file.BinaryCatalog`:
+For example, below we save ``Position`` and ``Velocity`` columns to a binary
+file and load them into a :class:`~file.BinaryCatalog`:
 
 .. ipython:: python
 
@@ -107,7 +107,7 @@ file and read it with :class:`~file.BinaryCatalog`:
         vel = numpy.random.random(size=(1024, 3)) # fake Velocity column
         pos.tofile(ff); vel.tofile(ff); ff.seek(0)
 
-    # read the binary data
+    # create the binary catalog
     f = BinaryCatalog(ff.name, [('Position', ('f8', 3)), ('Velocity', ('f8', 3))], size=1024)
 
     print(f)
@@ -122,8 +122,9 @@ HDF Data
 The :class:`~file.HDFCatalog` object uses the :mod:`h5py` module to read
 HDF5 files. The class supports reading columns stored in :class:`h5py.Dataset`
 objects and in :class:`h5py.Group` objects, assuming that all arrays are of the
-same length since the catalog has a fixed size. Columns stored in different
-datasets or groups can be accessed via their full path in the HDF file.
+same length since catalog objects must have a fixed size. Columns stored in
+different datasets or groups can be accessed via their full path in the
+HDF5 file.
 
 **Caveats**
 
@@ -156,7 +157,7 @@ column names are the full paths of the data in the file.
         grp.create_dataset('Position', data=dset['Position']) # column as dataset
         grp.create_dataset('Mass', data=dset['Mass']) # column as dataset
 
-    # read the data
+    # intitialize the catalog
     f = HDFCatalog('hdf-example.hdf5')
 
     print(f)
@@ -174,10 +175,11 @@ reading data stored in this format using :class:`~file.BigFileCatalog`.
 
 **Caveats**
 
-- As for :class:`~file.HDFCatalog`, datasets of the wrong size stored in a
-  bigfile format should be explicitly excluded using the ``exclude`` keyword.
+- Similiar to the :class:`~file.HDFCatalog` class, datasets of the wrong size
+  stored in a bigfile format should be explicitly excluded using the
+  ``exclude`` keyword.
 
-Below, we read ``Position`` and ``Velocity`` columns, stored in the
+Below, we load ``Position`` and ``Velocity`` columns, stored in the
 :mod:`bigfile` format:
 
 .. ipython:: python
@@ -199,7 +201,7 @@ Below, we read ``Position`` and ``Velocity`` columns, stored in the
         with tmpff.create("Header") as bb:
             bb.attrs['Size'] = 512.
 
-    # read the data
+    # initialize the catalog
     f = BigFileCatalog('bigfile-example', header='Header')
 
     print(f)
@@ -222,7 +224,7 @@ operation.
 - Specific extensions to read can be passed via the ``ext`` keyword. By default,
   data is read from the first HDU that has readable data.
 
-For example, below we read ``Position`` and ``Velocity`` data from a FITS file:
+For example, below we load ``Position`` and ``Velocity`` data from a FITS file:
 
 .. ipython:: python
 
@@ -237,7 +239,7 @@ For example, below we read ``Position`` and ``Velocity`` data from a FITS file:
     # write to a FITS file using fitsio
     fitsio.write('fits-example.fits', dset, extname='Data')
 
-    # read the data
+    # initialize the catalog
     f = FITSCatalog('fits-example.fits', ext='Data')
 
     print(f)
@@ -366,7 +368,7 @@ subclass of the :class:`~nbodykit.io.base.FileType` class:
             """
             return self._data[start:stop:step]
 
-And now generate the subclass of :class:`SourceCatalog`:
+And now generate the subclass of :class:`CatalogSource`:
 
 .. ipython:: python
 
@@ -374,7 +376,7 @@ And now generate the subclass of :class:`SourceCatalog`:
 
     NPYCatalog = FileCatalogFactory('NPYCatalog', NPYFile)
 
-And finally, we will generate some fake data, save it to a ``.npy`` file,
+And finally, we generate some fake data, save it to a ``.npy`` file,
 and then load it with our new ``NPYCatalog`` class:
 
 .. ipython:: python
@@ -396,7 +398,7 @@ and then load it with our new ``NPYCatalog`` class:
 
 This toy example illustrates how custom data formats can be incorporated
 into nbodykit, but users should take care to optimize their storage
-solutions for more complex applications. In particulars, data storage formats
+solutions for more complex applications. In particular, data storage formats
 that are stored in column-major format and allow data slices from arbitrary
 locations to be read should be favored. This enables large speed-ups when
 reading data in parallel. On the contrary, our simple toy example class

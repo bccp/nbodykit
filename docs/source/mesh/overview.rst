@@ -38,11 +38,12 @@ Use Cases
 ---------
 
 The :class:`MeshSource` is an abstract base class -- it cannot be directly
-initialized. Instead, nbodykit includes several specialized mesh objects
-in the :mod:`nbodykit.source.mesh` module. In general, these subclasses
-fall into three categories:
+initialized. Instead, nbodykit includes several specialized subclasses of
+:class:`MeshSource` in the :mod:`nbodykit.source.mesh` module. In general,
+these subclasses fall into three categories:
 
-#. Generating mesh data from a :class:`~nbodykit.base.catalog.CatalogSource` (see :ref:`catalog-to-mesh`)
+#. Generating mesh data from a
+   :class:`~nbodykit.base.catalog.CatalogSource` (see :ref:`catalog-to-mesh`)
 #. Reading mesh data from disk (see :ref:`saving-loading-mesh`)
 #. Generating mock fields directly on a mesh (see :ref:`gaussian-meshes`)
 
@@ -136,7 +137,7 @@ Storing Meta-data
 -----------------
 
 For all :class:`MeshSource` objects, the input parameters and additional
-meta-data are stored in the :attr:`MeshSource.attrs` dictionary attribute.
+meta-data are stored in the :attr:`~MeshSource.attrs` dictionary attribute.
 
 API
 ---

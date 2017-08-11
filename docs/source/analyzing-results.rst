@@ -49,8 +49,9 @@ measurement :math:`P(k,\mu)`.
 Coordinate Grid
 ---------------
 
-The clustering statistics are measured for fixed bins, and the BinnedStatistic class
-has several attributes to access the coordinate grid defined by these bins:
+The clustering statistics are measured for fixed bins, and the
+:class:`BinnedStatistic` class has several attributes to access the
+coordinate grid defined by these bins:
 
 - :attr:`shape`: the shape of the coordinate grid
 - :attr:`dims`: the names of each dimension of the coordinate grid
