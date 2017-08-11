@@ -48,7 +48,6 @@ Documentation
 -------------
 
 The official documentation is hosted on ReadTheDocs at http://nbodykit.readthedocs.org/.
-A growing number of additional examples are available at https://github.com/bccp/nbodykit-notebooks/
 
 Installation
 ------------
@@ -68,5 +67,5 @@ Using nbodykit on NERSC
 
 On the Cori and Edison machines at NERSC, we maintain a nightly conda build of
 the latest stable release of nbodykit. See
-`nbodykit on NERSC <http://nbodykit.readthedocs.io/en/docs/install.html#nbodykit-on-NERSC>`_
-for more details.
+`the documentation <http://nbodykit.readthedocs.io/en/latest/install.html#nbodykit-on-nersc>`_
+for using nbodykit on NERSC for more details.
