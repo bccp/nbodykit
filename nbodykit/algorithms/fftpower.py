@@ -347,8 +347,10 @@ class FFTPower(FFTPowerBase):
         Pshot = 0
         if self.first is self.second:
             if 'shotnoise' not in c1.attrs:
-                import warnings
-                warnings.warn("no 'shotnoise' found for auto power spectrum in FFTPower")
+                if isinstance(self.first, CatalogMesh):
+                    import warnings
+                    warnings.warn(("no 'shotnoise' found for auto power spectrum "
+                                   "of discrete data in FFTPower"))
             else:
                 Pshot = c1.attrs['shotnoise']
         self.attrs['shotnoise'] = Pshot
