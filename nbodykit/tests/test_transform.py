@@ -1,7 +1,7 @@
 from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
-
+from nbodykit.transform import ConstantArray
 import pytest
 
 # debug logging
@@ -79,3 +79,8 @@ def test_combine(comm):
     # fail on invalid column
     with pytest.raises(ValueError):
         cat = transform.ConcatenateSources(s1, s2, columns='InvalidColumn')
+
+@MPITest([1, 4])
+def test_constarray(comm):
+    a = ConstantArray(1.0, 1, chunks=100000)
+    assert len(a) == 1
