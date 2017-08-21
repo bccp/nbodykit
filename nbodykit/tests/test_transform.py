@@ -80,7 +80,14 @@ def test_combine(comm):
     with pytest.raises(ValueError):
         cat = transform.ConcatenateSources(s1, s2, columns='InvalidColumn')
 
-@MPITest([1, 4])
+@MPITest([1])
 def test_constarray(comm):
-    a = ConstantArray(1.0, 1, chunks=100000)
+    a = ConstantArray(1.0, 1, chunks=1000)
     assert len(a) == 1
+    print(a.shape)
+    assert a.shape == (1,)
+    a = ConstantArray([1.0, 1.0], 1, chunks=1000)
+    assert a.shape == (1, 2)
+
+    a = ConstantArray([1.0, 1.0], 3, chunks=1000)
+    assert a.shape == (3, 2)
