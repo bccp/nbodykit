@@ -109,9 +109,9 @@ def ConstantArray(value, size, chunks=100000):
     chunks : int, optional
         the size of the dask array chunks
     """
-    toret = numpy.array(value)
-    toret = numpy.lib.stride_tricks.as_strided(toret, (size, toret.size), (0, toret.itemsize))
-    return da.from_array(toret.squeeze(), chunks=chunks)
+    ele = numpy.array(value)
+    toret = numpy.lib.stride_tricks.as_strided(ele, [size] + list(ele.shape), [0] + list(ele.strides))
+    return da.from_array(toret, chunks=chunks)
 
 
 def SkyToUnitSphere(ra, dec, degrees=True):
@@ -135,7 +135,7 @@ def SkyToUnitSphere(ra, dec, degrees=True):
         ``x``, ``y``, and ``z``
 
     Raises
-    ------
+   ------
     TypeError
         If the input columns are not dask arrays
     """
