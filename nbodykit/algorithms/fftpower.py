@@ -5,7 +5,7 @@ import logging
 from nbodykit import CurrentMPIComm
 from nbodykit.binned_statistic import BinnedStatistic
 from nbodykit.meshtools import SlabIterator
-from nbodykit.base.catalog import CatalogSource
+from nbodykit.base.catalog import CatalogSourceBase
 from nbodykit.base.mesh import MeshSource
 from nbodykit.base.catalogmesh import CatalogMesh
 
@@ -702,7 +702,7 @@ def _cast_source(source, BoxSize, Nmesh):
     if isinstance(source, Field):
         # if input is a Field object, wrap it as a MeshSource.
         source = FieldMesh(source)
-    elif isinstance(source, CatalogSource):
+    elif isinstance(source, CatalogSourceBase):
         # if input is CatalogSource, use defaults to make it into a mesh
         if not isinstance(source, MeshSource):
             source = source.to_mesh(BoxSize=BoxSize, Nmesh=Nmesh, dtype='f8', compensated=True)
