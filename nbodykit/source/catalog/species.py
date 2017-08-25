@@ -43,7 +43,7 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
     def __init__(self, names, *species, **kwargs):
 
         # whether to use the cache
-        use_cache = kwargs.get('use_cache', True)
+        use_cache = kwargs.pop('use_cache', True)
 
         # input checks
         if len(species) < 2:
@@ -62,6 +62,9 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
         # update the dictionary with data/randoms attrs
         for cat, name in zip(species, names):
             self.attrs.update(attrs_to_dict(cat, name + '.'))
+
+        # update the rest of meta-data
+        self.attrs.update(kwargs)
 
         # no size!
         self.size = NotImplemented
