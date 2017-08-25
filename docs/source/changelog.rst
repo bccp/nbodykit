@@ -5,7 +5,21 @@ Changelog
 ------------------
 * CSVFile and CSVCatalog no longer fails to read the last line of data when the file does not end in a newline
 * CylindricalGroups algorithm added for computing groups of objects using the cylindrical grouping method of arXiv:1611.04165
-* SimulationBoxPairCount and SurveyDataPairCount classes added to perform pair counting of objects in either simulation boxes or from survey data catalogs
+* SimulationBoxPairCount and SurveyDataPairCount classes added to perform pair counting of objects in either simulation boxes or from survey data catalogs (using ``Corrfunc`` code)
+* large addition of documentation for version 0.2.x; still partially completed
+* DataSet has been renamed to BinnedStatistic
+* computatation of ``dk` fixed in ProjectedFFTPower
+* paint() supports a Nmesh parameter, for easier re-sampling of mesh objects
+* addition of ``Value`` column for painting mesh objects; this represents the value of the field painted, i.e., unity to paint density, or velocity to paint momentum (number-weighted velocity)
+* addition of style module with matplotlib style sheet to make nice plots in our doc tutorials; this makes the docs reproducible by users
+* transform.vstack deprecated in favor of transform.StackColumns
+* transform.concatenate deprecated in favor of transform.ConcatenateSources
+* when painting catalogs to a mesh, users can specify the position column to use via the ``position`` keyword
+* MultipleSpeciesCatalog object added to support painting multiple species of particles to the same mesh, i.e, baryons and dark matter particles in hydro simulations
+* CatalogMeshSource renamed to CatalogMesh internally
+* can now delete a column from a CatalogSource
+* can now slice a CatalogSource using a list of column names
+* fix bug in ConstantArray when length is 1
 
 0.2.4
 -----
