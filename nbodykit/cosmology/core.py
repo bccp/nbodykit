@@ -2,6 +2,8 @@ from astropy import cosmology, units
 from scipy.integrate import quad
 import numpy as np
 import functools
+from classylss.binding import ClassEngine, Background
+
 
 def removeunits(f):
     """
@@ -185,6 +187,10 @@ class Cosmology(dict):
         # initialize the astropy engine
         self.engine = getattr(cosmology, cls)(H0=H0, Om0=Om0, **kws)
 
+        cl = ClassEngine.from_astropy(self.engine)
+        self.clbackground = Background(cl)
+
+
         # add valid params to the underlying dict
         for k in kws:
             if hasattr(self.engine, k):
@@ -321,6 +327,191 @@ class Cosmology(dict):
         # return a new Cosmology instance
         return self.from_astropy(new_engine, **extras)
 
+    def hubble_function(self, z):
+        """
+        Function giving :func:`hubble_function with respect
+        to the scale factor ``a``
+
+        Parameters
+        ----------
+        z : array-like
+            Input redshifts.
+
+        Returns
+        -------
+        efunc : ndarray, or float if input scalar
+            The hubble function redshift-scaling with respect
+            to scale factor
+        """
+        return self.clbackground.hubble_function(z)
+
+    def hubble_function_prime(self, z):
+        """
+        Function giving :func:`hubble_function prime with respect
+        to the scale factor ``a``
+
+        Parameters
+        ----------
+        z : array-like
+            Input redshifts.
+
+        Returns
+        -------
+        efunc : ndarray, or float if input scalar
+            The hubble function prime redshift-scaling with respect
+            to scale factor
+        """
+        return self.clbackground.hubble_function_prime(z)
+
+    def efunc(self, z):
+        """
+        Function giving :func:`efunc with respect
+        to the scale factor ``a``
+
+        Parameters
+        ----------
+        z : array-like
+            Input redshifts.
+
+        Returns
+        -------
+        efunc : ndarray, or float if input scalar
+            The hubble factor redshift-scaling with respect
+            to scale factor
+        """
+        return self.hubble_function(z)/self.hubble_function(0)
+
+    def Or(self, z):
+        """
+        Function giving :func:`efunc with respect
+        to the scale factor ``a``
+
+        Parameters
+        ----------
+        z : array-like
+            Input redshifts.
+
+        Returns
+        -------
+        efunc : ndarray, or float if input scalar
+            The hubble factor redshift-scaling with respect
+            to scale factor
+        """
+        return self.clbackground.Or(z)
+
+    def Onr(self, z):
+        """
+        Function giving Omega non-relativistic with respect
+        to the scale factor ``a``
+
+        Parameters
+        ----------
+        z : array-like
+            Input redshifts.
+
+        Returns
+        -------
+        efunc : ndarray, or float if input scalar
+            The Omega non-relativistic redshift-scaling with respect
+            to scale factor
+        """
+        return self.clbackground.Onr(z)
+
+    def Ocdm(self, z):
+        """
+        Function giving Omega cold-dark-matter with respect
+        to the scale factor ``a``
+
+        Parameters
+        ----------
+        z : array-like
+            Input redshifts.
+
+        Returns
+        -------
+        efunc : ndarray, or float if input scalar
+            The Omega cold-dark-matter redshift-scaling with respect
+            to scale factor
+        """
+        return self.clbackground.Ocdm0*(1 + z)**3/self.efunc(z)**2
+
+    def Ob(self, z):
+        """
+        Function giving Omega baryon with respect
+        to the scale factor ``a``
+
+        Parameters
+        ----------
+        z : array-like
+            Input redshifts.
+
+        Returns
+        -------
+        efunc : ndarray, or float if input scalar
+            The Omega baryon redshift-scaling with respect
+            to scale factor
+        """
+        return self.clbackground.Ob0*(1 + z)**3/self.efunc(z)**2
+
+    def Ogamma(self, z):
+        """
+        Function giving Omega gamma with respect
+        to the scale factor ``a``
+
+        Parameters
+        ----------
+        z : array-like
+            Input redshifts.
+
+        Returns
+        -------
+        efunc : ndarray, or float if input scalar
+            The Omega gamma redshift-scaling with respect
+            to scale factor
+        """
+        return self.clbackground.Ogamma0*(1 + z)**4/self.efunc(z)**2
+
+    def Onu_nr(self, z):
+        """
+        Function giving the Omega_nu non-relativistic with respect
+        to the scale factor ``a``
+
+        Parameters
+        ----------
+        z : array-like
+            Input redshifts.
+
+        Returns
+        -------
+        Onu_nr : ndarray, or float if input scalar
+            of Omega_nu non-relativistic with respect
+            to the scale factor
+        """
+        #Onu_nr was inferred from other species, TODO change it when additional
+        #species is included.
+        return self.Onr(z) - self.Ocdm(z) - self.Ob(z)
+
+
+    def Onu_r(self, z):
+        """
+        Function giving the Omega_nu relativistic with respect
+        to the scale factor ``a``
+
+        Parameters
+        ----------
+        z : array-like
+            Input redshifts.
+
+        Returns
+        -------
+        Onu_nr : ndarray, or float if input scalar
+            of Omega_nu relativistic with respect
+            to the scale factor
+        """
+        #Onu_r was inferred from other species, TODO change it when additional
+        #species is included.
+        return self.Or(z) - self.Ogamma(z)
+
     def efunc_prime(self, z):
         """
         Function giving the derivative of :func:`~Cosmology.efunc` with respect
@@ -337,39 +528,7 @@ class Cosmology(dict):
             The derivative of the hubble factor redshift-scaling with respect
             to scale factor
         """
-        if not np.all(self.de_density_scale(z)==1.0):
-            raise NotImplementedError("non-constant dark energy redshift dependence is not supported")
-
-        if isiterable(z):
-            z = np.asarray(z)
-        zp1 = 1.0 + z
-
-        # compute derivative of Or term wrt to scale factor
-        if self.has_massive_nu:
-            Or = self.Ogamma0 * (1 + self.nu_relative_density(z))
-
-            # compute derivative of nu_relative_density() function with
-            # uses fitting formula from Komatsu et al 2011
-            p = 1.83
-            invp = 0.54644808743  # 1.0 / p
-            k = 0.3173
-            curr_nu_y = self._nu_y / (1. + np.expand_dims(z, axis=-1))
-            x = (k * curr_nu_y) ** p
-            drel_mass_per =  x / curr_nu_y * (1.0 + x) ** (invp-1) * self._nu_y
-            drel_mass = drel_mass_per.sum(-1) + self._nmasslessnu
-            nu_relative_density_deriv = 0.22710731766 * self._neff_per_nu * drel_mass
-
-            rad_deriv = -4*Or*zp1**5 + zp1**4*self.Ogamma0*nu_relative_density_deriv
-        else:
-            Or = self.Ogamma0 + self.Onu0
-            rad_deriv = -4*Or*zp1**5
-
-        # dE^2 / da (assumes Ode0 independent of a)
-        esq_prime = rad_deriv - 3*self.Om0*zp1**4 - 2*self.Ok0*zp1**3
-
-        # dE/dA
-        eprime = esq_prime / (2*self.efunc(z))
-        return eprime
+        return self.hubble_function_prime(z) * (1 + z)**2/ self.hubble_function(z) / self.hubble_function(0)
 
     @fittable
     def growth_rate(self, z):

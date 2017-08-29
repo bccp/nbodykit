@@ -89,6 +89,12 @@ def test_clone_Om():
         if name in Planck15 and name != 'Om0':
             assert_array_equal(c1[name], Planck15[name])
 
+
+def test_Onu_nr():
+    c1 = Planck15
+    print(Planck15.Onu_nr(10))
+
+
 def test_clone_sigma8():
     c1 = Planck15.clone(sigma8=0.9)
 
