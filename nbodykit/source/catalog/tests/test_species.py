@@ -15,7 +15,10 @@ def test_columns(comm):
     source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42)
     source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84)
 
-    cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2, use_cache=True, BoxSize=512.)
+    cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2, use_cache=True, BoxSize=512., Nmesh=128)
+
+    assert 'BoxSize' in cat.attrs
+    assert 'Nmesh' in cat.attrs
 
     # check all columns are there
     for col in source1:

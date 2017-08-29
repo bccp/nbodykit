@@ -218,18 +218,19 @@ def check_species_metadata(name, attrs, species):
     Check to see if there is a single value for
     ``name`` in the meta-data of all the species
     """
-    _val = attrs.get(species[0]+'.'+name, None)
-    one_value = True
-    if _val is not None:
-        for s in species[1:]:
-            other = attrs.get(s+'.'+name, None)
-            if not numpy.array_equal(_val, other):
-                one_value = False
-    else:
-        one_value = False
+    _vals = []
 
-    if not one_value:
-        raise ValueError("please specify the ``%s`` keyword; " %name + \
-                         "no valid values in ``attrs`` dict")
+    if name in attrs:
+        _vals.append(attrs[name])
 
-    return _val
+    for s in species:
+        if s + '.' + name in attrs:
+            _vals.append(attrs.get(s + '.' + name ))
+
+    if len(_vals) == 0:
+        raise ValueError("please specify ``%s`` attributes")
+
+    if not all(numpy.equal(_vals[0], i).all() for i in _vals):
+        raise ValueError("please specify ``%s`` attributes that are consistent for each species and for the multi species catalog; " % name)
+
+    return _vals[0]
