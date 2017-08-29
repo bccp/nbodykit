@@ -137,7 +137,8 @@ class PerturbationGrowth(object):
             raise ValueError('Neither matter or radiation dominated initial condition. Om(a_i) = %g.' % Om
                            + 'This shall not happen for a reasonable cosmology.')
 
-        y = odeint(self.ode, y0, self.lna, atol=0)
+        # solve with critical point at a=1.0, lna=0.
+        y = odeint(self.ode, y0, self.lna, tcrit=[0.], atol=0)
 
         v1 = []
         v2 = []
