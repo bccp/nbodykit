@@ -53,7 +53,7 @@ def test_linear_norm():
     P = LinearPower(c, redshift=0, transfer='CLASS')
 
     # compute for array
-    k = numpy.logspace(-3, numpy.log10(c.P_k_max), 100)
+    k = numpy.logspace(-3, numpy.log10(0.99*c.P_k_max), 100)
     Pk1 = P(k)
 
     # change sigma8
@@ -122,7 +122,7 @@ def test_halofit():
     Pk = P(0.1)
 
     # compute for array
-    k = numpy.logspace(-3, numpy.log10(c.P_k_max), 100)
+    k = numpy.logspace(-3, numpy.log10(0.99*c.P_k_max), 100)
     Pk1 = P(k)
 
     # change sigma8
@@ -148,7 +148,7 @@ def test_zeldovich():
     Pk = P(0.1)
 
     # compute for array
-    k = numpy.logspace(-3, numpy.log10(c.P_k_max), 100)
+    k = numpy.logspace(-3, numpy.log10(0.99*c.P_k_max), 100)
     Pk1 = P(k)
 
     # change sigma8
