@@ -96,17 +96,16 @@ class PerturbationGrowth(object):
 
     def E(self, a, order=0):
         if order == 0:
-            return self.efunc(1/a - 1.0)
+            return self.efunc(1./a - 1.0)
         else:
-            return self.efunc_prime(1/a - 1.0) * a
+            return self.efunc_prime(1./a - 1.0) * a
 
     def Hfac(self, a):
         return -2. - self.E(a, order=1) / self.E(a)
 
     def Om(self, a):
-        #assert abs(self.Om0 * a ** -3 / self.E(a) **2 - self.cosmo.Om(1.0 / a - 1)) < 1e-6
-        return self.cosmo.Om(1.0 / a - 1)
-        #return self.Om0 * a ** -3 / self.E(a) **2
+        z = 1./a-1
+        return self.cosmo.Omega_b(z) + self.cosmo.Omega_cdm(z) # non-relativistic 
 
     def ode(self, y, lna):
         D1, F1, D2, F2 = y
