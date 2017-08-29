@@ -176,6 +176,30 @@ def test_delitem(comm):
     del source['test']
     assert 'test' not in source
 
+def test_columnaccessor():
+    from nbodykit.base.catalog import ColumnAccessor
+    source = UniformCatalog(nbar=0.2e-3, BoxSize=1024., seed=42)
+
+    c = source['Position']
+    truth = c[0].compute()
+
+    assert isinstance(c, ColumnAccessor)
+    c *= 10.
+    # c is no longer an accessor because it has transformed.
+    assert not isinstance(c, ColumnAccessor)
+
+    # thus it is not affecting original. 
+    assert_array_equal(source['Position'][0].compute(), truth)
+    assert_array_equal(c[0].compute(), truth * 10.)
+
+    # inplace modification is still OK
+    source['Position'] *= 10
+    assert_array_equal(source['Position'][0].compute(), truth * 10)
+
+    # test pretty print.
+    assert 'first' in str(source['Position'])
+    assert 'last' in str(source['Position'])
+
 @MPITest([1, 4])
 def test_copy(comm):
 

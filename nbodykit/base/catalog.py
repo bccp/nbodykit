@@ -10,6 +10,50 @@ import dask.array as da
 # default size of Cache for CatalogSource arrays
 CACHE_SIZE = 1e9
 
+class ColumnAccessor(da.Array):
+    """
+        Provides access to a Column from a Catalog
+
+        This is a thin subclass of `dask.array.Array` to
+        provide a reference to the catalog object,
+        an additional attrs attribute (for recording the 
+        reproducible meta data), and some pretty print support.
+
+        due to particularity of `dask`, any transformation
+        that is not explicitly in-place will return 
+        a `dask.array.Array`, and losing the pointer to
+        the original catalog and the meta data attrs.
+
+    """
+    def __new__(cls, catalog, daskarray):
+        self = da.Array.__new__(ColumnAccessor,
+                daskarray.dask,
+                daskarray.name,
+                daskarray.chunks,
+                daskarray.dtype,
+                daskarray.shape)
+        self.catalog = catalog
+        self.attrs = {}
+        return self
+
+    def as_daskarray(self):
+        return da.Array(
+                self.dask,
+                self.name,
+                self.chunks,
+                self.dtype,
+                self.shape)
+
+    def compute(self):
+        return self.catalog.compute(self)
+
+    def __str__(self):
+        r = da.Array.__str__(self)
+        if len(self) > 0:
+            r = r + "first : %s" % str(self[0].compute())
+        if len(self) > 1:
+            r = r + "last: %s" % str(self[-1].compute())
+        return r
 
 def column(name=None):
     """
@@ -98,6 +142,10 @@ class CatalogSourceBase(object):
         """
         if isinstance(array, da.Array):
             return array
+        elif isinstance(array, ColumnAccessor):
+            # important to get the accessor as a dask array to avoid circular
+            # references
+            return array.as_daskarray()
         else:
             return da.from_array(array, chunks=100000)
 
@@ -175,8 +223,7 @@ class CatalogSourceBase(object):
         # evaluate callables if we need to
         if callable(r): r = r()
 
-        # add a column attrs dict
-        if not hasattr(r, 'attrs'): r.attrs = {}
+        r = ColumnAccessor(self, r)
 
         return r
 
