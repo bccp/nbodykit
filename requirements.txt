@@ -14,3 +14,4 @@ cachey
 sympy
 numexpr
 Corrfunc
+mcfit
