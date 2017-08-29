@@ -12,7 +12,7 @@ def test_lognormal_sparse(comm):
     CurrentMPIComm.set(comm)
 
     # this should generate 15 particles
-    source = LogNormalCatalog(Plin=cosmology.EHPower(cosmo, 0.55),
+    source = LogNormalCatalog(Plin=cosmology.LinearPower(cosmo, 0.55),
                     nbar=1e-5, BoxSize=128., Nmesh=8, seed=42)
 
     mesh = source.to_mesh(compensated=False)
@@ -25,7 +25,7 @@ def test_lognormal_dense(comm):
     cosmo = cosmology.Planck15
     CurrentMPIComm.set(comm)
 
-    source = LogNormalCatalog(Plin=cosmology.EHPower(cosmo, 0.55),
+    source = LogNormalCatalog(Plin=cosmology.LinearPower(cosmo, 0.55),
                     nbar=0.2e-2, BoxSize=128., Nmesh=8, seed=42)
     mesh = source.to_mesh(compensated=False)
 
@@ -37,7 +37,7 @@ def test_lognormal_velocity(comm):
     cosmo = cosmology.Planck15
     CurrentMPIComm.set(comm)
 
-    source = LogNormalCatalog(Plin=cosmology.EHPower(cosmo, 0.55),
+    source = LogNormalCatalog(Plin=cosmology.LinearPower(cosmo, 0.55),
                 nbar=0.5e-2, BoxSize=1024., Nmesh=32, seed=42)
 
     source['Value'] = source['Velocity'][:, 0]**2

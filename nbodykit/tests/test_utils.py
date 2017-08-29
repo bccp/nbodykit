@@ -19,8 +19,9 @@ def test_json_quantity(comm):
     cosmo = cosmology.Planck15
 
     # astropy quantity
+    cosmo2 = cosmo.to_astropy()
     pos = numpy.ones(10, dtype=[('Position', ('f4',3))])
-    data = {'m_nu':cosmo.engine.m_nu, 'H0':cosmo.engine.H0, 'a':numpy.float64(10.0), 'b':10, 'pos':pos}
+    data = {'m_nu':cosmo2.m_nu, 'H0':cosmo2.H0, 'a':numpy.float64(10.0), 'b':10, 'pos':pos}
 
     # write to file
     tmpfile = tempfile.mktemp()

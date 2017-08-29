@@ -65,10 +65,10 @@ class LogNormalCatalog(CatalogSource):
         self.cosmo = cosmo
 
         # try to add attrs from the Plin
-        if isinstance(Plin, cosmology.LinearPowerBase):
+        if hasattr(Plin, 'attrs'):
             self.attrs.update(Plin.attrs)
         else:
-            self.attrs.update({'cosmo.%s' %k:cosmo[k] for k in cosmo})
+            self.attrs['cosmo'] = dict(cosmo)
 
         # save the meta-data
         self.attrs['nbar']     = nbar
@@ -134,8 +134,8 @@ class LogNormalCatalog(CatalogSource):
         _Nmesh[:] = Nmesh
         pm = ParticleMesh(BoxSize=BoxSize, Nmesh=_Nmesh, dtype='f4', comm=self.comm)
 
-        # sample to Poisson points
-        f = self.cosmo.growth_rate(self.attrs['redshift']) # growth rate to do RSD in the Zel'dovich approx
+        # growth rate to do RSD in the Zel'dovich approx
+        f = self.cosmo.scale_independent_growth_rate(self.attrs['redshift'])
 
         # compute the linear overdensity and displacement fields
         delta, disp = mockmaker.gaussian_real_fields(pm, self.Plin, self.attrs['seed'], compute_displacement=True)

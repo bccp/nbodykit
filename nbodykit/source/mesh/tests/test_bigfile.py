@@ -16,7 +16,7 @@ def test_bigfile_grid(comm):
     CurrentMPIComm.set(comm)
 
     # input linear mesh
-    Plin = cosmology.EHPower(cosmo, redshift=0.55)
+    Plin = cosmology.LinearPower(cosmo, redshift=0.55)
     source = LinearMesh(Plin, BoxSize=512, Nmesh=64, seed=42)
 
     real = source.paint(mode='real')

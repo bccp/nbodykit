@@ -22,11 +22,7 @@ def test_sky_to_cartesian(comm):
     s['dec'] = s.rng.uniform(low=-3.6, high=60., size=s.size)
 
     # make the position array
-    s['Position1'] = transform.SkyToCartesion(s['ra'], s['dec'], s['z'], cosmo, interpolate_cdist=True)
-    s['Position2'] = transform.SkyToCartesion(s['ra'], s['dec'], s['z'], cosmo, interpolate_cdist=False)
-
-    # test equality
-    numpy.testing.assert_allclose(s['Position1'], s['Position2'], rtol=1e-5)
+    s['Position1'] = transform.SkyToCartesion(s['ra'], s['dec'], s['z'], cosmo)
 
     # requires dask array
     with pytest.raises(TypeError):

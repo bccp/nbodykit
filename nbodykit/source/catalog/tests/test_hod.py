@@ -16,7 +16,7 @@ def test_no_seed(comm):
     BoxSize = 512
 
     # lognormal particles
-    source = LogNormalCatalog(Plin=cosmology.EHPower(cosmo, redshift),
+    source = LogNormalCatalog(Plin=cosmology.LinearPower(cosmo, redshift),
                                 nbar=3e-3, BoxSize=BoxSize, Nmesh=128)
 
     # seed is set randomly
@@ -41,7 +41,7 @@ def test_no_galaxies(comm):
     redshift = 0.55
     cosmo = cosmology.Planck15
     BoxSize = 512
-    source = LogNormalCatalog(Plin=cosmology.EHPower(cosmo, redshift),
+    source = LogNormalCatalog(Plin=cosmology.LinearPower(cosmo, redshift),
                                 nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
 
     # run FOF
@@ -62,7 +62,7 @@ def test_no_halos(comm):
     BoxSize = 512
 
     # really low number density
-    source = LogNormalCatalog(Plin=cosmology.EHPower(cosmo, redshift),
+    source = LogNormalCatalog(Plin=cosmology.LinearPower(cosmo, redshift),
                                 nbar=3e-5, BoxSize=BoxSize, Nmesh=128, seed=42)
 
     # run FOF
@@ -82,7 +82,7 @@ def test_object_columns(comm):
     redshift = 0.55
     cosmo = cosmology.Planck15
     BoxSize = 512
-    source = LogNormalCatalog(Plin=cosmology.EHPower(cosmo, redshift),
+    source = LogNormalCatalog(Plin=cosmology.LinearPower(cosmo, redshift),
                                 nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
 
     # run FOF
@@ -107,7 +107,7 @@ def test_bad_catalog(comm):
     redshift = 0.55
     cosmo = cosmology.Planck15
     BoxSize = 512
-    source = LogNormalCatalog(Plin=cosmology.EHPower(cosmo, redshift),
+    source = LogNormalCatalog(Plin=cosmology.LinearPower(cosmo, redshift),
                                 nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
 
     # run FOF
@@ -116,7 +116,7 @@ def test_bad_catalog(comm):
 
     # test converting from astropy to nbodykit cosmology
     cat = halos.to_halotools()
-    cat.cosmology = cat.cosmology.engine
+    cat.cosmology = cat.cosmology.to_astropy()
 
     # make the HOD
     hod = HODCatalog(cat, seed=42)
@@ -140,7 +140,7 @@ def test_repopulate(comm):
     redshift = 0.55
     cosmo = cosmology.Planck15
     BoxSize = 512
-    source = LogNormalCatalog(Plin=cosmology.EHPower(cosmo, redshift),
+    source = LogNormalCatalog(Plin=cosmology.LinearPower(cosmo, redshift),
                                 nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
 
     # run FOF
@@ -178,7 +178,7 @@ def test_hod_cm(comm):
     BoxSize = 512
 
     # lognormal particles
-    source = LogNormalCatalog(Plin=cosmology.EHPower(cosmo, redshift),
+    source = LogNormalCatalog(Plin=cosmology.LinearPower(cosmo, redshift),
                                 nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
 
     # run FOF
@@ -204,7 +204,7 @@ def test_hod_peak(comm):
     BoxSize = 512
 
     # lognormal particles
-    source = LogNormalCatalog(Plin=cosmology.EHPower(cosmo, redshift),
+    source = LogNormalCatalog(Plin=cosmology.LinearPower(cosmo, redshift),
                                 nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
 
     source['Density'] = KDDensity(source).density
@@ -232,7 +232,7 @@ def test_save(comm):
     BoxSize = 512
 
     # lognormal particles
-    source = LogNormalCatalog(Plin=cosmology.EHPower(cosmo, redshift),
+    source = LogNormalCatalog(Plin=cosmology.LinearPower(cosmo, redshift),
                                 nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
 
     # run FOF
