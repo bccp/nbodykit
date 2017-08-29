@@ -12,7 +12,7 @@ def test_fof(comm):
     CurrentMPIComm.set(comm)
 
     # lognormal particles
-    source = LogNormalCatalog(Plin=cosmology.EHPower(cosmo, 0.55),
+    source = LogNormalCatalog(Plin=cosmology.LinearPower(cosmo, 0.55),
                 nbar=3e-3, BoxSize=512., Nmesh=128, seed=42)
 
     # compute P(k,mu) and multipoles

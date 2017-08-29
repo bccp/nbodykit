@@ -103,7 +103,9 @@ class HODBase(ArrayCatalog):
         self.attrs['redshift'] = redshift
         self.attrs['seed'] = seed
         self.attrs.update(params)
-        self.attrs.update({'cosmo.%s' %k : cosmo[k] for k in cosmo})
+
+        # add cosmo attributes
+        self.attrs['cosmo'] = dict(cosmo)
 
         # make the model!
         self._model = self.__makemodel__()
@@ -382,7 +384,7 @@ class HODCatalog(HODBase):
         model['satellites_occupation'] = satocc
 
         # profile functions
-        kws = {'cosmology':self.cosmo.engine, 'redshift':self.attrs['redshift'], 'mdef':self.attrs['mdef']}
+        kws = {'cosmology':self.cosmo.to_astropy(), 'redshift':self.attrs['redshift'], 'mdef':self.attrs['mdef']}
         model['centrals_profile'] = TrivialPhaseSpace(**kws)
         model['satellites_profile'] = NFWPhaseSpace(conc_mass_model=conc_mass_model, **kws)
 
