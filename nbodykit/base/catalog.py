@@ -12,18 +12,17 @@ CACHE_SIZE = 1e9
 
 class ColumnAccessor(da.Array):
     """
-        Provides access to a Column from a Catalog
+    Provides access to a Column from a Catalog
 
-        This is a thin subclass of `dask.array.Array` to
-        provide a reference to the catalog object,
-        an additional attrs attribute (for recording the 
-        reproducible meta data), and some pretty print support.
+    This is a thin subclass of :class:`dask.array.Array` to
+    provide a reference to the catalog object,
+    an additional ``attrs`` attribute (for recording the
+    reproducible meta-data), and some pretty print support.
 
-        due to particularity of `dask`, any transformation
-        that is not explicitly in-place will return 
-        a `dask.array.Array`, and losing the pointer to
-        the original catalog and the meta data attrs.
-
+    Due to particularity of :mod:`dask`, any transformation
+    that is not explicitly in-place will return
+    a :class:`dask.array.Array`, and losing the pointer to
+    the original catalog and the meta data attrs.
     """
     def __new__(cls, catalog, daskarray):
         self = da.Array.__new__(ColumnAccessor,
@@ -50,9 +49,9 @@ class ColumnAccessor(da.Array):
     def __str__(self):
         r = da.Array.__str__(self)
         if len(self) > 0:
-            r = r + "first : %s" % str(self[0].compute())
+            r = r + " first : %s" % str(self[0].compute())
         if len(self) > 1:
-            r = r + "last: %s" % str(self[-1].compute())
+            r = r + " last: %s" % str(self[-1].compute())
         return r
 
 def column(name=None):

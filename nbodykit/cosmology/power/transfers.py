@@ -118,12 +118,12 @@ class EisensteinHu(object):
         self.beta_b    = 0.5 + self.f_baryon + (3. - 2.*self.f_baryon) * np.sqrt( (17.2*self.Omh2) ** 2 + 1 )
 
     def __call__(self, k):
-        """
+        r"""
         Return the Eisenstein-Hu transfer function with BAO wiggles.
 
         This is normalized to unity as :math:`k \rightarrow 0` at :math:`z=0`.
         The redshift scaling is provided by the
-        :func:`scale_independent_growth_factor` function.
+        :func:`Cosmology.scale_independent_growth_factor` function.
 
         Parameters
         ---------
@@ -203,12 +203,12 @@ class NoWiggleEisensteinHu(object):
 
 
     def __call__(self, k):
-        """
+        r"""
         Return the Eisenstein-Hu transfer function without BAO wiggles.
 
         This is normalized to unity as :math:`k \rightarrow 0` at :math:`z=0`.
         The redshift scaling is provided by the
-        :func:`scale_independent_growth_factor` function.
+        :func:`~Cosmology.scale_independent_growth_factor` function.
 
         Parameters
         ---------

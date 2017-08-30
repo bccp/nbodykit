@@ -120,7 +120,7 @@ def SkyToUnitSphere(ra, dec, degrees=True):
     the unit sphere.
 
     Parameters
-    -----------
+    ----------
     ra : :class:`dask.array.Array`; shape: (N,)
         the right ascension angular coordinate
     dec : :class:`dask.array.Array`; ; shape: (N,)
@@ -135,7 +135,7 @@ def SkyToUnitSphere(ra, dec, degrees=True):
         ``x``, ``y``, and ``z``
 
     Raises
-   ------
+    ------
     TypeError
         If the input columns are not dask arrays
     """

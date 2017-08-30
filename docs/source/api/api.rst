@@ -42,14 +42,45 @@ Cosmology (:mod:`nbodykit.cosmology`)
 
 .. currentmodule:: nbodykit.cosmology
 
+The main cosmology object is
+
 .. autosummary::
 
-  ~core.Cosmology
-  ~ehpower.EHPower
-  ~ehpower.NoWiggleEHPower
+  ~cosmology.Cosmology
+
+with available transfer functions computed using
+
+.. autosummary::
+
+  ~power.transfers.CLASS
+  ~power.transfers.EisensteinHu
+  ~power.transfers.NoWiggleEisensteinHu
+
+There are several power spectrum classes
+
+.. autosummary::
+
+  ~power.linear.LinearPower
+  ~power.halofit.HalofitPower
+  ~power.zeldovich.ZeldovichPower
+
+And a correlation function class and functions for transforming between
+power spectra and correlation functions
+
+.. autosummary::
+
+  ~correlation.CorrelationFunction
+  ~correlation.xi_to_pk
+  ~correlation.pk_to_xi
+
+
+We also have a class for computing LPT background calculations:
+
+.. autosummary::
+
   ~background.PerturbationGrowth
 
-Built-in cosmologies:
+The built-in cosmologies are:
 
 ===================================== ============================== ====  ===== =======
 Name                                  Source                         H0    Om    Flat

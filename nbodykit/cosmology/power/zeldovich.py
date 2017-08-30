@@ -148,7 +148,7 @@ class ZeldovichPower(object):
         return term1 + term2
 
     def __call__(self, k):
-        """
+        r"""
         Return the Zel'dovich power in :math:`h^{-3} \mathrm{Mpc}^3 at
         :attr:`redshift` and ``k``, where ``k`` is in units of
         :math:`h \mathrm{Mpc}^{-1}`.
@@ -182,7 +182,7 @@ class ZeldovichPower(object):
         return vectorize_if_needed(Pzel_at_k, k)
 
 class ZeldovichJ0(mcfit.mcfit):
-    """
+    r"""
     An integral over :math:`j_0` needed to compute the Zeldovich power. The
     integral is given by:
 
@@ -198,7 +198,7 @@ class ZeldovichJ0(mcfit.mcfit):
         mcfit.mcfit.__init__(self, k, UK, q=1.0, lowring=False, prefac=prefac, postfac=postfac)
 
 class ZeldovichJ1(mcfit.mcfit):
-    """
+    r"""
     An integral over :math:`j_1` needed to compute the Zeldovich power. The
     integral is given by:
 
@@ -216,7 +216,7 @@ class ZeldovichJ1(mcfit.mcfit):
 
 
 class ZeldovichPowerIntegral(mcfit.mcfit):
-    """
+    r"""
     The integral needed to evaluate the density auto spectrum in the
     Zel'dovich approximation.
 

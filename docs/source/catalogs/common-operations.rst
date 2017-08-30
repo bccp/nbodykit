@@ -389,9 +389,6 @@ as the ``Position`` column.
 - Whether the right ascension and declination arrays are in degrees
   (as opposed to radians) should be specified via the ``degrees`` keyword.
 - The units of the returned ``Position`` column are :math:`\mathrm{Mpc}/h`.
-- By default, the redshift to comoving distance calculation uses interpolated
-  results for significant speed-ups. Set ``interpolate_cdist`` to ``False``
-  to compute exact results.
 
 .. _transform-da:
 

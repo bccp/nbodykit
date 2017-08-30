@@ -162,7 +162,7 @@ class CatalogMesh(MeshSource, CatalogSource):
             The density field on the mesh is normalized as :math:`1+\delta`,
             such that the collective mean of the field is unity.
 
-        See the :ref:`painting-mesh <documentation>` on painting for more 
+        See the :ref:`documentation <painting-mesh>` on painting for more 
         details on painting catalogs to a mesh.
 
         Returns

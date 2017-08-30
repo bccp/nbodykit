@@ -12,7 +12,7 @@ Changelog
 * SimulationBoxPairCount and SurveyDataPairCount classes added to perform pair counting of objects in either simulation boxes or from survey data catalogs (using ``Corrfunc`` code)
 * large addition of documentation for version 0.2.x; still partially completed
 * DataSet has been renamed to BinnedStatistic
-* computatation of ``dk` fixed in ProjectedFFTPower
+* calculation of ``dk`` fixed in ProjectedFFTPower
 * paint() supports a Nmesh parameter, for easier re-sampling of mesh objects
 * addition of ``Value`` column for painting mesh objects; this represents the value of the field painted, i.e., unity to paint density, or velocity to paint momentum (number-weighted velocity)
 * addition of style module with matplotlib style sheet to make nice plots in our doc tutorials; this makes the docs reproducible by users
