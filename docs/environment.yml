@@ -29,6 +29,8 @@ dependencies:
 - halotools
 - fitsio
 - corrfunc
+- classylss
+- mcfit
 - IPython
 - numpydoc
 - sphinx<1.6
