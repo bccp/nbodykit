@@ -27,6 +27,13 @@ def test_load_precision():
     c = Cosmology(gauge='synchronous', tol_background_integration=1e-5, **p)
     assert_allclose(c.Omega_cdm(0), c.Omega0_cdm)
 
+def test_clone():
+    c = Cosmology(gauge='synchronous', tol_background_integration=1e-5)
+    c2 = c.clone(Omega_b=0.04)
+    assert_allclose(c2.Omega0_b, 0.04)
+    c2 = c.clone()
+    assert_allclose(c2.Omega0_b, 0.04)
+
 def test_from_file():
 
     import tempfile, pickle
