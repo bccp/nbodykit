@@ -66,12 +66,12 @@ class RedshiftHistogram(object):
         self.source = source
         self.cosmo  = cosmo
 
-        self.attrs             = {}
-        self.attrs['edges']    = bins
-        self.attrs['fsky']     = fsky
+        self.attrs = {}
+        self.attrs['edges'] = bins
+        self.attrs['fsky'] = fsky
         self.attrs['redshift'] = redshift
-        self.attrs['weight']   = weight
-        self.attrs.update({'cosmo.%s' %k:cosmo[k] for k in cosmo})
+        self.attrs['weight'] = weight
+        self.attrs['cosmo'] = dict(cosmo)
 
         # and run
         self.run()
@@ -127,8 +127,8 @@ class RedshiftHistogram(object):
         if self.comm.rank == 0:
             self.logger.info("using cosmology %s to compute volume in units of (Mpc/h)^3" %str(self.cosmo))
             self.logger.info("sky fraction used in volume calculation: %.4f" %self.attrs['fsky'])
-        R_hi = self.cosmo.comoving_distance(edges[1:]).value * self.cosmo.h
-        R_lo = self.cosmo.comoving_distance(edges[:-1]).value * self.cosmo.h
+        R_hi = self.cosmo.comoving_distance(edges[1:]) # in Mpc/h
+        R_lo = self.cosmo.comoving_distance(edges[:-1]) # in Mpc/h
         dV   = (4./3.)*numpy.pi*(R_hi**3 - R_lo**3) * self.attrs['fsky']
 
         # store the results

@@ -7,14 +7,14 @@ from nbodykit.algorithms.kdtree import KDDensity
 
 # debug logging
 setup_logging("debug")
-    
+
 @MPITest([1, 4])
 def test_kddensity(comm):
     cosmo = cosmology.Planck15
 
     CurrentMPIComm.set(comm)
 
-    source = LogNormalCatalog(Plin=cosmology.EHPower(cosmo, 0.55),
+    source = LogNormalCatalog(Plin=cosmology.LinearPower(cosmo, 0.55),
                 nbar=3e-3, BoxSize=512., Nmesh=128, seed=42)
 
     kdden = KDDensity(source)

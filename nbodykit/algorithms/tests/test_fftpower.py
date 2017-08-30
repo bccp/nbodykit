@@ -115,7 +115,8 @@ def test_fftpower_mismatch_boxsize(comm):
 
     # input sources
     source1 = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42)
-    source2 = LinearMesh(cosmology.NoWiggleEHPower(cosmo, 0.55), BoxSize=1024, Nmesh=32, seed=33)
+    Plin = cosmology.LinearPower(cosmo, 0.55, transfer='NoWiggleEisensteinHu')
+    source2 = LinearMesh(Plin, BoxSize=1024, Nmesh=32, seed=33)
 
     r = FFTPower(source1, second=source2, mode='1d', BoxSize=1024, Nmesh=32)
 
@@ -127,7 +128,8 @@ def test_fftpower_mismatch_boxsize_fail(comm):
 
     # input sources
     mesh1 = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42).to_mesh(Nmesh=32)
-    mesh2 = LinearMesh(cosmology.NoWiggleEHPower(cosmo, 0.55), BoxSize=1024, Nmesh=32, seed=33)
+    Plin = cosmology.LinearPower(cosmo, 0.55, transfer='NoWiggleEisensteinHu')
+    mesh2 = LinearMesh(Plin, BoxSize=1024, Nmesh=32, seed=33)
 
     # raises an exception b/c meshes have different box sizes
     with pytest.raises(ValueError):

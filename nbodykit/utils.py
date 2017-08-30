@@ -277,6 +277,7 @@ def attrs_to_dict(obj, prefix):
 
 import json
 from astropy.units import Quantity, Unit
+from nbodykit.cosmology import Cosmology
 
 class JSONEncoder(json.JSONEncoder):
     """
@@ -284,6 +285,14 @@ class JSONEncoder(json.JSONEncoder):
     complex values, and :class:`astropy.units.Quantity` objects.
     """
     def default(self, obj):
+
+        # Cosmology object
+        if isinstance(obj, Cosmology):
+            d = {}
+            d['__cosmo__'] = True
+            d['__args__'] = obj.args.copy()
+            d['__args__'].update(obj.kwargs)
+            return d
 
         # astropy quantity
         if isinstance(obj, Quantity):
@@ -365,6 +374,9 @@ class JSONDecoder(json.JSONDecoder):
             if d is None:
                 d = value['__data__']
             d = Quantity(d, Unit(value['__unit__']))
+
+        if '__cosmo__' in value:
+            d = Cosmology(**value['__args__'])
 
         if d is not None:
             return d

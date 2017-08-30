@@ -40,7 +40,7 @@ class Multipoles3PCF(object):
 
     References
     ----------
-    Slepian and Eisenstein, MNRAS 454, 4142–4158 (2015)
+    Slepian and Eisenstein, MNRAS 454, 4142-4158 (2015)
     """
     logger = logging.getLogger('Multipoles3PCF')
 

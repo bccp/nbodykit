@@ -14,3 +14,5 @@ cachey
 sympy
 numexpr
 Corrfunc
+mcfit
+classylss>=0.2

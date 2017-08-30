@@ -561,9 +561,6 @@ def get_comoving_dist(comm, pos, cosmo):
     ra, dec, redshift = numpy.deg2rad(pos[:,0]), numpy.deg2rad(pos[:,1]), pos[:,2]
 
     # compute comoving distance
-    zmin, zmax = redshift.min(), redshift.max()
-    zbins = numpy.logspace(numpy.log10(zmin), numpy.log10(zmax), 512)
-    comoving_distance = cosmo.comoving_distance.fit('z', bins=zbins)
-    rdist = comoving_distance(redshift).value * cosmo.h
+    rdist = cosmo.comoving_distance(redshift) # in Mpc/h
 
     return rdist

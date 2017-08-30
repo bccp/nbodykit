@@ -153,7 +153,7 @@ def SkyToUnitSphere(ra, dec, degrees=True):
     z = da.sin( dec )
     return da.vstack([x,y,z]).T
 
-def SkyToCartesion(ra, dec, redshift, cosmo, degrees=True, interpolate_cdist=True):
+def SkyToCartesion(ra, dec, redshift, cosmo, degrees=True):
     """
     Convert sky coordinates (``ra``, ``dec``, ``redshift``) to a
     Cartesian ``Position`` column.
@@ -170,13 +170,10 @@ def SkyToCartesion(ra, dec, redshift, cosmo, degrees=True, interpolate_cdist=Tru
         the declination angular coordinate
     redshift : :class:`dask.array.Array`; shape: (N,)
         the redshift coordinate
-    cosmo : :class:`~nbodykit.cosmology.core.Cosmology`
+    cosmo : :class:`~nbodykit.cosmology.cosmology.Cosmology`
         the cosmology used to meausre the comoving distance from ``redshift``
     degrees : bool, optional
         specifies whether ``ra`` and ``dec`` are in degrees
-    interpolate_cdist : bool, optional
-        if ``True``, interpolate the comoving distance as a function of redshift
-        before evaluating the full results; can lead to significant speed improvements
 
     Returns
     -------
@@ -196,11 +193,7 @@ def SkyToCartesion(ra, dec, redshift, cosmo, degrees=True, interpolate_cdist=Tru
     pos = SkyToUnitSphere(ra, dec, degrees=degrees)
 
     # multiply by the comoving distance in Mpc/h
-    if interpolate_cdist:
-        comoving_distance = cosmo.comoving_distance.fit('z', bins=numpy.logspace(-5, 1, 1024))
-    else:
-        comoving_distance = cosmo.comoving_distance
-    r = redshift.map_blocks(lambda z: comoving_distance(z).value * cosmo.h, dtype=redshift.dtype)
+    r = redshift.map_blocks(lambda z: cosmo.comoving_distance(z), dtype=redshift.dtype)
 
     return r[:,None] * pos
 
@@ -218,7 +211,7 @@ def HaloConcentration(mass, cosmo, redshift, mdef='vir'):
     mass : array_like
         either a numpy or dask array specifying the halo mass; units
         assumed to be :math:`M_{\odot}/h`
-    cosmo : :class:`~nbodykit.cosmology.core.Cosmology`
+    cosmo : :class:`~nbodykit.cosmology.cosmology.Cosmology`
         the cosmology instance used in the analytic formula
     redshift : float
         compute the c(M) relation at this redshift
@@ -243,7 +236,7 @@ def HaloConcentration(mass, cosmo, redshift, mdef='vir'):
         mass = da.from_array(mass, chunks=100000)
 
     # initialize the model
-    kws = {'cosmology':cosmo.engine, 'conc_mass_model':'dutton_maccio14', 'mdef':mdef, 'redshift':redshift}
+    kws = {'cosmology':cosmo.to_astropy(), 'conc_mass_model':'dutton_maccio14', 'mdef':mdef, 'redshift':redshift}
     model = NFWProfile(**kws)
 
     return mass.map_blocks(lambda mass: model.conc_NFWmodel(prim_haloprop=mass), dtype=mass.dtype)
@@ -268,7 +261,7 @@ def HaloRadius(mass, cosmo, redshift, mdef='vir'):
     mass : array_like
         either a numpy or dask array specifying the halo mass; units
         assumed to be :math:`M_{\odot}/h`
-    cosmo : :class:`~nbodykit.cosmology.core.Cosmology`
+    cosmo : :class:`~nbodykit.cosmology.cosmology.Cosmology`
         the cosmology instance
     redshift : float
         compute the density threshold which determines the R(M) relation
@@ -288,5 +281,5 @@ def HaloRadius(mass, cosmo, redshift, mdef='vir'):
     if not isinstance(mass, da.Array):
         mass = da.from_array(mass, chunks=100000)
 
-    kws = {'cosmology':cosmo.engine, 'mdef':mdef, 'redshift':redshift}
+    kws = {'cosmology':cosmo.to_astropy(), 'mdef':mdef, 'redshift':redshift}
     return mass.map_blocks(lambda mass: halo_mass_to_halo_radius(mass=mass, **kws), dtype=mass.dtype)
