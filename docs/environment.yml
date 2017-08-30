@@ -29,7 +29,7 @@ dependencies:
 - halotools
 - fitsio
 - corrfunc
-- classylss
+- classylss>=0.2
 - mcfit
 - IPython
 - numpydoc
