@@ -1,9 +1,18 @@
 Changelog
 =========
 
-0.2.6 (unreleased)
+0.2.7 (unreleased)
 ------------------
 
+0.2.6
+-----
+
+* updated Cosmology class built on classylss, a Python binding of the CLASS Boltzmann code
+* LinearPower object added with CLASS or Eisenstein-Hu transfer
+* ZeldovichPower object added to compute Zel'dovich power spectrum
+* HalofitPower object added to compute nonlinear power
+* CorrelationFunction object added to FFT power spectra to compute theoretical correlation functions
+* EHPower and NoWiggleEHPower deprecated in favor of LinearPower object
 
 0.2.5
 -----
