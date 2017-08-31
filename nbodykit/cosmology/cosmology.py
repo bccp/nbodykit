@@ -10,6 +10,8 @@ class Cosmology(object):
     A cosmology calculator based on the CLASS binding in :mod:`classylss`.
 
     It is a collection of all method provided by the CLASS interfaces.
+    The object is immutable. To obtain an instance with a new set of parameters
+    use :method:`clone` or :method:`match`.
 
     The individual interfaces can be accessed too, such that
     `c.Spectra.get_transfer` and `c.get_transfer` are identical.
@@ -35,8 +37,9 @@ class Cosmology(object):
       inferred by the curvature condition.
     * Non-cosmological constant dark energy can be used by specifying the
       ``w0_fld``, ``wa_fld``, and/or ``Omega_fld`` values.
-    * The ``sigma8`` attribute can be set to the desired value, and the internal
-      value of ``A_s`` will be automatically adjusted.
+    * To pass in CLASS parameters that are not valid Python argument names, use
+      the dictionary /keyward arguments trick, e.g.
+      `Cosmology(..., **{'temperature contributions': 'y'})`
 
     Parameters
     ----------
@@ -45,7 +48,8 @@ class Cosmology(object):
     T_cmb : float
         the temperature of the CMB in Kelvins
     Omega_b : float
-        the current baryon density parameter, :math:`\Omega_{b,0}`
+        the current baryon density parameter, :math:`\Omega_{b,0}`. Currently
+        unrealisitic cosmology where Omega_b == 0 is not supported.
     Omega_cdm : float
         the current cold dark matter density parameter, :math:`\Omega_{cdm,0}`
     N_ur : float
@@ -74,9 +78,14 @@ class Cosmology(object):
     verbose : bool
         whether to turn on the default CLASS logging for all submodules
     **kwargs :
-        extra keyword parameters to pass to CLASS; users should be wary
-        of configuration options that may conflict with the base set
-        of parameters
+        extra keyword parameters to pass to CLASS. Mainly used to pass-in
+        parameter names that are not valid Python function argument names,
+        e.g. `temperature contributions`, or `number count contributions`.
+        Users should be wary of configuration options that may conflict
+        with the base set of parameters
+        they shall not be in conflict with the parameters
+        inferred from cosmo. To override parameters,
+        chain the result with :method:`clone`.
     """
     # delegate resolve order -- a pun at mro; which in
     # this case introduces the meta class bloat and doesn't solve
@@ -114,17 +123,22 @@ class Cosmology(object):
         # remove some non-CLASS variables
         args.pop('self')
 
+        # merge the kwargs; without resolving conflicts.
+        args.update(kwargs)
+
+        # verify and set defaults
+        pars = compile_args(args)
+
         # use set state to de-serialize the object.
-        self.__setstate__((args,kwargs))
+        self.__setstate__(pars)
 
     def __iter__(self):
         """
         Allows dict() to be used on class.
         """
-        args = self.args.copy()
-        args.update(self.kwargs)
-        for k in args:
-            yield k, args[k]
+        pars = self.pars.copy()
+        for k in pars:
+            yield k, pars[k]
 
     def __dir__(self):
         """ a list of all members from all delegate classes """
@@ -158,7 +172,7 @@ class Cosmology(object):
             raise AttributeError("Attribute `%s` not found in any of the delegate objects" % name)
 
     def __getstate__(self):
-        return (self.args, self.kwargs)
+        return (self.pars)
 
     @property
     def sigma8(self):
@@ -166,16 +180,27 @@ class Cosmology(object):
         The amplitude of matter fluctuations at :math:`z=0` in a sphere
         of radius :math:`r = 8 \ h^{-1}\mathrm{Mpc}`.
 
-        This is not an input CLASS parameter, but users can set this parameter
-        and the scalar amplitude ``A_s`` will be internally adjusted to
+        This is not an input CLASS parameter. To scale ``sigma8``, use
+        :method:`match`, which adjusts scalar amplitude ``A_s`` to 
         achieve the desired ``sigma8``.
         """
         return self.Spectra.sigma8
 
-    @sigma8.setter
-    def sigma8(self, value):
-        if not numpy.isclose(self.sigma8, value):
-            set_sigma8(self, value, inplace=True)
+    def match(self, sigma8=None):
+        """
+        Creates a new cosmology that matches a set of derived parameters.
+
+        Currently only ``sigma8`` is supported.
+        ``sigma8`` is not an input CLASS parameter.
+        We adjust scalar amplitude ``A_s`` to achieve the desired ``sigma8``.
+
+        The difference between clone is that we can only modify one of these
+        parameters at once, because some sort of renormalization is required.
+
+        """
+        if sigma8 is not None:
+            return self.clone(A_s=self.A_s * (sigma8/self.sigma8)**2)
+        return self
 
     def to_astropy(self):
         """
@@ -233,7 +258,6 @@ class Cosmology(object):
             cls = prefix + "LambdaCDM"
         cls = getattr(ac, cls)
 
-        print(cls)
         return cls(**pars)
 
     @classmethod
@@ -247,7 +271,10 @@ class Cosmology(object):
         cosmo : subclass of :class:`astropy.cosmology.FLRW`.
             the astropy cosmology instance
         **kwargs :
-            extra keyword parameters to pass when initializing
+            extra keyword parameters to pass when initializing;
+            they shall not be in conflict with the parameters
+            inferred from cosmo. To override parameters,
+            chain the result with :method:`clone`.
 
         Returns
         -------
@@ -255,6 +282,8 @@ class Cosmology(object):
             the initialized cosmology object
         """
         args = astropy_to_dict(cosmo)
+        # merge in additional arguments -- this will die if
+        # there are conflicts.
         args.update(kwargs)
         return Cosmology(**args)
 
@@ -267,36 +296,30 @@ class Cosmology(object):
         ----------
         filename : str
             the name of the parameter file to read
+        **kwargs :
+            extra keyword parameters to pass when initializing;
+            they shall not be in conflict with the parameters
+            inferred from cosmo. To override parameters,
+            chain the result with :method:`clone`.
         """
         from classylss import load_ini
 
         # extract dictionary of parameters from the file
         pars = load_ini(filename)
-        pars.update(**kwargs)
+        pars.update(kwargs)
 
-        # initialize the engine as the backup delegate.
-        toret = object.__new__(cls)
-        toret.engine = ClassEngine(pars)
-        toret.delegates = {ClassEngine: toret.engine}
-
-        # reconstruct the correct __init__ params
-        args, kwargs = sanitize_class_params(toret, pars)
-
-        toret.args = args
-        toret.kwargs = kwargs
-        return toret
+        self = object.__new__(Cosmology)
+        self.__setstate__(pars)
+        return self
 
     def __setstate__(self, state):
 
-        # remember for serialization
-        self.args, self.kwargs = state
-
-        # verify and set defaults
-        pars = verify_parameters(self.args, self.kwargs)
+        pars = state
 
         # initialize the engine as the backup delegate.
         self.engine = ClassEngine(pars)
         self.delegates = {ClassEngine: self.engine}
+        self.pars = pars
 
     def clone(self, **kwargs):
         """
@@ -313,20 +336,14 @@ class Cosmology(object):
         :class:`Cosmology`
             a copy of self, with the input ``kwargs`` adjusted
         """
-        # initialize a new object (so we have sanitized args/kwargs)
-        new = Cosmology(**kwargs)
+        # this call to merge_args is OK because self.pars is
+        # a valid set of args
+        args = merge_args(self.pars, kwargs)
+        pars = compile_args(args)
 
-        # the named keywords
-        args = self.args.copy()
-        args.update(new.args)
-
-        # the extra keywords
-        kwargs = self.kwargs.copy()
-        kwargs.update(new.kwargs)
-        args.update(kwargs)
-
-        return Cosmology(**args)
-
+        c = object.__new__(Cosmology)
+        c.__setstate__(pars)
+        return c
 
 def astropy_to_dict(cosmo):
     """
@@ -390,178 +407,159 @@ def astropy_to_dict(cosmo):
 
     return pars
 
-def verify_parameters(args, extra):
+def compile_args(args):
     """
-    Verify the input parameters to a :class:`Cosmology` object and
-    set various default values.
-    """
-    # check for conflicts
-    for par in CONFLICTS:
-        for p in CONFLICTS[par]:
-            if p in extra:
-                raise ValueError("input parameter conflict; use '%s', not '%s'" %(par, p))
+    Compile the input args of Cosmology object to the input parameters (pars) to
+    a :class:`Cosmology` object.
 
-    pars = {}
-    pars.update(args)
-    pars.update(extra)
+    A variety of defaults are set to tune CLASS for quantities used in 
+    large scale structures.
+
+    Difference between pars and args:
+     - anything that is valid pars is also valid args.
+     - after replacing our customizations in args, we get pars.
+
+    Note that CLASS will check for additional conflicts.
+
+    see :method:`merge_args`
+    """
+    pars = {} # we try to make pars write only.
 
     # set some default parameters
     pars.setdefault('output', "vTk dTk mPk")
     pars.setdefault('extra metric transfer functions', 'y')
 
-    # no massive neutrinos
-    if pars.get('m_ncdm', None) is None:
-        pars['m_ncdm'] = []
+    # args and pars are pretty much compatible;
+    pars.update(args)
 
-    # a single massive neutrino
-    if numpy.isscalar(pars['m_ncdm']):
-        pars['m_ncdm'] = [pars['m_ncdm']]
-
-    # needs to be a list
-    if not isinstance(pars['m_ncdm'], (list,numpy.ndarray)):
-        raise TypeError("``m_ncdm`` should be a list of mass values in eV")
-
-    # check gauge
-    if pars.get('gauge', 'synchronous') not in ['synchronous', 'newtonian']:
-        raise ValueError("'gauge' should be 'synchronous' or 'newtonian'")
-
-    for m in pars['m_ncdm']:
-        if m == 0:
-            raise ValueError("A zero mass is specified in the non-cold dark matter list. "
-                             "This is not needed, as we automatically set N_ur based on "
-                             "the number of entries in m_ncdm such that Neff = 3.046.")
-
-    # remove None's -- use CLASS default
+    # remove None's -- None means using a default from CLASS
     for key in list(pars.keys()):
         if pars[key] is None: pars.pop(key)
 
+    # turn on verbosity
+    if 'verbose' in args:
+        pars.pop('verbose')
+        verbose = args['verbose']
+        if verbose:
+            for par in ['input', 'background', 'thermodynamics', 'perturbations',
+                        'transfer', 'primordial', 'spectra', 'nonlinear', 'lensing']:
+                name = par + '_verbose'
+                if name not in pars: pars[name] = 1
+
+    # no massive neutrinos
+    if 'm_ncdm' in args:
+        pars.pop('m_ncdm')
+        m_ncdm = args['m_ncdm']
+        if m_ncdm is None:
+            m_ncdm = []
+
+        if numpy.isscalar(m_ncdm):
+            # a single massive neutrino
+            m_ncdm = [m_ncdm]
+
+        if isinstance(m_ncdm, (list, numpy.ndarray)):
+            m_ncdm = list(m_ncdm)
+        else:
+            raise TypeError("``m_ncdm`` should be a list of mass values in eV")
+
+        for m in m_ncdm:
+            if m == 0:
+                raise ValueError("A zero mass is specified in the non-cold dark matter list. "
+                                 "This is not needed, as we automatically set N_ur based on "
+                                 "the number of entries in m_ncdm such that Neff = 3.046.")
+
+        # number of massive neutrino species
+        pars['N_ncdm'] = len(m_ncdm)
+
+        # m_ncdm only needed if we have massive neutrinos
+        if len(m_ncdm) > 0:
+            pars['m_ncdm'] = m_ncdm
+
+        # from CLASS notes:
+        # one more remark: if you have respectively 1,2,3 massive neutrinos,
+        # if you stick to the default value pm equal to 0.71611, designed to give m/omega of
+        # 93.14 eV, and if you want to use N_ur to get N_eff equal to 3.046 in the early universe,
+        # then you should pass here respectively 2.0328,1.0196,0.00641
+        N_ur_table = [3.046, 2.0328, 1.0196, 0.00641]
+        if args['N_ur'] is None:
+            pars['N_ur'] = N_ur_table[len(m_ncdm)]
+
+    if 'N_ur' in args:
+        if args['N_ur'] is not None:
+            pars['N_ur'] = args['N_ur']
+
+    # check gauge
+    if 'gauge' in args:
+        if args['gauge'] not in ['synchronous', 'newtonian']:
+            raise ValueError("'gauge' should be 'synchronous' or 'newtonian'")
+
     # set cosmological constant to zero if we got fluid w0/wa
-    if 'w0_fld' in pars or 'wa_fld' in pars:
-        if pars.get('Omega_Lambda', 0) > 0:
+    if 'w0_fld' in args or 'wa_fld' in args:
+        if args.get('Omega_Lambda', 0) > 0:
             raise ValueError(("non-zero fOmega_Lambda (cosmological constant) specified as "
                              "well as fluid w0/wa; use Omega_fld instead"))
         pars['Omega_Lambda'] = 0.
 
-    # turn on verbosity
-    verbose = pars.pop('verbose', False)
-    if verbose:
-        for par in ['input', 'background', 'thermodynamics', 'perturbations',
-                    'transfer', 'primordial', 'spectra', 'nonlinear', 'lensing']:
-            name = par + '_verbose'
-            if name not in pars: pars[name] = 1
+    def set_alias(pars_name, args_name):
+        if args_name not in args: return
+        v = args[args_name]
+        pars.pop(args_name)
+        if pars_name in args:
+            v = args[pars_name]
+        pars[pars_name] = v
+
 
     # maximum k value
-    if 'P_k_max_h/Mpc' not in pars:
-        pars['P_k_max_h/Mpc'] = pars.pop('P_k_max', 10.)
+    set_alias('P_k_max_h/Mpc', 'P_k_max')
 
     # maximum redshift
-    if 'z_max_pk' not in pars:
-        pars['z_max_pk'] = pars.pop('P_z_max', 100.)
+    set_alias('z_max_pk', 'P_z_max')
 
-    # nonlinear power?
-    if 'non linear' not in pars:
-        if pars.pop('nonlinear', False):
-            pars['non linear'] = 'halofit'
-
-    # number of massive neutrino species
-    pars['N_ncdm'] = len(pars['m_ncdm'])
-
-    # m_ncdm only needed if we have massive neutrinos
-    if not pars['N_ncdm']: pars.pop('m_ncdm')
-
-    # from CLASS notes:
-    # one more remark: if you have respectively 1,2,3 massive neutrinos,
-    # if you stick to the default value pm equal to 0.71611, designed to give m/omega of
-    # 93.14 eV, and if you want to use N_ur to get N_eff equal to 3.046 in the early universe,
-    # then you should pass here respectively 2.0328,1.0196,0.00641
-    N_ur_table = [3.046, 2.0328, 1.0196, 0.00641]
-    if 'N_ur' not in pars:
-        pars['N_ur'] = N_ur_table[pars['N_ncdm']]
+    # nonlinear 
+    set_alias('non linear', 'nonlinear')
+    # sorry we use a boolean but
+    # class uses existence of string.
+    if pars.pop('non linear', False):
+        pars['non linear'] = 'halofit'
 
     return pars
 
 
-def set_sigma8(cosmo, sigma8, inplace=False):
+def merge_args(args, moreargs):
     """
-    Return a clone of the input Cosmology object, with the ``sigma8`` value
-    set to the specified value.
+    merge moreargs into args.
 
-    Parameters
-    ----------
-    cosmo : Cosmology
-        the input cosmology object
-    sigma8 : float
-        the desired sigma8 value
-    inplace : bool, optional
-        if ``True``, update sigma8 of the input ``cosmo`` object, else return
-        a new Cosmology object
+    Those defined in moreargs takes priority than those
+    defined in args.
+
+    see :method:`compile_args`
     """
-    # the new scalar amplitude A_s
-    A_s = cosmo.A_s * (sigma8/cosmo.sigma8)**2
+    args = args.copy()
 
-    # the extra keywords
-    kwargs = cosmo.kwargs.copy()
+    for name in moreargs.keys():
+        # pop those conflicting with me from the old pars
+        for eq in find_eqcls(name):
+            if eq in args: args.pop(eq)
 
-    # set the desired A_s and remove conflicting parameters
-    kwargs['A_s'] = A_s
-    kwargs.pop('ln10^{10}A_s', None)
-
-    if inplace:
-        cosmo.__setstate__((cosmo.args, kwargs))
-    else:
-        # add the name keywords
-        kwargs.update(cosmo.args)
-
-        # new cosmo clone
-        cosmo = Cosmology(**kwargs)
-
-    return cosmo
-
-def sanitize_class_params(cosmo, pars):
-    """
-    Given a dictionary of CLASS parameters, construct the ``args``
-    dict and ``kwargs`` dict that can used to initialize a
-    Cosmology class, accounting for any possible conflicts.
-
-    The ``args`` dict holds the main (named) __init__ keywords, and the
-    ``kwargs`` holds all of the extra keywords.
-    """
-    args = {}
-    kwargs = pars.copy()
-
-    # loop over all parameters
-    for name in list(kwargs.keys()):
-
-        # parameter is a main parameter
-        if name in CONFLICTS:
-            kwargs.pop(name)
-            alias = ALIASES.get(name, name) # check for attribute alias
-            args[name] = getattr(cosmo, alias)
-        else:
-            # check if parameter conflicts with main parameter
-            for c in CONFLICTS:
-                if name in CONFLICTS[c]:
-                    kwargs.pop(name)
-                    alias = ALIASES.get(c, c)
-                    args[c] = getattr(cosmo, alias)
-
-    # set all named keywords that do not have parameter conflicts
-    args['gauge'] = cosmo.gauge
-
-    return args, kwargs
-
-# dict mapping input CLASS params to the Cosmology attribute name
-ALIASES = {'Omega_b': 'Omega0_b', 'Omega_cdm':'Omega0_cdm', 'T_cmb':'T0_cmb',
-           'P_k_max': 'k_max_for_pk'}
+    args.update(moreargs)
+    return args
 
 # dict that defines input parameters that conflict with each other
-CONFLICTS = {'h': ['H0', '100*theta_s'],
-             'T_cmb': ['Omega_g', 'omega_g'],
-             'Omega_b': ['omega_b'],
-             'N_ur': ['Omega_ur', 'omega_ur'],
-             'Omega_cdm': ['omega_cdm'],
-             'm_ncdm': ['Omega_ncdm', 'omega_ncdm'],
-             'P_k_max': ['P_k_max_h/Mpc', 'P_k_max_1/Mpc'],
-             'P_z_max': ['z_max_pk'],
-             'nonlinear' : ['non linear']
-            }
+CONFLICTS = [('h', 'H0', '100*theta_s'),
+             ('T_cmb', 'Omega_g', 'omega_g'),
+             ('Omega_b', 'omega_b'),
+             ('N_ur', 'Omega_ur', 'omega_ur'),
+             ('Omega_cdm', 'omega_cdm'),
+             ('m_ncdm', 'Omega_ncdm', 'omega_ncdm'),
+             ('P_k_max', 'P_k_max_h/Mpc', 'P_k_max_1/Mpc'),
+             ('P_z_max', 'z_max_pk'),
+             ('nonlinear', 'non linear'),
+             ('A_s', 'ln10^{10}A_s'),
+            ]
+
+def find_eqcls(key):
+    for cls in CONFLICTS:
+        if key in cls:
+            return cls
+    else:
+        return ()

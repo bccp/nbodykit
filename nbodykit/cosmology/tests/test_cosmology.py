@@ -31,7 +31,7 @@ def test_clone():
     c = Cosmology(gauge='synchronous', tol_background_integration=1e-5)
     c2 = c.clone(Omega_b=0.04)
     assert_allclose(c2.Omega0_b, 0.04)
-    c2 = c.clone()
+    c2 = c2.clone()
     assert_allclose(c2.Omega0_b, 0.04)
 
 def test_from_file():
@@ -73,13 +73,13 @@ def test_unknown_params():
     with pytest.warns(UserWarning):
         c = Cosmology(unknown_paramter=100.)
 
-def test_set_sigma8():
+#def test_set_sigma8():
 
-    c = Cosmology()
-    c.sigma8 = 0.80 # set sigma8 by adjusting A_s internally
+#    c = Cosmology()
+#    c.sigma8 = 0.80 # set sigma8 by adjusting A_s internally
 
-    # run CLASS and compute sigma8
-    assert_allclose(c.sigma8, 0.80)
+#    # run CLASS and compute sigma8
+#    assert_allclose(c.sigma8, 0.80)
 
 def test_sigma8_z():
 
@@ -153,7 +153,7 @@ def test_cosmology_a_max():
     t = c.efunc(-0.1)
     t = c.scale_independent_growth_factor(-0.1)
 
-    t = c.get_transfer(z=-0.1)
+    #t = c.get_transfer(z=-0.1)
 
 def test_cosmology_transfer():
     c = Cosmology()

@@ -57,7 +57,8 @@ class HalofitPower(object):
     @sigma8.setter
     def sigma8(self, value):
         self._sigma8 = value
-        self.cosmo.sigma8 = value
+        self.cosmo = self.cosmo.match(sigma8=value)
+        self._attrs['cosmo'] = dict(self.cosmo)
 
     def __call__(self, k):
         r"""
