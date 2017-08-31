@@ -152,6 +152,15 @@ class Cosmology(object):
             r.extend(dir(i))
         return sorted(list(set(r)))
 
+    def __setattr__(self, key, value):
+
+        # do not allow setting of properties of the delegate classes
+        if any(hasattr(n, key) for n in self.dro):
+            raise ValueError(("the Cosmology object is immutable; use clone() or "
+                              "match() to update parameters"))
+
+        return object.__setattr__(self, key, value)
+
     def __getattr__(self, name):
         """
         Find the proper delegate, initialize it, and run the method
