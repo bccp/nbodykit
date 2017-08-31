@@ -73,13 +73,13 @@ def test_unknown_params():
     with pytest.warns(UserWarning):
         c = Cosmology(unknown_paramter=100.)
 
-#def test_set_sigma8():
+def test_set_sigma8():
 
-#    c = Cosmology()
-#    c.sigma8 = 0.80 # set sigma8 by adjusting A_s internally
+    # set sigma8 by adjusting A_s internally
+    c = Cosmology().match(sigma8=0.80)
 
-#    # run CLASS and compute sigma8
-#    assert_allclose(c.sigma8, 0.80)
+    # run CLASS and compute sigma8
+    assert_allclose(c.sigma8, 0.80)
 
 def test_sigma8_z():
 
