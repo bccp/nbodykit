@@ -48,8 +48,7 @@ def test_large_scales():
 def test_linear_norm():
 
     # initialize the power
-    c = Cosmology()
-    c.sigma8 = 0.82
+    c = Cosmology().match(sigma8=0.82)
     P = LinearPower(c, redshift=0, transfer='CLASS')
 
     # compute for array
@@ -71,8 +70,7 @@ def test_linear_norm():
 def test_linear():
 
     # initialize the power
-    c = Cosmology()
-    c.sigma8 = 0.82
+    c = Cosmology().match(sigma8=0.82)
     P = LinearPower(c, redshift=0, transfer='CLASS')
 
     # check velocity dispersion
@@ -82,7 +80,9 @@ def test_linear():
     assert_allclose(P.sigma_r(8.), c.sigma8, rtol=1e-5)
 
     # change sigma8
-    P.sigma8 = c.sigma8 = 0.80
+    P.sigma8 = 0.80
+    c = c.match(sigma8=0.80)
+
     assert_allclose(P.sigma_r(8.), P.sigma8, rtol=1e-5)
 
     # change redshift and test sigma8(z)
@@ -110,8 +110,7 @@ def test_linear():
 def test_halofit():
 
     # initialize the power
-    c = Cosmology()
-    c.sigma8 = 0.82
+    c = Cosmology().match(sigma8=0.82)
     P = HalofitPower(c, redshift=0)
 
     # k is out of range
@@ -140,8 +139,7 @@ def test_halofit():
 def test_zeldovich():
 
     # initialize the power
-    c = Cosmology()
-    c.sigma8 = 0.82
+    c = Cosmology().match(sigma8=0.82)
     P = ZeldovichPower(c, redshift=0)
 
     # compute for scalar
