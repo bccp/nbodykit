@@ -60,11 +60,11 @@ def test_from_file():
 def test_conflicts():
 
     # h is the correct param
-    with pytest.raises(ValueError):
+    with pytest.raises(Exception):
         c = Cosmology(h=0.7, H0=70)
 
     # Omega_b is the correct param
-    with pytest.raises(ValueError):
+    with pytest.raises(Exception):
         c = Cosmology(Omega_b=0.04, omega_b=0.02)
 
 def test_unknown_params():
@@ -251,6 +251,15 @@ def test_from_astropy():
         assert_allclose(c.w0, x.w0)
         assert_allclose(c.wa, x.wa)
         assert_allclose(c.Omega0_lambda, 0.) # Omega_fld is nonzero
+
+def test_immutable():
+
+    c = Cosmology()
+    with pytests.raises(ValueError):
+        c.A_s = 2e-9 # immutable
+
+    # can add non-CLASS attributes still
+    c.test = 'TEST'
 
 def test_bad_no_Ob0():
 
