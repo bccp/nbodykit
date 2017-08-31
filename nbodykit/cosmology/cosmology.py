@@ -39,8 +39,8 @@ class Cosmology(object):
       ``w0_fld``, ``wa_fld``, and/or ``Omega_fld`` values.
     * To pass in CLASS parameters that are not valid Python argument names, use
       the dictionary /keyward arguments trick, e.g.
-      `Cosmology(..., **{'temperature contributions': 'y'})`
-    * ``Cosmology(**dict(c)) is not supposed to work; use ``Cosmology.from_dict(dict(c))``.
+      ``Cosmology(..., **{'temperature contributions': 'y'})``
+    * ``Cosmology(**dict(c))`` is not supposed to work; use ``Cosmology.from_dict(dict(c))``.
 
     Parameters
     ----------
