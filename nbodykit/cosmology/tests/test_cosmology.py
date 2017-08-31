@@ -255,7 +255,7 @@ def test_from_astropy():
 def test_immutable():
 
     c = Cosmology()
-    with pytests.raises(ValueError):
+    with pytest.raises(ValueError):
         c.A_s = 2e-9 # immutable
 
     # can add non-CLASS attributes still
