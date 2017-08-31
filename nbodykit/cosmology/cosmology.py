@@ -40,6 +40,7 @@ class Cosmology(object):
     * To pass in CLASS parameters that are not valid Python argument names, use
       the dictionary /keyward arguments trick, e.g.
       `Cosmology(..., **{'temperature contributions': 'y'})`
+    * ``Cosmology(**dict(c)) is not supposed to work; use ``Cosmology.from_dict(dict(c))``.
 
     Parameters
     ----------
@@ -135,6 +136,7 @@ class Cosmology(object):
     def __iter__(self):
         """
         Allows dict() to be used on class.
+        Use :method:`from_dict` to reconstruct an instance.
         """
         pars = self.pars.copy()
         for k in pars:
@@ -285,6 +287,9 @@ class Cosmology(object):
         # merge in additional arguments -- this will die if
         # there are conflicts.
         args.update(kwargs)
+
+        # astropy_to_dict creates args, so we can use the 'user-friendly'
+        # constructor.
         return Cosmology(**args)
 
     @classmethod
@@ -306,8 +311,23 @@ class Cosmology(object):
 
         # extract dictionary of parameters from the file
         pars = load_ini(filename)
+
+        # intentionally not using merge; use clone if
+        # parameters are to modified.
         pars.update(kwargs)
 
+        return cls.from_dict(pars)
+
+    @classmethod
+    def from_dict(kls, pars):
+        """
+        Creates a Cosmology from a pars dictionary.
+
+        This is a rather 'raw' API.
+        The dictionary must be readable by ClassEngine.
+        Unlike ``Cosmology(**args)``, ``pars`` must
+        not contain any convenient names defined here.
+        """
         self = object.__new__(Cosmology)
         self.__setstate__(pars)
         return self
@@ -341,9 +361,7 @@ class Cosmology(object):
         args = merge_args(self.pars, kwargs)
         pars = compile_args(args)
 
-        c = object.__new__(Cosmology)
-        c.__setstate__(pars)
-        return c
+        return type(self).from_dict(pars)
 
 def astropy_to_dict(cosmo):
     """
