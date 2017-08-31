@@ -47,6 +47,10 @@ with open('requirements-extras.txt', 'r') as fh:
     extras['extras'] = [l.strip() for l in fh][1:]
     extras['full'] = extras['extras'] #
 
+# package data
+data = find_test_data('nbodykit', 'nbodykit')
+data.append('style/*mplstyle') # also install mplstyle files
+
 setup(name="nbodykit",
       version=find_version("nbodykit/version.py"),
       author="Yu Feng, Nick Hand, et al",
@@ -56,7 +60,7 @@ setup(name="nbodykit",
       url="http://github.com/bccp/nbodykit",
       zip_safe=False,
       package_dir = {'nbodykit': 'nbodykit'},
-      package_data = {'nbodykit': find_test_data('nbodykit', 'nbodykit')},
+      package_data = {'nbodykit': data},
       packages = find_packages('.'),
       license='GPL3',
       install_requires=dependencies,
