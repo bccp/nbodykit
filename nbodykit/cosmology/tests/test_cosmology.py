@@ -29,7 +29,7 @@ def test_load_precision():
 
 def test_clone():
     c = Cosmology(gauge='synchronous', tol_background_integration=1e-5)
-    c2 = c.clone(Omega_b=0.04)
+    c2 = c.clone(Omega0_b=0.04)
     assert_allclose(c2.Omega0_b, 0.04)
     c2 = c2.clone()
     assert_allclose(c2.Omega0_b, 0.04)
@@ -47,7 +47,7 @@ def test_from_file():
         assert_allclose(c.Omega0_cdm*c.h**2, 0.110616)
 
     # clone
-    c2 = c.clone(Omega_b=0.04)
+    c2 = c.clone(Omega0_b=0.04)
     assert_allclose(c2.Omega0_b, 0.04)
 
     # serialize and make sure we get the same
@@ -63,9 +63,12 @@ def test_conflicts():
     with pytest.raises(Exception):
         c = Cosmology(h=0.7, H0=70)
 
+    with pytest.raises(Exception):
+        c = Cosmology(Omega0_b=0.04, Omega_b=0.04)
+
     # Omega_b is the correct param
     with pytest.raises(Exception):
-        c = Cosmology(Omega_b=0.04, omega_b=0.02)
+        c = Cosmology(Omega0_b=0.04, omega_b=0.02)
 
 def test_unknown_params():
 

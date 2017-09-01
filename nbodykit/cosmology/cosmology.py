@@ -32,7 +32,10 @@ class Cosmology(object):
     Notes
     -----
     * The default configuration assumes a flat cosmology, :math:`\Omega_{0,k}=0`.
-      Pass ``Omega_k`` in the ``extra`` keyword dictionary to change this value.
+      Pass ``Omega0_k`` in the ``extra`` keyword dictionary to change this value.
+    * For consistency of variable names, the present day values can be passed with
+      or without '0' postfix, e.g. ``Omega0_cdm`` is translated to ``Omega_cdm``,
+      as CLASS always uses the names without `0`.
     * By default, a cosmological constant is assumed, with its density value
       inferred by the curvature condition.
     * Non-cosmological constant dark energy can be used by specifying the
@@ -46,12 +49,12 @@ class Cosmology(object):
     ----------
     h : float
         the dimensionaless Hubble parameter
-    T_cmb : float
+    T0_cmb : float
         the temperature of the CMB in Kelvins
-    Omega_b : float
+    Omega0_b : float
         the current baryon density parameter, :math:`\Omega_{b,0}`. Currently
         unrealisitic cosmology where Omega_b == 0 is not supported.
-    Omega_cdm : float
+    Omega0_cdm : float
         the current cold dark matter density parameter, :math:`\Omega_{cdm,0}`
     N_ur : float
         the number of ultra-relativistic (massless neutrino) species; the
@@ -101,9 +104,9 @@ class Cosmology(object):
 
     def __init__(self,
             h=0.67556,
-            T_cmb=2.7255,
-            Omega_b=0.022032/0.67556**2,
-            Omega_cdm=0.12038/0.67556**2,
+            T0_cmb=2.7255,
+            Omega0_b=0.022032/0.67556**2,
+            Omega0_cdm=0.12038/0.67556**2,
             N_ur=None,
             m_ncdm=[0.06],
             P_k_max=10.,
@@ -406,14 +409,14 @@ def astropy_to_dict(cosmo):
     """
     from astropy import cosmology, units
 
-    pars = {}
-    pars['h'] = cosmo.h
-    pars['T_cmb'] = cosmo.Tcmb0.value
+    args = {}
+    args['h'] = cosmo.h
+    args['T0_cmb'] = cosmo.Tcmb0.value
     if cosmo.Ob0 is not None:
-        pars['Omega_b'] = cosmo.Ob0
+        args['Omega0_b'] = cosmo.Ob0
     else:
         raise ValueError("please specify a value 'Ob0' ")
-    pars['Omega_cdm'] = cosmo.Om0 - cosmo.Ob0 # should be okay for now
+    args['Omega0_cdm'] = cosmo.Om0 - cosmo.Ob0 # should be okay for now
 
     # handle massive neutrinos
     if cosmo.has_massive_nu:
@@ -431,27 +434,27 @@ def astropy_to_dict(cosmo):
         # then you should pass here respectively 2.0328,1.0196,0.00641
         N_ur = [2.0328, 1.0196, 0.00641]
         N_massive = (m_nu > 0.).sum()
-        pars['N_ur'] = (cosmo.Neff/3.046) * N_ur[N_massive-1]
+        args['N_ur'] = (cosmo.Neff/3.046) * N_ur[N_massive-1]
 
-        pars['m_ncdm'] = [k.value for k in sorted(m_nu[m_nu > 0.], reverse=True)]
+        args['m_ncdm'] = [k.value for k in sorted(m_nu[m_nu > 0.], reverse=True)]
     else:
-        pars['m_ncdm'] = []
-        pars['N_ur'] = cosmo.Neff
+        args['m_ncdm'] = []
+        args['N_ur'] = cosmo.Neff
 
     # specify the curvature
-    pars['Omega_k'] = cosmo.Ok0
+    args['Omega0_k'] = cosmo.Ok0
 
     # handle dark energy
     if isinstance(cosmo, cosmology.LambdaCDM):
         pass
     elif isinstance(cosmo, cosmology.wCDM):
-        pars['w0_fld'] = cosmo.w0
-        pars['wa_fld'] = 0.
-        pars['Omega_Lambda'] = 0. # use Omega_fld
+        args['w0_fld'] = cosmo.w0
+        args['wa_fld'] = 0.
+        args['Omega0_Lambda'] = 0. # use Omega_fld
     elif isinstance(cosmo, cosmology.w0waCDM):
-        pars['w0_fld'] = cosmo.w0
-        pars['wa_fld'] = cosmo.wa
-        pars['Omega_Lambda'] = 0. # use Omega_fld
+        args['w0_fld'] = cosmo.w0
+        args['wa_fld'] = cosmo.wa
+        args['Omega0_Lambda'] = 0. # use Omega_fld
     else:
         cls = cosmo.__class__.__name__
         valid = ["LambdaCDM", "wCDM", "w0waCDM"]
@@ -459,7 +462,7 @@ def astropy_to_dict(cosmo):
         msg += "valid classes: %s" %str(valid)
         raise ValueError(msg)
 
-    return pars
+    return args
 
 def compile_args(args):
     """
@@ -491,6 +494,24 @@ def compile_args(args):
     # remove None's -- None means using a default from CLASS
     for key in list(pars.keys()):
         if pars[key] is None: pars.pop(key)
+
+    def set_alias(pars_name, args_name):
+        if args_name not in args: return
+        v = args[args_name]
+        pars.pop(args_name) # pop because we copied everything.
+        if pars_name in args:
+            v = args[pars_name]
+        pars[pars_name] = v
+
+    set_alias('T_cmb', 'T0_cmb')
+    set_alias('Omega_cdm', 'Omega0_cdm')
+    set_alias('Omega_b', 'Omega0_b')
+    set_alias('Omega_k', 'Omega0_k')
+    set_alias('Omega_ur', 'Omega0_ur')
+    set_alias('Omega_Lambda', 'Omega0_Lambda')
+    set_alias('Omega_fld', 'Omega0_fld')
+    set_alias('Omega_ncdm', 'Omega0_ncdm')
+    set_alias('Omega_g', 'Omega0_g')
 
     # turn on verbosity
     if 'verbose' in args:
@@ -551,18 +572,10 @@ def compile_args(args):
 
     # set cosmological constant to zero if we got fluid w0/wa
     if 'w0_fld' in args or 'wa_fld' in args:
-        if args.get('Omega_Lambda', 0) > 0:
-            raise ValueError(("non-zero fOmega_Lambda (cosmological constant) specified as "
+        if pars.get('Omega_Lambda', 0) > 0:
+            raise ValueError(("non-zero Omega_Lambda (cosmological constant) specified as "
                              "well as fluid w0/wa; use Omega_fld instead"))
         pars['Omega_Lambda'] = 0.
-
-    def set_alias(pars_name, args_name):
-        if args_name not in args: return
-        v = args[args_name]
-        pars.pop(args_name)
-        if pars_name in args:
-            v = args[pars_name]
-        pars[pars_name] = v
 
 
     # maximum k value
@@ -614,11 +627,13 @@ def check_args(args):
 
 # dict that defines input parameters that conflict with each other
 CONFLICTS = [('h', 'H0', '100*theta_s'),
-             ('T_cmb', 'Omega_g', 'omega_g'),
-             ('Omega_b', 'omega_b'),
-             ('N_ur', 'Omega_ur', 'omega_ur'),
-             ('Omega_cdm', 'omega_cdm'),
-             ('m_ncdm', 'Omega_ncdm', 'omega_ncdm'),
+             ('T_cmb', 'Omega_g', 'omega_g', 'Omega0_g'),
+             ('Omega_b', 'omega_b', 'Omega0_b'),
+             ('Omega_fld', 'Omega0_fld'),
+             ('Omega_Lambda', 'Omega0_Lambda'),
+             ('N_ur', 'Omega_ur', 'omega_ur', 'Omega0_ur'),
+             ('Omega_cdm', 'omega_cdm', 'Omega0_cdm'),
+             ('m_ncdm', 'Omega_ncdm', 'omega_ncdm', 'Omega0_ncdm'),
              ('P_k_max', 'P_k_max_h/Mpc', 'P_k_max_1/Mpc'),
              ('P_z_max', 'z_max_pk'),
              ('nonlinear', 'non linear'),
