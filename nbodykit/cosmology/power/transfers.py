@@ -1,6 +1,9 @@
-import numpy as np
+import numpy
 
 available = ['CLASS', 'EisensteinHu', 'NoWiggleEisensteinHu']
+
+# minimum CLASS value to represent k->0
+KMIN = 1e-8
 
 class CLASS(object):
     """
@@ -22,7 +25,7 @@ class CLASS(object):
 
         # find the low-k amplitude to normalize to 1 as k->0 at z = 0
         self._norm = 1.0; self.redshift = 0
-        self._norm = 1. / self(1e-8)
+        self._norm = 1. / self(KMIN)
 
         # the proper redshift
         self.redshift = redshift
@@ -51,10 +54,18 @@ class CLASS(object):
             the transfer function evaluated at ``k``, normalized to unity on
             large scales
         """
-        k = np.asarray(k)
-        linearP = self.cosmo.get_pklin(k, self.redshift) / self.cosmo.h**3 # in Mpc^3
-        primordialP = (k*self.cosmo.h)**self.cosmo.n_s # put k into Mpc^{-1}
-        return self._norm * (linearP / primordialP)**0.5
+        k = numpy.asarray(k)
+        nonzero = k>0
+        linearP = self.cosmo.get_pklin(k[nonzero], self.redshift) / self.cosmo.h**3 # in Mpc^3
+        primordialP = (k[nonzero]*self.cosmo.h)**self.cosmo.n_s # put k into Mpc^{-1}
+
+        # at k=0, this is 1.0 * D(z), where T(k) = 1.0 at z=0
+        D = self.cosmo.scale_independent_growth_factor(self.redshift)
+        Tk = D * numpy.ones(nonzero.shape)
+
+        # fill in all k>0
+        Tk[nonzero] = self._norm * (linearP / primordialP)**0.5
+        return Tk
 
 
 class EisensteinHu(object):
@@ -96,8 +107,8 @@ class EisensteinHu(object):
         self.r_drag = 31.5 * self.Obh2 * self.theta_cmb ** -4 * (1000. / (1+self.z_drag))
         self.r_eq   = 31.5 * self.Obh2 * self.theta_cmb ** -4 * (1000. / self.z_eq)
 
-        self.sound_horizon = 2. / (3.*self.k_eq) * np.sqrt(6. / self.r_eq) * \
-                    np.log((np.sqrt(1 + self.r_drag) + np.sqrt(self.r_drag + self.r_eq)) / (1 + np.sqrt(self.r_eq)) )
+        self.sound_horizon = 2. / (3.*self.k_eq) * numpy.sqrt(6. / self.r_eq) * \
+                    numpy.log((numpy.sqrt(1 + self.r_drag) + numpy.sqrt(self.r_drag + self.r_eq)) / (1 + numpy.sqrt(self.r_eq)) )
         self.k_silk = 1.6 * self.Obh2 ** 0.52 * self.Omh2 ** 0.73 * (1 + (10.4*self.Omh2) ** -0.95)
 
         # alpha_c
@@ -111,11 +122,11 @@ class EisensteinHu(object):
         self.beta_c = 1. / (1 + beta_c_b1 * ((1-self.f_baryon) ** beta_c_b2) - 1)
 
         y = self.z_eq / (1 + self.z_drag)
-        alpha_b_G = y * (-6.*np.sqrt(1+y) + (2. + 3.*y) * np.log((np.sqrt(1+y)+1) / (np.sqrt(1+y)-1)))
+        alpha_b_G = y * (-6.*numpy.sqrt(1+y) + (2. + 3.*y) * numpy.log((numpy.sqrt(1+y)+1) / (numpy.sqrt(1+y)-1)))
         self.alpha_b = 2.07 *  self.k_eq * self.sound_horizon * (1+self.r_drag)**-0.75 * alpha_b_G
 
         self.beta_node = 8.41 * self.Omh2 ** 0.435
-        self.beta_b    = 0.5 + self.f_baryon + (3. - 2.*self.f_baryon) * np.sqrt( (17.2*self.Omh2) ** 2 + 1 )
+        self.beta_b    = 0.5 + self.f_baryon + (3. - 2.*self.f_baryon) * numpy.sqrt( (17.2*self.Omh2) ** 2 + 1 )
 
     def __call__(self, k):
         r"""
@@ -136,10 +147,10 @@ class EisensteinHu(object):
             the transfer function evaluated at ``k``, normalized to unity on
             large scales
         """
-        if np.isscalar(k) and k == 0.:
+        if numpy.isscalar(k) and k == 0.:
             return 1.0
 
-        k = np.asarray(k)
+        k = numpy.asarray(k)
         # only compute k > 0 modes
         valid = k > 0.
 
@@ -147,8 +158,8 @@ class EisensteinHu(object):
         q = k / (13.41*self.k_eq)
         ks = k*self.sound_horizon
 
-        T_c_ln_beta   = np.log(np.e + 1.8*self.beta_c*q)
-        T_c_ln_nobeta = np.log(np.e + 1.8*q);
+        T_c_ln_beta   = numpy.log(numpy.e + 1.8*self.beta_c*q)
+        T_c_ln_nobeta = numpy.log(numpy.e + 1.8*q);
         T_c_C_alpha   = 14.2 / self.alpha_c + 386. / (1 + 69.9 * q ** 1.08)
         T_c_C_noalpha = 14.2 + 386. / (1 + 69.9 * q ** 1.08)
 
@@ -161,10 +172,10 @@ class EisensteinHu(object):
 
         T_b_T0 = f(T_c_ln_nobeta, T_c_C_noalpha)
         T_b_1 = T_b_T0 / (1 + (ks/5.2)**2 )
-        T_b_2 = self.alpha_b / (1 + (self.beta_b/ks)**3 ) * np.exp(-(k/self.k_silk) ** 1.4)
-        T_b = np.sinc(ks_tilde/np.pi) * (T_b_1 + T_b_2)
+        T_b_2 = self.alpha_b / (1 + (self.beta_b/ks)**3 ) * numpy.exp(-(k/self.k_silk) ** 1.4)
+        T_b = numpy.sinc(ks_tilde/numpy.pi) * (T_b_1 + T_b_2)
 
-        T = np.ones(valid.shape)
+        T = numpy.ones(valid.shape)
         T[valid] = self.f_baryon*T_b + (1-self.f_baryon)*T_c;
         return T * self.cosmo.scale_independent_growth_factor(self.redshift)
 
@@ -196,10 +207,10 @@ class NoWiggleEisensteinHu(object):
         # wavenumber of equality
         self.k_eq = 0.0746 * self.Omh2 * self.theta_cmb ** (-2) # units of 1/Mpc
 
-        self.sound_horizon = cosmo.h * 44.5 * np.log(9.83/self.Omh2) / \
-                            np.sqrt(1 + 10 * self.Obh2** 0.75) # in Mpc/h
-        self.alpha_gamma = 1 - 0.328 * np.log(431*self.Omh2) * self.f_baryon + \
-                            0.38* np.log(22.3*self.Omh2) * self.f_baryon ** 2
+        self.sound_horizon = cosmo.h * 44.5 * numpy.log(9.83/self.Omh2) / \
+                            numpy.sqrt(1 + 10 * self.Obh2** 0.75) # in Mpc/h
+        self.alpha_gamma = 1 - 0.328 * numpy.log(431*self.Omh2) * self.f_baryon + \
+                            0.38* numpy.log(22.3*self.Omh2) * self.f_baryon ** 2
 
 
     def __call__(self, k):
@@ -221,11 +232,11 @@ class NoWiggleEisensteinHu(object):
             the transfer function evaluated at ``k``, normalized to unity on
             large scales
         """
-        if np.isscalar(k) and k == 0.:
+        if numpy.isscalar(k) and k == 0.:
             return 1.0
 
         # only compute k > 0 modes
-        k = np.asarray(k)
+        k = numpy.asarray(k)
         valid = k > 0.
 
         k = k[valid] * self.cosmo.h # in 1/Mpc now
@@ -234,9 +245,9 @@ class NoWiggleEisensteinHu(object):
 
         gamma_eff = self.Omh2 * (self.alpha_gamma + (1 - self.alpha_gamma) / (1 + (0.43*ks) ** 4))
         q_eff = q * self.Omh2 / gamma_eff
-        L0 = np.log(2*np.e + 1.8 * q_eff)
+        L0 = numpy.log(2*numpy.e + 1.8 * q_eff)
         C0 = 14.2 + 731.0 / (1 + 62.5 * q_eff)
 
-        T = np.ones(valid.shape)
+        T = numpy.ones(valid.shape)
         T[valid] = L0 / (L0 + C0 * q_eff**2)
         return T * self.cosmo.scale_independent_growth_factor(self.redshift)
