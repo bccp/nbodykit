@@ -83,10 +83,12 @@ def test_set_sigma8():
 
 def test_set_Omega0_cb():
 
-    # set sigma8 by adjusting A_s internally
     c = Cosmology().match(Omega0_cb=0.4)
 
     assert_allclose(c.Omega0_cb, 0.4)
+
+    c = Cosmology().match(Omega0_m=0.4)
+    assert_allclose(c.Omega0_m, 0.4)
 
 
 def test_sigma8_z():

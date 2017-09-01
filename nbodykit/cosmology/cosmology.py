@@ -207,7 +207,7 @@ class Cosmology(object):
         """
         return self.Background.Omega0_cdm + self.Background.Omega0_b
 
-    def match(self, sigma8=None, Omega0_cb=None):
+    def match(self, sigma8=None, Omega0_cb=None, Omega0_m=None):
         """
         Creates a new cosmology that matches a derived parameter. This is different
         from clone, where CLASS parameters are used.
@@ -221,6 +221,8 @@ class Cosmology(object):
             We scale the scalar amplitude ``A_s`` to achieve the desired ``sigma8``.
         Omega0_cb: float or None
             Desired total energy density of CDM and baryon.
+        Omega0_m: float or None
+            Desired total energy density of matter-like components (included ncdm)
 
         Returns
         -------
@@ -228,7 +230,7 @@ class Cosmology(object):
 
         """
 
-        if sum(1 if i is None else 0 for i in [sigma8, Omega0_cb]) != 1:
+        if sum(0 if i is None else 1 for i in [sigma8, Omega0_cb, Omega0_m]) != 1:
             raise ValueError("Only match one derived parameter at one time; but multiple is given.")
 
         if sigma8 is not None:
@@ -237,6 +239,10 @@ class Cosmology(object):
         if Omega0_cb is not None:
             rat = Omega0_cb / self.Omega0_cb
             return self.clone(Omega_b=rat * self.Omega0_b, Omega_cdm=rat * self.Omega0_cdm)
+
+        if Omega0_m is not None:
+            Omega0_cb = Omega0_m - (self.Omega0_ncdm_tot - self.Omega0_pncdm_tot) - self.Omega0_dcdm
+            return self.match(Omega0_cb=Omega0_cb)
 
         return self
 
