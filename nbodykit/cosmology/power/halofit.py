@@ -30,7 +30,7 @@ class HalofitPower(object):
             cosmo = Cosmology.from_astropy(cosmo)
 
         # internal cosmology clone with nonlinear enabled
-        self.cosmo = cosmo = cosmo.clone(nonlinear=True)
+        self.cosmo = cosmo.clone(nonlinear=True)
         self.redshift = redshift
         self._sigma8 = self.cosmo.sigma8
 
