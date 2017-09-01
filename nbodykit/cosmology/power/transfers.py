@@ -59,9 +59,11 @@ class CLASS(object):
         linearP = self.cosmo.get_pklin(k[nonzero], self.redshift) / self.cosmo.h**3 # in Mpc^3
         primordialP = (k[nonzero]*self.cosmo.h)**self.cosmo.n_s # put k into Mpc^{-1}
 
+        # return shape
+        Tk = numpy.ones(nonzero.shape)
+
         # at k=0, this is 1.0 * D(z), where T(k) = 1.0 at z=0
-        D = self.cosmo.scale_independent_growth_factor(self.redshift)
-        Tk = D * numpy.ones(nonzero.shape)
+        Tk[~nonzero] = self.cosmo.scale_independent_growth_factor(self.redshift)
 
         # fill in all k>0
         Tk[nonzero] = self._norm * (linearP / primordialP)**0.5
