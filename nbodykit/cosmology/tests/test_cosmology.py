@@ -3,6 +3,21 @@ from numpy.testing import assert_allclose, assert_array_equal
 import numpy
 import pytest
 
+def test_deprecated_init():
+
+    with pytest.warns(FutureWarning):
+        c1 = cosmology.Cosmology(H0=67.6, Om0=0.31, flat=True)
+        c2 = cosmology.Cosmology(H0=67.6, Om0=0.31, Ode0=0.7, flat=False, w0=-0.9)
+
+    assert_allclose(c1.h, 0.676)
+    assert_allclose(c2.h, 0.676)
+    assert_allclose(c1.Om0, 0.31)
+    assert_allclose(c2.Om0, 0.31)
+    assert_allclose(c1.Ok0, 0.)
+    assert_allclose(c2.Ode0, 0.7)
+    assert_allclose(c2.w0_fld, -0.9)
+
+
 
 def test_efunc_prime():
     epsilon = 1e-4

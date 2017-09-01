@@ -117,18 +117,23 @@ class Cosmology(object):
             verbose=False,
             **kwargs # additional arguments to pass to CLASS
         ):
-        # quickly copy over all arguments --
-        # at this point locals only contains the arguments.
-        args = dict(locals())
 
-        # store the extra CLASS params
-        kwargs = args.pop('kwargs')
+        # check for deprecated init
+        args = check_deprecated_init(kwargs)
+        if args is None:
 
-        # remove some non-CLASS variables
-        args.pop('self')
+            # quickly copy over all arguments --
+            # at this point locals only contains the arguments.
+            args = dict(locals())
 
-        # merge the kwargs; without resolving conflicts.
-        args.update(kwargs)
+            # store the extra CLASS params
+            kwargs = args.pop('kwargs')
+
+            # remove some non-CLASS variables
+            args.pop('self')
+
+            # merge the kwargs; without resolving conflicts.
+            args.update(kwargs)
 
         # verify and set defaults
         pars = compile_args(args)
@@ -195,7 +200,7 @@ class Cosmology(object):
         of radius :math:`r = 8 \ h^{-1}\mathrm{Mpc}`.
 
         This is not an input CLASS parameter. To scale ``sigma8``, use
-        :method:`match`, which adjusts scalar amplitude ``A_s`` to 
+        :method:`match`, which adjusts scalar amplitude ``A_s`` to
         achieve the desired ``sigma8``.
         """
         return self.Spectra.sigma8
@@ -475,7 +480,7 @@ def compile_args(args):
     Compile the input args of Cosmology object to the input parameters (pars) to
     a :class:`Cosmology` object.
 
-    A variety of defaults are set to tune CLASS for quantities used in 
+    A variety of defaults are set to tune CLASS for quantities used in
     large scale structures.
 
     Difference between pars and args:
@@ -590,7 +595,7 @@ def compile_args(args):
     # maximum redshift
     set_alias('z_max_pk', 'P_z_max')
 
-    # nonlinear 
+    # nonlinear
     set_alias('non linear', 'nonlinear')
     # sorry we use a boolean but
     # class uses existence of string.
@@ -618,6 +623,49 @@ def merge_args(args, moreargs):
 
     args.update(moreargs)
     return args
+
+def check_deprecated_init(args):
+    """
+    Check if ``args`` uses the (now deprecated) signature of ``Cosmology``
+    prior to version 0.2.6.
+
+    If using the deprecated syntax, this returns the necessary arguments for
+    the new signature, and ``None`` otherwise.
+    """
+    from astropy import cosmology, units
+    defaults = {'H0':67.6, 'Om0':0.31, 'Ob0':0.0486, 'Ode0':0.69, 'w0':-1.,
+                'Tcmb0':2.7255, 'Neff':3.04, 'm_nu':0., 'flat':False}
+
+    # all clear; nothing to do
+    if not all(a in defaults for a in args):
+        return
+
+    # update old defaults with input params
+    defaults.update(args)
+
+    # warn user
+    import warnings
+    warnings.warn("This init signature is deprecated; see the Cosmology docstring for new signature", FutureWarning)
+
+    if defaults['m_nu'] is not None:
+        defaults['m_nu'] = units.Quantity(defaults['m_nu'], 'eV')
+
+    # determine the astropy class
+    if defaults['w0'] == -1.0: # cosmological constant
+        cls = 'LambdaCDM'
+        defaults.pop('w0')
+    else:
+        cls = 'wCDM'
+
+    # use special flat case if Ok0 = 0
+    if defaults.pop('flat'):
+        cls = 'Flat' + cls
+        defaults.pop('Ode0')
+
+    # initialize the astropy engine and convert to dict for Cosmology()
+    astropy_cosmo = getattr(cosmology, cls)(**defaults)
+    return astropy_to_dict(astropy_cosmo)
+
 
 def check_args(args):
     cf = {}
