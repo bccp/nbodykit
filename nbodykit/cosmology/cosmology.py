@@ -197,20 +197,47 @@ class Cosmology(object):
         """
         return self.Spectra.sigma8
 
-    def match(self, sigma8=None):
+    @property
+    def Omega0_cb(self):
         """
-        Creates a new cosmology that matches a set of derived parameters.
+        The total density of CDM and Baryon.
 
-        Currently only ``sigma8`` is supported.
-        ``sigma8`` is not an input CLASS parameter.
-        We adjust scalar amplitude ``A_s`` to achieve the desired ``sigma8``.
+        This is not an input CLASS parameter. To scale ``Omega0_cb``, use
+        :method:`match`.
+        """
+        return self.Background.Omega0_cdm + self.Background.Omega0_b
 
-        The difference between clone is that we can only modify one of these
-        parameters at once, because some sort of renormalization is required.
+    def match(self, sigma8=None, Omega0_cb=None):
+        """
+        Creates a new cosmology that matches a derived parameter. This is different
+        from clone, where CLASS parameters are used.
+
+        Note that we only supoort matching one derived parameter at a time,
+        because the matching is in general non-commutable.
+
+        Parameters
+        ----------
+        sigma8 : float or None
+            We scale the scalar amplitude ``A_s`` to achieve the desired ``sigma8``.
+        Omega0_cb: float or None
+            Desired total energy density of CDM and baryon.
+
+        Returns
+        -------
+        A new cosmology parameter where the derived parameter matches the given constrain.
 
         """
+
+        if sum(1 if i is None else 0 for i in [sigma8, Omega0_cb]) != 1:
+            raise ValueError("Only match one derived parameter at one time; but multiple is given.")
+
         if sigma8 is not None:
             return self.clone(A_s=self.A_s * (sigma8/self.sigma8)**2)
+
+        if Omega0_cb is not None:
+            rat = Omega0_cb / self.Omega0_cb
+            return self.clone(Omega_b=rat * self.Omega0_b, Omega_cdm=rat * self.Omega0_cdm)
+
         return self
 
     def to_astropy(self):

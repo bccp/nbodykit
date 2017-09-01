@@ -81,6 +81,14 @@ def test_set_sigma8():
     # run CLASS and compute sigma8
     assert_allclose(c.sigma8, 0.80)
 
+def test_set_Omega0_cb():
+
+    # set sigma8 by adjusting A_s internally
+    c = Cosmology().match(Omega0_cb=0.4)
+
+    assert_allclose(c.Omega0_cb, 0.4)
+
+
 def test_sigma8_z():
 
     z = numpy.linspace(0, 1, 100)
