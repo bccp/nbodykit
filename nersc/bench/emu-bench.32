@@ -1,0 +1,123 @@
+Collecting https://github.com/rainwoodman/fastpm-python/archive/master.zip
+  Downloading https://github.com/rainwoodman/fastpm-python/archive/master.zip (48kB)
+Installing collected packages: fastpm
+  Running setup.py install for fastpm: started
+    Running setup.py install for fastpm: finished with status 'done'
+Successfully installed fastpm-0.0.4
+/dev/shm/local/lib/python3.6/site-packages/pip/commands/install.py:194: UserWarning: Disabling all use of wheels due to the use of --build-options / --global-options / --install-options.
+  cmdoptions.check_install_build_global(options)
+/tmp/6tlUJaf.tar.gz created for https://github.com/rainwoodman/fastpm-python/archive/master.zip
+===== Running with 32 cores =====
+/dev/shm/local/lib/python3.6/site-packages/nbodykit/cosmology/power/transfers.py:57: RuntimeWarning: invalid value encountered in true_divide
+  return self._norm * (linearP / primordialP)**0.5
+[ 000163.67 ]   0: 08-31 17:47  CatalogSource   INFO     total number of particles in FastPMSimulation() = 134217728
+[ 000163.67 ]   0: 08-31 17:47  CatalogSource   INFO     total number of particles in FastPMSimulation() = 134217728
+[ 000193.51 ]   0: 08-31 17:48  CatalogSource   INFO     total number of particles in ArrayCatalog(size=7045) = 225457
+[ 000193.52 ]   0: 08-31 17:48  CatalogSource   INFO     total number of particles in HaloCatalog(size=7045) = 225457
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+[ 000196.53 ]   0: 08-31 17:48  HOD             INFO     satellite fraction: 0.47
+[ 000196.54 ]   0: 08-31 17:48  HOD             INFO     mean log10 halo mass: 14.18
+[ 000196.55 ]   0: 08-31 17:48  HOD             INFO     std log10 halo mass: 0.64
+[ 000196.56 ]   0: 08-31 17:48  HOD             INFO     total number of particles in HODCatalog(logMmin=13.03, sigma_logM=0.38, alpha=0.76, logM0=13.27, logM1=14.08) = 417373
+[ 000196.57 ]   0: 08-31 17:48  CatalogMesh     INFO     total number of particles in (HODCatalog(logMmin=13.03, sigma_logM=0.38, alpha=0.76, logM0=13.27, logM1=14.08) as CatalogMesh) = 417373
+[ 000196.58 ]   0: 08-31 17:48  CatalogMesh     INFO     painted 417373 out of 417373 objects to mesh
+[ 000196.58 ]   0: 08-31 17:48  CatalogMesh     INFO     mean particles per cell is 0.199019
+[ 000196.58 ]   0: 08-31 17:48  CatalogMesh     INFO     sum is 417373 
+[ 000196.58 ]   0: 08-31 17:48  CatalogMesh     INFO     normalized the convention to 1 + delta
+[ 000196.59 ]   0: 08-31 17:48  CatalogMesh     INFO     field: (HODCatalog(logMmin=13.03, sigma_logM=0.38, alpha=0.76, logM0=13.27, logM1=14.08) as CatalogMesh) painting done
+[ 000196.65 ]   0: 08-31 17:48  FFTPower        INFO     measurement done; saving result to galaxy-power.json

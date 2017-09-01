@@ -1,0 +1,219 @@
+Collecting https://github.com/rainwoodman/fastpm-python/archive/master.zip
+  Downloading https://github.com/rainwoodman/fastpm-python/archive/master.zip (48kB)
+Installing collected packages: fastpm
+  Running setup.py install for fastpm: started
+    Running setup.py install for fastpm: finished with status 'done'
+Successfully installed fastpm-0.0.4
+/dev/shm/local/lib/python3.6/site-packages/pip/commands/install.py:194: UserWarning: Disabling all use of wheels due to the use of --build-options / --global-options / --install-options.
+  cmdoptions.check_install_build_global(options)
+/tmp/Eg1e2iS.tar.gz created for https://github.com/rainwoodman/fastpm-python/archive/master.zip
+===== Running with 64 cores =====
+/dev/shm/local/lib/python3.6/site-packages/nbodykit/cosmology/power/transfers.py:57: RuntimeWarning: invalid value encountered in true_divide
+  return self._norm * (linearP / primordialP)**0.5
+[ 000165.48 ]   0: 08-31 17:50  CatalogSource   INFO     total number of particles in FastPMSimulation() = 134217728
+[ 000165.49 ]   0: 08-31 17:50  CatalogSource   INFO     total number of particles in FastPMSimulation() = 134217728
+[ 000192.19 ]   0: 08-31 17:50  CatalogSource   INFO     total number of particles in ArrayCatalog(size=3499) = 223941
+[ 000192.20 ]   0: 08-31 17:50  CatalogSource   INFO     total number of particles in HaloCatalog(size=3499) = 223941
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+<class 'astropy.cosmology.core.FlatLambdaCDM'>
+[ 000197.18 ]   0: 08-31 17:51  HOD             INFO     satellite fraction: 0.48
+[ 000197.21 ]   0: 08-31 17:51  HOD             INFO     mean log10 halo mass: 14.19
+[ 000197.21 ]   0: 08-31 17:51  HOD             INFO     std log10 halo mass: 0.65
+[ 000197.23 ]   0: 08-31 17:51  HOD             INFO     total number of particles in HODCatalog(logMmin=13.03, sigma_logM=0.38, alpha=0.76, logM0=13.27, logM1=14.08) = 415259
+[ 000197.24 ]   0: 08-31 17:51  CatalogMesh     INFO     total number of particles in (HODCatalog(logMmin=13.03, sigma_logM=0.38, alpha=0.76, logM0=13.27, logM1=14.08) as CatalogMesh) = 415259
+[ 000197.26 ]   0: 08-31 17:51  CatalogMesh     INFO     painted 415259 out of 415259 objects to mesh
+[ 000197.26 ]   0: 08-31 17:51  CatalogMesh     INFO     mean particles per cell is 0.198011
+[ 000197.26 ]   0: 08-31 17:51  CatalogMesh     INFO     sum is 415259 
+[ 000197.26 ]   0: 08-31 17:51  CatalogMesh     INFO     normalized the convention to 1 + delta
+[ 000197.27 ]   0: 08-31 17:51  CatalogMesh     INFO     field: (HODCatalog(logMmin=13.03, sigma_logM=0.38, alpha=0.76, logM0=13.27, logM1=14.08) as CatalogMesh) painting done
+[ 000197.38 ]   0: 08-31 17:51  FFTPower        INFO     measurement done; saving result to galaxy-power.json
