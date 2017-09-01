@@ -637,7 +637,7 @@ def check_deprecated_init(args):
                 'Tcmb0':2.7255, 'Neff':3.04, 'm_nu':0., 'flat':False}
 
     # all clear; nothing to do
-    if not all(a in defaults for a in args):
+    if not len(args) or not all(a in defaults for a in args):
         return
 
     # update old defaults with input params
