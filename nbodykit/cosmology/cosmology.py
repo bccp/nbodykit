@@ -477,6 +477,8 @@ def compile_args(args):
 
     see :method:`merge_args`
     """
+    check_args(args)
+
     pars = {} # we try to make pars write only.
 
     # set some default parameters
@@ -597,6 +599,18 @@ def merge_args(args, moreargs):
 
     args.update(moreargs)
     return args
+
+def check_args(args):
+    cf = {}
+    for name in args.keys():
+        cf[name] = []
+        for eq in find_eqcls(name):
+            if eq == name: continue
+            if eq in args: cf[name].append(eq)
+
+    for name in cf.keys():
+        if len(cf[name]) > 0:
+            raise ValueError("Conflicted parameters are given: %s" % str(cf))
 
 # dict that defines input parameters that conflict with each other
 CONFLICTS = [('h', 'H0', '100*theta_s'),
