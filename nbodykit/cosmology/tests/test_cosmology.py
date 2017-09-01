@@ -5,9 +5,14 @@ import pytest
 
 def test_deprecated_init():
 
+    # all valid deprecated kwargs
     with pytest.warns(FutureWarning):
-        c1 = cosmology.Cosmology(H0=67.6, Om0=0.31, flat=True)
-        c2 = cosmology.Cosmology(H0=67.6, Om0=0.31, Ode0=0.7, flat=False, w0=-0.9)
+        c1 = Cosmology(H0=67.6, Om0=0.31, flat=True)
+        c2 = Cosmology(H0=67.6, Om0=0.31, Ode0=0.7, flat=False, w0=-0.9)
+
+    # parameter conflict 
+    with pytest.raises(Exception):
+        c3 = Cosmology(H0=70., flat=True, h=0.7)
 
     assert_allclose(c1.h, 0.676)
     assert_allclose(c2.h, 0.676)
@@ -16,8 +21,6 @@ def test_deprecated_init():
     assert_allclose(c1.Ok0, 0.)
     assert_allclose(c2.Ode0, 0.7)
     assert_allclose(c2.w0_fld, -0.9)
-
-
 
 def test_efunc_prime():
     epsilon = 1e-4

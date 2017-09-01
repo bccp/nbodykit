@@ -4,6 +4,21 @@ from classylss.astropy_compat import AstropyCompat
 import numpy
 from six import string_types
 import os
+import functools
+
+def store_user_kwargs():
+    """
+    Decorator that adds the ``_user_kwargs`` attribute to the class to track
+    which arguments the user actually supplied. 
+    """
+    def decorator(function):
+        @functools.wraps(function)
+        def inner(self, *args, **kwargs):
+            self._user_kwargs = kwargs
+            return function(self, *args, **kwargs)
+        return inner
+    return decorator
+
 
 class Cosmology(object):
     r"""
@@ -102,6 +117,7 @@ class Cosmology(object):
     dro = [AstropyCompat, Thermo, Spectra, Perturbs, Primordial, Background, ClassEngine]
     dro_dict = dict([(n.__name__, n) for n in dro])
 
+    @store_user_kwargs()
     def __init__(self,
             h=0.67556,
             T0_cmb=2.7255,
@@ -118,20 +134,32 @@ class Cosmology(object):
             **kwargs # additional arguments to pass to CLASS
         ):
 
-        # check for deprecated init
-        args = check_deprecated_init(kwargs)
-        if args is None:
+        # quickly copy over all arguments --
+        # at this point locals only contains the arguments.
+        args = dict(locals())
 
-            # quickly copy over all arguments --
-            # at this point locals only contains the arguments.
-            args = dict(locals())
+        # store the extra CLASS params
+        kwargs = args.pop('kwargs')
 
-            # store the extra CLASS params
-            kwargs = args.pop('kwargs')
+        # remove some non-CLASS variables
+        args.pop('self')
 
-            # remove some non-CLASS variables
-            args.pop('self')
+        # check for deprecated init signature
+        deprecated_args = check_deprecated_init(kwargs)
+        if deprecated_args is not None:
 
+            # check for conflicts between named args user passed and
+            # deprecated args passed via **kwargs
+            for a in deprecated_args:
+                if a in self._user_kwargs:
+                    raise ValueError("Parameter conflicts; use '%s' parameter only" %a)
+
+            # if we make it here, it is a valid deprecated syntax
+            import warnings
+            warnings.warn(("This init signature is deprecated; see the Cosmology "
+                           "docstring for new signature"), FutureWarning)
+            args = deprecated_args
+        else:
             # merge the kwargs; without resolving conflicts.
             args.update(kwargs)
 
@@ -642,10 +670,6 @@ def check_deprecated_init(args):
 
     # update old defaults with input params
     defaults.update(args)
-
-    # warn user
-    import warnings
-    warnings.warn("This init signature is deprecated; see the Cosmology docstring for new signature", FutureWarning)
 
     if defaults['m_nu'] is not None:
         defaults['m_nu'] = units.Quantity(defaults['m_nu'], 'eV')
