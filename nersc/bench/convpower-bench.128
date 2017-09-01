@@ -1,0 +1,38 @@
+===== Running with 128 cores =====
+[ 000000.51 ]   0: 08-31 15:41  CatalogSource   INFO     Extra arguments to FileType: ('/global/cscratch1/sd/nhand//BOSSData/combined_sample/Data/galaxy_DR12v5_CMASSLOWZTOT_North.fits',)
+[ 000000.52 ]   0: 08-31 15:41  CatalogSource   INFO     total number of particles in FITSCatalog(size=7447, file='galaxy_DR12v5_CMASSLOWZTOT_North.fits') = 953255
+[ 000001.21 ]   0: 08-31 15:41  CatalogSource   INFO     total number of particles in CatalogCopy(size=1724) = 429182
+[ 000001.28 ]   0: 08-31 15:41  CatalogSource   INFO     Extra arguments to FileType: ('/global/cscratch1/sd/nhand//BOSSData/combined_sample/Randoms/random0_DR12v5_CMASSLOWZTOT_North.fits',)
+[ 000001.28 ]   0: 08-31 15:41  CatalogSource   INFO     total number of particles in FITSCatalog(size=380798, file='random0_DR12v5_CMASSLOWZTOT_North.fits') = 48742266
+[ 000004.71 ]   0: 08-31 15:41  CatalogSource   INFO     total number of particles in CatalogCopy(size=170989) = 21653140
+[ 000006.19 ]   0: 08-31 15:41  FKPCatalog      INFO     BoxSize = [ 1371.  2570.  1422.]
+[ 000006.19 ]   0: 08-31 15:41  FKPCatalog      INFO     cartesian coordinate range: [-1299.12597429 -1199.21663411   -81.99352637] : [  -53.53744958  1136.85942735  1210.35562685]
+[ 000006.19 ]   0: 08-31 15:41  FKPCatalog      INFO     BoxCenter = [-676.33171193  -31.17860338  564.18105024]
+[ 000006.22 ]   0: 08-31 15:41  ConvolvedFFTPower INFO     using compensation function CompensateTSC
+[ 000084.67 ]   0: 08-31 15:42  FKPCatalogMesh  INFO     painting the 'data' species
+[ 000084.68 ]   0: 08-31 15:42  CatalogSource   INFO     total number of particles in CatalogCopy(size=1724) = 429182
+[ 000084.69 ]   0: 08-31 15:42  CatalogMesh     INFO     total number of particles in (CatalogCopy(size=1724) as CatalogMesh) = 429182
+[ 000086.29 ]   0: 08-31 15:42  CatalogMesh     INFO     painted 429182 out of 429182 objects to mesh
+[ 000086.29 ]   0: 08-31 15:42  CatalogMesh     INFO     mean particles per cell is 0.000805551
+[ 000086.30 ]   0: 08-31 15:42  CatalogMesh     INFO     sum is 108119 
+[ 000086.30 ]   0: 08-31 15:42  CatalogMesh     INFO     normalized the convention to 1 + delta
+[ 000086.30 ]   0: 08-31 15:42  FKPCatalogMesh  INFO     painting the 'randoms' species
+[ 000086.30 ]   0: 08-31 15:42  CatalogSource   INFO     total number of particles in CatalogCopy(size=170989) = 21653140
+[ 000086.31 ]   0: 08-31 15:42  CatalogMesh     INFO     total number of particles in (CatalogCopy(size=170989) as CatalogMesh) = 21653140
+[ 000089.13 ]   0: 08-31 15:42  CatalogMesh     INFO     painted 21653140 out of 21653140 objects to mesh
+[ 000089.13 ]   0: 08-31 15:42  CatalogMesh     INFO     mean particles per cell is -0.000805662
+[ 000089.13 ]   0: 08-31 15:42  CatalogMesh     INFO     sum is -54074.6 
+[ 000089.13 ]   0: 08-31 15:42  CatalogMesh     INFO     normalized the convention to 1 + delta
+[ 000090.42 ]   0: 08-31 15:42  ConvolvedFFTPower INFO     tsc painting done
+[ 000090.60 ]   0: 08-31 15:42  ConvolvedFFTPower INFO     ell = 0 done; 1 r2c completed
+[ 000091.59 ]   0: 08-31 15:42  ConvolvedFFTPower INFO     ell = 2 done; 5 r2c completed
+[ 000093.90 ]   0: 08-31 15:42  ConvolvedFFTPower INFO     ell = 4 done; 9 r2c completed
+[ 000097.18 ]   0: 08-31 15:42  ConvolvedFFTPower INFO     ell = 6 done; 13 r2c completed
+[ 000101.73 ]   0: 08-31 15:43  ConvolvedFFTPower INFO     ell = 8 done; 17 r2c completed
+[ 000107.93 ]   0: 08-31 15:43  ConvolvedFFTPower INFO     ell = 10 done; 21 r2c completed
+[ 000116.27 ]   0: 08-31 15:43  ConvolvedFFTPower INFO     ell = 12 done; 25 r2c completed
+[ 000127.56 ]   0: 08-31 15:43  ConvolvedFFTPower INFO     ell = 14 done; 29 r2c completed
+[ 000143.13 ]   0: 08-31 15:43  ConvolvedFFTPower INFO     ell = 16 done; 33 r2c completed
+[ 000143.73 ]   0: 08-31 15:43  ConvolvedFFTPower INFO     higher order multipoles computed in elapsed time 00:00:53.03
+[ 000144.34 ]   0: 08-31 15:43  ConvolvedFFTPower INFO     normalized power spectrum with `randoms.norm = 8.091983`
+[ 000144.34 ]   0: 08-31 15:43  ConvolvedFFTPower INFO     saving ConvolvedFFTPower result to /global/cscratch1/sd/yfeng1//BOSSData/Results/poles_boss_dr12_combined_sample_1_North_dk005_kmin0.json
