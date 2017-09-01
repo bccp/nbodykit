@@ -2,5 +2,5 @@ include LICENSE
 include README.rst
 include requirements.txt
 include requirements-extras.txt
-include runtests.py
+include run-tests.py
 include nbodykit/style/*mplstyle
