@@ -94,8 +94,8 @@ class Cosmology(object):
             T_cmb=2.7255,
             Omega_b=0.022032/0.67556**2,
             Omega_cdm=0.12038/0.67556**2,
-            N_ur=None,
-            m_ncdm=[0.06],
+            N_ur=2.0328, # class correspondence (no of massive species, N_ur): (0,3.046), (1,2.0328), (2,1.0196), (3,0.00641)
+            m_ncdm=[0.06], #disable this line when N_ur = 3.046
             P_k_max=10.,
             P_z_max=100.,
             gauge='synchronous',
