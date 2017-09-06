@@ -5,6 +5,26 @@ import pytest
 
 
 
+def test_old_Omega_syntax():
+
+    c1 = Cosmology(Omega_b=0.04)
+    c2 = Cosmology(Omega0_b=0.04)
+    assert c1.Omega0_b == c2.Omega0_b
+
+    c1 = Cosmology(T_cmb=2.7)
+    c2 = Cosmology(T0_cmb=2.7)
+    assert c1.T0_cmb == c2.T0_cmb
+
+    c1 = Cosmology(Omega0_k=0.05)
+    c2 = Cosmology(Omega_k=0.05)
+    assert c1.Omega0_k == c2.Omega0_k
+
+    c1 = Cosmology(Omega0_lambda=0.7)
+    c2 = Cosmology(Omega_lambda=0.7)
+    c3 = Cosmology(Omega0_Lambda=0.7)
+    assert c1.Omega0_lambda == c2.Omega0_lambda
+    assert c1.Omega0_lambda == c3.Omega0_lambda
+
 def test_deprecated_init():
 
     # all valid deprecated kwargs

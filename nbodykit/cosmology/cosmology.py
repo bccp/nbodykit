@@ -9,7 +9,7 @@ import functools
 def store_user_kwargs():
     """
     Decorator that adds the ``_user_kwargs`` attribute to the class to track
-    which arguments the user actually supplied. 
+    which arguments the user actually supplied.
     """
     def decorator(function):
         @functools.wraps(function)
@@ -47,16 +47,17 @@ class Cosmology(object):
     Notes
     -----
     * The default configuration assumes a flat cosmology, :math:`\Omega_{0,k}=0`.
-      Pass ``Omega0_k`` in the ``extra`` keyword dictionary to change this value.
-    * For consistency of variable names, the present day values can be passed with
-      or without '0' postfix, e.g. ``Omega0_cdm`` is translated to ``Omega_cdm``,
-      as CLASS always uses the names without `0`.
-    * By default, a cosmological constant is assumed, with its density value
-      inferred by the curvature condition.
+      Pass ``Omega0_k`` as a keyword to specify the desired non-flat curvature.
+    * For consistency of variable names, the present day values can be passed
+      with or without '0' postfix, e.g., ``Omega0_cdm`` is translated to
+      ``Omega_cdm`` as CLASS always uses the names without `0` as input
+      parameters.
+    * By default, a cosmological constant (``Omega0_lambda``) is assumed, with
+      its density value inferred by the curvature condition.
     * Non-cosmological constant dark energy can be used by specifying the
       ``w0_fld``, ``wa_fld``, and/or ``Omega_fld`` values.
     * To pass in CLASS parameters that are not valid Python argument names, use
-      the dictionary /keyward arguments trick, e.g.
+      the dictionary/keyward arguments trick, e.g.
       ``Cosmology(..., **{'temperature contributions': 'y'})``
     * ``Cosmology(**dict(c))`` is not supposed to work; use ``Cosmology.from_dict(dict(c))``.
 
@@ -99,12 +100,10 @@ class Cosmology(object):
     **kwargs :
         extra keyword parameters to pass to CLASS. Mainly used to pass-in
         parameter names that are not valid Python function argument names,
-        e.g. `temperature contributions`, or `number count contributions`.
+        e.g. ``temperature contributions``, or ``number count contributions``.
         Users should be wary of configuration options that may conflict
-        with the base set of parameters
-        they shall not be in conflict with the parameters
-        inferred from cosmo. To override parameters,
-        chain the result with :method:`clone`.
+        with the base set of parameters. To override parameters, chain the
+        result with :method:`clone`.
     """
     # delegate resolve order -- a pun at mro; which in
     # this case introduces the meta class bloat and doesn't solve
@@ -162,6 +161,9 @@ class Cosmology(object):
         else:
             # merge the kwargs; without resolving conflicts.
             args.update(kwargs)
+
+        # check for input conflicts (using kwargs user actually input)
+        check_args(self._user_kwargs)
 
         # verify and set defaults
         pars = compile_args(args)
@@ -437,6 +439,7 @@ class Cosmology(object):
         # this call to merge_args is OK because self.pars is
         # a valid set of args
         args = merge_args(self.pars, kwargs)
+        check_args(args)
         pars = compile_args(args)
 
         return type(self).from_dict(pars)
@@ -519,8 +522,6 @@ def compile_args(args):
 
     see :method:`merge_args`
     """
-    check_args(args)
-
     pars = {} # we try to make pars write only.
 
     # set some default parameters
@@ -529,10 +530,6 @@ def compile_args(args):
 
     # args and pars are pretty much compatible;
     pars.update(args)
-
-    # remove None's -- None means using a default from CLASS
-    for key in list(pars.keys()):
-        if pars[key] is None: pars.pop(key)
 
     def set_alias(pars_name, args_name):
         if args_name not in args: return
@@ -547,6 +544,8 @@ def compile_args(args):
     set_alias('Omega_b', 'Omega0_b')
     set_alias('Omega_k', 'Omega0_k')
     set_alias('Omega_ur', 'Omega0_ur')
+    set_alias('Omega_Lambda', 'Omega_lambda') # classylss variable has lowercase l
+    set_alias('Omega_Lambda', 'Omega0_lambda') # classylss variable has lowercase l
     set_alias('Omega_Lambda', 'Omega0_Lambda')
     set_alias('Omega_fld', 'Omega0_fld')
     set_alias('Omega_ncdm', 'Omega0_ncdm')
@@ -629,6 +628,11 @@ def compile_args(args):
     # class uses existence of string.
     if pars.pop('non linear', False):
         pars['non linear'] = 'halofit'
+
+    # remove None's for remaining parameters -- None means using a default from CLASS
+    # NOTE: do this last since m_ncdm=None means no massive_neutrinos
+    for key in list(pars.keys()):
+        if pars[key] is None: pars.pop(key)
 
     return pars
 
