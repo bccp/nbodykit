@@ -3,6 +3,8 @@ from numpy.testing import assert_allclose, assert_array_equal
 import numpy
 import pytest
 
+
+
 def test_deprecated_init():
 
     # all valid deprecated kwargs
@@ -10,7 +12,7 @@ def test_deprecated_init():
         c1 = Cosmology(H0=67.6, Om0=0.31, flat=True)
         c2 = Cosmology(H0=67.6, Om0=0.31, Ode0=0.7, flat=False, w0=-0.9)
 
-    # parameter conflict 
+    # parameter conflict
     with pytest.raises(Exception):
         c3 = Cosmology(H0=70., flat=True, h=0.7)
 
@@ -317,6 +319,11 @@ def test_massive_neutrinos():
     # do not need 0 values
     with pytest.raises(ValueError):
         c = Cosmology(m_ncdm=[0.6, 0.])
+
+def test_no_massive_neutrinos():
+
+    c = Cosmology(m_ncdm=None)
+    assert c.has_massive_nu == False
 
 def test_bad_input():
 
