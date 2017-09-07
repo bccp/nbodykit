@@ -193,9 +193,11 @@ class ZeldovichJ0(mcfit.mcfit):
     def __init__(self, k):
         self.l = 0
         UK = mcfit.kernels.Mellin_SphericalBesselJ(self.l)
-        prefac = k
-        postfac = 1 / (2*numpy.pi)**1.5
-        mcfit.mcfit.__init__(self, k, UK, q=1.0, lowring=False, prefac=prefac, postfac=postfac)
+        mcfit.mcfit.__init__(self, k, UK, q=1.0, lowring=False)
+
+        # set pre and post factors
+        self.prefac = k
+        self.postfac = 1 / (2*numpy.pi)**1.5
 
 class ZeldovichJ1(mcfit.mcfit):
     r"""
@@ -209,11 +211,11 @@ class ZeldovichJ1(mcfit.mcfit):
     def __init__(self, k):
         self.l = 1
         UK = mcfit.kernels.Mellin_SphericalBesselJ(self.l)
-        prefac = 1.0
-        postfac = 1 / (2*numpy.pi)**1.5
-        mcfit.mcfit.__init__(self, k, UK, q=0, lowring=False, prefac=prefac, postfac=postfac)
-        self.postfac /= self.y
+        mcfit.mcfit.__init__(self, k, UK, q=0, lowring=False)
 
+        # set pre and post factors
+        self.prefac = 1.0
+        self.postfac = 1 / (2*numpy.pi)**1.5 / self.y
 
 class ZeldovichPowerIntegral(mcfit.mcfit):
     r"""
@@ -229,7 +231,8 @@ class ZeldovichPowerIntegral(mcfit.mcfit):
     def __init__(self, r, n):
         self.n = n
         UK = mcfit.kernels.Mellin_SphericalBesselJ(self.n)
+        mcfit.mcfit.__init__(self, r, UK, q=1.5-n, lowring=True)
 
-        prefac = r**(3-n)
-        postfac = (2*numpy.pi)**1.5
-        mcfit.mcfit.__init__(self, r, UK, q=1.5-n, lowring=True, prefac=prefac, postfac=postfac)
+        # set pre and post factors
+        self.prefac = r**(3-n)
+        self.postfac = (2*numpy.pi)**1.5

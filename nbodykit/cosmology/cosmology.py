@@ -4,12 +4,29 @@ from classylss.astropy_compat import AstropyCompat
 import numpy
 from six import string_types
 import os
+import functools
+
+def store_user_kwargs():
+    """
+    Decorator that adds the ``_user_kwargs`` attribute to the class to track
+    which arguments the user actually supplied.
+    """
+    def decorator(function):
+        @functools.wraps(function)
+        def inner(self, *args, **kwargs):
+            self._user_kwargs = kwargs
+            return function(self, *args, **kwargs)
+        return inner
+    return decorator
+
 
 class Cosmology(object):
     r"""
     A cosmology calculator based on the CLASS binding in :mod:`classylss`.
 
     It is a collection of all method provided by the CLASS interfaces.
+    The object is immutable. To obtain an instance with a new set of parameters
+    use :method:`clone` or :method:`match`.
 
     The individual interfaces can be accessed too, such that
     `c.Spectra.get_transfer` and `c.get_transfer` are identical.
@@ -30,23 +47,30 @@ class Cosmology(object):
     Notes
     -----
     * The default configuration assumes a flat cosmology, :math:`\Omega_{0,k}=0`.
-      Pass ``Omega_k`` in the ``extra`` keyword dictionary to change this value.
-    * By default, a cosmological constant is assumed, with its density value
-      inferred by the curvature condition.
+      Pass ``Omega0_k`` as a keyword to specify the desired non-flat curvature.
+    * For consistency of variable names, the present day values can be passed
+      with or without '0' postfix, e.g., ``Omega0_cdm`` is translated to
+      ``Omega_cdm`` as CLASS always uses the names without `0` as input
+      parameters.
+    * By default, a cosmological constant (``Omega0_lambda``) is assumed, with
+      its density value inferred by the curvature condition.
     * Non-cosmological constant dark energy can be used by specifying the
       ``w0_fld``, ``wa_fld``, and/or ``Omega_fld`` values.
-    * The ``sigma8`` attribute can be set to the desired value, and the internal
-      value of ``A_s`` will be automatically adjusted.
+    * To pass in CLASS parameters that are not valid Python argument names, use
+      the dictionary/keyward arguments trick, e.g.
+      ``Cosmology(..., **{'temperature contributions': 'y'})``
+    * ``Cosmology(**dict(c))`` is not supposed to work; use ``Cosmology.from_dict(dict(c))``.
 
     Parameters
     ----------
     h : float
         the dimensionaless Hubble parameter
-    T_cmb : float
+    T0_cmb : float
         the temperature of the CMB in Kelvins
-    Omega_b : float
-        the current baryon density parameter, :math:`\Omega_{b,0}`
-    Omega_cdm : float
+    Omega0_b : float
+        the current baryon density parameter, :math:`\Omega_{b,0}`. Currently
+        unrealisitic cosmology where Omega_b == 0 is not supported.
+    Omega0_cdm : float
         the current cold dark matter density parameter, :math:`\Omega_{cdm,0}`
     N_ur : float
         the number of ultra-relativistic (massless neutrino) species; the
@@ -74,9 +98,12 @@ class Cosmology(object):
     verbose : bool
         whether to turn on the default CLASS logging for all submodules
     **kwargs :
-        extra keyword parameters to pass to CLASS; users should be wary
-        of configuration options that may conflict with the base set
-        of parameters
+        extra keyword parameters to pass to CLASS. Mainly used to pass-in
+        parameter names that are not valid Python function argument names,
+        e.g. ``temperature contributions``, or ``number count contributions``.
+        Users should be wary of configuration options that may conflict
+        with the base set of parameters. To override parameters, chain the
+        result with :method:`clone`.
     """
     # delegate resolve order -- a pun at mro; which in
     # this case introduces the meta class bloat and doesn't solve
@@ -89,11 +116,12 @@ class Cosmology(object):
     dro = [AstropyCompat, Thermo, Spectra, Perturbs, Primordial, Background, ClassEngine]
     dro_dict = dict([(n.__name__, n) for n in dro])
 
+    @store_user_kwargs()
     def __init__(self,
             h=0.67556,
-            T_cmb=2.7255,
-            Omega_b=0.022032/0.67556**2,
-            Omega_cdm=0.12038/0.67556**2,
+            T0_cmb=2.7255,
+            Omega0_b=0.022032/0.67556**2,
+            Omega0_cdm=0.12038/0.67556**2,
             N_ur=None,
             m_ncdm=[0.06],
             P_k_max=10.,
@@ -104,6 +132,7 @@ class Cosmology(object):
             verbose=False,
             **kwargs # additional arguments to pass to CLASS
         ):
+
         # quickly copy over all arguments --
         # at this point locals only contains the arguments.
         args = dict(locals())
@@ -114,17 +143,42 @@ class Cosmology(object):
         # remove some non-CLASS variables
         args.pop('self')
 
+        # check for deprecated init signature
+        deprecated_args = check_deprecated_init(kwargs)
+        if deprecated_args is not None:
+
+            # check for conflicts between named args user passed and
+            # deprecated args passed via **kwargs
+            for a in deprecated_args:
+                if a in self._user_kwargs:
+                    raise ValueError("Parameter conflicts; use '%s' parameter only" %a)
+
+            # if we make it here, it is a valid deprecated syntax
+            import warnings
+            warnings.warn(("This init signature is deprecated; see the Cosmology "
+                           "docstring for new signature"), FutureWarning)
+            args = deprecated_args
+        else:
+            # merge the kwargs; without resolving conflicts.
+            args.update(kwargs)
+
+        # check for input conflicts (using kwargs user actually input)
+        check_args(self._user_kwargs)
+
+        # verify and set defaults
+        pars = compile_args(args)
+
         # use set state to de-serialize the object.
-        self.__setstate__((args,kwargs))
+        self.__setstate__(pars)
 
     def __iter__(self):
         """
         Allows dict() to be used on class.
+        Use :method:`from_dict` to reconstruct an instance.
         """
-        args = self.args.copy()
-        args.update(self.kwargs)
-        for k in args:
-            yield k, args[k]
+        pars = self.pars.copy()
+        for k in pars:
+            yield k, pars[k]
 
     def __dir__(self):
         """ a list of all members from all delegate classes """
@@ -135,6 +189,15 @@ class Cosmology(object):
         for i in reversed(self.dro):
             r.extend(dir(i))
         return sorted(list(set(r)))
+
+    def __setattr__(self, key, value):
+
+        # do not allow setting of properties of the delegate classes
+        if any(hasattr(n, key) for n in self.dro):
+            raise ValueError(("the Cosmology object is immutable; use clone() or "
+                              "match() to update parameters"))
+
+        return object.__setattr__(self, key, value)
 
     def __getattr__(self, name):
         """
@@ -158,7 +221,7 @@ class Cosmology(object):
             raise AttributeError("Attribute `%s` not found in any of the delegate objects" % name)
 
     def __getstate__(self):
-        return (self.args, self.kwargs)
+        return (self.pars)
 
     @property
     def sigma8(self):
@@ -166,16 +229,60 @@ class Cosmology(object):
         The amplitude of matter fluctuations at :math:`z=0` in a sphere
         of radius :math:`r = 8 \ h^{-1}\mathrm{Mpc}`.
 
-        This is not an input CLASS parameter, but users can set this parameter
-        and the scalar amplitude ``A_s`` will be internally adjusted to
+        This is not an input CLASS parameter. To scale ``sigma8``, use
+        :method:`match`, which adjusts scalar amplitude ``A_s`` to
         achieve the desired ``sigma8``.
         """
         return self.Spectra.sigma8
 
-    @sigma8.setter
-    def sigma8(self, value):
-        if not numpy.isclose(self.sigma8, value):
-            set_sigma8(self, value, inplace=True)
+    @property
+    def Omega0_cb(self):
+        """
+        The total density of CDM and Baryon.
+
+        This is not an input CLASS parameter. To scale ``Omega0_cb``, use
+        :method:`match`.
+        """
+        return self.Background.Omega0_cdm + self.Background.Omega0_b
+
+    def match(self, sigma8=None, Omega0_cb=None, Omega0_m=None):
+        """
+        Creates a new cosmology that matches a derived parameter. This is different
+        from clone, where CLASS parameters are used.
+
+        Note that we only supoort matching one derived parameter at a time,
+        because the matching is in general non-commutable.
+
+        Parameters
+        ----------
+        sigma8 : float or None
+            We scale the scalar amplitude ``A_s`` to achieve the desired ``sigma8``.
+        Omega0_cb: float or None
+            Desired total energy density of CDM and baryon.
+        Omega0_m: float or None
+            Desired total energy density of matter-like components (included ncdm)
+
+        Returns
+        -------
+        A new cosmology parameter where the derived parameter matches the given constrain.
+
+        """
+
+        if sum(0 if i is None else 1 for i in [sigma8, Omega0_cb, Omega0_m]) != 1:
+            raise ValueError("Only match one derived parameter at one time; but multiple is given.")
+
+        if sigma8 is not None:
+            return self.clone(A_s=self.A_s * (sigma8/self.sigma8)**2)
+
+        if Omega0_cb is not None:
+            rat = Omega0_cb / self.Omega0_cb
+            return self.clone(Omega_b=rat * self.Omega0_b, Omega_cdm=rat * self.Omega0_cdm)
+
+        if Omega0_m is not None:
+            Omega0_cb = Omega0_m - (self.Omega0_ncdm_tot - self.Omega0_pncdm_tot) - self.Omega0_dcdm
+            return self.match(Omega0_cb=Omega0_cb)
+
+        return self
 
     def to_astropy(self):
         """
@@ -233,7 +340,6 @@ class Cosmology(object):
             cls = prefix + "LambdaCDM"
         cls = getattr(ac, cls)
 
-        print(cls)
         return cls(**pars)
 
     @classmethod
@@ -247,7 +353,10 @@ class Cosmology(object):
         cosmo : subclass of :class:`astropy.cosmology.FLRW`.
             the astropy cosmology instance
         **kwargs :
-            extra keyword parameters to pass when initializing
+            extra keyword parameters to pass when initializing;
+            they shall not be in conflict with the parameters
+            inferred from cosmo. To override parameters,
+            chain the result with :method:`clone`.
 
         Returns
         -------
@@ -255,7 +364,12 @@ class Cosmology(object):
             the initialized cosmology object
         """
         args = astropy_to_dict(cosmo)
+        # merge in additional arguments -- this will die if
+        # there are conflicts.
         args.update(kwargs)
+
+        # astropy_to_dict creates args, so we can use the 'user-friendly'
+        # constructor.
         return Cosmology(**args)
 
     @classmethod
@@ -267,36 +381,45 @@ class Cosmology(object):
         ----------
         filename : str
             the name of the parameter file to read
+        **kwargs :
+            extra keyword parameters to pass when initializing;
+            they shall not be in conflict with the parameters
+            inferred from cosmo. To override parameters,
+            chain the result with :method:`clone`.
         """
         from classylss import load_ini
 
         # extract dictionary of parameters from the file
         pars = load_ini(filename)
-        pars.update(**kwargs)
 
-        # initialize the engine as the backup delegate.
-        toret = object.__new__(cls)
-        toret.engine = ClassEngine(pars)
-        toret.delegates = {ClassEngine: toret.engine}
+        # intentionally not using merge; use clone if
+        # parameters are to modified.
+        pars.update(kwargs)
 
-        # reconstruct the correct __init__ params
-        args, kwargs = sanitize_class_params(toret, pars)
+        return cls.from_dict(pars)
 
-        toret.args = args
-        toret.kwargs = kwargs
-        return toret
+    @classmethod
+    def from_dict(kls, pars):
+        """
+        Creates a Cosmology from a pars dictionary.
+
+        This is a rather 'raw' API.
+        The dictionary must be readable by ClassEngine.
+        Unlike ``Cosmology(**args)``, ``pars`` must
+        not contain any convenient names defined here.
+        """
+        self = object.__new__(Cosmology)
+        self.__setstate__(pars)
+        return self
 
     def __setstate__(self, state):
 
-        # remember for serialization
-        self.args, self.kwargs = state
-
-        # verify and set defaults
-        pars = verify_parameters(self.args, self.kwargs)
+        pars = state
 
         # initialize the engine as the backup delegate.
         self.engine = ClassEngine(pars)
         self.delegates = {ClassEngine: self.engine}
+        self.pars = pars
 
     def clone(self, **kwargs):
         """
@@ -313,20 +436,13 @@ class Cosmology(object):
         :class:`Cosmology`
             a copy of self, with the input ``kwargs`` adjusted
         """
-        # initialize a new object (so we have sanitized args/kwargs)
-        new = Cosmology(**kwargs)
+        # this call to merge_args is OK because self.pars is
+        # a valid set of args
+        args = merge_args(self.pars, kwargs)
+        check_args(args)
+        pars = compile_args(args)
 
-        # the named keywords
-        args = self.args.copy()
-        args.update(new.args)
-
-        # the extra keywords
-        kwargs = self.kwargs.copy()
-        kwargs.update(new.kwargs)
-        args.update(kwargs)
-
-        return Cosmology(**args)
-
+        return type(self).from_dict(pars)
 
 def astropy_to_dict(cosmo):
     """
@@ -335,14 +451,14 @@ def astropy_to_dict(cosmo):
     """
     from astropy import cosmology, units
 
-    pars = {}
-    pars['h'] = cosmo.h
-    pars['T_cmb'] = cosmo.Tcmb0.value
+    args = {}
+    args['h'] = cosmo.h
+    args['T0_cmb'] = cosmo.Tcmb0.value
     if cosmo.Ob0 is not None:
-        pars['Omega_b'] = cosmo.Ob0
+        args['Omega0_b'] = cosmo.Ob0
     else:
         raise ValueError("please specify a value 'Ob0' ")
-    pars['Omega_cdm'] = cosmo.Om0 - cosmo.Ob0 # should be okay for now
+    args['Omega0_cdm'] = cosmo.Om0 - cosmo.Ob0 # should be okay for now
 
     # handle massive neutrinos
     if cosmo.has_massive_nu:
@@ -360,27 +476,27 @@ def astropy_to_dict(cosmo):
         # then you should pass here respectively 2.0328,1.0196,0.00641
         N_ur = [2.0328, 1.0196, 0.00641]
         N_massive = (m_nu > 0.).sum()
-        pars['N_ur'] = (cosmo.Neff/3.046) * N_ur[N_massive-1]
+        args['N_ur'] = (cosmo.Neff/3.046) * N_ur[N_massive-1]
 
-        pars['m_ncdm'] = [k.value for k in sorted(m_nu[m_nu > 0.], reverse=True)]
+        args['m_ncdm'] = [k.value for k in sorted(m_nu[m_nu > 0.], reverse=True)]
     else:
-        pars['m_ncdm'] = []
-        pars['N_ur'] = cosmo.Neff
+        args['m_ncdm'] = []
+        args['N_ur'] = cosmo.Neff
 
     # specify the curvature
-    pars['Omega_k'] = cosmo.Ok0
+    args['Omega0_k'] = cosmo.Ok0
 
     # handle dark energy
     if isinstance(cosmo, cosmology.LambdaCDM):
         pass
     elif isinstance(cosmo, cosmology.wCDM):
-        pars['w0_fld'] = cosmo.w0
-        pars['wa_fld'] = 0.
-        pars['Omega_Lambda'] = 0. # use Omega_fld
+        args['w0_fld'] = cosmo.w0
+        args['wa_fld'] = 0.
+        args['Omega0_Lambda'] = 0. # use Omega_fld
     elif isinstance(cosmo, cosmology.w0waCDM):
-        pars['w0_fld'] = cosmo.w0
-        pars['wa_fld'] = cosmo.wa
-        pars['Omega_Lambda'] = 0. # use Omega_fld
+        args['w0_fld'] = cosmo.w0
+        args['wa_fld'] = cosmo.wa
+        args['Omega0_Lambda'] = 0. # use Omega_fld
     else:
         cls = cosmo.__class__.__name__
         valid = ["LambdaCDM", "wCDM", "w0waCDM"]
@@ -388,180 +504,227 @@ def astropy_to_dict(cosmo):
         msg += "valid classes: %s" %str(valid)
         raise ValueError(msg)
 
-    return pars
+    return args
 
-def verify_parameters(args, extra):
+def compile_args(args):
     """
-    Verify the input parameters to a :class:`Cosmology` object and
-    set various default values.
-    """
-    # check for conflicts
-    for par in CONFLICTS:
-        for p in CONFLICTS[par]:
-            if p in extra:
-                raise ValueError("input parameter conflict; use '%s', not '%s'" %(par, p))
+    Compile the input args of Cosmology object to the input parameters (pars) to
+    a :class:`Cosmology` object.
 
-    pars = {}
-    pars.update(args)
-    pars.update(extra)
+    A variety of defaults are set to tune CLASS for quantities used in
+    large scale structures.
+
+    Difference between pars and args:
+     - anything that is valid pars is also valid args.
+     - after replacing our customizations in args, we get pars.
+
+    Note that CLASS will check for additional conflicts.
+
+    see :method:`merge_args`
+    """
+    pars = {} # we try to make pars write only.
 
     # set some default parameters
     pars.setdefault('output', "vTk dTk mPk")
     pars.setdefault('extra metric transfer functions', 'y')
 
+    # args and pars are pretty much compatible;
+    pars.update(args)
+
+    def set_alias(pars_name, args_name):
+        if args_name not in args: return
+        v = args[args_name]
+        pars.pop(args_name) # pop because we copied everything.
+        if pars_name in args:
+            v = args[pars_name]
+        pars[pars_name] = v
+
+    set_alias('T_cmb', 'T0_cmb')
+    set_alias('Omega_cdm', 'Omega0_cdm')
+    set_alias('Omega_b', 'Omega0_b')
+    set_alias('Omega_k', 'Omega0_k')
+    set_alias('Omega_ur', 'Omega0_ur')
+    set_alias('Omega_Lambda', 'Omega_lambda') # classylss variable has lowercase l
+    set_alias('Omega_Lambda', 'Omega0_lambda') # classylss variable has lowercase l
+    set_alias('Omega_Lambda', 'Omega0_Lambda')
+    set_alias('Omega_fld', 'Omega0_fld')
+    set_alias('Omega_ncdm', 'Omega0_ncdm')
+    set_alias('Omega_g', 'Omega0_g')
+
+    # turn on verbosity
+    if 'verbose' in args:
+        pars.pop('verbose')
+        verbose = args['verbose']
+        if verbose:
+            for par in ['input', 'background', 'thermodynamics', 'perturbations',
+                        'transfer', 'primordial', 'spectra', 'nonlinear', 'lensing']:
+                name = par + '_verbose'
+                if name not in pars: pars[name] = 1
+
     # no massive neutrinos
-    if pars.get('m_ncdm', None) is None:
-        pars['m_ncdm'] = []
+    if 'm_ncdm' in args:
+        pars.pop('m_ncdm')
+        m_ncdm = args['m_ncdm']
+        if m_ncdm is None:
+            m_ncdm = []
 
-    # a single massive neutrino
-    if numpy.isscalar(pars['m_ncdm']):
-        pars['m_ncdm'] = [pars['m_ncdm']]
+        if numpy.isscalar(m_ncdm):
+            # a single massive neutrino
+            m_ncdm = [m_ncdm]
 
-    # needs to be a list
-    if not isinstance(pars['m_ncdm'], (list,numpy.ndarray)):
-        raise TypeError("``m_ncdm`` should be a list of mass values in eV")
+        if isinstance(m_ncdm, (list, numpy.ndarray)):
+            m_ncdm = list(m_ncdm)
+        else:
+            raise TypeError("``m_ncdm`` should be a list of mass values in eV")
+
+        for m in m_ncdm:
+            if m == 0:
+                raise ValueError("A zero mass is specified in the non-cold dark matter list. "
+                                 "This is not needed, as we automatically set N_ur based on "
+                                 "the number of entries in m_ncdm such that Neff = 3.046.")
+
+        # number of massive neutrino species
+        pars['N_ncdm'] = len(m_ncdm)
+
+        # m_ncdm only needed if we have massive neutrinos
+        if len(m_ncdm) > 0:
+            pars['m_ncdm'] = m_ncdm
+
+        # from CLASS notes:
+        # one more remark: if you have respectively 1,2,3 massive neutrinos,
+        # if you stick to the default value pm equal to 0.71611, designed to give m/omega of
+        # 93.14 eV, and if you want to use N_ur to get N_eff equal to 3.046 in the early universe,
+        # then you should pass here respectively 2.0328,1.0196,0.00641
+        N_ur_table = [3.046, 2.0328, 1.0196, 0.00641]
+        if args['N_ur'] is None:
+            pars['N_ur'] = N_ur_table[len(m_ncdm)]
+
+    if 'N_ur' in args:
+        if args['N_ur'] is not None:
+            pars['N_ur'] = args['N_ur']
 
     # check gauge
-    if pars.get('gauge', 'synchronous') not in ['synchronous', 'newtonian']:
-        raise ValueError("'gauge' should be 'synchronous' or 'newtonian'")
-
-    for m in pars['m_ncdm']:
-        if m == 0:
-            raise ValueError("A zero mass is specified in the non-cold dark matter list. "
-                             "This is not needed, as we automatically set N_ur based on "
-                             "the number of entries in m_ncdm such that Neff = 3.046.")
-
-    # remove None's -- use CLASS default
-    for key in list(pars.keys()):
-        if pars[key] is None: pars.pop(key)
+    if 'gauge' in args:
+        if args['gauge'] not in ['synchronous', 'newtonian']:
+            raise ValueError("'gauge' should be 'synchronous' or 'newtonian'")
 
     # set cosmological constant to zero if we got fluid w0/wa
-    if 'w0_fld' in pars or 'wa_fld' in pars:
+    if 'w0_fld' in args or 'wa_fld' in args:
         if pars.get('Omega_Lambda', 0) > 0:
-            raise ValueError(("non-zero fOmega_Lambda (cosmological constant) specified as "
+            raise ValueError(("non-zero Omega_Lambda (cosmological constant) specified as "
                              "well as fluid w0/wa; use Omega_fld instead"))
         pars['Omega_Lambda'] = 0.
 
-    # turn on verbosity
-    verbose = pars.pop('verbose', False)
-    if verbose:
-        for par in ['input', 'background', 'thermodynamics', 'perturbations',
-                    'transfer', 'primordial', 'spectra', 'nonlinear', 'lensing']:
-            name = par + '_verbose'
-            if name not in pars: pars[name] = 1
 
     # maximum k value
-    if 'P_k_max_h/Mpc' not in pars:
-        pars['P_k_max_h/Mpc'] = pars.pop('P_k_max', 10.)
+    set_alias('P_k_max_h/Mpc', 'P_k_max')
 
     # maximum redshift
-    if 'z_max_pk' not in pars:
-        pars['z_max_pk'] = pars.pop('P_z_max', 100.)
+    set_alias('z_max_pk', 'P_z_max')
 
-    # nonlinear power?
-    if 'non linear' not in pars:
-        if pars.pop('nonlinear', False):
-            pars['non linear'] = 'halofit'
+    # nonlinear
+    set_alias('non linear', 'nonlinear')
+    # sorry we use a boolean but
+    # class uses existence of string.
+    if pars.pop('non linear', False):
+        pars['non linear'] = 'halofit'
 
-    # number of massive neutrino species
-    pars['N_ncdm'] = len(pars['m_ncdm'])
-
-    # m_ncdm only needed if we have massive neutrinos
-    if not pars['N_ncdm']: pars.pop('m_ncdm')
-
-    # from CLASS notes:
-    # one more remark: if you have respectively 1,2,3 massive neutrinos,
-    # if you stick to the default value pm equal to 0.71611, designed to give m/omega of
-    # 93.14 eV, and if you want to use N_ur to get N_eff equal to 3.046 in the early universe,
-    # then you should pass here respectively 2.0328,1.0196,0.00641
-    N_ur_table = [3.046, 2.0328, 1.0196, 0.00641]
-    if 'N_ur' not in pars:
-        pars['N_ur'] = N_ur_table[pars['N_ncdm']]
+    # remove None's for remaining parameters -- None means using a default from CLASS
+    # NOTE: do this last since m_ncdm=None means no massive_neutrinos
+    for key in list(pars.keys()):
+        if pars[key] is None: pars.pop(key)
 
     return pars
 
 
-def set_sigma8(cosmo, sigma8, inplace=False):
+def merge_args(args, moreargs):
     """
-    Return a clone of the input Cosmology object, with the ``sigma8`` value
-    set to the specified value.
+    merge moreargs into args.
 
-    Parameters
-    ----------
-    cosmo : Cosmology
-        the input cosmology object
-    sigma8 : float
-        the desired sigma8 value
-    inplace : bool, optional
-        if ``True``, update sigma8 of the input ``cosmo`` object, else return
-        a new Cosmology object
+    Those defined in moreargs takes priority than those
+    defined in args.
+
+    see :method:`compile_args`
     """
-    # the new scalar amplitude A_s
-    A_s = cosmo.A_s * (sigma8/cosmo.sigma8)**2
+    args = args.copy()
 
-    # the extra keywords
-    kwargs = cosmo.kwargs.copy()
+    for name in moreargs.keys():
+        # pop those conflicting with me from the old pars
+        for eq in find_eqcls(name):
+            if eq in args: args.pop(eq)
 
-    # set the desired A_s and remove conflicting parameters
-    kwargs['A_s'] = A_s
-    kwargs.pop('ln10^{10}A_s', None)
+    args.update(moreargs)
+    return args
 
-    if inplace:
-        cosmo.__setstate__((cosmo.args, kwargs))
+def check_deprecated_init(args):
+    """
+    Check if ``args`` uses the (now deprecated) signature of ``Cosmology``
+    prior to version 0.2.6.
+
+    If using the deprecated syntax, this returns the necessary arguments for
+    the new signature, and ``None`` otherwise.
+    """
+    from astropy import cosmology, units
+    defaults = {'H0':67.6, 'Om0':0.31, 'Ob0':0.0486, 'Ode0':0.69, 'w0':-1.,
+                'Tcmb0':2.7255, 'Neff':3.04, 'm_nu':0., 'flat':False}
+
+    # all clear; nothing to do
+    if not len(args) or not all(a in defaults for a in args):
+        return
+
+    # update old defaults with input params
+    defaults.update(args)
+
+    if defaults['m_nu'] is not None:
+        defaults['m_nu'] = units.Quantity(defaults['m_nu'], 'eV')
+
+    # determine the astropy class
+    if defaults['w0'] == -1.0: # cosmological constant
+        cls = 'LambdaCDM'
+        defaults.pop('w0')
     else:
-        # add the name keywords
-        kwargs.update(cosmo.args)
+        cls = 'wCDM'
 
-        # new cosmo clone
-        cosmo = Cosmology(**kwargs)
+    # use special flat case if Ok0 = 0
+    if defaults.pop('flat'):
+        cls = 'Flat' + cls
+        defaults.pop('Ode0')
 
-    return cosmo
+    # initialize the astropy engine and convert to dict for Cosmology()
+    astropy_cosmo = getattr(cosmology, cls)(**defaults)
+    return astropy_to_dict(astropy_cosmo)
 
-def sanitize_class_params(cosmo, pars):
-    """
-    Given a dictionary of CLASS parameters, construct the ``args``
-    dict and ``kwargs`` dict that can used to initialize a
-    Cosmology class, accounting for any possible conflicts.
 
-    The ``args`` dict holds the main (named) __init__ keywords, and the
-    ``kwargs`` holds all of the extra keywords.
-    """
-    args = {}
-    kwargs = pars.copy()
+def check_args(args):
+    cf = {}
+    for name in args.keys():
+        cf[name] = []
+        for eq in find_eqcls(name):
+            if eq == name: continue
+            if eq in args: cf[name].append(eq)
 
-    # loop over all parameters
-    for name in list(kwargs.keys()):
-
-        # parameter is a main parameter
-        if name in CONFLICTS:
-            kwargs.pop(name)
-            alias = ALIASES.get(name, name) # check for attribute alias
-            args[name] = getattr(cosmo, alias)
-        else:
-            # check if parameter conflicts with main parameter
-            for c in CONFLICTS:
-                if name in CONFLICTS[c]:
-                    kwargs.pop(name)
-                    alias = ALIASES.get(c, c)
-                    args[c] = getattr(cosmo, alias)
-
-    # set all named keywords that do not have parameter conflicts
-    args['gauge'] = cosmo.gauge
-
-    return args, kwargs
-
-# dict mapping input CLASS params to the Cosmology attribute name
-ALIASES = {'Omega_b': 'Omega0_b', 'Omega_cdm':'Omega0_cdm', 'T_cmb':'T0_cmb',
-           'P_k_max': 'k_max_for_pk'}
+    for name in cf.keys():
+        if len(cf[name]) > 0:
+            raise ValueError("Conflicted parameters are given: %s" % str(cf))
 
 # dict that defines input parameters that conflict with each other
-CONFLICTS = {'h': ['H0', '100*theta_s'],
-             'T_cmb': ['Omega_g', 'omega_g'],
-             'Omega_b': ['omega_b'],
-             'N_ur': ['Omega_ur', 'omega_ur'],
-             'Omega_cdm': ['omega_cdm'],
-             'm_ncdm': ['Omega_ncdm', 'omega_ncdm'],
-             'P_k_max': ['P_k_max_h/Mpc', 'P_k_max_1/Mpc'],
-             'P_z_max': ['z_max_pk'],
-             'nonlinear' : ['non linear']
-            }
+CONFLICTS = [('h', 'H0', '100*theta_s'),
+             ('T_cmb', 'Omega_g', 'omega_g', 'Omega0_g'),
+             ('Omega_b', 'omega_b', 'Omega0_b'),
+             ('Omega_fld', 'Omega0_fld'),
+             ('Omega_Lambda', 'Omega0_Lambda'),
+             ('N_ur', 'Omega_ur', 'omega_ur', 'Omega0_ur'),
+             ('Omega_cdm', 'omega_cdm', 'Omega0_cdm'),
+             ('m_ncdm', 'Omega_ncdm', 'omega_ncdm', 'Omega0_ncdm'),
+             ('P_k_max', 'P_k_max_h/Mpc', 'P_k_max_1/Mpc'),
+             ('P_z_max', 'z_max_pk'),
+             ('nonlinear', 'non linear'),
+             ('A_s', 'ln10^{10}A_s'),
+            ]
+
+def find_eqcls(key):
+    for cls in CONFLICTS:
+        if key in cls:
+            return cls
+    else:
+        return ()

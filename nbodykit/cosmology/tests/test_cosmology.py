@@ -4,6 +4,46 @@ import numpy
 import pytest
 
 
+
+def test_old_Omega_syntax():
+
+    c1 = Cosmology(Omega_b=0.04)
+    c2 = Cosmology(Omega0_b=0.04)
+    assert c1.Omega0_b == c2.Omega0_b
+
+    c1 = Cosmology(T_cmb=2.7)
+    c2 = Cosmology(T0_cmb=2.7)
+    assert c1.T0_cmb == c2.T0_cmb
+
+    c1 = Cosmology(Omega0_k=0.05)
+    c2 = Cosmology(Omega_k=0.05)
+    assert c1.Omega0_k == c2.Omega0_k
+
+    c1 = Cosmology(Omega0_lambda=0.7)
+    c2 = Cosmology(Omega_lambda=0.7)
+    c3 = Cosmology(Omega0_Lambda=0.7)
+    assert c1.Omega0_lambda == c2.Omega0_lambda
+    assert c1.Omega0_lambda == c3.Omega0_lambda
+
+def test_deprecated_init():
+
+    # all valid deprecated kwargs
+    with pytest.warns(FutureWarning):
+        c1 = Cosmology(H0=67.6, Om0=0.31, flat=True)
+        c2 = Cosmology(H0=67.6, Om0=0.31, Ode0=0.7, flat=False, w0=-0.9)
+
+    # parameter conflict
+    with pytest.raises(Exception):
+        c3 = Cosmology(H0=70., flat=True, h=0.7)
+
+    assert_allclose(c1.h, 0.676)
+    assert_allclose(c2.h, 0.676)
+    assert_allclose(c1.Om0, 0.31)
+    assert_allclose(c2.Om0, 0.31)
+    assert_allclose(c1.Ok0, 0.)
+    assert_allclose(c2.Ode0, 0.7)
+    assert_allclose(c2.w0_fld, -0.9)
+
 def test_efunc_prime():
     epsilon = 1e-4
     z = numpy.linspace(0, 3, 1000) + epsilon
@@ -27,6 +67,13 @@ def test_load_precision():
     c = Cosmology(gauge='synchronous', tol_background_integration=1e-5, **p)
     assert_allclose(c.Omega_cdm(0), c.Omega0_cdm)
 
+def test_clone():
+    c = Cosmology(gauge='synchronous', tol_background_integration=1e-5)
+    c2 = c.clone(Omega0_b=0.04)
+    assert_allclose(c2.Omega0_b, 0.04)
+    c2 = c2.clone()
+    assert_allclose(c2.Omega0_b, 0.04)
+
 def test_from_file():
 
     import tempfile, pickle
@@ -40,7 +87,7 @@ def test_from_file():
         assert_allclose(c.Omega0_cdm*c.h**2, 0.110616)
 
     # clone
-    c2 = c.clone(Omega_b=0.04)
+    c2 = c.clone(Omega0_b=0.04)
     assert_allclose(c2.Omega0_b, 0.04)
 
     # serialize and make sure we get the same
@@ -53,12 +100,15 @@ def test_from_file():
 def test_conflicts():
 
     # h is the correct param
-    with pytest.raises(ValueError):
+    with pytest.raises(Exception):
         c = Cosmology(h=0.7, H0=70)
 
+    with pytest.raises(Exception):
+        c = Cosmology(Omega0_b=0.04, Omega_b=0.04)
+
     # Omega_b is the correct param
-    with pytest.raises(ValueError):
-        c = Cosmology(Omega_b=0.04, omega_b=0.02)
+    with pytest.raises(Exception):
+        c = Cosmology(Omega0_b=0.04, omega_b=0.02)
 
 def test_unknown_params():
 
@@ -68,11 +118,21 @@ def test_unknown_params():
 
 def test_set_sigma8():
 
-    c = Cosmology()
-    c.sigma8 = 0.80 # set sigma8 by adjusting A_s internally
+    # set sigma8 by adjusting A_s internally
+    c = Cosmology().match(sigma8=0.80)
 
     # run CLASS and compute sigma8
     assert_allclose(c.sigma8, 0.80)
+
+def test_set_Omega0_cb():
+
+    c = Cosmology().match(Omega0_cb=0.4)
+
+    assert_allclose(c.Omega0_cb, 0.4)
+
+    c = Cosmology().match(Omega0_m=0.4)
+    assert_allclose(c.Omega0_m, 0.4)
+
 
 def test_sigma8_z():
 
@@ -146,7 +206,7 @@ def test_cosmology_a_max():
     t = c.efunc(-0.1)
     t = c.scale_independent_growth_factor(-0.1)
 
-    t = c.get_transfer(z=-0.1)
+    #t = c.get_transfer(z=-0.1)
 
 def test_cosmology_transfer():
     c = Cosmology()
@@ -245,6 +305,15 @@ def test_from_astropy():
         assert_allclose(c.wa, x.wa)
         assert_allclose(c.Omega0_lambda, 0.) # Omega_fld is nonzero
 
+def test_immutable():
+
+    c = Cosmology()
+    with pytest.raises(ValueError):
+        c.A_s = 2e-9 # immutable
+
+    # can add non-CLASS attributes still
+    c.test = 'TEST'
+
 def test_bad_no_Ob0():
 
     from astropy.cosmology import FlatLambdaCDM
@@ -270,6 +339,11 @@ def test_massive_neutrinos():
     # do not need 0 values
     with pytest.raises(ValueError):
         c = Cosmology(m_ncdm=[0.6, 0.])
+
+def test_no_massive_neutrinos():
+
+    c = Cosmology(m_ncdm=None)
+    assert c.has_massive_nu == False
 
 def test_bad_input():
 

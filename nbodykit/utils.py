@@ -289,9 +289,7 @@ class JSONEncoder(json.JSONEncoder):
         # Cosmology object
         if isinstance(obj, Cosmology):
             d = {}
-            d['__cosmo__'] = True
-            d['__args__'] = obj.args.copy()
-            d['__args__'].update(obj.kwargs)
+            d['__cosmo__'] = obj.pars.copy()
             return d
 
         # astropy quantity
@@ -376,7 +374,7 @@ class JSONDecoder(json.JSONDecoder):
             d = Quantity(d, Unit(value['__unit__']))
 
         if '__cosmo__' in value:
-            d = Cosmology(**value['__args__'])
+            d = Cosmology.from_dict(value['__cosmo__'])
 
         if d is not None:
             return d
