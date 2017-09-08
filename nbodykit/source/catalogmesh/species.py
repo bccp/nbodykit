@@ -58,9 +58,13 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
         If not a species name, this has the same behavior as
         :func:`CatalogSource.__getitem__`.
         """
+
+        ## FIXME: Can we use MultipleSpeciesCatalog.getitem (e.g. expose a static method)
+        #         then  chain with a to_mesh? The code looks duplicated.
+
         # return a new CatalogMesh object if key is a species name
         if key in self.source.species:
-            from nbodykit.base.catalog import CatalogCopy
+            from nbodykit.base.catalog import CatalogSubset
 
             # get the data columns for this species
             data = {}
@@ -71,7 +75,7 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
 
             # a CatalogView holding only the data from the selected species
             size = self.source._sizes[self.source.species.index(key)]
-            cat = CatalogCopy(size, self.source.comm, use_cache=self.source.use_cache, **data)
+            cat = CatalogSubset(size, self.source.comm, use_cache=self.source.use_cache, **data)
 
             # copy over the meta data
             for k in self.attrs:

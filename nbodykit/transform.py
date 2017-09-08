@@ -59,7 +59,7 @@ def ConcatenateSources(*sources, **kwargs):
     >>> combined = transform.ConcatenateSources(source1, source2, columns=['Position', 'Velocity'])
     >>> print(combined.csize)
     """
-    from nbodykit.base.catalog import CatalogCopy
+    from nbodykit.base.catalog import CatalogSubset
 
     columns = kwargs.get('columns', None)
     if isinstance(columns, string_types):
@@ -85,7 +85,7 @@ def ConcatenateSources(*sources, **kwargs):
     for col in columns:
         data[col] = da.concatenate([src[col] for src in sources], axis=0)
 
-    toret = CatalogCopy(size, sources[0].comm, use_cache=sources[0].use_cache, **data)
+    toret = CatalogSubset(size, sources[0].comm, use_cache=sources[0].use_cache, **data)
     toret.attrs.update(sources[0].attrs)
     return toret
 
