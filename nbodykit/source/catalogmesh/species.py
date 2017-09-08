@@ -60,7 +60,7 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
         """
         # return a new CatalogMesh object if key is a species name
         if key in self.source.species:
-            from nbodykit.base.catalog import CatalogCopy
+            from nbodykit.base.catalog import CatalogRef
 
             # get the data columns for this species
             data = {}
@@ -71,7 +71,7 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
 
             # a CatalogView holding only the data from the selected species
             size = self.source._sizes[self.source.species.index(key)]
-            cat = CatalogCopy(size, self.source.comm, use_cache=self.source.use_cache, **data)
+            cat = CatalogRef(size, self.source.comm, use_cache=self.source.use_cache, **data)
 
             # copy over the meta data
             for k in self.attrs:
