@@ -1,4 +1,4 @@
-from nbodykit.base.catalog import CatalogSourceBase, column
+from nbodykit.base.catalog import CatalogSourceBase, column, CatalogSource
 from nbodykit.utils import attrs_to_dict
 
 import numpy
@@ -90,12 +90,11 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
         """
         This modifies the behavior of :func:`CatalogSourceBase.__getitem__`
         such that if ``key`` is a species name, a
-        :class:`~nbodykit.base.catalog.CatalogSubset` will be returned that
+        :class:`~nbodykit.base.catalog.CatalogSource` will be returned that
         holds that data only for the species.
         """
         # return a new CatalogSource holding only the specific species
         if key in self.species:
-            from nbodykit.base.catalog import CatalogSubset
 
             # get the data columns for this species
             data = {}
@@ -108,7 +107,7 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
             size = self._sizes[self.species.index(key)]
 
             # the returned object
-            toret = CatalogSubset(size, self.comm, use_cache=self.use_cache, **data)
+            toret = CatalogSource._from_columns(size, self.comm, use_cache=self.use_cache, **data)
 
             # copy over the meta data
             for k in self.attrs:

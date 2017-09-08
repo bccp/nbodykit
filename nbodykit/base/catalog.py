@@ -172,9 +172,9 @@ class CatalogSourceBase(object):
         #.  strings specifying a column in the CatalogSource; returns
             a dask array holding the column data
         #.  boolean arrays specifying a slice of the CatalogSource;
-            returns a CatalogSubset holding only the revelant slice
+            returns a CatalogSource holding only the revelant slice
         #.  slice object specifying which particles to select
-        #.  list of strings specifying column names; returns a CatalogSubset
+        #.  list of strings specifying column names; returns a CatalogSource
             holding only the selected columnss
         """
         # handle boolean array slices
@@ -193,7 +193,7 @@ class CatalogSourceBase(object):
 
                     # return a CatalogSource only holding the selected columns
                     subset_data = {col:self[col] for col in sel}
-                    toret = CatalogSubset(self.size, self.comm, use_cache=self.use_cache, **subset_data)
+                    toret = CatalogSource._from_columns(self.size, self.comm, use_cache=self.use_cache, **subset_data)
                     toret.attrs.update(self.attrs)
                     return toret
 
@@ -545,6 +545,30 @@ class CatalogSource(CatalogSourceBase):
     """
     logger = logging.getLogger('CatalogSource')
 
+    @classmethod
+    def _from_columns(kls, size, comm, use_cache=False, **columns):
+        """ Create a Catalog from a set of columns.
+
+            This method is used internally by nbodykit to create
+            views of catalogs based on existing catalogs.
+
+            The attrs attribute of the returned catalog is empty.
+
+            Use :class:`~nbodykit.source.catalog.array.ArrayCatalog`
+            To adapt a structured array or dictionary of array.
+
+        """
+        self = object.__new__(CatalogSource)
+
+        self._size = size
+        CatalogSource.__init__(self, comm=comm, use_cache=use_cache)
+
+        # store the column arrays
+        for name in columns:
+            self[name] = columns[name]
+
+        return self
+
     def __init__(self, comm, use_cache=False):
 
         # init the base class
@@ -589,25 +613,31 @@ class CatalogSource(CatalogSourceBase):
 
         Returns
         -------
-        CatalogSubset :
+        CatalogSource:
             the new CatalogSource object holding all of the the data columns of ``self``
         """
         if self.size is NotImplemented:
             return ValueError("cannot copy a CatalogSource that does not have `size` implemented")
 
         data = {col:self[col] for col in self.columns}
-        toret = CatalogSubset(self.size, comm=self.comm, use_cache=self.use_cache, **data)
+        toret = CatalogSource._from_columns(self.size, comm=self.comm, use_cache=self.use_cache, **data)
         toret.attrs.update(self.attrs)
         return toret
 
-    @abc.abstractproperty
+    @property
     def size(self):
         """
         The number of particles in the CatalogSource on the local rank.
 
         This property must be defined for all subclasses.
         """
-        return NotImplemented
+        if not hasattr(self, '_size'):
+            return NotImplemented
+        return self._size
+
+    @size.setter
+    def size(self, value):
+        raise RuntimeError("Property size is read-only. Internally, _size can be set during Catalog initialization.")
 
     @property
     def csize(self):
@@ -674,48 +704,12 @@ class CatalogSource(CatalogSourceBase):
             self.logger.info("total number of particles in %s = %d" %(str(self), self.csize))
 
 
-class CatalogSubset(CatalogSource):
-    """
-    A CatalogSource object that holds columns referencing data from an
-    original source.
-
-    This is part of nbodykit internal API and shall not be used outside.
-    To construct a Catalog from a structured array or dictionary of arrays,
-    use :class:`nbodykit.source.catalog.array.ArrayCatalog`.
-
-    Parameters
-    ----------
-    size : int
-        the size of the new source; this was likely determined by
-        the number of particles passing the selection criterion
-    comm : MPI communicator
-        the MPI communicator; this should be the same as the
-        comm of the object that we are selecting from
-    use_cache : bool, optional
-        whether to cache results
-    **columns :
-        the data arrays that will be added to this source; keys
-        represent the column names
-    """
-    def __init__(self, size, comm, use_cache=False, **columns):
-
-        self._size = size
-        CatalogSource.__init__(self, comm=comm, use_cache=use_cache)
-
-        # store the column arrays
-        for name in columns:
-            self[name] = columns[name]
-
-    @property
-    def size(self):
-        return self._size
-
 def get_catalog_subset(parent, index):
     """
     Select a subset of a :class:`CatalogSource` according to a boolean
     index array.
 
-    Returns a :class:`CatalogSubset` holding only the data that satisfies
+    Returns a :class:`CatalogSource` holding only the data that satisfies
     the slice criterion.
 
     Parameters
@@ -728,7 +722,7 @@ def get_catalog_subset(parent, index):
 
     Returns
     -------
-    subset : :class:`CatalogSubset`
+    subset : :class:`CatalogSource`
         the particle source with the same meta-data as `parent`, and
         with the sliced data arrays
     """
@@ -749,7 +743,7 @@ def get_catalog_subset(parent, index):
 
     # initialize subset Source of right size
     subset_data = {col:parent[col][index] for col in parent}
-    toret = CatalogSubset(size, parent.comm, use_cache=parent.use_cache, **subset_data)
+    toret = CatalogSource._from_columns(size, parent.comm, use_cache=parent.use_cache, **subset_data)
 
     # and the meta-data
     toret.attrs.update(parent.attrs)
