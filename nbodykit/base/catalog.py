@@ -6,9 +6,8 @@ import numpy
 import logging
 import warnings
 import dask.array as da
+from nbodykit import _globals
 
-# default size of Cache for CatalogSource arrays
-CACHE_SIZE = 1e9
 
 class ColumnAccessor(da.Array):
     """
@@ -146,7 +145,7 @@ class CatalogSourceBase(object):
             # references
             return array.as_daskarray()
         else:
-            return da.from_array(array, chunks=100000)
+            return da.from_array(array, chunks=_globals['dask_chunk_size'])
 
     def __init__(self, comm, use_cache=False):
 
@@ -261,14 +260,14 @@ class CatalogSourceBase(object):
     @use_cache.setter
     def use_cache(self, val):
         """
-        Initialize a Cache object of size set by ``CACHE_SIZE``, which
-        is 1 GB by default.
+        Initialize a Cache object of size set by the ``dask_cache_size``
+        global configuration option, which is 1 GB by default.
         """
         if val:
             try:
                 from dask.cache import Cache
                 if not hasattr(self, '_cache'):
-                    self._cache = Cache(CACHE_SIZE)
+                    self._cache = Cache(_globals['dask_cache_size'])
             except ImportError:
                 warnings.warn("caching of CatalogSource requires ``cachey`` module; turning cache off")
         else:
@@ -573,7 +572,7 @@ class CatalogSource(CatalogSourceBase):
         # handle scalar values
         if numpy.isscalar(value):
             assert self.size is not NotImplemented, "size is not implemented! cannot set scalar array"
-            value = ConstantArray(value, self.size, chunks=100000)
+            value = ConstantArray(value, self.size, chunks=_globals['dask_chunk_size'])
 
         # check the correct size, if we know the size
         if self.size is not NotImplemented:
@@ -625,7 +624,7 @@ class CatalogSource(CatalogSourceBase):
 
         By default, this column is set to ``True`` for all particles.
         """
-        return ConstantArray(True, self.size, chunks=100000)
+        return ConstantArray(True, self.size, chunks=_globals['dask_chunk_size'])
 
     @column
     def Weight(self):
@@ -637,7 +636,7 @@ class CatalogSource(CatalogSourceBase):
 
         By default, this array is set to unity for all particles.
         """
-        return ConstantArray(1.0, self.size, chunks=100000)
+        return ConstantArray(1.0, self.size, chunks=_globals['dask_chunk_size'])
 
     @column
     def Value(self):
@@ -651,7 +650,7 @@ class CatalogSource(CatalogSourceBase):
 
         By default, this array is set to unity for all particles.
         """
-        return ConstantArray(1.0, self.size, chunks=100000)
+        return ConstantArray(1.0, self.size, chunks=_globals['dask_chunk_size'])
 
     def update_csize(self):
         """
