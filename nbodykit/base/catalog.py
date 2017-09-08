@@ -9,6 +9,102 @@ import dask.array as da
 from nbodykit import _globals
 
 
+def optimized_selection(arr, index):
+    """
+    Perform an optimized selection operation on the input dask array ``arr``,
+    as specified by the boolean index ``index``.
+
+    The operation is optimized by inserting slicing tasks directly after
+    the task that last alters the length of the array (along axis=0).s
+
+    Parameters
+    ----------
+    arr : dask.array.Array
+        the dask array that we wish to slice
+    index : array_like
+        a boolean number array representing the selection indices; should be
+        the same length as ``arr``
+    """
+    from dask.optimize import cull
+    from dask.core import reverse_dict
+    from dask.array.slicing import slice_array
+    from dask.array.core import getter as getarray
+    from collections import defaultdict
+    from itertools import groupby
+    from operator import itemgetter, getitem
+
+    # cull and get the dependencies of the input graph
+    dsk, deps = cull(arr.dask, arr._keys())
+    rdeps = reverse_dict(deps) # task to list of things depending on task
+
+    # this store the new slicing tasks
+    dsk2 = dict()
+
+    # the getitem tasks to check for
+    GETTERS = [getarray, getitem]
+
+    def emptyslice(sl):
+        """return True if slice is empty"""
+        return all(getattr(sl, name, None) is None for name in ['start', 'stop', 'end'])
+
+    def changes_size(task):
+        """return True if the task is a getitem slice that changes size of array"""
+        if isinstance(task, tuple) and len(task) == 3 and task[0] in GETTERS:
+            sl = task[2][0] # first dimension slice
+            if sl is not None and not emptyslice(sl):
+                return True
+        return False
+
+    def index_tasks(t, toreplace, cnt=0):
+        """
+        Fill the defaultdict ``toreplace`` with tasks that change the
+        array slice via a non-empty slice. Keys here are the levels of
+        dependency from the root of the task graph.
+        """
+        if changes_size(dsk[t]):
+            toreplace[cnt].append(t)
+        for xx in rdeps[t]:
+            index_tasks(xx, toreplace, cnt=cnt+1)
+
+    # find keys with no dependencies
+    roots = [k for k in deps if not len(deps[k])]
+
+    # index the graph to find tasks to replace
+    toreplace = defaultdict(list)
+    for root in roots:
+        index_tasks(root, toreplace)
+
+    # max key gives the task closest to final product to replace
+    toreplace = toreplace[max(toreplace)]
+
+    # loop over all of the root tasks
+    for root in roots:
+
+        # loop over names of tasks we will replace
+        for key, subiter in groupby(toreplace, itemgetter(0)):
+
+            # replace each task with the name 'key'
+            for task_key in subiter:
+
+                # determine the slice tasks
+                ndim = len(task_key)-1
+                slice_dsk, blockdims = slice_array(key, 'unused', arr.chunks[:ndim], (index,))
+
+                # only update if this task key is in the slice graph
+                if task_key in slice_dsk:
+                    old_task = dsk[task_key] # the original task
+                    new_task = list(slice_dsk[task_key]) # new task to do slicing
+                    new_task[1] = old_task # slicing task operates on old task (inline)
+
+                    # now update the slicing graph and save to dsk2
+                    dsk2[task_key] = tuple(new_task)
+
+    # initialize and return a new dask array, with proper chunking
+    dsk.update(dsk2)
+    chunks = tuple(blockdims) + arr.chunks[ndim:]
+    return da.Array(dsk, arr.name, chunks, dtype=arr.dtype)
+
+
 class ColumnAccessor(da.Array):
     """
     Provides access to a Column from a Catalog
@@ -33,6 +129,37 @@ class ColumnAccessor(da.Array):
         self.catalog = catalog
         self.attrs = {}
         return self
+
+    def __getitem__(self, key):
+        """
+        If ``key`` is an array-like index with the same length as the
+        underlying catalog, the slice will be performed with the
+        optimization provided by :func:`optimized_selection`.
+
+        Otherwise, the default behavior is returned.
+        """
+        d = None
+
+        # try to optimize the selection
+        sel = key[0] if isinstance(key, tuple) else key
+        if isinstance(sel, (list, numpy.ndarray, da.Array)):
+            if len(sel) == self.catalog.size:
+                if isinstance(sel, da.Array):
+                    sel = self.catalog.compute(sel)
+                try:
+                    d = optimized_selection(self, sel)
+                except:
+                    raise
+                    pass
+
+        # the fallback is default behavior
+        if d is None:
+            d = da.Array.__getitem__(self, key)
+
+        # return a ColumnAccessor (okay b/c __setitem__ checks for circular references)
+        toret = ColumnAccessor(self.catalog, d)
+        toret.attrs.update(self.attrs)
+        return toret
 
     def as_daskarray(self):
         return da.Array(

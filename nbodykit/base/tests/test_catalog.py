@@ -1,11 +1,42 @@
 from runtests.mpi import MPITest
 from nbodykit.lab import *
-from nbodykit import setup_logging
+from nbodykit import setup_logging, set_options
 
 import pytest
 from numpy.testing import assert_allclose, assert_array_equal
 
 setup_logging()
+
+@MPITest([1, 4])
+def test_optimized_selection(comm):
+
+    CurrentMPIComm.set(comm)
+
+    # compute with smaller chunk size to test chunking
+    with set_options(dask_chunk_size=100):
+        s = RandomCatalog(1000, seed=42)
+
+        # ra, dec, z
+        s['z']   = s.rng.normal(loc=0, scale=0.2, size=s.size) # contains z < 0
+        s['ra']  = s.rng.uniform(low=110, high=260, size=s.size)
+        s['dec'] = s.rng.uniform(low=-3.6, high=60., size=s.size)
+
+        # raises exception due to z<0
+        with pytest.raises(Exception):
+            s['Position'] = transform.SkyToCartesion(s['ra'], s['dec'], s['z'], cosmo=cosmology.Planck15)
+            pos = s['Position'].compute()
+
+        # slice (even after adding Position column)
+        subset = s[s['z'] > 0]
+
+        # Position should be evaluatable due to slicing first, then evaluating operations
+        pos = subset['Position'].compute()
+
+        # compute the results with numpy and compare
+        index = (s['z'] > 0).compute()
+        z0 = (s['z'].compute())[index]
+        assert_array_equal(z0, subset['z'])
+
 
 @MPITest([1, 4])
 def test_save(comm):
@@ -188,7 +219,7 @@ def test_columnaccessor():
     # c is no longer an accessor because it has transformed.
     assert not isinstance(c, ColumnAccessor)
 
-    # thus it is not affecting original. 
+    # thus it is not affecting original.
     assert_array_equal(source['Position'][0].compute(), truth)
     assert_array_equal(c[0].compute(), truth * 10.)
 
