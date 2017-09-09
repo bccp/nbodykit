@@ -1,13 +1,62 @@
 from six import add_metaclass, string_types
 from nbodykit.transform import ConstantArray
+from nbodykit import _globals
 
 import abc
 import numpy
 import logging
 import warnings
+from collections import defaultdict
 import dask.array as da
-from nbodykit import _globals
 
+def get_slice_size(start, stop, step):
+    """
+    Utility function to return the size of an array slice
+    """
+    if step is None: step = 1
+    if start is None: start = 0
+    N, remainder = divmod(stop-start, step)
+    if remainder: N += 1
+    return N
+
+def isgetitem(task):
+    """
+    Return True if the task is a getitem slice
+    """
+    from dask.array.optimization import GETTERS
+
+    if isinstance(task, tuple) and task[0] in GETTERS:
+        sl = task[2][0] # first dimension slice
+        if sl is not None:
+            return True
+    return False
+
+def find_consecutive_gets(t, out, dsk, dependents):
+    """
+    Fill the defaultdict ``out`` with consecutive getitem tasks that have
+    only (at most) a single dependent (no split chains).
+
+    Keys are the block number along the first index for each task.
+    """
+    # check if task is getitem with only 1 dependent
+    if isgetitem(dsk[t]) and len(dependents[t]) <= 1:
+        out[t[1]].append(t)
+        for xx in dependents[t]:
+            find_consecutive_gets(xx, out, dsk, dependents)
+
+
+def expanding_apply(iterable, func):
+    """
+    Perform a running application of ``func`` to ``iterable``
+    """
+    it = iter(iterable)
+    try:
+        total = next(it)
+    except StopIteration:
+        return
+    for element in it:
+        total = func(total, element)
+    return total
 
 def optimized_selection(arr, index):
     """
@@ -15,94 +64,114 @@ def optimized_selection(arr, index):
     as specified by the boolean index ``index``.
 
     The operation is optimized by inserting slicing tasks directly after
-    the task that last alters the length of the array (along axis=0).s
+    the task that last alters the length of the array (along axis=0).
+
+    The procedure used is as follows:
+
+    - Identify the source nodes in the task graph (with no dependencies)
+    - Following each source node, identify the number of consecutive getitem
+      tasks
+    - Compute the size of the fused getitem slices -- if the size is equal to
+      the size of the catalog on the rank, insert the necessary slicing
+      tasks following the last getitem
 
     Parameters
     ----------
     arr : dask.array.Array
         the dask array that we wish to slice
     index : array_like
-        a boolean number array representing the selection indices; should be
+        a boolean array representing the selection indices; should be
         the same length as ``arr``
     """
-    from dask.optimize import cull
-    from dask.core import reverse_dict
-    from dask.array.slicing import slice_array
-    from dask.array.core import getter as getarray
-    from collections import defaultdict
-    from itertools import groupby
-    from operator import itemgetter, getitem
+    from dask.array.optimization import fuse_slice, cull, reverse_dict
+    from dask.array.slicing import slice_array, tokenize
+    from dask.core import subs
 
-    # cull and get the dependencies of the input graph
-    dsk, deps = cull(arr.dask, arr._keys())
-    rdeps = reverse_dict(deps) # task to list of things depending on task
+    if not isinstance(arr, ColumnAccessor):
+        raise TypeError("can only perform optimized selection on ColumnAccessor")
+
+    # cull unused tasks first
+    dsk, dependencies = cull(arr.dask, arr._keys())
+
+    # the dependents
+    dependents = reverse_dict(dependencies)
 
     # this store the new slicing tasks
     dsk2 = dict()
 
-    # the getitem tasks to check for
-    GETTERS = [getarray, getitem]
+    # source nodes in graph have no dependencies
+    sources = [k for k in dependencies if not len(dependencies[k])]
 
-    def emptyslice(sl):
-        """return True if slice is empty"""
-        return all(getattr(sl, name, None) is None for name in ['start', 'stop', 'end'])
+    name = arr.name
 
-    def changes_size(task):
-        """return True if the task is a getitem slice that changes size of array"""
-        if isinstance(task, tuple) and len(task) == 3 and task[0] in GETTERS:
-            sl = task[2][0] # first dimension slice
-            if sl is not None and not emptyslice(sl):
-                return True
-        return False
+    # loop over all of the source tasks
+    for source in sources:
 
-    def index_tasks(t, toreplace, cnt=0):
-        """
-        Fill the defaultdict ``toreplace`` with tasks that change the
-        array slice via a non-empty slice. Keys here are the levels of
-        dependency from the root of the task graph.
-        """
-        if changes_size(dsk[t]):
-            toreplace[cnt].append(t)
-        for xx in rdeps[t]:
-            index_tasks(xx, toreplace, cnt=cnt+1)
+        # find consecutive getitems from this source
+        gettasks = defaultdict(list)
+        for dep in dependents[source]:
+            find_consecutive_gets(dep, gettasks, dsk, dependents)
 
-    # find keys with no dependencies
-    roots = [k for k in deps if not len(deps[k])]
+        size = 0
+        # compute total size of getitem slices
+        for chunknum in gettasks:
+            keys = iter(gettasks[chunknum])
+            slices = []
+            for kk in keys:
+                v = dsk[kk][2][0] # the slice along the 1st axis
 
-    # index the graph to find tasks to replace
-    toreplace = defaultdict(list)
-    for root in roots:
-        index_tasks(root, toreplace)
+                # just save slices
+                if isinstance(v, slice):
+                    slices.append(v)
+                # if array_like, the array gives indices of valid elements
+                elif isinstance(v, (numpy.ndarray,list)):
+                    dummy_slice = slice(0,len(v),None) # dummy slice of the right final size
+                    slices.append(dummy_slice)
+                else:
+                    raise ValueError("cannot perform optimized selection")
 
-    # max key gives the task closest to final product to replace
-    toreplace = toreplace[max(toreplace)]
+            # fuse all of the slices together and determined size of fused slice
+            total_slice = expanding_apply(slices, fuse_slice)
+            size += get_slice_size(total_slice.start, total_slice.stop, total_slice.step)
 
-    # loop over all of the root tasks
-    for root in roots:
+        # total slice size must be equal to catalog size to work
+        if arr.catalog.size == size:
 
-        # loop over names of tasks we will replace
-        for key, subiter in groupby(toreplace, itemgetter(0)):
+            # need all blocks along 1st axis to be represented
+            if all(block in gettasks for block in range(arr.numblocks[0])):
 
-            # replace each task with the name 'key'
-            for task_key in subiter:
+                last = gettasks[0][-1] # last getitem task key along block #0
+                inname = last[0] # slice tasks are inserted after this task name
 
                 # determine the slice tasks
-                ndim = len(task_key)-1
-                slice_dsk, blockdims = slice_array(key, 'unused', arr.chunks[:ndim], (index,))
+                # output task name of slice graph is "selection-*"
+                # input task name of slice graph is last consecutive getitem task
+                ndim = len(last)-1
+                outname = 'selection-'+tokenize(arr,index,source)
+                slice_dsk, blockdims = slice_array(outname, inname, arr.chunks[:ndim], (index,))
 
-                # only update if this task key is in the slice graph
-                if task_key in slice_dsk:
-                    old_task = dsk[task_key] # the original task
-                    new_task = list(slice_dsk[task_key]) # new task to do slicing
-                    new_task[1] = old_task # slicing task operates on old task (inline)
+                # if last getitem task is array name, we need to rename array
+                if inname == arr.name:
+                    name = outname
 
-                    # now update the slicing graph and save to dsk2
-                    dsk2[task_key] = tuple(new_task)
+                # add the slice tasks to the new graph
+                dsk2.update(slice_dsk)
 
-    # initialize and return a new dask array, with proper chunking
+                # update dependents of last consecutive getitem task
+                # to point to "selection-*" tasks
+                for k,v in slice_dsk.items():
+                    old_task_key = v[1]
+                    for dep in dependents[old_task_key]:
+                        dsk2[dep] = subs(dsk[dep], old_task_key, k)
+
+    # if no new tasks, then we failed to verify size or find sources
+    if not len(dsk2):
+        raise ValueError("cannot perform optimized selection")
+
+    # update the original graph and make new Array
     dsk.update(dsk2)
     chunks = tuple(blockdims) + arr.chunks[ndim:]
-    return da.Array(dsk, arr.name, chunks, dtype=arr.dtype)
+    return da.Array(dsk, name, chunks, dtype=arr.dtype)
 
 
 class ColumnAccessor(da.Array):
@@ -149,7 +218,6 @@ class ColumnAccessor(da.Array):
                 try:
                     d = optimized_selection(self, sel)
                 except:
-                    raise
                     pass
 
         # the fallback is default behavior
@@ -375,7 +443,6 @@ class CatalogSourceBase(object):
 
         raise ValueError("unable to delete column '%s' from CatalogSource" %col)
 
-
     @property
     def use_cache(self):
         """
@@ -436,8 +503,6 @@ class CatalogSourceBase(object):
         except AttributeError:
             self._attrs = {}
             return self._attrs
-
-
 
     def get_hardcolumn(self, col):
         """
