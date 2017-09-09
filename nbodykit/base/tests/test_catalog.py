@@ -7,6 +7,27 @@ from numpy.testing import assert_allclose, assert_array_equal
 
 setup_logging()
 
+
+@MPITest([1, 4])
+def test_consecutive_selections(comm):
+
+    CurrentMPIComm.set(comm)
+
+    # compute with smaller chunk size to test chunking
+    with set_options(dask_chunk_size=100):
+
+        s = UniformCatalog(1000, 1.0, seed=42)
+
+        # slice once
+        subset1 = s[:20]
+        assert 'selection' in subset1['Position'].name # ensure optimized selection succeeded
+
+        # slice again
+        subset2 = subset1[:10]
+        assert 'selection' in subset2['Position'].name # ensure optimized selection succeeded
+
+        assert_array_equal(subset2['Position'].compute(), s['Position'].compute()[:20][:10])
+
 @MPITest([1, 4])
 def test_optimized_selection(comm):
 
@@ -31,11 +52,6 @@ def test_optimized_selection(comm):
 
         # Position should be evaluatable due to slicing first, then evaluating operations
         pos = subset['Position'].compute()
-
-        # compute the results with numpy and compare
-        index = (s['z'] > 0).compute()
-        z0 = (s['z'].compute())[index]
-        assert_array_equal(z0, subset['z'])
 
 
 @MPITest([1, 4])
