@@ -211,14 +211,21 @@ class ColumnAccessor(da.Array):
 
         # try to optimize the selection
         sel = key[0] if isinstance(key, tuple) else key
-        if isinstance(sel, (list, numpy.ndarray, da.Array)):
-            if len(sel) == self.catalog.size:
-                if isinstance(sel, da.Array):
-                    sel = self.catalog.compute(sel)
-                try:
-                    d = optimized_selection(self, sel)
-                except:
-                    pass
+        if isinstance(sel, (list, numpy.ndarray, da.Array, slice)):
+
+            # compute dask arrays
+            if isinstance(sel, da.Array):
+                sel = self.catalog.compute(sel)
+
+            try:
+                # compute the boolean index from the input key
+                index = numpy.zeros(self.catalog.size, dtype='?')
+                index[sel] = True
+
+                # do the optimized selection with boolean index
+                d = optimized_selection(self, index)
+            except:
+                pass
 
         # the fallback is default behavior
         if d is None:
