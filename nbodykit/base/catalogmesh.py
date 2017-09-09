@@ -162,7 +162,7 @@ class CatalogMesh(MeshSource, CatalogSource):
             The density field on the mesh is normalized as :math:`1+\delta`,
             such that the collective mean of the field is unity.
 
-        See the :ref:`documentation <painting-mesh>` on painting for more 
+        See the :ref:`documentation <painting-mesh>` on painting for more
         details on painting catalogs to a mesh.
 
         Returns
@@ -177,8 +177,6 @@ class CatalogMesh(MeshSource, CatalogSource):
             raise ValueError(msg)
 
         pm = self.pm
-
-        fullsize = 0 # track how many were selected out
         Nlocal = 0 # (unweighted) number of particles read on local rank
         Wlocal = 0 # (weighted) number of particles read on local rank
 
@@ -203,6 +201,15 @@ class CatalogMesh(MeshSource, CatalogSource):
         columns = [self.position, self.weight, self.value, self.selection]
         Position, Weight, Value, Selection = self.read(columns)
 
+        # perform optimized selection
+        sel = self.source.compute(Selection) # compute first, so we avoid repeated computes
+        Position = Position[sel]
+        Weight = Weight[sel]
+        Value = Value[sel]
+
+        # compute
+        position, weight, value = self.source.compute(Position, Weight, Value)
+
         # ensure the slices are synced, since decomposition is collective
         N = max(pm.comm.allgather(len(Position)))
 
@@ -214,8 +221,8 @@ class CatalogMesh(MeshSource, CatalogSource):
             if len(Position) != 0:
 
                 # be sure to use the source to compute
-                position, weight, value, selection = \
-                    self.source.compute(Position[s], Weight[s], Value[s], Selection[s])
+                position, weight, value = \
+                    self.source.compute(Position[s], Weight[s], Value[s])
             else:
                 # workaround a potential dask issue on empty dask arrays
                 position = numpy.empty((0, 3), dtype=Position.dtype)
@@ -228,15 +235,6 @@ class CatalogMesh(MeshSource, CatalogSource):
 
             if value is None:
                 value = numpy.ones(len(position))
-
-            # track all particles, before Selection applied
-            fullsize += len(position)
-
-            # apply any Selections
-            if selection is not None:
-                position = position[selection]
-                weight = weight[selection]
-                value = value[selection]
 
             # track total (selected) number and sum of weights
             Nlocal += len(position)
@@ -281,9 +279,6 @@ class CatalogMesh(MeshSource, CatalogSource):
         # weighted number of objects
         W = pm.comm.allreduce(Wlocal)
 
-        # the full size; should be equal to csize
-        fullsize = pm.comm.allreduce(fullsize)
-
         # weighted number density (objs/cell)
         nbar = 1. * W / numpy.prod(pm.Nmesh)
 
@@ -304,7 +299,7 @@ class CatalogMesh(MeshSource, CatalogSource):
 
         csum = real.csum()
         if pm.comm.rank == 0:
-            self.logger.info("painted %d out of %d objects to mesh" %(N,fullsize))
+            self.logger.info("painted %d out of %d objects to mesh" %(N,self.source.csize))
             self.logger.info("mean particles per cell is %g", nbar)
             self.logger.info("sum is %g ", csum)
             self.logger.info("normalized the convention to 1 + delta")
