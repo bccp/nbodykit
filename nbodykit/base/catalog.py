@@ -87,8 +87,8 @@ def optimized_selection(arr, index):
     from dask.array.slicing import slice_array, tokenize
     from dask.core import subs
 
-    if not isinstance(arr, ColumnAccessor):
-        raise TypeError("can only perform optimized selection on ColumnAccessor")
+    # need the "catalog" attribute
+    assert isinstance(arr, ColumnAccessor)
 
     # cull unused tasks first
     dsk, dependencies = cull(arr.dask, arr._keys())
@@ -112,8 +112,8 @@ def optimized_selection(arr, index):
         for dep in dependents[source]:
             find_consecutive_gets(dep, gettasks, dsk, dependents)
 
-        size = 0
         # compute total size of getitem slices
+        size = 0
         for chunknum in gettasks:
             keys = iter(gettasks[chunknum])
             slices = []
@@ -132,37 +132,54 @@ def optimized_selection(arr, index):
 
             # fuse all of the slices together and determined size of fused slice
             total_slice = expanding_apply(slices, fuse_slice)
+
+            # try to identify the stop from previous data
+            if total_slice.stop is None:
+                N = len(arr) # if all gets end in None, use length of array
+                total_slice = slice(total_slice.start, N, total_slice.step)
+
+            # get the size
             size += get_slice_size(total_slice.start, total_slice.stop, total_slice.step)
+
+        # if no getter tasks, size must be length of array
+        if not len(gettasks):
+            size = len(arr)
+            input_task = source
+        else:
+            input_task = gettasks[0][-1] # last getitem task key along block #0
+
+        # "input_task" is the task input into the slicing graph, key must be a tuple
+        if not isinstance(input_task, tuple):
+            raise ValueError("optimized selection failure: input task key is not a tuple %s" %str(input_task))
 
         # total slice size must be equal to catalog size to work
         if arr.catalog.size == size:
 
             # need all blocks along 1st axis to be represented
-            if all(block in gettasks for block in range(arr.numblocks[0])):
+            if len(gettasks) and not all(block in gettasks for block in range(arr.numblocks[0])):
+                raise ValueError("optimized selection failure: missing blocks")
 
-                last = gettasks[0][-1] # last getitem task key along block #0
-                inname = last[0] # slice tasks are inserted after this task name
+            # determine the slice tasks
+            # output task name of slice graph is "selection-*"
+            # input task name of slice graph is last consecutive getitem task
+            ndim = len(input_task)-1 # dimensions of the chunks
+            inname = input_task[0] # input task name
+            outname = 'selection-'+tokenize(arr,index,source)
+            slice_dsk, blockdims = slice_array(outname, inname, arr.chunks[:ndim], (index,))
 
-                # determine the slice tasks
-                # output task name of slice graph is "selection-*"
-                # input task name of slice graph is last consecutive getitem task
-                ndim = len(last)-1
-                outname = 'selection-'+tokenize(arr,index,source)
-                slice_dsk, blockdims = slice_array(outname, inname, arr.chunks[:ndim], (index,))
+            # if last getitem task is array name, we need to rename array
+            if inname == arr.name:
+                name = outname
 
-                # if last getitem task is array name, we need to rename array
-                if inname == arr.name:
-                    name = outname
+            # add the slice tasks to the new graph
+            dsk2.update(slice_dsk)
 
-                # add the slice tasks to the new graph
-                dsk2.update(slice_dsk)
-
-                # update dependents of last consecutive getitem task
-                # to point to "selection-*" tasks
-                for k,v in slice_dsk.items():
-                    old_task_key = v[1]
-                    for dep in dependents[old_task_key]:
-                        dsk2[dep] = subs(dsk[dep], old_task_key, k)
+            # update dependents of last consecutive getitem task
+            # to point to "selection-*" tasks
+            for k,v in slice_dsk.items():
+                old_task_key = v[1]
+                for dep in dependents[old_task_key]:
+                    dsk2[dep] = subs(dsk[dep], old_task_key, k)
 
     # if no new tasks, then we failed to verify size or find sources
     if not len(dsk2):
@@ -218,7 +235,6 @@ class ColumnAccessor(da.Array):
                 try:
                     d = optimized_selection(self, sel)
                 except:
-                    raise
                     pass
 
         # the fallback is default behavior
