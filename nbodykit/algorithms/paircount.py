@@ -16,7 +16,9 @@ except:
 class PairCountBase(object):
     """
     Base class for pair counting algorithms, either for a simulation box
-    or survey data
+    or survey data. 
+
+    Do not use this class directly. Use :class:`SimulationBoxPairCount` or :class:`SurveyDataPairCount`.
 
     Parameters
     ----------
@@ -288,18 +290,21 @@ class SimulationBoxPairCount(PairCountBase):
         if self.attrs['mode'] == '1d':
             kws['output_ravg'] = True
             kws.update(self.attrs['config'])
+
+            # FIXME: I am not sure why we try to wrap these errors at all? It creates a very confusing
+            # backtrace in pdb ...
             try:
                 pc = Corrfunc.theory.DD(0, 1, redges, **kws)
-            except:
-                raise RuntimeError("error when calling Corrfunc.theory.DD function")
+            except e:
+                raise RuntimeError("error when calling Corrfunc.theory.DD function: " + str(e))
             rcol = 'ravg'
         else:
             kws['output_savg'] = True
             kws.update(self.attrs['config'])
             try:
                 pc = Corrfunc.theory.DDsmu(0, 1, redges, 1.0, self.attrs['Nmu'], **kws)
-            except:
-                raise RuntimeError("error when calling Corrfunc.theory.DDsmu function")
+            except e:
+                raise RuntimeError("error when calling Corrfunc.theory.DDsmu function: " + str(e))
             pc = pc.reshape((-1, self.attrs['Nmu']))
             rcol = 'savg'
 
