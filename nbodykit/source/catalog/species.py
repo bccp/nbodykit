@@ -1,20 +1,18 @@
-from nbodykit.base.catalog import CatalogSourceBase, column, CatalogSource
+from nbodykit.base.catalog import CatalogSourceBase
 from nbodykit.utils import attrs_to_dict
 
 import numpy
 import logging
-import functools
 
-def OnDemandColumn(source, col):
-    """
-    Return a column from the source on-demand.
-    """
-    return source[col]
 
 class MultipleSpeciesCatalog(CatalogSourceBase):
     """
     A CatalogSource interface for handling multiples species
     of particles.
+
+    This CatalogSource stores a copy of the original CatalogSource objects
+    for each species, providing access to the columns via the format
+    ``species/`` where "species" is one of the species names provided.
 
     Parameters
     ----------
@@ -31,9 +29,26 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
 
     Examples
     --------
-    >>> source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42)
-    >>> source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84)
-    >>> cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2)
+
+    Initialization:
+
+    >>> data = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42)
+    >>> randoms = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84)
+    >>> cat = MultipleSpeciesCatalog(['data', 'randoms'], data, randoms)
+
+    Accessing the Catalogs for individual species:
+
+    >>> data = cat["data"] # a copy of the original "data" object
+
+    Accessing individual columns:
+
+    >>> data_pos = cat["data/Position"]
+
+    Setting new columns:
+
+    >>> cat["data"]["new_column"] = 1.0
+    >>> assert "data/new_column" in cat
+
     """
     logger = logging.getLogger('MultipleSpeciesCatalog')
 
@@ -69,80 +84,63 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
         # no size!
         self.size = NotImplemented
 
-        # store the local sizes of each species catalog
-        self._sizes = [source.size for source in species]
+        # store copies of the original input catalogs as (name:catalog) dict
+        self._sources = {name:cat.copy() for name,cat in zip(names, species)}
 
         # init the base class
         CatalogSourceBase.__init__(self, self.comm, use_cache=use_cache)
 
         # turn on cache?
         if self.use_cache:
-            for cat in species: cat.use_cache = True
+            for name in names:
+                self._sources[name].use_cache = True
 
-        # prefixed columns in this source return on-demand from their
-        # respective source objects
-        for name, source in zip(names, species):
-            for col in source.columns:
-                f = functools.partial(OnDemandColumn, col=col, source=source)
-                self._overrides[name+'/'+col] = f
+    @property
+    def hardcolumns(self):
+        """
+        Columns for individual species can be accessed using a ``species/``
+        prefix and the column name, i.e., ``data/Position``.
+        """
+        return ['%s/%s' %(species, col)
+                for species in self.species
+                for col in self._sources[species].columns]
+
+    def get_hardcolumn(self, col):
+        """
+        Hard columns are accessed via the underlying CatalogSource object
+        for each species.
+
+        Here, it is assumed that ``col`` is of the form ``species/column``.
+        """
+        species, name = col.split('/')
+        return self._sources[species][name]
 
     def __getitem__(self, key):
         """
-        This modifies the behavior of :func:`CatalogSourceBase.__getitem__`
-        such that if ``key`` is a species name, a
-        :class:`~nbodykit.base.catalog.CatalogSource` will be returned that
-        holds that data only for the species.
+        This provides access to the underlying data in two ways:
+
+        - The CatalogSource object for a species can be accessed if ``key``
+          is a species name.
+        - Individual columns for a species can be accessed using the
+          format: ``species/column``.
         """
         # return a new CatalogSource holding only the specific species
         if key in self.species:
+            return self._sources[key]
 
-            # get the data columns for this species
-            data = {}
-            for col in self:
-                if col.startswith(key):
-                    name = col.split('/')[-1]
-                    data[name] = self[col]
-
-            # size of the underlying source
-            size = self._sizes[self.species.index(key)]
-
-            # the returned object
-            toret = CatalogSource._from_columns(size, self.comm, use_cache=self.use_cache, **data)
-
-            # copy over the meta data
-            for k in self.attrs:
-                if k.startswith(key+'.'):
-                    toret.attrs[k[len(key)+1:]] = self.attrs[k]
-
-            return toret
-
-        # base class __getitem__
         return CatalogSourceBase.__getitem__(self, key)
 
     def __setitem__(self, col, value):
         """
-        Add columns to any of the species catalogs.
+        This class is read-only. To add columns for an individual species,
+        use the following syntax: ``cat[species][column] = data``.
 
-        .. note::
-            New column names should be prefixed by 'species/' where
-            'species' is a name in the :attr:`species` attribute.
+        Here, ``species`` is the name of the species, and ``column`` is the
+        column name.
         """
-        fields = col.split('/')
-        if len(fields) != 2:
-            msg = "new column names should be prefixed by 'species/' where "
-            msg += "'species' is one of %s" % str(self.species)
-            raise ValueError(msg)
-
-        if fields[0] not in self.species:
-            args = (fields[0], str(self.species))
-            raise ValueError("species '%s' is not valid; should be one of %s" %args)
-
-        # check size
-        size = self._sizes[self.species.index(fields[0])]
-        if not numpy.isscalar(value):
-            assert len(value) == size, "error setting '%s' column, data must be array of size %d" % (col,size)
-
-        return CatalogSourceBase.__setitem__(self, col, value)
+        msg = "%s does not support item assignment;" % self.__class__.__name__
+        msg += " to add columns for an individual species, use ``cat[species][column] = data``"
+        raise TypeError(msg)
 
     def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4', interlaced=False,
                 compensated=False, window='cic', weight='Weight',
@@ -185,8 +183,7 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
         # verify that all of the required columns exist
         for name in self.species:
             for col in [position, selection, weight, value]:
-                _col = name+'/'+col
-                if _col not in self:
+                if col not in self[name]:
                     raise ValueError("the '%s' species is missing the '%s' column" %(name, col))
 
         # try to find BoxSize and Nmesh
@@ -227,7 +224,7 @@ def check_species_metadata(name, attrs, species):
             _vals.append(attrs.get(s + '.' + name ))
 
     if len(_vals) == 0:
-        raise ValueError("please specify ``%s`` attributes")
+        raise ValueError("please specify ``%s`` attributes" % name)
 
     if not all(numpy.equal(_vals[0], i).all() for i in _vals):
         raise ValueError("please specify ``%s`` attributes that are consistent for each species and for the multi species catalog; " % name)
