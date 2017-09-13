@@ -1,5 +1,7 @@
 from nbodykit.source.catalogmesh.species import MultipleSpeciesCatalogMesh
+from nbodykit.base.catalog import column
 import logging
+import numpy
 
 class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
     """
@@ -12,8 +14,8 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
     objects, where ``randoms`` is a catalog of randomly distributed objects
     with no instrinsic clustering that defines the survey volume.
 
-    Internally, all of the columns in ``data`` and ``randoms`` are stored,
-    with names prefixed by ``data/`` or ``randoms/``.
+    The position of the catalogs are re-centered to the ``[-L/2, L/2]``
+    where ``L`` is the size of the Cartesian box.
 
     Parameters
     ----------
@@ -41,7 +43,7 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
     logger = logging.getLogger('FKPCatalogMesh')
 
     def __init__(self, source, BoxSize, Nmesh, dtype, selection,
-                    comp_weight, fkp_weight, nbar, position='Position'):
+                    comp_weight, fkp_weight, nbar, weight, position='Position'):
 
         from nbodykit.source.catalog import FKPCatalog
         if not isinstance(source, FKPCatalog):
@@ -52,15 +54,39 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         self.fkp_weight = fkp_weight
         self.nbar = nbar
 
-        # store the input position column
-        self._position = position
-
         # init the base
         # NOTE: FKP must paint the Position recentered to [-L/2, L/2]
         # so we store that in an internal column "_RecenteredPosition"
         MultipleSpeciesCatalogMesh.__init__(self, source, BoxSize, Nmesh, dtype,
-                                            '_TotalWeight', 'Value', selection,
-                                            position='_RecenteredPosition')
+                                            weight, 'Value', selection,
+                                            position=position)
+
+    def recenter_box(self, BoxSize, BoxCenter):
+        """
+        Re-center the box by applying the new box center to the column specified
+        by :attr:`position`.
+
+        This ensures that the position column is always re-centered to
+        ``[-L/2,L/2]`` where ``L`` is the BoxSize.
+        """
+        # check input type
+        for val in [BoxSize, BoxCenter]:
+            if not isinstance(val, (list, numpy.ndarray)) or len(val) != 3:
+                raise ValueError("recenter_box arguments should be a vector of length 3")
+
+        # update the position coordinates
+        for name in self.source.species:
+
+            # add the old box center offset
+            self[name][self.position] += self.attrs['BoxCenter']
+
+            # subtract the new box center offset
+            self[name][self.position] -= BoxCenter
+
+        # update meta-data
+        for val, name in zip([BoxSize, BoxCenter], ['BoxSize', 'BoxCenter']):
+            self.attrs[name] = val
+            self.source.attrs[name] = val
 
 
     def to_real_field(self):
@@ -104,17 +130,6 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         :class:`~pmesh.pm.RealField` :
             the field object holding the FKP density field in real space
         """
-        # add necessary FKP columns first
-        # NOTE: these are internal columns and will be deleted so successive
-        # calls to this function remain valid
-        for i, name in enumerate(self.source.species):
-
-            # a total weight for the mesh is completeness weight x FKP weight
-            self[name+'/_TotalWeight'] = self[name+'/'+self.comp_weight] * self[name+'/'+self.fkp_weight]
-
-            # position on the mesh is re-centered to [-BoxSize/2, BoxSize/2]
-            self[name+'/_RecenteredPosition'] = self[name+'/'+self._position] - self.source.attrs['BoxCenter']
-
         attrs = {}
 
         # determine alpha, the weighted number ratio
@@ -123,88 +138,21 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         attrs['alpha'] = attrs['data.W'] / attrs['randoms.W']
 
         # randoms get an additional weight of -alpha
-        self['randoms/_TotalWeight'] *= -1.0 * attrs['alpha']
+        self['randoms'][self.weight] *= -1.0 * attrs['alpha']
 
         # paint w_data*n_data - alpha*w_randoms*n_randoms
         real = MultipleSpeciesCatalogMesh.to_real_field(self, normalize=False)
-
-        # the rest of the meta-data
-        for name in self.source.species:
-            attrs[name + '.norm'] = self.normalization(name)
-            attrs[name + '.shotnoise'] = self.shotnoise(name)
-
-        # finish the statistics
-        attrs['randoms.norm'] *= attrs['alpha']
-        attrs['randoms.shotnoise'] *= attrs['alpha']**2 / attrs['randoms.norm']
-        attrs['data.shotnoise'] /=  attrs['randoms.norm']
-        attrs['shotnoise'] = attrs['data.shotnoise'] + attrs['randoms.shotnoise']
 
         # divide by volume per cell to go from number to number density
         vol_per_cell = (self.pm.BoxSize/self.pm.Nmesh).prod()
         real[:] /= vol_per_cell
 
-        # update the meta-data
+        # remove shot noise estimates (they are inaccurate in this case)
         real.attrs.update(attrs)
-
-        # delete the INTERNAL columns we added while painting
-        for i, name in enumerate(self.source.species):
-            del self[name+'/_TotalWeight']
-            del self[name+'/_RecenteredPosition']
+        real.attrs.pop('data.shotnoise', None)
+        real.attrs.pop('randoms.shotnoise', None)
 
         return real
-
-    def normalization(self, name):
-        r"""
-        Compute the power spectrum normalization, using either the
-        ``data`` or ``randoms`` source.
-
-        This computes:
-
-        .. math::
-
-            A = \sum \bar{n} w_\mathrm{comp} w_\mathrm{fkp}^2
-
-        References
-        ----------
-        see Eqs. 13,14 of Beutler et al. 2014, "The clustering of galaxies in the
-        SDSS-III Baryon Oscillation Spectroscopic Survey: testing gravity with redshift
-        space distortions using the power spectrum multipoles"
-        """
-        sel = self.source.compute(self[name+'/'+self.selection])
-
-        nbar        = self[name+'/'+self.nbar][sel]
-        comp_weight = self[name+'/'+self.comp_weight][sel]
-        fkp_weight  = self[name+'/'+self.fkp_weight][sel]
-        A           = nbar*comp_weight*fkp_weight**2
-
-        A = self.source.compute(A.sum())
-        return self.comm.allreduce(A)
-
-    def shotnoise(self, name):
-        r"""
-        Compute the power spectrum shot noise, using either the
-        ``data`` or ``randoms`` source.
-
-        This computes:
-
-        .. math::
-
-            S = \sum (w_\mathrm{comp} w_\mathrm{fkp})^2
-
-        References
-        ----------
-        see Eq. 15 of Beutler et al. 2014, "The clustering of galaxies in the
-        SDSS-III Baryon Oscillation Spectroscopic Survey: testing gravity with redshift
-        space distortions using the power spectrum multipoles"
-        """
-        sel = self.source.compute(self[name+'/'+self.selection])
-
-        comp_weight = self[name+'/'+self.comp_weight][sel]
-        fkp_weight  = self[name+'/'+self.fkp_weight][sel]
-        S           = (comp_weight*fkp_weight)**2
-
-        S = self.source.compute(S.sum())
-        return self.comm.allreduce(S)
 
     def weighted_total(self, name):
         r"""
