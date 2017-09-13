@@ -47,8 +47,10 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
             raise TypeError(("the input source for MultipleSpeciesCatalogMesh "
                              "must be a MultipleSpeciesCatalog"))
 
+        # init the base class
         CatalogMesh.__init__(self, source, BoxSize, Nmesh, dtype, weight,
                             value, selection, position=position)
+
 
     def __getitem__(self, key):
         """
@@ -59,40 +61,27 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
         If not a species name, this has the same behavior as
         :func:`CatalogSource.__getitem__`.
         """
-
-        ## FIXME: Can we use MultipleSpeciesCatalog.getitem (e.g. expose a static method)
-        #         then  chain with a to_mesh? The code looks duplicated.
-
-        # return a new CatalogMesh object if key is a species name
+        # return a Mesh holding only the specific species
+        # NOTE: call to_mesh() each time rather than storing a mesh in __init__
+        # to ensure most update attributes are taken from self
+        # i.e., interlaced, etc are usually set after self is init'ed 
         if key in self.source.species:
 
-            # get the data columns for this species
-            data = {}
-            for col in self:
-                if col.startswith(key):
-                    name = col.split('/')[-1]
-                    data[name] = self[col]
+            # a catalog holding only columns prefixed with "key/"
+            cat = self.source[key] # type here is CatalogSource
 
-            # a CatalogView holding only the data from the selected species
-            size = self.source._sizes[self.source.species.index(key)]
-            cat = CatalogSource._from_columns(size, self.source.comm, use_cache=self.source.use_cache, **data)
-
-            # copy over the meta data
-            for k in self.attrs:
-                if k.startswith(key+'.'):
-                    cat.attrs[k[len(key)+1:]] = self.attrs[k]
-
-            # initialize a new CatalogMesh for selected species
-            mesh = CatalogMesh(cat, self.attrs['BoxSize'], self.attrs['Nmesh'],
-                                self.dtype, self.weight, self.value,
-                                self.selection, position=self.position)
-
-            # propagate additional parameters
-            mesh.interlaced = self.interlaced
-            mesh.compensated = self.compensated
-            mesh.window = self.window
-
-            # and return
+            # make the mesh
+            mesh = cat.to_mesh(Nmesh=self.attrs['Nmesh'],
+                               BoxSize=self.attrs['BoxSize'],
+                               dtype=self.dtype,
+                               interlaced=self.interlaced,
+                               compensated=self.compensated,
+                               window=self.window,
+                               weight=self.weight,
+                               value=self.value,
+                               selection=self.selection,
+                               position=self.position
+                              )
             return mesh
 
         # return the base class behavior
