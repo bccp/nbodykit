@@ -96,6 +96,13 @@ class ConvolvedFFTPower(object):
         A full tutorial on the class is available in the documentation
         :ref:`here <convpower>`.
 
+    .. note::
+        Cross correlations are only supported when the FKP weight column
+        differs between the two mesh objects, i.e., the underlying ``data``
+        and ``randoms`` must be the same. This allows users to compute
+        the cross power spectrum of the same density field, weighted
+        differently.
+
     Parameters
     ----------
     first : FKPCatalog, FKPCatalogMesh
@@ -104,8 +111,9 @@ class ConvolvedFFTPower(object):
     poles : list of int
         a list of integer multipole numbers ``ell`` to compute
     second : FKPCatalog, FKPCatalogMesh, optional
-        the second source to paint the data/randoms; FKPCatalog is automatically
-        converted to a FKPCatalogMesh, using default painting parameters
+        the second source to paint the data/randoms; cross correlations are
+        only supported when the weight column differs between the two mesh
+        objects, i.e., the underlying ``data`` and ``randoms`` must be the same!
     kmin : float, optional
         the edge of the first wavenumber bin; default is 0
     dk : float, optional
