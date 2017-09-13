@@ -1,6 +1,6 @@
 from runtests.mpi import MPITest
 from nbodykit.lab import *
-from nbodykit import setup_logging
+from nbodykit import setup_logging, set_options
 
 # debug logging
 setup_logging("debug")
@@ -53,3 +53,20 @@ def test_paint(comm):
 
     source.save(output="./test_paint-real-%d.bigfile" % comm.size, mode='real')
     source.save(output="./test_paint-complex-%d.bigfile" % comm.size, mode='complex')
+
+@MPITest([1, 4])
+def test_set_options(comm):
+
+    CurrentMPIComm.set(comm)
+
+    with set_options(dask_cache_size=5e9, dask_chunk_size=75):
+        s = UniformCatalog(1000, 1.0, use_cache=True)
+
+        # check cache size
+        assert s._cache.cache.available_bytes == 5e9
+
+        # check chunk size
+        assert s['Position'].chunks[0][0] == 75
+
+    s = UniformCatalog(1000, 1.0, use_cache=True)
+    assert s['Position'].chunks[0][0] == s.size

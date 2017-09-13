@@ -1,14 +1,195 @@
 from six import add_metaclass, string_types
 from nbodykit.transform import ConstantArray
+from nbodykit import _globals
 
 import abc
 import numpy
 import logging
 import warnings
+from collections import defaultdict
 import dask.array as da
 
-# default size of Cache for CatalogSource arrays
-CACHE_SIZE = 1e9
+def get_slice_size(start, stop, step):
+    """
+    Utility function to return the size of an array slice
+    """
+    if step is None: step = 1
+    if start is None: start = 0
+    N, remainder = divmod(stop-start, step)
+    if remainder: N += 1
+    return N
+
+def isgetitem(task):
+    """
+    Return True if the task is a getitem slice
+    """
+    from dask.array.optimization import GETTERS
+
+    if isinstance(task, tuple) and task[0] in GETTERS:
+        sl = task[2][0] # first dimension slice
+        if sl is not None:
+            return True
+    return False
+
+def find_consecutive_gets(t, out, dsk, dependents):
+    """
+    Fill the defaultdict ``out`` with consecutive getitem tasks that have
+    only (at most) a single dependent (no split chains).
+
+    Keys are the block number along the first index for each task.
+    """
+    # check if task is getitem with only 1 dependent
+    if isgetitem(dsk[t]) and len(dependents[t]) <= 1:
+        out[t[1]].append(t)
+        for xx in dependents[t]:
+            find_consecutive_gets(xx, out, dsk, dependents)
+
+
+def expanding_apply(iterable, func):
+    """
+    Perform a running application of ``func`` to ``iterable``
+    """
+    it = iter(iterable)
+    try:
+        total = next(it)
+    except StopIteration:
+        return
+    for element in it:
+        total = func(total, element)
+    return total
+
+def optimized_selection(arr, index):
+    """
+    Perform an optimized selection operation on the input dask array ``arr``,
+    as specified by the boolean index ``index``.
+
+    The operation is optimized by inserting slicing tasks directly after
+    the task that last alters the length of the array (along axis=0).
+
+    The procedure used is as follows:
+
+    - Identify the source nodes in the task graph (with no dependencies)
+    - Following each source node, identify the number of consecutive getitem
+      tasks
+    - Compute the size of the fused getitem slices -- if the size is equal to
+      the size of the catalog on the rank, insert the necessary slicing
+      tasks following the last getitem
+
+    Parameters
+    ----------
+    arr : dask.array.Array
+        the dask array that we wish to slice
+    index : array_like
+        a boolean array representing the selection indices; should be
+        the same length as ``arr``
+    """
+    from dask.array.optimization import fuse_slice, cull, reverse_dict
+    from dask.array.slicing import slice_array, tokenize
+    from dask.core import subs
+
+    # need the "catalog" attribute
+    assert isinstance(arr, ColumnAccessor)
+
+    # cull unused tasks first
+    dsk, dependencies = cull(arr.dask, arr._keys())
+
+    # the dependents
+    dependents = reverse_dict(dependencies)
+
+    # this store the new slicing tasks
+    dsk2 = dict()
+
+    # source nodes in graph have no dependencies
+    sources = [k for k in dependencies if not len(dependencies[k])]
+
+    name = arr.name
+
+    # loop over all of the source tasks
+    for source in sources:
+
+        # find consecutive getitems from this source
+        gettasks = defaultdict(list)
+        for dep in dependents[source]:
+            find_consecutive_gets(dep, gettasks, dsk, dependents)
+
+        # compute total size of getitem slices
+        size = 0
+        for chunknum in gettasks:
+            keys = iter(gettasks[chunknum])
+            slices = []
+            for kk in keys:
+                v = dsk[kk][2][0] # the slice along the 1st axis
+
+                # just save slices
+                if isinstance(v, slice):
+                    slices.append(v)
+                # if array_like, the array gives indices of valid elements
+                elif isinstance(v, (numpy.ndarray,list)):
+                    dummy_slice = slice(0,len(v),None) # dummy slice of the right final size
+                    slices.append(dummy_slice)
+                else:
+                    raise ValueError("cannot perform optimized selection")
+
+            # fuse all of the slices together and determined size of fused slice
+            total_slice = expanding_apply(slices, fuse_slice)
+
+            # try to identify the stop from previous data
+            if total_slice.stop is None:
+                N = len(arr) # if all gets end in None, use length of array
+                total_slice = slice(total_slice.start, N, total_slice.step)
+
+            # get the size
+            size += get_slice_size(total_slice.start, total_slice.stop, total_slice.step)
+
+        # if no getter tasks, size must be length of array
+        if not len(gettasks):
+            size = len(arr)
+            input_task = source
+        else:
+            input_task = gettasks[0][-1] # last getitem task key along block #0
+
+        # "input_task" is the task input into the slicing graph, key must be a tuple
+        if not isinstance(input_task, tuple):
+            raise ValueError("optimized selection failure: input task key is not a tuple %s" %str(input_task))
+
+        # total slice size must be equal to catalog size to work
+        if arr.catalog.size == size:
+
+            # need all blocks along 1st axis to be represented
+            if len(gettasks) and not all(block in gettasks for block in range(arr.numblocks[0])):
+                raise ValueError("optimized selection failure: missing blocks")
+
+            # determine the slice tasks
+            # output task name of slice graph is "selection-*"
+            # input task name of slice graph is last consecutive getitem task
+            ndim = len(input_task)-1 # dimensions of the chunks
+            inname = input_task[0] # input task name
+            outname = 'selection-'+tokenize(arr,index,source)
+            slice_dsk, blockdims = slice_array(outname, inname, arr.chunks[:ndim], (index,))
+
+            # if last getitem task is array name, we need to rename array
+            if inname == arr.name:
+                name = outname
+
+            # add the slice tasks to the new graph
+            dsk2.update(slice_dsk)
+
+            # update dependents of last consecutive getitem task
+            # to point to "selection-*" tasks
+            for k,v in slice_dsk.items():
+                old_task_key = v[1]
+                for dep in dependents[old_task_key]:
+                    dsk2[dep] = subs(dsk[dep], old_task_key, k)
+
+    # if no new tasks, then we failed to verify size or find sources
+    if not len(dsk2):
+        raise ValueError("cannot perform optimized selection")
+
+    # update the original graph and make new Array
+    dsk.update(dsk2)
+    chunks = tuple(blockdims) + arr.chunks[ndim:]
+    return da.Array(dsk, name, chunks, dtype=arr.dtype)
+
 
 class ColumnAccessor(da.Array):
     """
@@ -34,6 +215,36 @@ class ColumnAccessor(da.Array):
         self.catalog = catalog
         self.attrs = {}
         return self
+
+    def __getitem__(self, key):
+        """
+        If ``key`` is an array-like index with the same length as the
+        underlying catalog, the slice will be performed with the
+        optimization provided by :func:`optimized_selection`.
+
+        Otherwise, the default behavior is returned.
+        """
+        d = None
+
+        # try to optimize the selection
+        sel = key[0] if isinstance(key, tuple) else key
+        if isinstance(sel, (list, numpy.ndarray, da.Array)):
+            if len(sel) == self.catalog.size:
+                if isinstance(sel, da.Array):
+                    sel = self.catalog.compute(sel)
+                try:
+                    d = optimized_selection(self, sel)
+                except:
+                    pass
+
+        # the fallback is default behavior
+        if d is None:
+            d = da.Array.__getitem__(self, key)
+
+        # return a ColumnAccessor (okay b/c __setitem__ checks for circular references)
+        toret = ColumnAccessor(self.catalog, d)
+        toret.attrs.update(self.attrs)
+        return toret
 
     def as_daskarray(self):
         return da.Array(
@@ -146,7 +357,7 @@ class CatalogSourceBase(object):
             # references
             return array.as_daskarray()
         else:
-            return da.from_array(array, chunks=100000)
+            return da.from_array(array, chunks=_globals['dask_chunk_size'])
 
     def __init__(self, comm, use_cache=False):
 
@@ -249,14 +460,14 @@ class CatalogSourceBase(object):
     @use_cache.setter
     def use_cache(self, val):
         """
-        Initialize a Cache object of size set by ``CACHE_SIZE``, which
-        is 1 GB by default.
+        Initialize a Cache object of size set by the ``dask_cache_size``
+        global configuration option, which is 1 GB by default.
         """
         if val:
             try:
                 from dask.cache import Cache
                 if not hasattr(self, '_cache'):
-                    self._cache = Cache(CACHE_SIZE)
+                    self._cache = Cache(_globals['dask_cache_size'])
             except ImportError:
                 warnings.warn("caching of CatalogSource requires ``cachey`` module; turning cache off")
         else:
@@ -298,8 +509,6 @@ class CatalogSourceBase(object):
         except AttributeError:
             self._attrs = {}
             return self._attrs
-
-
 
     def get_hardcolumn(self, col):
         """
@@ -585,7 +794,7 @@ class CatalogSource(CatalogSourceBase):
         # handle scalar values
         if numpy.isscalar(value):
             assert self.size is not NotImplemented, "size is not implemented! cannot set scalar array"
-            value = ConstantArray(value, self.size, chunks=100000)
+            value = ConstantArray(value, self.size, chunks=_globals['dask_chunk_size'])
 
         # check the correct size, if we know the size
         if self.size is not NotImplemented:
@@ -644,7 +853,7 @@ class CatalogSource(CatalogSourceBase):
 
         By default, this column is set to ``True`` for all particles.
         """
-        return ConstantArray(True, self.size, chunks=100000)
+        return ConstantArray(True, self.size, chunks=_globals['dask_chunk_size'])
 
     @column
     def Weight(self):
@@ -656,7 +865,7 @@ class CatalogSource(CatalogSourceBase):
 
         By default, this array is set to unity for all particles.
         """
-        return ConstantArray(1.0, self.size, chunks=100000)
+        return ConstantArray(1.0, self.size, chunks=_globals['dask_chunk_size'])
 
     @column
     def Value(self):
@@ -670,7 +879,7 @@ class CatalogSource(CatalogSourceBase):
 
         By default, this array is set to unity for all particles.
         """
-        return ConstantArray(1.0, self.size, chunks=100000)
+        return ConstantArray(1.0, self.size, chunks=_globals['dask_chunk_size'])
 
     def update_csize(self):
         """

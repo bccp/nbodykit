@@ -18,5 +18,5 @@ def test_kddensity(comm):
                 nbar=3e-3, BoxSize=512., Nmesh=128, seed=42)
 
     kdden = KDDensity(source)
-    assert(kdden.density.size , source.size)
+    assert kdden.density.size == source.size
     print(kdden.density.max())
