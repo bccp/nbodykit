@@ -96,6 +96,16 @@ class CatalogMesh(MeshSource, CatalogSource):
         """
         return self.source.size
 
+    def update_csize(self):
+        """
+        Override the base CatalogSource behavior to grab collective size
+        from the source.
+
+        This avoids unnecesarry collective allreduce calls (and annoying
+        logging of sizes).
+        """
+        self._csize = self.source.csize
+
     def __len__(self):
         """
         Length of a catalog mesh source is :attr:`size`, which is the
