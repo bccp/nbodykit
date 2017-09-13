@@ -201,6 +201,11 @@ class CatalogSourceBase(object):
                 if isinstance(sel, list) and not numpy.array(sel).dtype == numpy.integer:
                     raise KeyError("array like indexing via a list should be a list of integers")
 
+                # size must be implemented
+                if self.size is NotImplemented:
+                    raise ValueError("cannot perform selection due to NotImplemented size")
+
+                # convert into slice into boolean array
                 index = numpy.zeros(self.size, dtype='?')
                 index[sel] = True; sel = index
 
