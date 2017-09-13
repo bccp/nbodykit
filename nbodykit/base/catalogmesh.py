@@ -263,8 +263,8 @@ class CatalogMesh(MeshSource, CatalogSource):
                 shifted = pm.affine.shift(0.5)
 
                 # paint to two shifted meshes
-                real.paint(p, mass=w * v, resampler=paintbrush, hold=True)
-                real2.paint(p, mass=w * v, resampler=paintbrush, transform=shifted, hold=True)
+                pm.paint(p, mass=w * v, resampler=paintbrush, hold=True, out=real)
+                pm.paint(p, mass=w * v, resampler=paintbrush, transform=shifted, hold=True, out=real2)
                 c1 = real.r2c()
                 c2 = real2.r2c()
 
