@@ -11,8 +11,9 @@ from pmesh.pm import RealField, ComplexField
 
 class CatalogMesh(MeshSource, CatalogSource):
     """
-    A class to convert a CatalogSource to a MeshSource, by interpolating
-    the position of the discrete particles on to a mesh.
+    A view of a CatalogSource object which knows how to create a MeshSource
+    object from itself. The original CatalogSource object is stored as the
+    :attr:`source` attribute.
 
     Parameters
     ----------
@@ -53,15 +54,14 @@ class CatalogMesh(MeshSource, CatalogSource):
         self.weight = weight
         self.value = value
 
+        # add meta-data from the source
         self.attrs.update(source.attrs)
 
         # this will override BoxSize and Nmesh carried from the source, if there is any!
         MeshSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype=dtype, comm=source.comm)
         CatalogSource.__init__(self, comm=source.comm)
 
-        # copy over the overrides
-        self._overrides.update(self.source._overrides)
-
+        # set the meta-data
         self.attrs['position'] = self.position
         self.attrs['selection'] = self.selection
         self.attrs['weight'] = self.weight
@@ -70,6 +70,25 @@ class CatalogMesh(MeshSource, CatalogSource):
         self.attrs['interlaced'] = False
         self.attrs['window'] = 'cic'
 
+    def __getitem__(self, *args):
+        """
+        Get operates on the underlying CatalogSource stored in :attr:`source`.
+        """
+        return self.source.__getitem__(*args)
+
+    def __setitem__(self, *args):
+        """
+        Get operates on the underlying CatalogSource stored in :attr:`source`.
+        """
+        return self.source.__setitem__(*args)
+
+    def compute(self, *args, **kwargs):
+        """
+        Compute dask arrays using the underlying CatalogSource stored in
+        :attr:`source`.
+        """
+        return self.source.compute(*args, **kwargs)
+
     @property
     def size(self):
         """
@@ -77,16 +96,30 @@ class CatalogMesh(MeshSource, CatalogSource):
         """
         return self.source.size
 
+    def __len__(self):
+        """
+        Length of a catalog mesh source is :attr:`size`, which is the
+        size of the underlying CatalogSource :attr:`source`.
+        """
+        return self.size
+
+    @property
+    def columns(self):
+        """
+        Return the columns from the underlying source.
+        """
+        return self.source.columns
+
     @property
     def hardcolumns (self):
         """
-        The names of the hard-coded columns in the source.
+        The names of the hard-coded columns in the :attr:`source` attribute.
         """
         return self.source.hardcolumns
 
     def get_hardcolumn(self, col):
         """
-        Return a hard-coded column
+        Return a hard-coded column from the :attr:`source` attribute.
         """
         return self.source.get_hardcolumn(col)
 
@@ -94,10 +127,10 @@ class CatalogMesh(MeshSource, CatalogSource):
     def interlaced(self):
         """
         Whether to use interlacing when interpolating the density field.
-
         See :ref:`the documentation <interlacing>` for further details.
 
-        See also: Section 3.1 of `Sefusatti et al. 2015 <https://arxiv.org/abs/1512.07295>`_
+        See also: Section 3.1 of
+        `Sefusatti et al. 2015 <https://arxiv.org/abs/1512.07295>`_
         """
         return self.attrs['interlaced']
 
@@ -162,7 +195,7 @@ class CatalogMesh(MeshSource, CatalogSource):
             The density field on the mesh is normalized as :math:`1+\delta`,
             such that the collective mean of the field is unity.
 
-        See the :ref:`documentation <painting-mesh>` on painting for more 
+        See the :ref:`documentation <painting-mesh>` on painting for more
         details on painting catalogs to a mesh.
 
         Returns
@@ -248,7 +281,7 @@ class CatalogMesh(MeshSource, CatalogSource):
                 p = lay.exchange(position)
                 w = lay.exchange(weight)
                 v = lay.exchange(value)
-                real.paint(p, mass=w * v, resampler=paintbrush, hold=True)
+                pm.paint(p, mass=w * v, resampler=paintbrush, hold=True, out=real)
 
             # interlacing: use 2 meshes separated by 1/2 cell size
             else:
