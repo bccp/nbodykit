@@ -452,3 +452,19 @@ class CatalogMesh(CatalogSource, MeshSource):
             wi = w[i]
             v = v / (1 - 2. / 3 * numpy.sin(0.5 * wi) ** 2) ** 0.5
         return v
+
+    def save(self, output, dataset='Field', mode='real'):
+        """
+        Save the mesh as a :class:`~nbodykit.source.mesh.bigfile.BigFileMesh`
+        on disk, either in real or complex space.
+
+        Parameters
+        ----------
+        output : str
+            name of the bigfile file
+        dataset : str, optional
+            name of the bigfile data set where the field is stored
+        mode : str, optional
+            real or complex; the form of the field to store
+        """
+        return MeshSource.save(self, output, dataset=dataset, mode=mode)
