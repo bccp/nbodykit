@@ -420,7 +420,7 @@ class ConvolvedFFTPower(object):
         """
         # clear compensation from the actions
         for source in [self.first, self.second]:
-            source.actions.clear(); source.compensated = False
+            source.actions[:] = []; source.compensated = False
             assert len(source.actions) == 0
 
         # compute the compensations
