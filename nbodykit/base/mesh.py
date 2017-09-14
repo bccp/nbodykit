@@ -34,42 +34,65 @@ class MeshSource(object):
 
         # ensure self.comm is set, though usually already set by the child.
         self.comm = comm
-
         self.dtype = dtype
-        Nmesh = numpy.array(Nmesh)
-        if Nmesh.ndim == 0:
-            ndim = 3
-        else:
-            ndim = len(Nmesh)
-        _Nmesh = numpy.empty(ndim, dtype='i8')
+        self.attrs['Nmesh'] = Nmesh
+        self.attrs['BoxSize'] = BoxSize
 
-        _Nmesh[:] = Nmesh
-        self.pm = ParticleMesh(BoxSize=BoxSize,
-                                Nmesh=_Nmesh,
-                                dtype=self.dtype, comm=self.comm)
-
-        self.attrs['BoxSize'] = self.pm.BoxSize.copy()
-        self.attrs['Nmesh'] = self.pm.Nmesh.copy()
+        # initialize the ParticleMesh
+        initialize_pm(self)
 
         self._actions = []
-        self.base = None
+        self.basemesh = None
 
-    def view(self):
+    def __finalize__(self, obj):
         """
         Return a "view" of the MeshSource, in the spirit of
         numpy's ndarray view.
 
         This returns a new MeshSource whose memory is owned by ``self``.
         """
+        self.comm = obj.comm
+        self.dtype = obj.dtype
+        self.attrs.update(obj.attrs)
+
+        if hasattr(obj, 'pm'):
+            self.pm = obj.pm
+        else:
+            initialize_pm(self)
+
+        self._actions = []
+        self.actions.extend(getattr(obj, 'actions', []))
+
+        # set who owns the memory
+        if self is not obj:
+            self.basemesh = obj
+        else:
+            self.basemesh = None
+
+    def _view(self):
+        """
+        Return a "view" of the MeshSource, in the spirit of
+        numpy's ndarray view.
+
+        This returns a new MeshSource whose memory is owned by ``self``.
+
+        Note that for CatalogMesh objects, this is overidden by the
+        CatalogSource._view function.
+        """
         view = object.__new__(MeshSource)
-        view.comm = self.comm
-        view.dtype = self.dtype
-        view.pm = self.pm
-        view.attrs.update(self.attrs)
-        view._actions = []
-        view.actions.extend(self.actions)
-        view.base = self
+        view.__finalize__(self)
         return view
+
+    @property
+    def attrs(self):
+        """
+        A dictionary storing relevant meta-data about the CatalogSource.
+        """
+        try:
+            return self._attrs
+        except AttributeError:
+            self._attrs = {}
+            return self._attrs
 
     @property
     def actions(self):
@@ -124,7 +147,7 @@ class MeshSource(object):
         else:
             assert kind in ['wavenumber', 'circular', 'index']
 
-        view = self.view()
+        view = self._view()
         view.actions.append((mode, func, kind))
         return view
 
@@ -141,7 +164,7 @@ class MeshSource(object):
 
         Not implemented in the base class, unless object is a view.
         """
-        if self.base is not None: return self.base.to_real_field()
+        if self.basemesh is not None: return self.basemesh.to_real_field()
         return NotImplemented
 
     def to_complex_field(self, out=None):
@@ -151,7 +174,7 @@ class MeshSource(object):
 
         Not implemented in the base class, unless object is a view.
         """
-        if self.base is not None: return self.base.to_complex_field()
+        if self.basemesh is not None: return self.basemesh.to_complex_field()
         return NotImplemented
 
     def to_field(self, mode='real', out=None):
@@ -195,17 +218,6 @@ class MeshSource(object):
             raise ValueError("mode is either real or complex, %s given" % mode)
 
         return var
-
-    @property
-    def attrs(self):
-        """
-        A dictionary storing relevant meta-data about the MeshSource.
-        """
-        try:
-            return self._attrs
-        except AttributeError:
-            self._attrs = {}
-            return self._attrs
 
     def paint(self, mode="real", Nmesh=None):
         """
@@ -359,3 +371,28 @@ class MeshSource(object):
                             bb.attrs[key] = json_str
                         except:
                             warnings.warn("attribute %s of type %s is unsupported and lost while saving MeshSource" % (key, type(value)))
+
+
+def initialize_pm(self):
+    """
+    Initialize a new ParticleMesh and save as the ``pm`` attribute.
+    """
+    Nmesh = self.attrs.get('Nmesh', None)
+    BoxSize = self.attrs.get('BoxSize', None)
+    if Nmesh is None or BoxSize is None:
+        raise ValueError("both Nmesh and BoxSize must not be None to initialize ParticleMesh")
+
+    Nmesh = numpy.array(Nmesh)
+    if Nmesh.ndim == 0:
+        ndim = 3
+    else:
+        ndim = len(Nmesh)
+    _Nmesh = numpy.empty(ndim, dtype='i8')
+    _Nmesh[:] = Nmesh
+    self.pm = ParticleMesh(BoxSize=BoxSize,
+                        Nmesh=_Nmesh,
+                        dtype=self.dtype,
+                        comm=self.comm)
+
+    self.attrs['BoxSize'] = self.pm.BoxSize.copy()
+    self.attrs['Nmesh'] = self.pm.Nmesh.copy()

@@ -1,5 +1,5 @@
 from nbodykit.base.mesh import MeshSource
-from nbodykit.base.catalog import CatalogSource
+from nbodykit.base.catalog import CatalogSource, CatalogSourceBase
 from six import add_metaclass
 import abc
 import numpy
@@ -9,7 +9,7 @@ import logging
 from pmesh import window
 from pmesh.pm import RealField, ComplexField
 
-class CatalogMesh(MeshSource, CatalogSource):
+class CatalogMesh(CatalogSource, MeshSource):
     """
     A view of a CatalogSource object which knows how to create a MeshSource
     object from itself. The original CatalogSource object is stored as the
@@ -18,7 +18,7 @@ class CatalogMesh(MeshSource, CatalogSource):
     Parameters
     ----------
     source : CatalogSource
-        the input catalog that we wish to interpolate to a mesh
+        the input catalog that we are viewing as a mesh
     BoxSize :
         the size of the box
     Nmesh : int, 3-vector
@@ -39,99 +39,60 @@ class CatalogMesh(MeshSource, CatalogSource):
         is ``Position``
     """
     logger = logging.getLogger('CatalogMesh')
+
     def __repr__(self):
-        return "(%s as CatalogMesh)" % repr(self.source)
+        return "(%s as CatalogMesh)" % repr(self.base)
 
-    # intended to be used by CatalogSource internally
-    def __init__(self, source, BoxSize, Nmesh, dtype, weight,
-                    value, selection, position='Position'):
+    def __new__(cls, source, BoxSize, Nmesh, dtype, weight,
+                    value, selection, position='Position', interlaced=False,
+                    compensated=False, window='cic', **kwargs):
 
-        # ensure self.comm is set, though usually already set by the child.
-        self.comm = source.comm
-        self.source = source
-        self.position = position
-        self.selection = selection
-        self.weight = weight
-        self.value = value
+        assert isinstance(source, CatalogSourceBase)
 
-        # add meta-data from the source
-        self.attrs.update(source.attrs)
+        # view the input source (a CatalogSource) as the desired class
+        obj = source._view(cls)
 
-        # this will override BoxSize and Nmesh carried from the source, if there is any!
-        MeshSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype=dtype, comm=source.comm)
-        CatalogSource.__init__(self, comm=source.comm)
+        # copy over the necessary meta-data to attrs
+        obj.attrs['BoxSize'] = BoxSize
+        obj.attrs['Nmesh'] = Nmesh
+        obj.attrs['interlaced'] = interlaced
+        obj.attrs['compensated'] = compensated
+        obj.attrs['window'] = window
 
-        # set the meta-data
-        self.attrs['position'] = self.position
-        self.attrs['selection'] = self.selection
-        self.attrs['weight'] = self.weight
-        self.attrs['value'] = self.value
-        self.attrs['compensated'] = True
-        self.attrs['interlaced'] = False
-        self.attrs['window'] = 'cic'
+        # store others as straight attributes
+        obj.dtype = dtype
+        obj.weight = weight
+        obj.value = value
+        obj.selection = selection
+        obj.position = position
 
-    def __getitem__(self, *args):
-        """
-        Get operates on the underlying CatalogSource stored in :attr:`source`.
-        """
-        return self.source.__getitem__(*args)
+        # add in the Mesh Source attributes
+        MeshSource.__finalize__(obj, obj)
 
-    def __setitem__(self, *args):
-        """
-        Get operates on the underlying CatalogSource stored in :attr:`source`.
-        """
-        return self.source.__setitem__(*args)
+        return obj
 
-    def compute(self, *args, **kwargs):
-        """
-        Compute dask arrays using the underlying CatalogSource stored in
-        :attr:`source`.
-        """
-        return self.source.compute(*args, **kwargs)
+    def __init__(self, *args,  **kwargs):
+        pass
 
-    @property
-    def size(self):
-        """
-        The number of local particles.
-        """
-        return self.source.size
+    def __finalize__(self, obj):
 
-    def update_csize(self):
-        """
-        Override the base CatalogSource behavior to grab collective size
-        from the source.
+        attrs = getattr(obj, 'attrs', {})
+        self.attrs['Nmesh'] = attrs.get('Nmesh', None)
+        self.attrs['BoxSize'] = attrs.get('BoxSize', None)
+        self.attrs['interlaced'] = attrs.get('interlaced', False)
+        self.attrs['compensated'] = attrs.get('compensated', False)
+        self.attrs['window'] = attrs.get('window', 'cic')
+        self.attrs.update(attrs)
 
-        This avoids unnecesarry collective allreduce calls (and annoying
-        logging of sizes).
-        """
-        self._csize = self.source.csize
+        self.dtype = getattr(obj, 'dtype', 'f4')
+        self.weight = getattr(self, 'weight', 'Weight')
+        self.position = getattr(self, 'position', 'Position')
+        self.value = getattr(self, 'value', 'Value')
+        self.selection = getattr(self, 'selection', 'Selection')
 
-    def __len__(self):
-        """
-        Length of a catalog mesh source is :attr:`size`, which is the
-        size of the underlying CatalogSource :attr:`source`.
-        """
-        return self.size
-
-    @property
-    def columns(self):
-        """
-        Return the columns from the underlying source.
-        """
-        return self.source.columns
-
-    @property
-    def hardcolumns (self):
-        """
-        The names of the hard-coded columns in the :attr:`source` attribute.
-        """
-        return self.source.hardcolumns
-
-    def get_hardcolumn(self, col):
-        """
-        Return a hard-coded column from the :attr:`source` attribute.
-        """
-        return self.source.get_hardcolumn(col)
+        # also initialize the mesh source
+        if isinstance(obj, CatalogMesh):
+            MeshSource.__finalize__(self, self)
 
     @property
     def interlaced(self):
@@ -245,13 +206,13 @@ class CatalogMesh(MeshSource, CatalogSource):
         Position, Weight, Value, Selection = self.read(columns)
 
         # perform optimized selection
-        sel = self.source.compute(Selection) # compute first, so we avoid repeated computes
+        sel = self.base.compute(Selection) # compute first, so we avoid repeated computes
         Position = Position[sel]
         Weight = Weight[sel]
         Value = Value[sel]
 
         # compute
-        position, weight, value = self.source.compute(Position, Weight, Value)
+        position, weight, value = self.base.compute(Position, Weight, Value)
 
         # ensure the slices are synced, since decomposition is collective
         N = max(pm.comm.allgather(len(Position)))
@@ -265,7 +226,7 @@ class CatalogMesh(MeshSource, CatalogSource):
 
                 # be sure to use the source to compute
                 position, weight, value = \
-                    self.source.compute(Position[s], Weight[s], Value[s])
+                    self.base.compute(Position[s], Weight[s], Value[s])
             else:
                 # workaround a potential dask issue on empty dask arrays
                 position = numpy.empty((0, 3), dtype=Position.dtype)
@@ -342,7 +303,7 @@ class CatalogMesh(MeshSource, CatalogSource):
 
         csum = real.csum()
         if pm.comm.rank == 0:
-            self.logger.info("painted %d out of %d objects to mesh" %(N,self.source.csize))
+            self.logger.info("painted %d out of %d objects to mesh" %(N,self.base.csize))
             self.logger.info("mean particles per cell is %g", nbar)
             self.logger.info("sum is %g ", csum)
             self.logger.info("normalized the convention to 1 + delta")

@@ -1,8 +1,7 @@
-from six import add_metaclass, string_types
+from six import string_types
 from nbodykit.transform import ConstantArray
-from nbodykit import _globals
+from nbodykit import _globals, CurrentMPIComm
 
-import abc
 import numpy
 import logging
 import warnings
@@ -359,16 +358,26 @@ class CatalogSourceBase(object):
         else:
             return da.from_array(array, chunks=_globals['dask_chunk_size'])
 
-    def __init__(self, comm, use_cache=False):
+    def __new__(cls, *args, **kwargs):
+
+        obj = object.__new__(cls)
 
         # ensure self.comm is set, though usually already set by the child.
-        self.comm = comm
+        obj.comm = kwargs.get('comm', CurrentMPIComm.get())
 
         # initialize a cache
-        self.use_cache = use_cache
+        obj.use_cache = kwargs.get('use_cache', False)
 
         # user-provided overrides for columns
-        self._overrides = {}
+        obj._overrides = {}
+
+        # stores memory owner
+        obj.base = None
+
+        return obj
+
+    def __finalize__(self, obj):
+        self.__dict__.update(obj.__dict__.copy())
 
     def __iter__(self):
         return iter(self.columns)
@@ -422,15 +431,18 @@ class CatalogSourceBase(object):
 
             # do the slicing
             if not numpy.isscalar(sel):
-                return get_catalog_subset(self, sel)
+                return get_catalog_subset(self, sel)._view(self.__class__)
             else:
                 raise KeyError("strings and boolean arrays are the only supported indexing methods")
 
+        # owner of the memory (either self or base)
+        memowner = self if self.base is None else self.base
+
         # get the right column
-        if sel in self._overrides:
-            r = self._overrides[sel]
-        elif sel in self.hardcolumns:
-            r = self.get_hardcolumn(sel)
+        if sel in memowner._overrides:
+            r = memowner._overrides[sel]
+        elif sel in memowner.hardcolumns:
+            r = memowner.get_hardcolumn(sel)
         else:
             raise KeyError("column `%s` is not defined in this source; " %sel + \
                             "try adding column via `source[column] = data`")
@@ -438,16 +450,35 @@ class CatalogSourceBase(object):
         # evaluate callables if we need to
         if callable(r): r = r()
 
-        r = ColumnAccessor(self, r)
-
-        return r
+        # return a ColumnAccessor for pretty prints
+        return ColumnAccessor(memowner, r)
 
     def __setitem__(self, col, value):
         """
         Add new columns to the CatalogSource, overriding any existing columns
         with the name ``col``.
         """
+        if self.base is not None: return self.base.__setitem__(col, value)
+
         self._overrides[col] = self.make_column(value)
+
+    def __delitem__(self, col):
+        """
+        Delete a column; cannot delete a "hard-coded" column
+        """
+        if self.base is not None: return self.base.__delitem__(col, value)
+
+        if col not in self.columns:
+            raise ValueError("no such column, cannot delete it")
+
+        if col in self.hardcolumns:
+            raise ValueError("cannot delete a hard-coded column")
+
+        if col in self._overrides:
+            del self._overrides[col]
+            return
+
+        raise ValueError("unable to delete column '%s' from CatalogSource" %col)
 
     @property
     def use_cache(self):
@@ -475,6 +506,17 @@ class CatalogSourceBase(object):
         self._use_cache = val
 
     @property
+    def attrs(self):
+        """
+        A dictionary storing relevant meta-data about the CatalogSource.
+        """
+        try:
+            return self._attrs
+        except AttributeError:
+            self._attrs = {}
+            return self._attrs
+
+    @property
     def hardcolumns(self):
         """
         A list of the hard-coded columns in the CatalogSource.
@@ -483,6 +525,8 @@ class CatalogSourceBase(object):
         Subclasses may override this method and use :func:`get_hardcolumn` to
         bypass the decorator logic.
         """
+        if self.base is not None: return self.base.hardcolumns
+
         try:
             self._hardcolumns
         except AttributeError:
@@ -495,20 +539,11 @@ class CatalogSourceBase(object):
         All columns in the CatalogSource, including those hard-coded into
         the class's defintion and override columns provided by the user.
         """
+        if self.base is not None: return self.base.columns
+
         hcolumns  = list(self.hardcolumns)
         overrides = list(self._overrides)
         return sorted(set(hcolumns + overrides))
-
-    @property
-    def attrs(self):
-        """
-        A dictionary storing relevant meta-data about the CatalogSource.
-        """
-        try:
-            return self._attrs
-        except AttributeError:
-            self._attrs = {}
-            return self._attrs
 
     def get_hardcolumn(self, col):
         """
@@ -520,6 +555,8 @@ class CatalogSourceBase(object):
         Subclasses may override this method and the hardcolumns attribute to
         bypass the decorator logic.
         """
+        if self.base is not None: return self.base.get_hardcolumn(col)
+
         return find_column(self.__class__, col)(self)
 
     def compute(self, *args, **kwargs):
@@ -546,6 +583,8 @@ class CatalogSourceBase(object):
         IO calls -- we turn this off feature off by default. Eventually we
         want our own optimizer probably.
         """
+        if self.base is not None: return self.base.compute(*args, **kwargs)
+
         import dask
 
         # do not optimize graph (can lead to slower optimizations)
@@ -637,6 +676,31 @@ class CatalogSourceBase(object):
 
         return [self[col] for col in columns]
 
+    def _view(self, cls=None):
+        """
+        An internal function to create a new view of ``self`` of type ``cls``.
+
+        The logic here is as follows:
+        - create an
+        """
+        if cls is None:
+            cls = self.__class__
+
+        # create a new object from the CatalogSourceBase
+        obj = CatalogSourceBase.__new__(cls, self.comm, self.use_cache)
+
+        # an exception while trying to finalize means that the input
+        # class and self are not compatible types
+        try:
+            obj.__finalize__(self)
+        except:
+            raise ValueError("new type not compatible with CatalogSource")
+
+        # obj is a view, so self owns the memory
+        obj.base = self
+
+        return obj
+
     def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4', interlaced=False,
                 compensated=False, window='cic', weight='Weight',
                 value='Value', selection='Selection', position='Position'):
@@ -707,16 +771,17 @@ class CatalogSourceBase(object):
                                   "'Nmesh' keyword is not supplied and the CatalogSource "
                                   "does not define one in 'attrs'."))
 
-        r = CatalogMesh(self, Nmesh=Nmesh, BoxSize=BoxSize, dtype=dtype,
-                                weight=weight, selection=selection,
-                                value=value, position=position)
-        r.interlaced = interlaced
-        r.compensated = compensated
-        r.window = window
-        return r
+        return CatalogMesh(self, Nmesh=Nmesh,
+                                 BoxSize=BoxSize,
+                                 dtype=dtype,
+                                 weight=weight,
+                                 selection=selection,
+                                 value=value,
+                                 position=position,
+                                 interlaced=interlaced,
+                                 compensated=compensated,
+                                 window=window)
 
-
-@add_metaclass(abc.ABCMeta)
 class CatalogSource(CatalogSourceBase):
     """
     An abstract base class representing a catalog of discrete particles.
@@ -743,33 +808,31 @@ class CatalogSource(CatalogSourceBase):
     logger = logging.getLogger('CatalogSource')
 
     @classmethod
-    def _from_columns(kls, size, comm, use_cache=False, **columns):
-        """ Create a Catalog from a set of columns.
-
-            This method is used internally by nbodykit to create
-            views of catalogs based on existing catalogs.
-
-            The attrs attribute of the returned catalog is empty.
-
-            Use :class:`~nbodykit.source.catalog.array.ArrayCatalog`
-            To adapt a structured array or dictionary of array.
-
+    def _from_columns(cls, size, comm, use_cache=False, **columns):
         """
-        self = object.__new__(CatalogSource)
+        Create a Catalog from a set of columns.
 
-        self._size = size
-        CatalogSource.__init__(self, comm=comm, use_cache=use_cache)
+        This method is used internally by nbodykit to create
+        views of catalogs based on existing catalogs.
 
-        # store the column arrays
+        The attrs attribute of the returned catalog is empty.
+
+        Use :class:`~nbodykit.source.catalog.array.ArrayCatalog`
+        To adapt a structured array or dictionary of array.
+        """
+        obj = CatalogSourceBase.__new__(cls, comm, use_cache)
+        obj._size = size
+        obj.update_csize()
+
+        # clear the overrides
+        obj._overrides.clear()
+
         for name in columns:
-            self[name] = columns[name]
+            obj[name] = columns[name]
 
-        return self
+        return obj
 
     def __init__(self, comm, use_cache=False):
-
-        # init the base class
-        CatalogSourceBase.__init__(self, comm, use_cache=use_cache)
 
         # if size is already computed update csize
         # otherwise the subclass shall call update_csize explicitly.
@@ -817,7 +880,7 @@ class CatalogSource(CatalogSourceBase):
             return ValueError("cannot copy a CatalogSource that does not have `size` implemented")
 
         data = {col:self[col] for col in self.columns}
-        toret = CatalogSource._from_columns(self.size, comm=self.comm, use_cache=self.use_cache, **data)
+        toret = CatalogSource._from_columns(self.size, self.comm, use_cache=self.use_cache, **data)
         toret.attrs.update(self.attrs)
         return toret
 
@@ -828,6 +891,8 @@ class CatalogSource(CatalogSourceBase):
 
         This property must be defined for all subclasses.
         """
+        if self.base is not None: return self.base.size
+
         if not hasattr(self, '_size'):
             return NotImplemented
         return self._size
@@ -844,6 +909,8 @@ class CatalogSource(CatalogSourceBase):
 
         It is the sum of :attr:`size` across all available ranks.
         """
+        if self.base is not None: return self.base.csize
+
         return self._csize
 
     @column
@@ -895,12 +962,6 @@ class CatalogSource(CatalogSourceBase):
         # sum size across all ranks
         self._csize = self.comm.allreduce(self.size)
 
-        # log some info
-        if self.comm.rank == 0:
-            self.logger.debug("rank 0, local number of particles = %d" %self.size)
-            self.logger.info("total number of particles in %s = %d" %(str(self), self.csize))
-
-
 def get_catalog_subset(parent, index):
     """
     Select a subset of a :class:`CatalogSource` according to a boolean
@@ -928,6 +989,9 @@ def get_catalog_subset(parent, index):
         index = parent.compute(index)
     elif isinstance(index, list):
         index = numpy.array(index)
+
+    if len(parent) is NotImplemented:
+        raise ValueError("cannot make catalog subset; parent catalog doest not have a size")
 
     # verify the index is a boolean array
     if len(index) != len(parent):
