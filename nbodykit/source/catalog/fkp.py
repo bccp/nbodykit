@@ -165,7 +165,7 @@ class FKPCatalog(MultipleSpeciesCatalog):
             objects in the catalog
         """
         from nbodykit.source.catalogmesh import FKPCatalogMesh
-        
+
         # verify that all of the required columns exist
         for name in self.species:
             for col in [fkp_weight, comp_weight, nbar]:
@@ -196,15 +196,14 @@ class FKPCatalog(MultipleSpeciesCatalog):
 
         # initialize the FKP mesh
         kws = {'Nmesh':Nmesh, 'BoxSize':BoxSize, 'dtype':dtype, 'selection':selection}
-        mesh = FKPCatalogMesh(self,
+        return FKPCatalogMesh(self,
                               nbar=nbar,
                               comp_weight=comp_weight,
                               fkp_weight=fkp_weight,
                               position='_RecenteredPosition',
                               weight='_TotalWeight',
+                              value='Value',
+                              interlaced=interlaced,
+                              compensated=compensated,
+                              window=window,
                               **kws)
-        mesh.interlaced = interlaced
-        mesh.compensated = compensated
-        mesh.window = window
-
-        return mesh

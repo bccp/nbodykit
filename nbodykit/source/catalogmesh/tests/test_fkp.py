@@ -75,19 +75,5 @@ def test_paint(comm):
     assert_allclose(combined.attrs['data.W'], source1.csize*WEIGHT1)
     assert_allclose(combined.attrs['randoms.W'], source2.csize*WEIGHT2)
 
-    # normalization
-    norm1 = source1.csize * (NBAR1*WEIGHT1*FKP_WEIGHT1**2)
-    assert_allclose(combined.attrs['data.norm'], norm1)
-
-    norm2 = alpha * source2.csize * (NBAR2*WEIGHT2*FKP_WEIGHT2**2)
-    assert_allclose(combined.attrs['randoms.norm'], norm2)
-
-    # shotnoise
-    norm1 = source1.csize * (WEIGHT1*FKP_WEIGHT1)**2 / norm2
-    assert_allclose(combined.attrs['data.shotnoise'], norm1)
-
-    norm2 = source2.csize * (WEIGHT2*FKP_WEIGHT2*alpha)**2 / norm2
-    assert_allclose(combined.attrs['randoms.shotnoise'], norm2)
-
     # must be the same
     assert_allclose(combined.value, fkp_density, atol=1e-5)

@@ -4,7 +4,7 @@ from nbodykit.utils import attrs_to_dict
 
 import numpy
 import logging
-import contextlib
+from six import string_types
 
 class MultipleSpeciesCatalogMesh(CatalogMesh):
     """
@@ -39,18 +39,14 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
     """
     logger = logging.getLogger('MultipleSpeciesCatalogMesh')
 
-    def __init__(self, source, BoxSize, Nmesh, dtype,
-                    weight, value, selection, position='Position'):
+    def __new__(cls, source, *args, **kwargs):
 
         from nbodykit.source.catalog import MultipleSpeciesCatalog
         if not isinstance(source, MultipleSpeciesCatalog):
             raise TypeError(("the input source for MultipleSpeciesCatalogMesh "
                              "must be a MultipleSpeciesCatalog"))
 
-        # init the base class
-        CatalogMesh.__init__(self, source, BoxSize, Nmesh, dtype, weight,
-                            value, selection, position=position)
-
+        return super(MultipleSpeciesCatalogMesh, cls).__new__(cls, source, *args, **kwargs)
 
     def __getitem__(self, key):
         """
@@ -62,27 +58,23 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
         :func:`CatalogSource.__getitem__`.
         """
         # return a Mesh holding only the specific species
-        # NOTE: call to_mesh() each time rather than storing a mesh in __init__
-        # to ensure most update attributes are taken from self
-        # i.e., interlaced, etc are usually set after self is init'ed 
-        if key in self.source.species:
+        if isinstance(key, string_types) and key in self.base.species:
 
-            # a catalog holding only columns prefixed with "key/"
-            cat = self.source[key] # type here is CatalogSource
+            # CatalogSource holding only requested species
+            cat = self.base[key]
 
-            # make the mesh
-            mesh = cat.to_mesh(Nmesh=self.attrs['Nmesh'],
-                               BoxSize=self.attrs['BoxSize'],
-                               dtype=self.dtype,
-                               interlaced=self.interlaced,
-                               compensated=self.compensated,
-                               window=self.window,
-                               weight=self.weight,
-                               value=self.value,
-                               selection=self.selection,
-                               position=self.position
-                              )
-            return mesh
+            # view the CatalogSource as a CatalogMesh class
+            return CatalogMesh(cat,
+                                Nmesh=self.attrs['Nmesh'],
+                                BoxSize=self.attrs['BoxSize'],
+                                dtype=self.dtype,
+                                interlaced=self.interlaced,
+                                compensated=self.compensated,
+                                window=self.window,
+                                weight=self.weight,
+                                value=self.value,
+                                selection=self.selection,
+                                position=self.position)
 
         # return the base class behavior
         return CatalogMesh.__getitem__(self, key)
@@ -125,7 +117,7 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
         real = self.pm.create(mode='real', zeros=True)
 
         # loop over each species
-        for name in self.source.species:
+        for name in self.base.species:
 
             if self.pm.comm.rank == 0:
                 self.logger.info("painting the '%s' species" %name)
@@ -153,8 +145,8 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
 
         # compute total shot noise by summing of shot noise each species
         real.attrs['shotnoise'] = 0
-        total_weight = sum(real.attrs['%s.W' %name] for name in self.source.species)
-        for name in self.source.species:
+        total_weight = sum(real.attrs['%s.W' %name] for name in self.base.species)
+        for name in self.base.species:
             this_Pshot = real.attrs['%s.shotnoise' %name]
             this_weight = real.attrs['%s.W' %name]
             real.attrs['shotnoise'] += (this_weight/total_weight)**2 * this_Pshot

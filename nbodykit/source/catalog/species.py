@@ -3,6 +3,7 @@ from nbodykit.utils import attrs_to_dict
 
 import numpy
 import logging
+from six import string_types
 
 
 class MultipleSpeciesCatalog(CatalogSourceBase):
@@ -58,7 +59,7 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
     def __init__(self, names, *species, **kwargs):
 
         # whether to use the cache
-        use_cache = kwargs.pop('use_cache', True)
+        self.use_cache = kwargs.pop('use_cache', True)
 
         # input checks
         if len(species) < 2:
@@ -71,7 +72,6 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
             raise ValueError("a name must be provided for each species catalog provided")
 
         self.comm = species[0].comm
-        self.species = names
         self.attrs['species'] = names
 
         # update the dictionary with data/randoms attrs
@@ -87,13 +87,17 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
         # store copies of the original input catalogs as (name:catalog) dict
         self._sources = {name:cat.copy() for name,cat in zip(names, species)}
 
-        # init the base class
-        CatalogSourceBase.__init__(self, self.comm, use_cache=use_cache)
-
         # turn on cache?
         if self.use_cache:
             for name in names:
                 self._sources[name].use_cache = True
+
+    @property
+    def species(self):
+        """
+        List of species names
+        """
+        return self.attrs['species']
 
     @property
     def hardcolumns(self):
@@ -125,7 +129,7 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
           format: ``species/column``.
         """
         # return a new CatalogSource holding only the specific species
-        if key in self.species:
+        if isinstance(key, string_types) and key in self.species:
             return self._sources[key]
 
         return CatalogSourceBase.__getitem__(self, key)
@@ -140,7 +144,7 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
         """
         msg = "%s does not support item assignment;" % self.__class__.__name__
         msg += " to add columns for an individual species, use ``cat[species][column] = data``"
-        raise TypeError(msg)
+        raise ValueError(msg)
 
     def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4', interlaced=False,
                 compensated=False, window='cic', weight='Weight',
@@ -192,22 +196,19 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
         if Nmesh is None:
             Nmesh = check_species_metadata('Nmesh', self.attrs, self.species)
 
-
-        # initialize the mesh
-        kws = {'Nmesh':Nmesh, 'BoxSize':BoxSize, 'dtype':dtype, 'selection':selection}
-        mesh = MultipleSpeciesCatalogMesh(self,
+        # return the mesh
+        return MultipleSpeciesCatalogMesh(self,
                                           Nmesh=Nmesh,
                                           BoxSize=BoxSize,
                                           dtype=dtype,
                                           selection=selection,
                                           position=position,
                                           weight=weight,
-                                          value=value)
-        mesh.interlaced = interlaced
-        mesh.compensated = compensated
-        mesh.window = window
+                                          value=value,
+                                          interlaced=interlaced,
+                                          compensated=compensated,
+                                          window=window)
 
-        return mesh
 
 def check_species_metadata(name, attrs, species):
     """

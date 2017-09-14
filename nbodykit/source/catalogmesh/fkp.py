@@ -42,24 +42,24 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
     """
     logger = logging.getLogger('FKPCatalogMesh')
 
-    def __init__(self, source, BoxSize, Nmesh, dtype, selection,
-                    comp_weight, fkp_weight, nbar, weight, position='Position'):
+    def __new__(cls, source, BoxSize, Nmesh, dtype, selection,
+                    comp_weight, fkp_weight, nbar, weight, value='Value',
+                    position='Position', interlaced=False,
+                    compensated=False, window='cic'):
 
         from nbodykit.source.catalog import FKPCatalog
         if not isinstance(source, FKPCatalog):
             raise TypeError("the input source for FKPCatalogMesh must be a FKPCatalog")
 
-        self.source  = source
-        self.comp_weight = comp_weight
-        self.fkp_weight = fkp_weight
-        self.nbar = nbar
+        obj = super(FKPCatalogMesh, cls).__new__(cls, source, BoxSize, Nmesh,
+                        dtype, weight, value, selection, position=position,
+                        interlaced=interlaced, compensated=compensated, window=window)
 
-        # init the base
-        # NOTE: FKP must paint the Position recentered to [-L/2, L/2]
-        # so we store that in an internal column "_RecenteredPosition"
-        MultipleSpeciesCatalogMesh.__init__(self, source, BoxSize, Nmesh, dtype,
-                                            weight, 'Value', selection,
-                                            position=position)
+        obj.comp_weight = comp_weight
+        obj.fkp_weight = fkp_weight
+        obj.nbar = nbar
+
+        return obj
 
     def recenter_box(self, BoxSize, BoxCenter):
         """
@@ -75,7 +75,7 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
                 raise ValueError("recenter_box arguments should be a vector of length 3")
 
         # update the position coordinates
-        for name in self.source.species:
+        for name in self.base.species:
 
             # add the old box center offset
             self[name][self.position] += self.attrs['BoxCenter']
@@ -86,7 +86,7 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         # update meta-data
         for val, name in zip([BoxSize, BoxCenter], ['BoxSize', 'BoxCenter']):
             self.attrs[name] = val
-            self.source.attrs[name] = val
+            self.base.attrs[name] = val
 
 
     def to_real_field(self):
@@ -133,7 +133,7 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         attrs = {}
 
         # determine alpha, the weighted number ratio
-        for name in self.source.species:
+        for name in self.base.species:
             attrs[name+'.W'] = self.weighted_total(name)
         attrs['alpha'] = attrs['data.W'] / attrs['randoms.W']
 
@@ -165,8 +165,12 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
 
             W = \sum w_\mathrm{comp}
         """
-        sel = self.source.compute(self[name+'/'+self.selection])
-        comp_weight = self[name+'/'+self.comp_weight][sel]
+        # the selection
+        sel = self[name][self.selection]
 
-        wsum = self.source.compute(comp_weight.sum())
+        # the selected mesh for "name"
+        mesh = self[name][sel]
+
+        # sum up completeness weights
+        wsum = self.compute(mesh[self.comp_weight].sum())
         return self.comm.allreduce(wsum)
