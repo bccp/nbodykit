@@ -669,21 +669,23 @@ class ConvolvedFFTPower(object):
 
         if name+'.norm' not in self.attrs:
 
-            # first/second meshes for "name" (data or randoms)
-            first = self.first[name]
-            second = self.second[name]
+            # the selection (same for first/second)
+            sel = self.first[name][self.first.selection]
+
+            # selected first/second meshes for "name" (data or randoms)
+            first = self.first[name][sel]
+            second = self.second[name][sel]
 
             # these are assumed the same b/w first and second meshes
-            sel = first.compute(first[self.first.selection])
-            comp_weight = first[self.first.comp_weight][sel]
-            nbar = second[self.second.nbar][sel]
+            comp_weight = first[self.first.comp_weight]
+            nbar = second[self.second.nbar]
 
             # different weights allowed for first and second mesh
-            fkp_weight1 = first[self.first.fkp_weight][sel]
+            fkp_weight1 = first[self.first.fkp_weight]
             if self.second is self.first:
                 fkp_weight2 = fkp_weight1
             else:
-                fkp_weight2 = second[self.second.fkp_weight][sel]
+                fkp_weight2 = second[self.second.fkp_weight]
 
             A  = nbar*comp_weight*fkp_weight1*fkp_weight2
             if name == 'randoms':
@@ -715,20 +717,22 @@ class ConvolvedFFTPower(object):
             Pshot = 0
             for name in ['data', 'randoms']:
 
-                # first/second meshes for "name" (data or randoms)
-                first = self.first[name]
-                second = self.second[name]
+                # the selection (same for first/second)
+                sel = self.first[name][self.first.selection]
 
-                # these are assumed the same b/w first and second meshes
-                sel = first.compute(first[self.first.selection])
-                comp_weight = first[self.first.comp_weight][sel]
+                # selected first/second meshes for "name" (data or randoms)
+                first = self.first[name][sel]
+                second = self.second[name][sel]
+
+                # completeness weights (assumed same for first/second)
+                comp_weight = first[self.first.comp_weight]
 
                 # different weights allowed for first and second mesh
-                fkp_weight1 = first[self.first.fkp_weight][sel]
+                fkp_weight1 = first[self.first.fkp_weight]
                 if self.first is self.second:
                     fkp_weight2 = fkp_weight1
                 else:
-                    fkp_weight2 = second[self.second.fkp_weight][sel]
+                    fkp_weight2 = second[self.second.fkp_weight]
 
                 S = (comp_weight**2*fkp_weight1*fkp_weight2).sum()
                 if name == 'randoms':
@@ -780,7 +784,7 @@ def copy_meta(attrs, meta, prefix=""):
 
 def is_valid_crosscorr(first, second):
 
-    if second.source is not first.source:
+    if second.base is not first.base:
         return False
 
     same_cols = ['selection', 'comp_weight', 'nbar']
