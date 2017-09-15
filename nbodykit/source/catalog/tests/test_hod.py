@@ -16,8 +16,8 @@ def test_no_seed(comm):
     BoxSize = 512
 
     # lognormal particles
-    source = LogNormalCatalog(Plin=cosmology.LinearPower(cosmo, redshift),
-                                nbar=3e-3, BoxSize=BoxSize, Nmesh=128)
+    Plin = cosmology.LinearPower(cosmo, redshift=redshift, transfer='EisensteinHu')
+    source = LogNormalCatalog(Plin=Plin, nbar=3e-3, BoxSize=BoxSize, Nmesh=128)
 
     # seed is set randomly
     assert source.attrs['seed'] is not None
@@ -41,8 +41,9 @@ def test_no_galaxies(comm):
     redshift = 0.55
     cosmo = cosmology.Planck15
     BoxSize = 512
-    source = LogNormalCatalog(Plin=cosmology.LinearPower(cosmo, redshift),
-                                nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
+
+    Plin = cosmology.LinearPower(cosmo, redshift=redshift, transfer='EisensteinHu')
+    source = LogNormalCatalog(Plin=Plin, nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
 
     # run FOF
     r = FOF(source, linking_length=0.2, nmin=20)
@@ -62,8 +63,8 @@ def test_no_halos(comm):
     BoxSize = 512
 
     # really low number density
-    source = LogNormalCatalog(Plin=cosmology.LinearPower(cosmo, redshift),
-                                nbar=3e-5, BoxSize=BoxSize, Nmesh=128, seed=42)
+    Plin = cosmology.LinearPower(cosmo, redshift=redshift, transfer='EisensteinHu')
+    source = LogNormalCatalog(Plin=Plin, nbar=3e-5, BoxSize=BoxSize, Nmesh=128, seed=42)
 
     # run FOF
     r = FOF(source, linking_length=0.2, nmin=20)
@@ -82,8 +83,9 @@ def test_object_columns(comm):
     redshift = 0.55
     cosmo = cosmology.Planck15
     BoxSize = 512
-    source = LogNormalCatalog(Plin=cosmology.LinearPower(cosmo, redshift),
-                                nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
+
+    Plin = cosmology.LinearPower(cosmo, redshift=redshift, transfer='EisensteinHu')
+    source = LogNormalCatalog(Plin=Plin, nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
 
     # run FOF
     r = FOF(source, linking_length=0.2, nmin=20)
@@ -107,8 +109,9 @@ def test_bad_catalog(comm):
     redshift = 0.55
     cosmo = cosmology.Planck15
     BoxSize = 512
-    source = LogNormalCatalog(Plin=cosmology.LinearPower(cosmo, redshift),
-                                nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
+
+    Plin = cosmology.LinearPower(cosmo, redshift=redshift, transfer='EisensteinHu')
+    source = LogNormalCatalog(Plin=Plin, nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
 
     # run FOF
     r = FOF(source, linking_length=0.2, nmin=20)
@@ -140,8 +143,9 @@ def test_repopulate(comm):
     redshift = 0.55
     cosmo = cosmology.Planck15
     BoxSize = 512
-    source = LogNormalCatalog(Plin=cosmology.LinearPower(cosmo, redshift),
-                                nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
+
+    Plin = cosmology.LinearPower(cosmo, redshift=redshift, transfer='EisensteinHu')
+    source = LogNormalCatalog(Plin=Plin, nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
 
     # run FOF
     r = FOF(source, linking_length=0.2, nmin=20)
@@ -178,8 +182,8 @@ def test_hod_cm(comm):
     BoxSize = 512
 
     # lognormal particles
-    source = LogNormalCatalog(Plin=cosmology.LinearPower(cosmo, redshift),
-                                nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
+    Plin = cosmology.LinearPower(cosmo, redshift=redshift, transfer='EisensteinHu')
+    source = LogNormalCatalog(Plin=Plin, nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
 
     # run FOF
     r = FOF(source, linking_length=0.2, nmin=20)
@@ -204,8 +208,8 @@ def test_hod_peak(comm):
     BoxSize = 512
 
     # lognormal particles
-    source = LogNormalCatalog(Plin=cosmology.LinearPower(cosmo, redshift),
-                                nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
+    Plin = cosmology.LinearPower(cosmo, redshift=redshift, transfer='EisensteinHu')
+    source = LogNormalCatalog(Plin=Plin, nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
 
     source['Density'] = KDDensity(source).density
 
@@ -232,8 +236,8 @@ def test_save(comm):
     BoxSize = 512
 
     # lognormal particles
-    source = LogNormalCatalog(Plin=cosmology.LinearPower(cosmo, redshift),
-                                nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
+    Plin = cosmology.LinearPower(cosmo, redshift=redshift, transfer='EisensteinHu')
+    source = LogNormalCatalog(Plin=Plin, nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
 
     # run FOF
     r = FOF(source, linking_length=0.2, nmin=20)

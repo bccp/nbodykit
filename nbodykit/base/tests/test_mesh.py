@@ -23,7 +23,7 @@ def test_lost_attrs(comm):
     tmpfile = comm.bcast(tmpfile)
 
     # linear mesh
-    Plin = cosmology.LinearPower(cosmo, redshift=0.55)
+    Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
     source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42)
 
     # a hard to save attribute
@@ -52,7 +52,7 @@ def test_real_save(comm):
     tmpfile = comm.bcast(tmpfile)
 
     # linear mesh
-    Plin = cosmology.LinearPower(cosmo, redshift=0.55)
+    Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
     source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42)
 
     # a hard to save attribute
@@ -90,7 +90,7 @@ def test_real_save(comm):
     tmpfile = comm.bcast(tmpfile)
 
     # linear mesh
-    Plin = cosmology.LinearPower(cosmo, redshift=0.55)
+    Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
     source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42)
 
     # a hard to save attribute
@@ -121,7 +121,7 @@ def test_preview(comm):
     CurrentMPIComm.set(comm)
 
     # linear mesh
-    Plin = cosmology.LinearPower(cosmo, redshift=0.55)
+    Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
     source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42)
 
     # the painted RealField
@@ -141,7 +141,7 @@ def test_resample(comm):
     CurrentMPIComm.set(comm)
 
     # linear mesh
-    Plin = cosmology.LinearPower(cosmo, redshift=0.55)
+    Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
     source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42)
 
     # re-sample to Nmesh=32
@@ -165,7 +165,7 @@ def test_bad_mode(comm):
     CurrentMPIComm.set(comm)
 
     # linear mesh
-    Plin = cosmology.LinearPower(cosmo, redshift=0.55)
+    Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
     source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42)
 
     with pytest.raises(ValueError):

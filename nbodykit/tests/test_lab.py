@@ -12,8 +12,8 @@ def test_fftpower(comm):
     CurrentMPIComm.set(comm)
 
     # lognormal particles
-    source = LogNormalCatalog(Plin=cosmology.LinearPower(cosmo, redshift=0.55),
-                    nbar=3e-7, BoxSize=1380., Nmesh=8, seed=42)
+    Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
+    source = LogNormalCatalog(Plin=Plin, nbar=3e-7, BoxSize=1380., Nmesh=8, seed=42)
 
     # apply RSD
     source['Position'] += source['VelocityOffset'] * [0,0,1]
@@ -32,8 +32,8 @@ def test_paint(comm):
     CurrentMPIComm.set(comm)
 
     # lognormal particles
-    source = LogNormalCatalog(Plin=cosmology.LinearPower(cosmo, redshift=0.55),
-                    nbar=3e-7, BoxSize=1380., Nmesh=8, seed=42)
+    Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
+    source = LogNormalCatalog(Plin=Plin, nbar=3e-7, BoxSize=1380., Nmesh=8, seed=42)
 
     # apply RSD
     source['Position'] += source['VelocityOffset'] * [0,0,1]
