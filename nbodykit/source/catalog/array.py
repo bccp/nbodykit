@@ -52,10 +52,6 @@ class ArrayCatalog(CatalogSource):
         CatalogSource.__init__(self, comm=comm, use_cache=use_cache)
 
     @property
-    def size(self):
-        return self._size
-
-    @property
     def hardcolumns(self):
         """
         The union of the columns in the file and any transformed columns.
