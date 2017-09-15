@@ -377,6 +377,16 @@ class CatalogSourceBase(object):
         return obj
 
     def __finalize__(self, obj):
+        """
+        Finalize the creation of a CatalogSource object by copying over
+        attributes from a second CatalogSource.
+
+        Parameters
+        ----------
+        obj : CatalogSource
+            the second CatalogSource to copy over attributes from
+        """
+        # copy over all attributes
         self.__dict__.update(obj.__dict__.copy())
 
     def __iter__(self):
@@ -431,7 +441,7 @@ class CatalogSourceBase(object):
 
             # do the slicing
             if not numpy.isscalar(sel):
-                return get_catalog_subset(self, sel)._view(self.__class__)
+                return get_catalog_subset(self, sel)
             else:
                 raise KeyError("strings and boolean arrays are the only supported indexing methods")
 
@@ -676,31 +686,6 @@ class CatalogSourceBase(object):
 
         return [self[col] for col in columns]
 
-    def _view(self, cls=None):
-        """
-        An internal function to create a new view of ``self`` of type ``cls``.
-
-        The logic here is as follows:
-        - create an
-        """
-        if cls is None:
-            cls = self.__class__
-
-        # create a new object from the CatalogSourceBase
-        obj = CatalogSourceBase.__new__(cls, self.comm, self.use_cache)
-
-        # an exception while trying to finalize means that the input
-        # class and self are not compatible types
-        try:
-            obj.__finalize__(self)
-        except:
-            raise ValueError("new type not compatible with CatalogSource")
-
-        # obj is a view, so self owns the memory
-        obj.base = self
-
-        return obj
-
     def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4', interlaced=False,
                 compensated=False, window='cic', weight='Weight',
                 value='Value', selection='Selection', position='Position'):
@@ -820,24 +805,24 @@ class CatalogSource(CatalogSourceBase):
         Use :class:`~nbodykit.source.catalog.array.ArrayCatalog`
         To adapt a structured array or dictionary of array.
         """
+        # an empty class
         obj = CatalogSourceBase.__new__(cls, comm, use_cache)
+
+        # compute the sizes
         obj._size = size
-        obj.update_csize()
+        obj._csize = obj.comm.allreduce(obj._size)
 
-        # clear the overrides
-        obj._overrides.clear()
-
+        # add the columns in
         for name in columns:
             obj[name] = columns[name]
 
         return obj
 
-    def __init__(self, comm, use_cache=False):
+    def __init__(self, *args, **kwargs):
 
-        # if size is already computed update csize
-        # otherwise the subclass shall call update_csize explicitly.
+        # if size is implemented, compute the csize
         if self.size is not NotImplemented:
-            self.update_csize()
+            self._csize = self.comm.allreduce(self.size)
 
     def __repr__(self):
         size = "%d" %self.size if self.size is not NotImplemented else "NotImplemented"
@@ -948,19 +933,6 @@ class CatalogSource(CatalogSourceBase):
         """
         return ConstantArray(1.0, self.size, chunks=_globals['dask_chunk_size'])
 
-    def update_csize(self):
-        """
-        Set the collective size, :attr:`csize`.
-
-        This function should be called in :func:`__init__` of a subclass,
-        after :attr:`size` has been set to a valid value (not ``NotImplemented``)
-        """
-        if self.size is NotImplemented:
-            raise ValueError(("``size`` cannot be NotImplemented when trying "
-                              "to compute collective size `csize`"))
-
-        # sum size across all ranks
-        self._csize = self.comm.allreduce(self.size)
 
 def get_catalog_subset(parent, index):
     """
@@ -1004,9 +976,17 @@ def get_catalog_subset(parent, index):
 
     # initialize subset Source of right size
     subset_data = {col:parent[col][index] for col in parent}
-    toret = CatalogSource._from_columns(size, parent.comm, use_cache=parent.use_cache, **subset_data)
+    base = CatalogSource._from_columns(size, parent.comm, use_cache=parent.use_cache, **subset_data)
 
-    # and the meta-data
-    toret.attrs.update(parent.attrs)
+    # the empty return obj
+    toret = CatalogSourceBase.__new__(parent.__class__, parent.comm, parent.use_cache)
+    toret.__finalize__(parent)
+
+    # update the size attributes to the new size
+    toret._size = base._size
+    toret._csize = base._csize
+
+    # the memory owner
+    toret.base = base
 
     return toret

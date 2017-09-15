@@ -35,41 +35,45 @@ class MeshSource(object):
         # ensure self.comm is set, though usually already set by the child.
         self.comm = comm
         self.dtype = dtype
-        self.attrs['Nmesh'] = Nmesh
-        self.attrs['BoxSize'] = BoxSize
 
-        # initialize the ParticleMesh
-        initialize_pm(self)
+        if Nmesh is None or BoxSize is None:
+            raise ValueError("both Nmesh and BoxSize must not be None to initialize ParticleMesh")
+
+        Nmesh = numpy.array(Nmesh)
+        if Nmesh.ndim == 0:
+            ndim = 3
+        else:
+            ndim = len(Nmesh)
+        _Nmesh = numpy.empty(ndim, dtype='i8')
+        _Nmesh[:] = Nmesh
+        self.pm = ParticleMesh(BoxSize=BoxSize, Nmesh=_Nmesh,
+                                dtype=self.dtype, comm=self.comm)
+
+        self.attrs['BoxSize'] = self.pm.BoxSize.copy()
+        self.attrs['Nmesh'] = self.pm.Nmesh.copy()
 
         self._actions = []
         self.basemesh = None
 
     def __finalize__(self, obj):
         """
-        Return a "view" of the MeshSource, in the spirit of
-        numpy's ndarray view.
+        Finalize the creation of a MeshSource object by copying over
+        attributes from a second MeshSource.
 
-        This returns a new MeshSource whose memory is owned by ``self``.
+        This also sets ``basemesh`` to point to ``obj``.
+
+        Parameters
+        ----------
+        obj : MeshSource
+            the second MeshSource to copy over attributes from
         """
-        self.comm = obj.comm
-        self.dtype = obj.dtype
-        self.attrs.update(obj.attrs)
+        # copy over the __dict__ from obj
+        self.__dict__.update(obj.__dict__.copy())
 
-        if hasattr(obj, 'pm'):
-            self.pm = obj.pm
-        else:
-            initialize_pm(self)
+        # set the basemesh to point to obj
+        self.basemesh = obj
 
-        self._actions = []
-        self.actions.extend(getattr(obj, 'actions', []))
-
-        # set who owns the memory
-        if self is not obj:
-            self.basemesh = obj
-        else:
-            self.basemesh = None
-
-    def _view(self):
+    def view(self):
         """
         Return a "view" of the MeshSource, in the spirit of
         numpy's ndarray view.
@@ -77,9 +81,10 @@ class MeshSource(object):
         This returns a new MeshSource whose memory is owned by ``self``.
 
         Note that for CatalogMesh objects, this is overidden by the
-        CatalogSource._view function.
+        CatalogSource.view function.
         """
-        view = object.__new__(MeshSource)
+        view = object.__new__(self.__class__)
+        view.comm = self.comm
         view.__finalize__(self)
         return view
 
@@ -147,7 +152,7 @@ class MeshSource(object):
         else:
             assert kind in ['wavenumber', 'circular', 'index']
 
-        view = self._view()
+        view = self.view()
         view.actions.append((mode, func, kind))
         return view
 
@@ -371,28 +376,3 @@ class MeshSource(object):
                             bb.attrs[key] = json_str
                         except:
                             warnings.warn("attribute %s of type %s is unsupported and lost while saving MeshSource" % (key, type(value)))
-
-
-def initialize_pm(self):
-    """
-    Initialize a new ParticleMesh and save as the ``pm`` attribute.
-    """
-    Nmesh = self.attrs.get('Nmesh', None)
-    BoxSize = self.attrs.get('BoxSize', None)
-    if Nmesh is None or BoxSize is None:
-        raise ValueError("both Nmesh and BoxSize must not be None to initialize ParticleMesh")
-
-    Nmesh = numpy.array(Nmesh)
-    if Nmesh.ndim == 0:
-        ndim = 3
-    else:
-        ndim = len(Nmesh)
-    _Nmesh = numpy.empty(ndim, dtype='i8')
-    _Nmesh[:] = Nmesh
-    self.pm = ParticleMesh(BoxSize=BoxSize,
-                        Nmesh=_Nmesh,
-                        dtype=self.dtype,
-                        comm=self.comm)
-
-    self.attrs['BoxSize'] = self.pm.BoxSize.copy()
-    self.attrs['Nmesh'] = self.pm.Nmesh.copy()

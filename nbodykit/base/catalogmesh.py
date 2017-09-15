@@ -49,8 +49,12 @@ class CatalogMesh(CatalogSource, MeshSource):
 
         assert isinstance(source, CatalogSourceBase)
 
-        # view the input source (a CatalogSource) as the desired class
-        obj = source._view(cls)
+        obj = CatalogSourceBase.__new__(cls, source.comm, source.use_cache)
+        obj.base = source
+
+        # copy over size attributes from source
+        obj._size = source.size
+        obj._csize = source.csize
 
         # copy over the necessary meta-data to attrs
         obj.attrs['BoxSize'] = BoxSize
@@ -58,6 +62,9 @@ class CatalogMesh(CatalogSource, MeshSource):
         obj.attrs['interlaced'] = interlaced
         obj.attrs['compensated'] = compensated
         obj.attrs['window'] = window
+
+        # copy meta-data from source too
+        obj.attrs.update(source.attrs)
 
         # store others as straight attributes
         obj.dtype = dtype
@@ -67,32 +74,28 @@ class CatalogMesh(CatalogSource, MeshSource):
         obj.position = position
 
         # add in the Mesh Source attributes
-        MeshSource.__finalize__(obj, obj)
+        MeshSource.__init__(obj, obj.comm, Nmesh, BoxSize, dtype)
 
         return obj
 
-    def __init__(self, *args,  **kwargs):
-        pass
-
     def __finalize__(self, obj):
+        """
+        Finalize the creation of a CatalogMesh object by copying over
+        attributes from a second CatalogMesh.
 
-        attrs = getattr(obj, 'attrs', {})
-        self.attrs['Nmesh'] = attrs.get('Nmesh', None)
-        self.attrs['BoxSize'] = attrs.get('BoxSize', None)
-        self.attrs['interlaced'] = attrs.get('interlaced', False)
-        self.attrs['compensated'] = attrs.get('compensated', False)
-        self.attrs['window'] = attrs.get('window', 'cic')
-        self.attrs.update(attrs)
+        This also initializes the MeshSource base class.
 
-        self.dtype = getattr(obj, 'dtype', 'f4')
-        self.weight = getattr(self, 'weight', 'Weight')
-        self.position = getattr(self, 'position', 'Position')
-        self.value = getattr(self, 'value', 'Value')
-        self.selection = getattr(self, 'selection', 'Selection')
+        Parameters
+        ----------
+        obj : CatalogMesh
+            the second CatalogMesh to copy over attributes from
+        """
+        # this will copy over the __dict__ from obj
+        super(CatalogMesh, self).__finalize__(obj)
 
         # also initialize the mesh source
-        if isinstance(obj, CatalogMesh):
-            MeshSource.__finalize__(self, self)
+        MeshSource.__init__(self, self.comm, self.attrs['Nmesh'],
+                                self.attrs['BoxSize'], self.dtype)
 
     @property
     def interlaced(self):
