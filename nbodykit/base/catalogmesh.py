@@ -52,10 +52,6 @@ class CatalogMesh(CatalogSource, MeshSource):
         obj = CatalogSourceBase.__new__(cls, source.comm, source.use_cache)
         obj.base = source
 
-        # copy over size attributes from source
-        obj._size = source.size
-        obj._csize = source.csize
-
         # copy over the necessary meta-data to attrs
         obj.attrs['BoxSize'] = BoxSize
         obj.attrs['Nmesh'] = Nmesh
