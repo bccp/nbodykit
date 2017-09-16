@@ -1,7 +1,5 @@
 from nbodykit.base.mesh import MeshSource
 from nbodykit.base.catalog import CatalogSource, CatalogSourceBase
-from six import add_metaclass
-import abc
 import numpy
 import logging
 
@@ -12,8 +10,9 @@ from pmesh.pm import RealField, ComplexField
 class CatalogMesh(CatalogSource, MeshSource):
     """
     A view of a CatalogSource object which knows how to create a MeshSource
-    object from itself. The original CatalogSource object is stored as the
-    :attr:`source` attribute.
+    object from itself.
+
+    The original CatalogSource object is stored as the :attr:`base` attribute.
 
     Parameters
     ----------
@@ -37,20 +36,38 @@ class CatalogMesh(CatalogSource, MeshSource):
     position : str, optional
         column in ``source`` specifying the position coordinates; default
         is ``Position``
+    interlaced : bool, optional
+        use the interlacing technique of Sefusatti et al. 2015 to reduce
+        the effects of aliasing on Fourier space quantities computed
+        from the mesh
+    compensated : bool, optional
+        whether to correct for the window introduced by the grid
+        interpolation scheme
+    window : str, optional
+        the string specifying which window interpolation scheme to use;
+        see ``pmesh.window.methods``
     """
     logger = logging.getLogger('CatalogMesh')
 
     def __repr__(self):
-        return "(%s as CatalogMesh)" % repr(self.base)
+        if isinstance(self.base, CatalogMesh):
+            return repr(self.base)
+        else:
+            return "(%s as CatalogMesh)" % repr(self.base)
 
     def __new__(cls, source, BoxSize, Nmesh, dtype, weight,
                     value, selection, position='Position', interlaced=False,
                     compensated=False, window='cic', **kwargs):
 
+        # source here must be a CatalogSource
         assert isinstance(source, CatalogSourceBase)
 
+        # new, empty CatalogSource
         obj = CatalogSourceBase.__new__(cls, source.comm, source.use_cache)
-        obj.base = source
+
+        # copy over size from the CatalogSource
+        obj._size = source.size
+        obj._csize = source.csize
 
         # copy over the necessary meta-data to attrs
         obj.attrs['BoxSize'] = BoxSize
@@ -72,26 +89,78 @@ class CatalogMesh(CatalogSource, MeshSource):
         # add in the Mesh Source attributes
         MeshSource.__init__(obj, obj.comm, Nmesh, BoxSize, dtype)
 
+        # finally set the base as the input CatalogSource
+        # NOTE: set this AFTER MeshSource.__init__()
+        obj.base = source
+
         return obj
 
-    def __finalize__(self, obj):
+    def __slice__(self, index):
+        """
+        Return a slice of a CatalogMesh object.
+
+        This slices the CatalogSource object stored as the :attr:`base`
+        attribute, and then views that sliced object as a CatalogMesh.
+
+        Parameters
+        ----------
+        index : array_like
+            either a dask or numpy boolean array; this determines which
+            rows are included in the returned object
+
+        Returns
+        -------
+        subset
+            the particle source with the same meta-data as ``self``, and
+            with the sliced data arrays
+        """
+        # this slice of the CatalogSource will be the base of the mesh
+        base = super(CatalogMesh, self).__slice__(index)
+
+        # view this base class as a CatalogMesh (with default CatalogMesh parameters)
+        toret = base.view(self.__class__)
+
+        # attach the meta-data from self to returned sliced CatalogMesh
+        return toret.__finalize__(self)
+
+    def copy(self):
+        """
+        Return a shallow copy of ``self``.
+
+        .. note::
+            No copy of data is made.
+
+        Returns
+        -------
+        CatalogMesh :
+            a new CatalogMesh that holds all of the data columns of ``self``
+        """
+        # copy the base and view it as a CatalogMesh
+        toret = self.base.copy().view(self.__class__)
+
+        # attach the meta-data from self to returned sliced CatalogMesh
+        return toret.__finalize__(self)
+
+    def __finalize__(self, other):
         """
         Finalize the creation of a CatalogMesh object by copying over
         attributes from a second CatalogMesh.
 
-        This also initializes the MeshSource base class.
+        This also copies over the relevant MeshSource attributes via a
+        call to :func:`MeshSource.__finalize__`.
 
         Parameters
         ----------
         obj : CatalogMesh
             the second CatalogMesh to copy over attributes from
         """
-        # this will copy over the __dict__ from obj
-        super(CatalogMesh, self).__finalize__(obj)
+        if isinstance(other, CatalogSourceBase):
+            self = CatalogSourceBase.__finalize__(self, other)
 
-        # also initialize the mesh source
-        MeshSource.__init__(self, self.comm, self.attrs['Nmesh'],
-                                self.attrs['BoxSize'], self.dtype)
+        if isinstance(other, MeshSource):
+            self = MeshSource.__finalize__(self, other)
+
+        return self
 
     @property
     def interlaced(self):
