@@ -80,11 +80,18 @@ def test_setitem(comm):
 
     cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2, use_cache=True)
 
-    # cannot set directly
+    # bad name
     with pytest.raises(ValueError):
-        cat['data/TEST'] = numpy.ones(source1.size)
+        cat['bad'] = numpy.ones(source1.size)
 
-    # index species, then column
+    # bad species name
+    with pytest.raises(ValueError):
+        cat['bad/test'] = numpy.ones(source1.size)
+
     test = numpy.ones(source1.size)*10
-    cat['data']['test'] = test
+    cat['data/test'] = test
     assert_array_equal(cat['data/test'].compute(), test)
+
+    # bad size
+    with pytest.raises(ValueError):
+        cat['data/test'] = test[:10]

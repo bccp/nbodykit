@@ -83,6 +83,7 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
 
         # no size!
         self.size = NotImplemented
+        self.csize = NotImplemented
 
         # store copies of the original input catalogs as (name:catalog) dict
         self._sources = {name:cat.copy() for name,cat in zip(names, species)}
@@ -136,15 +137,29 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
 
     def __setitem__(self, col, value):
         """
-        This class is read-only. To add columns for an individual species,
-        use the following syntax: ``cat[species][column] = data``.
-
-        Here, ``species`` is the name of the species, and ``column`` is the
-        column name.
+        Add columns to any of the species catalogs.
+        .. note::
+            New column names should be prefixed by 'species/' where
+            'species' is a name in the :attr:`species` attribute.
         """
-        msg = "%s does not support item assignment;" % self.__class__.__name__
-        msg += " to add columns for an individual species, use ``cat[species][column] = data``"
-        raise ValueError(msg)
+        fields = col.split('/')
+        if len(fields) != 2:
+            msg = "new column names should be prefixed by 'species/' where "
+            msg += "'species' is one of %s" % str(self.species)
+            raise ValueError(msg)
+
+        if fields[0] not in self.species:
+            args = (fields[0], str(self.species))
+            raise ValueError("species '%s' is not valid; should be one of %s" %args)
+
+        # check size
+        size = len(self._sources[fields[0]])
+        if not numpy.isscalar(value):
+            if len(value) != size:
+                args = (col, size, len(value))
+                raise ValueError("error setting '%s' column, data must be array of size %d, not %d" % args)
+
+        return CatalogSourceBase.__setitem__(self, col, value)
 
     def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4', interlaced=False,
                 compensated=False, window='cic', weight='Weight',
@@ -173,11 +188,11 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
             the string name of the window to use when interpolating the
         weight : str, optional
             the name of the column specifying the weight for each particle
-        value: str, optional
-            the name of the column specifying the field value for each particle
         selection : str, optional
             the name of the column that specifies which (if any) slice
             of the CatalogSource to take
+        value: str, optional
+            the name of the column specifying the field value for each particle
         position : str, optional
             the name of the column that specifies the position data of the
             objects in the catalog
