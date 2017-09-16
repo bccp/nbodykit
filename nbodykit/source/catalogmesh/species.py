@@ -63,18 +63,11 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
             # CatalogSource holding only requested species
             cat = self.base[key]
 
-            # view the CatalogSource as a CatalogMesh class
-            return CatalogMesh(cat,
-                                Nmesh=self.attrs['Nmesh'],
-                                BoxSize=self.attrs['BoxSize'],
-                                dtype=self.dtype,
-                                interlaced=self.interlaced,
-                                compensated=self.compensated,
-                                window=self.window,
-                                weight=self.weight,
-                                value=self.value,
-                                selection=self.selection,
-                                position=self.position)
+            # view as a catalog mesh
+            mesh = cat.view(CatalogMesh)
+
+            # attach attributes from self
+            return mesh.__finalize__(self)
 
         # return the base class behavior
         return CatalogMesh.__getitem__(self, key)
