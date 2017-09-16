@@ -1,7 +1,7 @@
-from six import string_types
 from nbodykit.transform import ConstantArray
-from nbodykit import _globals, CurrentMPIComm
+from nbodykit import _global_options, CurrentMPIComm
 
+from six import string_types
 import numpy
 import logging
 import warnings
@@ -57,6 +57,9 @@ def expanding_apply(iterable, func):
         total = func(total, element)
     return total
 
+class DaskGraphOptimizationFailure(Exception):
+    pass
+
 def optimized_selection(arr, index):
     """
     Perform an optimized selection operation on the input dask array ``arr``,
@@ -81,13 +84,25 @@ def optimized_selection(arr, index):
     index : array_like
         a boolean array representing the selection indices; should be
         the same length as ``arr``
+
+    Returns
+    -------
+    :class:`dask.array.Array` :
+        a new array holding the same data with the selection index applied
+
+    Raises
+    ------
+    DaskGraphOptimizationFailure  :
+        if the array size cannot be determined from the task graph and
+        the selection index applied properly
     """
     from dask.array.optimization import fuse_slice, cull, reverse_dict
     from dask.array.slicing import slice_array, tokenize
     from dask.core import subs
 
     # need the "catalog" attribute
-    assert isinstance(arr, ColumnAccessor)
+    if not isinstance(arr, ColumnAccessor):
+        raise DaskGraphOptimizationFailure("input array must be of type 'ColumnAccessor'")
 
     # cull unused tasks first
     dsk, dependencies = cull(arr.dask, arr._keys())
@@ -127,7 +142,7 @@ def optimized_selection(arr, index):
                     dummy_slice = slice(0,len(v),None) # dummy slice of the right final size
                     slices.append(dummy_slice)
                 else:
-                    raise ValueError("cannot perform optimized selection")
+                    raise DaskGraphOptimizationFailure("unknown fancy indexing found in graph")
 
             # fuse all of the slices together and determined size of fused slice
             total_slice = expanding_apply(slices, fuse_slice)
@@ -149,14 +164,15 @@ def optimized_selection(arr, index):
 
         # "input_task" is the task input into the slicing graph, key must be a tuple
         if not isinstance(input_task, tuple):
-            raise ValueError("optimized selection failure: input task key is not a tuple %s" %str(input_task))
+            msg = "input task key is not a tuple: %s" % str(input_task)
+            raise DaskGraphOptimizationFailure(msg)
 
         # total slice size must be equal to catalog size to work
         if arr.catalog.size == size:
 
             # need all blocks along 1st axis to be represented
             if len(gettasks) and not all(block in gettasks for block in range(arr.numblocks[0])):
-                raise ValueError("optimized selection failure: missing blocks")
+                raise DaskGraphOptimizationFailure("did not find all blocks of array")
 
             # determine the slice tasks
             # output task name of slice graph is "selection-*"
@@ -182,7 +198,7 @@ def optimized_selection(arr, index):
 
     # if no new tasks, then we failed to verify size or find sources
     if not len(dsk2):
-        raise ValueError("cannot perform optimized selection")
+        raise DaskGraphOptimizationFailure("could not determine size from task graph")
 
     # update the original graph and make new Array
     dsk.update(dsk2)
@@ -233,7 +249,8 @@ class ColumnAccessor(da.Array):
                     sel = self.catalog.compute(sel)
                 try:
                     d = optimized_selection(self, sel)
-                except:
+                except DaskGraphOptimizationFailure as e:
+                    logging.debug("DaskGraphOptimizationFailure: %s" %str(e))
                     pass
 
         # the fallback is default behavior
@@ -330,24 +347,45 @@ def find_column(cls, name):
 
 class CatalogSourceBase(object):
     """
-    An abstract base class representing a catalog of discrete particles.
+    An abstract base class that implements most of the functionality in
+    :class:`CatalogSource`.
 
-    This objects behaves like a structured numpy array -- it must have a
-    well-defined size when initialized. The ``size`` here represents the
-    number of particles in the source on the local rank.
+    The main difference between this class and :class:`CatalogSource` is that
+    this base class does not assume the object has a :attr:`size` attribute.
 
-    Subclasses of this class must define a ``size`` attribute.
+    .. note::
+        See the docstring for :class:`CatalogSource`. Most often, users should
+        implement custom sources as subclasses of :class:`CatalogSource`.
 
-    The information about each particle is stored as a series of
-    columns in the format of dask arrays. These columns can be accessed
-    in a dict-like fashion.
+    Parameters
+    ----------
+    comm :
+        the MPI communicator to use for this object
+    use_cache : bool, optional
+        whether to cache intermediate dask task results; default is ``False``
     """
     logger = logging.getLogger('CatalogSourceBase')
 
     @staticmethod
     def make_column(array):
         """
-        Utility function to convert a numpy array to a :class:`dask.array.Array`.
+        Utility function to convert an array-like object to a
+        :class:`dask.array.Array`.
+
+        .. note::
+            The dask array chunk size is controlled via the ``dask_chunk_size``
+            global option. See :class:`~nbodykit.set_options`.
+
+        Parameters
+        ----------
+        array : array_like
+            an array-like object; can be a dask array, numpy array,
+            ColumnAccessor, or other non-scalar array-like object
+
+        Returns
+        -------
+        :class:`dask.array.Array` :
+            a dask array initialized from ``array``
         """
         if isinstance(array, da.Array):
             return array
@@ -356,7 +394,7 @@ class CatalogSourceBase(object):
             # references
             return array.as_daskarray()
         else:
-            return da.from_array(array, chunks=_globals['dask_chunk_size'])
+            return da.from_array(array, chunks=_global_options['dask_chunk_size'])
 
     def __new__(cls, *args, **kwargs):
 
@@ -376,24 +414,81 @@ class CatalogSourceBase(object):
 
         return obj
 
-    def __finalize__(self, obj):
+    def __finalize__(self, other):
         """
         Finalize the creation of a CatalogSource object by copying over
-        attributes from a second CatalogSource.
+        any additional attributes from a second CatalogSource.
+
+        The idea here is to only copy over attributes that are similar
+        to meta-data, so we do not copy some of the core attributes of the
+        :class:`CatalogSource` object.
 
         Parameters
         ----------
-        obj : CatalogSource
-            the second CatalogSource to copy over attributes from
+        other :
+            the second object to copy over attributes from; it needs to be
+            a subclass of CatalogSourcBase for attributes to be copied
+
+        Returns
+        -------
+        CatalogSource :
+            return ``self``, with the added attributes
         """
-        # copy over all attributes
-        self.__dict__.update(obj.__dict__.copy())
+        if isinstance(other, CatalogSourceBase):
+            d = other.__dict__.copy()
+            nocopy = ['base', '_overrides', 'comm', '_cache', '_use_cache', '_size', '_csize']
+            for key in d:
+                if key not in nocopy:
+                    self.__dict__[key] = d[key]
+
+        return self
 
     def __iter__(self):
         return iter(self.columns)
 
     def __contains__(self, col):
         return col in self.columns
+
+    def __slice__(self, index):
+        """
+        Select a subset of ``self`` according to a boolean index array.
+
+        Returns a new object of the same type as ``selff`` holding only the
+        data that satisfies the slice index.
+
+        Parameters
+        ----------
+        index : array_like
+            either a dask or numpy boolean array; this determines which
+            rows are included in the returned object
+        """
+        # compute the index slice if needed and get the size
+        if isinstance(index, da.Array):
+            index = self.compute(index)
+        elif isinstance(index, list):
+            index = numpy.array(index)
+
+        if len(self) is NotImplemented:
+            raise ValueError("cannot make catalog subset; self catalog doest not have a size")
+
+        # verify the index is a boolean array
+        if len(index) != len(self):
+            raise ValueError("slice index has length %d; should be %d" %(len(index), len(self)))
+        if getattr(index, 'dtype', None) != '?':
+            raise ValueError("index used to slice CatalogSource must be boolean and array-like")
+
+        # new size is just number of True entries
+        size = index.sum()
+
+        # initialize subset Source of right size
+        subset_data = {col:self[col][index] for col in self}
+        cls = self.__class__ if self.base is None else self.base.__class__
+        toret = cls._from_columns(size, self.comm, use_cache=self.use_cache, **subset_data)
+
+        # attach the needed attributes
+        toret.__finalize__(self)
+
+        return toret
 
     def __getitem__(self, sel):
         """
@@ -405,7 +500,11 @@ class CatalogSourceBase(object):
             returns a CatalogSource holding only the revelant slice
         #.  slice object specifying which particles to select
         #.  list of strings specifying column names; returns a CatalogSource
-            holding only the selected columnss
+            holding only the selected columns
+
+        .. note::
+            If the :attr:`base` attribute is set, columns will be returned
+            from :attr:`base` instead of from ``self``.
         """
         # handle boolean array slices
         if not isinstance(sel, string_types):
@@ -441,7 +540,7 @@ class CatalogSourceBase(object):
 
             # do the slicing
             if not numpy.isscalar(sel):
-                return get_catalog_subset(self, sel)
+                return self.__slice__(sel)
             else:
                 raise KeyError("strings and boolean arrays are the only supported indexing methods")
 
@@ -467,6 +566,10 @@ class CatalogSourceBase(object):
         """
         Add new columns to the CatalogSource, overriding any existing columns
         with the name ``col``.
+
+        .. note::
+            If the :attr:`base` attribute is set, columns will be added to
+            :attr:`base` instead of to ``self``.
         """
         if self.base is not None: return self.base.__setitem__(col, value)
 
@@ -474,7 +577,11 @@ class CatalogSourceBase(object):
 
     def __delitem__(self, col):
         """
-        Delete a column; cannot delete a "hard-coded" column
+        Delete a column; cannot delete a "hard-coded" column.
+
+        .. note::
+            If the :attr:`base` attribute is set, columns will be deleted
+            from :attr:`base` instead of from ``self``.
         """
         if self.base is not None: return self.base.__delitem__(col, value)
 
@@ -503,12 +610,15 @@ class CatalogSourceBase(object):
         """
         Initialize a Cache object of size set by the ``dask_cache_size``
         global configuration option, which is 1 GB by default.
+
+        See :class:`~nbodykit.set_options` to control the value of
+        ``dask_cache_size``.
         """
         if val:
             try:
                 from dask.cache import Cache
                 if not hasattr(self, '_cache'):
-                    self._cache = Cache(_globals['dask_cache_size'])
+                    self._cache = Cache(_global_options['dask_cache_size'])
             except ImportError:
                 warnings.warn("caching of CatalogSource requires ``cachey`` module; turning cache off")
         else:
@@ -531,9 +641,13 @@ class CatalogSourceBase(object):
         """
         A list of the hard-coded columns in the CatalogSource.
 
-        These columns are usually member functions marked by @column decorator.
-        Subclasses may override this method and use :func:`get_hardcolumn` to
-        bypass the decorator logic.
+        These columns are usually member functions marked by ``@column``
+        decorator. Subclasses may override this method and use
+        :func:`get_hardcolumn` to bypass the decorator logic.
+
+        .. note::
+            If the :attr:`base` attribute is set, the value of
+            ``base.hardcolumns`` will be returned.
         """
         if self.base is not None: return self.base.hardcolumns
 
@@ -548,6 +662,10 @@ class CatalogSourceBase(object):
         """
         All columns in the CatalogSource, including those hard-coded into
         the class's defintion and override columns provided by the user.
+
+        .. note::
+            If the :attr:`base` attribute is set, the value of
+            ``base.columns`` will be returned.
         """
         if self.base is not None: return self.base.columns
 
@@ -555,15 +673,46 @@ class CatalogSourceBase(object):
         overrides = list(self._overrides)
         return sorted(set(hcolumns + overrides))
 
+    def copy(self):
+        """
+        Return a shallow copy of the object, where each column is a reference
+        of the corresponding column in ``self``.
+
+        .. note::
+            No copy of data is made.
+
+        Returns
+        -------
+        CatalogSource :
+            a new CatalogSource that holds all of the data columns of ``self``
+        """
+        # a new empty object with proper size
+        toret = CatalogSourceBase.__new__(self.__class__, self.comm, self.use_cache)
+        toret._size = self.size
+        toret._csize = self.csize
+
+        # attach attributes from self and return
+        toret = toret.__finalize__(self)
+
+        # finally, add the data columns from self
+        for col in self.columns:
+            toret[col] = self[col]
+
+        return toret
+
     def get_hardcolumn(self, col):
         """
         Construct and return a hard-coded column.
 
         These are usually produced by calling member functions marked by the
-        @column decorator.
+        ``@column`` decorator.
 
         Subclasses may override this method and the hardcolumns attribute to
         bypass the decorator logic.
+
+        .. note::
+            If the :attr:`base` attribute is set, ``get_hardcolumn()``
+            will called using :attr:`base` instead of ``self``.
         """
         if self.base is not None: return self.base.get_hardcolumn(col)
 
@@ -579,6 +728,10 @@ class CatalogSourceBase(object):
 
         If :attr:`use_cache` is ``True``, this internally caches data, using
         dask's built-in cache features.
+
+        .. note::
+            If the :attr:`base` attribute is set, ``compute()``
+            will called using :attr:`base` instead of ``self``.
 
         Parameters
         -----------
@@ -686,6 +839,33 @@ class CatalogSourceBase(object):
 
         return [self[col] for col in columns]
 
+    def view(self, type=None):
+        """
+        Return a "view" of the CatalogSource object, with the returned
+        type set by ``type``.
+
+        This initializes a new empty class of type ``type`` and attaches
+        attributes to it via the :func:`__finalize__` mechanism.
+
+        Parameters
+        ----------
+        type : Python type
+            the desired class type of the returned object.
+        """
+        # an empty class
+        type = self.__class__ if type is None else type
+        obj = CatalogSourceBase.__new__(type, self.comm, self.use_cache)
+
+        # propagate the size attributes
+        obj._size = self.size
+        obj._csize = self.csize
+
+        # the new object's base points to self
+        obj.base = self
+
+        # attach the necessary attributes from self
+        return obj.__finalize__(self)
+
     def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4', interlaced=False,
                 compensated=False, window='cic', weight='Weight',
                 value='Value', selection='Selection', position='Position'):
@@ -775,8 +955,6 @@ class CatalogSource(CatalogSourceBase):
     well-defined size when initialized. The ``size`` here represents the
     number of particles in the source on the local rank.
 
-    Subclasses of this class must define a ``size`` attribute.
-
     The information about each particle is stored as a series of
     columns in the format of dask arrays. These columns can be accessed
     in a dict-like fashion.
@@ -789,23 +967,36 @@ class CatalogSource(CatalogSourceBase):
 
     For a full description of these default columns, see
     :ref:`the documentation <catalog-source-default-columns>`.
+
+    .. important::
+        Subclasses of this class must set the ``_size`` attribute.
+
+    Parameters
+    ----------
+    comm :
+        the MPI communicator to use for this object
+    use_cache : bool, optional
+        whether to cache intermediate dask task results; default is ``False``
     """
     logger = logging.getLogger('CatalogSource')
 
     @classmethod
     def _from_columns(cls, size, comm, use_cache=False, **columns):
         """
-        Create a Catalog from a set of columns.
+        An internal constructor to create a CatalogSource (or subclass)
+        from a set of columns.
 
         This method is used internally by nbodykit to create
         views of catalogs based on existing catalogs.
 
-        The attrs attribute of the returned catalog is empty.
+        Use :class:`~nbodykit.source.catalog.array.ArrayCatalog` to adapt
+        a structured array or dictionary to a CatalogSource.
 
-        Use :class:`~nbodykit.source.catalog.array.ArrayCatalog`
-        To adapt a structured array or dictionary of array.
+        .. note::
+            The returned object is of type ``cls`` and the only attributes
+            set for the returned object are :attr:`size` and :attr:`csize`.
         """
-        # an empty class
+        # the new empty object to return
         obj = CatalogSourceBase.__new__(cls, comm, use_cache)
 
         # compute the sizes
@@ -823,6 +1014,8 @@ class CatalogSource(CatalogSourceBase):
         # if size is implemented, compute the csize
         if self.size is not NotImplemented:
             self._csize = self.comm.allreduce(self.size)
+        else:
+            self._csize = NotImplemented
 
     def __repr__(self):
         size = "%d" %self.size if self.size is not NotImplemented else "NotImplemented"
@@ -842,39 +1035,27 @@ class CatalogSource(CatalogSourceBase):
         # handle scalar values
         if numpy.isscalar(value):
             assert self.size is not NotImplemented, "size is not implemented! cannot set scalar array"
-            value = ConstantArray(value, self.size, chunks=_globals['dask_chunk_size'])
+            value = ConstantArray(value, self.size, chunks=_global_options['dask_chunk_size'])
 
         # check the correct size, if we know the size
         if self.size is not NotImplemented:
-            assert len(value) == self.size, "error setting column, data must be array of size %d" %self.size
+            args = (col, self.size, len(value))
+            msg = "error setting '%s' column, data must be array of size %d, not %d" % args
+            assert len(value) == self.size, msg
 
         # call the base __setitem__
         CatalogSourceBase.__setitem__(self, col, value)
 
-    def copy(self):
-        """
-        Return a `shallow` copy of the CatalogSource object, where each column is a reference
-        of the corresponding column of the ``self``. No copies of data is made.
-
-        Returns
-        -------
-        CatalogSource:
-            the new CatalogSource object holding all of the the data columns of ``self``
-        """
-        if self.size is NotImplemented:
-            return ValueError("cannot copy a CatalogSource that does not have `size` implemented")
-
-        data = {col:self[col] for col in self.columns}
-        toret = CatalogSource._from_columns(self.size, self.comm, use_cache=self.use_cache, **data)
-        toret.attrs.update(self.attrs)
-        return toret
-
     @property
     def size(self):
         """
-        The number of particles in the CatalogSource on the local rank.
+        The number of objects in the CatalogSource on the local rank.
 
-        This property must be defined for all subclasses.
+        If the :attr:`base` attribute is set, the ``base.size`` attribute
+        will be returned.
+
+        .. important::
+            This property must be defined for all subclasses.
         """
         if self.base is not None: return self.base.size
 
@@ -884,18 +1065,24 @@ class CatalogSource(CatalogSourceBase):
 
     @size.setter
     def size(self, value):
-        raise RuntimeError("Property size is read-only. Internally, _size can be set during Catalog initialization.")
+        raise RuntimeError(("Property size is read-only. Internally, ``_size`` "
+                            "can be set during initialization."))
 
     @property
     def csize(self):
         """
-        The total, collective size of the CatalogSource, i.e., summed across all
-        ranks.
+        The total, collective size of the CatalogSource, i.e., summed across
+        all ranks.
 
         It is the sum of :attr:`size` across all available ranks.
+
+        If the :attr:`base` attribute is set, the ``base.csize`` attribute
+        will be returned.
         """
         if self.base is not None: return self.base.csize
 
+        if not hasattr(self, '_csize'):
+            return NotImplemented
         return self._csize
 
     @column
@@ -905,7 +1092,7 @@ class CatalogSource(CatalogSourceBase):
 
         By default, this column is set to ``True`` for all particles.
         """
-        return ConstantArray(True, self.size, chunks=_globals['dask_chunk_size'])
+        return ConstantArray(True, self.size, chunks=_global_options['dask_chunk_size'])
 
     @column
     def Weight(self):
@@ -917,7 +1104,7 @@ class CatalogSource(CatalogSourceBase):
 
         By default, this array is set to unity for all particles.
         """
-        return ConstantArray(1.0, self.size, chunks=_globals['dask_chunk_size'])
+        return ConstantArray(1.0, self.size, chunks=_global_options['dask_chunk_size'])
 
     @column
     def Value(self):
@@ -931,62 +1118,4 @@ class CatalogSource(CatalogSourceBase):
 
         By default, this array is set to unity for all particles.
         """
-        return ConstantArray(1.0, self.size, chunks=_globals['dask_chunk_size'])
-
-
-def get_catalog_subset(parent, index):
-    """
-    Select a subset of a :class:`CatalogSource` according to a boolean
-    index array.
-
-    Returns a :class:`CatalogSource` holding only the data that satisfies
-    the slice criterion.
-
-    Parameters
-    ----------
-    parent : :class:`CatalogSource`
-        the parent source that will be sliced
-    index : array_like
-        either a dask or numpy boolean array; this determines which
-        rows are included in the returned object
-
-    Returns
-    -------
-    subset : :class:`CatalogSource`
-        the particle source with the same meta-data as `parent`, and
-        with the sliced data arrays
-    """
-    # compute the index slice if needed and get the size
-    if isinstance(index, da.Array):
-        index = parent.compute(index)
-    elif isinstance(index, list):
-        index = numpy.array(index)
-
-    if len(parent) is NotImplemented:
-        raise ValueError("cannot make catalog subset; parent catalog doest not have a size")
-
-    # verify the index is a boolean array
-    if len(index) != len(parent):
-        raise ValueError("slice index has length %d; should be %d" %(len(index), len(parent)))
-    if getattr(index, 'dtype', None) != '?':
-        raise ValueError("index used to slice CatalogSource must be boolean and array-like")
-
-    # new size is just number of True entries
-    size = index.sum()
-
-    # initialize subset Source of right size
-    subset_data = {col:parent[col][index] for col in parent}
-    base = CatalogSource._from_columns(size, parent.comm, use_cache=parent.use_cache, **subset_data)
-
-    # the empty return obj
-    toret = CatalogSourceBase.__new__(parent.__class__, parent.comm, parent.use_cache)
-    toret.__finalize__(parent)
-
-    # update the size attributes to the new size
-    toret._size = base._size
-    toret._csize = base._csize
-
-    # the memory owner
-    toret.base = base
-
-    return toret
+        return ConstantArray(1.0, self.size, chunks=_global_options['dask_chunk_size'])
