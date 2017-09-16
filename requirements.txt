@@ -9,7 +9,7 @@ kdcount
 mpsort
 bigfile
 pandas
-dask>=0.13
+dask>=0.14.2
 cachey
 sympy
 numexpr
