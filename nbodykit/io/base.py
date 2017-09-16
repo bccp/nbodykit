@@ -2,7 +2,7 @@ from six import string_types
 import numpy
 import logging
 from abc import abstractmethod, abstractproperty
-from nbodykit import _globals
+from nbodykit import _global_options
 
 class FileType(object):
     """
@@ -362,7 +362,7 @@ class FileType(object):
             until the user specifies
         """
         if blocksize is None:
-            blocksize = _globals['dask_chunk_size']
+            blocksize = _global_options['dask_chunk_size']
 
         if column not in self:
             raise ValueError("'%s' is not a valid column; run keys() for valid options" %column)
