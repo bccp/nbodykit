@@ -53,25 +53,28 @@ class MeshSource(object):
         self.attrs['Nmesh'] = self.pm.Nmesh.copy()
 
         self._actions = []
-        self.basemesh = None
+        self.base = None
 
-    def __finalize__(self, obj):
+    def __finalize__(self, other):
         """
         Finalize the creation of a MeshSource object by copying over
         attributes from a second MeshSource.
 
-        This also sets ``basemesh`` to point to ``obj``.
-
         Parameters
         ----------
-        obj : MeshSource
+        other : MeshSource
             the second MeshSource to copy over attributes from
         """
-        # copy over the __dict__ from obj
-        self.__dict__.update(obj.__dict__.copy())
+        if isinstance(other, MeshSource):
+            self.comm = other.comm
+            self.dtype = other.dtype
+            self.pm = other.pm
+            self.attrs.update(other.attrs)
+            self._actions = []
+            self.actions.extend(other.actions)
 
-        # set the basemesh to point to obj
-        self.basemesh = obj
+        return self
+
 
     def view(self):
         """
@@ -81,12 +84,11 @@ class MeshSource(object):
         This returns a new MeshSource whose memory is owned by ``self``.
 
         Note that for CatalogMesh objects, this is overidden by the
-        CatalogSource.view function.
+        ``CatalogSource.view`` function.
         """
-        view = object.__new__(self.__class__)
-        view.comm = self.comm
-        view.__finalize__(self)
-        return view
+        view = object.__new__(MeshSource)
+        view.base = self
+        return view.__finalize__(self)
 
     @property
     def attrs(self):
@@ -169,7 +171,7 @@ class MeshSource(object):
 
         Not implemented in the base class, unless object is a view.
         """
-        if self.basemesh is not None: return self.basemesh.to_real_field()
+        if isinstance(self.base, MeshSource): return self.base.to_real_field()
         return NotImplemented
 
     def to_complex_field(self, out=None):
@@ -179,7 +181,7 @@ class MeshSource(object):
 
         Not implemented in the base class, unless object is a view.
         """
-        if self.basemesh is not None: return self.basemesh.to_complex_field()
+        if isinstance(self.base, MeshSource): return self.base.to_complex_field()
         return NotImplemented
 
     def to_field(self, mode='real', out=None):
