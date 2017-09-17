@@ -7,6 +7,26 @@ import pytest
 
 setup_logging()
 
+
+@MPITest([1, 4])
+def test_get_syntax(comm):
+
+    CurrentMPIComm.set(comm)
+
+    source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42)
+    source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84)
+    cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2, use_cache=True)
+
+    # test either get syntax
+    test1 = numpy.random.random(size=len(source1))
+    cat['data/test1'] = test1
+    assert_array_equal(cat['data/test1'], cat['data']['test1'])
+
+    test2 = numpy.random.random(size=len(source1))
+    cat['data']['test2'] = test2
+    assert_array_equal(cat['data/test2'], cat['data']['test2'])
+
+
 @MPITest([1, 4])
 def test_columns(comm):
 
