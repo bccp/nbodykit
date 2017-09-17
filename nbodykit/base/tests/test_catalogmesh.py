@@ -145,13 +145,17 @@ def test_view(comm):
     source.attrs['TEST'] = 10.0
 
     # the mesh
-    source = source.to_mesh(Nmesh=32)
+    mesh = source.to_mesh(Nmesh=32)
 
     # view
-    view = source.view()
-    assert view.base is source
-    assert isinstance(view, source.__class__)
+    view = mesh.view()
+    assert view.base is mesh
+    assert isinstance(view, mesh.__class__)
 
     # check meta-data
-    for k in source.attrs:
+    for k in mesh.attrs:
         assert k in view.attrs
+
+    # adding columns to the view changes original source
+    view['TEST2'] = 5.0
+    assert 'TEST2' in source

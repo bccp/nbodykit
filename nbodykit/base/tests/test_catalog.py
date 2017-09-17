@@ -317,3 +317,7 @@ def test_view(comm):
     # check meta-data
     for k in source.attrs:
         assert k in view.attrs
+
+    # adding columns to the view changes original source
+    view['TEST2'] = 5.0
+    assert 'TEST2' in source
