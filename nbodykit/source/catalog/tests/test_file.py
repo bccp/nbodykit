@@ -36,7 +36,7 @@ def test_hdf(comm):
 def test_csv(comm):
 
     CurrentMPIComm.set(comm)
-    
+
     with tempfile.NamedTemporaryFile() as ff:
 
         # generate data
@@ -70,6 +70,9 @@ def test_stack_glob(comm):
     names =['a', 'b', 'c', 'd', 'e']
     f = CSVCatalog('test-glob-*', names, blocksize=100)
 
+    # make sure print works
+    print(f)
+
     # make sure data is the same
     fulldata = numpy.concatenate([data, data], axis=0)
     for i, name in enumerate(names):
@@ -96,6 +99,9 @@ def test_stack_list(comm):
     # read using a glob
     names =['a', 'b', 'c', 'd', 'e']
     f = CSVCatalog(['test-list-1.dat', 'test-list-2.dat'], names, blocksize=100)
+
+    # make sure print works
+    print(f)
 
     # make sure data is the same
     fulldata = numpy.concatenate([data, data], axis=0)

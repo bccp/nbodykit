@@ -173,3 +173,24 @@ def test_bad_mode(comm):
 
     with pytest.raises(ValueError):
         field = source.paint(mode='BAD')
+
+@MPITest([4])
+def test_view(comm):
+
+    from nbodykit.base.mesh import MeshSource
+    cosmo = cosmology.Planck15
+    CurrentMPIComm.set(comm)
+
+    # linear mesh
+    Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
+    source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42)
+    source.attrs['TEST'] = 10.0
+
+    # view
+    view = source.view()
+    assert view.base is source
+    assert isinstance(view, MeshSource)
+
+    # check meta-data
+    for k in source.attrs:
+        assert k in view.attrs

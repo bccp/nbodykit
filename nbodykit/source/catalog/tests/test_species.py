@@ -95,3 +95,21 @@ def test_setitem(comm):
     # bad size
     with pytest.raises(ValueError):
         cat['data/test'] = test[:10]
+
+@MPITest([1, 4])
+def test_bad_slice(comm):
+
+    CurrentMPIComm.set(comm)
+
+    source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42)
+    source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84)
+
+    cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2, use_cache=True)
+
+    # test with a column slice
+    with pytest.raises(ValueError):
+        subcat = cat[cat['data/Selection']]
+
+    # test with a slice
+    with pytest.raises(ValueError):
+        subcat = cat[:10]

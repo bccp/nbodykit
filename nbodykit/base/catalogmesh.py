@@ -193,7 +193,7 @@ class CatalogMesh(CatalogSource, MeshSource):
     @window.setter
     def window(self, value):
         assert value in window.methods
-        self.attrs['window'] = value
+        self.attrs['window'] = value.lower() # lower to compare with compensation
 
     @property
     def compensated(self):

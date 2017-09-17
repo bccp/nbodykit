@@ -151,6 +151,9 @@ def test_slice(comm):
 
     # slice a subset
     subset = source[:10]
+    assert all(col in subset for col in source.columns)
+    assert isinstance(subset, source.__class__)
+    assert len(subset) == 10
     assert_array_equal(subset['Position'], source['Position'].compute()[:10])
 
     subset = source[[0,1,2]]
@@ -163,6 +166,21 @@ def test_slice(comm):
     # missing column
     with pytest.raises(KeyError):
         col = source['BAD_COLUMN']
+
+@MPITest([4])
+def test_dask_slice(comm):
+    CurrentMPIComm.set(comm)
+
+    source = UniformCatalog(nbar=0.2e-3, BoxSize=1024., seed=42)
+
+    # add a selection column
+    index = numpy.random.choice([True, False], size=len(source))
+    source['Selection'] = index
+
+    # slice a column with a dask array
+    pos = source['Position']
+    pos2 = pos[source['Selection']]
+    assert_array_equal(pos.compute()[index], pos2.compute())
 
 @MPITest([1 ,4])
 def test_transform(comm):
@@ -247,11 +265,20 @@ def test_columnaccessor():
     assert 'first' in str(source['Position'])
     assert 'last' in str(source['Position'])
 
+    # test circular reference
+    new_col = source['Selection']
+    assert isinstance(new_col, ColumnAccessor)
+    source['Selection2'] = new_col
+    assert source['Selection'].catalog is source
+    assert source['Selection2'].catalog is source
+
 @MPITest([1, 4])
 def test_copy(comm):
 
     CurrentMPIComm.set(comm)
     source = UniformCatalog(nbar=0.2e-3, BoxSize=1024., seed=42)
+    source['TEST'] = 10
+    source.attrs['TEST'] = 'TEST'
 
     # store original data
     data = {}
@@ -272,3 +299,21 @@ def test_copy(comm):
     # check meta-data
     for k in source.attrs:
         assert k in copy.attrs
+
+@MPITest([4])
+def test_view(comm):
+    CurrentMPIComm.set(comm)
+
+    # the CatalogSource
+    source = UniformCatalog(nbar=0.2e-3, BoxSize=1024., seed=42)
+    source['TEST'] = 10.
+    source.attrs['TEST'] = 10.0
+
+    # view
+    view = source.view()
+    assert view.base is source
+    assert isinstance(view, source.__class__)
+
+    # check meta-data
+    for k in source.attrs:
+        assert k in view.attrs

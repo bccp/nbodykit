@@ -276,7 +276,7 @@ class ColumnAccessor(da.Array):
     def __str__(self):
         r = da.Array.__str__(self)
         if len(self) > 0:
-            r = r + " first : %s" % str(self[0].compute())
+            r = r + " first: %s" % str(self[0].compute())
         if len(self) > 1:
             r = r + " last: %s" % str(self[-1].compute())
         return r
@@ -468,12 +468,12 @@ class CatalogSourceBase(object):
         elif isinstance(index, list):
             index = numpy.array(index)
 
-        if len(self) is NotImplemented:
+        if getattr(self, 'size', NotImplemented) is NotImplemented:
             raise ValueError("cannot make catalog subset; self catalog doest not have a size")
 
         # verify the index is a boolean array
-        if len(index) != len(self):
-            raise ValueError("slice index has length %d; should be %d" %(len(index), len(self)))
+        if len(index) != self.size:
+            raise ValueError("slice index has length %d; should be %d" %(len(index), self.size))
         if getattr(index, 'dtype', None) != '?':
             raise ValueError("index used to slice CatalogSource must be boolean and array-like")
 
@@ -509,6 +509,10 @@ class CatalogSourceBase(object):
         # handle boolean array slices
         if not isinstance(sel, string_types):
 
+            # size must be implemented
+            if getattr(self, 'size', NotImplemented) is NotImplemented:
+                raise ValueError("cannot perform selection due to NotImplemented size")
+
             # convert slices to boolean arrays
             if isinstance(sel, (slice, list)):
 
@@ -529,10 +533,6 @@ class CatalogSourceBase(object):
                 # list must be all integers
                 if isinstance(sel, list) and not numpy.array(sel).dtype == numpy.integer:
                     raise KeyError("array like indexing via a list should be a list of integers")
-
-                # size must be implemented
-                if self.size is NotImplemented:
-                    raise ValueError("cannot perform selection due to NotImplemented size")
 
                 # convert into slice into boolean array
                 index = numpy.zeros(self.size, dtype='?')
