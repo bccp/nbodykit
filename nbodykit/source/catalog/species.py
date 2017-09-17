@@ -148,18 +148,20 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
             msg += "'species' is one of %s" % str(self.species)
             raise ValueError(msg)
 
-        if fields[0] not in self.species:
-            args = (fields[0], str(self.species))
+        species, subcol = fields
+        if species not in self.species:
+            args = (species, str(self.species))
             raise ValueError("species '%s' is not valid; should be one of %s" %args)
 
         # check size
-        size = len(self._sources[fields[0]])
+        size = len(self._sources[species])
         if not numpy.isscalar(value):
             if len(value) != size:
                 args = (col, size, len(value))
                 raise ValueError("error setting '%s' column, data must be array of size %d, not %d" % args)
 
-        return CatalogSourceBase.__setitem__(self, col, value)
+        # add the column to the CatalogSource in "_sources"
+        return CatalogSourceBase.__setitem__(self._sources[species], subcol, value)
 
     def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4', interlaced=False,
                 compensated=False, window='cic', weight='Weight',
