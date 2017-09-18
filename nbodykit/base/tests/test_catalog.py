@@ -53,6 +53,39 @@ def test_optimized_selection(comm):
         # Position should be evaluatable due to slicing first, then evaluating operations
         pos = subset['Position'].compute()
 
+@MPITest([1, 4])
+def test_file_optimized_selection(comm):
+
+    import tempfile
+    CurrentMPIComm.set(comm)
+
+    # compute with smaller chunk size to test chunking
+    with set_options(dask_chunk_size=100):
+
+
+        with tempfile.NamedTemporaryFile() as ff:
+
+            # generate data
+            data = numpy.random.random(size=(1000,5))
+            numpy.savetxt(ff, data, fmt='%.7e'); ff.seek(0)
+
+            # read nrows
+            names =['a', 'b', 'c', 'd', 'e']
+            s = CSVCatalog(ff.name, names, blocksize=100)
+
+            # add a complicated weight
+            s['WEIGHT'] = s['a'] * (s['b'] + s['c'] - 1.0)
+
+            # test selecting a range
+            valid = (s['a'] > 0.3)&(s['a'] < 0.7)
+            index = valid.compute()
+
+            # slice (even after adding Position column)
+            subset = s[valid]
+
+            # verify all columns
+            for col in s:
+                assert_array_equal(subset[col].compute(), s[col].compute()[index])
 
 @MPITest([1, 4])
 def test_save(comm):
