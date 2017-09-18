@@ -159,6 +159,16 @@ the ``--user`` or ``--root <dir>`` options of the ``pip install`` command.
 nbodykit on NERSC
 -----------------
 
+.. notes::
+
+    This section covers using nbodykit on the computing nodes of NERSC.
+    The computing nodes requires special care because they do not work with the simple
+    MPI provided from anaconda.
+
+    The login nodes of NERSC are very similar to standand computers.
+    To use nbodykit on the login nodes of NERSC computers and the Jupyter Hub Service,
+    follow the instruction :ref:`conda-installation`.
+
 Development and testing of nbodykit was performed on the `NERSC`_ super-computing
 machines at Lawrence Berkeley National Laboratory. We maintain a daily build of
 the latest stable version of nbodykit on NERSC systems for Python versions
