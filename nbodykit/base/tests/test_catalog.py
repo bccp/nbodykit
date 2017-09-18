@@ -66,7 +66,7 @@ def test_file_optimized_selection(comm):
         with tempfile.NamedTemporaryFile() as ff:
 
             # generate data
-            data = numpy.random.random(size=(1000,5))
+            data = numpy.random.random(size=(100,5))
             numpy.savetxt(ff, data, fmt='%.7e'); ff.seek(0)
 
             # read nrows
