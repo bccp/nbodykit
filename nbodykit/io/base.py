@@ -2,6 +2,7 @@ from six import string_types
 import numpy
 import logging
 from abc import abstractmethod, abstractproperty
+from nbodykit import _global_options
 
 class FileType(object):
     """
@@ -338,7 +339,7 @@ class FileType(object):
 
         return obj
 
-    def get_dask(self, column, blocksize=100000):
+    def get_dask(self, column, blocksize=None):
         """
         Return the specified column as a dask array, which
         delays the explicit reading of the data until
@@ -360,6 +361,9 @@ class FileType(object):
             necessary functions to read the data, but delays evaluating
             until the user specifies
         """
+        if blocksize is None:
+            blocksize = _global_options['dask_chunk_size']
+
         if column not in self:
             raise ValueError("'%s' is not a valid column; run keys() for valid options" %column)
 

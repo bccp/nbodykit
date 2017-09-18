@@ -13,7 +13,7 @@ def test_paint(comm):
     CurrentMPIComm.set(comm)
 
     # linear grid
-    Plin = cosmology.LinearPower(cosmo, redshift=0.55)
+    Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
     source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42)
 
     # compute P(k) from linear grid

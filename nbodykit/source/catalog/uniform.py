@@ -168,11 +168,6 @@ class RandomCatalog(CatalogSource):
         CatalogSource.__init__(self, comm=comm, use_cache=use_cache)
 
     @property
-    def size(self):
-        """The number of particles on the local rank"""
-        return self._size
-
-    @property
     def rng(self):
         """
         A :class:`MPIRandomState` that behaves as
@@ -180,7 +175,6 @@ class RandomCatalog(CatalogSource):
         numbers in a manner independent of the number of ranks.
         """
         return self._rng
-
 
 class UniformCatalog(RandomCatalog):
     """

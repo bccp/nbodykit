@@ -1,7 +1,5 @@
 from nbodykit.base.mesh import MeshSource
-from nbodykit.base.catalog import CatalogSource
-from six import add_metaclass
-import abc
+from nbodykit.base.catalog import CatalogSource, CatalogSourceBase
 import numpy
 import logging
 
@@ -9,15 +7,17 @@ import logging
 from pmesh import window
 from pmesh.pm import RealField, ComplexField
 
-class CatalogMesh(MeshSource, CatalogSource):
+class CatalogMesh(CatalogSource, MeshSource):
     """
-    A class to convert a CatalogSource to a MeshSource, by interpolating
-    the position of the discrete particles on to a mesh.
+    A view of a CatalogSource object which knows how to create a MeshSource
+    object from itself.
+
+    The original CatalogSource object is stored as the :attr:`base` attribute.
 
     Parameters
     ----------
     source : CatalogSource
-        the input catalog that we wish to interpolate to a mesh
+        the input catalog that we are viewing as a mesh
     BoxSize :
         the size of the box
     Nmesh : int, 3-vector
@@ -36,68 +36,140 @@ class CatalogMesh(MeshSource, CatalogSource):
     position : str, optional
         column in ``source`` specifying the position coordinates; default
         is ``Position``
+    interlaced : bool, optional
+        use the interlacing technique of Sefusatti et al. 2015 to reduce
+        the effects of aliasing on Fourier space quantities computed
+        from the mesh
+    compensated : bool, optional
+        whether to correct for the window introduced by the grid
+        interpolation scheme
+    window : str, optional
+        the string specifying which window interpolation scheme to use;
+        see ``pmesh.window.methods``
     """
     logger = logging.getLogger('CatalogMesh')
+
     def __repr__(self):
-        return "(%s as CatalogMesh)" % repr(self.source)
+        if isinstance(self.base, CatalogMesh):
+            return repr(self.base)
+        else:
+            return "(%s as CatalogMesh)" % repr(self.base)
 
-    # intended to be used by CatalogSource internally
-    def __init__(self, source, BoxSize, Nmesh, dtype, weight,
-                    value, selection, position='Position'):
+    def __new__(cls, source, BoxSize, Nmesh, dtype, weight,
+                    value, selection, position='Position', interlaced=False,
+                    compensated=False, window='cic', **kwargs):
 
-        # ensure self.comm is set, though usually already set by the child.
-        self.comm = source.comm
-        self.source = source
-        self.position = position
-        self.selection = selection
-        self.weight = weight
-        self.value = value
+        # source here must be a CatalogSource
+        assert isinstance(source, CatalogSourceBase)
 
-        self.attrs.update(source.attrs)
+        # new, empty CatalogSource
+        obj = CatalogSourceBase.__new__(cls, source.comm, source.use_cache)
 
-        # this will override BoxSize and Nmesh carried from the source, if there is any!
-        MeshSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype=dtype, comm=source.comm)
-        CatalogSource.__init__(self, comm=source.comm)
+        # copy over size from the CatalogSource
+        obj._size = source.size
+        obj._csize = source.csize
 
-        # copy over the overrides
-        self._overrides.update(self.source._overrides)
+        # copy over the necessary meta-data to attrs
+        obj.attrs['BoxSize'] = BoxSize
+        obj.attrs['Nmesh'] = Nmesh
+        obj.attrs['interlaced'] = interlaced
+        obj.attrs['compensated'] = compensated
+        obj.attrs['window'] = window
 
-        self.attrs['position'] = self.position
-        self.attrs['selection'] = self.selection
-        self.attrs['weight'] = self.weight
-        self.attrs['value'] = self.value
-        self.attrs['compensated'] = True
-        self.attrs['interlaced'] = False
-        self.attrs['window'] = 'cic'
+        # copy meta-data from source too
+        obj.attrs.update(source.attrs)
 
-    @property
-    def size(self):
+        # store others as straight attributes
+        obj.dtype = dtype
+        obj.weight = weight
+        obj.value = value
+        obj.selection = selection
+        obj.position = position
+
+        # add in the Mesh Source attributes
+        MeshSource.__init__(obj, obj.comm, Nmesh, BoxSize, dtype)
+
+        # finally set the base as the input CatalogSource
+        # NOTE: set this AFTER MeshSource.__init__()
+        obj.base = source
+
+        return obj
+
+    def __slice__(self, index):
         """
-        The number of local particles.
-        """
-        return self.source.size
+        Return a slice of a CatalogMesh object.
 
-    @property
-    def hardcolumns (self):
-        """
-        The names of the hard-coded columns in the source.
-        """
-        return self.source.hardcolumns
+        This slices the CatalogSource object stored as the :attr:`base`
+        attribute, and then views that sliced object as a CatalogMesh.
 
-    def get_hardcolumn(self, col):
+        Parameters
+        ----------
+        index : array_like
+            either a dask or numpy boolean array; this determines which
+            rows are included in the returned object
+
+        Returns
+        -------
+        subset
+            the particle source with the same meta-data as ``self``, and
+            with the sliced data arrays
         """
-        Return a hard-coded column
+        # this slice of the CatalogSource will be the base of the mesh
+        base = super(CatalogMesh, self).__slice__(index)
+
+        # view this base class as a CatalogMesh (with default CatalogMesh parameters)
+        toret = base.view(self.__class__)
+
+        # attach the meta-data from self to returned sliced CatalogMesh
+        return toret.__finalize__(self)
+
+    def copy(self):
         """
-        return self.source.get_hardcolumn(col)
+        Return a shallow copy of ``self``.
+
+        .. note::
+            No copy of data is made.
+
+        Returns
+        -------
+        CatalogMesh :
+            a new CatalogMesh that holds all of the data columns of ``self``
+        """
+        # copy the base and view it as a CatalogMesh
+        toret = self.base.copy().view(self.__class__)
+
+        # attach the meta-data from self to returned sliced CatalogMesh
+        return toret.__finalize__(self)
+
+    def __finalize__(self, other):
+        """
+        Finalize the creation of a CatalogMesh object by copying over
+        attributes from a second CatalogMesh.
+
+        This also copies over the relevant MeshSource attributes via a
+        call to :func:`MeshSource.__finalize__`.
+
+        Parameters
+        ----------
+        obj : CatalogMesh
+            the second CatalogMesh to copy over attributes from
+        """
+        if isinstance(other, CatalogSourceBase):
+            self = CatalogSourceBase.__finalize__(self, other)
+
+        if isinstance(other, MeshSource):
+            self = MeshSource.__finalize__(self, other)
+
+        return self
 
     @property
     def interlaced(self):
         """
         Whether to use interlacing when interpolating the density field.
-
         See :ref:`the documentation <interlacing>` for further details.
 
-        See also: Section 3.1 of `Sefusatti et al. 2015 <https://arxiv.org/abs/1512.07295>`_
+        See also: Section 3.1 of
+        `Sefusatti et al. 2015 <https://arxiv.org/abs/1512.07295>`_
         """
         return self.attrs['interlaced']
 
@@ -121,7 +193,7 @@ class CatalogMesh(MeshSource, CatalogSource):
     @window.setter
     def window(self, value):
         assert value in window.methods
-        self.attrs['window'] = value
+        self.attrs['window'] = value.lower() # lower to compare with compensation
 
     @property
     def compensated(self):
@@ -162,7 +234,7 @@ class CatalogMesh(MeshSource, CatalogSource):
             The density field on the mesh is normalized as :math:`1+\delta`,
             such that the collective mean of the field is unity.
 
-        See the :ref:`documentation <painting-mesh>` on painting for more 
+        See the :ref:`documentation <painting-mesh>` on painting for more
         details on painting catalogs to a mesh.
 
         Returns
@@ -177,8 +249,6 @@ class CatalogMesh(MeshSource, CatalogSource):
             raise ValueError(msg)
 
         pm = self.pm
-
-        fullsize = 0 # track how many were selected out
         Nlocal = 0 # (unweighted) number of particles read on local rank
         Wlocal = 0 # (weighted) number of particles read on local rank
 
@@ -203,6 +273,15 @@ class CatalogMesh(MeshSource, CatalogSource):
         columns = [self.position, self.weight, self.value, self.selection]
         Position, Weight, Value, Selection = self.read(columns)
 
+        # perform optimized selection
+        sel = self.base.compute(Selection) # compute first, so we avoid repeated computes
+        Position = Position[sel]
+        Weight = Weight[sel]
+        Value = Value[sel]
+
+        # compute
+        position, weight, value = self.base.compute(Position, Weight, Value)
+
         # ensure the slices are synced, since decomposition is collective
         N = max(pm.comm.allgather(len(Position)))
 
@@ -214,8 +293,8 @@ class CatalogMesh(MeshSource, CatalogSource):
             if len(Position) != 0:
 
                 # be sure to use the source to compute
-                position, weight, value, selection = \
-                    self.source.compute(Position[s], Weight[s], Value[s], Selection[s])
+                position, weight, value = \
+                    self.base.compute(Position[s], Weight[s], Value[s])
             else:
                 # workaround a potential dask issue on empty dask arrays
                 position = numpy.empty((0, 3), dtype=Position.dtype)
@@ -229,15 +308,6 @@ class CatalogMesh(MeshSource, CatalogSource):
             if value is None:
                 value = numpy.ones(len(position))
 
-            # track all particles, before Selection applied
-            fullsize += len(position)
-
-            # apply any Selections
-            if selection is not None:
-                position = position[selection]
-                weight = weight[selection]
-                value = value[selection]
-
             # track total (selected) number and sum of weights
             Nlocal += len(position)
             Wlocal += weight.sum()
@@ -248,7 +318,7 @@ class CatalogMesh(MeshSource, CatalogSource):
                 p = lay.exchange(position)
                 w = lay.exchange(weight)
                 v = lay.exchange(value)
-                real.paint(p, mass=w * v, resampler=paintbrush, hold=True)
+                pm.paint(p, mass=w * v, resampler=paintbrush, hold=True, out=real)
 
             # interlacing: use 2 meshes separated by 1/2 cell size
             else:
@@ -263,8 +333,8 @@ class CatalogMesh(MeshSource, CatalogSource):
                 shifted = pm.affine.shift(0.5)
 
                 # paint to two shifted meshes
-                real.paint(p, mass=w * v, resampler=paintbrush, hold=True)
-                real2.paint(p, mass=w * v, resampler=paintbrush, transform=shifted, hold=True)
+                pm.paint(p, mass=w * v, resampler=paintbrush, hold=True, out=real)
+                pm.paint(p, mass=w * v, resampler=paintbrush, transform=shifted, hold=True, out=real2)
                 c1 = real.r2c()
                 c2 = real2.r2c()
 
@@ -280,9 +350,6 @@ class CatalogMesh(MeshSource, CatalogSource):
 
         # weighted number of objects
         W = pm.comm.allreduce(Wlocal)
-
-        # the full size; should be equal to csize
-        fullsize = pm.comm.allreduce(fullsize)
 
         # weighted number density (objs/cell)
         nbar = 1. * W / numpy.prod(pm.Nmesh)
@@ -304,7 +371,7 @@ class CatalogMesh(MeshSource, CatalogSource):
 
         csum = real.csum()
         if pm.comm.rank == 0:
-            self.logger.info("painted %d out of %d objects to mesh" %(N,fullsize))
+            self.logger.info("painted %d out of %d objects to mesh" %(N,self.base.csize))
             self.logger.info("mean particles per cell is %g", nbar)
             self.logger.info("sum is %g ", csum)
             self.logger.info("normalized the convention to 1 + delta")
@@ -453,3 +520,19 @@ class CatalogMesh(MeshSource, CatalogSource):
             wi = w[i]
             v = v / (1 - 2. / 3 * numpy.sin(0.5 * wi) ** 2) ** 0.5
         return v
+
+    def save(self, output, dataset='Field', mode='real'):
+        """
+        Save the mesh as a :class:`~nbodykit.source.mesh.bigfile.BigFileMesh`
+        on disk, either in real or complex space.
+
+        Parameters
+        ----------
+        output : str
+            name of the bigfile file
+        dataset : str, optional
+            name of the bigfile data set where the field is stored
+        mode : str, optional
+            real or complex; the form of the field to store
+        """
+        return MeshSource.save(self, output, dataset=dataset, mode=mode)

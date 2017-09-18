@@ -1,11 +1,58 @@
 from runtests.mpi import MPITest
 from nbodykit.lab import *
-from nbodykit import setup_logging
+from nbodykit import setup_logging, set_options
 
 import pytest
 from numpy.testing import assert_allclose, assert_array_equal
 
 setup_logging()
+
+
+@MPITest([1, 4])
+def test_consecutive_selections(comm):
+
+    CurrentMPIComm.set(comm)
+
+    # compute with smaller chunk size to test chunking
+    with set_options(dask_chunk_size=100):
+
+        s = UniformCatalog(1000, 1.0, seed=42)
+
+        # slice once
+        subset1 = s[:20]
+        assert 'selection' in subset1['Position'].name # ensure optimized selection succeeded
+
+        # slice again
+        subset2 = subset1[:10]
+        assert 'selection' in subset2['Position'].name # ensure optimized selection succeeded
+
+        assert_array_equal(subset2['Position'].compute(), s['Position'].compute()[:20][:10])
+
+@MPITest([1, 4])
+def test_optimized_selection(comm):
+
+    CurrentMPIComm.set(comm)
+
+    # compute with smaller chunk size to test chunking
+    with set_options(dask_chunk_size=100):
+        s = RandomCatalog(1000, seed=42)
+
+        # ra, dec, z
+        s['z']   = s.rng.normal(loc=0, scale=0.2, size=s.size) # contains z < 0
+        s['ra']  = s.rng.uniform(low=110, high=260, size=s.size)
+        s['dec'] = s.rng.uniform(low=-3.6, high=60., size=s.size)
+
+        # raises exception due to z<0
+        with pytest.raises(Exception):
+            s['Position'] = transform.SkyToCartesion(s['ra'], s['dec'], s['z'], cosmo=cosmology.Planck15)
+            pos = s['Position'].compute()
+
+        # slice (even after adding Position column)
+        subset = s[s['z'] > 0]
+
+        # Position should be evaluatable due to slicing first, then evaluating operations
+        pos = subset['Position'].compute()
+
 
 @MPITest([1, 4])
 def test_save(comm):
@@ -104,6 +151,9 @@ def test_slice(comm):
 
     # slice a subset
     subset = source[:10]
+    assert all(col in subset for col in source.columns)
+    assert isinstance(subset, source.__class__)
+    assert len(subset) == 10
     assert_array_equal(subset['Position'], source['Position'].compute()[:10])
 
     subset = source[[0,1,2]]
@@ -116,6 +166,21 @@ def test_slice(comm):
     # missing column
     with pytest.raises(KeyError):
         col = source['BAD_COLUMN']
+
+@MPITest([4])
+def test_dask_slice(comm):
+    CurrentMPIComm.set(comm)
+
+    source = UniformCatalog(nbar=0.2e-3, BoxSize=1024., seed=42)
+
+    # add a selection column
+    index = numpy.random.choice([True, False], size=len(source))
+    source['Selection'] = index
+
+    # slice a column with a dask array
+    pos = source['Position']
+    pos2 = pos[source['Selection']]
+    assert_array_equal(pos.compute()[index], pos2.compute())
 
 @MPITest([1 ,4])
 def test_transform(comm):
@@ -188,7 +253,7 @@ def test_columnaccessor():
     # c is no longer an accessor because it has transformed.
     assert not isinstance(c, ColumnAccessor)
 
-    # thus it is not affecting original. 
+    # thus it is not affecting original.
     assert_array_equal(source['Position'][0].compute(), truth)
     assert_array_equal(c[0].compute(), truth * 10.)
 
@@ -200,11 +265,20 @@ def test_columnaccessor():
     assert 'first' in str(source['Position'])
     assert 'last' in str(source['Position'])
 
+    # test circular reference
+    new_col = source['Selection']
+    assert isinstance(new_col, ColumnAccessor)
+    source['Selection2'] = new_col
+    assert source['Selection'].catalog is source
+    assert source['Selection2'].catalog is source
+
 @MPITest([1, 4])
 def test_copy(comm):
 
     CurrentMPIComm.set(comm)
     source = UniformCatalog(nbar=0.2e-3, BoxSize=1024., seed=42)
+    source['TEST'] = 10
+    source.attrs['TEST'] = 'TEST'
 
     # store original data
     data = {}
@@ -225,3 +299,25 @@ def test_copy(comm):
     # check meta-data
     for k in source.attrs:
         assert k in copy.attrs
+
+@MPITest([4])
+def test_view(comm):
+    CurrentMPIComm.set(comm)
+
+    # the CatalogSource
+    source = UniformCatalog(nbar=0.2e-3, BoxSize=1024., seed=42)
+    source['TEST'] = 10.
+    source.attrs['TEST'] = 10.0
+
+    # view
+    view = source.view()
+    assert view.base is source
+    assert isinstance(view, source.__class__)
+
+    # check meta-data
+    for k in source.attrs:
+        assert k in view.attrs
+
+    # adding columns to the view changes original source
+    view['TEST2'] = 5.0
+    assert 'TEST2' in source

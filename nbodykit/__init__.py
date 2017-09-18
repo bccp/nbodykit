@@ -6,6 +6,33 @@ from mpi4py import MPI
 import dask
 dask.set_options(get=dask.get)
 
+_global_options = {}
+_global_options['dask_cache_size'] = 1e9
+_global_options['dask_chunk_size'] = int(5e6)
+
+class set_options(object):
+    """
+    Set global configuration options.
+
+    Parameters
+    ----------
+    dask_chunk_size : int
+        the number of elements for the default chunk size for dask arrays;
+        chunks should usually hold between 10 MB and 100 MB
+    dask_cache_size : float
+        the size of the internal dask cache in bytes; default is 1e9
+    """
+    def __init__(self, **kwargs):
+        self.old = _global_options.copy()
+        _global_options.update(kwargs)
+
+    def __enter__(self):
+        return
+
+    def __exit__(self, type, value, traceback):
+        _global_options.clear()
+        _global_options.update(self.old)
+
 class CurrentMPIComm(object):
     """
     A class to faciliate getting and setting the current MPI communicator.

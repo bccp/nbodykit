@@ -12,8 +12,8 @@ def test_fof(comm):
     CurrentMPIComm.set(comm)
 
     # lognormal particles
-    source = LogNormalCatalog(Plin=cosmology.LinearPower(cosmo, 0.55),
-                nbar=3e-3, BoxSize=512., Nmesh=128, seed=42)
+    Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
+    source = LogNormalCatalog(Plin=Plin, nbar=3e-3, BoxSize=512., Nmesh=128, seed=42)
 
     # compute P(k,mu) and multipoles
     fof = FOF(source, linking_length=0.2, nmin=20)

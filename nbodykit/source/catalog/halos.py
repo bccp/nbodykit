@@ -50,12 +50,11 @@ class HaloCatalog(CatalogSource):
         self.attrs['position'] = position
         self.attrs['mdef']     = mdef
 
+        # the size
+        self._size = self._source.size
+
         # init the base class
         CatalogSource.__init__(self, comm=comm, use_cache=False)
-
-    @property
-    def size(self):
-        return self._source.size
 
     @column
     def Mass(self):

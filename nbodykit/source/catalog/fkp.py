@@ -44,18 +44,18 @@ class FKPCatalog(MultipleSpeciesCatalog):
     """
     logger = logging.getLogger('FKPCatalog')
 
+    def __repr__(self):
+        return "FKPCatalog(species=%s)" %str(self.attrs['species'])
+
     def __init__(self, data, randoms, BoxSize=None, BoxPad=0.02, use_cache=True):
 
         # init the base class
         MultipleSpeciesCatalog.__init__(self, ['data', 'randoms'], data, randoms)
 
-        # add new default weight columns: FKPWeight and TotalWeight
-        import dask.array as da
+        # add a default FKP weight columns, if it doesnt exist
         for i, name in enumerate(self.species):
-            for col in ['FKPWeight', 'TotalWeight']:
-                _col = name + '/' + col
-                if _col not in self:
-                    self[_col] = ConstantArray(1.0, self._sizes[i], chunks=100000)
+            if 'FKPWeight' not in self[name]:
+                self[name]['FKPWeight'] = 1.0 # unity by default
 
         # determine the BoxSize
         if numpy.isscalar(BoxSize):
@@ -65,9 +65,10 @@ class FKPCatalog(MultipleSpeciesCatalog):
             BoxPad = numpy.ones(3)*BoxPad
         self.attrs['BoxPad'] = BoxPad
 
-    def _define_cartesian_box(self, position):
+    def _define_cartesian_box(self, position, selection):
         """
-        Internal function to put the :attr:`randoms` CatalogSource in a Cartesian box.
+        Internal function to put the :attr:`randoms` CatalogSource in a
+        Cartesian box.
 
         This function add two necessary attribues:
 
@@ -80,10 +81,23 @@ class FKPCatalog(MultipleSpeciesCatalog):
             the Cartesian coordinates of the :attr:`data` and :attr:`randoms`
             to the range of ``[-BoxSize/2, BoxSize/2]``
         """
-        # need to compute cartesian min/max
-        pos = self['randoms/' + position]
-        pos_min = numpy.asarray(self.comm.allgather(self.compute(pos.min(axis=0)))).min(axis=0)
-        pos_max = numpy.asarray(self.comm.allgather(self.compute(pos.max(axis=0)))).max(axis=0)
+        # the position and selection columns of the randoms catalog
+        pos = self['randoms'][position]
+        sel = self['randoms'][selection]
+
+        # select the subset specified by selection
+        pos = pos[self.compute(sel)]
+
+        # min/max of position array
+        pos_min = numpy.ones(3) * (numpy.inf)
+        pos_max = numpy.ones(3) * (-numpy.inf)
+        if len(pos):
+            pos_min = self.compute(pos.min(axis=0))
+            pos_max = self.compute(pos.max(axis=0))
+
+        # global min/max across all ranks
+        pos_min = numpy.asarray(self.comm.allgather(pos_min)).min(axis=0)
+        pos_max = numpy.asarray(self.comm.allgather(pos_max)).max(axis=0)
 
         # used to center the data in the first cartesian quadrant
         delta = abs(pos_max - pos_min)
@@ -150,14 +164,13 @@ class FKPCatalog(MultipleSpeciesCatalog):
             the name of the column that specifies the position data of the
             objects in the catalog
         """
+        from nbodykit.source.catalogmesh import FKPCatalogMesh
+
         # verify that all of the required columns exist
         for name in self.species:
             for col in [fkp_weight, comp_weight, nbar]:
-                _col = name+'/'+col
-                if _col not in self:
+                if col not in self[name]:
                     raise ValueError("the '%s' species is missing the '%s' column" %(name, col))
-
-        from nbodykit.source.catalogmesh import FKPCatalogMesh
 
         if Nmesh is None:
             try:
@@ -167,21 +180,30 @@ class FKPCatalog(MultipleSpeciesCatalog):
                                  "supplied and the FKP source does not define one in 'attrs'.")
 
         # first, define the Cartesian box
-        self._define_cartesian_box(position)
+        self._define_cartesian_box(position, selection)
 
         if BoxSize is None:
             BoxSize = self.attrs['BoxSize']
 
+        # add necessary FKP columns for INTERNAL use
+        for i, name in enumerate(self.species):
+
+            # a total weight for the mesh is completeness weight x FKP weight
+            self[name]['_TotalWeight'] = self[name][comp_weight] * self[name][fkp_weight]
+
+            # position on the mesh is re-centered to [-BoxSize/2, BoxSize/2]
+            self[name]['_RecenteredPosition'] = self[name][position] - self.attrs['BoxCenter']
+
         # initialize the FKP mesh
         kws = {'Nmesh':Nmesh, 'BoxSize':BoxSize, 'dtype':dtype, 'selection':selection}
-        mesh = FKPCatalogMesh(self,
-                             nbar=nbar,
-                             comp_weight=comp_weight,
-                             fkp_weight=fkp_weight,
-                             position=position,
-                             **kws)
-        mesh.interlaced = interlaced
-        mesh.compensated = compensated
-        mesh.window = window
-
-        return mesh
+        return FKPCatalogMesh(self,
+                              nbar=nbar,
+                              comp_weight=comp_weight,
+                              fkp_weight=fkp_weight,
+                              position='_RecenteredPosition',
+                              weight='_TotalWeight',
+                              value='Value',
+                              interlaced=interlaced,
+                              compensated=compensated,
+                              window=window,
+                              **kws)

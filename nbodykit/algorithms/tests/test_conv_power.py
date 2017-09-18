@@ -29,6 +29,118 @@ def make_sources(cosmo):
 
     return data, randoms
 
+@MPITest([1, 4])
+def test_diff_cross_boxsizes(comm):
+
+    CurrentMPIComm.set(comm)
+    cosmo = cosmology.Planck15
+
+    # make the sources
+    data, randoms = make_sources(cosmo)
+    for s in [data, randoms]:
+
+        # constant number density
+        s['NZ'] = NBAR
+
+        # completeness weights
+        P0 = 1e4
+        s['Weight'] = (1 + P0*s['NZ'])**2
+
+    # two mesh objects from same FKP source
+    fkp = FKPCatalog(data, randoms)
+    mesh1 = fkp.to_mesh(Nmesh=128, dtype='f8', nbar='NZ')
+
+    # second mesh has larger box size
+    mesh2 = fkp.to_mesh(Nmesh=128, dtype='f8', nbar='NZ', BoxSize=1.1*mesh1.attrs['BoxSize'])
+
+    # compute the multipoles
+    r = ConvolvedFFTPower(mesh1, second=mesh2, poles=[0,2,4], dk=0.005, use_fkp_weights=True, P0_FKP=P0)
+
+    # make sure we matched the box sizes
+    assert_array_equal(r.first.attrs['BoxSize'], r.second.attrs['BoxSize'])
+    assert_array_equal(r.first.attrs['BoxCenter'], r.second.attrs['BoxCenter'])
+
+@MPITest([1, 4])
+def test_true_cross_corr_fail(comm):
+
+    CurrentMPIComm.set(comm)
+    cosmo = cosmology.Planck15
+
+    # make the sources
+    data, randoms = make_sources(cosmo)
+    for s in [data, randoms]:
+        s['NZ'] = NBAR
+
+
+    # two mesh objects from different FKP source
+    fkp1 = FKPCatalog(data, randoms)
+    fkp2 = FKPCatalog(data, randoms)
+
+    mesh1 = fkp1.to_mesh(Nmesh=128, dtype='f8', nbar='NZ')
+    mesh2 = fkp2.to_mesh(Nmesh=128, dtype='f8', nbar='NZ')
+
+    # cannot do cross correlations with different data/randoms catalogs
+    with pytest.raises(NotImplementedError):
+        r = ConvolvedFFTPower(mesh1, second=mesh2, poles=[0,2,4], dk=0.005)
+
+
+@MPITest([1, 4])
+def test_bad_cross_corr_columns(comm):
+
+    CurrentMPIComm.set(comm)
+    cosmo = cosmology.Planck15
+
+    # make the sources
+    data, randoms = make_sources(cosmo)
+    for s in [data, randoms]:
+        s['NZ'] = NBAR
+
+    # same FKP source but different selection columns won't work!
+    fkp = FKPCatalog(data, randoms)
+    fkp['data']['Selection2'] = fkp['data/Selection']
+    fkp['randoms']['Selection2'] = fkp['randoms/Selection']
+
+    mesh1 = fkp.to_mesh(Nmesh=128, dtype='f8', nbar='NZ', selection='Selection')
+    mesh2 = fkp.to_mesh(Nmesh=128, dtype='f8', nbar='NZ', selection='Selection2')
+
+    # columns in mesh must be same except for weight
+    with pytest.raises(NotImplementedError):
+        r = ConvolvedFFTPower(mesh1, second=mesh2, poles=[0,2,4], dk=0.005)
+
+@MPITest([1, 4])
+def test_cross_corr(comm):
+
+    CurrentMPIComm.set(comm)
+    cosmo = cosmology.Planck15
+
+    # make the sources
+    data, randoms = make_sources(cosmo)
+    for s in [data, randoms]:
+
+        # constant number density
+        s['NZ'] = NBAR
+
+        # completeness weights
+        P0 = 1e4
+        s['Weight'] = (1 + P0*s['NZ'])**2
+
+    # two mesh objects from same FKP source
+    fkp = FKPCatalog(data, randoms)
+    mesh1 = fkp.to_mesh(Nmesh=128, dtype='f8', nbar='NZ', fkp_weight='FKPWeight', comp_weight='Weight', selection='Selection')
+    mesh2 = fkp.to_mesh(Nmesh=128, dtype='f8', nbar='NZ', fkp_weight='FKPWeight', comp_weight='Weight', selection='Selection')
+
+    # compute the multipoles
+    r = ConvolvedFFTPower(mesh1, second=mesh2, poles=[0,2,4], dk=0.005, use_fkp_weights=True, P0_FKP=P0)
+
+    # normalization
+    assert_allclose(r.attrs['data.norm'], NDATA*NBAR)
+    assert_allclose(r.attrs['randoms.norm'], NDATA*NBAR)
+
+    # shotnoise
+    S_data = r.attrs['first.data.W']/r.attrs['randoms.norm']
+    S_ran = r.attrs['first.randoms.W']/r.attrs['randoms.norm']*r.attrs['alpha']**2
+    S = S_data + S_ran
+    assert_allclose(S, r.attrs['shotnoise'])
 
 @MPITest([1, 4])
 def test_bad_input(comm):
@@ -175,10 +287,10 @@ def test_run(comm):
 
     # shotnoise
     S_data = r.attrs['data.W']/r.attrs['randoms.norm']
-    assert_allclose(S_data, r.attrs['data.shotnoise'])
-
     S_ran = r.attrs['randoms.W']/r.attrs['randoms.norm']*r.attrs['alpha']**2
-    assert_allclose(S_ran, r.attrs['randoms.shotnoise'])
+    S = S_data + S_ran
+    assert_allclose(S, r.attrs['shotnoise'])
+
 
 @MPITest([1, 4])
 def test_with_zhist(comm):
@@ -201,13 +313,13 @@ def test_with_zhist(comm):
 
     # add n(z) from randoms to the FKP source
     nofz = InterpolatedUnivariateSpline(zhist.bin_centers, zhist.nbar)
-    fkp['randoms/NZ'] = nofz(randoms['z'])
-    fkp['data/NZ'] = nofz(data['z'])
+    fkp['randoms']['NZ'] = nofz(randoms['z'])
+    fkp['data']['NZ'] = nofz(data['z'])
 
     # normalize NZ to the total size of the data catalog
     alpha = 1.0 * data.csize / randoms.csize
-    fkp['randoms/NZ'] *= alpha
-    fkp['data/NZ'] *= alpha
+    fkp['randoms']['NZ'] *= alpha
+    fkp['data']['NZ'] *= alpha
 
     # compute the multipoles
     r = ConvolvedFFTPower(fkp.to_mesh(Nmesh=128), poles=[0,2,4], dk=0.005)

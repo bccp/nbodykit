@@ -34,18 +34,19 @@ class MeshSource(object):
 
         # ensure self.comm is set, though usually already set by the child.
         self.comm = comm
-
         self.dtype = dtype
+
+        if Nmesh is None or BoxSize is None:
+            raise ValueError("both Nmesh and BoxSize must not be None to initialize ParticleMesh")
+
         Nmesh = numpy.array(Nmesh)
         if Nmesh.ndim == 0:
             ndim = 3
         else:
             ndim = len(Nmesh)
         _Nmesh = numpy.empty(ndim, dtype='i8')
-
         _Nmesh[:] = Nmesh
-        self.pm = ParticleMesh(BoxSize=BoxSize,
-                                Nmesh=_Nmesh,
+        self.pm = ParticleMesh(BoxSize=BoxSize, Nmesh=_Nmesh,
                                 dtype=self.dtype, comm=self.comm)
 
         self.attrs['BoxSize'] = self.pm.BoxSize.copy()
@@ -54,22 +55,51 @@ class MeshSource(object):
         self._actions = []
         self.base = None
 
+    def __finalize__(self, other):
+        """
+        Finalize the creation of a MeshSource object by copying over
+        attributes from a second MeshSource.
+
+        Parameters
+        ----------
+        other : MeshSource
+            the second MeshSource to copy over attributes from
+        """
+        if isinstance(other, MeshSource):
+            self.comm = other.comm
+            self.dtype = other.dtype
+            self.pm = other.pm
+            self.attrs.update(other.attrs)
+            self._actions = []
+            self.actions.extend(other.actions)
+
+        return self
+
+
     def view(self):
         """
         Return a "view" of the MeshSource, in the spirit of
         numpy's ndarray view.
 
         This returns a new MeshSource whose memory is owned by ``self``.
+
+        Note that for CatalogMesh objects, this is overidden by the
+        ``CatalogSource.view`` function.
         """
         view = object.__new__(MeshSource)
-        view.comm = self.comm
-        view.dtype = self.dtype
-        view.pm = self.pm
-        view.attrs.update(self.attrs)
-        view._actions = []
-        view.actions.extend(self.actions)
         view.base = self
-        return view
+        return view.__finalize__(self)
+
+    @property
+    def attrs(self):
+        """
+        A dictionary storing relevant meta-data about the CatalogSource.
+        """
+        try:
+            return self._attrs
+        except AttributeError:
+            self._attrs = {}
+            return self._attrs
 
     @property
     def actions(self):
@@ -141,7 +171,7 @@ class MeshSource(object):
 
         Not implemented in the base class, unless object is a view.
         """
-        if self.base is not None: return self.base.to_real_field()
+        if isinstance(self.base, MeshSource): return self.base.to_real_field()
         return NotImplemented
 
     def to_complex_field(self, out=None):
@@ -151,7 +181,7 @@ class MeshSource(object):
 
         Not implemented in the base class, unless object is a view.
         """
-        if self.base is not None: return self.base.to_complex_field()
+        if isinstance(self.base, MeshSource): return self.base.to_complex_field()
         return NotImplemented
 
     def to_field(self, mode='real', out=None):
@@ -195,17 +225,6 @@ class MeshSource(object):
             raise ValueError("mode is either real or complex, %s given" % mode)
 
         return var
-
-    @property
-    def attrs(self):
-        """
-        A dictionary storing relevant meta-data about the MeshSource.
-        """
-        try:
-            return self._attrs
-        except AttributeError:
-            self._attrs = {}
-            return self._attrs
 
     def paint(self, mode="real", Nmesh=None):
         """

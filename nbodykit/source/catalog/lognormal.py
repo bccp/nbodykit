@@ -71,9 +71,9 @@ class LogNormalCatalog(CatalogSource):
             self.attrs['cosmo'] = dict(cosmo)
 
         # save the meta-data
-        self.attrs['nbar']     = nbar
+        self.attrs['nbar']  = nbar
         self.attrs['redshift'] = redshift
-        self.attrs['bias']     = bias
+        self.attrs['bias'] = bias
 
         # set the seed randomly if it is None
         if seed is None:
@@ -82,26 +82,20 @@ class LogNormalCatalog(CatalogSource):
             seed = self.comm.bcast(seed)
         self.attrs['seed'] = seed
 
-        # init the base class
-        CatalogSource.__init__(self, comm=comm, use_cache=use_cache)
-
         # make the actual source
         self._source, pm = self._makesource(BoxSize=BoxSize, Nmesh=Nmesh)
         self.attrs['Nmesh'] = pm.Nmesh.copy()
         self.attrs['BoxSize'] = pm.BoxSize.copy()
 
-        # recompute _csize to the real size
-        self.update_csize()
+        # set the size
+        self._size = len(self._source)
+
+        # init the base class
+        CatalogSource.__init__(self, comm=comm, use_cache=use_cache)
 
         # crash with no particles!
         if self.csize == 0:
             raise ValueError("no particles in LogNormal source; try increasing ``nbar`` parameter")
-
-    @property
-    def size(self):
-        if not hasattr(self, "_source"):
-            return NotImplemented
-        return len(self._source)
 
     @column
     def Position(self):

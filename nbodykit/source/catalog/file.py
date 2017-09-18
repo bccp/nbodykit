@@ -49,6 +49,11 @@ class FileCatalogBase(CatalogSource):
             self._source = None
         self._source = self.comm.bcast(self._source)
 
+        # compute the size
+        start = self.comm.rank * self._source.size // self.comm.size
+        end = (self.comm.rank  + 1) * self._source.size // self.comm.size
+        self._size = end - start
+
         # update the meta-data
         self.attrs.update(self._source.attrs)
 
@@ -66,15 +71,6 @@ class FileCatalogBase(CatalogSource):
         else:
             args = (name, self.size, self._source.nfiles)
             return "%s(size=%d, nfiles=%d)" % args
-
-    @property
-    def size(self):
-        """
-        The local size of the catalog.
-        """
-        start = self.comm.rank * self._source.size // self.comm.size
-        end = (self.comm.rank  + 1) * self._source.size // self.comm.size
-        return end - start
 
     @property
     def hardcolumns(self):
