@@ -194,7 +194,13 @@ def optimized_selection(arr, index):
             for k,v in slice_dsk.items():
                 old_task_key = v[1]
                 for dep in dependents[old_task_key]:
-                    dsk2[dep] = subs(dsk[dep], old_task_key, k)
+
+                    # try to get old task from new dask graph (dsk2) first
+                    # in case we've already updated the task with selection tasks
+                    old_task = dsk2.get(dep, dsk[dep])
+
+                    # perform the substitution
+                    dsk2[dep] = subs(old_task, old_task_key, k)
 
     # if no new tasks, then we failed to verify size or find sources
     if not len(dsk2):
