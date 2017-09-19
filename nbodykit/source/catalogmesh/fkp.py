@@ -1,5 +1,5 @@
 from nbodykit.source.catalogmesh.species import MultipleSpeciesCatalogMesh
-from nbodykit.base.catalog import column
+from nbodykit.utils import attrs_to_dict
 import logging
 import numpy
 
@@ -137,11 +137,17 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
             attrs[name+'.W'] = self.weighted_total(name)
         attrs['alpha'] = attrs['data.W'] / attrs['randoms.W']
 
-        # randoms get an additional weight of -alpha
-        self['randoms'][self.weight] *= -1.0 * attrs['alpha']
+        # paint the randoms
+        real = self['randoms'].to_real_field(normalize=False)
+        real.attrs.update(attrs_to_dict(real, 'randoms.'))
 
-        # paint w_data*n_data - alpha*w_randoms*n_randoms
-        real = MultipleSpeciesCatalogMesh.to_real_field(self, normalize=False)
+        # normalize the randoms by alpha
+        real[:] *= -1. * attrs['alpha']
+
+        # paint the data
+        real2 = self['data'].to_real_field(normalize=False)
+        real[:] += real2[:]
+        real.attrs.update(attrs_to_dict(real2, 'data.'))
 
         # divide by volume per cell to go from number to number density
         vol_per_cell = (self.pm.BoxSize/self.pm.Nmesh).prod()
