@@ -118,8 +118,8 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
             # get a CatalogMesh for this species
             species_mesh = self[name]
 
-            # paint the un-normalized density field for this species
-            real = species_mesh.to_real_field(out=real, normalize=False)
+            # paint (in-place) the un-normalized density field for this species
+            species_mesh.to_real_field(out=real, normalize=False)
 
             # add to the mean number of objects per cell and total number
             attrs['num_per_cell'] += real.attrs['num_per_cell']

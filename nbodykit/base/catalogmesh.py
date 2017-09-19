@@ -255,19 +255,29 @@ class CatalogMesh(CatalogSource, MeshSource):
         # the paint brush window
         paintbrush = window.methods[self.window]
 
-        # initialize the RealField to returns
+        # initialize the RealField to return
         if out is not None:
             assert isinstance(out, RealField), "output of to_real_field must be a RealField"
             numpy.testing.assert_array_equal(out.pm.Nmesh, pm.Nmesh)
-            real = out
+            toret = out
         else:
-            real = RealField(pm)
-            real[:] = 0
+            toret = RealField(pm)
+            toret[:] = 0
 
-        # need 2nd field if interlacing
+        # for interlacing, we need two empty meshes if out was provided
+        # since out may have non-zero elements, messing up our interlacing sum
         if self.interlaced:
+
+            # whether we can re-use "toret" workspace
+            if out is None:
+                real1 = toret
+            else:
+                real1 = RealField(pm)
+                real1[:] = 0
+
+            # the second, shifted mesh (always needed)
             real2 = RealField(pm)
-            real2[...] = 0
+            real2[:] = 0
 
         # read the necessary data (as dask arrays)
         columns = [self.position, self.weight, self.value, self.selection]
@@ -318,7 +328,7 @@ class CatalogMesh(CatalogSource, MeshSource):
                 p = lay.exchange(position)
                 w = lay.exchange(weight)
                 v = lay.exchange(value)
-                pm.paint(p, mass=w * v, resampler=paintbrush, hold=True, out=real)
+                pm.paint(p, mass=w * v, resampler=paintbrush, hold=True, out=toret)
 
             # interlacing: use 2 meshes separated by 1/2 cell size
             else:
@@ -333,9 +343,9 @@ class CatalogMesh(CatalogSource, MeshSource):
                 shifted = pm.affine.shift(0.5)
 
                 # paint to two shifted meshes
-                pm.paint(p, mass=w * v, resampler=paintbrush, hold=True, out=real)
+                pm.paint(p, mass=w * v, resampler=paintbrush, hold=True, out=real1)
                 pm.paint(p, mass=w * v, resampler=paintbrush, transform=shifted, hold=True, out=real2)
-                c1 = real.r2c()
+                c1 = real1.r2c()
                 c2 = real2.r2c()
 
                 # and then combine
@@ -343,7 +353,13 @@ class CatalogMesh(CatalogSource, MeshSource):
                     kH = sum(k[i] * H[i] for i in range(3))
                     s1[...] = s1[...] * 0.5 + s2[...] * 0.5 * numpy.exp(0.5 * 1j * kH)
 
-                c1.c2r(real)
+                # FFT back to real-space
+                # NOTE: cannot use "toret" here in case user supplied "out"
+                c1.c2r(real1)
+
+                # need to add to the returned mesh if user supplied "out"
+                if real1 is not toret:
+                    toret[:] += real1[:]
 
         # unweighted number of objects
         N = pm.comm.allreduce(Nlocal)
@@ -363,13 +379,13 @@ class CatalogMesh(CatalogSource, MeshSource):
         shotnoise = numpy.prod(pm.BoxSize) / N
 
         # save some meta-data
-        real.attrs = {}
-        real.attrs['shotnoise'] = shotnoise
-        real.attrs['N'] = N
-        real.attrs['W'] = W
-        real.attrs['num_per_cell'] = nbar
+        toret.attrs = {}
+        toret.attrs['shotnoise'] = shotnoise
+        toret.attrs['N'] = N
+        toret.attrs['W'] = W
+        toret.attrs['num_per_cell'] = nbar
 
-        csum = real.csum()
+        csum = toret.csum()
         if pm.comm.rank == 0:
             self.logger.info("painted %d out of %d objects to mesh" %(N,self.base.csize))
             self.logger.info("mean particles per cell is %g", nbar)
@@ -378,11 +394,11 @@ class CatalogMesh(CatalogSource, MeshSource):
 
         if normalize:
             if nbar > 0:
-                real[...] /= nbar
+                toret[...] /= nbar
             else:
-                real[...] = 1
+                toret[...] = 1
 
-        return real
+        return toret
 
     @property
     def actions(self):
