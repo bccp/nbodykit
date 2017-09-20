@@ -117,11 +117,15 @@ def optimized_selection(arr, index):
         if the array size cannot be determined from the task graph and
         the selection index applied properly
     """
-    from dask.array.optimization import fuse_slice, cull, reverse_dict
-    from dask.array.slicing import slice_array, tokenize
-    from dask.core import subs
     from operator import getitem, itemgetter
     from itertools import groupby
+    # catch API changes to DASK
+    try:
+        from dask.array.optimization import fuse_slice, cull, reverse_dict
+        from dask.array.slicing import tokenize
+        from dask.core import subs
+    except ImportError as e:
+        raise DaskGraphOptimizationFailure(e)
 
     # need the "catalog" attribute
     if not isinstance(arr, ColumnAccessor):
@@ -217,9 +221,7 @@ def optimized_selection(arr, index):
                 index_this_block = index[block_size]
 
                 # add the new slice
-                sl = [slice(None,None,None) for i in range(len(end)-1)]
-                sl[0] = numpy.where(index_this_block)[0]
-                slice_dsk[tuple(new_key)] = (getitem, end, tuple(sl))
+                slice_dsk[tuple(new_key)] = (getitem, end, numpy.where(index_this_block))
 
                 # keep track of the size of this block
                 blocksizes[blocknum] += index_this_block.sum()
@@ -322,8 +324,9 @@ class ColumnAccessor(da.Array):
                 # try to do the optimized selection
                 try:
                     d = optimized_selection(self, sel)
-                except Exception as e:
-                    logging.warning("DaskGraphOptimizationFailure: %s" %str(e))
+                except DaskGraphOptimizationFailure as e:
+                    if self.catalog.comm.rank == 0:
+                        logging.debug("DaskGraphOptimizationFailure: %s" %str(e))
                     pass
 
         # the fallback is default behavior
