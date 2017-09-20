@@ -129,11 +129,14 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
           format: ``species/column``.
         """
         # return a new CatalogSource holding only the specific species
-        if isinstance(key, string_types) and key in self.species:
-            return self._sources[key]
+        if isinstance(key, string_types):
+            if key in self.species:
+                return self._sources[key]
 
-        species, subcol = split_column(col, self.species)
-        return CatalogSourceBase.__getitem__(self._sources[species], subcol)
+            species, subcol = split_column(key, self.species)
+            return CatalogSourceBase.__getitem__(self._sources[species], subcol)
+
+        return CatalogSourceBase.__getitem__(self, key)
 
     def __setitem__(self, col, value):
         """
