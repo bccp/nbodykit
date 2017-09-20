@@ -318,8 +318,8 @@ class ColumnAccessor(da.Array):
                     sel = self.catalog.compute(sel)
 
                 # return self if the size is unchanged
-                #if sel.sum() == len(self):
-                #return self
+                if sel.sum() == len(self):
+                    return self
 
                 # try to do the optimized selection
                 try:
@@ -557,8 +557,8 @@ class CatalogSourceBase(object):
         size = index.sum()
 
         # if size is the same, just return self
-        #if size == self.size:
-        #    return self.base if self.base is not None else self
+        if size == self.size:
+           return self.base if self.base is not None else self
 
         # initialize subset Source of right size
         subset_data = {col:self[col][index] for col in self}
