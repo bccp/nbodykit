@@ -162,19 +162,17 @@ nbodykit on NERSC
 .. note::
 
     This section covers using nbodykit on the computing nodes of NERSC.
-    The computing nodes requires special care because they do not work with the simple
-    MPI provided from Anaconda. Currently, nbodykit cannot be used on the login nodes
-    at NERSC due to the inability to initialize MPI. We recommend using the NERSC JupyterHub
-    services, available at https://jupyter.nersc.gov and https://jupyter-dev.nersc.gov/.
-    These services provide Jupyter notebook environments for interactive use of
-    nbodykit on the NERSC machines.
+    The computing nodes requires special care because they do not work with
+    the simple MPI provided from Anaconda.
 
 
-    The JupyterHub machines are very similar to standard
-    computers -- follow the
+    If instead you wish to use nbodykit on the login nodes of NERSC or the
+    Jupyter Hub services (available at https://jupyter.nersc.gov and
+    https://jupyter-dev.nersc.gov/), users should follow the
     :ref:`Anaconda installation instructions <conda-installation>`
-    to install nbodykit. For more information on the JupyterHub services, see
-    `the official NERSC guide`_.
+    to install nbodykit. The login nodes and JuptyerHub machines are very
+    similar to standard computers. For more information on the JupyterHub
+    services, see `the official NERSC guide`_.
 
 Development and testing of nbodykit was performed on the `NERSC`_ super-computing
 machines at Lawrence Berkeley National Laboratory. We maintain a daily build of
