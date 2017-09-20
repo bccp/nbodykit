@@ -185,23 +185,13 @@ class FKPCatalog(MultipleSpeciesCatalog):
         if BoxSize is None:
             BoxSize = self.attrs['BoxSize']
 
-        # add necessary FKP columns for INTERNAL use
-        for i, name in enumerate(self.species):
-
-            # a total weight for the mesh is completeness weight x FKP weight
-            self[name]['_TotalWeight'] = self[name][comp_weight] * self[name][fkp_weight]
-
-            # position on the mesh is re-centered to [-BoxSize/2, BoxSize/2]
-            self[name]['_RecenteredPosition'] = self[name][position] - self.attrs['BoxCenter']
-
         # initialize the FKP mesh
         kws = {'Nmesh':Nmesh, 'BoxSize':BoxSize, 'dtype':dtype, 'selection':selection}
         return FKPCatalogMesh(self,
                               nbar=nbar,
                               comp_weight=comp_weight,
                               fkp_weight=fkp_weight,
-                              position='_RecenteredPosition',
-                              weight='_TotalWeight',
+                              position=position,
                               value='Value',
                               interlaced=interlaced,
                               compensated=compensated,
