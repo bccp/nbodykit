@@ -663,7 +663,7 @@ class CatalogSourceBase(object):
             If the :attr:`base` attribute is set, columns will be deleted
             from :attr:`base` instead of from ``self``.
         """
-        if self.base is not None: return self.base.__delitem__(col, value)
+        if self.base is not None: return self.base.__delitem__(col)
 
         if col not in self.columns:
             raise ValueError("no such column, cannot delete it")
