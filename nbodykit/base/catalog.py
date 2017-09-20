@@ -49,7 +49,7 @@ def find_chains(chain, dependents, dsk):
 
     # each element in chain must be a getter task
     # ignore first element in chain (the source)
-    valid &= all(isgetitem(dsk[kk]) for kk in chain[1:])
+    valid &= isgetitem(dsk[chain[-1]])
 
     # check for any valid dependents
     no_valid_deps = not len(deps) or not any(isgetitem(dsk[dep]) for dep in deps)
@@ -57,8 +57,9 @@ def find_chains(chain, dependents, dsk):
     # if chain is valid with no valid deps, it is finished so yield
     if valid and no_valid_deps:
         yield chain
-    else:
-        # recursively check the dependents too
+
+    # check dependents if we are on first path, or if current element is valid
+    if len(chain) == 1 or valid:
         for dep in deps:
             new_chain = chain + [dep]
             for chain2 in find_chains(new_chain, dependents, dsk):
@@ -119,6 +120,8 @@ def optimized_selection(arr, index):
     from dask.array.optimization import fuse_slice, cull, reverse_dict
     from dask.array.slicing import slice_array, tokenize
     from dask.core import subs
+    from operator import getitem, itemgetter
+    from itertools import groupby
 
     # need the "catalog" attribute
     if not isinstance(arr, ColumnAccessor):
@@ -130,16 +133,25 @@ def optimized_selection(arr, index):
     # the dependents
     dependents = reverse_dict(dependencies)
 
-    # this store the new slicing tasks
+    # this stores the new slicing tasks
     dsk2 = dict()
 
     # source nodes in graph have no dependencies
     sources = [k for k in dependencies if not len(dependencies[k])]
 
-    name = arr.name
+    # chunk sizes along the first dimension
+    chunk_slices = numpy.append([0],numpy.cumsum(arr.chunks[0]))
+    chunks = {}
+
+    # sum up boolean array to get new total size
+    new_size = int(numpy.sum(index))
 
     # loop over all of the source tasks
+    name = arr.name
     for source in sources:
+
+        # initialize the size of blocks to zero
+        blocksizes = {k:0 for k in range(arr.numblocks[0])}
 
         # find consecutive getitems from this source
         size = 0
@@ -149,7 +161,7 @@ def optimized_selection(arr, index):
 
             # extract the slices from the chain
             slices = []
-            for kk in chain[1:]:
+            for kk in chain[1:]: # first object in chain is "source"
                 v = dsk[kk][2][0] # the slice along the 1st axis
 
                 # just save slices
@@ -171,32 +183,54 @@ def optimized_selection(arr, index):
                 total_slice = slice(total_slice.start, N, total_slice.step)
 
             # get the size
-            this_size = get_slice_size(total_slice.start, total_slice.stop, total_slice.step)
             size += get_slice_size(total_slice.start, total_slice.stop, total_slice.step)
 
         # if no getter tasks, skip this source
         if not len(chains):
             continue
 
-        input_task = chains[0][-1] # last getitem task key along 1st chain
-
         # total slice size must be equal to catalog size to work
         if arr.catalog.size == size:
 
-            # determine the slice tasks
-            # output task name of slice graph is "selection-*"
-            # input task name of slice graph is last consecutive getitem task
-            ndim = len(input_task)-1 # dimensions of the chunks
-            inname = input_task[0] # input task name
+            # the last task in every chain starting on 'source'
+            chain_ends = [chain[-1] for chain in chains]
+
+            # group by chain name and account for all chunk blocks
+            for _, subiter in groupby(chain_ends, itemgetter(0)):
+                blocks = [item[1] for item in subiter]
+                if not all(block in blocks for block in range(arr.numblocks[0])):
+                    raise DaskGraphOptimizationFailure("missing blocks from calculation")
+
+            # the input/output names for slicing tasks
+            inname =  chain_ends[0][0] # input task name
             outname = 'selection-'+tokenize(arr,index,source)
-            slice_dsk, blockdims = slice_array(outname, inname, arr.chunks[:ndim], (index,))
+
+            # determine the slice graph
+            slice_dsk = {}
+            for i, end in enumerate(chain_ends):
+                new_key = list(end)
+                new_key[0] = outname
+
+                # this block number of this task
+                blocknum = new_key[1]
+                block_size = slice(chunk_slices[blocknum], chunk_slices[blocknum+1])
+                index_this_block = index[block_size]
+
+                # add the new slice
+                sl = [slice(None,None,None) for i in range(len(end)-1)]
+                sl[0] = numpy.where(index_this_block)[0]
+                slice_dsk[tuple(new_key)] = (getitem, end, tuple(sl))
+
+                # keep track of the size of this block
+                blocksizes[blocknum] += index_this_block.sum()
+
+            # skip this source if we didnt find the right size
+            if sum(blocksizes.values()) != new_size:
+               continue
 
             # if last getitem task is array name, we need to rename array
             if inname == arr.name:
                 name = outname
-
-            # add the slice tasks to the new graph
-            dsk2.update(slice_dsk)
 
             # update dependents of last consecutive getitem task
             # to point to "selection-*" tasks
@@ -211,13 +245,28 @@ def optimized_selection(arr, index):
                     # perform the substitution
                     dsk2[dep] = subs(old_task, old_task_key, k)
 
-    # if no new tasks, then we failed to verify size or find sources
+                # add the slice tasks to the new graph
+                dsk2.update(slice_dsk)
+
+    # if no new tasks, then we failed
     if not len(dsk2):
-        raise DaskGraphOptimizationFailure("got size %d, not %d, chains=%s" %(size, arr.catalog.size, chains))
+        args = (size, arr.catalog.size)
+        raise DaskGraphOptimizationFailure("computed array length %d, not %d" % args)
+
+    # new size has to be right!
+    if sum(blocksizes.values()) != new_size:
+        args = (sum(blocksizes.values()), new_size)
+        raise DaskGraphOptimizationFailure("computed new sliced size %d, not %d" % args)
+
+    # make the chunks
+    chunks = ()
+    for i in range(arr.numblocks[0]):
+        chunks += (blocksizes[i],)
+    chunks = (chunks,)
+    chunks += arr.chunks[len(chunks):]
 
     # update the original graph and make new Array
     dsk.update(dsk2)
-    chunks = tuple(blockdims) + arr.chunks[ndim:]
     return da.Array(dsk, name, chunks, dtype=arr.dtype)
 
 
@@ -273,8 +322,8 @@ class ColumnAccessor(da.Array):
                 # try to do the optimized selection
                 try:
                     d = optimized_selection(self, sel)
-                except DaskGraphOptimizationFailure as e:
-                    logging.debug("DaskGraphOptimizationFailure: %s" %str(e))
+                except Exception as e:
+                    logging.warning("DaskGraphOptimizationFailure: %s" %str(e))
                     pass
 
         # the fallback is default behavior
