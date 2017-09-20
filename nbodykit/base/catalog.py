@@ -30,19 +30,40 @@ def isgetitem(task):
             return True
     return False
 
-def find_consecutive_gets(t, out, dsk, dependents):
+def find_chains(chain, dependents, dsk):
     """
-    Fill the defaultdict ``out`` with consecutive getitem tasks that have
-    only (at most) a single dependent (no split chains).
+    Walk recursively through a dask graph (a directed graph)
+    and find consecutive chains of ``getitem`` tasks.
 
-    Keys are the block number along the first index for each task.
+    This function yields all consecutive chains.
     """
-    # check if task is getitem with only 1 dependent
-    if isgetitem(dsk[t]) and len(dependents[t]) <= 1:
-        out[t[1]].append(t)
-        for xx in dependents[t]:
-            find_consecutive_gets(xx, out, dsk, dependents)
+    # chain of keys needs to be a list
+    if not isinstance(chain, list):
+        chain = [chain]
 
+    # dependents of last key in chain
+    deps = dependents[chain[-1]]
+
+    # to be a valid chain, need more than element
+    valid = len(chain) > 1
+
+    # each element in chain must be a getter task
+    # ignore first element in chain (the source)
+    valid &= isgetitem(dsk[chain[-1]])
+
+    # check for any valid dependents
+    no_valid_deps = not len(deps) or not any(isgetitem(dsk[dep]) for dep in deps)
+
+    # if chain is valid with no valid deps, it is finished so yield
+    if valid and no_valid_deps:
+        yield chain
+
+    # check dependents if we are on first path, or if current element is valid
+    if len(chain) == 1 or valid:
+        for dep in deps:
+            new_chain = chain + [dep]
+            for chain2 in find_chains(new_chain, dependents, dsk):
+                yield chain2
 
 def expanding_apply(iterable, func):
     """
@@ -96,9 +117,15 @@ def optimized_selection(arr, index):
         if the array size cannot be determined from the task graph and
         the selection index applied properly
     """
-    from dask.array.optimization import fuse_slice, cull, reverse_dict
-    from dask.array.slicing import slice_array, tokenize
-    from dask.core import subs
+    from operator import getitem, itemgetter
+    from itertools import groupby
+    # catch API changes to DASK
+    try:
+        from dask.array.optimization import fuse_slice, cull, reverse_dict
+        from dask.array.slicing import tokenize
+        from dask.core import subs
+    except ImportError as e:
+        raise DaskGraphOptimizationFailure(e)
 
     # need the "catalog" attribute
     if not isinstance(arr, ColumnAccessor):
@@ -110,28 +137,35 @@ def optimized_selection(arr, index):
     # the dependents
     dependents = reverse_dict(dependencies)
 
-    # this store the new slicing tasks
+    # this stores the new slicing tasks
     dsk2 = dict()
 
     # source nodes in graph have no dependencies
     sources = [k for k in dependencies if not len(dependencies[k])]
 
-    name = arr.name
+    # chunk sizes along the first dimension
+    chunk_slices = numpy.append([0],numpy.cumsum(arr.chunks[0]))
+    chunks = {}
+
+    # sum up boolean array to get new total size
+    new_size = int(numpy.sum(index))
 
     # loop over all of the source tasks
+    name = arr.name
     for source in sources:
 
-        # find consecutive getitems from this source
-        gettasks = defaultdict(list)
-        for dep in dependents[source]:
-            find_consecutive_gets(dep, gettasks, dsk, dependents)
+        # initialize the size of blocks to zero
+        blocksizes = {k:0 for k in range(arr.numblocks[0])}
 
-        # compute total size of getitem slices
+        # find consecutive getitems from this source
         size = 0
-        for chunknum in gettasks:
-            keys = iter(gettasks[chunknum])
+        chains = []
+        for chain in find_chains(source, dependents, dsk):
+            chains.append(chain)
+
+            # extract the slices from the chain
             slices = []
-            for kk in keys:
+            for kk in chain[1:]: # first object in chain is "source"
                 v = dsk[kk][2][0] # the slice along the 1st axis
 
                 # just save slices
@@ -155,39 +189,50 @@ def optimized_selection(arr, index):
             # get the size
             size += get_slice_size(total_slice.start, total_slice.stop, total_slice.step)
 
-        # if no getter tasks, size must be length of array
-        if not len(gettasks):
-            size = len(arr)
-            input_task = source
-        else:
-            input_task = gettasks[0][-1] # last getitem task key along block #0
-
-        # "input_task" is the task input into the slicing graph, key must be a tuple
-        if not isinstance(input_task, tuple):
-            msg = "input task key is not a tuple: %s" % str(input_task)
-            raise DaskGraphOptimizationFailure(msg)
+        # if no getter tasks, skip this source
+        if not len(chains):
+            continue
 
         # total slice size must be equal to catalog size to work
         if arr.catalog.size == size:
 
-            # need all blocks along 1st axis to be represented
-            if len(gettasks) and not all(block in gettasks for block in range(arr.numblocks[0])):
-                raise DaskGraphOptimizationFailure("did not find all blocks of array")
+            # the last task in every chain starting on 'source'
+            chain_ends = [chain[-1] for chain in chains]
 
-            # determine the slice tasks
-            # output task name of slice graph is "selection-*"
-            # input task name of slice graph is last consecutive getitem task
-            ndim = len(input_task)-1 # dimensions of the chunks
-            inname = input_task[0] # input task name
+            # group by chain name and account for all chunk blocks
+            for _, subiter in groupby(chain_ends, itemgetter(0)):
+                blocks = [item[1] for item in subiter]
+                if not all(block in blocks for block in range(arr.numblocks[0])):
+                    raise DaskGraphOptimizationFailure("missing blocks from calculation")
+
+            # the input/output names for slicing tasks
+            inname =  chain_ends[0][0] # input task name
             outname = 'selection-'+tokenize(arr,index,source)
-            slice_dsk, blockdims = slice_array(outname, inname, arr.chunks[:ndim], (index,))
+
+            # determine the slice graph
+            slice_dsk = {}
+            for i, end in enumerate(chain_ends):
+                new_key = list(end)
+                new_key[0] = outname
+
+                # this block number of this task
+                blocknum = new_key[1]
+                block_size = slice(chunk_slices[blocknum], chunk_slices[blocknum+1])
+                index_this_block = index[block_size]
+
+                # add the new slice
+                slice_dsk[tuple(new_key)] = (getitem, end, numpy.where(index_this_block))
+
+                # keep track of the size of this block
+                blocksizes[blocknum] += index_this_block.sum()
+
+            # skip this source if we didnt find the right size
+            if sum(blocksizes.values()) != new_size:
+               continue
 
             # if last getitem task is array name, we need to rename array
             if inname == arr.name:
                 name = outname
-
-            # add the slice tasks to the new graph
-            dsk2.update(slice_dsk)
 
             # update dependents of last consecutive getitem task
             # to point to "selection-*" tasks
@@ -202,13 +247,28 @@ def optimized_selection(arr, index):
                     # perform the substitution
                     dsk2[dep] = subs(old_task, old_task_key, k)
 
-    # if no new tasks, then we failed to verify size or find sources
+                # add the slice tasks to the new graph
+                dsk2.update(slice_dsk)
+
+    # if no new tasks, then we failed
     if not len(dsk2):
-        raise DaskGraphOptimizationFailure("could not determine size from task graph")
+        args = (size, arr.catalog.size)
+        raise DaskGraphOptimizationFailure("computed array length %d, not %d" % args)
+
+    # new size has to be right!
+    if sum(blocksizes.values()) != new_size:
+        args = (sum(blocksizes.values()), new_size)
+        raise DaskGraphOptimizationFailure("computed new sliced size %d, not %d" % args)
+
+    # make the chunks
+    chunks = ()
+    for i in range(arr.numblocks[0]):
+        chunks += (blocksizes[i],)
+    chunks = (chunks,)
+    chunks += arr.chunks[len(chunks):]
 
     # update the original graph and make new Array
     dsk.update(dsk2)
-    chunks = tuple(blockdims) + arr.chunks[ndim:]
     return da.Array(dsk, name, chunks, dtype=arr.dtype)
 
 
@@ -251,12 +311,22 @@ class ColumnAccessor(da.Array):
         sel = key[0] if isinstance(key, tuple) else key
         if isinstance(sel, (list, numpy.ndarray, da.Array)):
             if len(sel) == self.catalog.size:
+
+                if isinstance(sel, list):
+                    sel = numpy.asarray(sel)
                 if isinstance(sel, da.Array):
                     sel = self.catalog.compute(sel)
+
+                # return self if the size is unchanged
+                if sel.sum() == len(self):
+                    return self
+
+                # try to do the optimized selection
                 try:
                     d = optimized_selection(self, sel)
                 except DaskGraphOptimizationFailure as e:
-                    logging.debug("DaskGraphOptimizationFailure: %s" %str(e))
+                    if self.catalog.comm.rank == 0:
+                        logging.debug("DaskGraphOptimizationFailure: %s" %str(e))
                     pass
 
         # the fallback is default behavior
@@ -486,6 +556,10 @@ class CatalogSourceBase(object):
         # new size is just number of True entries
         size = index.sum()
 
+        # if size is the same, just return self
+        if size == self.size:
+           return self.base if self.base is not None else self
+
         # initialize subset Source of right size
         subset_data = {col:self[col][index] for col in self}
         cls = self.__class__ if self.base is None else self.base.__class__
@@ -589,7 +663,7 @@ class CatalogSourceBase(object):
             If the :attr:`base` attribute is set, columns will be deleted
             from :attr:`base` instead of from ``self``.
         """
-        if self.base is not None: return self.base.__delitem__(col, value)
+        if self.base is not None: return self.base.__delitem__(col)
 
         if col not in self.columns:
             raise ValueError("no such column, cannot delete it")

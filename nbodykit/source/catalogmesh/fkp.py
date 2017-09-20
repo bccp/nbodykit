@@ -43,7 +43,7 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
     logger = logging.getLogger('FKPCatalogMesh')
 
     def __new__(cls, source, BoxSize, Nmesh, dtype, selection,
-                    comp_weight, fkp_weight, nbar, weight, value='Value',
+                    comp_weight, fkp_weight, nbar, value='Value',
                     position='Position', interlaced=False,
                     compensated=False, window='cic'):
 
@@ -51,10 +51,15 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         if not isinstance(source, FKPCatalog):
             raise TypeError("the input source for FKPCatalogMesh must be a FKPCatalog")
 
+        uncentered_position = position
+        position = '_RecenteredPosition'
+        weight = '_TotalWeight'
+
         obj = super(FKPCatalogMesh, cls).__new__(cls, source, BoxSize, Nmesh,
                         dtype, weight, value, selection, position=position,
                         interlaced=interlaced, compensated=compensated, window=window)
 
+        obj._uncentered_position = uncentered_position
         obj.comp_weight = comp_weight
         obj.fkp_weight = fkp_weight
         obj.nbar = nbar
@@ -73,15 +78,6 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         for val in [BoxSize, BoxCenter]:
             if not isinstance(val, (list, numpy.ndarray)) or len(val) != 3:
                 raise ValueError("recenter_box arguments should be a vector of length 3")
-
-        # update the position coordinates
-        for name in self.base.species:
-
-            # add the old box center offset
-            self[name][self.position] += self.attrs['BoxCenter']
-
-            # subtract the new box center offset
-            self[name][self.position] -= BoxCenter
 
         # update meta-data
         for val, name in zip([BoxSize, BoxCenter], ['BoxSize', 'BoxCenter']):
@@ -130,6 +126,15 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         :class:`~pmesh.pm.RealField` :
             the field object holding the FKP density field in real space
         """
+        # add necessary FKP columns for INTERNAL use
+        for name in self.base.species:
+
+            # a total weight for the mesh is completeness weight x FKP weight
+            self[name]['_TotalWeight'] = self.TotalWeight(name)
+
+            # position on the mesh is re-centered to [-BoxSize/2, BoxSize/2]
+            self[name]['_RecenteredPosition'] = self.RecenteredPosition(name)
+
         attrs = {}
 
         # determine alpha, the weighted number ratio
@@ -158,7 +163,31 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         real.attrs.pop('data.shotnoise', None)
         real.attrs.pop('randoms.shotnoise', None)
 
+        # delete internal columns
+        for name in self.base.species:
+            del self[name+'/_RecenteredPosition']
+            del self[name+'/_TotalWeight']
+
         return real
+
+    def RecenteredPosition(self, name):
+        """
+        The Position of the objects, re-centered on the mesh to
+        the range ``[-BoxSize/2, BoxSize/2]``.
+
+        This subtracts ``BoxCenter`` from :attr:`attrs` from the original
+        position array.
+        """
+        assert name in ['data', 'randoms']
+        return self[name][self._uncentered_position] - self.attrs['BoxCenter']
+
+    def TotalWeight(self, name):
+        """
+        The total weight for the mesh is the completenes weight times
+        the FKP weight.
+        """
+        assert name in ['data', 'randoms']
+        return self[name][self.comp_weight] * self[name][self.fkp_weight]
 
     def weighted_total(self, name):
         r"""
