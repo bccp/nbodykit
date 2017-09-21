@@ -95,6 +95,31 @@ class CatalogMesh(CatalogSource, MeshSource):
 
         return obj
 
+    def sort(self, *keys, reverse=False, usecols=None):
+        """
+        Sort the CatalogMesh object globally across all MPI ranks
+        in ascending order by the input keys.
+
+        Sort columns must be floating or integer type.
+
+        As CatalogMesh objects are views of a CatalogSource, this simply
+        sorts the underlying CatalogSource.
+
+        Parameters
+        ----------
+        *keys :
+            the names of columns to sort by. If multiple columns are provided,
+            the data is sorted consecutively in the order provided
+        reverse : bool, optional
+            if ``True``, perform descending sort operations
+        usecols : list, optional
+            the name of the columns to include in the returned CatalogSource
+        """
+        # sort the base object
+        newbase = self.base.sort(*keys, reverse=reverse, usecols=usecols)
+        self.base = newbase
+        return self
+
     def __slice__(self, index):
         """
         Return a slice of a CatalogMesh object.

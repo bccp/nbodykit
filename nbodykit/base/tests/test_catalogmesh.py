@@ -7,6 +7,35 @@ import pytest
 # debug logging
 setup_logging("debug")
 
+
+@MPITest([1, 4])
+def test_sort_ascending(comm):
+    CurrentMPIComm.set(comm)
+
+    # the mesh to sort
+    d = UniformCatalog(100, 1.0, use_cache=True)
+    d['mass'] = 10**(d.rng.uniform(low=12, high=15, size=d.size))
+    mesh = d.to_mesh(Nmesh=32)
+
+    # invalid sort key
+    with pytest.raises(ValueError):
+        mesh2 = mesh.sort('BadColumn', reverse=False)
+
+    # duplicate sort keys
+    with pytest.raises(ValueError):
+        mesh2 = mesh.sort('mass', 'mass')
+
+    # sort in ascending order by mass
+    mesh2 = mesh.sort('mass', reverse=False)
+
+    # make sure we have all the columns
+    assert all(col in mesh2 for col in mesh)
+
+    mass = numpy.concatenate(comm.allgather(mesh['mass']))
+    sorted_mass = numpy.concatenate(comm.allgather(mesh2['mass']))
+    assert_array_equal(numpy.sort(mass), sorted_mass)
+
+
 @MPITest([4])
 def test_tsc_interlacing(comm):
 
