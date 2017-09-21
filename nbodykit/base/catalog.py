@@ -1240,20 +1240,16 @@ class CatalogSource(CatalogSourceBase):
         if len(bad):
             raise ValueError("invalid sort keys: %s" %str(bad))
 
-        # include all columns by default
-        if usecols is None:
-            usecols = self.columns
-
         # check usecols input
-        if isinstance(usecols, string_types):
-            usecols = [usecols]
-        if not isinstance(usecols, (list, tuple)):
-            raise ValueError("usecols should be a list or tuple of column names")
+        if usecols is not None:
+            if isinstance(usecols, string_types):
+                usecols = [usecols]
+            if not isinstance(usecols, (list, tuple)):
+                raise ValueError("usecols should be a list or tuple of column names")
 
-        usecols = set(usecols)
-        bad = usecols - set(self.columns)
-        if len(bad):
-            raise ValueError("invalid column names in usecols: %s" %str(bad))
+            bad = set(usecols) - set(self.columns)
+            if len(bad):
+                raise ValueError("invalid column names in usecols: %s" %str(bad))
 
         # sort the data
         data = _sort_data(self.comm, self, list(keys), reverse=reverse, usecols=usecols)
@@ -1334,6 +1330,11 @@ def _sort_data(comm, cat, rankby, reverse=False, usecols=None):
     # determine which columns we need
     if usecols is None:
         usecols = cat.columns
+
+    # remove duplicates from usecols
+    usecols = list(set(usecols))
+
+    # the columns we need in the sort steps
     columns = list(set(rankby)|set(usecols))
 
     # make the data to sort
