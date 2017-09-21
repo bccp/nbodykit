@@ -124,7 +124,7 @@ class CatalogMesh(CatalogSource, MeshSource):
         # attach the meta-data from self to returned sliced CatalogMesh
         return toret.__finalize__(self)
 
-    def sort(self, *keys, reverse=False, usecols=None):
+    def sort(self, keys, reverse=False, usecols=None):
         """
         Sort the CatalogMesh object globally across all MPI ranks
         in ascending order by the input keys.
@@ -145,7 +145,7 @@ class CatalogMesh(CatalogSource, MeshSource):
             the name of the columns to include in the returned CatalogSource
         """
         # sort the base object
-        newbase = self.base.sort(*keys, reverse=reverse, usecols=usecols)
+        newbase = self.base.sort(keys, reverse=reverse, usecols=usecols)
 
         # view this base class as a CatalogMesh (with default CatalogMesh parameters)
         toret = newbase.view(self.__class__)
