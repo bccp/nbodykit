@@ -1192,7 +1192,7 @@ class CatalogSource(CatalogSourceBase):
             index = None
         index = self.comm.bcast(index)
 
-        # scatter the index back to all rankss
+        # scatter the index back to all ranks
         counts = self.comm.allgather(self.size)
         index = ScatterArray(self.compute(index), self.comm, root=0, counts=counts)
 
@@ -1212,8 +1212,8 @@ class CatalogSource(CatalogSourceBase):
 
     def sort(self, *keys, reverse=False, usecols=None):
         """
-        Return a CatalogSource, sorted globally (in ascending order) by the
-        input keys.
+        Return a CatalogSource, sorted globally across all MPI ranks
+        in ascending order by the input keys.
 
         Sort columns must be floating or integer type.
 
@@ -1253,7 +1253,7 @@ class CatalogSource(CatalogSourceBase):
                 raise ValueError("invalid column names in usecols: %s" %str(bad))
 
         # sort the data
-        data = _sort_data(self.comm, self, list(keys), reverse=reverse, usecols=list(usecols))
+        data = _sort_data(self.comm, self, list(keys), reverse=reverse, usecols=usecols)
 
         # get a dictionary of data
         cols = {}
