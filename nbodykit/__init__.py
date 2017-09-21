@@ -8,7 +8,7 @@ dask.set_options(get=dask.get)
 
 _global_options = {}
 _global_options['dask_cache_size'] = 1e9
-_global_options['dask_chunk_size'] = int(5e6)
+_global_options['dask_chunk_size'] = 100000
 
 class set_options(object):
     """

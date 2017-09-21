@@ -101,7 +101,7 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
         return self.attrs['species']
 
     @property
-    def hardcolumns(self):
+    def columns(self):
         """
         Columns for individual species can be accessed using a ``species/``
         prefix and the column name, i.e., ``data/Position``.
@@ -110,15 +110,14 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
                 for species in self.species
                 for col in self._sources[species].columns]
 
-    def get_hardcolumn(self, col):
+    @property
+    def hardcolumns(self):
         """
-        Hard columns are accessed via the underlying CatalogSource object
-        for each species.
-
-        Here, it is assumed that ``col`` is of the form ``species/column``.
+        Hardcolumn of the form ``species/name``
         """
-        species, name = col.split('/')
-        return self._sources[species][name]
+        return ['%s/%s' %(species, col)
+                for species in self.species
+                for col in self._sources[species].hardcolumns]
 
     def __getitem__(self, key):
         """
@@ -130,28 +129,24 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
           format: ``species/column``.
         """
         # return a new CatalogSource holding only the specific species
-        if isinstance(key, string_types) and key in self.species:
-            return self._sources[key]
+        if isinstance(key, string_types):
+            if key in self.species:
+                return self._sources[key]
+
+            species, subcol = split_column(key, self.species)
+            return CatalogSourceBase.__getitem__(self._sources[species], subcol)
 
         return CatalogSourceBase.__getitem__(self, key)
 
     def __setitem__(self, col, value):
         """
         Add columns to any of the species catalogs.
+
         .. note::
             New column names should be prefixed by 'species/' where
             'species' is a name in the :attr:`species` attribute.
         """
-        fields = col.split('/')
-        if len(fields) != 2:
-            msg = "new column names should be prefixed by 'species/' where "
-            msg += "'species' is one of %s" % str(self.species)
-            raise ValueError(msg)
-
-        species, subcol = fields
-        if species not in self.species:
-            args = (species, str(self.species))
-            raise ValueError("species '%s' is not valid; should be one of %s" %args)
+        species, subcol = split_column(col, self.species)
 
         # check size
         size = len(self._sources[species])
@@ -162,6 +157,14 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
 
         # add the column to the CatalogSource in "_sources"
         return CatalogSourceBase.__setitem__(self._sources[species], subcol, value)
+
+    def __delitem__(self, col):
+        """
+        Delete a column of the form ``species/column``
+        """
+        species, subcol = split_column(col, self.species)
+        return CatalogSourceBase.__delitem__(self._sources[species], subcol)
+
 
     def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4', interlaced=False,
                 compensated=False, window='cic', weight='Weight',
@@ -248,3 +251,19 @@ def check_species_metadata(name, attrs, species):
         raise ValueError("please specify ``%s`` attributes that are consistent for each species and for the multi species catalog; " % name)
 
     return _vals[0]
+
+def split_column(col, species):
+    """
+    Split the column name of the form 'species/name'
+    """
+    fields = col.split('/')
+    if len(fields) != 2:
+        msg = "new column names should be prefixed by 'species/' where "
+        msg += "'species' is one of %s" % str(species)
+        raise ValueError(msg)
+
+    this_species, subcol = fields
+    if this_species not in species:
+        args = (this_species, str(species))
+        raise ValueError("species '%s' is not valid; should be one of %s" %args)
+    return this_species, subcol
