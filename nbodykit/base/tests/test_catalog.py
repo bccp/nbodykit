@@ -7,6 +7,124 @@ from numpy.testing import assert_allclose, assert_array_equal
 
 setup_logging()
 
+@MPITest([1, 4])
+def test_bad_sort_type(comm):
+    CurrentMPIComm.set(comm)
+
+    d = UniformCatalog(100, 1.0, use_cache=True)
+    d['key'] = d.rng.choice(['central', 'satellite'], size=d.size)
+
+    # can only sort by floating or integers
+    with pytest.raises(ValueError):
+        cat = d.sort('key')
+
+@MPITest([1, 4])
+def test_sort_integers(comm):
+    CurrentMPIComm.set(comm)
+
+    # the catalog to sort
+    d = UniformCatalog(100, 1.0, use_cache=True)
+    d['key'] = d.rng.randint(low=0, high=10*d.size, size=d.size)
+
+    # sort in ascending order
+    cat = d.sort('key', reverse=False)
+
+    key = numpy.concatenate(comm.allgather(d['key']))
+    sorted_key = numpy.concatenate(comm.allgather(cat['key']))
+    assert_array_equal(numpy.sort(key), sorted_key)
+
+@MPITest([1, 4])
+def test_multiple_sorts(comm):
+    CurrentMPIComm.set(comm)
+
+    # the catalog to sort
+    d = UniformCatalog(100, 1.0, use_cache=True)
+    d['mass'] = 10**(d.rng.uniform(low=12, high=15, size=d.size))
+    d['key'] = d.rng.randint(low=0, high=10*d.size, size=d.size)
+
+    # sort using numpy
+    data = numpy.empty(d.csize, dtype=[('mass', float), ('key', int)])
+    for col in data.dtype.names:
+        data[col] = numpy.concatenate(comm.allgather(d[col]))
+    sorted_data = numpy.sort(data, order=['key', 'mass'])
+
+    # sort by key and then mass
+    cat = d.sort('key', 'mass', reverse=False)
+
+    # verify
+    for col in ['key', 'mass']:
+        sorted_col = numpy.concatenate(comm.allgather(cat[col]))
+        assert_array_equal(sorted_data[col], sorted_col)
+
+@MPITest([1, 4])
+def test_sort_usecols(comm):
+    CurrentMPIComm.set(comm)
+
+    # the catalog to sort
+    d = UniformCatalog(100, 1.0, use_cache=True)
+    d['mass'] = 10**(d.rng.uniform(low=12, high=15, size=d.size))
+    d['Test1'] = 1.0
+    d['Test2'] = 2.0
+    d['Test3'] = 3.0
+
+    # sort by key and then mass
+    with pytest.raises(ValueError):
+        cat = d.sort('mass', reverse=False, usecols='BadColumn')
+
+    # bad usecols type
+    with pytest.raises(ValueError):
+        cat = d.sort('mass', usecols=False)
+
+    # only select Test2 and Test3
+    usecols = ['Test2', 'Test3']
+    cat = d.sort('mass', reverse=False, usecols=usecols)
+
+    # we should have usecols + defaults
+    columns = ['Selection', 'Weight', 'Value'] + usecols
+    assert all(col in columns for col in cat), str(cat.columns)
+
+
+@MPITest([1, 4])
+def test_sort_ascending(comm):
+    CurrentMPIComm.set(comm)
+
+    # the catalog to sort
+    d = UniformCatalog(100, 1.0, use_cache=True)
+    d['mass'] = 10**(d.rng.uniform(low=12, high=15, size=d.size))
+
+    # invalid sort key
+    with pytest.raises(ValueError):
+        cat = d.sort('BadColumn', reverse=False)
+
+    # duplicate sort keys
+    with pytest.raises(ValueError):
+        cat = d.sort('mass', 'mass')
+
+    # sort in ascending order by mass
+    cat = d.sort('mass', reverse=False)
+
+    # make sure we have all the columns
+    assert all(col in cat for col in d)
+
+    mass = numpy.concatenate(comm.allgather(d['mass']))
+    sorted_mass = numpy.concatenate(comm.allgather(cat['mass']))
+    assert_array_equal(numpy.sort(mass), sorted_mass)
+
+@MPITest([1, 4])
+def test_sort_descending(comm):
+    CurrentMPIComm.set(comm)
+
+    # the catalog to sort
+    d = UniformCatalog(100, 1.0, use_cache=True)
+    d['mass'] = 10**(d.rng.uniform(low=12, high=15, size=d.size))
+
+    # sort in descending order by mass
+    cat = d.sort('mass', reverse=True)
+
+    mass = numpy.concatenate(comm.allgather(d['mass']))
+    sorted_mass = numpy.concatenate(comm.allgather(cat['mass']))
+    assert_array_equal(numpy.sort(mass)[::-1], sorted_mass)
+
 
 @MPITest([1, 4])
 def test_consecutive_selections(comm):

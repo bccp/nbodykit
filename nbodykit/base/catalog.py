@@ -1215,6 +1215,8 @@ class CatalogSource(CatalogSourceBase):
         Return a CatalogSource, sorted globally (in ascending order) by the
         input keys.
 
+        Sort columns must be floating or integer type.
+
         .. note::
             After the sort operation, the data is scattered evenly across
             all ranks.
@@ -1229,8 +1231,29 @@ class CatalogSource(CatalogSourceBase):
         usecols : list, optional
             the name of the columns to include in the returned CatalogSource
         """
+        # no duplicated keys
+        if len(set(keys)) != len(keys):
+            raise ValueError("duplicated sort keys")
+
+        # all keys must be valid
+        bad = set(keys) - set(self.columns)
+        if len(bad):
+            raise ValueError("invalid sort keys: %s" %str(bad))
+
+        # check usecols input
+        if usecols is not None:
+            if isinstance(usecols, string_types):
+                usecols = [usecols]
+            if not isinstance(usecols, (list, tuple)):
+                raise ValueError("usecols should be a list or tuple of column names")
+
+            usecols = set(usecols)
+            bad = usecols - set(self.columns)
+            if len(bad):
+                raise ValueError("invalid column names in usecols: %s" %str(bad))
+
         # sort the data
-        data = sort_data(self.comm, self, list(keys), reverse=reverse, usecols=usecols)
+        data = _sort_data(self.comm, self, list(keys), reverse=reverse, usecols=list(usecols))
 
         # get a dictionary of data
         cols = {}
@@ -1239,9 +1262,16 @@ class CatalogSource(CatalogSourceBase):
 
         # make the new CatalogSource from the data dict
         size = len(data)
-        toret = self.__class__._from_columns(size, self.comm, **cols)
-        return toret.__finalize__(self)
 
+        # NOTE: if we are slicing by columns too, we must return a bare CatalogSource
+        # we cannot guarantee the consistency of the hard column definitions otherwise
+        if usecols is None:
+            toret = self.__class__._from_columns(size, self.comm, **cols)
+            return toret.__finalize__(self)
+        else:
+            toret = CatalogSource._from_columns(size, self.comm, **cols)
+            toret.attrs.update(self.attrs)
+            return toret
 
     @column
     def Selection(self):
@@ -1279,29 +1309,34 @@ class CatalogSource(CatalogSourceBase):
         return ConstantArray(1.0, self.size, chunks=_global_options['dask_chunk_size'])
 
 
-def sort_data(comm, cat, rankby, reverse=False, usecols=None):
+def _sort_data(comm, cat, rankby, reverse=False, usecols=None):
     """
     Sort the input data by the specified columns
 
-    The columns to use to rank are passed in as ``rankby_names``. If
-    the dtype of those columns is floating, unique integer
-    keys will be generated
+    Parameters
+    ----------
+    comm :
+        the mpi communicator
+    cat : CatalogSource
+        the catalog holding the data to sort
+    rankby : list of str
+        list of columns to sort by
+    reverse : bool, optional
+        if ``True``, sort in descending order
+    usecols : list, optional
+        only sort these data columns
     """
     import mpsort
 
     # determine which columns we need
     if usecols is None:
         usecols = cat.columns
-    usecols = list(set(rankby)|set(usecols))
-
-    # need all of the rankby names
-    for name in rankby:
-        assert name in cat
+    columns = list(set(rankby)|set(usecols))
 
     # make the data to sort
-    dtype = [('key', 'i8')]
+    dtype = [('_sortkey', 'i8')]
     for col in cat:
-        if col in usecols:
+        if col in columns:
             dt = (cat[col].dtype.char,)
             dt += cat[col].shape[1:]
             if len(dt) == 1: dt = dt[0]
@@ -1309,7 +1344,7 @@ def sort_data(comm, cat, rankby, reverse=False, usecols=None):
     dtype = numpy.dtype(dtype)
 
     data = numpy.empty(cat.size, dtype=dtype)
-    for col in usecols:
+    for col in columns:
         data[col] = cat[col]
 
     # sort the particles by the specified columns and store the
@@ -1320,10 +1355,10 @@ def sort_data(comm, cat, rankby, reverse=False, usecols=None):
 
         # make an integer key for floating columns
         if issubclass(dt.type, numpy.floating):
-            data['key'] = numpy.fromstring(data[col].tobytes(), dtype='i8')
+            data['_sortkey'] = numpy.fromstring(data[col].tobytes(), dtype='i8')
             if reverse:
-                data['key'] *= -1
-            rankby_name = 'key'
+                data['_sortkey'] *= -1
+            rankby_name = '_sortkey'
         elif not issubclass(dt.type, numpy.integer):
             args = (col, str(dt))
             raise ValueError("cannot sort by column '%s' with dtype '%s'; must be integer or floating type" %args)
@@ -1331,4 +1366,4 @@ def sort_data(comm, cat, rankby, reverse=False, usecols=None):
         # do the parallel sort
         mpsort.sort(data, orderby=rankby_name, comm=comm)
 
-    return data
+    return data[usecols]
