@@ -117,8 +117,12 @@ class CatalogMesh(CatalogSource, MeshSource):
         """
         # sort the base object
         newbase = self.base.sort(*keys, reverse=reverse, usecols=usecols)
-        self.base = newbase
-        return self
+
+        # view this base class as a CatalogMesh (with default CatalogMesh parameters)
+        toret = newbase.view(self.__class__)
+
+        # attach the meta-data from self to returned sliced CatalogMesh
+        return toret.__finalize__(self)
 
     def __slice__(self, index):
         """
