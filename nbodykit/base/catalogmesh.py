@@ -95,6 +95,35 @@ class CatalogMesh(CatalogSource, MeshSource):
 
         return obj
 
+    def gslice(self, start, stop, end=1):
+        """
+        Execute a global slice of a CatalogMesh.
+
+        .. note::
+            After the global slice is performed, the data is scattered
+            evenly across all ranks.
+
+        As CatalogMesh objects are views of a CatalogSource, this simply
+        globally slices the underlying CatalogSource.
+
+        Parameters
+        ----------
+        start : int
+            the start index of the global slice
+        stop : int
+            the stop index of the global slice
+        step : int, optional
+            the default step size of the global size
+        """
+        # sort the base object
+        newbase = self.base.gslice(start, stop, end)
+
+        # view this base class as a CatalogMesh (with default CatalogMesh parameters)
+        toret = newbase.view(self.__class__)
+
+        # attach the meta-data from self to returned sliced CatalogMesh
+        return toret.__finalize__(self)
+
     def sort(self, *keys, reverse=False, usecols=None):
         """
         Sort the CatalogMesh object globally across all MPI ranks
