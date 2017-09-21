@@ -159,6 +159,21 @@ the ``--user`` or ``--root <dir>`` options of the ``pip install`` command.
 nbodykit on NERSC
 -----------------
 
+.. note::
+
+    This section covers using nbodykit on the computing nodes of NERSC.
+    The computing nodes requires special care because they do not work with
+    the simple MPI provided from Anaconda.
+
+
+    If instead you wish to use nbodykit on the login nodes of NERSC or the
+    Jupyter Hub services (available at https://jupyter.nersc.gov and
+    https://jupyter-dev.nersc.gov/), users should follow the
+    :ref:`Anaconda installation instructions <conda-installation>`
+    to install nbodykit. The login nodes and JuptyerHub machines are very
+    similar to standard computers. For more information on the JupyterHub
+    services, see `the official NERSC guide`_.
+
 Development and testing of nbodykit was performed on the `NERSC`_ super-computing
 machines at Lawrence Berkeley National Laboratory. We maintain a daily build of
 the latest stable version of nbodykit on NERSC systems for Python versions
@@ -234,3 +249,4 @@ current working directory.
 .. _`NERSC`: http://www.nersc.gov/systems/
 .. _`Edison`: https://www.nersc.gov/users/computational-systems/edison/
 .. _`Cori`: https://www.nersc.gov/users/computational-systems/cori
+.. _`the official NERSC guide`: http://www.nersc.gov/users/data-analytics/data-analytics-2/jupyter-and-rstudio/
