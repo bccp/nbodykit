@@ -1231,6 +1231,10 @@ class CatalogSource(CatalogSourceBase):
         usecols : list, optional
             the name of the columns to include in the returned CatalogSource
         """
+        # single string passed as input
+        if isinstance(keys, string_types):
+            keys = [keys]
+
         # no duplicated keys
         if len(set(keys)) != len(keys):
             raise ValueError("duplicated sort keys")
