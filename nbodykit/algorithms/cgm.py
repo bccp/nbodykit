@@ -162,7 +162,7 @@ class CylindricalGroups(object):
         self.source['origind'] = origind
 
         # sort the data
-        data = self.source.sort(*self.attrs['rankby'], usecols=['Position', 'origind'])
+        data = self.source.sort(self.attrs['rankby'], usecols=['Position', 'origind'])
 
         # add a column to track sorted index
         sortindex = numpy.arange(sizes[comm.rank], dtype='u4')

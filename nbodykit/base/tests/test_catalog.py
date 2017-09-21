@@ -72,7 +72,7 @@ def test_multiple_sorts(comm):
     sorted_data = numpy.sort(data, order=['key', 'mass'])
 
     # sort by key and then mass
-    cat = d.sort('key', 'mass', reverse=False)
+    cat = d.sort(['key', 'mass'], reverse=False)
 
     # verify
     for col in ['key', 'mass']:
@@ -121,7 +121,7 @@ def test_sort_ascending(comm):
 
     # duplicate sort keys
     with pytest.raises(ValueError):
-        cat = d.sort('mass', 'mass')
+        cat = d.sort(['mass', 'mass'])
 
     # sort in ascending order by mass
     cat = d.sort('mass', reverse=False)

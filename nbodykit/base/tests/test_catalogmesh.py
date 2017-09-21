@@ -47,7 +47,7 @@ def test_sort_ascending(comm):
 
     # duplicate sort keys
     with pytest.raises(ValueError):
-        mesh2 = mesh.sort('mass', 'mass')
+        mesh2 = mesh.sort(['mass', 'mass'])
 
     # sort in ascending order by mass
     mesh2 = mesh.sort('mass', reverse=False)

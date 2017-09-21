@@ -1210,7 +1210,7 @@ class CatalogSource(CatalogSourceBase):
         toret = self.__class__._from_columns(size, self.comm, **data)
         return toret.__finalize__(self)
 
-    def sort(self, *keys, reverse=False, usecols=None):
+    def sort(self, keys, reverse=False, usecols=None):
         """
         Return a CatalogSource, sorted globally across all MPI ranks
         in ascending order by the input keys.
@@ -1223,7 +1223,7 @@ class CatalogSource(CatalogSourceBase):
 
         Parameters
         ----------
-        *keys :
+        keys : list, tuple
             the names of columns to sort by. If multiple columns are provided,
             the data is sorted consecutively in the order provided
         reverse : bool, optional
