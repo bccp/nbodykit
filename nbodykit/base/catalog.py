@@ -1240,17 +1240,20 @@ class CatalogSource(CatalogSourceBase):
         if len(bad):
             raise ValueError("invalid sort keys: %s" %str(bad))
 
-        # check usecols input
-        if usecols is not None:
-            if isinstance(usecols, string_types):
-                usecols = [usecols]
-            if not isinstance(usecols, (list, tuple)):
-                raise ValueError("usecols should be a list or tuple of column names")
+        # include all columns by default
+        if usecols is None:
+            usecols = self.columns
 
-            usecols = set(usecols)
-            bad = usecols - set(self.columns)
-            if len(bad):
-                raise ValueError("invalid column names in usecols: %s" %str(bad))
+        # check usecols input
+        if isinstance(usecols, string_types):
+            usecols = [usecols]
+        if not isinstance(usecols, (list, tuple)):
+            raise ValueError("usecols should be a list or tuple of column names")
+
+        usecols = set(usecols)
+        bad = usecols - set(self.columns)
+        if len(bad):
+            raise ValueError("invalid column names in usecols: %s" %str(bad))
 
         # sort the data
         data = _sort_data(self.comm, self, list(keys), reverse=reverse, usecols=usecols)
