@@ -100,20 +100,20 @@ def test_1d_periodic_cross(comm):
     CurrentMPIComm.set(comm)
 
     BoxSize = 512.
-    source1 = UniformCatalog(nbar=3e-6, BoxSize=BoxSize, seed=42)
-    source2 = UniformCatalog(nbar=3e-6, BoxSize=BoxSize, seed=84)
+    first = UniformCatalog(nbar=3e-6, BoxSize=BoxSize, seed=42)
+    second = UniformCatalog(nbar=3e-6, BoxSize=BoxSize, seed=84)
 
     # make the bin edges
     redges = numpy.linspace(10, 150, 10)
 
     # do the paircount
-    r = SimulationBoxPairCount('1d', source1, redges, source2=source2, periodic=True)
+    r = SimulationBoxPairCount('1d', first, redges, second=second, periodic=True)
 
-    pos1 = gather_data(source1, "Position")
-    pos2 = gather_data(source2, "Position")
+    pos1 = gather_data(first, "Position")
+    pos2 = gather_data(second, "Position")
 
     # verify with kdcount
-    npairs, ravg, wsum = kcount_paircount(pos1, None, redges, 0, source1.attrs['BoxSize'], pos2=pos2)
+    npairs, ravg, wsum = kcount_paircount(pos1, None, redges, 0, first.attrs['BoxSize'], pos2=pos2)
     assert_allclose(ravg, r.result['r'])
     assert_allclose(npairs, r.result['npairs'])
     assert_allclose(wsum, r.result['npairs'] * r.result['weightavg'])
@@ -205,21 +205,21 @@ def test_2d_periodic_cross(comm):
     CurrentMPIComm.set(comm)
 
     BoxSize = 512.
-    source1 = UniformCatalog(nbar=3e-6, BoxSize=BoxSize, seed=42)
-    source2 = UniformCatalog(nbar=3e-6, BoxSize=BoxSize, seed=84)
+    first = UniformCatalog(nbar=3e-6, BoxSize=BoxSize, seed=42)
+    second = UniformCatalog(nbar=3e-6, BoxSize=BoxSize, seed=84)
 
     # make the bin edges
     redges = numpy.linspace(10, 40., 10)
     Nmu = 10
 
     # do the paircount
-    r = SimulationBoxPairCount('2d', source1, redges, source2=source2, periodic=True, Nmu=10)
+    r = SimulationBoxPairCount('2d', first, redges, second=second, periodic=True, Nmu=10)
 
-    pos1 = gather_data(source1, "Position")
-    pos2 = gather_data(source2, "Position")
+    pos1 = gather_data(first, "Position")
+    pos2 = gather_data(second, "Position")
 
     # verify with kdcount
-    npairs, ravg, wsum = kcount_paircount(pos1, None, redges, Nmu, source1.attrs['BoxSize'], pos2=pos2)
+    npairs, ravg, wsum = kcount_paircount(pos1, None, redges, Nmu, first.attrs['BoxSize'], pos2=pos2)
     assert_allclose(ravg, r.result['r'])
     assert_allclose(npairs, r.result['npairs'])
     assert_allclose(wsum, r.result['npairs'] * r.result['weightavg'])
@@ -286,21 +286,21 @@ def test_bad_boxsize(comm):
     CurrentMPIComm.set(comm)
 
     # uniform source of particles
-    source1 = UniformCatalog(nbar=3e-5, BoxSize=512.0, seed=42)
-    source2 = UniformCatalog(nbar=3e-5, BoxSize=256.0, seed=42)
+    first = UniformCatalog(nbar=3e-5, BoxSize=512.0, seed=42)
+    second = UniformCatalog(nbar=3e-5, BoxSize=256.0, seed=42)
 
     # make the bin edges
     redges = numpy.linspace(10, 50., 10)
 
     # box sizes are different
     with pytest.raises(ValueError):
-        r = SimulationBoxPairCount('1d', source1, redges, source2=source2)
+        r = SimulationBoxPairCount('1d', first, redges, second=second)
 
     # specified different value
     with pytest.raises(ValueError):
-        r = SimulationBoxPairCount('1d', source2, redges, BoxSize=300.)
+        r = SimulationBoxPairCount('1d', second, redges, BoxSize=300.)
 
     # no boxSize
-    del source1.attrs['BoxSize']
+    del first.attrs['BoxSize']
     with pytest.raises(ValueError):
-        r = SimulationBoxPairCount('1d', source1, redges)
+        r = SimulationBoxPairCount('1d', first, redges)
