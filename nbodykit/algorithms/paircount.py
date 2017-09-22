@@ -284,7 +284,7 @@ class SimulationBoxPairCount(PairCountBase):
             w2   = layout.exchange(w2)
 
         # log the sizes of the trees
-        self._log_stats(pos1, pos2)
+        self._log(pos1, pos2)
 
         # do the pair counting
         kws = {}
