@@ -311,7 +311,7 @@ class SimulationBoxPairCount(PairCountBase):
                 # capture output for everything but root
                 with captured_output(self.comm, root=0):
                     pc = Corrfunc.theory.DD(0, 1, redges, **kws)
-            except e:
+            except Exception as e:
                 raise RuntimeError("error when calling Corrfunc.theory.DD function: " + str(e))
             rcol = 'ravg'
 
@@ -323,7 +323,7 @@ class SimulationBoxPairCount(PairCountBase):
                 # capture output for everything but root
                 with captured_output(self.comm, root=0):
                     pc = Corrfunc.theory.DDsmu(0, 1, redges, 1.0, self.attrs['Nmu'], **kws)
-            except e:
+            except Exception as e:
                 raise RuntimeError("error when calling Corrfunc.theory.DDsmu function: " + str(e))
             pc = pc.reshape((-1, self.attrs['Nmu']))
             rcol = 'savg'
@@ -559,7 +559,7 @@ class SurveyDataPairCount(PairCountBase):
                 # capture output for everything but root
                 with captured_output(self.comm, root=0):
                     pc = Corrfunc.mocks.DDsmu_mocks(0, 1, 1, Nmu, 1.0, redges, **kws)
-            except e:
+            except Exception as e:
                 raise RuntimeError("error when calling Corrfunc.mocks.DDsmu_mocks function: %s" %str(e))
             pc = pc.reshape((-1, Nmu))
 
