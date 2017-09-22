@@ -3,6 +3,36 @@ from mpi4py import MPI
 import warnings
 import functools
 
+def get_position_bounds(pos, comm):
+    """
+    Determine the global minimum/maximum of the Position of a
+    CatalogSource.
+
+    Parameters
+    ----------
+    position : numpy.ndarray
+        the position data
+
+    Returns
+    -------
+    min, max :
+        the min/max position arrays
+    """
+    assert isinstance(pos, numpy.ndarray)
+
+    # min/max of position array
+    pos_min = numpy.ones(3) * (numpy.inf)
+    pos_max = numpy.ones(3) * (-numpy.inf)
+    if len(pos):
+        pos_min = pos.min(axis=0)
+        pos_max = pos.max(axis=0)
+
+    # global min/max across all ranks
+    pos_min = numpy.asarray(comm.allgather(pos_min)).min(axis=0)
+    pos_max = numpy.asarray(comm.allgather(pos_max)).max(axis=0)
+
+    return pos_min, pos_max
+
 def split_size_3d(s):
     """
     Split `s` into three integers, a, b, c, such
