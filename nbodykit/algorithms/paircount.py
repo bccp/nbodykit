@@ -1,6 +1,8 @@
 import numpy
 import logging
 from six import string_types
+from contextlib import contextmanager
+import os, sys
 
 from nbodykit import CurrentMPIComm
 from nbodykit.binned_statistic import BinnedStatistic
@@ -16,7 +18,7 @@ except:
 class PairCountBase(object):
     """
     Base class for pair counting algorithms, either for a simulation box
-    or survey data. 
+    or survey data.
 
     Do not use this class directly. Use :class:`SimulationBoxPairCount` or :class:`SurveyDataPairCount`.
 
@@ -24,21 +26,21 @@ class PairCountBase(object):
     ----------
     mode : {'1d', '2d'}
         compute paircounts as a function of ``r`` and ``mu`` or just ``r``
-    source1 : CatalogSource
+    first : CatalogSource
         the first source of particles
-    source2 : CatalogSource, optional
+    second : CatalogSource, optional
         the second source of particles to cross-correlate
     redges : array_like
         the radius bin edges; length of nbins+1
     Nmu : int
         the number of ``mu`` bins to use; bins range from [0,1]
     """
-    def __init__(self, mode, source1, source2, redges, Nmu):
+    def __init__(self, mode, first, second, redges, Nmu):
 
         assert mode in ['1d', '2d'], "PairCount mode must be '1d' or '2d'"
-        self.source1 = source1
-        self.source2 = source2
-        self.comm = source1.comm
+        self.first = first
+        self.second = second
+        self.comm = first.comm
 
         # save the meta-data
         self.attrs = {}
@@ -57,6 +59,23 @@ class PairCountBase(object):
         else:
             muedges = numpy.linspace(0, 1., self.attrs['Nmu']+1)
             self.result = BinnedStatistic(['r', 'mu'], [redges, muedges], self.result, fields_to_sum=['npairs'])
+
+    def _log(self, pos1, pos2):
+        """
+        Log some stats about the distribution of correlating particles
+        """
+        # global counts
+        N1 = self.comm.allreduce(len(pos1))
+        N2 = self.comm.allreduce(len(pos2))
+        if self.comm.rank == 0:
+            self.logger.info('correlating %d x %d objects in total' %(N1, N2))
+
+        all_sizes = self.comm.gather(len(pos1), root=0)
+        if self.comm.rank == 0:
+            self.logger.info("min number of objects correlated on a rank = %d" %numpy.min(all_sizes))
+            self.logger.info("max number of objects correlated on a rank = %d" %numpy.max(all_sizes))
+            self.logger.info("median number of objects correlated on a rank = %d" %numpy.median(all_sizes))
+            self.logger.info("  (even distribution should result in %d objects)" % (N1//self.comm.size))
 
     def save(self, output):
         """
@@ -115,14 +134,14 @@ class SimulationBoxPairCount(PairCountBase):
     ----------
     mode : {'1d', '2d'}
         compute pair counts as a function of ``r`` and ``mu`` or just ``r``
-    source1 : CatalogSource
+    first : CatalogSource
         the first source of particles, providing the 'Position' column
     redges : array_like
         the radius bin edges; length of nbins+1
     BoxSize : float, 3-vector, optional
         the size of the box; if 'BoxSize' is not provided in the source
         'attrs', it must be provided here
-    source2 : CatalogSource, optional
+    second : CatalogSource, optional
         the second source of particles to cross-correlate
     Nmu : int, optional
         the number of ``mu`` bins, ranging from 0 to 1
@@ -139,8 +158,8 @@ class SimulationBoxPairCount(PairCountBase):
     """
     logger = logging.getLogger('SimulationBoxPairCount')
 
-    def __init__(self, mode, source1, redges, BoxSize=None, periodic=True,
-                    source2=None, Nmu=5, los='z', weight='Weight', **config):
+    def __init__(self, mode, first, redges, BoxSize=None, periodic=True,
+                    second=None, Nmu=5, los='z', weight='Weight', **config):
 
         if isinstance(los, string_types):
             assert los in 'xyz', "``los`` should be one of 'x', 'y', 'z'"
@@ -152,10 +171,10 @@ class SimulationBoxPairCount(PairCountBase):
             raise ValueError("``los`` should be either ['x', 'y', 'z'] or [0,1,2]")
 
         # verify the input sources
-        BoxSize = verify_input_sources(source1, source2, BoxSize, ['Position', weight])
+        BoxSize = verify_input_sources(first, second, BoxSize, ['Position', weight])
 
         # init the base class
-        PairCountBase.__init__(self, mode, source1, source2, redges, Nmu)
+        PairCountBase.__init__(self, mode, first, second, redges, Nmu)
 
         # save the meta-data
         self.attrs['BoxSize'] = BoxSize
@@ -225,26 +244,22 @@ class SimulationBoxPairCount(PairCountBase):
             self.logger.info("using cpu grid decomposition: %s" %str(np))
 
         # get the (periodic-enforced) position
-        pos1 = self.source1['Position']
+        pos1 = self.first['Position']
         if self.attrs['periodic']:
             pos1 %= boxsize
-        pos1, w1 = self.source1.compute(pos1, self.source1[self.attrs['weight']])
+        pos1, w1 = self.first.compute(pos1, self.first[self.attrs['weight']])
         N1 = comm.allreduce(len(pos1))
 
-        if self.source2 is not None:
-            pos2 = self.source2['Position']
+        if self.second is not None:
+            pos2 = self.second['Position']
             if self.attrs['periodic']:
                 pos2 %= boxsize
-            pos2, w2 = self.source2.compute(pos2, self.source2[self.attrs['weight']])
+            pos2, w2 = self.second.compute(pos2, self.second[self.attrs['weight']])
             N2 = comm.allreduce(len(pos2))
         else:
             pos2 = pos1
             w2 = w1
             N2 = N1
-
-        # global min/max across all ranks
-        posmin = numpy.asarray(comm.allgather(pos1.min(axis=0))).min(axis=0)
-        posmax = numpy.asarray(comm.allgather(pos1.max(axis=0))).max(axis=0)
 
         # domain decomposition
         grid = [
@@ -269,8 +284,7 @@ class SimulationBoxPairCount(PairCountBase):
             w2   = layout.exchange(w2)
 
         # log the sizes of the trees
-        self.logger.info('rank %d correlating %d x %d' %(comm.rank, len(pos1), len(pos2)))
-        if comm.rank == 0: self.logger.info('all correlating %d x %d' %(N1, N2))
+        self._log_stats(pos1, pos2)
 
         # do the pair counting
         kws = {}
@@ -286,7 +300,7 @@ class SimulationBoxPairCount(PairCountBase):
         kws['weight_type'] = 'pair_product'
         if L is not None: kws['boxsize'] = L
 
-        # 1D or 2D calculations
+        # 1D calculation
         if self.attrs['mode'] == '1d':
             kws['output_ravg'] = True
             kws.update(self.attrs['config'])
@@ -294,21 +308,27 @@ class SimulationBoxPairCount(PairCountBase):
             # FIXME: I am not sure why we try to wrap these errors at all? It creates a very confusing
             # backtrace in pdb ...
             try:
-                pc = Corrfunc.theory.DD(0, 1, redges, **kws)
+                # capture output for everything but root
+                with captured_output(self.comm, root=0):
+                    pc = Corrfunc.theory.DD(0, 1, redges, **kws)
             except e:
                 raise RuntimeError("error when calling Corrfunc.theory.DD function: " + str(e))
             rcol = 'ravg'
+
+        # 2D calculation
         else:
             kws['output_savg'] = True
             kws.update(self.attrs['config'])
             try:
-                pc = Corrfunc.theory.DDsmu(0, 1, redges, 1.0, self.attrs['Nmu'], **kws)
+                # capture output for everything but root
+                with captured_output(self.comm, root=0):
+                    pc = Corrfunc.theory.DDsmu(0, 1, redges, 1.0, self.attrs['Nmu'], **kws)
             except e:
                 raise RuntimeError("error when calling Corrfunc.theory.DDsmu function: " + str(e))
             pc = pc.reshape((-1, self.attrs['Nmu']))
             rcol = 'savg'
 
-        self.logger.info('...rank %d done correlating' %(comm.rank))
+        self.logger.debug('...rank %d done correlating' %(comm.rank))
 
         # make a new structured array
         dtype = numpy.dtype([('r', 'f8'), ('xi', 'f8'), ('npairs', 'f8'), ('weightavg', 'f8')])
@@ -368,13 +388,13 @@ class SurveyDataPairCount(PairCountBase):
     ----------
     mode : {'1d', '2d'}
         compute paircounts as a function of ``r`` and ``mu`` or just ``r``
-    source1 : CatalogSource
+    first : CatalogSource
         the first source of particles, providing the 'Position' column
     redges : array_like
         the radius bin edges; length of nbins+1
     cosmo : :class:`~nbodykit.cosmology.core.Cosmology`
         the cosmology instance used to convert redshift into comoving distance
-    source2 : CatalogSource, optional
+    second : CatalogSource, optional
         the second source of particles to cross-correlate
     Nmu : int, optional
         the number of ``mu`` bins, ranging from 0 to 1
@@ -394,14 +414,14 @@ class SurveyDataPairCount(PairCountBase):
     """
     logger = logging.getLogger('SurveyDataPairCount')
 
-    def __init__(self, mode, source1, redges, cosmo, source2=None, Nmu=5,
+    def __init__(self, mode, first, redges, cosmo, second=None, Nmu=5,
                     ra='RA', dec='DEC', redshift='Redshift', weight='Weight', **config):
 
         # verify the input sources
-        verify_input_sources(source1, source2, None, [ra, dec, redshift, weight], inspect_boxsize=False)
+        verify_input_sources(first, second, None, [ra, dec, redshift, weight], inspect_boxsize=False)
 
         # init the base class
-        PairCountBase.__init__(self, mode, source1, source2, redges, Nmu)
+        PairCountBase.__init__(self, mode, first, second, redges, Nmu)
 
         # save the meta-data
         self.attrs['cosmo'] = cosmo
@@ -451,31 +471,70 @@ class SurveyDataPairCount(PairCountBase):
         if self.comm.rank == 0:
             self.logger.info("using cpu grid decomposition: %s" %str(np))
 
-        # get the (periodic-enforced) position
-        pos1 = StackColumns(*[self.source1[col] for col in poscols]) # this is RA, DEC, REDSHIFT
-        pos1, w1 = self.source1.compute(pos1, self.source1[self.attrs['weight']])
-        rdist1 = get_comoving_dist(comm, pos1, self.attrs['cosmo'])
-        pos1[:,2] = rdist1
-        N1 = comm.allreduce(len(pos1))
+        # pos=(ra,dec,z) and weights for first
+        pos1 = StackColumns(*[self.first[col] for col in poscols]) # this is RA, DEC, REDSHIFT
+        pos1, w1 = self.first.compute(pos1, self.first[self.attrs['weight']])
 
-        if self.source2 is not None:
-            pos2 = StackColumns(*[self.source2[col] for col in poscols])
-            pos2, w2 = self.source2.compute(pos2, self.source2[self.attrs['weight']])
-            rdist2 = get_comoving_dist(comm, pos2, self.attrs['cosmo'])
+        # get comoving dist and boxsize for first
+        rdist1, cpos1, boxsize1 = get_cartesian(comm, pos1, self.attrs['cosmo'])
+
+        # pass in comoving dist to Corrfunc instead of redshift
+        pos1[:,2] = rdist1
+
+        # set up position for second too
+        if self.second is not None:
+
+            # pos=(ra,dec,z) and weights
+            pos2 = StackColumns(*[self.second[col] for col in poscols])
+            pos2, w2 = self.second.compute(pos2, self.second[self.attrs['weight']])
+
+            # get comoving dist and boxsize
+            rdist2, cpos2, boxsize2 = get_cartesian(comm, pos2, self.attrs['cosmo'])
+
+            # pass in comoving distance instead of redshift
             pos2[:,2] = rdist2
-            N2 = comm.allreduce(len(pos2))
         else:
             pos2 = pos1
             w2 = w1
-            N2 = N1
+            boxsize2 = boxsize1
+            cpos2 = cpos1
 
-        # the source2 particles
-        pos2 = numpy.concatenate(comm.allgather(pos2), axis=0)
-        w2   = numpy.concatenate(comm.allgather(w2), axis=0)
+        # determine global boxsize
+        if self.second is None:
+            boxsize = boxsize1
+        else:
+            boxsizes = numpy.vstack([boxsize1, boxsize2])
+            argmax = numpy.argmax(boxsizes, axis=0)
+            boxsize = boxsizes[argmax, [0,1,2]]
+
+        # domain decomposition
+        grid = [
+            numpy.linspace(-0.5*boxsize[0], 0.5*boxsize[0], 2*np[0] + 1, endpoint=True),
+            numpy.linspace(-0.5*boxsize[1], 0.5*boxsize[1], 2*np[1] + 1, endpoint=True),
+            numpy.linspace(-0.5*boxsize[2], 0.5*boxsize[2], 2*np[2] + 1, endpoint=True),
+        ]
+        domain = GridND(grid, comm=comm)
+
+        # balance the load
+        domain.loadbalance(domain.load(cpos1))
+
+        # decompose based on cartesian positions
+        layout = domain.decompose(cpos1, smoothing=0)
+        pos1   = layout.exchange(pos1)
+        w1     = layout.exchange(w1)
+
+        # get the position/weight of the secondaries
+        rmax = numpy.max(redges)
+        if rmax > boxsize.max() * 0.25:
+            pos2 = numpy.concatenate(comm.allgather(pos2), axis=0)
+            w2   = numpy.concatenate(comm.allgather(w2), axis=0)
+        else:
+            layout  = domain.decompose(cpos2, smoothing=rmax)
+            pos2 = layout.exchange(pos2)
+            w2   = layout.exchange(w2)
 
         # log the sizes of the trees
-        self.logger.info('rank %d correlating %d x %d' %(comm.rank, len(pos1), len(pos2)))
-        if comm.rank == 0: self.logger.info('all correlating %d x %d' %(N1, N2))
+        self._log(pos1, pos2)
 
         if not len(pos1) or not len(pos2):
             dtype = [('savg', 'f8'), ('npairs', 'u8'), ('weightavg', 'f8')]
@@ -497,12 +556,14 @@ class SurveyDataPairCount(PairCountBase):
             kws.update(self.attrs['config'])
 
             try:
-                pc = Corrfunc.mocks.DDsmu_mocks(0, 1, 1, Nmu, 1.0, redges, **kws)
-            except:
-                raise RuntimeError("error when calling Corrfunc.mocks.DDsmu_mocks function")
+                # capture output for everything but root
+                with captured_output(self.comm, root=0):
+                    pc = Corrfunc.mocks.DDsmu_mocks(0, 1, 1, Nmu, 1.0, redges, **kws)
+            except e:
+                raise RuntimeError("error when calling Corrfunc.mocks.DDsmu_mocks function: %s" %str(e))
             pc = pc.reshape((-1, Nmu))
 
-        self.logger.info('...rank %d done correlating' %(comm.rank))
+        self.logger.debug('...rank %d done correlating' %(comm.rank))
 
         # make a new structured array
         dtype = numpy.dtype([('r', 'f8'), ('npairs', 'f8'), ('weightavg', 'f8')])
@@ -557,15 +618,49 @@ def verify_input_sources(first, second, BoxSize, required_columns, inspect_boxsi
 
         return _BoxSize
 
-def get_comoving_dist(comm, pos, cosmo):
+def get_cartesian(comm, pos, cosmo):
     """
-    Return comoving distances from RA, DEC, Redshift
+    Return comoving distances and box size from RA, DEC, Redshift
 
     ``pos`` has 3 columns giving: ra, dec, redshift
     """
+    from nbodykit.utils import get_position_bounds
+
+    # get RA, DEC, REDSHIFT
     ra, dec, redshift = numpy.deg2rad(pos[:,0]), numpy.deg2rad(pos[:,1]), pos[:,2]
 
     # compute comoving distance
     rdist = cosmo.comoving_distance(redshift) # in Mpc/h
 
-    return rdist
+    # cartesian position
+    x = numpy.cos( dec ) * numpy.cos( ra )
+    y = numpy.cos( dec ) * numpy.sin( ra )
+    z = numpy.sin( dec )
+    cpos = numpy.vstack([x,y,z]).T
+    cpos = rdist[:,None] * cpos
+
+    # min/max of position
+    cpos_min, cpos_max = get_position_bounds(cpos, comm)
+    boxsize = numpy.ceil(abs(cpos_max - cpos_min))
+
+    return rdist, cpos, boxsize
+
+@contextmanager
+def captured_output(comm, root=0):
+    """
+    Re-direct stdout and stderr to null for every rank but ``root``
+    """
+    # keep output on root
+    if comm.rank == root:
+        yield
+    else:
+
+        # redirect stdout and stderr
+        new_target = open(os.devnull, "w")
+        old_stdout, sys.stdout = sys.stdout, new_target
+        old_stderr, sys.stdout = sys.stderr, new_target
+        try:
+            yield new_target
+        finally:
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
