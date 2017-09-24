@@ -283,4 +283,4 @@ def HaloRadius(mass, cosmo, redshift, mdef='vir'):
 # deprecated functions
 vstack = deprecate("nbodykit.transform.vstack", StackColumns, "nbodykit.transform.StackColumns")
 concatenate = deprecate("nbodykit.transform.concatenate", ConcatenateSources, "nbodykit.transform.ConcatenateSources")
-SkyToCartesion = deprecate("nbodykit.transform.SkyToCartesion", StackColumns, "nbodykit.transform.SkyToCartesian")
+SkyToCartesion = deprecate("nbodykit.transform.SkyToCartesion", SkyToCartesian, "nbodykit.transform.SkyToCartesian")
