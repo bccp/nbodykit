@@ -359,7 +359,7 @@ function for this exact purpose. For example,
 Converting from Sky to Cartesian Coordinates
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-We provide the function :func:`nbodykit.transform.SkyToCartesion` for converting
+We provide the function :func:`nbodykit.transform.SkyToCartesian` for converting
 sky coordinates, in the form of right ascension, declination, and redshift,
 to Cartesian coordinates. The conversion from redshift to comoving distance
 requires a cosmology instance, which can be specified via the
@@ -382,7 +382,7 @@ as the ``Position`` column.
     cosmo = cosmology.Cosmology(Om0=0.31, H0=70)
 
     # add the position
-    src['Position'] = transform.SkyToCartesion(src['ra'], src['dec'], src['z'], degrees=True, cosmo=cosmo)
+    src['Position'] = transform.SkyToCartesian(src['ra'], src['dec'], src['z'], degrees=True, cosmo=cosmo)
 
 **Caveats**
 

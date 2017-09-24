@@ -183,7 +183,7 @@ From Sky to Cartesian Coordinates
 
 The ``Position`` column, holding the Cartesian coordinates,
 is required for both the "data" and "randoms" catalogs.
-We provide the function :func:`nbodykit.transform.SkyToCartesion` for converting
+We provide the function :func:`nbodykit.transform.SkyToCartesian` for converting
 sky coordinates, in the form of right ascension, declination, and redshift,
 to Cartesian coordinates. The conversion from redshift to comoving distance
 requires a cosmology instance, which can be specified via the

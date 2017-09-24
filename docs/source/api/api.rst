@@ -103,7 +103,7 @@ Transforming Catalog Data (:mod:`nbodykit.transform`)
   ~nbodykit.transform.StackColumns
   ~nbodykit.transform.ConstantArray
   ~nbodykit.transform.SkyToUnitSphere
-  ~nbodykit.transform.SkyToCartesion
+  ~nbodykit.transform.SkyToCartesian
   ~nbodykit.transform.HaloConcentration
   ~nbodykit.transform.HaloRadius
 
