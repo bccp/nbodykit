@@ -44,7 +44,7 @@ def test_optimized_selection(comm):
 
         # raises exception due to z<0
         with pytest.raises(Exception):
-            s['Position'] = transform.SkyToCartesion(s['ra'], s['dec'], s['z'], cosmo=cosmology.Planck15)
+            s['Position'] = transform.SkyToCartesian(s['ra'], s['dec'], s['z'], cosmo=cosmology.Planck15)
             pos = s['Position'].compute()
 
         # slice (even after adding Position column)

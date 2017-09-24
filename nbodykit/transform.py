@@ -89,10 +89,6 @@ def ConcatenateSources(*sources, **kwargs):
     toret.attrs.update(sources[0].attrs)
     return toret
 
-# deprecated functions
-vstack = deprecate("nbodykit.transform.vstack", StackColumns, "nbodykit.transform.StackColumns")
-concatenate = deprecate("nbodykit.transform.concatenate", ConcatenateSources, "nbodykit.transform.ConcatenateSources")
-
 def ConstantArray(value, size, chunks=100000):
     """
     Return a dask array of the specified ``size`` holding a single value.
@@ -153,7 +149,7 @@ def SkyToUnitSphere(ra, dec, degrees=True):
     z = da.sin( dec )
     return da.vstack([x,y,z]).T
 
-def SkyToCartesion(ra, dec, redshift, cosmo, degrees=True):
+def SkyToCartesian(ra, dec, redshift, cosmo, degrees=True):
     """
     Convert sky coordinates (``ra``, ``dec``, ``redshift``) to a
     Cartesian ``Position`` column.
@@ -283,3 +279,8 @@ def HaloRadius(mass, cosmo, redshift, mdef='vir'):
 
     kws = {'cosmology':cosmo.to_astropy(), 'mdef':mdef, 'redshift':redshift}
     return mass.map_blocks(lambda mass: halo_mass_to_halo_radius(mass=mass, **kws), dtype=mass.dtype)
+
+# deprecated functions
+vstack = deprecate("nbodykit.transform.vstack", StackColumns, "nbodykit.transform.StackColumns")
+concatenate = deprecate("nbodykit.transform.concatenate", ConcatenateSources, "nbodykit.transform.ConcatenateSources")
+SkyToCartesion = deprecate("nbodykit.transform.SkyToCartesion", StackColumns, "nbodykit.transform.SkyToCartesian")

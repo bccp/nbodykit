@@ -22,11 +22,15 @@ def test_sky_to_cartesian(comm):
     s['dec'] = s.rng.uniform(low=-3.6, high=60., size=s.size)
 
     # make the position array
-    s['Position1'] = transform.SkyToCartesion(s['ra'], s['dec'], s['z'], cosmo)
+    s['Position1'] = transform.SkyToCartesian(s['ra'], s['dec'], s['z'], cosmo)
+
+    # wrong name
+    with pytest.warns(FutureWarning):
+        s['Position0'] = transform.SkyToCartesion(s['ra'], s['dec'], s['z'], cosmo)
 
     # requires dask array
     with pytest.raises(TypeError):
-        s['Position1'] = transform.SkyToCartesion(s['ra'].compute(), s['dec'], s['z'], cosmo)
+        s['Position1'] = transform.SkyToCartesian(s['ra'].compute(), s['dec'], s['z'], cosmo)
 
 @MPITest([1, 4])
 def test_stack_columns(comm):
