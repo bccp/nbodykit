@@ -16,7 +16,7 @@ except:
 class PairCountBase(object):
     """
     Base class for pair counting algorithms, either for a simulation box
-    or survey data. 
+    or survey data.
 
     Do not use this class directly. Use :class:`SimulationBoxPairCount` or :class:`SurveyDataPairCount`.
 
@@ -295,7 +295,7 @@ class SimulationBoxPairCount(PairCountBase):
             # backtrace in pdb ...
             try:
                 pc = Corrfunc.theory.DD(0, 1, redges, **kws)
-            except e:
+            except Exception as e:
                 raise RuntimeError("error when calling Corrfunc.theory.DD function: " + str(e))
             rcol = 'ravg'
         else:
@@ -303,7 +303,7 @@ class SimulationBoxPairCount(PairCountBase):
             kws.update(self.attrs['config'])
             try:
                 pc = Corrfunc.theory.DDsmu(0, 1, redges, 1.0, self.attrs['Nmu'], **kws)
-            except e:
+            except Exception as e:
                 raise RuntimeError("error when calling Corrfunc.theory.DDsmu function: " + str(e))
             pc = pc.reshape((-1, self.attrs['Nmu']))
             rcol = 'savg'
@@ -498,8 +498,8 @@ class SurveyDataPairCount(PairCountBase):
 
             try:
                 pc = Corrfunc.mocks.DDsmu_mocks(0, 1, 1, Nmu, 1.0, redges, **kws)
-            except:
-                raise RuntimeError("error when calling Corrfunc.mocks.DDsmu_mocks function")
+            except Exception as e:
+                raise RuntimeError("error when calling Corrfunc.mocks.DDsmu_mocks function: " + str(e))
             pc = pc.reshape((-1, Nmu))
 
         self.logger.info('...rank %d done correlating' %(comm.rank))
