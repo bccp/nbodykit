@@ -55,10 +55,14 @@ def test_1d_auto(comm):
     source['Weight'] = source.rng.uniform(size=len(source))
 
     # make the bin edges
-    edges = numpy.linspace(0., 100.0, 10)
+    edges = numpy.linspace(0.001, 100.0, 10)
 
     # do the weighted paircount
     r = AngularPairCount(source, edges, weight='Weight')
+
+    # cannot compute theta=0
+    with pytest.raises(ValueError):
+        r = AngularPairCount(source, numpy.linspace(0, 1.0, 10))
 
     ra = gather_data(source, 'RA')
     dec = gather_data(source, 'DEC')

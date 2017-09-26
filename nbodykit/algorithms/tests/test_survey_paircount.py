@@ -68,6 +68,10 @@ def test_1d_auto(comm):
     # do the weighted paircount
     r = SurveyDataPairCount('1d', source, redges, cosmo, weight='Weight')
 
+    # cannot compute r=0
+    with pytest.raises(ValueError):
+        r = SurveyDataPairCount('1d', source, numpy.linspace(0, 10.0, 10))
+
     pos = gather_data(source, 'Position')
     w = gather_data(source, 'Weight')
 
