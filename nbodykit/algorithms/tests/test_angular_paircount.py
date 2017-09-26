@@ -58,7 +58,7 @@ def test_1d_auto(comm):
     edges = numpy.linspace(0.001, 100.0, 10)
 
     # do the weighted paircount
-    r = AngularPairCount(source, edges, weight='Weight')
+    r = AngularPairCount(source, edges, weight='Weight', show_progress=False)
 
     # cannot compute theta=0
     with pytest.raises(ValueError):
