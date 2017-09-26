@@ -70,7 +70,7 @@ def test_1d_auto(comm):
 
     # cannot compute r=0
     with pytest.raises(ValueError):
-        r = SurveyDataPairCount('1d', source, numpy.linspace(0, 10.0, 10))
+        r = SurveyDataPairCount('1d', source, numpy.linspace(0, 10.0, 10), cosmo)
 
     pos = gather_data(source, 'Position')
     w = gather_data(source, 'Weight')
