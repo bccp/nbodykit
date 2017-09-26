@@ -45,3 +45,4 @@ Algorithm Recipes
   interpolation-windows.ipynb
   convpower.ipynb
   boss-dr12-data.ipynb
+  angular-paircount.ipynb
