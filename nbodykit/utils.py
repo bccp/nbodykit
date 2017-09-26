@@ -2,6 +2,40 @@ import numpy
 from mpi4py import MPI
 import warnings
 import functools
+import contextlib
+import os, sys
+
+def get_data_bounds(data, comm):
+    """
+    Return the global minimum/maximum of a numpy array along the
+    first axis.
+
+    Parameters
+    ----------
+    data : numpy.ndarray
+        the data to find the bounds of
+    comm :
+        the MPI communicator
+
+    Returns
+    -------
+    min, max :
+        the min/max of ``data``
+    """
+    assert isinstance(data, numpy.ndarray)
+
+    # min/max
+    dmin = numpy.ones(data.shape[1:]) * (numpy.inf)
+    dmax = numpy.ones_like(dmin) * (-numpy.inf)
+    if len(data):
+        dmin = data.min(axis=0)
+        dmax = data.max(axis=0)
+
+    # global min/max across all ranks
+    dmin = numpy.asarray(comm.allgather(dmin)).min(axis=0)
+    dmax = numpy.asarray(comm.allgather(dmax)).max(axis=0)
+
+    return dmin, dmax
 
 def split_size_3d(s):
     """
@@ -409,3 +443,25 @@ def timer(start, end):
     hours, rem = divmod(end-start, 3600)
     minutes, seconds = divmod(rem, 60)
     return "{:0>2}:{:0>2}:{:05.2f}".format(int(hours),int(minutes),seconds)
+
+@contextlib.contextmanager
+def captured_output(comm, root=0):
+    """
+    Re-direct stdout and stderr to null for every rank but ``root``
+    """
+    # keep output on root
+    if root is not None and comm.rank == root:
+        yield sys.stdout, sys.stderr
+    else:
+        from six.moves import StringIO
+        from nbodykit.extern.wurlitzer import sys_pipes
+
+        # redirect stdout and stderr
+        old_stdout, sys.stdout = sys.stdout, StringIO()
+        old_stderr, sys.stderr = sys.stderr, StringIO()
+        try:
+            with sys_pipes() as (out, err):
+                yield out, err
+        finally:
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr

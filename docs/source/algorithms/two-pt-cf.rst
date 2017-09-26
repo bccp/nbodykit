@@ -1,5 +1,12 @@
-Pair Counts for Data in a Simulation Box (:class:`~nbodykit.algorithms.paircount.SimulationBoxPairCount`)
-=========================================================================================================
+.. currentmodule:: nbodykit.algorithms
 
-Pair Counts for Survey Data (:class:`~nbodykit.algorithms.paircount.SurveyDataPairCount`)
+
+Pair Counts for Data in a Simulation Box (:class:`~sim_paircount.SimulationBoxPairCount`)
 =========================================================================================
+
+Pair Counts for Survey Data (:class:`~survey_paircount.SurveyDataPairCount`)
+============================================================================
+
+
+Angular Pair Counts for Survey Data (:class:`~survey_paircount.AngularPairCount`)
+=================================================================================

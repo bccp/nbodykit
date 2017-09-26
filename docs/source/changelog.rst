@@ -4,8 +4,11 @@ Changelog
 0.2.8 (unreleased)
 ------------------
 
+* AngularPairCount algorithm added to compute pair counts for survey data as a function of angular separation
+* Load balancing improved for survey pair counting algorithms
 
-0.2.7 
+
+0.2.7
 -----
 
 * packaging bug fixed that caused ``notebook.mplstyle`` to be missing from the conda build
