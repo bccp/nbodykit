@@ -86,12 +86,13 @@ class PairCountBase(object):
     second : CatalogSource, optional
         the second source of particles to cross-correlate
     """
-    def __init__(self, first, second):
+    def __init__(self, first, second, show_progress=True):
 
         self.first = first
         self.second = second
         self.comm = first.comm
         self.attrs = {}
+        self.attrs['show_progress'] = show_progress
 
     def __getstate__(self):
         return {'result':self.result.data, 'attrs':self.attrs}
@@ -214,7 +215,7 @@ class PairCountBase(object):
 
         return (pos1, w1), (pos2, w2)
 
-    def _run(self, func, kwargs, loads, callback=None, N=10):
+    def _run(self, func, kwargs, loads, callback=None):
         """
         Internal function that calls ``func`` in ``N`` iterations, optionally
         calling ``callback`` before each iteration.
@@ -235,8 +236,6 @@ class PairCountBase(object):
             a callable takings ``kwargs`` as its first argument and a slice
             object as its second argument; this will be called first during
             each iteration
-        N : int, optional
-            the number of iterations to run
 
         Returns
         -------
@@ -256,6 +255,9 @@ class PairCountBase(object):
         if self.comm.rank == 0:
             name = func.__module__ + '.' + func.__name__
             self.logger.info("calling function '%s'" % name)
+
+        # number of iterations
+        N = 1 if self.attrs['show_progress'] else 10
 
         # run in chunks
         pc = None
@@ -375,13 +377,18 @@ class SimulationBoxPairCount(PairCountBase):
         whether to use periodic boundary conditions
     weight : str, optional
         the name of the column in the source specifying the particle weights
+    show_progress : bool, optional
+        if ``True``, perform the pair counting calculation in 10 iterations,
+        logging the progress after each iteration; this is useful for
+        understanding the scaling of the code
     **config : key/value pairs
         additional keywords to pass to the :mod:`Corrfunc` function
     """
     logger = logging.getLogger('SimulationBoxPairCount')
 
     def __init__(self, mode, first, redges, BoxSize=None, periodic=True,
-                    second=None, Nmu=5, los='z', weight='Weight', **config):
+                    second=None, Nmu=5, los='z', weight='Weight',
+                    show_progress=True, **config):
 
         # check input 'mode'
         assert mode in ['1d', '2d'], "PairCount mode must be '1d' or '2d'"
@@ -405,7 +412,7 @@ class SimulationBoxPairCount(PairCountBase):
         BoxSize = verify_input_sources(first, second, BoxSize, ['Position', weight])
 
         # init the base class
-        PairCountBase.__init__(self, first, second)
+        PairCountBase.__init__(self, first, second, show_progress)
 
         # save the meta-data
         self.attrs['mode'] = mode

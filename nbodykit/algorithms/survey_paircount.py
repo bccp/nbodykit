@@ -170,6 +170,10 @@ class SurveyDataPairCount(SurveyPairCountBase):
         coordinates; default is 'Redshift'
     weight : str, optional
         the name of the column in the source specifying the object weights
+    show_progress : bool, optional
+        if ``True``, perform the pair counting calculation in 10 iterations,
+        logging the progress after each iteration; this is useful for
+        understanding the scaling of the code
     **config : key/value pairs
         additional keywords to pass to the :mod:`Corrfunc` function
     """
@@ -177,7 +181,8 @@ class SurveyDataPairCount(SurveyPairCountBase):
 
     def __init__(self, mode, first, redges, cosmo,
                     second=None, Nmu=5, ra='RA', dec='DEC',
-                    redshift='Redshift', weight='Weight', **config):
+                    redshift='Redshift', weight='Weight', show_progress=True,
+                    **config):
 
         # check input 'mode'
         assert mode in ['1d', '2d'], "PairCount mode must be '1d' or '2d'"
@@ -192,7 +197,7 @@ class SurveyDataPairCount(SurveyPairCountBase):
         verify_input_sources(first, second, None, required_cols, inspect_boxsize=False)
 
         # init the base class
-        SurveyPairCountBase.__init__(self, first, second)
+        SurveyPairCountBase.__init__(self, first, second, show_progress)
 
         # save the meta-data
         self.attrs['mode'] = mode
@@ -328,13 +333,17 @@ class AngularPairCount(SurveyPairCountBase):
         coordinates; default is 'DEC'
     weight : str, optional
         the name of the column in the source specifying the object weights
+    show_progress : bool, optional
+        if ``True``, perform the pair counting calculation in 10 iterations,
+        logging the progress after each iteration; this is useful for
+        understanding the scaling of the code
     **config : key/value pairs
         additional keywords to pass to the :mod:`Corrfunc` function
     """
     logger = logging.getLogger('AngularPairCount')
 
-    def __init__(self, first, edges, second=None,
-                    ra='RA', dec='DEC', weight='Weight', **config):
+    def __init__(self, first, edges, second=None, ra='RA', dec='DEC',
+                    weight='Weight', show_progress=True, **config):
 
         # check theta min
         if numpy.min(edges) <= 0.:
@@ -345,7 +354,7 @@ class AngularPairCount(SurveyPairCountBase):
         verify_input_sources(first, second, None, [ra, dec, weight], inspect_boxsize=False)
 
         # init the base class
-        SurveyPairCountBase.__init__(self, first, second)
+        SurveyPairCountBase.__init__(self, first, second, show_progress)
 
         # save the meta-data
         self.attrs['edges'] = edges
