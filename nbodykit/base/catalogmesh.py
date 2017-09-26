@@ -95,7 +95,7 @@ class CatalogMesh(CatalogSource, MeshSource):
 
         return obj
 
-    def gslice(self, start, stop, end=1):
+    def gslice(self, start, stop, end=1, redistribute=True):
         """
         Execute a global slice of a CatalogMesh.
 
@@ -114,9 +114,13 @@ class CatalogMesh(CatalogSource, MeshSource):
             the stop index of the global slice
         step : int, optional
             the default step size of the global size
+        redistribute : bool, optional
+            if ``True``, evenly re-distribute the sliced data across all
+            ranks, otherwise just return any local data part of the global
+            slice
         """
         # sort the base object
-        newbase = self.base.gslice(start, stop, end)
+        newbase = self.base.gslice(start, stop, end=end, redistribute=redistribute)
 
         # view this base class as a CatalogMesh (with default CatalogMesh parameters)
         toret = newbase.view(self.__class__)

@@ -1165,7 +1165,7 @@ class CatalogSource(CatalogSourceBase):
             return NotImplemented
         return self._csize
 
-    def gslice(self, start, stop, end=1):
+    def gslice(self, start, stop, end=1, redistribute=True):
         """
         Execute a global slice of a CatalogSource.
 
@@ -1181,6 +1181,10 @@ class CatalogSource(CatalogSourceBase):
             the stop index of the global slice
         step : int, optional
             the default step size of the global size
+        redistribute : bool, optional
+            if ``True``, evenly re-distribute the sliced data across all
+            ranks, otherwise just return any local data part of the global
+            slice
         """
         from nbodykit.utils import ScatterArray, GatherArray
 
@@ -1194,20 +1198,30 @@ class CatalogSource(CatalogSourceBase):
 
         # scatter the index back to all ranks
         counts = self.comm.allgather(self.size)
-        index = ScatterArray(self.compute(index), self.comm, root=0, counts=counts)
+        index = ScatterArray(index, self.comm, root=0, counts=counts)
 
         # perform the needed local slice
         subset = self[index]
 
+        # if we don't want to redistribute evenly, just return the slice
+        if not redistribute:
+            return subset
+
         # re-distribute each column from the sliced data
-        data = {}
-        for col in subset:
-            alldata = GatherArray(self.compute(subset[col]), self.comm, root=0)
-            data[col] = ScatterArray(alldata, self.comm, root=0)
+        # NOTE: currently Gather/ScatterArray requires numpy arrays, but
+        # in principle we could pass dask arrays around between ranks and
+        # avoid compute() calls
+        data = self.compute(*[subset[col] for col in subset])
+
+        # gather/scatter each column
+        evendata = {}
+        for i, col in enumerate(subset):
+            alldata = GatherArray(data[i], self.comm, root=0)
+            evendata[col] = ScatterArray(alldata, self.comm, root=0)
 
         # return a new CatalogSource holding the evenly distributed data
-        size = len(data[col])
-        toret = self.__class__._from_columns(size, self.comm, **data)
+        size = len(evendata[col])
+        toret = self.__class__._from_columns(size, self.comm, **evendata)
         return toret.__finalize__(self)
 
     def sort(self, keys, reverse=False, usecols=None):
