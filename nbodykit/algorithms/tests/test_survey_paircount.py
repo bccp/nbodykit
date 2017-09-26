@@ -23,7 +23,7 @@ def generate_data(seed):
     s['DEC'] = s.rng.uniform(low=-3.6, high=60., size=s.size)
 
     # position
-    s['Position'] = transform.SkyToCartesion(s['RA'], s['DEC'], s['Redshift'], cosmo=cosmo)
+    s['Position'] = transform.SkyToCartesian(s['RA'], s['DEC'], s['Redshift'], cosmo=cosmo)
 
     return s
 
