@@ -3,35 +3,37 @@ from mpi4py import MPI
 import warnings
 import functools
 
-def get_position_bounds(pos, comm):
+def get_data_bounds(data, comm):
     """
-    Determine the global minimum/maximum of the Position of a
-    CatalogSource.
+    Return the global minimum/maximum of a numpy array along the
+    first axis.
 
     Parameters
     ----------
-    position : numpy.ndarray
-        the position data
+    data : numpy.ndarray
+        the data to find the bounds of
+    comm :
+        the MPI communicator
 
     Returns
     -------
     min, max :
-        the min/max position arrays
+        the min/max of ``data``
     """
-    assert isinstance(pos, numpy.ndarray)
+    assert isinstance(data, numpy.ndarray)
 
-    # min/max of position array
-    pos_min = numpy.ones(3) * (numpy.inf)
-    pos_max = numpy.ones(3) * (-numpy.inf)
-    if len(pos):
-        pos_min = pos.min(axis=0)
-        pos_max = pos.max(axis=0)
+    # min/max
+    dmin = numpy.ones(data.shape[1:]) * (numpy.inf)
+    dmax = numpy.ones_like(dmin) * (-numpy.inf)
+    if len(data):
+        dmin = data.min(axis=0)
+        dmax = data.max(axis=0)
 
     # global min/max across all ranks
-    pos_min = numpy.asarray(comm.allgather(pos_min)).min(axis=0)
-    pos_max = numpy.asarray(comm.allgather(pos_max)).max(axis=0)
+    dmin = numpy.asarray(comm.allgather(dmin)).min(axis=0)
+    dmax = numpy.asarray(comm.allgather(dmax)).max(axis=0)
 
-    return pos_min, pos_max
+    return dmin, dmax
 
 def split_size_3d(s):
     """

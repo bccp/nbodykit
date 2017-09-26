@@ -81,14 +81,14 @@ class FKPCatalog(MultipleSpeciesCatalog):
             the Cartesian coordinates of the :attr:`data` and :attr:`randoms`
             to the range of ``[-BoxSize/2, BoxSize/2]``
         """
-        from nbodykit.utils import get_position_bounds
+        from nbodykit.utils import get_data_bounds
 
         # the position and selection columns of the randoms catalog
         sel = self['randoms'][selection]
         pos = self['randoms'][position][sel]
 
         # the min/max of the position data
-        pos_min, pos_max = get_position_bounds(self.compute(pos), self.comm)
+        pos_min, pos_max = get_data_bounds(self.compute(pos), self.comm)
 
         # used to center the data in the first cartesian quadrant
         delta = abs(pos_max - pos_min)
