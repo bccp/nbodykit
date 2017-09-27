@@ -271,7 +271,7 @@ def _fof_local(layout, pos, boxsize, ll, comm):
     N = len(pos)
 
     pos = layout.exchange(pos)
-    data = cluster.dataset(pos, boxsize=boxsize)
+    data = cluster.dataset(pos % boxsize, boxsize=boxsize)
     fof = cluster.fof(data, linking_length=ll, np=0)
     labels = fof.labels
     del fof
