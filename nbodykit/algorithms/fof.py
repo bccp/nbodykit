@@ -272,7 +272,6 @@ def _fof_local(layout, pos, boxsize, ll, comm):
 
     pos = layout.exchange(pos)
     data = cluster.dataset(pos, boxsize=boxsize)
-
     fof = cluster.fof(data, linking_length=ll, np=0)
     labels = fof.labels
     del fof
@@ -349,6 +348,9 @@ def fof(source, linking_length, comm):
     BoxSize = source.attrs.get('BoxSize', None)
     if BoxSize is None:
         raise ValueError("cannot compute FOF clustering of source without 'BoxSize' in ``attrs`` dict")
+
+    if numpy.isscalar(BoxSize):
+        BoxSize = [BoxSize, BoxSize, BoxSize]
 
     grid = [
         numpy.linspace(0, BoxSize[0], np[0] + 1, endpoint=True),
