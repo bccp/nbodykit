@@ -110,6 +110,100 @@ def ConstantArray(value, size, chunks=100000):
     return da.from_array(toret, chunks=chunks)
 
 
+def CartesianToEquatorial(pos, observer=[0,0,0]):
+    """
+    Convert Cartesian position coordinates to equatorial right ascension
+    and declination, using the specified observer location.
+
+    .. note::
+        Cartesian coordinates should be in units of Mpc/h.
+
+    Parameters
+    ----------
+    pos : array_like
+        a N x 3 array holding the Cartesian position coordinates
+    observer : array_like
+        a length 3 array holding the observer location
+
+    Returns
+    -------
+    ra, dec : array_like
+        the right ascension and declination coordinates
+    """
+    # recenter based on observer
+    pos -= observer
+
+    # compute distance from origin
+    r = da.linalg.norm(pos, axis=-1)
+
+    # calculate spherical coordinates
+    theta = da.arccos(pos[:,2]/r)
+    phi = da.arctan2(pos[:,1], pos[:,0])
+
+    # convert spherical coordinates into ra,dec
+    ra = phi
+    dec = theta - numpy.pi/2.
+
+    return ra, dec
+
+def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0]):
+    """
+    Convert Cartesian position coordinates to RA/Dec and redshift,
+    using the specified cosmology to convert radial distances from
+    the origin into redshift.
+
+    If velocity is supplied, the returned redshift accounts for the
+    additional peculiar velocity shift.
+
+    .. note::
+        Cartesian coordinates should be in units of Mpc/h and velocity
+        should be in units of km/s.
+
+    Parameters
+    ----------
+    pos : array_like
+        a N x 3 array holding the Cartesian position coordinates in Mpc/h
+    cosmo : :class:`~nbodykit.cosmology.cosmology.Cosmology`
+        the cosmology used to meausre the comoving distance from ``redshift``
+    velocity : array_like
+        a N x 3 array holding velocity in km/s
+    observer : array_like
+        a length 3 array holding the observer location
+
+    Returns
+    -------
+    ra, dec, z : array_like
+        the right ascension, declination, and redshift coordinates
+    """
+    from astropy.cosmology import z_at_value
+    from astropy.constants import c
+    from scipy.interpolate import interp1d
+
+    # RA,dec coordinates
+    ra, dec = CartesianToEquatorial(pos, observer=observer)
+
+    # the distance from the origin
+    r = da.linalg.norm(pos, axis=-1)
+
+    # minimum and maximum redshift corresponding to r
+    zmin = 0.9*z_at_value(cosmo.comoving_distance, r.min(), ztol=1e-5)
+    zmax = 1.1*z_at_value(cosmo.comoving_distance, r.max(), ztol=1e-5)
+
+    def z_from_comoving_distance(x):
+        zgrid = numpy.logspace(numpy.log10(zmin), numpy.log10(zmax), 100)
+        rgrid = cosmo.comoving_distance(zgrid)
+        return interp1d(rgrid, zgrid)(x)
+
+    # invert distance - redshift relation
+    z = r.map_blocks(z_from_comoving_distance)
+
+    # add in velocity offsets?
+    if velocity is not None:
+        vpec =  (pos*velocity).sum(axis=-1) / r
+        z += vpec / c.to('km/s').value * (1 + z_real)
+
+    return ra, dec, z
+
 def SkyToUnitSphere(ra, dec, degrees=True):
     """
     Convert sky coordinates (``ra``, ``dec``) to Cartesian coordinates on
