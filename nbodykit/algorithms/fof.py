@@ -351,19 +351,19 @@ def fof(source, linking_length, comm, periodic):
 
     np = split_size_3d(comm.size)
 
-    BoxSize = source.attrs.get('BoxSize', None)
-
-    if BoxSize is None:
-        if periodic:
+    if periodic:
+        BoxSize = source.attrs.get('BoxSize', None)
+        if BoxSize is None:
             raise ValueError("cannot compute FOF clustering of source without 'BoxSize' in ``attrs`` dict")
-        else:
-            left = source['Position'].min(axis=0).compute()
-            right = source['Position'].max(axis=0).compute()
-    else:
         if numpy.isscalar(BoxSize):
             BoxSize = [BoxSize, BoxSize, BoxSize]
+
         left = [0, 0, 0]
         right = BoxSize
+    else:
+        BoxSize = None
+        left = numpy.min(comm.allgather(source['Position'].min(axis=0).compute()), axis=0)
+        right = numpy.max(comm.allgather(source['Position'].max(axis=0).compute()), axis=0)
 
     grid = [
         numpy.linspace(left[0], right[0], np[0] + 1, endpoint=True),
