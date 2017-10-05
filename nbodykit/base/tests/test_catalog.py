@@ -97,6 +97,27 @@ def test_bad_column(comm):
         data = source.get_hardcolumn('BAD_COLUMN')
 
 @MPITest([4])
+def test_empty_slice(comm):
+    CurrentMPIComm.set(comm)
+
+    source = UniformCatalog(nbar=0.2e-3, BoxSize=1024., seed=42)
+
+    # empty slice returns self
+    source2 = source[source['Selection']]
+    assert source is source2
+
+    # non-empty selection on root only
+    if comm.rank == 0:
+        sel = source.rng.choice([True, False], size=source.size)
+    else:
+        sel = numpy.ones(source.size, dtype=bool)
+
+    # this should trigger a full slice
+    source2 = source[sel]
+    assert source is not source2
+
+
+@MPITest([4])
 def test_slice(comm):
     CurrentMPIComm.set(comm)
 
