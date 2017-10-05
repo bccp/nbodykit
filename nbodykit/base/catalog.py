@@ -33,6 +33,11 @@ class ColumnAccessor(da.Array):
         return self
 
     def __getitem__(self, key):
+
+        # compute dask index b/c they are not fully supported
+        if isinstance(key, da.Array):
+            key = self.catalog.compute(key)
+
         # base class behavior
         d = da.Array.__getitem__(self, key)
 

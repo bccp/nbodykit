@@ -670,7 +670,7 @@ class ConvolvedFFTPower(object):
         if name+'.norm' not in self.attrs:
 
             # the selection (same for first/second)
-            sel = self.first[name][self.first.selection]
+            sel = self.first.compute(self.first[name][self.first.selection])
 
             # selected first/second meshes for "name" (data or randoms)
             first = self.first[name][sel]
@@ -718,7 +718,7 @@ class ConvolvedFFTPower(object):
             for name in ['data', 'randoms']:
 
                 # the selection (same for first/second)
-                sel = self.first[name][self.first.selection]
+                sel = self.first.compute(self.first[name][self.first.selection])
 
                 # selected first/second meshes for "name" (data or randoms)
                 first = self.first[name][sel]
