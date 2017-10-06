@@ -14,6 +14,7 @@ def store_user_kwargs():
     def decorator(function):
         @functools.wraps(function)
         def inner(self, *args, **kwargs):
+            self._user_args = args
             self._user_kwargs = kwargs
             return function(self, *args, **kwargs)
         return inner
@@ -144,7 +145,7 @@ class Cosmology(object):
         args.pop('self')
 
         # check for deprecated init signature
-        deprecated_args = check_deprecated_init(kwargs)
+        deprecated_args = check_deprecated_init(self._user_args, self._user_kwargs)
         if deprecated_args is not None:
 
             # check for conflicts between named args user passed and
@@ -656,9 +657,9 @@ def merge_args(args, moreargs):
     args.update(moreargs)
     return args
 
-def check_deprecated_init(args):
+def check_deprecated_init(args, kwargs):
     """
-    Check if ``args`` uses the (now deprecated) signature of ``Cosmology``
+    Check if ``kwargs`` uses the (now deprecated) signature of ``Cosmology``
     prior to version 0.2.6.
 
     If using the deprecated syntax, this returns the necessary arguments for
@@ -668,12 +669,21 @@ def check_deprecated_init(args):
     defaults = {'H0':67.6, 'Om0':0.31, 'Ob0':0.0486, 'Ode0':0.69, 'w0':-1.,
                 'Tcmb0':2.7255, 'Neff':3.04, 'm_nu':0., 'flat':False}
 
+    # the deprecated kwargs
+    deprecated_args = [k for k in kwargs if k in defaults]
+
     # all clear; nothing to do
-    if not len(args) or not all(a in defaults for a in args):
+    if not len(deprecated_args):
         return
 
+    # if we got deprecated kwargs, make sure we didn't get any valid kwargs!!
+    if not all(a in defaults for a in kwargs) or len(kwargs) and len(args):
+        msg = "mixing deprecated and valid arguments for the Cosmology class; "
+        msg += 'the following args are deprecated: %s' % str(deprecated_args)
+        raise ValueError(msg)
+
     # update old defaults with input params
-    defaults.update(args)
+    defaults.update(kwargs)
 
     if defaults['m_nu'] is not None:
         defaults['m_nu'] = units.Quantity(defaults['m_nu'], 'eV')

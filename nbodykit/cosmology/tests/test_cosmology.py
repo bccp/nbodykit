@@ -3,8 +3,6 @@ from numpy.testing import assert_allclose, assert_array_equal
 import numpy
 import pytest
 
-
-
 def test_old_Omega_syntax():
 
     c1 = Cosmology(Omega_b=0.04)
@@ -31,6 +29,14 @@ def test_deprecated_init():
     with pytest.warns(FutureWarning):
         c1 = Cosmology(H0=67.6, Om0=0.31, flat=True)
         c2 = Cosmology(H0=67.6, Om0=0.31, Ode0=0.7, flat=False, w0=-0.9)
+
+    # missing valid and deprecated
+    with pytest.raises(Exception):
+        c = Cosmology(h=0.7, flat=True)
+
+    # passing arguments and mixing
+    with pytest.raises(Exception):
+        c = Cosmology(0.7, flat=True)
 
     # parameter conflict
     with pytest.raises(Exception):
