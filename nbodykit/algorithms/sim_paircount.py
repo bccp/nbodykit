@@ -258,14 +258,14 @@ class PairCountBase(object):
             self.logger.info("calling function '%s'" % name)
 
         # number of iterations
-        N = 1 if self.attrs['show_progress'] else 10
+        N = 10 if self.attrs['show_progress'] else 1
 
         # run in chunks
         pc = None
         chunks = numpy.array_split(range(loads[self.comm.rank]), N, axis=0)
         for i, chunk in enumerate(chunks):
             this_pc = run(chunk)
-            if self.comm.rank == largest_load:
+            if self.comm.rank == largest_load and self.attrs['show_progress']:
                 self.logger.info("%d%% done" % (N*(i+1)))
 
             # sum up the results
