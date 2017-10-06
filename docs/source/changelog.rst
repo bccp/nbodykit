@@ -1,8 +1,23 @@
 Changelog
 =========
 
-0.2.7 (unreleased)
+0.2.8 (unreleased)
 ------------------
+
+* AngularPairCount algorithm added to compute pair counts for survey data as a function of angular separation
+* Load balancing improved for survey pair counting algorithms
+
+
+0.2.7
+-----
+
+* packaging bug fixed that caused ``notebook.mplstyle`` to be missing from the conda build
+* re-named the test driver ``runtests.py`` to ``run-tests.py``
+* set_options context manager add to set global configuration variables
+* Optimized slicing via dask when applying a boolean selection index to a CatalogSource
+* CatalogMesh is implemented as a view of a CatalogSource -- column set/gets operate on the underlying CatalogSource
+* ConvolvedFFTPower supports cross-correlations of 2 mesh objects originating from the same data/randoms, allowing users to apply different weighting schemes to the two meshes
+* transform.SkyToCartesion deprecated in favor of transform.SkyToCartesian
 
 0.2.6
 -----

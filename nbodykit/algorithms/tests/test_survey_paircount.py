@@ -23,7 +23,7 @@ def generate_data(seed):
     s['DEC'] = s.rng.uniform(low=-3.6, high=60., size=s.size)
 
     # position
-    s['Position'] = transform.SkyToCartesion(s['RA'], s['DEC'], s['Redshift'], cosmo=cosmo)
+    s['Position'] = transform.SkyToCartesian(s['RA'], s['DEC'], s['Redshift'], cosmo=cosmo)
 
     return s
 
@@ -68,6 +68,10 @@ def test_1d_auto(comm):
     # do the weighted paircount
     r = SurveyDataPairCount('1d', source, redges, cosmo, weight='Weight')
 
+    # cannot compute r=0
+    with pytest.raises(ValueError):
+        r = SurveyDataPairCount('1d', source, numpy.linspace(0, 10.0, 10), cosmo)
+
     pos = gather_data(source, 'Position')
     w = gather_data(source, 'Weight')
 
@@ -84,21 +88,21 @@ def test_1d_cross(comm):
     CurrentMPIComm.set(comm)
 
     # random particles
-    source1 = generate_data(seed=42)
-    source1['Weight'] = source1.rng.uniform(size=source1.size)
-    source2 = generate_data(seed=84)
-    source2['Weight'] = source2.rng.uniform(size=source2.size)
+    first = generate_data(seed=42)
+    first['Weight'] = first.rng.uniform(size=first.size)
+    second = generate_data(seed=84)
+    second['Weight'] = second.rng.uniform(size=second.size)
 
     # make the bin edges
     redges = numpy.linspace(10, 150, 10)
 
     # do the paircount
-    r = SurveyDataPairCount('1d', source1, redges, cosmo, source2=source2)
+    r = SurveyDataPairCount('1d', first, redges, cosmo, second=second)
 
-    pos1 = gather_data(source1, 'Position')
-    pos2 = gather_data(source2, 'Position')
-    w1 = gather_data(source1, 'Weight')
-    w2 = gather_data(source2, 'Weight')
+    pos1 = gather_data(first, 'Position')
+    pos2 = gather_data(second, 'Position')
+    w1 = gather_data(first, 'Weight')
+    w2 = gather_data(second, 'Weight')
 
     # verify with kdcount
     npairs, ravg, wsum = kcount_paircount(pos1, w1, redges, 0, pos2=pos2, w2=w2)
@@ -140,22 +144,22 @@ def test_2d_cross(comm):
     CurrentMPIComm.set(comm)
 
     # random particles
-    source1 = generate_data(seed=42)
-    source1['Weight'] = source1.rng.uniform(size=source1.size)
-    source2 = generate_data(seed=84)
-    source2['Weight'] = source2.rng.uniform(size=source2.size)
+    first = generate_data(seed=42)
+    first['Weight'] = first.rng.uniform(size=first.size)
+    second = generate_data(seed=84)
+    second['Weight'] = second.rng.uniform(size=second.size)
 
     # make the bin edges
     redges = numpy.linspace(10, 150, 10)
     Nmu = 10
 
     # do the paircount
-    r = SurveyDataPairCount('2d', source1, redges, cosmo, source2=source2, Nmu=10)
+    r = SurveyDataPairCount('2d', first, redges, cosmo, second=second, Nmu=10)
 
-    pos1 = gather_data(source1, 'Position')
-    pos2 = gather_data(source2, 'Position')
-    w1 = gather_data(source1, 'Weight')
-    w2 = gather_data(source2, 'Weight')
+    pos1 = gather_data(first, 'Position')
+    pos2 = gather_data(second, 'Position')
+    w1 = gather_data(first, 'Weight')
+    w2 = gather_data(second, 'Weight')
 
     # verify with kdcount
     npairs, ravg, wsum = kcount_paircount(pos1, w1, redges, Nmu, pos2=pos2, w2=w2)

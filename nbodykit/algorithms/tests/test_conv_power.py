@@ -25,7 +25,7 @@ def make_sources(cosmo):
         s['dec'] = s.rng.uniform(low=-3.6, high=60., size=s.size)
 
         # position
-        s['Position'] = transform.SkyToCartesion(s['ra'], s['dec'], s['z'], cosmo=cosmo)
+        s['Position'] = transform.SkyToCartesian(s['ra'], s['dec'], s['z'], cosmo=cosmo)
 
     return data, randoms
 

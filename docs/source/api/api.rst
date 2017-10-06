@@ -103,7 +103,7 @@ Transforming Catalog Data (:mod:`nbodykit.transform`)
   ~nbodykit.transform.StackColumns
   ~nbodykit.transform.ConstantArray
   ~nbodykit.transform.SkyToUnitSphere
-  ~nbodykit.transform.SkyToCartesion
+  ~nbodykit.transform.SkyToCartesian
   ~nbodykit.transform.HaloConcentration
   ~nbodykit.transform.HaloRadius
 
@@ -197,8 +197,9 @@ Clustering Statistics
     ~nbodykit.algorithms.fftpower.ProjectedFFTPower
     ~nbodykit.algorithms.convpower.ConvolvedFFTPower
     ~nbodykit.algorithms.threeptcf.Multipoles3PCF
-    ~nbodykit.algorithms.paircount.SimulationBoxPairCount
-    ~nbodykit.algorithms.paircount.SurveyDataPairCount
+    ~nbodykit.algorithms.sim_paircount.SimulationBoxPairCount
+    ~nbodykit.algorithms.survey_paircount.SurveyDataPairCount
+    ~nbodykit.algorithms.survey_paircount.AngularPairCount
 
 Grouping Methods
 ^^^^^^^^^^^^^^^^

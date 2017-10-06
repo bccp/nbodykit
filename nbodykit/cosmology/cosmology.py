@@ -26,7 +26,7 @@ class Cosmology(object):
 
     It is a collection of all method provided by the CLASS interfaces.
     The object is immutable. To obtain an instance with a new set of parameters
-    use :method:`clone` or :method:`match`.
+    use :func:`clone` or :func:`match`.
 
     The individual interfaces can be accessed too, such that
     `c.Spectra.get_transfer` and `c.get_transfer` are identical.
@@ -103,7 +103,7 @@ class Cosmology(object):
         e.g. ``temperature contributions``, or ``number count contributions``.
         Users should be wary of configuration options that may conflict
         with the base set of parameters. To override parameters, chain the
-        result with :method:`clone`.
+        result with :func:`clone`.
     """
     # delegate resolve order -- a pun at mro; which in
     # this case introduces the meta class bloat and doesn't solve
@@ -174,7 +174,7 @@ class Cosmology(object):
     def __iter__(self):
         """
         Allows dict() to be used on class.
-        Use :method:`from_dict` to reconstruct an instance.
+        Use :func:`from_dict` to reconstruct an instance.
         """
         pars = self.pars.copy()
         for k in pars:
@@ -230,7 +230,7 @@ class Cosmology(object):
         of radius :math:`r = 8 \ h^{-1}\mathrm{Mpc}`.
 
         This is not an input CLASS parameter. To scale ``sigma8``, use
-        :method:`match`, which adjusts scalar amplitude ``A_s`` to
+        :func:`match`, which adjusts scalar amplitude ``A_s`` to
         achieve the desired ``sigma8``.
         """
         return self.Spectra.sigma8
@@ -241,7 +241,7 @@ class Cosmology(object):
         The total density of CDM and Baryon.
 
         This is not an input CLASS parameter. To scale ``Omega0_cb``, use
-        :method:`match`.
+        :func:`match`.
         """
         return self.Background.Omega0_cdm + self.Background.Omega0_b
 
@@ -356,7 +356,7 @@ class Cosmology(object):
             extra keyword parameters to pass when initializing;
             they shall not be in conflict with the parameters
             inferred from cosmo. To override parameters,
-            chain the result with :method:`clone`.
+            chain the result with :func:`clone`.
 
         Returns
         -------
@@ -385,7 +385,7 @@ class Cosmology(object):
             extra keyword parameters to pass when initializing;
             they shall not be in conflict with the parameters
             inferred from cosmo. To override parameters,
-            chain the result with :method:`clone`.
+            chain the result with :func:`clone`.
         """
         from classylss import load_ini
 
@@ -520,7 +520,7 @@ def compile_args(args):
 
     Note that CLASS will check for additional conflicts.
 
-    see :method:`merge_args`
+    see :func:`merge_args`
     """
     pars = {} # we try to make pars write only.
 
@@ -644,7 +644,7 @@ def merge_args(args, moreargs):
     Those defined in moreargs takes priority than those
     defined in args.
 
-    see :method:`compile_args`
+    see :func:`compile_args`
     """
     args = args.copy()
 

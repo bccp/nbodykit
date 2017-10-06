@@ -345,8 +345,8 @@ class CatalogMesh(CatalogSource, MeshSource):
         columns = [self.position, self.weight, self.value, self.selection]
         Position, Weight, Value, Selection = self.read(columns)
 
-        # perform optimized selection
-        sel = self.base.compute(Selection) # compute first, so we avoid repeated computes
+        # compute first, so we avoid repeated computes
+        sel = self.base.compute(Selection)
         Position = Position[sel]
         Weight = Weight[sel]
         Value = Value[sel]

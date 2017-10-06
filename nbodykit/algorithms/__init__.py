@@ -5,5 +5,6 @@ from .convpower import ConvolvedFFTPower
 from .zhist import RedshiftHistogram
 from .fibercollisions import FiberCollisions
 from .threeptcf import Multipoles3PCF
-from .paircount import SimulationBoxPairCount, SurveyDataPairCount
+from .sim_paircount import SimulationBoxPairCount
+from .survey_paircount import SurveyDataPairCount, AngularPairCount
 from .cgm import CylindricalGroups
