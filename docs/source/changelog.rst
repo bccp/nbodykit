@@ -1,8 +1,11 @@
 Changelog
 =========
 
-0.2.8 (unreleased)
+0.2.9 (unreleased)
 ------------------
+
+0.2.8
+-----
 
 * AngularPairCount algorithm added to compute pair counts for survey data as a function of angular separation
 * Load balancing improved for survey pair counting algorithms (#408)
