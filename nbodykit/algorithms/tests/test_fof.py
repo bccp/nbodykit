@@ -60,3 +60,31 @@ def test_fof_parallel_merge(comm):
     assert max(labels) == pm.Nmesh.prod() - 1
     assert all(numpy.bincount(labels) == 4)
 
+@MPITest([1, 4])
+def test_fof_nonperiodic(comm):
+    cosmo = cosmology.Planck15
+
+    CurrentMPIComm.set(comm)
+
+    # lognormal particles
+    Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
+    source = LogNormalCatalog(Plin=Plin, nbar=3e-3, BoxSize=512., Nmesh=128, seed=42)
+
+    source['Density'] = KDDensity(source, margin=1).density
+
+    del source.attrs['BoxSize'] # no boxsize 
+
+    # shift left
+    source['Position'] -= 100.0
+    fof = FOF(source, linking_length=0.2, nmin=20, periodic=False, absolute=True)
+    peaks1 = fof.find_features(peakcolumn='Density')
+
+    # shift right
+    source['Position'] += 200.0
+    fof = FOF(source, linking_length=0.2, nmin=20, periodic=False, absolute=True)
+    peaks2 = fof.find_features(peakcolumn='Density')
+
+    assert_allclose(peaks1['CMPosition'] + 200.0, peaks2['CMPosition'], rtol=1e-6)
+    assert_allclose(peaks1['CMVelocity'], peaks2['CMVelocity'], rtol=1e-6)
+    assert_allclose(peaks1['PeakPosition'] + 200.0, peaks2['PeakPosition'], rtol=1e-6)
+    assert_allclose(peaks1['PeakVelocity'], peaks2['PeakVelocity'], rtol=1e-6)
