@@ -290,9 +290,11 @@ class CatalogSourceBase(object):
         #.  list of strings specifying column names; returns a CatalogSource
             holding only the selected columns
 
-        .. note::
-            If the :attr:`base` attribute is set, columns will be returned
-            from :attr:`base` instead of from ``self``.
+        Notes
+        -----
+        - Slicing with a boolean array is a **collective** operation
+        - If the :attr:`base` attribute is set, columns will be returned
+          from :attr:`base` instead of from ``self``.
         """
         # handle boolean array slices
         if not isinstance(sel, string_types):
