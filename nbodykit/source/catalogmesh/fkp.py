@@ -201,7 +201,7 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
             W = \sum w_\mathrm{comp}
         """
         # the selection
-        sel = self[name][self.selection]
+        sel = self.compute(self[name][self.selection])
 
         # the selected mesh for "name"
         mesh = self[name][sel]

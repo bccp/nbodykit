@@ -84,7 +84,7 @@ class FKPCatalog(MultipleSpeciesCatalog):
         from nbodykit.utils import get_data_bounds
 
         # the position and selection columns of the randoms catalog
-        sel = self['randoms'][selection]
+        sel = self.compute(self['randoms'][selection])
         pos = self['randoms'][position][sel]
 
         # the min/max of the position data
