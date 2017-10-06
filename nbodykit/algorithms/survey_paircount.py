@@ -55,6 +55,7 @@ class SurveyPairCountBase(PairCountBase):
         # stack position and compute
         pos1 = StackColumns(*[self.first[col] for col in poscols])
         pos1, w1 = self.first.compute(pos1, self.first[self.attrs['weight']])
+        N1 = self.comm.allreduce(len(pos1))
 
         # get comoving dist and boxsize for first
         cosmo = self.attrs.get('cosmo', None)
@@ -70,6 +71,7 @@ class SurveyPairCountBase(PairCountBase):
             # stack position and compute for "second"
             pos2 = StackColumns(*[self.second[col] for col in poscols])
             pos2, w2 = self.second.compute(pos2, self.second[self.attrs['weight']])
+            N2 = self.comm.allreduce(len(pos2))
 
             # get comoving dist and boxsize
             cpos2, boxsize2, rdist2 = get_cartesian(self.comm, pos2, cosmo=cosmo)
@@ -80,6 +82,7 @@ class SurveyPairCountBase(PairCountBase):
         else:
             pos2 = pos1
             w2 = w1
+            N2 = N1
             boxsize2 = boxsize1
             cpos2 = cpos1
 
@@ -118,7 +121,7 @@ class SurveyPairCountBase(PairCountBase):
             w2   = layout.exchange(w2)
 
         # log the sizes of the trees
-        self._log(pos1, pos2)
+        self._log(N1, N2, pos1, pos2)
 
         return (pos1, w1), (pos2, w2)
 
