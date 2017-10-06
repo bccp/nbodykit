@@ -95,6 +95,68 @@ class CatalogMesh(CatalogSource, MeshSource):
 
         return obj
 
+    def gslice(self, start, stop, end=1, redistribute=True):
+        """
+        Execute a global slice of a CatalogMesh.
+
+        .. note::
+            After the global slice is performed, the data is scattered
+            evenly across all ranks.
+
+        As CatalogMesh objects are views of a CatalogSource, this simply
+        globally slices the underlying CatalogSource.
+
+        Parameters
+        ----------
+        start : int
+            the start index of the global slice
+        stop : int
+            the stop index of the global slice
+        step : int, optional
+            the default step size of the global size
+        redistribute : bool, optional
+            if ``True``, evenly re-distribute the sliced data across all
+            ranks, otherwise just return any local data part of the global
+            slice
+        """
+        # sort the base object
+        newbase = self.base.gslice(start, stop, end=end, redistribute=redistribute)
+
+        # view this base class as a CatalogMesh (with default CatalogMesh parameters)
+        toret = newbase.view(self.__class__)
+
+        # attach the meta-data from self to returned sliced CatalogMesh
+        return toret.__finalize__(self)
+
+    def sort(self, keys, reverse=False, usecols=None):
+        """
+        Sort the CatalogMesh object globally across all MPI ranks
+        in ascending order by the input keys.
+
+        Sort columns must be floating or integer type.
+
+        As CatalogMesh objects are views of a CatalogSource, this simply
+        sorts the underlying CatalogSource.
+
+        Parameters
+        ----------
+        *keys :
+            the names of columns to sort by. If multiple columns are provided,
+            the data is sorted consecutively in the order provided
+        reverse : bool, optional
+            if ``True``, perform descending sort operations
+        usecols : list, optional
+            the name of the columns to include in the returned CatalogSource
+        """
+        # sort the base object
+        newbase = self.base.sort(keys, reverse=reverse, usecols=usecols)
+
+        # view this base class as a CatalogMesh (with default CatalogMesh parameters)
+        toret = newbase.view(self.__class__)
+
+        # attach the meta-data from self to returned sliced CatalogMesh
+        return toret.__finalize__(self)
+
     def __slice__(self, index):
         """
         Return a slice of a CatalogMesh object.

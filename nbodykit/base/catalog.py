@@ -875,6 +875,131 @@ class CatalogSource(CatalogSourceBase):
             return NotImplemented
         return self._csize
 
+    def gslice(self, start, stop, end=1, redistribute=True):
+        """
+        Execute a global slice of a CatalogSource.
+
+        .. note::
+            After the global slice is performed, the data is scattered
+            evenly across all ranks.
+
+        Parameters
+        ----------
+        start : int
+            the start index of the global slice
+        stop : int
+            the stop index of the global slice
+        step : int, optional
+            the default step size of the global size
+        redistribute : bool, optional
+            if ``True``, evenly re-distribute the sliced data across all
+            ranks, otherwise just return any local data part of the global
+            slice
+        """
+        from nbodykit.utils import ScatterArray, GatherArray
+
+        # determine the boolean index corresponding to the slice
+        if self.comm.rank == 0:
+            index = numpy.zeros(self.csize, dtype=bool)
+            index[slice(start, stop, end)] = True
+        else:
+            index = None
+        index = self.comm.bcast(index)
+
+        # scatter the index back to all ranks
+        counts = self.comm.allgather(self.size)
+        index = ScatterArray(index, self.comm, root=0, counts=counts)
+
+        # perform the needed local slice
+        subset = self[index]
+
+        # if we don't want to redistribute evenly, just return the slice
+        if not redistribute:
+            return subset
+
+        # re-distribute each column from the sliced data
+        # NOTE: currently Gather/ScatterArray requires numpy arrays, but
+        # in principle we could pass dask arrays around between ranks and
+        # avoid compute() calls
+        data = self.compute(*[subset[col] for col in subset])
+
+        # gather/scatter each column
+        evendata = {}
+        for i, col in enumerate(subset):
+            alldata = GatherArray(data[i], self.comm, root=0)
+            evendata[col] = ScatterArray(alldata, self.comm, root=0)
+
+        # return a new CatalogSource holding the evenly distributed data
+        size = len(evendata[col])
+        toret = self.__class__._from_columns(size, self.comm, **evendata)
+        return toret.__finalize__(self)
+
+    def sort(self, keys, reverse=False, usecols=None):
+        """
+        Return a CatalogSource, sorted globally across all MPI ranks
+        in ascending order by the input keys.
+
+        Sort columns must be floating or integer type.
+
+        .. note::
+            After the sort operation, the data is scattered evenly across
+            all ranks.
+
+        Parameters
+        ----------
+        keys : list, tuple
+            the names of columns to sort by. If multiple columns are provided,
+            the data is sorted consecutively in the order provided
+        reverse : bool, optional
+            if ``True``, perform descending sort operations
+        usecols : list, optional
+            the name of the columns to include in the returned CatalogSource
+        """
+        # single string passed as input
+        if isinstance(keys, string_types):
+            keys = [keys]
+
+        # no duplicated keys
+        if len(set(keys)) != len(keys):
+            raise ValueError("duplicated sort keys")
+
+        # all keys must be valid
+        bad = set(keys) - set(self.columns)
+        if len(bad):
+            raise ValueError("invalid sort keys: %s" %str(bad))
+
+        # check usecols input
+        if usecols is not None:
+            if isinstance(usecols, string_types):
+                usecols = [usecols]
+            if not isinstance(usecols, (list, tuple)):
+                raise ValueError("usecols should be a list or tuple of column names")
+
+            bad = set(usecols) - set(self.columns)
+            if len(bad):
+                raise ValueError("invalid column names in usecols: %s" %str(bad))
+
+        # sort the data
+        data = _sort_data(self.comm, self, list(keys), reverse=reverse, usecols=usecols)
+
+        # get a dictionary of data
+        cols = {}
+        for col in data.dtype.names:
+            cols[col] = data[col]
+
+        # make the new CatalogSource from the data dict
+        size = len(data)
+
+        # NOTE: if we are slicing by columns too, we must return a bare CatalogSource
+        # we cannot guarantee the consistency of the hard column definitions otherwise
+        if usecols is None:
+            toret = self.__class__._from_columns(size, self.comm, **cols)
+            return toret.__finalize__(self)
+        else:
+            toret = CatalogSource._from_columns(size, self.comm, **cols)
+            toret.attrs.update(self.attrs)
+            return toret
+
     @column
     def Selection(self):
         """
@@ -909,3 +1034,68 @@ class CatalogSource(CatalogSourceBase):
         By default, this array is set to unity for all particles.
         """
         return ConstantArray(1.0, self.size, chunks=_global_options['dask_chunk_size'])
+
+
+def _sort_data(comm, cat, rankby, reverse=False, usecols=None):
+    """
+    Sort the input data by the specified columns
+
+    Parameters
+    ----------
+    comm :
+        the mpi communicator
+    cat : CatalogSource
+        the catalog holding the data to sort
+    rankby : list of str
+        list of columns to sort by
+    reverse : bool, optional
+        if ``True``, sort in descending order
+    usecols : list, optional
+        only sort these data columns
+    """
+    import mpsort
+
+    # determine which columns we need
+    if usecols is None:
+        usecols = cat.columns
+
+    # remove duplicates from usecols
+    usecols = list(set(usecols))
+
+    # the columns we need in the sort steps
+    columns = list(set(rankby)|set(usecols))
+
+    # make the data to sort
+    dtype = [('_sortkey', 'i8')]
+    for col in cat:
+        if col in columns:
+            dt = (cat[col].dtype.char,)
+            dt += cat[col].shape[1:]
+            if len(dt) == 1: dt = dt[0]
+            dtype.append((col, dt))
+    dtype = numpy.dtype(dtype)
+
+    data = numpy.empty(cat.size, dtype=dtype)
+    for col in columns:
+        data[col] = cat[col]
+
+    # sort the particles by the specified columns and store the
+    # corrected sorted index
+    for col in reversed(rankby):
+        dt = data.dtype[col]
+        rankby_name = col
+
+        # make an integer key for floating columns
+        if issubclass(dt.type, numpy.floating):
+            data['_sortkey'] = numpy.fromstring(data[col].tobytes(), dtype='i8')
+            if reverse:
+                data['_sortkey'] *= -1
+            rankby_name = '_sortkey'
+        elif not issubclass(dt.type, numpy.integer):
+            args = (col, str(dt))
+            raise ValueError("cannot sort by column '%s' with dtype '%s'; must be integer or floating type" %args)
+
+        # do the parallel sort
+        mpsort.sort(data, orderby=rankby_name, comm=comm)
+
+    return data[usecols]

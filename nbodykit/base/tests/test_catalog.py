@@ -7,6 +7,7 @@ from numpy.testing import assert_allclose, assert_array_equal
 
 setup_logging()
 
+
 @MPITest([1, 4])
 def test_save(comm):
 

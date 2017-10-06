@@ -7,6 +7,59 @@ import pytest
 # debug logging
 setup_logging("debug")
 
+
+@MPITest([1, 4])
+def test_gslice(comm):
+    CurrentMPIComm.set(comm)
+
+    # the catalog to slice
+    d = UniformCatalog(1000, 1.0, seed=42)
+    d = d.to_mesh(Nmesh=32)
+
+    sels = [(0,10,1), (None,10,1), (0,50,4), (0,50,-1), (-10,-1,1), (-10,None,1)]
+    for (start,stop,end) in sels:
+
+        sliced = d.gslice(start,stop,end)
+
+        for col in d:
+            data1 = numpy.concatenate(comm.allgather(d[col]), axis=0)
+            data2 = numpy.concatenate(comm.allgather(sliced[col]), axis=0)
+
+            sl = slice(start,stop,end)
+            assert_array_equal(data1[sl], data2, err_msg="using slice= "+str(sl))
+
+    # empty slice
+    sliced = d.gslice(0,0)
+    assert len(sliced) == 0
+
+@MPITest([1, 4])
+def test_sort_ascending(comm):
+    CurrentMPIComm.set(comm)
+
+    # the mesh to sort
+    d = UniformCatalog(100, 1.0, use_cache=True)
+    d['mass'] = 10**(d.rng.uniform(low=12, high=15, size=d.size))
+    mesh = d.to_mesh(Nmesh=32)
+
+    # invalid sort key
+    with pytest.raises(ValueError):
+        mesh2 = mesh.sort('BadColumn', reverse=False)
+
+    # duplicate sort keys
+    with pytest.raises(ValueError):
+        mesh2 = mesh.sort(['mass', 'mass'])
+
+    # sort in ascending order by mass
+    mesh2 = mesh.sort('mass', reverse=False)
+
+    # make sure we have all the columns
+    assert all(col in mesh2 for col in mesh)
+
+    mass = numpy.concatenate(comm.allgather(mesh['mass']))
+    sorted_mass = numpy.concatenate(comm.allgather(mesh2['mass']))
+    assert_array_equal(numpy.sort(mass), sorted_mass)
+
+
 @MPITest([4])
 def test_tsc_interlacing(comm):
 
