@@ -5,8 +5,13 @@ Changelog
 ------------------
 
 * AngularPairCount algorithm added to compute pair counts for survey data as a function of angular separation
-* Load balancing improved for survey pair counting algorithms
-
+* Load balancing improved for survey pair counting algorithms (#408)
+* Fix sympy pickling issue (#415)
+* Fix periodic boundary condition issues with FOF for low number of ranks (#409)
+* Fix bug introduced in 0.2.7 causing selection of CatalogSources to sometimes hang (#420)
+* Remove dask selection optimizations, which can cause the code to crash in uncontrollable ways (#420)
+* Better error messaging when using deprecated __init__ syntax for Cosmology class (#421)
+* Add global sort and slice operations to CatalogSource objects (#406)
 
 0.2.7
 -----
