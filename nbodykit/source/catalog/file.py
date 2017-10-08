@@ -10,7 +10,7 @@ import os
 
 __all__ = ['FileCatalogFactory', 'FileCatalogBase',
            'CSVCatalog', 'BinaryCatalog', 'BigFileCatalog',
-           'HDFCatalog', 'TPMBinaryCatalog', 'FITSCatalog']
+           'HDFCatalog', 'TPMBinaryCatalog', 'Gadget1Catalog', 'FITSCatalog']
 
 class FileCatalogBase(CatalogSource):
     """
@@ -173,3 +173,4 @@ BigFileCatalog   = FileCatalogFactory("BigFileCatalog", io.BigFile, examples='bi
 HDFCatalog       = FileCatalogFactory("HDFCatalog", io.HDFFile, examples='hdf-data')
 TPMBinaryCatalog = FileCatalogFactory("TPMBinaryCatalog", io.TPMBinaryFile)
 FITSCatalog      = FileCatalogFactory("FITSCatalog", io.FITSFile, examples='fits-data')
+Gadget1Catalog   = FileCatalogFactory("Gadget1Catalog", io.Gadget1File, examples='gadget1-data')

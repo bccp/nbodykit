@@ -5,6 +5,7 @@ from .file import BigFileCatalog
 from .file import HDFCatalog
 from .file import TPMBinaryCatalog
 from .file import FITSCatalog
+from .file import Gadget1Catalog
 
 from .array import ArrayCatalog
 from .lognormal import LogNormalCatalog
