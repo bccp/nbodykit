@@ -150,11 +150,6 @@ numpydoc_show_class_members = False
 napoleon_include_special_with_doc = True
 numpydoc_class_members_toctree = False
 
-
-import matplotlib.pyplot as plt
-plt.style.use('seaborn-notebook')
-plot_rcparams = dict(plt.rcParams)
-
 # document __init__ when it has a docstring
 napoleon_include_init_with_doc = True
 
