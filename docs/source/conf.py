@@ -97,11 +97,8 @@ extensions = [
     'sphinx.ext.mathjax',
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
-    'IPython.sphinxext.ipython_directive',
-    'IPython.sphinxext.ipython_console_highlighting',
     'sphinx.ext.todo',
     'nbsphinx',
-    'matplotlib.sphinxext.plot_directive',
     'numpydoc'
 ]
 

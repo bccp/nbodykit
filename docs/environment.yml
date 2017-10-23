@@ -12,7 +12,7 @@ channels:
 - conda-forge
 
 dependencies:
-- python=3.5
+- python=3.6
 - numpy
 - scipy
 - astropy
@@ -31,10 +31,8 @@ dependencies:
 - corrfunc
 - classylss>=0.2
 - mcfit
-- IPython
 - numpydoc
 - sphinx<1.6
-- matplotlib
 - pip
 - pip:
   - nbsphinx
