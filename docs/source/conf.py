@@ -41,6 +41,8 @@ class AutoCosmoSummary(Autosummary):
 
     @staticmethod
     def get_members(clazz, obj, typ):
+
+        names = set()
         items = []
 
         # the default dir
@@ -52,6 +54,7 @@ class AutoCosmoSummary(Autosummary):
             if documenter.objtype == typ and not name.startswith('_'):
                 if name not in AutoCosmoSummary.exclude:
                     items.append((clazz,name))
+                    names.add(name) # keep track of method/attribute conflicts
 
         # the delegate dro
         for n in obj.dro:
@@ -61,10 +64,13 @@ class AutoCosmoSummary(Autosummary):
                 except AttributeError:
                     continue
 
-                if documenter.objtype == typ and not name.startswith('_'):
-                    if name not in AutoCosmoSummary.exclude:
-                        x = "%s.%s" %(n.__module__, n.__name__)
-                        items.append((x,name))
+                # dont do conflicts
+                if name not in names:
+                    if documenter.objtype == typ and not name.startswith('_'):
+                        if name not in AutoCosmoSummary.exclude:
+                            x = "%s.%s" %(n.__module__, n.__name__)
+                            items.append((x,name))
+                            names.add(name)
 
         return ['~%s.%s' %item for item in sorted(items, key=lambda x: x[1])]
 
@@ -107,29 +113,52 @@ extensions = [
 os.environ['NBKIT_DOCS'] = os.path.split(__file__)[0]
 
 def autogen_modules():
+    """
+    Produce a file "modules.rst" that includes an ``autosummary`` directive
+    listing all of the modules in nbodykit.
 
-    from sphinx import apidoc
-
-    sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+    The ``toctree`` option is set such that the corresponding rst files
+    will be auto-generated in ``source/api/_autosummary``.
+    """
+    # current directory
     cur_dir = os.path.abspath(os.path.dirname(__file__))
-    module = os.path.join(cur_dir, "..", '..', "nbodykit")
+
+    # top-level path of source tree
+    toplevel = os.path.join(cur_dir, "..", '..')
+
+    # where to dump the list of modules
     output_path = os.path.join(cur_dir, 'api')
 
-    # find directories to exclude
-    modules = ['nbodykit']
+    # directories and modules to ignore
     exclude_dirs = ['tests', 'extern', 'style']
     exclude_modules = ['cosmology.py', '__init__.py']
-    for dirpath, dirs, filenames in os.walk(module):
+
+    # the list of modules
+    modules = []
+
+    # walk the tree structure
+    module_dir = os.path.join(toplevel, 'nbodykit')
+    for dirpath, dirs, filenames in os.walk(module_dir):
 
         # do not walk excluded directories
         dirs[:] = [d for d in dirs if d not in exclude_dirs]
 
-        # keep track of modules
-        for f in filenames:
-            if f.endswith('.py') and f not in exclude_modules:
-                relpath = os.path.relpath(os.path.join(dirpath, f), module)
-                modules.append('nbodykit.' + relpath.replace(os.path.sep, '.')[:-3])
+        # add module with __init__.py
+        if '__init__.py' in filenames:
+            relpath = os.path.relpath(dirpath, toplevel)
+            modules.append(relpath.replace(os.path.sep, '.'))
 
+        # keep track of modules ending in .py
+        for f in filenames:
+
+            # module needs to end with .py
+            if f.endswith('.py') and f not in exclude_modules:
+                path = os.path.join(dirpath, f)
+                relpath = os.path.relpath(path, toplevel) # get path starting with nbodykit.X.X
+                relpath = relpath.replace(os.path.sep, '.')[:-3] # replace slash with dot
+                modules.append(relpath)
+
+    # write the output modules file
     output_file = os.path.join(output_path, 'modules.rst')
     with open(output_file, 'w') as ff:
         header = "Modules"
@@ -138,13 +167,13 @@ def autogen_modules():
         for module in modules:
             ff.write("\t" + module + "\n")
 
+        # separately add in the cosmology.py module with custom template
         ff.write("\n.. autosummary::\n\t:toctree: _autosummary\n\t:template: cosmo-module.rst\n\n")
         ff.write("\tnbodykit.cosmology.cosmology\n")
 
 def setup(app):
     autogen_modules()
     app.add_directive('autocosmosummary', AutoCosmoSummary)
-
 
 autosummary_generate = True
 numpydoc_show_class_members = False
