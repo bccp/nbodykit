@@ -2,6 +2,7 @@ from nbodykit.base.mesh import MeshSource
 from nbodykit.base.catalog import CatalogSource, CatalogSourceBase
 import numpy
 import logging
+import warnings
 
 # for converting from particle to mesh
 from pmesh import window
@@ -330,12 +331,8 @@ class CatalogMesh(CatalogSource, MeshSource):
         # since out may have non-zero elements, messing up our interlacing sum
         if self.interlaced:
 
-            # whether we can re-use "toret" workspace
-            if out is None:
-                real1 = toret
-            else:
-                real1 = RealField(pm)
-                real1[:] = 0
+            real1 = RealField(pm)
+            real1[:] = 0
 
             # the second, shifted mesh (always needed)
             real2 = RealField(pm)
@@ -407,21 +404,28 @@ class CatalogMesh(CatalogSource, MeshSource):
                 # paint to two shifted meshes
                 pm.paint(p, mass=w * v, resampler=paintbrush, hold=True, out=real1)
                 pm.paint(p, mass=w * v, resampler=paintbrush, transform=shifted, hold=True, out=real2)
-                c1 = real1.r2c()
-                c2 = real2.r2c()
 
-                # and then combine
-                for k, s1, s2 in zip(c1.slabs.x, c1.slabs, c2.slabs):
-                    kH = sum(k[i] * H[i] for i in range(3))
-                    s1[...] = s1[...] * 0.5 + s2[...] * 0.5 * numpy.exp(0.5 * 1j * kH)
+        # now the loop over particles is done
 
-                # FFT back to real-space
-                # NOTE: cannot use "toret" here in case user supplied "out"
-                c1.c2r(real1)
+        if not self.interlaced:
+            # nothing to do, toret is already filled.
+            pass
+        else:
+            # compose the two interlaced fields into the final result.
+            c1 = real1.r2c()
+            c2 = real2.r2c()
 
-                # need to add to the returned mesh if user supplied "out"
-                if real1 is not toret:
-                    toret[:] += real1[:]
+            # and then combine
+            for k, s1, s2 in zip(c1.slabs.x, c1.slabs, c2.slabs):
+                kH = sum(k[i] * H[i] for i in range(3))
+                s1[...] = s1[...] * 0.5 + s2[...] * 0.5 * numpy.exp(0.5 * 1j * kH)
+
+            # FFT back to real-space
+            # NOTE: cannot use "toret" here in case user supplied "out"
+            c1.c2r(real1)
+
+            # need to add to the returned mesh if user supplied "out"
+            toret[:] += real1[:]
 
         # unweighted number of objects
         N = pm.comm.allreduce(Nlocal)
@@ -434,8 +438,10 @@ class CatalogMesh(CatalogSource, MeshSource):
 
         # make sure we painted something!
         if N == 0:
-            raise ValueError(("trying to paint particle source to mesh, "
-                              "but no particles were found!"))
+            warnings.warn(("trying to paint particle source to mesh, "
+                           "but no particles were found!"),
+                            RuntimeWarning
+                        )
 
         # shot noise is volume / un-weighted number
         shotnoise = numpy.prod(pm.BoxSize) / N
