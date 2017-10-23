@@ -1022,6 +1022,15 @@ class CatalogSource(CatalogSourceBase):
         return ConstantArray(1.0, self.size, chunks=_global_options['dask_chunk_size'])
 
     @column
+    def Rank(self):
+        """
+        The column giving the rank of each particle in the list.
+
+        """
+        offset = sum(self.comm.allgather(self.size)[:self.comm.rank])
+        return da.arange(offset, offset + self.size, chunks=_global_options['dask_chunk_size'])
+
+    @column
     def Value(self):
         """
         When interpolating a CatalogSource on to a mesh, the value of this
