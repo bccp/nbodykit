@@ -1,19 +1,37 @@
+Collecting nbodykit==0.2.6
+  Using cached nbodykit-0.2.6.tar.gz
+Skipping bdist_wheel for nbodykit, due to binaries being disabled for it.
+Installing collected packages: nbodykit
+  Running setup.py install for nbodykit: started
+    Running setup.py install for nbodykit: finished with status 'done'
+Successfully installed nbodykit-0.2.7
+/dev/shm/local/lib/python3.6/site-packages/pip/commands/install.py:194: UserWarning: Disabling all use of wheels due to the use of --build-options / --global-options / --install-options.
+  cmdoptions.check_install_build_global(options)
+/tmp/zWSspXQ.tar.gz created for nbodykit==0.2.6
+
+real	0m6.886s
+user	0m2.024s
+sys	0m0.236s
 Collecting https://github.com/rainwoodman/fastpm-python/archive/master.zip
-  Downloading https://github.com/rainwoodman/fastpm-python/archive/master.zip (48kB)
+  Downloading https://github.com/rainwoodman/fastpm-python/archive/master.zip (51kB)
 Installing collected packages: fastpm
   Running setup.py install for fastpm: started
     Running setup.py install for fastpm: finished with status 'done'
 Successfully installed fastpm-0.0.4
 /dev/shm/local/lib/python3.6/site-packages/pip/commands/install.py:194: UserWarning: Disabling all use of wheels due to the use of --build-options / --global-options / --install-options.
   cmdoptions.check_install_build_global(options)
-/tmp/3cKwBsx.tar.gz created for https://github.com/rainwoodman/fastpm-python/archive/master.zip
+/tmp/gOEOlmD.tar.gz created for https://github.com/rainwoodman/fastpm-python/archive/master.zip
+
+real	0m10.800s
+user	0m1.492s
+sys	0m0.192s
 ===== Running with 512 cores =====
 /dev/shm/local/lib/python3.6/site-packages/nbodykit/cosmology/power/transfers.py:57: RuntimeWarning: invalid value encountered in true_divide
   return self._norm * (linearP / primordialP)**0.5
-[ 000039.03 ]   0: 08-31 18:04  CatalogSource   INFO     total number of particles in FastPMSimulation() = 134217728
-[ 000039.03 ]   0: 08-31 18:04  CatalogSource   INFO     total number of particles in FastPMSimulation() = 134217728
-[ 000043.89 ]   0: 08-31 18:04  CatalogSource   INFO     total number of particles in ArrayCatalog(size=441) = 226102
-[ 000043.89 ]   0: 08-31 18:04  CatalogSource   INFO     total number of particles in HaloCatalog(size=441) = 226102
+[ 000040.66 ]   0: 08-31 18:04  CatalogSource   INFO     total number of particles in FastPMSimulation() = 134217728
+[ 000040.66 ]   0: 10-10 13:50  CatalogSource   INFO     total number of particles in FastPMSimulation() = 134217728
+[ 000046.02 ]   0: 10-10 13:50  CatalogSource   INFO     total number of particles in ArrayCatalog(size=438) = 224762
+[ 000046.02 ]   0: 10-10 13:50  CatalogSource   INFO     total number of particles in HaloCatalog(size=438) = 224762
 <class 'astropy.cosmology.core.FlatLambdaCDM'>
 <class 'astropy.cosmology.core.FlatLambdaCDM'>
 <class 'astropy.cosmology.core.FlatLambdaCDM'>
@@ -1550,14 +1568,14 @@ Successfully installed fastpm-0.0.4
 <class 'astropy.cosmology.core.FlatLambdaCDM'>
 <class 'astropy.cosmology.core.FlatLambdaCDM'>
 <class 'astropy.cosmology.core.FlatLambdaCDM'>
-[ 000049.10 ]   0: 08-31 18:04  HOD             INFO     satellite fraction: 0.47
-[ 000049.13 ]   0: 08-31 18:04  HOD             INFO     mean log10 halo mass: 14.18
-[ 000049.13 ]   0: 08-31 18:04  HOD             INFO     std log10 halo mass: 0.64
-[ 000049.21 ]   0: 08-31 18:04  HOD             INFO     total number of particles in HODCatalog(logMmin=13.03, sigma_logM=0.38, alpha=0.76, logM0=13.27, logM1=14.08) = 417621
-[ 000049.23 ]   0: 08-31 18:04  CatalogMesh     INFO     total number of particles in (HODCatalog(logMmin=13.03, sigma_logM=0.38, alpha=0.76, logM0=13.27, logM1=14.08) as CatalogMesh) = 417621
-[ 000049.29 ]   0: 08-31 18:04  CatalogMesh     INFO     painted 417621 out of 417621 objects to mesh
-[ 000049.29 ]   0: 08-31 18:04  CatalogMesh     INFO     mean particles per cell is 0.199137
-[ 000049.29 ]   0: 08-31 18:04  CatalogMesh     INFO     sum is 417621 
-[ 000049.29 ]   0: 08-31 18:04  CatalogMesh     INFO     normalized the convention to 1 + delta
-[ 000049.30 ]   0: 08-31 18:04  CatalogMesh     INFO     field: (HODCatalog(logMmin=13.03, sigma_logM=0.38, alpha=0.76, logM0=13.27, logM1=14.08) as CatalogMesh) painting done
-[ 000049.41 ]   0: 08-31 18:04  FFTPower        INFO     measurement done; saving result to galaxy-power.json
+[ 000050.52 ]   0: 10-10 13:50  HOD             INFO     satellite fraction: 0.47
+[ 000050.55 ]   0: 10-10 13:50  HOD             INFO     mean log10 halo mass: 14.18
+[ 000050.55 ]   0: 10-10 13:50  HOD             INFO     std log10 halo mass: 0.64
+[ 000050.63 ]   0: 10-10 13:50  HOD             INFO     total number of particles in HODCatalog(logMmin=13.03, sigma_logM=0.38, alpha=0.76, logM0=13.27, logM1=14.08) = 416346
+[ 000050.65 ]   0: 10-10 13:50  CatalogMesh     INFO     total number of particles in (HODCatalog(logMmin=13.03, sigma_logM=0.38, alpha=0.76, logM0=13.27, logM1=14.08) as CatalogMesh) = 416346
+[ 000050.78 ]   0: 10-10 13:50  CatalogMesh     INFO     painted 416346 out of 416346 objects to mesh
+[ 000050.78 ]   0: 10-10 13:50  CatalogMesh     INFO     mean particles per cell is 0.198529
+[ 000050.78 ]   0: 10-10 13:50  CatalogMesh     INFO     sum is 416346 
+[ 000050.78 ]   0: 10-10 13:50  CatalogMesh     INFO     normalized the convention to 1 + delta
+[ 000050.79 ]   0: 10-10 13:50  CatalogMesh     INFO     field: (HODCatalog(logMmin=13.03, sigma_logM=0.38, alpha=0.76, logM0=13.27, logM1=14.08) as CatalogMesh) painting done
+[ 000050.89 ]   0: 10-10 13:50  FFTPower        INFO     measurement done; saving result to galaxy-power.json
