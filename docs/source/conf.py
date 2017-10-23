@@ -29,7 +29,9 @@ from sphinx.util.inspect import safe_getattr
 import re
 
 class AutoCosmoSummary(Autosummary):
-
+    """
+    Summarize all methods/attributes of the Cosmology class
+    """
     exclude = ['dro', 'dro_dict', 'data']
     option_spec = {
         'methods': directives.unchanged,
@@ -138,7 +140,7 @@ def autogen_modules():
         for module in modules:
             ff.write("\t" + module + "\n")
 
-        ff.write(".. autosummary::\n\t:toctree: _autosummary\n\t:template: cosmo-module.rst\n\n")
+        ff.write("\n.. autosummary::\n\t:toctree: _autosummary\n\t:template: cosmo-module.rst\n\n")
         ff.write("\tnbodykit.cosmology.cosmology\n")
 
 def setup(app):

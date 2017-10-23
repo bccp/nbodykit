@@ -173,4 +173,4 @@ BigFileCatalog   = FileCatalogFactory("BigFileCatalog", io.BigFile, examples='bi
 HDFCatalog       = FileCatalogFactory("HDFCatalog", io.HDFFile, examples='hdf-data')
 TPMBinaryCatalog = FileCatalogFactory("TPMBinaryCatalog", io.TPMBinaryFile)
 FITSCatalog      = FileCatalogFactory("FITSCatalog", io.FITSFile, examples='fits-data')
-Gadget1Catalog   = FileCatalogFactory("Gadget1Catalog", io.Gadget1File, examples='gadget1-data')
+Gadget1Catalog   = FileCatalogFactory("Gadget1Catalog", io.Gadget1File, examples=None)

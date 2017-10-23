@@ -14,31 +14,6 @@ summarize the most important aspects of the API below.
    :local:
    :backlinks: none
 
-.. _api-io:
-
-The IO Library (:mod:`nbodykit.io`)
------------------------------------
-
-Base class:
-
-.. autosummary::
-
-  ~nbodykit.io.base.FileType
-
-Subclasses available from the :mod:`nbodykit.io` module:
-
-
-.. autosummary::
-
-  ~nbodykit.io.bigfile.BigFile
-  ~nbodykit.io.binary.BinaryFile
-  ~nbodykit.io.csv.CSVFile
-  ~nbodykit.io.fits.FITSFile
-  ~nbodykit.io.hdf.HDFFile
-  ~nbodykit.io.stack.FileStack
-  ~nbodykit.io.tpm.TPMBinaryFile
-
-
 .. _api-cosmology:
 
 Cosmology (:mod:`nbodykit.cosmology`)
@@ -49,7 +24,7 @@ Cosmology (:mod:`nbodykit.cosmology`)
 The main cosmology object is
 
 .. autosummary::
-      
+
     ~cosmology.Cosmology
 
 .. rubric:: Attributes
@@ -149,6 +124,7 @@ And subclasses:
   ~file.TPMBinaryCatalog
   ~file.HDFCatalog
   ~file.FITSCatalog
+  ~file.Gadget1Catalog
   ~array.ArrayCatalog
   ~halos.HaloCatalog
   ~hod.HODCatalog
@@ -260,6 +236,32 @@ Analyzing Results (:class:`~nbodykit.binned_statistic.BinnedStatistic`)
     BinnedStatistic.reindex
     BinnedStatistic.sel
     BinnedStatistic.squeeze
+
+
+.. _api-io:
+
+The IO Library (:mod:`nbodykit.io`)
+-----------------------------------
+
+Base class:
+
+.. autosummary::
+
+  ~nbodykit.io.base.FileType
+
+Subclasses available from the :mod:`nbodykit.io` module:
+
+
+.. autosummary::
+
+  ~nbodykit.io.bigfile.BigFile
+  ~nbodykit.io.binary.BinaryFile
+  ~nbodykit.io.csv.CSVFile
+  ~nbodykit.io.fits.FITSFile
+  ~nbodykit.io.hdf.HDFFile
+  ~nbodykit.io.stack.FileStack
+  ~nbodykit.io.tpm.TPMBinaryFile
+  ~nbodykit.io.gadget.Gadget1File
 
 Internal Nuts and Bolts
 ------------------------
