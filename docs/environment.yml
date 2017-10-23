@@ -33,6 +33,7 @@ dependencies:
 - mcfit
 - numpydoc
 - sphinx<1.6
+- IPython
 - pip
 - pip:
   - nbsphinx
