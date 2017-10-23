@@ -40,7 +40,7 @@ class Cosmology(object):
         * distance: :math:`h^{-1} \mathrm{Mpc}`
         * wavenumber: :math:`h \mathrm{Mpc}^{-1}`
         * power: :math:`h^{-3} \mathrm{Mpc}^3`
-        * density: :math:`10^{10} (M_\odot/h) (Mpc/h)^{-3}`
+        * density: :math:`10^{10} (M_\odot/h) (\mathrm{Mpc}/h)^{-3}`
         * neutrino mass: :math:`\mathrm{eV}`
         * time: :math:`\mathrm{Gyr}`
         * H0: :math:`(h^{-1} \mathrm{Mpc}) / (\mathrm{km/s})`
