@@ -21,7 +21,10 @@ Cosmology (:mod:`nbodykit.cosmology`)
 
 .. currentmodule:: nbodykit.cosmology
 
-The main cosmology object is
+The main cosmology object relies on the functionality of the :mod:`classylss`
+package, which provides a binding of the `CLASS CMB Boltzmann code <http://class-code.net>`_.
+The syntax largely follows that used by CLASS. Below, we list the main cosmology class,
+as well as its attributes and methods:
 
 .. autosummary::
 
