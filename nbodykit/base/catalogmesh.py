@@ -2,6 +2,7 @@ from nbodykit.base.mesh import MeshSource
 from nbodykit.base.catalog import CatalogSource, CatalogSourceBase
 import numpy
 import logging
+import warnings
 
 # for converting from particle to mesh
 from pmesh import window
@@ -437,8 +438,10 @@ class CatalogMesh(CatalogSource, MeshSource):
 
         # make sure we painted something!
         if N == 0:
-            raise ValueError(("trying to paint particle source to mesh, "
-                              "but no particles were found!"))
+            warnings.warn(("trying to paint particle source to mesh, "
+                           "but no particles were found!"),
+                            RuntimeWarning
+                        )
 
         # shot noise is volume / un-weighted number
         shotnoise = numpy.prod(pm.BoxSize) / N
