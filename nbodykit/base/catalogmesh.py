@@ -404,7 +404,12 @@ class CatalogMesh(CatalogSource, MeshSource):
                 pm.paint(p, mass=w * v, resampler=paintbrush, hold=True, out=real1)
                 pm.paint(p, mass=w * v, resampler=paintbrush, transform=shifted, hold=True, out=real2)
 
-        if self.interlaced:
+        # now the loop over particles is done
+
+        if not self.interlaced:
+            # nothing to do, toret is already filled.
+            pass
+        else:
             # compose the two interlaced fields into the final result.
             c1 = real1.r2c()
             c2 = real2.r2c()
