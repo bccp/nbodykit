@@ -2,7 +2,7 @@ figure.figsize: 12, 7
 figure.edgecolor: white
 figure.facecolor: white
 
-text.usetex: True
+text.usetex: False
 
 lines.linewidth: 2.5
 lines.markeredgewidth: 0
