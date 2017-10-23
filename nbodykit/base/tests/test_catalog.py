@@ -158,16 +158,17 @@ def test_dask_slice(comm):
     assert_array_equal(pos.compute()[index], pos2.compute())
 
 @MPITest([1, 4])
-def test_rank(comm):
+def test_index(comm):
     CurrentMPIComm.set(comm)
 
     source = UniformCatalog(nbar=0.2e-3, BoxSize=1024., seed=42)
-    r = numpy.concatenate(comm.allgather(source['Rank'].compute()))
+    r = numpy.concatenate(comm.allgather(source['Index'].compute()))
     assert_array_equal(r, range(source.csize))
 
     source = source.gslice(0, 1000)
-    r = numpy.concatenate(comm.allgather(source['Rank'].compute()))
+    r = numpy.concatenate(comm.allgather(source['Index'].compute()))
     assert_array_equal(r, range(source.csize))
+    assert source['Index'].dtype == numpy.dtype('i8')
 
 @MPITest([1 ,4])
 def test_transform(comm):

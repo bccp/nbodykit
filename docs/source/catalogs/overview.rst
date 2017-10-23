@@ -86,12 +86,13 @@ All :class:`CatalogSource` objects include several default columns.
 These columns are used broadly throughout nbodykit and can be summarized as
 follows:
 
-============= ======================= =================
+============= ======================= ==================
 **Name**      **Description**         **Default Value**
 ``Weight``    |Weight-Description|    1.0
 ``Value``     |Value-Description|     1.0
 ``Selection`` |Selection-Description| ``True``
-============= ======================= =================
+``Index``      |Index-Description|      Integers, 0..csize
+============= ======================= ==================
 
 .. |Weight-Description| replace::
   The weight to use for each particle when interpolating a :class:`CatalogSource`
@@ -110,6 +111,10 @@ follows:
   A boolean column that selects a subset slice of the :class:`CatalogSource`.
   When converting a :class:`CatalogSource` to a mesh object, only the objects
   where the ``Selection`` column is ``True`` will be painted to the mesh.
+
+.. |Index-Description| replace::
+  A unsigned integer column that yields the index rank of the object. The first
+  object in the catalog has 0. The last object in the catalog has ``csize - 1``.
 
 Storing Meta-data
 -----------------

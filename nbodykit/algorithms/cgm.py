@@ -156,18 +156,13 @@ class CylindricalGroups(object):
             self.logger.info("using cpu grid decomposition: %s" %str(np))
 
         # add a column for original index
-        sizes = comm.allgather(self.source.size)
-        origind = numpy.arange(sizes[comm.rank], dtype='u4')
-        origind += sum(sizes[:comm.rank])
-        self.source['origind'] = origind
+        self.source['origind'] = self.source['Index']
 
         # sort the data
         data = self.source.sort(self.attrs['rankby'], usecols=['Position', 'origind'])
 
         # add a column to track sorted index
-        sortindex = numpy.arange(sizes[comm.rank], dtype='u4')
-        sortindex += sum(sizes[:comm.rank])
-        data['sortindex'] = sortindex
+        data['sortindex'] = data['Index']
 
         # global min/max across all ranks
         pos = data.compute(data['Position'])
