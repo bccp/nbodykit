@@ -102,7 +102,8 @@ def _make_docstring(filetype, examples):
     """
 
     qualname = '%s.%s' %(filetype.__module__, filetype.__name__)
-    __doc__ = """A CatalogSource that uses :class:`~{qualname}` to read data from disk.
+    __doc__ = """
+A CatalogSource that uses :class:`~{qualname}` to read data from disk.
 
 Multiple files can be read at once by supplying a list of file
 names or a glob asterisk pattern as the ``path`` argument. See
