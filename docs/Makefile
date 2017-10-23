@@ -40,8 +40,11 @@ help:
 
 clean:
 	rm -rf $(BUILDDIR)/*
-	rm -rf source/api/nbodykit.*
+	rm -rf source/api/_autosummary/*
 	rm -rf source/api/modules.rst
+
+notebooks:
+	python helper_scripts/run_notebooks.py
 
 html:
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html

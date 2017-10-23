@@ -1,3 +1,8 @@
+.. toctree::
+    :hidden:
+
+    modules
+
 API Reference
 =============
 
@@ -22,17 +27,16 @@ Base class:
 
 Subclasses available from the :mod:`nbodykit.io` module:
 
-.. currentmodule:: nbodykit.io
 
 .. autosummary::
 
-  ~bigfile.BigFile
-  ~binary.BinaryFile
-  ~csv.CSVFile
-  ~fits.FITSFile
-  ~hdf.HDFFile
-  ~stack.FileStack
-  ~tpm.TPMBinaryFile
+  ~nbodykit.io.bigfile.BigFile
+  ~nbodykit.io.binary.BinaryFile
+  ~nbodykit.io.csv.CSVFile
+  ~nbodykit.io.fits.FITSFile
+  ~nbodykit.io.hdf.HDFFile
+  ~nbodykit.io.stack.FileStack
+  ~nbodykit.io.tpm.TPMBinaryFile
 
 
 .. _api-cosmology:
@@ -45,10 +49,21 @@ Cosmology (:mod:`nbodykit.cosmology`)
 The main cosmology object is
 
 .. autosummary::
+      
+    ~cosmology.Cosmology
 
-  ~cosmology.Cosmology
+.. rubric:: Attributes
 
-with available transfer functions computed using
+.. autocosmosummary:: nbodykit.cosmology.cosmology.Cosmology
+    :attributes:
+
+.. rubric:: Methods
+
+.. autocosmosummary:: nbodykit.cosmology.cosmology.Cosmology
+    :methods:
+
+
+There are several transfer functions available to the user:
 
 .. autosummary::
 

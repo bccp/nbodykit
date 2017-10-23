@@ -22,6 +22,63 @@ import os
 sys.path.insert(0, os.path.abspath('..'))
 import nbodykit
 
+from sphinx.ext.autosummary import Autosummary
+from sphinx.ext.autosummary import get_documenter
+from docutils.parsers.rst import directives
+from sphinx.util.inspect import safe_getattr
+import re
+
+class AutoCosmoSummary(Autosummary):
+
+    exclude = ['dro', 'dro_dict', 'data']
+    option_spec = {
+        'methods': directives.unchanged,
+        'attributes': directives.unchanged
+    }
+    required_arguments = 1
+
+    @staticmethod
+    def get_members(clazz, obj, typ):
+        items = []
+
+        # the default dir
+        for name in dir(obj):
+            try:
+                documenter = get_documenter(safe_getattr(obj, name), obj)
+            except AttributeError:
+                continue
+            if documenter.objtype == typ and not name.startswith('_'):
+                if name not in AutoCosmoSummary.exclude:
+                    items.append((clazz,name))
+
+        # the delegate dro
+        for n in obj.dro:
+            for name in dir(n):
+                try:
+                    documenter = get_documenter(safe_getattr(n, name), n)
+                except AttributeError:
+                    continue
+
+                if documenter.objtype == typ and not name.startswith('_'):
+                    if name not in AutoCosmoSummary.exclude:
+                        x = "%s.%s" %(n.__module__, n.__name__)
+                        items.append((x,name))
+
+        return ['~%s.%s' %item for item in sorted(items, key=lambda x: x[1])]
+
+    def run(self):
+        clazz = str(self.arguments[0])
+        try:
+            (module_name, class_name) = clazz.rsplit('.', 1)
+            m = __import__(module_name, globals(), locals(), [class_name])
+            c = getattr(m, class_name)
+            if 'methods' in self.options:
+                self.content = self.get_members(clazz, c, 'method')
+            if 'attributes' in self.options:
+                self.content = self.get_members(clazz, c, 'attribute')
+        finally:
+            return super(AutoCosmoSummary, self).run()
+
 # -- General configuration ------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
@@ -46,36 +103,51 @@ extensions = [
     'numpydoc'
 ]
 
-os.environ['SOURCE_DIR'] = os.path.split(__file__)[0]
+# store the home directory for the docs
+os.environ['NBKIT_DOCS'] = os.path.split(__file__)[0]
 
-def run_apidoc(*args):
+def autogen_modules():
 
     from sphinx import apidoc
+
     sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
     cur_dir = os.path.abspath(os.path.dirname(__file__))
     module = os.path.join(cur_dir, "..", '..', "nbodykit")
     output_path = os.path.join(cur_dir, 'api')
 
     # find directories to exclude
-    exclude_dirs = []
-    bad = ['tests', 'extern', 'style']
-    for dirpath, dirnames, filenames in os.walk(module):
-        for b in bad:
-            if b in dirnames:
-                exclude_dirs.append(os.path.join(dirpath, b))
-                dirnames.remove(b)
+    modules = ['nbodykit']
+    exclude_dirs = ['tests', 'extern', 'style']
+    exclude_modules = ['cosmology.py', '__init__.py']
+    for dirpath, dirs, filenames in os.walk(module):
 
-    # options that will be passed to sphinx-apidoc
-    apidoc.OPTIONS = ['members', 'undoc-members', 'inherited-members', 'show-inheritance']
+        # do not walk excluded directories
+        dirs[:] = [d for d in dirs if d not in exclude_dirs]
 
-    # call sphinx-apidoc
-    apidoc.main(['sphinx-apidoc', '-e', '-o', output_path, module] + exclude_dirs)
+        # keep track of modules
+        for f in filenames:
+            if f.endswith('.py') and f not in exclude_modules:
+                relpath = os.path.relpath(os.path.join(dirpath, f), module)
+                modules.append('nbodykit.' + relpath.replace(os.path.sep, '.')[:-3])
+
+    output_file = os.path.join(output_path, 'modules.rst')
+    with open(output_file, 'w') as ff:
+        header = "Modules"
+        header += "\n" + "="*len(header) + "\n"
+        ff.write(header+".. autosummary::\n\t:toctree: _autosummary\n\t:template: module.rst\n\n")
+        for module in modules:
+            ff.write("\t" + module + "\n")
+
+        ff.write(".. autosummary::\n\t:toctree: _autosummary\n\t:template: cosmo-module.rst\n\n")
+        ff.write("\tnbodykit.cosmology.cosmology\n")
 
 def setup(app):
-    app.connect('builder-inited', run_apidoc)
+    autogen_modules()
+    app.add_directive('autocosmosummary', AutoCosmoSummary)
 
 
-numpydoc_show_class_members = True
+autosummary_generate = True
+numpydoc_show_class_members = False
 napoleon_include_special_with_doc = True
 numpydoc_class_members_toctree = False
 
@@ -375,8 +447,9 @@ intersphinx_mapping = {
     'xarray': ('http://xarray.pydata.org/en/stable/', None),
     'astropy': ('http://docs.astropy.org/en/stable/', None),
     'dask': ('http://dask.pydata.org/en/stable/', None),
-    'halotools': ('https://halotools.readthedocs.io/en/latest/', None),
+    'halotools': ('https://halotools.readthedocs.io/en/stable/', None),
     'pmesh': ('http://rainwoodman.github.io/pmesh/', None),
     'Corrfunc': ('http://corrfunc.readthedocs.io/en/master/', None),
-    'h5py': ('http://docs.h5py.org/en/latest/', None)
+    'h5py': ('http://docs.h5py.org/en/stable/', None),
+    'classylss': ('http://classylss.readthedocs.io/en/stable', None)
 }
