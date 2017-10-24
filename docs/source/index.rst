@@ -81,10 +81,10 @@ Discrete Data Catalogs
   :hidden:
 
   Overview <catalogs/overview>
-  catalogs/reading
-  catalogs/on-demand-io
-  catalogs/common-operations
-  catalogs/mock-data
+  catalogs/reading.ipynb
+  catalogs/on-demand-io.ipynb
+  catalogs/common-operations.ipynb
+  catalogs/mock-data.ipynb
 
 Data on a Mesh
 --------------
@@ -99,10 +99,10 @@ Data on a Mesh
   :caption: Data on a Mesh
   :hidden:
 
-  Overview <mesh/overview>
-  mesh/creating
+  Overview <mesh/overview.ipynb>
+  mesh/creating.ipynb
   mesh/painting
-  mesh/common-operations
+  mesh/common-operations.ipynb
 
 .. _getting-results:
 

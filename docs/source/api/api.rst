@@ -1,3 +1,8 @@
+.. toctree::
+    :hidden:
+
+    modules
+
 API Reference
 =============
 
@@ -9,32 +14,6 @@ summarize the most important aspects of the API below.
    :local:
    :backlinks: none
 
-.. _api-io:
-
-The IO Library (:mod:`nbodykit.io`)
------------------------------------
-
-Base class:
-
-.. autosummary::
-
-  ~nbodykit.io.base.FileType
-
-Subclasses available from the :mod:`nbodykit.io` module:
-
-.. currentmodule:: nbodykit.io
-
-.. autosummary::
-
-  ~bigfile.BigFile
-  ~binary.BinaryFile
-  ~csv.CSVFile
-  ~fits.FITSFile
-  ~hdf.HDFFile
-  ~stack.FileStack
-  ~tpm.TPMBinaryFile
-
-
 .. _api-cosmology:
 
 Cosmology (:mod:`nbodykit.cosmology`)
@@ -42,13 +21,27 @@ Cosmology (:mod:`nbodykit.cosmology`)
 
 .. currentmodule:: nbodykit.cosmology
 
-The main cosmology object is
+The main cosmology object relies on the functionality of the :mod:`classylss`
+package, which provides a binding of the `CLASS CMB Boltzmann code <http://class-code.net>`_.
+The syntax largely follows that used by CLASS. Below, we list the main cosmology class,
+as well as its attributes and methods:
 
 .. autosummary::
 
-  ~cosmology.Cosmology
+    ~cosmology.Cosmology
 
-with available transfer functions computed using
+.. rubric:: Attributes
+
+.. autocosmosummary:: nbodykit.cosmology.cosmology.Cosmology
+    :attributes:
+
+.. rubric:: Methods
+
+.. autocosmosummary:: nbodykit.cosmology.cosmology.Cosmology
+    :methods:
+
+
+There are several transfer functions available to the user:
 
 .. autosummary::
 
@@ -134,6 +127,7 @@ And subclasses:
   ~file.TPMBinaryCatalog
   ~file.HDFCatalog
   ~file.FITSCatalog
+  ~file.Gadget1Catalog
   ~array.ArrayCatalog
   ~halos.HaloCatalog
   ~hod.HODCatalog
@@ -245,6 +239,32 @@ Analyzing Results (:class:`~nbodykit.binned_statistic.BinnedStatistic`)
     BinnedStatistic.reindex
     BinnedStatistic.sel
     BinnedStatistic.squeeze
+
+
+.. _api-io:
+
+The IO Library (:mod:`nbodykit.io`)
+-----------------------------------
+
+Base class:
+
+.. autosummary::
+
+  ~nbodykit.io.base.FileType
+
+Subclasses available from the :mod:`nbodykit.io` module:
+
+
+.. autosummary::
+
+  ~nbodykit.io.bigfile.BigFile
+  ~nbodykit.io.binary.BinaryFile
+  ~nbodykit.io.csv.CSVFile
+  ~nbodykit.io.fits.FITSFile
+  ~nbodykit.io.hdf.HDFFile
+  ~nbodykit.io.stack.FileStack
+  ~nbodykit.io.tpm.TPMBinaryFile
+  ~nbodykit.io.gadget.Gadget1File
 
 Internal Nuts and Bolts
 ------------------------

@@ -63,7 +63,6 @@ class Gadget1File(BinaryFile):
     References
     ----------
     https://wwwmpa.mpa-garching.mpg.de/gadget/users-guide.pdf
-
     """
     def __init__(self, path, columndefs=DefaultColumnDefs,
                 hdtype=DefaultHeaderDtype, ptype=1):
