@@ -665,6 +665,14 @@ class DistributedArray(object):
         prev, next = self.topology.prev(), self.topology.next()
 
         junk, label = numpy.unique(self.local, return_inverse=True)
+
+        if len(label) == 0:
+            # work around numpy bug (<=1.13.3) when label is empty it
+            # spits out booleans?? booleans!!
+            # this causes issues when type cast rules in numpy
+            # are tighten up.
+            label = numpy.int64(label)
+
         if len(self.local) == 0:
             Nunique = 0
         else:
