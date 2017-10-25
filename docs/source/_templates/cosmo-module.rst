@@ -3,6 +3,7 @@
 
 .. automodule:: {{ fullname }}
    :members:
+   :exclude-members: Cosmology
 
    {% block functions %}
    {% if functions %}
