@@ -1,0 +1,13 @@
+:orphan:
+
+.. _getting-results:
+
+Getting Results
+===============
+
+.. toctree::
+  :maxdepth: 1
+
+  algorithms/index
+  batch-mode
+  analyzing
