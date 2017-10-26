@@ -49,8 +49,19 @@ report:
    a standalone script that will reproduce the issue. Issues have a much higher chance
    of being resolved quickly if we can easily reproduce the bug.
 
-6. Take a stab at fixing the bug yourself! :ref:`Pull requests <PR-guide>` for
-   bug fixes are welcome!
+6. Take a stab at fixing the bug yourself! The :mod:`runtests` module used by
+   nbodykit supports on-line debugging via the
+   `PDB interface <https://docs.python.org/3/library/pdb.html>`_.  It also
+   supports drop-in replacements for PDB such as
+   `PDB++ <https://pypi.python.org/pypi/pdbpp/>`_. A common debugging route
+   is to add a regression unit test to the nbodykit test suite that fails due
+   the bug and then run the test in debugging mode:
+
+   .. code:: bash
+
+      $ python run-tests.py nbodykit/path/to/your/test --pdb
+
+   :ref:`Pull requests <PR-guide>` for bug fixes are always welcome!
 
 We strongly recommend following the above steps and providing as much information
 as possible when bugs are encountered. This will help us resolve issues faster --
