@@ -106,7 +106,8 @@ extensions = [
     'sphinx.ext.todo',
     'nbsphinx',
     'numpydoc',
-    'IPython.sphinxext.ipython_console_highlighting'
+    'IPython.sphinxext.ipython_console_highlighting',
+    'sphinx_issues',
 ]
 
 # store the home directory for the docs
@@ -163,6 +164,7 @@ def autogen_modules():
     with open(output_file, 'w') as ff:
         header = "Modules"
         header += "\n" + "="*len(header) + "\n"
+        header = ":orphan:\n\n" + header
         ff.write(header+".. autosummary::\n\t:toctree: _autosummary\n\t:template: module.rst\n\n")
         for module in modules:
             ff.write("\t" + module + "\n")
@@ -175,10 +177,17 @@ def setup(app):
     autogen_modules()
     app.add_directive('autocosmosummary', AutoCosmoSummary)
 
+# generate API rst files from autosummary command
 autosummary_generate = True
+
+# configure which methods show up
 numpydoc_show_class_members = False
 napoleon_include_special_with_doc = True
 numpydoc_class_members_toctree = False
+
+# link changelog to github
+issues_github_path = 'bccp/nbodykit'
+
 
 # document __init__ when it has a docstring
 napoleon_include_init_with_doc = True
@@ -299,10 +308,10 @@ html_theme_options = dict(
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
-#html_title = None
+html_title = ""
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
-#html_short_title = None
+html_short_title = ""
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.

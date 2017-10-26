@@ -38,3 +38,4 @@ dependencies:
 - pip:
   - nbsphinx
   - sphinx_bootstrap_theme
+  - sphinx-issues
