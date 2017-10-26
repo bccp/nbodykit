@@ -1,8 +1,3 @@
-.. toctree::
-    :hidden:
-
-    modules
-
 API Reference
 =============
 
