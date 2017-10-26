@@ -20,9 +20,8 @@ A core design goal of nbodykit is maintaining an interactive user
 experience, allowing the user to quickly experiment and play around
 with data sets and statistics, while still leveraging the power of
 parallel processing when necessary. Motivated by the power of
-`Jupyter notebooks <http://jupyter.org>`_, we adopt a ``lab``
-framework for nbodykit, where all of the necessary data containers
-and algorithms can be imported from a single module:
+`Jupyter notebooks`_, we adopt a "lab" framework for nbodykit, where all of the
+necessary data containers and algorithms can be imported from a single module:
 
 .. code-block:: python
 
@@ -30,13 +29,16 @@ and algorithms can be imported from a single module:
 
   [insert cool science here]
 
+See the documentation for :mod:`nbodykit.lab` for a full list of the
+imported members in this module.
+
 With all of the necessary tools now in hand, the user can easily load
 a data set, compute statistics of that data via one of the
 built-in algorithms, and save the results in just a few lines. The end
 result is a reproducible scientific result, generated from clear
 and concise code that flows from step to step.
 
-Parallel Computation with MPI
+Parallel computation with MPI
 -----------------------------
 
 The nbodykit package is fully parallelized using the Python
@@ -50,33 +52,261 @@ MPI allows nbodykit to use a specified number of CPUs, which work independently
 to achieve a common goal and pass messages back and forth to coordinate their
 work.
 
-.. note::
+When writing code with nbodykit, it's important to keep in mind that memory is
+not shared across different CPUS when using MPI. This is particularly relevant
+when loading data in parallel using nbodykit, as the data is spread out
+evenly across all of the available CPUs. This allows nbodykit to load
+large data sets that would otherwise not fit into the memory of a single CPU,
+given the prohibitively large size. However, a single CPU does not have access
+to the full dataset, but merely the portion stored in its memory
+(usually :math:`1/N` of the full data set, where :math:`N` is the number of CPUs).
 
-  It is important to keep in mind that memory is not shared across
-  different CPUS when using MPI. This is particularly important when loading data
-  in parallel using nbodykit, as the data is spread out evenly across all of the
-  available CPUs. This allows nbodykit to load very large data sets quickly, given
-  a necessary number of CPUs are available, which otherwise would not fit
-  into the memory of a single CPU, given the prohibitively large size. However,
-  a single CPU does not have access to the full dataset, but merely the portion
-  stored in its memory (usually :math:`1/N` of the full data set, where
-  :math:`N` is the number of CPUs).
+Users can execute Python scripts using nbodykit and MPI using the standard
+``mpiexec`` executable. For example, we can run this nbodykit
+`example script <https://raw.githubusercontent.com/bccp/nbodykit/master/nersc/example.py>`_
+with 4 MPI workers using:
+
+.. code:: bash
+
+    # first download the example script
+    $ wget https://raw.githubusercontent.com/bccp/nbodykit/master/nersc/example.py
+
+    # run with 4 MPI workers
+    $ mpiexec -n 4 python example.py
+
+The MPI calling sequence differs for supercomputing environments and depends
+on the task scheduler being used. For example, when using the
+`Slurm manager <https://slurm.schedmd.com>`_, the equivalent command to
+execute the example script is:
+
+.. code:: bash
+
+    $ srun -n 4 python example.py
+
+Interacting with data in nbodykit
+---------------------------------
+
+The algorithms in nbodykit interface with user data in two main ways:
+"object catalogs" and "mesh fields".
 
 
-Insulating Data from Algorithms
+.. _intro-catalogs:
+
+Catalogs
+^^^^^^^^
+
+Catalogs hold columns of data for a set of discrete objects, typically
+galaxies. The columns typically include
+the three-dimensional positions of the objects, as well as properties of
+the object, e.g., mass, luminosity, etc.
+The catalog container represents the attributes of the objects
+as columns in the catalog. A catalog object behaves much like
+a structured NumPy array, with a fixed size and named data type fields,
+except that the data is provided by the random-access interface.
+
+Catalog objects are subclasses of the :class:`~nbodykit.base.catalog.CatalogSource`
+base class and live in the :mod:`nbodykit.source.catalog` module.
+We provide several different subclasses that are capable of loading data
+from a variety of file formats on disk. We also provide catalog classes that
+can generate a simulated set of particles. Users can find a more in depth
+discussion of catalog data in :ref:`intro-catalog-data`. For a full list
+of available catalogs, see the :ref:`API docs <api-discrete-data>`.
+
+.. _intro-meshes:
+
+Meshes
+^^^^^^
+
+The mesh container is fundamentally different from the catalog object. It stores a
+discrete representation of a continuous fluid field on a uniform mesh. The
+array values on the mesh are generated via a process referred to as "painting"
+in nbodykit. During the painting step, the positions of the discrete
+objects in a catalog are interpolated onto a uniform mesh. The fluid field on
+the mesh is often the density field, as sampled by the discrete galaxy
+positions.
+
+Mesh objects are subclasses of the :class:`~nbodykit.base.mesh.MeshSource`
+base class and live in the :mod:`nbodykit.source.mesh` module.
+We provide subclasses that are capable of loading mesh data
+from disk or from a Numpy array, as well as classes that can generate simulated
+meshes.
+
+Furthermore, any catalog object can be converted to a mesh object
+via the :func:`~nbodykit.base.catalog.CatalogSourceBase.to_mesh` function. This
+function returns a :class:`~nbodykit.base.catalogmesh.CatalogMesh` object,
+which is a *view* of a :class:`CatalogSource` as a :class:`MeshSource`.
+A :class:`~nbodykit.base.catalogmesh.CatalogMesh` "knows" how to generate
+the mesh data from the catalog data, i.e., the user has specified the desired
+size of the mesh, etc. using the :func:`~nbodykit.base.catalog.CatalogSourceBase.to_mesh`
+function.
+
+The :ref:`intro-mesh-data` section describes mesh objects in more detail.
+In particular, more details regarding the creation of mesh objects from catalogs
+can be found in :ref:`creating-mesh`. See the :ref:`API docs <api-mesh-data>`
+for a full list of available meshes.
+
+
+.. _intro-cba:
+
+A component-based approach
+--------------------------
+
+The design of nbodykit focuses on a component-based approach. The components
+are exposed to the Python language as a set of classes and interfaces,
+and users can combine these components to construct complex applications.
+This design differs from the more commonly used alternative in cosmology software,
+which is a monolithic application controlled by
+a single configuration file (e.g., as in CLASS, CAMB, Gadget).
+From experience, we have found that a component-based approach offers the
+user greater freedom and flexibility to build complex applications with nbodykit.
+
+.. image:: ../_static/nbodykit-interfaces.pdf
+
+
+In the figure above, we diagram the important interfaces and components of
+nbodykit. There are a few items worth highlighting in more details:
+
+* **Catalog**: as discussed in the :ref:`previous section <intro-catalogs>`,
+  catalog objects derive from the :class:`~nbodykit.base.catalog.CatalogSource`
+  class and hold information about discrete objects.
+  Catalogs also implement a random-read interface that allows the user
+  to access individual columns of data. The random-read nature of the
+  column access makes use of the high throughput of a parallel file
+  system when nbodykit is executed in parallel.
+
+  However, the backend of the random-read interface does not have to be a file on disk at
+  all. As an example, the :class:`~nbodykit.source.catalog.array.ArrayCatalog`
+  simply converts a dictionary or a NumPy array object to a :class:`CatalogSource`.
+
+* **Mesh**: as discussed in the :ref:`previous section <intro-meshes>`,
+  mesh objects derive from the :class:`~nbodykit.base.mesh.MeshSource` class
+  and store a discrete representation of a continuous quantity on a uniform mesh.
+  These objects provide a "paintable" interface provided to the user via the
+  :func:`~nbodykit.base.mesh.MeshSource.paint` function. Calling this function
+  re-samples the fluid field represented by the mesh object to a
+  distributed three-dimensional array (returning either a
+  :class:`~pmesh.pm.RealField` or :class:`~pmesh.pm.ComplexField`,
+  as implemented by the :mod:`pmesh` package). See the :ref:`mesh-overview`
+  for more details.
+
+* **Serialization**: most objects in nbodykit are serializable via a
+  :func:`save` function. For a more in-depth discussion of serialization,
+  see :ref:`saving-results`.
+
+  Algorithm classes not only save the result of the
+  algorithm but also input parameters and meta-data stored in the :attr:`attrs`
+  dictionary. Algorithms typically implement both a :func:`save`
+  and :func:`load` function, such that the algorithm result can be
+  de-serialized into an object of the same type. For example, the
+  result of the :class:`~nbodykit.algorithms.fftpower.FFTPower` algorithm
+  can be serialized with the
+  :func:`~nbodykit.algorithms.fftpower.FFTPowerBase.save` function
+  and the algorithm re-initialized with the
+  :func:`~nbodykit.algorithms.fftpower.FFTPowerBase.load` function.
+
+
+  The two main data containers, catalogs and meshes, can be serialized using
+  nbodykit's intrinsic format which relies on :mod:`bigfile`. The relevant
+  functions are :func:`~nbodykit.base.catalog.CatalogSourceBase.save`
+  for catalogs and :func:`~nbodykit.base.mesh.MeshSource.save` for meshes.
+  These serialized results can later be loaded from disk by nbodykit as a
+  :class:`~nbodykit.source.catalog.file.BigFileCatalog` or
+  :class:`~nbodykit.source.mesh.bigfile.BigFileMesh` object.
+
+
+Catalogs and :mod:`dask`
+------------------------
+
+The data columns of catalog objects are stored as :mod:`dask` arrays rather
+than the similar, more traditional NumPy arrays. Users unfamiliar with the
+:mod:`dask` package should start with the :ref:`on-demand-io` section of the docs.
+
+Briefly, there are two main features to keep in mind when dealing with
+:mod:`dask` arrays:
+
+1. Operations on a dask array are not evaluated immediately, as is the case for NumPy
+arrays, but instead stored internally in a task graph. Thus, the usual array
+manipulations on :mod:`dask` arrays are nearly immediate.
+
+2. A :mod:`dask` array can be evaluated, returning a NumPy array, via a call
+the :func:`compute` function of the :mod:`dask` array. This operation can be
+time-consuming -- it evaluates all of the operations in the array's task graph.
+
+In most situations, users should manipulate catalog columns as they would NumPy
+arrays and allow the nbodykit internals to call the necessary :func:`compute`
+function to get the final result. When possible, users should opt to use the
+functions defined in the :mod:`dask.array` module instead of the equivalent
+function defined in :mod:`numpy`. The :mod:`dask.array` module is designed
+to provide the same functionality as the :mod:`numpy` package but for :mod:`dask`
+arrays.
+
+
+Running your favorite algorithm
 -------------------------------
 
-nbodykit aims to provide a unified treatment of
-both simulation and observational datasets, allowing it to
-be used in the analysis of data from not only N-body simulations, but also
-from current and future large-scale structure surveys.
+nbodykit aims to implement a canonical set of algorithms in the field of
+large-scale structure. The goal is to provide open source, state-of-the-art
+implementations of the most well-known algorithms used in the analysis of
+large-scale structure data.  We have a wide and growing range of algorithms
+implemented so far. Briefly, nbodykit includes functionality for:
+
+* generating density fields via the painting operation
+* computing the power spectrum of density fields for both simulations
+  and observational surveys.
+* calculating two-point and three-point correlation functions
+* computing groups of objects using a Friends-of-Friends method or a cylindrical radius method
+* generating HOD catalogs of galaxies from catalogs of dark matter halos
+* running quasi N-body simulations using the `FastPM scheme <https://arxiv.org/abs/1603.00476>`_.
+
+For a full list of the available algorithms, see :ref:`this section <available-algorithms>`
+of the docs. We also aim to provide examples of many of the algorithms
+in :ref:`cookbook`.
+
+The algorithms in nbodykit couple to data through the
+catalog and mesh objects described in the previous sections.
+Algorithms in nbodykit are implemented as Python classes. When the
+class is initialized, the algorithm is run and the returned
+instance holds the corresponding results via attributes.
+The specific attributes that hold the results vary from algorithm to algorithm --
+we direct users to the :ref:`API docs <api-algorithms>` to determine
+the specifics for a particular algorithm.
+Furthermore, the algorithm result can be serialized to disk for archiving,
+We also ensure that the appropriate meta-data is serialized to disk in
+order to sufficiently describe the input parameters for reproducibility.
+
+As open source software, we hope community contributions will help to
+maximize the utility of the nbodykit package for its users. We believe community
+contributions and review can help increase scientific productivity for all
+researchers. If your favorite algorithm isn't yet implemented, we encourage
+contributions and feature requests from the community
+(see our :ref:`contributing guidelines <contributing>`).
 
 
-Running your Favorite Algorithm
--------------------------------
+The Cookbook
+------------
 
-Quickstart and Cookbook
------------------------
+We've created a :ref:`cookbook of recipes <cookbook>` for users to learn
+nbodykit by example. These recipes are designed to illustrate
+interesting and common uses of nbodykit for users to learn from. The goal is
+to have working examples for most of the algorithms in nbodykit, as well as
+some of the more common data tasks.
 
-Extending nbodykit
-------------------
+The recipes are provided as `Jupyter notebooks`_.
+Each notebook is available for download by clicking the "Source" link
+in the navigation bar at the top of the page.
+
+We welcome contributions of new recipes! See our
+see our :ref:`contributing guidelines <contributing>`.
+
+Questions, feedback, and contributions
+--------------------------------------
+
+If you've run in to problems with nbodykit, do not hesitate to get in touch
+with us. See our :ref:`contact-support` section for details on how to best
+contact us.
+
+User contributions are also very welcome! Please see our
+see our :ref:`contributing guidelines <contributing>` if you've like to
+help grow the nbodykit project!
+
+.. _Jupyter notebooks: http://jupyter-notebook.rtfd.io
