@@ -156,13 +156,13 @@ class CylindricalGroups(object):
             self.logger.info("using cpu grid decomposition: %s" %str(np))
 
         # add a column for original index
-        self.source['origind'] = self.source['Index']
+        self.source['origind'] = self.source.Index
 
         # sort the data
         data = self.source.sort(self.attrs['rankby'], usecols=['Position', 'origind'])
 
         # add a column to track sorted index
-        data['sortindex'] = data['Index']
+        data['sortindex'] = data.Index
 
         # global min/max across all ranks
         pos = data.compute(data['Position'])
