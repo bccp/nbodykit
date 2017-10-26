@@ -215,6 +215,7 @@ Getting Help
   results/algorithms/index
   results/batch-mode
   results/analyzing
+  results/saving
 
 .. toctree::
   :maxdepth: 1
