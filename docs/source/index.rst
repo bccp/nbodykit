@@ -63,7 +63,7 @@ source code is publicly available at https://github.com/bccp/nbodykit.
 A 1 minute introduction to nbodykit
 -----------------------------------
 
-To start, we initialize the nbodykit "lab":
+To start, we initialize the nbodykit ":mod:`~nbodykit.lab`":
 
 .. code:: python
 
