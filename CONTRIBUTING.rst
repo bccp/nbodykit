@@ -114,7 +114,7 @@ Opening a Pull Request
    that any new code is fully covered by the test suite.
 
 6. Be sure to update the
-   :ref:`changelog <https://github.com/bccp/nbodykit/blob/master/CHANGES.rst>`_
+   `changelog <https://github.com/bccp/nbodykit/blob/master/CHANGES.rst>`_
    to indicate what was added/modified.
 
 7. Submit your pull request to ``nbodykit:master``.
