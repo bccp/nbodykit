@@ -1,7 +1,60 @@
 Contributing Guidelines
 =======================
 
+We welcome user contributions to nbodykit, but be sure to read this guide first
+to make the process as smooth as possible!
+
 .. _local-dev:
+
+Requesting a Feature
+--------------------
+
+You can use `GitHub issues <https://github.com/bccp/nbodykit/issues>`_
+or send mail to nbodykit-issues@fire.fundersclub.com
+to request features you would like to see in nbodykit.
+
+1. Provide a clear and detailed explanation of the feature you want to add
+   and its use case in large-scale structure data analysis.
+   Keep in mind that the goal is to include features that are useful for
+   a wide set of users.
+
+2. If you are able, start writing some code and attempt a pull
+   request. Be sure to read the :ref:`submission guidelines <PR-guide>`.
+   There are often several features competing for time
+   commitments, and user pull requests are greatly appreciated!
+
+
+Bug Reporting
+-------------
+
+If you think you've found a bug in nbodykit, follow these steps to submit a
+report:
+
+1. First, double check that your bug isn't already fixed.
+   Follow our :ref:`instructions <local-dev>`
+   for setting up a local development environment and make sure you've installed
+   the tip of the master branch.
+
+2. Search for similar issues `on GitHub <https://github.com/bccp/nbodykit/issues>`_.
+   Make sure to delete `is:open` on the issue search to find solved tickets as
+   well. It is possible that this bug has been encountered before.
+
+3. Open up an issue on GitHub or send an email to nbodykit-issues@fire.fundersclub.com.
+
+4. Please include the versions of Python, nbodykit, and other dependency
+   libraries if they are applicable (numpy, scipy, etc)
+
+5. Provide us with the logging output of the script from when the bug was encountered,
+   including a traceback if appropriate. If at all possible, provide us with
+   a standalone script that will reproduce the issue. Issues have a much higher chance
+   of being resolved quickly if we can easily reproduce the bug.
+
+6. Take a stab at fixing the bug yourself! :ref:`Pull requests <PR-guide>` for
+   bug fixes are welcome!
+
+We strongly recommend following the above steps and providing as much information
+as possible when bugs are encountered. This will help us resolve issues faster --
+and get everyone back to doing more accurate science!
 
 Setting up for Local Development
 --------------------------------
@@ -33,59 +86,6 @@ Setting up for Local Development
        # install in develop mode
        $ pip install -e .
 
-Requesting a Feature
---------------------
-
-You can use `GitHub issues <https://github.com/bccp/nbodykit/issues>`_
-or send mail to nbodykit-issues@fire.fundersclub.com
-to request features you would like to see in nbodykit.
-
-1. Provide a clear and detailed explanation of the feature you want to add
-   and its use case in large-scale structure data analysis.
-   Keep in mind that the goal is to include features that are useful for
-   a wide set of users.
-
-2. If you are able, start writing some code and attempt a pull
-   request. Be sure to read the :ref:`submission guidelines <PR-guide>`.
-   There are often several features competing for time
-   commitments, and user pull requests are greatly appreciated!
-
-
-Bug Reporting
--------------
-
-If you think you've found a bug in nbodykit, follow these steps to submit a
-report:
-
-1. Your bug may already be fixed. Make sure to update to the current
-   nbodykit master branch. If you've followed the :ref:`instructions <local-dev>`
-   for setting up a local development environment, you can install the
-   latest version using:
-
-   .. code:: bash
-
-      $ pip install git+git://github.com/bccp/nbodykit.git --upgrade --no-deps
-
-2. Search for similar issues `on GitHub <https://github.com/bccp/nbodykit/issues>`_.
-   Make sure to delete `is:open` on the issue search to find solved tickets as
-   well. It is possible that this bug has been encountered before.
-
-3. Open up an issue on GitHub or send mail to nbodykit-issues@fire.fundersclub.com.
-
-4. Please include the versions of Python, nbodykit, and other dependency
-   libraries if they are applicable (numpy, scipy, etc)
-
-5. Provide us with the logging output of the script from when the bug was encountered,
-   including a traceback if appropriate. If at all possible, provide us with
-   a standalone script that will reproduce the issue. Issues have a much higher chance
-   of being resolved quickly if we can easily reproduce the bug.
-
-6. Take a stab at fixing the bug yourself! :ref:`Pull requests <PR-guide>` for
-   bug fixes are welcome!
-
-We strongly recommend following the above steps and providing as much information
-as possible when bugs are encountered. This will help us resolve issues faster --
-and get everyone back to doing more accurate science!
 
 .. _PR-guide:
 
@@ -108,10 +108,10 @@ Opening a Pull Request
 
       $ python run-tests.py --with-coverage --html-cov
 
-    This will also output the test coverage statistics to ``build/coverage/index.html``.
+   This will also output the test coverage statistics to ``build/coverage/index.html``.
 
-5. Make sure all of the tests have passed, and that the coverage statistics indicate
-   that any new code is fully covered by the test suite.
+5. Make sure all of the tests have passed and that the coverage statistics
+   indicate that any new code is fully covered by the test suite.
 
 6. Be sure to update the
    `changelog <https://github.com/bccp/nbodykit/blob/master/CHANGES.rst>`_
@@ -131,12 +131,14 @@ Contributing to the Cookbook
 Even if you don't contribute to the nbodykit source code, if you have an
 application of nbodykit that is concise and interesting, please consider adding
 it to our :ref:`cookbook of recipes <cookbook>`.
-These recipes are designed to illustrate interesting use cases for other
+These recipes are designed to illustrate interesting uses of nbodykit for other
 users to learn from.
 
 Cookbook recipes should be in the form of Jupyter notebooks. See the
 `existing recipes <https://github.com/bccp/nbodykit/tree/master/docs/source/cookbook>`_
 for examples. To submit a new recipe, add the notebook to the
 ``docs/source/cookbook`` directory and submit a new pull request.
+
+We appreciate any and all contributions!
 
 .. _nbodykit: https://github.com/bccp/nbodykit
