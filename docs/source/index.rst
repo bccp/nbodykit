@@ -8,13 +8,16 @@
 |
 |
 
+.. title:: nbodykit documentation
+
 a massively parallel, large-scale structure toolkit
 ===================================================
 
-**nbodykit** is a massively parallel, open source project and Python
-package providing a set of state-of-the-art, large-scale structure algorithms
+**nbodykit** is an open source project written in Python
+that provides a set of state-of-the-art, large-scale structure algorithms
 useful in the analysis of cosmological datasets from N-body simulations and
-observational surveys.
+observational surveys. All algorithms are massively parallel and run using
+Message Passing Interface (MPI).
 
 Driven by the optimism regarding the abundance and availability of
 large-scale computing resources in the future, the development of nbodykit
@@ -33,47 +36,155 @@ distinguishes itself from other similar software packages
 - an **interactive** user interface that performs as well in a `Jupyter
   notebook`_ as on a super-computing machine
 
-All algorithms are parallel and run with Message Passing Interface (MPI).
-For a list of the algorithms currently implemented, see :ref:`available-algorithms`.
-
-The source code is publicly available at https://github.com/bccp/nbodykit.
-
 .. _nbodyshop: http://www-hpcc.astro.washington.edu/tools/tools.html
 .. _pynbody: https://github.com/pynbody/pynbody
 .. _yt: http://yt-project.org/
 .. _xi: http://github.com/bareid/xi
 .. _Jupyter notebook: http://jupyter-notebook.rtfd.io
 
+----
+
+Getting nbodykit
+----------------
+
+To get up and running with your own copy of nbodykit, please follow the
+:doc:`installation instructions <getting-started/install>`.
+nbodykit is currently supported on macOS and Linux architectures. The
+recommended installation method uses the
+`Anaconda <https://www.continuum.io/downloads>`_ Python distribution.
+
+nbodykit is compatible with **Python versions 2.7, 3.5, and 3.6**, and the
+source code is publicly available at https://github.com/bccp/nbodykit.
+
+----
+
 .. _getting-started:
+
+A 1 minute introduction to nbodykit
+-----------------------------------
+
+To start, we initialize the nbodykit "lab":
+
+.. code:: python
+
+    from nbodykit.lab import *
+
+There are two core data structures in nbodykit: catalogs and meshes. These
+represent the two main ways astronomers interact with data in large-scale
+structure analysis. Catalogs hold information describing a set of discrete
+objects, storing the data in columns. nbodykit includes functionality for
+initializing catalogs from a variety of file formats as well as more advanced
+techniques for generating catalogs of simulated particles.
+
+Below, we create a very simple catalog of uniformly distributed particles in a
+box of side length :math:`L = 1 \ h^{-1} \mathrm{Mpc}`:
+
+.. code:: python
+
+    catalog = UniformCatalog(nbar=100, BoxSize=1.0)
+
+Catalogs have a fixed size and a set of columns describing the particle data.
+In this case, our catalog has "Position" and "Velocity" columns. Users can
+easily manipulate the existing column data or add new columns:
+
+.. code:: python
+
+    BoxSize = 2500.
+    catalog['Position'] *= BoxSize # re-normalize units of Position
+    catalog['Mass'] = 10**(numpy.random(12, 15, size=len(catalog))) # add some random mass values
+
+We can generate a representation of the density field on a mesh using our
+catalog of objects. Here, we interpolate the particles onto a mesh of
+size :math:`64^3`:
+
+.. code:: python
+
+    mesh = catalog.to_mesh(Nmesh=64, BoxSize=BoxSize)
+
+We can save our mesh to disk to later re-load using nbodykit:
+
+.. code:: python
+
+    mesh.save('mesh.bigfile')
+
+or preview a low-resolution, 2D projection of the mesh to make sure everythings
+looks as expected:
+
+.. code:: python
+
+    import matplotlib.pyplot as plt
+    plt.imshow(mesh.preview(axes=[0,1], Nmesh=32))
+
+Finally, we can feed our density field mesh in to one of the nbodykit algorithms.
+For example, below we use :class:`~nbodykit.algorithms.fftpower.FFTPower` algorithm to
+compute the power spectrum :math:`P(k,\mu)` of the density
+mesh using a fast Fourier transform via
+
+.. code:: python
+
+    result = FFTPower(mesh, Nmu=5)
+
+with the measured power stored as the ``power`` attribute of the
+``result`` variable. The algorithm result and algorithm meta-data, input
+parameters, etc can then be saved to disk as a JSON file:
+
+.. code:: python
+
+    result.save("power-result.json")
+
+It is important to remember that nbodykit is fully parallelized using MPI. This
+means that the above code snippets can be excuted in a Jupyter notebook with
+only a single CPU or using a standalone Python script with
+an arbitrary number of MPI workers. We aim to hide as much of the parallel
+abstraction from users as possible. So, when executing in parallel, data will
+automatically be divided amongst the available MPI workers, and each worker
+computes its own smaller portion of the algorithm result before finally
+these calculations are combined into the final result.
+
+----
 
 Getting Started
 ---------------
 
-* :doc:`install`
-* :doc:`intro`
-* :doc:`quickstart/index`
-* :doc:`cookbook/index`
+For users wishing to learn nbodykit by example, we provide a
+:doc:`cookbook of recipes <cookbook/index>` for the various algorithms
+included in nbodykit.
+
+
+Otherwise, we provide detailed overviews of the two main data containers in
+nbodykit, catalogs and meshes, and we walk through the necessary background
+information for each of the available algorithms in nbodykit. The main
+areas of the documentation can be broken down into the following sub-sections:
+
+* :doc:`Introduction <getting-started/intro>`: an introduction to key nbodykit concepts and features
+* :ref:`intro-catalog-data`: a guide to dealing with catalogs of discrete data catalogs
+* :ref:`intro-mesh-data`: an overview of data on a discrete mesh
+* :ref:`getting-results`: an introduction to the available algorithms and analyzing results
+
+.. _help:
+
+----
+
+Getting Help
+------------
+
+* :doc:`api/api`
+* :doc:`help/support`
+* :doc:`help/contributing`
+* :doc:`help/changelog`
+
+.. --------------------------------------------
+.. include hidden toc tree for site navigation
+.. -------------------------------------------
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Getting Started
-   :hidden:
+  :maxdepth: 1
+  :caption: Getting Started
+  :hidden:
 
-   install
-   intro
-   quickstart/index
-   cookbook/index
-
-.. _playing-with-data:
-
-Discrete Data Catalogs
-----------------------
-
-* :doc:`Overview <catalogs/overview>`
-* :doc:`catalogs/reading`
-* :doc:`catalogs/on-demand-io`
-* :doc:`catalogs/common-operations`
-* :doc:`catalogs/mock-data`
+  getting-started/install
+  getting-started/intro
+  cookbook/index
 
 .. toctree::
   :maxdepth: 1
@@ -86,14 +197,6 @@ Discrete Data Catalogs
   catalogs/common-operations.ipynb
   catalogs/mock-data.ipynb
 
-Data on a Mesh
---------------
-
-* :doc:`Overview <mesh/overview>`
-* :doc:`mesh/creating`
-* :doc:`mesh/painting`
-* :doc:`mesh/common-operations`
-
 .. toctree::
   :maxdepth: 1
   :caption: Data on a Mesh
@@ -104,40 +207,22 @@ Data on a Mesh
   mesh/painting
   mesh/common-operations.ipynb
 
-.. _getting-results:
-
-Getting Results
----------------
-
-* :doc:`algorithms/index`
-* :doc:`batch-mode`
-* :doc:`analyzing-results`
-
 .. toctree::
   :maxdepth: 1
   :caption: Getting Results
   :hidden:
 
-  algorithms/index
-  batch-mode
-  analyzing-results
-
-.. _help:
-
-Help and Reference
-------------------
-
-* :doc:`api/api`
-* :doc:`development-guide`
-* :doc:`contact-support`
-* :doc:`changelog`
+  results/algorithms/index
+  results/batch-mode
+  results/analyzing
 
 .. toctree::
   :maxdepth: 1
   :caption: Help and Reference
   :hidden:
+  :includehidden:
 
   api/api
-  development-guide
-  contact-support
-  changelog
+  help/support
+  help/contributing
+  help/changelog
