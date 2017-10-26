@@ -9,6 +9,19 @@ summarize the most important aspects of the API below.
    :local:
    :backlinks: none
 
+.. _api-lab:
+
+The nbodykit lab
+----------------
+
+To make things easier for users, we import all of the
+classes and modules needed to do cool science into a single module:
+
+.. autosummary::
+
+    nbodykit.lab
+
+
 .. _api-cosmology:
 
 Cosmology (:mod:`nbodykit.cosmology`)
