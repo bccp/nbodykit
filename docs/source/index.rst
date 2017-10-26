@@ -16,7 +16,7 @@ a massively parallel, large-scale structure toolkit
 **nbodykit** is an open source project written in Python
 that provides a set of state-of-the-art, large-scale structure algorithms
 useful in the analysis of cosmological datasets from N-body simulations and
-observational surveys. All algorithms are massively parallel and run using
+observational surveys. All algorithms are massively parallel and run using the
 Message Passing Interface (MPI).
 
 Driven by the optimism regarding the abundance and availability of
@@ -29,7 +29,7 @@ distinguishes itself from other similar software packages
 
 - support for a wide **variety of data** formats, as well as **large volumes of data**
 
-- reducing wall-clock time by **scaling** to thousands of cores
+- the ability to reduce wall-clock time by **scaling** to thousands of cores
 
 - **deployment** and availability on large, super-computing facilities
 
@@ -116,7 +116,7 @@ looks as expected:
     plt.imshow(mesh.preview(axes=[0,1], Nmesh=32))
 
 Finally, we can feed our density field mesh in to one of the nbodykit algorithms.
-For example, below we use :class:`~nbodykit.algorithms.fftpower.FFTPower` algorithm to
+For example, below we use the :class:`~nbodykit.algorithms.fftpower.FFTPower` algorithm to
 compute the power spectrum :math:`P(k,\mu)` of the density
 mesh using a fast Fourier transform via
 
@@ -125,8 +125,8 @@ mesh using a fast Fourier transform via
     result = FFTPower(mesh, Nmu=5)
 
 with the measured power stored as the ``power`` attribute of the
-``result`` variable. The algorithm result and algorithm meta-data, input
-parameters, etc can then be saved to disk as a JSON file:
+``result`` variable. The algorithm result and meta-data, input
+parameters, etc. can then be saved to disk as a JSON file:
 
 .. code:: python
 
@@ -136,7 +136,7 @@ It is important to remember that nbodykit is fully parallelized using MPI. This
 means that the above code snippets can be excuted in a Jupyter notebook with
 only a single CPU or using a standalone Python script with
 an arbitrary number of MPI workers. We aim to hide as much of the parallel
-abstraction from users as possible. So, when executing in parallel, data will
+abstraction from users as possible. When executing in parallel, data will
 automatically be divided amongst the available MPI workers, and each worker
 computes its own smaller portion of the algorithm result before finally
 these calculations are combined into the final result.
@@ -151,7 +151,7 @@ For users wishing to learn nbodykit by example, we provide a
 included in nbodykit.
 
 
-Otherwise, we provide detailed overviews of the two main data containers in
+We also provide detailed overviews of the two main data containers in
 nbodykit, catalogs and meshes, and we walk through the necessary background
 information for each of the available algorithms in nbodykit. The main
 areas of the documentation can be broken down into the following sub-sections:
