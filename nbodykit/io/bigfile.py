@@ -9,6 +9,8 @@ from six import string_types
 import json
 from nbodykit.utils import JSONDecoder
 
+class Automatic: pass
+
 class BigFile(FileType):
     """
     A file object to handle the reading of columns of data from
@@ -30,17 +32,17 @@ class BigFile(FileType):
         the data sets to exlude from loading within bigfile; default
         is the header
     header : str, optional
-        the path to the header
+        the path to the header; default is to use a column 'Header'.
+        It is relative to the file, not the dataset.
     dataset : str
-        load a specific dataset from the bigfile
+        load a specific dataset from the bigfile; default is to starting
+        from the root.
     """
-    def __init__(self, path, exclude=None, header='.', dataset='./'):
+    def __init__(self, path, exclude=None, header=Automatic, dataset='./'):
 
         if not dataset.endswith('/'): dataset = dataset + '/'
 
         import bigfile
-        if exclude is None:
-            exclude = [header]
 
         self.dataset = dataset
         self.path = path
@@ -51,6 +53,13 @@ class BigFile(FileType):
         # the file path
         with bigfile.BigFile(filename=path) as ff:
             columns = ff[self.dataset].blocks
+            if header is Automatic:
+                for header in ['Header', 'header', './']:
+                    if header in columns: break
+
+            if exclude is None:
+                exclude = [header]
+
             columns = list(set(columns) - set(exclude))
 
             ds = bigfile.BigData(ff[self.dataset], columns)
