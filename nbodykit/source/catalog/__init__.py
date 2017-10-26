@@ -14,3 +14,18 @@ from .fkp import FKPCatalog
 from .halos import HaloCatalog
 from .hod import HODCatalog
 from .species import MultipleSpeciesCatalog
+
+__all__ = ['CSVCatalog',
+           'BinaryCatalog',
+           'BigFileCatalog',
+           'HDFCatalog',
+           'TPMBinaryCatalog',
+           'FITSCatalog',
+           'Gadget1Catalog',
+           'ArrayCatalog',
+           'LogNormalCatalog',
+           'UniformCatalog', 'RandomCatalog',
+           'FKPCatalog',
+           'HaloCatalog',
+           'HODCatalog',
+           'MultipleSpeciesCatalog']
