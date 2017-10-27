@@ -90,17 +90,18 @@ Users can access the current communicator by calling the
 
 The communicator object carries a ``rank`` attribute, which provides
 a unique numbering of the available processes controlled
-by the communicator. For example, this attribute is often used to filter out
-and control the behavior of a "root" rank:
+by the communicator, and a ``size`` attribute giving the total number of
+processes within the communicator. Often, the ``rank`` attribute
+is used to reduce the amount of messages printed to the terminal, e.g.
 
-.. code:: python
+.. code-block:: python
 
     if comm.rank == 0:
-      print("I am the root rank!")
-    else:
-      print("I am not a root rank")
+        print("I am Groot.")
 
-The `tutorials <http://mpi4py.readthedocs.io/en/stable/tutorial.html>`_
+In this case, we get only one print statement, whereas we would get as many as
+``comm.size`` messages without the condition. The
+`tutorials <http://mpi4py.readthedocs.io/en/stable/tutorial.html>`_
 provided in the :mod:`mpi4py` documentation provide
 more examples illustrating the power of MPI communicators.
 
@@ -110,7 +111,9 @@ the :func:`~nbodykit.CurrentMPIComm.set` function of the
 default communicator (which includes all processes) is split into
 sub-communicators. This framework is how we implement the task-based
 parallelism provided by the :class:`~nbodykit.batch.TaskManager` object
-(see the :ref:`task-based-parallelism` section below).
+(see the :ref:`task-based-parallelism` section below). Setting the current
+MPI communicator in this manner only affects the creation of objects
+after the comm has been set.
 
 .. _data-based-parallelism:
 
@@ -140,7 +143,7 @@ to all ranks using
 .. important::
 
   Beware of such :func:`allgather` operations. Each process gets a full copy
-  of the data, and users will quickly run out of memory if the catalog is large.
+  of the data, and the computer will quickly run out of memory if the catalog is large.
 
 .. _task-based-parallelism:
 
