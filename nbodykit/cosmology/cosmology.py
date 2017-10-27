@@ -43,7 +43,7 @@ class Cosmology(object):
         * density: :math:`10^{10} (M_\odot/h) (\mathrm{Mpc}/h)^{-3}`
         * neutrino mass: :math:`\mathrm{eV}`
         * time: :math:`\mathrm{Gyr}`
-        * H0: :math:`(h^{-1} \mathrm{Mpc}) / (\mathrm{km/s})`
+        * :math:`H_0`: :math:`(\mathrm{km} \ \mathrm{s^{-1}}) / (h^{-1} \ \mathrm{Mpc})`
 
     Notes
     -----
