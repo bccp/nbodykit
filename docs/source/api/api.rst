@@ -81,6 +81,8 @@ We also have a class for computing LPT background calculations:
 
   ~background.PerturbationGrowth
 
+.. _builtin-cosmos:
+
 The built-in cosmologies are:
 
 ===================================== ============================== ====  ===== =======
