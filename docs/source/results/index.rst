@@ -9,5 +9,6 @@ Getting Results
   :maxdepth: 1
 
   algorithms/index
-  batch-mode
+  parallel
   analyzing
+  saving
