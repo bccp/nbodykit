@@ -156,11 +156,11 @@ nbodykit, catalogs and meshes, and we walk through the necessary background
 information for each of the available algorithms in nbodykit. The main
 areas of the documentation can be broken down into the following sub-sections:
 
-* :doc:`Introduction <getting-started/intro>`: an introduction to key nbodykit concepts and features
+* :doc:`Introduction <getting-started/intro>`: an introduction to key nbodykit concepts and things to know
 * :doc:`getting-started/cosmology`: a guide to the cosmology-related functionality in nbodykit
 * :ref:`intro-catalog-data`: a guide to dealing with catalogs of discrete data catalogs
 * :ref:`intro-mesh-data`: an overview of data on a discrete mesh
-* :ref:`getting-results`: an introduction to the available algorithms and analyzing results
+* :ref:`getting-results`: an introduction to the available algorithms, parallel computation, and saving/analyzing results
 
 .. _help:
 
