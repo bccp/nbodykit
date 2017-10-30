@@ -4,6 +4,8 @@ Changelog
 0.2.9 (unreleased)
 ------------------
 
+* :issue:`433`: by default, the header file will be found automatically in Bigfile 
+* :issue:`429,432`: updates to documentation
 * :issue:`430`: fix bug in FOF due to stricter numpy casting rules in numpy 1.13.3
 * :issue:`428`: fixes bug in painting normalization when using interlacing is used
 * :issue:`422`: proper list of attributes/methods added to documentation of Cosmology class
