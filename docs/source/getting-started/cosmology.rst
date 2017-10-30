@@ -1,4 +1,0 @@
-.. _cosmology:
-
-Cosmology Calculations
-======================
