@@ -43,7 +43,7 @@ class Cosmology(object):
         * density: :math:`10^{10} (M_\odot/h) (\mathrm{Mpc}/h)^{-3}`
         * neutrino mass: :math:`\mathrm{eV}`
         * time: :math:`\mathrm{Gyr}`
-        * H0: :math:`(h^{-1} \mathrm{Mpc}) / (\mathrm{km/s})`
+        * :math:`H_0`: :math:`(\mathrm{km} \ \mathrm{s^{-1}}) / (h^{-1} \ \mathrm{Mpc})`
 
     Notes
     -----
@@ -58,19 +58,19 @@ class Cosmology(object):
     * Non-cosmological constant dark energy can be used by specifying the
       ``w0_fld``, ``wa_fld``, and/or ``Omega_fld`` values.
     * To pass in CLASS parameters that are not valid Python argument names, use
-      the dictionary/keyward arguments trick, e.g.
+      the dictionary/keyword arguments trick, e.g.
       ``Cosmology(..., **{'temperature contributions': 'y'})``
     * ``Cosmology(**dict(c))`` is not supposed to work; use ``Cosmology.from_dict(dict(c))``.
 
     Parameters
     ----------
     h : float
-        the dimensionaless Hubble parameter
+        the dimensionless Hubble parameter
     T0_cmb : float
         the temperature of the CMB in Kelvins
     Omega0_b : float
         the current baryon density parameter, :math:`\Omega_{b,0}`. Currently
-        unrealisitic cosmology where Omega_b == 0 is not supported.
+        unrealistic cosmology where Omega_b == 0 is not supported.
     Omega0_cdm : float
         the current cold dark matter density parameter, :math:`\Omega_{cdm,0}`
     N_ur : float
@@ -83,7 +83,7 @@ class Cosmology(object):
         respectively.
     m_ncdm : list, None
         the masses (in eV) for all massive neutrino species; an empty list
-        should  be passed for no massive neutrinso. The default is a single
+        should  be passed for no massive neutrinos. The default is a single
         massive neutrino with mass of 0.06 eV
     P_k_max : float
         the maximum ``k`` value to compute power spectrum results to, in units
@@ -172,6 +172,12 @@ class Cosmology(object):
         # use set state to de-serialize the object.
         self.__setstate__(pars)
 
+    def __str__(self):
+        """
+        Return a dict string when printed
+        """
+        return dict(self).__str__()
+    
     def __iter__(self):
         """
         Allows dict() to be used on class.

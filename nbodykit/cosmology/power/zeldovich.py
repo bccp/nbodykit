@@ -95,7 +95,7 @@ class ZeldovichPower(object):
         _, I1 = ZeldovichJ1(k)(Pk, extrap=True)
 
         # compute the X(r), Y(r) integrals we need
-        self._sigmasq = self.Plin.velocity_dispersion(kmin=1e-5, kmax=10.)**2
+        self._sigmasq = self.Plin.velocity_dispersion(kmin=1e-5, kmax=10., limit=500)**2
         self._X = -2.*I1 + 2 * self._sigmasq
         self._Y = -2.*I0 + 6.*I1
 

@@ -1,8 +1,3 @@
-.. toctree::
-    :hidden:
-
-    modules
-
 API Reference
 =============
 
@@ -13,6 +8,19 @@ summarize the most important aspects of the API below.
    :depth: 2
    :local:
    :backlinks: none
+
+.. _api-lab:
+
+The nbodykit lab
+----------------
+
+To make things easier for users, we import all of the
+classes and modules needed to do cool science into a single module:
+
+.. autosummary::
+
+    nbodykit.lab
+
 
 .. _api-cosmology:
 
@@ -73,17 +81,11 @@ We also have a class for computing LPT background calculations:
 
   ~background.PerturbationGrowth
 
+.. _builtin-cosmos:
+
 The built-in cosmologies are:
 
-===================================== ============================== ====  ===== =======
-Name                                  Source                         H0    Om    Flat
-===================================== ============================== ====  ===== =======
-:attr:`~nbodykit.cosmology.WMAP5`     Komatsu et al. 2009            70.2  0.277 Yes
-:attr:`~nbodykit.cosmology.WMAP7`     Komatsu et al. 2011            70.4  0.272 Yes
-:attr:`~nbodykit.cosmology.WMAP9`     Hinshaw et al. 2013            69.3  0.287 Yes
-:attr:`~nbodykit.cosmology.Planck13`  Planck Collab 2013, Paper XVI  67.8  0.307 Yes
-:attr:`~nbodykit.cosmology.Planck15`  Planck Collab 2015, Paper XIII 67.7  0.307 Yes
-===================================== ============================== ====  ===== =======
+.. include:: builtin-cosmos.rst
 
 .. _api-transform:
 

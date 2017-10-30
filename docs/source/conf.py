@@ -106,7 +106,8 @@ extensions = [
     'sphinx.ext.todo',
     'nbsphinx',
     'numpydoc',
-    'IPython.sphinxext.ipython_console_highlighting'
+    'IPython.sphinxext.ipython_console_highlighting',
+    'sphinx_issues',
 ]
 
 # store the home directory for the docs
@@ -163,6 +164,7 @@ def autogen_modules():
     with open(output_file, 'w') as ff:
         header = "Modules"
         header += "\n" + "="*len(header) + "\n"
+        header = ":orphan:\n\n" + header
         ff.write(header+".. autosummary::\n\t:toctree: _autosummary\n\t:template: module.rst\n\n")
         for module in modules:
             ff.write("\t" + module + "\n")
@@ -171,14 +173,78 @@ def autogen_modules():
         ff.write("\n.. autosummary::\n\t:toctree: _autosummary\n\t:template: cosmo-module.rst\n\n")
         ff.write("\tnbodykit.cosmology.cosmology\n")
 
+def autogen_lab_module():
+    """
+    Automatically generate the list of functions, classes, and modules imported
+    into the :mod:`nbodykit.lab`module.
+
+    This saves the list to ``source/api/_autosummary/nbodykit.lab.rst``.
+    """
+    import types
+    from nbodykit import lab
+
+    # all members of the lab module
+    members = dir(lab)
+    d = lab.__dict__
+
+    # get all functions, modules, and classes
+    trim = lambda typ: sorted([m for m in members if isinstance(d[m], typ)])
+    modules = trim(types.ModuleType)
+    classes = trim(types.ClassType)
+    functions = trim(types.FunctionType)
+
+    # the header
+    out = "nbodykit.lab"
+    out += "\n" + "="*len(out) + "\n\n"
+    out += ".. automodule:: nbodykit.lab\n\n"
+    out += "Below are the members of the nbodykit.lab module. We give the imported name of"
+    out += " the member in this module and the full link in parentheses.\n\n"
+
+    # output the list
+    roles = [':mod:', ':class:', ':func:']
+    all_members = [modules, classes, functions]
+    names = ['Modules', 'Classes', 'Functions']
+    for i, name in enumerate(names):
+        members = all_members[i]
+        if not len(members):
+            continue
+        out += ".. rubric:: %s\n\n" %name
+        for member in members:
+            val = d[member]
+            name = ""
+            if hasattr(val, '__module__'):
+                name += val.__module__ + '.'
+            name += val.__name__
+            out += "- %s (%s`%s`)\n" % (member, roles[i], name)
+        out += "\n"
+
+
+    # the output path
+    cur_dir = os.path.abspath(os.path.dirname(__file__))
+    toplevel = os.path.join(cur_dir, "..", '..')
+    output_path = os.path.join(cur_dir, 'api', '_autosummary')
+    output_file = os.path.join(output_path, 'nbodykit.lab.rst')
+
+    # and save
+    with open(output_file, 'w') as ff:
+        ff.write(out)
+
 def setup(app):
     autogen_modules()
+    autogen_lab_module()
     app.add_directive('autocosmosummary', AutoCosmoSummary)
 
+# generate API rst files from autosummary command
 autosummary_generate = True
-numpydoc_show_class_members = False
+
+# configure which methods show up
+numpydoc_show_class_members = True
 napoleon_include_special_with_doc = True
 numpydoc_class_members_toctree = False
+
+# link changelog to github
+issues_github_path = 'bccp/nbodykit'
+
 
 # document __init__ when it has a docstring
 napoleon_include_init_with_doc = True
@@ -299,10 +365,10 @@ html_theme_options = dict(
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
-#html_title = None
+html_title = ""
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
-#html_short_title = None
+html_short_title = ""
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.

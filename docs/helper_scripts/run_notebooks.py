@@ -28,15 +28,19 @@ if __name__ == '__main__':
     parser.add_argument('filenames', nargs='*', default=[], help=h)
     ns = parser.parse_args()
 
+    # absolute paths of input files
+    input_filenames = [os.path.normpath(os.path.abspath(f)) for f in ns.filenames]
+
     notebooks = []
     for dirpath, dirs, filenames in os.walk(os.path.join(thisdir, '..', 'source')):
 
         # find the valid notebooks
         for f in filenames:
             if f.endswith('.ipynb') and 'checkpoint' not in f:
-                if len(ns.filenames) and f not in ns.filenames:
+                f = os.path.normpath(os.path.join(dirpath, f)) # the full path
+                if len(input_filenames) and f not in input_filenames:
                     continue
-                notebooks.append(os.path.join(dirpath, f))
+                notebooks.append(f)
 
     for filename in notebooks:
         print("executing %s..." % os.path.split(filename)[-1])
