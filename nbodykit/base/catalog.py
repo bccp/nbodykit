@@ -1021,6 +1021,23 @@ class CatalogSource(CatalogSourceBase):
         """
         return ConstantArray(1.0, self.size, chunks=_global_options['dask_chunk_size'])
 
+    @property
+    def Index(self):
+        """
+        The attribute giving the index rank of each particle in the list. It is
+        an integer from 0 to ``self.csize``. It is accessed as a column because
+
+        .. code ::
+
+            cat[10:].Index[0].compute() == 0
+
+        """
+        offset = sum(self.comm.allgather(self.size)[:self.comm.rank])
+        # do not use u8, because many numpy casting rules case u8 to f8 automatically.
+        # it is ridiculous.
+        return da.arange(offset, offset + self.size, dtype='i8',
+               chunks=_global_options['dask_chunk_size'])
+
     @column
     def Value(self):
         """

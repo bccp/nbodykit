@@ -86,12 +86,12 @@ All :class:`CatalogSource` objects include several default columns.
 These columns are used broadly throughout nbodykit and can be summarized as
 follows:
 
-============= ======================= =================
+============= ======================= ==================
 **Name**      **Description**         **Default Value**
 ``Weight``    |Weight-Description|    1.0
 ``Value``     |Value-Description|     1.0
 ``Selection`` |Selection-Description| ``True``
-============= ======================= =================
+============= ======================= ==================
 
 .. |Weight-Description| replace::
   The weight to use for each particle when interpolating a :class:`CatalogSource`
