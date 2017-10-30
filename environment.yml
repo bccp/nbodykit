@@ -1,0 +1,25 @@
+channels:
+- defaults
+- bccp
+- astropy
+- conda-forge
+
+dependencies:
+- numpy
+- scipy
+- astropy
+- mpi4py
+- runtests
+- pmesh
+- kdcount
+- mpsort
+- bigfile
+- pandas
+- dask
+- cachey
+- h5py
+- halotools
+- fitsio
+- corrfunc
+- classylss>=0.2
+- mcfit
