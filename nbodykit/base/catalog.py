@@ -1024,13 +1024,10 @@ class CatalogSource(CatalogSourceBase):
     @property
     def Index(self):
         """
-        The attribute giving the index rank of each particle in the list. It is
-        an integer from 0 to ``self.csize``. It is accessed as a column because
+        The attribute giving the global index rank of each particle in the
+        list. It is an integer from 0 to ``self.csize``.
 
-        .. code ::
-
-            cat[10:].Index[0].compute() == 0
-
+        Note that slicing changes this index value.
         """
         offset = sum(self.comm.allgather(self.size)[:self.comm.rank])
         # do not use u8, because many numpy casting rules case u8 to f8 automatically.
