@@ -52,10 +52,11 @@ The official documentation is hosted on ReadTheDocs at http://nbodykit.readthedo
 Cookbook Recipes
 ----------------
 
-Users can dive right into an interactive cookbook of examples recipes using mybinder.org. We've compiled a set of Jupyter notebooks to help users learn nbodykit by example -- just click the launch button below to get started!
+Users can dive right into an interactive cookbook of example recipes using binder. 
+We've compiled a set of Jupyter notebooks to help users learn nbodykit by example — just click the launch button below to get started!
 
 .. image:: http://mybinder.org/badge.svg
-    :alt: MyBinder
+    :alt: binder
     :target: https://mybinder.org/v2/gh/bccp/nbodykit-cookbook/master?filepath=recipes
 
 |
