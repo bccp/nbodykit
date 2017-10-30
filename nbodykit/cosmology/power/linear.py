@@ -155,7 +155,7 @@ class LinearPower(object):
 
         return self._norm * Pk
 
-    def velocity_dispersion(self, kmin=1e-5, kmax=10.):
+    def velocity_dispersion(self, kmin=1e-5, kmax=10., **kwargs):
         r"""
         The velocity dispersion in units of of :math:`\mathrm{Mpc/h}` at
         ``redshift``.
@@ -178,7 +178,7 @@ class LinearPower(object):
         def integrand(logq):
             q = numpy.exp(logq)
             return q*self(q)
-        sigmasq = quad(integrand, numpy.log(kmin), numpy.log(kmax))[0] / (6*numpy.pi**2)
+        sigmasq = quad(integrand, numpy.log(kmin), numpy.log(kmax), **kwargs)[0] / (6*numpy.pi**2)
         return sigmasq**0.5
 
     def sigma_r(self, r, kmin=1e-5, kmax=1e1):
