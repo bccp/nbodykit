@@ -289,6 +289,7 @@ General Utilities
 .. autosummary::
 
     nbodykit.setup_logging
+    nbodykit.set_options
     nbodykit.utils.JSONEncoder
     nbodykit.utils.JSONDecoder
 
