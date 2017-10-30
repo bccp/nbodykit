@@ -218,12 +218,15 @@ def autogen_lab_module():
             out += "- %s (%s`%s`)\n" % (member, roles[i], name)
         out += "\n"
 
-
     # the output path
     cur_dir = os.path.abspath(os.path.dirname(__file__))
     toplevel = os.path.join(cur_dir, "..", '..')
     output_path = os.path.join(cur_dir, 'api', '_autosummary')
     output_file = os.path.join(output_path, 'nbodykit.lab.rst')
+
+    # make the output directory if it doesn't exist
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
 
     # and save
     with open(output_file, 'w') as ff:
