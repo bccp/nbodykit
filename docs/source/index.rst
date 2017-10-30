@@ -147,7 +147,7 @@ Getting Started
 ---------------
 
 For users wishing to learn nbodykit by example, we provide a
-:doc:`cookbook of recipes <cookbook/index>` for the various algorithms
+:doc:`cookbook of recipes <cookbook-index>` for the various algorithms
 included in nbodykit.
 
 
@@ -186,7 +186,7 @@ Getting Help
   getting-started/install
   getting-started/intro
   getting-started/cosmology.ipynb
-  cookbook/index
+  cookbook-index
 
 .. toctree::
   :maxdepth: 1

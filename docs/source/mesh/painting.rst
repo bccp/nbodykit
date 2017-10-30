@@ -70,7 +70,7 @@ mesh.
 For example, users can set :math:`V(\vx)` to a column holding a component
 of the velocity field, in which case the painted field :math:`F(\vx)` would
 represent the momentum (mass-weighted velocity) field. See
-the :ref:`cookbook/painting.ipynb#Painting-the-Line-of-sight-Momentum-Field`
+the :ref:`cookbook/recipes/painting.ipynb#Painting-the-Line-of-sight-Momentum-Field`
 recipe for further details.
 
 Another common example is setting the weights :math:`W(\vx)` to a
@@ -78,5 +78,5 @@ column representing mass and painting multiple species of particles
 to the same mesh using the
 :class:`~nbodykit.source.catalog.species.MultipleSpeciesCatalog` object.
 See the
-:ref:`cookbook/painting.ipynb#Painting-Multiple-Species-of-Particles`
+:ref:`cookbook/recipes/painting.ipynb#Painting-Multiple-Species-of-Particles`
 recipe for more details.

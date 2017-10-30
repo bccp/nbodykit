@@ -1,3 +1,3 @@
 [submodule "cookbook"]
-	path = cookbook
+	path = docs/source/cookbook
 	url = https://github.com/bccp/nbodykit-cookbook

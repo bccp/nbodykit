@@ -21,8 +21,8 @@ Data Recipes
 .. toctree::
   :maxdepth: 1
 
-  lognormal-mocks.ipynb
-  hod-mocks.ipynb
+  cookbook/recipes/lognormal-mocks.rst
+  cookbook/recipes/hod-mocks.ipynb
 
 
 .. _cookbook-painting:
@@ -30,9 +30,9 @@ Data Recipes
 Painting Recipes
 ----------------
 
-* :ref:`cookbook/painting.ipynb#Painting-the-Overdensity-Field`
-* :ref:`cookbook/painting.ipynb#Painting-the-Line-of-sight-Momentum-Field`
-* :ref:`cookbook/painting.ipynb#Painting-Multiple-Species-of-Particles`
+* :ref:`cookbook/recipes/painting.ipynb#Painting-the-Overdensity-Field`
+* :ref:`cookbook/recipes/painting.ipynb#Painting-the-Line-of-sight-Momentum-Field`
+* :ref:`cookbook/recipes/painting.ipynb#Painting-Multiple-Species-of-Particles`
 
 Algorithm Recipes
 -----------------
@@ -40,9 +40,9 @@ Algorithm Recipes
 .. toctree::
   :maxdepth: 1
 
-  fftpower.ipynb
-  interlacing.ipynb
-  interpolation-windows.ipynb
-  convpower.ipynb
-  boss-dr12-data.ipynb
-  angular-paircount.ipynb
+  cookbook/recipes/fftpower.ipynb
+  cookbook/recipes/interlacing.ipynb
+  cookbook/recipes/interpolation-windows.ipynb
+  cookbook/recipes/convpower.ipynb
+  cookbook/recipes/boss-dr12-data.ipynb
+  cookbook/recipes/angular-paircount.ipynb

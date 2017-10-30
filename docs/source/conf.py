@@ -348,7 +348,7 @@ html_theme_options = dict(
     navbar_sidebarrel = False,
     globaltoc_depth = 2,
     navbar_links = [
-    ("Cookbook", "cookbook/index"),
+    ("Cookbook", "cookbook-index"),
     ("API", "api/api")
     ],
 )
