@@ -15,11 +15,32 @@ these commands suffice::
 Developer Instructions
 ----------------------
 
-To execute all jupyter notebooks in the docs before committing, use::
+Executing notebooks
+^^^^^^^^^^^^^^^^^^^
 
-    make notebooks
+We often want to execute two commands. First, execute all notebooks not in
+the ``source/cookbook`` submodule::
 
-This will execute all Jupyter notebooks by searching for ``*.ipynb`` files
-in the ``source`` directory. Individual notebooks can be executed using::
+    python helper_scripts/run_notebooks.py -e source/cookbook/recipes
 
-    python helper_scripts/run_notebooks.py example.ipynb
+or equivalently, use ``make ipynb``.
+
+Second, we can execute only the cookbook submodule::
+
+    python helper_scripts/run_notebooks.py source/cookbook/recipes/
+
+or equivalently, use ``make cookbook``.
+
+Updating the cookbook submodule
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+With changes in the cookbook submodule, be sure to checkout the master branch
+before committing any changes. From the ``docs`` directory::
+
+    cd source/cookbook
+    git checkout master
+    git commit ....
+
+To update the cookbook submodule, use::
+
+    git submodule update --remote
