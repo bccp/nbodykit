@@ -29,7 +29,7 @@ class FFTPowerBase(object):
         the size of the linearly spaced ``k`` bins
     """
 
-    def __init__(self, first, second, Nmesh, BoxSize, kmin, dk):
+    def __init__(self, first, second, Nmesh, BoxSize):
         from pmesh.pm import ParticleMesh
 
         first = _cast_source(first, Nmesh=Nmesh, BoxSize=BoxSize)
@@ -56,11 +56,6 @@ class FFTPowerBase(object):
         self.attrs['Nmesh'] = first.attrs['Nmesh'].copy()
         self.attrs['BoxSize'] = first.attrs['BoxSize'].copy()
 
-        if dk is None:
-            dk = 2 * numpy.pi / self.attrs['BoxSize'].min()
-
-        self.attrs['dk'] = dk
-        self.attrs['kmin'] = kmin
         self.attrs.update(zip(['Lx', 'Ly', 'Lz'], self.attrs['BoxSize']))
         self.attrs.update({'volume':self.attrs['BoxSize'].prod()})
 
@@ -163,13 +158,19 @@ class FFTPower(FFTPowerBase):
         if not numpy.allclose(numpy.einsum('i,i', los, los), 1.0, rtol=1e-5):
             raise ValueError("line-of-sight ``los`` must be a unit vector")
 
-        FFTPowerBase.__init__(self, first, second, Nmesh, BoxSize, kmin, dk)
+        FFTPowerBase.__init__(self, first, second, Nmesh, BoxSize)
 
         # save meta-data
         self.attrs['mode'] = mode
         self.attrs['los'] = los
         self.attrs['Nmu'] = Nmu
         self.attrs['poles'] = poles
+
+        if dk is None:
+            dk = 2 * numpy.pi / self.attrs['BoxSize'].min()
+
+        self.attrs['dk'] = dk
+        self.attrs['kmin'] = kmin
 
         self.run()
 
@@ -395,10 +396,16 @@ class ProjectedFFTPower(FFTPowerBase):
     def __init__(self, first, Nmesh=None, BoxSize=None, second=None,
                     axes=(0, 1), dk=None, kmin=0.):
 
-        FFTPowerBase.__init__(self, first, second, Nmesh, BoxSize, kmin, dk)
+        FFTPowerBase.__init__(self, first, second, Nmesh, BoxSize)
 
         # only deal with 1d and 2d projections.
         assert len(axes) in (1, 2), "length of ``axes`` in ProjectedFFTPower should be 1 or 2"
+
+        if dk is None:
+            dk = 2 * numpy.pi / self.attrs['BoxSize'].min()
+
+        self.attrs['dk'] = dk
+        self.attrs['kmin'] = kmin
 
         self.attrs['axes'] = axes
         self.run()
