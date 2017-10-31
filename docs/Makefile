@@ -43,8 +43,11 @@ clean:
 	rm -rf source/api/_autosummary/*
 	rm -rf source/api/modules.rst
 
-notebooks:
-	python helper_scripts/run_notebooks.py
+ipynb:
+	python helper_scripts/run_notebooks.py -e source/cookbook/recipes
+
+cookbook:
+	python helper_scripts/run_notebooks.py source/cookbook/recipes/
 
 html:
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
