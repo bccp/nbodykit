@@ -471,6 +471,10 @@ class CatalogSourceBase(object):
         .. note::
             No copy of data is made.
 
+        .. note::
+            This is different from view in that the attributes dictionary
+            of the copy no longer related to ``self``.
+
         Returns
         -------
         CatalogSource :
@@ -487,6 +491,10 @@ class CatalogSourceBase(object):
         # finally, add the data columns from self
         for col in self.columns:
             toret[col] = self[col]
+
+        # copy the attributes too, so they become decoupled
+        # this is different from view.
+        toret._attrs = self._attrs.copy()
 
         return toret
 
