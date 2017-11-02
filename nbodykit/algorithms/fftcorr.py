@@ -25,7 +25,7 @@ class FFTCorr(FFTBase):
     of :func:`~FFTCorr.run` for the attributes storing the results.
 
     .. note::
-        This is very similar to :class:`~FFTPower`. 
+        This is very similar to :class:`~nbodykit.algorithms.fftpower.FFTPower`. 
 
     Parameters
     ----------
@@ -225,4 +225,3 @@ class FFTCorr(FFTBase):
             self.corr = BinnedStatistic(['r', 'mu'], self.edges, self.corr, fields_to_sum=['modes'], **self.attrs)
         if self.poles is not None:
             self.poles = BinnedStatistic(['r'], [self.corr.edges['r']], self.poles, fields_to_sum=['modes'], **self.attrs)
-

@@ -11,7 +11,7 @@ from nbodykit.base.catalogmesh import CatalogMesh
 
 class FFTBase(object):
     """
-    Base class provides functions for periodic FFT based Power spectrum code
+    Base class provides functions for periodic FFT based Power spectrum code.
 
     Parameters
     ----------
@@ -23,12 +23,7 @@ class FFTBase(object):
         the number of cells per mesh size
     BoxSize : 3-vector
         the size of the box
-    kmin : float
-        the edge of the first ``k`` bin
-    dk : float
-        the size of the linearly spaced ``k`` bins
     """
-
     def __init__(self, first, second, Nmesh, BoxSize):
         from pmesh.pm import ParticleMesh
 
@@ -61,9 +56,7 @@ class FFTBase(object):
 
     def save(self, output):
         """
-        Save the FFTPower result to disk.
-
-        The format is currently JSON.
+        Save the result to disk. The format is currently JSON.
         """
         import json
         from nbodykit.utils import JSONEncoder
@@ -79,9 +72,7 @@ class FFTBase(object):
     @CurrentMPIComm.enable
     def load(cls, output, comm=None):
         """
-        Load a saved FFTPower result.
-
-        The result has been saved to disk with :func:`save`.
+        Load a saved result. The result has been saved to disk with :func:`save`.
         """
         import json
         from nbodykit.utils import JSONDecoder
@@ -778,4 +769,3 @@ def _cast_source(source, BoxSize, Nmesh):
                           "`Nmesh` as keyword of to_mesh()"))
 
     return source
-
