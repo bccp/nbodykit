@@ -288,6 +288,14 @@ def test_copy(comm):
     for k in source.attrs:
         assert k in copy.attrs
 
+    # adding columns to the copy doesn't add to original source
+    copy['TEST2'] = 5.0
+    assert 'TEST2' not in source
+
+    # make sure attrs are independent.
+    source.attrs['foo'] = 123
+    assert 'foo' not in copy.attrs
+
 @MPITest([4])
 def test_view(comm):
     CurrentMPIComm.set(comm)
@@ -309,3 +317,7 @@ def test_view(comm):
     # adding columns to the view changes original source
     view['TEST2'] = 5.0
     assert 'TEST2' in source
+
+    # make sure attrs are dependent.
+    source.attrs['foo'] = 123
+    assert 'foo' in view.attrs
