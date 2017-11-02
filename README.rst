@@ -1,6 +1,6 @@
 nbodykit: a massively parallel large-scale structure toolkit
 ============================================================
-    
+
 **nbodykit** is an open source project and Python package providing
 a set of algorithms useful in the analysis of cosmological
 datasets from N-body simulations and large-scale structure surveys.
@@ -52,7 +52,7 @@ The official documentation is hosted on ReadTheDocs at http://nbodykit.readthedo
 Cookbook Recipes
 ----------------
 
-Users can dive right into an interactive cookbook of example recipes using binder. 
+Users can dive right into an interactive cookbook of example recipes using binder.
 We've compiled a set of Jupyter notebooks to help users learn nbodykit by example — just click the launch button below to get started!
 
 .. image:: http://mybinder.org/badge.svg
@@ -61,7 +61,8 @@ We've compiled a set of Jupyter notebooks to help users learn nbodykit by exampl
 
 |
 
-Users can also view a static version of the cookbook recipes `in the documentation <http://nbodykit.rtfd.io/en/latest/cookbook-index.html>`_.
+Users can also view a static version of the cookbook recipes
+`in the documentation <http://nbodykit.rtfd.io/en/latest/cookbook/index.html>`_.
 
 Installation
 ------------
