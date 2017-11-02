@@ -33,14 +33,12 @@ def sort_paths(paths):
 
 if __name__ == '__main__':
 
-    desc = 'find and execute the Jupyter notebooks in the docs directory'
+    desc = 'find and execute the Jupyter notebooks in the docs directory (but not the cookbook)'
     parser = argparse.ArgumentParser(description=desc)
 
     h = 'which notebooks to execute; if none provided, all will be executed'
     parser.add_argument('paths', nargs='*', default=[], help=h)
 
-    h = 'the paths to exclude'
-    parser.add_argument('-e', '--exclude', type=str, nargs='*', default=[], help=h)
     ns = parser.parse_args()
 
     # execute all?
@@ -48,7 +46,6 @@ if __name__ == '__main__':
 
     # absolute paths of input and exclude paths
     input_dirs, input_files = sort_paths(ns.paths)
-    nodirs, nofiles = sort_paths(ns.exclude)
 
     # the list of notebooks to execute
     notebooks = []
@@ -56,15 +53,15 @@ if __name__ == '__main__':
     # walk the full directory path
     for dirpath, dirs, filenames in os.walk(os.path.join(thisdir, '..', 'source')):
 
+        # exclude cookbook!!
+        dirs[:] = [d for d in dirs if d != 'cookbook']
+
         # normalize the current dirpath
         dirpath = os.path.normpath(dirpath)
 
-        # do not walk excluded directories
-        dirs[:] = [d for d in dirs if os.path.join(dirpath, d) not in nodirs]
-
         # find the valid notebooks
         for f in filenames:
-            if f.endswith('.ipynb') and 'checkpoint' not in f and f not in nofiles:
+            if f.endswith('.ipynb') and 'checkpoint' not in f:
                 f = os.path.join(dirpath, f) # the full path
 
                 # see if this path was specified by user

@@ -45,10 +45,7 @@ clean:
 	rm -rf source/cookbook/*ipynb
 
 ipynb:
-	python helper_scripts/run_notebooks.py -e source/cookbook/recipes
-
-cookbook:
-	python helper_scripts/run_notebooks.py source/cookbook/recipes/
+	python helper_scripts/run_notebooks.py
 
 html:
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
