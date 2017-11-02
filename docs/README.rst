@@ -15,32 +15,23 @@ these commands suffice::
 Developer Instructions
 ----------------------
 
+The Cookbook notebooks
+^^^^^^^^^^^^^^^^^^^^^^
+
+Notebooks in ``source/cookbook`` are downloaded at build time from the
+`bccp/nbodykit-cookbook <https://github.com/bccp/nbodykit-cookbook>`_
+repository. Developers should modify and add new recipes to this
+repository to update the cookbook in the docs.
+
+Notebooks in this directory tree should NOT be modified. All
+``.ipynb`` files in ``source/cookbook`` are ignored by git.
+
 Executing notebooks
 ^^^^^^^^^^^^^^^^^^^
 
-We often want to execute two commands. First, execute all notebooks not in
-the ``source/cookbook`` submodule::
+To execute all notebooks in the documentation that do not live
+in ``source/cookbook``, use::
 
-    python helper_scripts/run_notebooks.py -e source/cookbook/recipes
+    python helper_scripts/run_notebooks.py
 
-or equivalently, use ``make ipynb``.
-
-Second, we can execute only the cookbook submodule::
-
-    python helper_scripts/run_notebooks.py source/cookbook/recipes/
-
-or equivalently, use ``make cookbook``.
-
-Updating the cookbook submodule
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-With changes in the cookbook submodule, be sure to checkout the master branch
-before committing any changes. From the ``docs`` directory::
-
-    cd source/cookbook
-    git checkout master
-    git commit ....
-
-To update the cookbook submodule, use::
-
-    git submodule update --remote
+or equivalently, you can use ``make ipynb``.
