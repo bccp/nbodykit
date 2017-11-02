@@ -9,7 +9,7 @@ from nbodykit.base.catalog import CatalogSourceBase
 from nbodykit.base.mesh import MeshSource
 from nbodykit.base.catalogmesh import CatalogMesh
 
-class FFTPowerBase(object):
+class FFTBase(object):
     """
     Base class provides functions for periodic FFT based Power spectrum code
 
@@ -29,7 +29,7 @@ class FFTPowerBase(object):
         the size of the linearly spaced ``k`` bins
     """
 
-    def __init__(self, first, second, Nmesh, BoxSize, kmin, dk):
+    def __init__(self, first, second, Nmesh, BoxSize):
         from pmesh.pm import ParticleMesh
 
         first = _cast_source(first, Nmesh=Nmesh, BoxSize=BoxSize)
@@ -56,11 +56,6 @@ class FFTPowerBase(object):
         self.attrs['Nmesh'] = first.attrs['Nmesh'].copy()
         self.attrs['BoxSize'] = first.attrs['BoxSize'].copy()
 
-        if dk is None:
-            dk = 2 * numpy.pi / self.attrs['BoxSize'].min()
-
-        self.attrs['dk'] = dk
-        self.attrs['kmin'] = kmin
         self.attrs.update(zip(['Lx', 'Ly', 'Lz'], self.attrs['BoxSize']))
         self.attrs.update({'volume':self.attrs['BoxSize'].prod()})
 
@@ -102,7 +97,59 @@ class FFTPowerBase(object):
 
         return self
 
-class FFTPower(FFTPowerBase):
+    def _compute_3d_power(self):
+        """
+        Compute and return the 3D power from two input sources
+
+        Returns
+        -------
+        p3d : array_like (complex)
+            the 3D complex array holding the power spectrum
+        """
+        c1 = self.first.paint(mode='complex', Nmesh=self.attrs['Nmesh'])
+
+        # compute the auto power of single supplied field
+        if self.first is self.second:
+            c2 = c1
+        else:
+            c2 = self.second.paint(mode='complex', Nmesh=self.attrs['Nmesh'])
+
+        # calculate the 3d power spectrum, slab-by-slab to save memory
+        p3d = c1
+        for (s0, s1, s2) in zip(p3d.slabs, c1.slabs, c2.slabs):
+            s0[...] = s1 * s2.conj()
+
+        for i, s0 in zip(p3d.slabs.i, p3d.slabs):
+            # clear the zero mode.
+            mask = True
+            for i1 in i:
+                mask = mask & (i1 == 0)
+            s0[mask] = 0
+
+        # the complex field is dimensionless; power is L^3
+        # ref to http://icc.dur.ac.uk/~tt/Lectures/UA/L4/cosmology.pdf
+        p3d[...] *= self.attrs['BoxSize'].prod()
+
+        # get the number of objects (in a safe manner)
+        N1 = c1.attrs.get('N', 0)
+        N2 = c2.attrs.get('N', 0)
+        self.attrs.update({'N1':N1, 'N2':N2})
+
+        # add shotnoise (nonzero only for auto-spectra)
+        Pshot = 0
+        if self.first is self.second:
+            if 'shotnoise' not in c1.attrs:
+                if isinstance(self.first, CatalogMesh):
+                    import warnings
+                    warnings.warn(("no 'shotnoise' found for auto power spectrum "
+                                   "of discrete data in FFTPower"))
+            else:
+                Pshot = c1.attrs['shotnoise']
+        self.attrs['shotnoise'] = Pshot
+
+        return p3d
+
+class FFTPower(FFTBase):
     """
     Algorithm to compute the 1d or 2d power spectrum and/or multipoles
     in a periodic box, using a Fast Fourier Transform (FFT).
@@ -163,13 +210,19 @@ class FFTPower(FFTPowerBase):
         if not numpy.allclose(numpy.einsum('i,i', los, los), 1.0, rtol=1e-5):
             raise ValueError("line-of-sight ``los`` must be a unit vector")
 
-        FFTPowerBase.__init__(self, first, second, Nmesh, BoxSize, kmin, dk)
+        FFTBase.__init__(self, first, second, Nmesh, BoxSize)
 
         # save meta-data
         self.attrs['mode'] = mode
         self.attrs['los'] = los
         self.attrs['Nmu'] = Nmu
         self.attrs['poles'] = poles
+
+        if dk is None:
+            dk = 2 * numpy.pi / self.attrs['BoxSize'].min()
+
+        self.attrs['dk'] = dk
+        self.attrs['kmin'] = kmin
 
         self.run()
 
@@ -355,7 +408,7 @@ class FFTPower(FFTPowerBase):
 
         return p3d
 
-class ProjectedFFTPower(FFTPowerBase):
+class ProjectedFFTPower(FFTBase):
     """
     The power spectrum of a field in a periodic box, projected over certain axes.
 
@@ -395,10 +448,16 @@ class ProjectedFFTPower(FFTPowerBase):
     def __init__(self, first, Nmesh=None, BoxSize=None, second=None,
                     axes=(0, 1), dk=None, kmin=0.):
 
-        FFTPowerBase.__init__(self, first, second, Nmesh, BoxSize, kmin, dk)
+        FFTBase.__init__(self, first, second, Nmesh, BoxSize)
 
         # only deal with 1d and 2d projections.
         assert len(axes) in (1, 2), "length of ``axes`` in ProjectedFFTPower should be 1 or 2"
+
+        if dk is None:
+            dk = 2 * numpy.pi / self.attrs['BoxSize'].min()
+
+        self.attrs['dk'] = dk
+        self.attrs['kmin'] = kmin
 
         self.attrs['axes'] = axes
         self.run()
@@ -719,3 +778,4 @@ def _cast_source(source, BoxSize, Nmesh):
                           "`Nmesh` as keyword of to_mesh()"))
 
     return source
+
