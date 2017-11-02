@@ -20,9 +20,8 @@ class LinearMesh(MeshSource):
     seed : int, optional
         the global random seed, used to set the seeds across all ranks
     remove_variance : bool, optional
-        :deprecated:`use unitary_amplitude instead`
-        ``True`` to remove variance from the complex field by fixing the
-        amplitude to :math:`P(k)` and only the phase is random.
+        .. deprecated:: 0.2.9
+            use ``unitary_amplitude`` instead
     unitary_amplitude: bool, optional
         ``True`` to remove variance from the complex field by fixing the
         amplitude to :math:`P(k)` and only the phase is random.
@@ -79,7 +78,7 @@ class LinearMesh(MeshSource):
             field in Fourier space
         """
         # generate linear density field with desired seed
-        complex, _ = mockmaker.gaussian_complex_fields(self.pm, self.Plin, self.attrs['seed'], 
+        complex, _ = mockmaker.gaussian_complex_fields(self.pm, self.Plin, self.attrs['seed'],
                     unitary_amplitude=self.attrs['unitary_amplitude'],
                     inverted_phase=self.attrs['inverted_phase'],
                     compute_displacement=False)
