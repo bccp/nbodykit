@@ -40,6 +40,9 @@ miniconda environment for Python 2.7, 3.5, and 3.6.
 .. image:: https://coveralls.io/repos/github/bccp/nbodykit/badge.svg?branch=master
     :alt: Test Coverage
     :target: https://coveralls.io/github/bccp/nbodykit?branch=master
+.. image:: https://img.shields.io/conda/v/bccp/nbodykit.svg
+   :alt: Conda
+   :target: https://anaconda.org/bccp/nbodykit
 .. image:: https://img.shields.io/pypi/v/nbodykit.svg
    :alt: PyPi
    :target: https://pypi.python.org/pypi/nbodykit/
