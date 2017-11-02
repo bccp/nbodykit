@@ -31,10 +31,10 @@ distinguishes itself from other similar software packages
 
 - the ability to reduce wall-clock time by **scaling** to thousands of cores
 
-- **deployment** and availability on large, super-computing facilities
+- **deployment** and availability on large, supercomputing facilities
 
 - an **interactive** user interface that performs as well in a `Jupyter
-  notebook`_ as on a super-computing machine
+  notebook`_ as on a supercomputing machine
 
 .. _nbodyshop: http://www-hpcc.astro.washington.edu/tools/tools.html
 .. _pynbody: https://github.com/pynbody/pynbody
