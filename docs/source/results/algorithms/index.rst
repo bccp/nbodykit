@@ -27,6 +27,7 @@ Correlation Function Algorithms
 .. toctree::
   :maxdepth: 1
 
+  fftcorr
   two-pt-cf
   three-pt-cf
 
