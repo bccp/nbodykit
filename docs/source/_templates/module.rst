@@ -3,6 +3,7 @@
 
 .. automodule:: {{ fullname }}
    :members:
+   :inherited-members:
 
    {% block functions %}
    {% if functions %}
