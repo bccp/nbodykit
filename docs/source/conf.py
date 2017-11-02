@@ -232,9 +232,56 @@ def autogen_lab_module():
     with open(output_file, 'w') as ff:
         ff.write(out)
 
+def download_cookbook():
+    """
+    Download all ``.ipynb`` cookbook recipes from the ``nbodykit-cookbook``
+    GitHub repository into the ``docs/source/cookbook`` directory.
+    """
+    import tarfile
+    from six.moves import urllib
+
+    github_url = "https://github.com/bccp/nbodykit-cookbook"
+    cur_dir = os.path.abspath(os.path.dirname(__file__))
+    cookbook_dir = os.path.join(cur_dir, 'cookbook')
+
+    # download the tarball locally
+    tarball_link = os.path.join(github_url, 'tarball', 'master')
+    tarball_local = os.path.join(cookbook_dir, 'master.tar.gz')
+    urllib.request.urlretrieve(tarball_link, tarball_local)
+
+    # extract the tarball to the cache dir
+    with tarfile.open(tarball_local) as tar:
+
+        members = tar.getmembers()
+        topdir = members[0].name
+        recipes_dir = os.path.join(topdir, 'recipes')
+
+        # extract ipynb notebooks
+        for m in members[1:]:
+            if m.name.endswith('.ipynb'):
+                name = os.path.relpath(m.name, recipes_dir)
+                m.name = name
+                tar.extract(m, path=cookbook_dir)
+
+    # remove the downloaded tarball file
+    if os.path.exists(tarball_local):
+        os.remove(tarball_local)
+
 def setup(app):
+    """
+    Setup steps to prepare the docs build.
+    """
+    # this will download cookbook recipes from nbodykit-cookbook GitHub repo
+    download_cookbook()
+
+    # automatically generate modules.rst file containing all modules
+    # in a autosummary directive listing with 'toctree' option
     autogen_modules()
+
+    # autogenerate list of all imported modules in nbodykit.lab module
     autogen_lab_module()
+
+    # add our custom directive to pull in classylss links to Cosmology class
     app.add_directive('autocosmosummary', AutoCosmoSummary)
 
 # generate API rst files from autosummary command
@@ -348,7 +395,7 @@ html_theme_options = dict(
     navbar_sidebarrel = False,
     globaltoc_depth = 2,
     navbar_links = [
-    ("Cookbook", "cookbook-index"),
+    ("Cookbook", "cookbook/index"),
     ("API", "api/api")
     ],
 )
