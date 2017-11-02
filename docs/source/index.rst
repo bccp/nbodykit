@@ -44,6 +44,22 @@ distinguishes itself from other similar software packages
 
 ----
 
+Learning By Example
+-------------------
+
+For users who wish to dive right in, an interactive environment
+containing :ref:`our cookbook recipes <cookbook>` is available to users
+via the `BinderHub service <https://github.com/jupyterhub/binderhub>`_.
+Just click the launch button below to get started!
+
+.. figure:: http://mybinder.org/badge.svg
+    :alt: binder
+    :target: https://mybinder.org/v2/gh/bccp/nbodykit-cookbook/master?filepath=recipes
+
+See :ref:`cookbook` for descriptions of the various notebook recipes.
+
+----
+
 Getting nbodykit
 ----------------
 
@@ -146,11 +162,6 @@ these calculations are combined into the final result.
 Getting Started
 ---------------
 
-For users wishing to learn nbodykit by example, we provide a
-:doc:`cookbook of recipes <cookbook-index>` for the various algorithms
-included in nbodykit.
-
-
 We also provide detailed overviews of the two main data containers in
 nbodykit, catalogs and meshes, and we walk through the necessary background
 information for each of the available algorithms in nbodykit. The main
@@ -186,7 +197,7 @@ Getting Help
   getting-started/install
   getting-started/intro
   getting-started/cosmology.ipynb
-  cookbook-index
+  cookbook/index
 
 .. toctree::
   :maxdepth: 1
