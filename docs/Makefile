@@ -42,8 +42,9 @@ clean:
 	rm -rf $(BUILDDIR)/*
 	rm -rf source/api/_autosummary/*
 	rm -rf source/api/modules.rst
+	rm -rf source/cookbook/*ipynb
 
-notebooks:
+ipynb:
 	python helper_scripts/run_notebooks.py
 
 html:

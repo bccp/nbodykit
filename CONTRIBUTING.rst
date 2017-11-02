@@ -139,16 +139,16 @@ Opening a Pull Request
 Contributing to the Cookbook
 ----------------------------
 
-Even if you don't contribute to the nbodykit source code, if you have an
-application of nbodykit that is concise and interesting, please consider adding
-it to our :ref:`cookbook of recipes <cookbook>`.
-These recipes are designed to illustrate interesting uses of nbodykit for other
-users to learn from.
+If you have an application of nbodykit that is concise and interesting,
+please consider adding it to our :ref:`cookbook of recipes <cookbook>`.
+We also welcome feedback and improvements for these recipes. Users can
+submit issues or open a pull request on the
+`nbodykit cookbook repo on GitHub <https://github.com/bccp/nbodykit-cookbook>`_.
 
 Cookbook recipes should be in the form of Jupyter notebooks. See the
-`existing recipes <https://github.com/bccp/nbodykit/tree/master/docs/source/cookbook>`_
-for examples. To submit a new recipe, add the notebook to the
-``docs/source/cookbook`` directory and submit a new pull request.
+`existing recipes <https://github.com/bccp/nbodykit-cookbook/tree/master/recipes>`_
+for examples. The recipes are designed to illustrate interesting uses of
+nbodykit for other users to learn from.
 
 We appreciate any and all contributions!
 

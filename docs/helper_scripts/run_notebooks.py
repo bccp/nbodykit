@@ -18,28 +18,56 @@ def run_notebook(filename):
     with open(filename, 'wt') as f:
         nbformat.write(nb, f)
 
+def sort_paths(paths):
+    dirs = []; files = []
+    for f in paths:
+        path = os.path.normpath(os.path.abspath(f))
+        if os.path.isfile(path):
+            files.append(path)
+        elif os.path.isdir(path):
+            dirs.append(path)
+        else:
+            raise RuntimeError("no such path: '%s'" % path)
+    return dirs, files
+
 
 if __name__ == '__main__':
 
-    desc = 'find and execute the Jupyter notebooks in the docs directory'
+    desc = 'find and execute the Jupyter notebooks in the docs directory (but not the cookbook)'
     parser = argparse.ArgumentParser(description=desc)
 
     h = 'which notebooks to execute; if none provided, all will be executed'
-    parser.add_argument('filenames', nargs='*', default=[], help=h)
+    parser.add_argument('paths', nargs='*', default=[], help=h)
+
     ns = parser.parse_args()
 
-    # absolute paths of input files
-    input_filenames = [os.path.normpath(os.path.abspath(f)) for f in ns.filenames]
+    # execute all?
+    execute_all = not len(ns.paths)
 
+    # absolute paths of input and exclude paths
+    input_dirs, input_files = sort_paths(ns.paths)
+
+    # the list of notebooks to execute
     notebooks = []
+
+    # walk the full directory path
     for dirpath, dirs, filenames in os.walk(os.path.join(thisdir, '..', 'source')):
+
+        # exclude cookbook!!
+        dirs[:] = [d for d in dirs if d != 'cookbook']
+
+        # normalize the current dirpath
+        dirpath = os.path.normpath(dirpath)
 
         # find the valid notebooks
         for f in filenames:
             if f.endswith('.ipynb') and 'checkpoint' not in f:
-                f = os.path.normpath(os.path.join(dirpath, f)) # the full path
-                if len(input_filenames) and f not in input_filenames:
-                    continue
+                f = os.path.join(dirpath, f) # the full path
+
+                # see if this path was specified by user
+                if not execute_all:
+                    if dirpath not in input_dirs and f not in input_files:
+                        continue
                 notebooks.append(f)
 
     for filename in notebooks:

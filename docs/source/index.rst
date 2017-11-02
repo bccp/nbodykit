@@ -31,16 +31,32 @@ distinguishes itself from other similar software packages
 
 - the ability to reduce wall-clock time by **scaling** to thousands of cores
 
-- **deployment** and availability on large, super-computing facilities
+- **deployment** and availability on large, supercomputing facilities
 
 - an **interactive** user interface that performs as well in a `Jupyter
-  notebook`_ as on a super-computing machine
+  notebook`_ as on a supercomputing machine
 
 .. _nbodyshop: http://www-hpcc.astro.washington.edu/tools/tools.html
 .. _pynbody: https://github.com/pynbody/pynbody
 .. _yt: http://yt-project.org/
 .. _xi: http://github.com/bareid/xi
 .. _Jupyter notebook: http://jupyter-notebook.rtfd.io
+
+----
+
+Learning By Example
+-------------------
+
+For users who wish to dive right in, an interactive environment
+containing :ref:`our cookbook recipes <cookbook>` is available to users
+via the `BinderHub service <https://github.com/jupyterhub/binderhub>`_.
+Just click the launch button below to get started!
+
+.. figure:: http://mybinder.org/badge.svg
+    :alt: binder
+    :target: https://mybinder.org/v2/gh/bccp/nbodykit-cookbook/master?filepath=recipes
+
+See :ref:`cookbook` for descriptions of the various notebook recipes.
 
 ----
 
@@ -145,11 +161,6 @@ these calculations are combined into the final result.
 
 Getting Started
 ---------------
-
-For users wishing to learn nbodykit by example, we provide a
-:doc:`cookbook of recipes <cookbook/index>` for the various algorithms
-included in nbodykit.
-
 
 We also provide detailed overviews of the two main data containers in
 nbodykit, catalogs and meshes, and we walk through the necessary background

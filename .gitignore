@@ -5,3 +5,4 @@ nbodykit.egg-info
 docs/source/api/_autosummary
 docs/source/api/modules.rst
 docs/source/savefig
+docs/source/cookbook/*ipynb

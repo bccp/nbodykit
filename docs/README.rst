@@ -15,11 +15,23 @@ these commands suffice::
 Developer Instructions
 ----------------------
 
-To execute all jupyter notebooks in the docs before committing, use::
+The Cookbook notebooks
+^^^^^^^^^^^^^^^^^^^^^^
 
-    make notebooks
+Notebooks in ``source/cookbook`` are downloaded at build time from the
+`bccp/nbodykit-cookbook <https://github.com/bccp/nbodykit-cookbook>`_
+repository. Developers should modify and add new recipes to this
+repository to update the cookbook in the docs.
 
-This will execute all Jupyter notebooks by searching for ``*.ipynb`` files
-in the ``source`` directory. Individual notebooks can be executed using::
+Notebooks in this directory tree should NOT be modified. All
+``.ipynb`` files in ``source/cookbook`` are ignored by git.
 
-    python helper_scripts/run_notebooks.py example.ipynb
+Executing notebooks
+^^^^^^^^^^^^^^^^^^^
+
+To execute all notebooks in the documentation that do not live
+in ``source/cookbook``, use::
+
+    python helper_scripts/run_notebooks.py
+
+or equivalently, you can use ``make ipynb``.
