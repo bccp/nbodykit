@@ -84,3 +84,18 @@ Algorithm Recipes
 * | :ref:`cookbook/angular-paircount.ipynb`
   | Demonstrates how to use :class:`~nbodykit.algorithms.survey_paircount.AngularPairCount`
     to compute the angular correlation function.
+
+Contributing
+------------
+
+If you have an application of nbodykit that is concise and interesting,
+please consider adding it to our cookbook. We also welcome feedback and
+improvements for these recipes. Users can submit issues or open a pull request
+on the `nbodykit cookbook repo on GitHub <https://github.com/bccp/nbodykit-cookbook>`_.
+
+Cookbook recipes should be in the form of Jupyter notebooks. See the
+`existing recipes <https://github.com/bccp/nbodykit-cookbook/recipes>`_
+for examples. The recipes are designed to illustrate interesting uses of
+nbodykit for other users to learn from.
+
+We appreciate any and all contributions!
