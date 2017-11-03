@@ -94,7 +94,7 @@ def test_bad_column(comm):
         data = source.read(['BAD_COLUMN'])
 
     # read a missing column
-    with pytest.raises(AttributeError):
+    with pytest.raises(ValueError):
         data = source.get_hardcolumn('BAD_COLUMN')
 
 @MPITest([4])
