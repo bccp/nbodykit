@@ -1,7 +1,7 @@
 from six import string_types
 import numpy
 import logging
-from abc import abstractmethod, abstractproperty
+from abc import abstractmethod
 from nbodykit import _global_options
 
 class FileType(object):
