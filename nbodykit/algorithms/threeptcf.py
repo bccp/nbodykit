@@ -269,6 +269,7 @@ class YlmCache(object):
 
         import sympy as sp
         from sympy.utilities.lambdify import implemented_function
+        from sympy.parsing.sympy_parser import parse_expr
 
         self.ells = list(ells)
         self.max_ell = max(ells)
@@ -278,7 +279,7 @@ class YlmCache(object):
         exprs = []
         for i in range(comm.rank, len(lms), comm.size):
             lm = lms[i]
-            exprs.append((lm, self._get_Ylm(*lm)))
+            exprs.append((lm, str(self._get_Ylm(*lm))))
         exprs = [x for sublist in comm.allgather(exprs) for x in sublist]
 
         # determine the powers entering into each expression
@@ -288,7 +289,7 @@ class YlmCache(object):
             for var in ['xpyhat', 'zhat']:
                 for e in range(2, max(ells)+1):
                     name = var + '**' + str(e)
-                    if name in str(expr):
+                    if name in expr:
                         matches.append((name, 'cached_'+var, str(e)))
                 args[lm] = matches
 
@@ -307,6 +308,7 @@ class YlmCache(object):
         # make the Ylm functions
         self._Ylms = {}
         for lm, expr in exprs:
+            expr = parse_expr(expr, local_dict={'zhat':zhat, 'xpyhat':xpyhat})
             for var in args[lm]:
                 expr = expr.replace(var[0], 'from_cache(%s, %s)' %var[1:])
             self._Ylms[lm] = sp.lambdify((xpyhat, zhat), expr)

@@ -14,6 +14,7 @@ def store_user_kwargs():
     def decorator(function):
         @functools.wraps(function)
         def inner(self, *args, **kwargs):
+            self._user_args = args
             self._user_kwargs = kwargs
             return function(self, *args, **kwargs)
         return inner
@@ -39,10 +40,10 @@ class Cosmology(object):
         * distance: :math:`h^{-1} \mathrm{Mpc}`
         * wavenumber: :math:`h \mathrm{Mpc}^{-1}`
         * power: :math:`h^{-3} \mathrm{Mpc}^3`
-        * density: :math:`10^{10} (M_\odot/h) (Mpc/h)^{-3}`
+        * density: :math:`10^{10} (M_\odot/h) (\mathrm{Mpc}/h)^{-3}`
         * neutrino mass: :math:`\mathrm{eV}`
         * time: :math:`\mathrm{Gyr}`
-        * H0: :math:`(h^{-1} \mathrm{Mpc}) / (\mathrm{km/s})`
+        * :math:`H_0`: :math:`(\mathrm{km} \ \mathrm{s^{-1}}) / (h^{-1} \ \mathrm{Mpc})`
 
     Notes
     -----
@@ -57,19 +58,19 @@ class Cosmology(object):
     * Non-cosmological constant dark energy can be used by specifying the
       ``w0_fld``, ``wa_fld``, and/or ``Omega_fld`` values.
     * To pass in CLASS parameters that are not valid Python argument names, use
-      the dictionary/keyward arguments trick, e.g.
+      the dictionary/keyword arguments trick, e.g.
       ``Cosmology(..., **{'temperature contributions': 'y'})``
     * ``Cosmology(**dict(c))`` is not supposed to work; use ``Cosmology.from_dict(dict(c))``.
 
     Parameters
     ----------
     h : float
-        the dimensionaless Hubble parameter
+        the dimensionless Hubble parameter
     T0_cmb : float
         the temperature of the CMB in Kelvins
     Omega0_b : float
         the current baryon density parameter, :math:`\Omega_{b,0}`. Currently
-        unrealisitic cosmology where Omega_b == 0 is not supported.
+        unrealistic cosmology where Omega_b == 0 is not supported.
     Omega0_cdm : float
         the current cold dark matter density parameter, :math:`\Omega_{cdm,0}`
     N_ur : float
@@ -82,7 +83,7 @@ class Cosmology(object):
         respectively.
     m_ncdm : list, None
         the masses (in eV) for all massive neutrino species; an empty list
-        should  be passed for no massive neutrinso. The default is a single
+        should  be passed for no massive neutrinos. The default is a single
         massive neutrino with mass of 0.06 eV
     P_k_max : float
         the maximum ``k`` value to compute power spectrum results to, in units
@@ -144,7 +145,7 @@ class Cosmology(object):
         args.pop('self')
 
         # check for deprecated init signature
-        deprecated_args = check_deprecated_init(kwargs)
+        deprecated_args = check_deprecated_init(self._user_args, self._user_kwargs)
         if deprecated_args is not None:
 
             # check for conflicts between named args user passed and
@@ -171,6 +172,12 @@ class Cosmology(object):
         # use set state to de-serialize the object.
         self.__setstate__(pars)
 
+    def __str__(self):
+        """
+        Return a dict string when printed
+        """
+        return dict(self).__str__()
+    
     def __iter__(self):
         """
         Allows dict() to be used on class.
@@ -656,9 +663,9 @@ def merge_args(args, moreargs):
     args.update(moreargs)
     return args
 
-def check_deprecated_init(args):
+def check_deprecated_init(args, kwargs):
     """
-    Check if ``args`` uses the (now deprecated) signature of ``Cosmology``
+    Check if ``kwargs`` uses the (now deprecated) signature of ``Cosmology``
     prior to version 0.2.6.
 
     If using the deprecated syntax, this returns the necessary arguments for
@@ -668,12 +675,21 @@ def check_deprecated_init(args):
     defaults = {'H0':67.6, 'Om0':0.31, 'Ob0':0.0486, 'Ode0':0.69, 'w0':-1.,
                 'Tcmb0':2.7255, 'Neff':3.04, 'm_nu':0., 'flat':False}
 
+    # the deprecated kwargs
+    deprecated_args = [k for k in kwargs if k in defaults]
+
     # all clear; nothing to do
-    if not len(args) or not all(a in defaults for a in args):
+    if not len(deprecated_args):
         return
 
+    # if we got deprecated kwargs, make sure we didn't get any valid kwargs!!
+    if not all(a in defaults for a in kwargs) or len(kwargs) and len(args):
+        msg = "mixing deprecated and valid arguments for the Cosmology class; "
+        msg += 'the following args are deprecated: %s' % str(deprecated_args)
+        raise ValueError(msg)
+
     # update old defaults with input params
-    defaults.update(args)
+    defaults.update(kwargs)
 
     if defaults['m_nu'] is not None:
         defaults['m_nu'] = units.Quantity(defaults['m_nu'], 'eV')

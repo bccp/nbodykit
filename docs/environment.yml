@@ -12,7 +12,7 @@ channels:
 - conda-forge
 
 dependencies:
-- python=3.5
+- python=3.6
 - numpy
 - scipy
 - astropy
@@ -23,19 +23,21 @@ dependencies:
 - mpsort
 - bigfile
 - pandas
-- dask
+- dask>=0.14.2
 - cachey
+- sympy
+- numexpr
+- corrfunc
+- mcfit
+- classylss>=0.2
 - h5py
 - halotools
 - fitsio
-- corrfunc
-- classylss>=0.2
-- mcfit
-- IPython
 - numpydoc
 - sphinx<1.6
-- matplotlib
+- IPython
 - pip
 - pip:
   - nbsphinx
   - sphinx_bootstrap_theme
+  - sphinx-issues

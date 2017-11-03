@@ -5,272 +5,7 @@ from six import string_types
 import numpy
 import logging
 import warnings
-from collections import defaultdict
 import dask.array as da
-
-def get_slice_size(start, stop, step):
-    """
-    Utility function to return the size of an array slice
-    """
-    if step is None: step = 1
-    if start is None: start = 0
-    N, remainder = divmod(stop-start, step)
-    if remainder: N += 1
-    return N
-
-def isgetitem(task):
-    """
-    Return True if the task is a getitem slice
-    """
-    from dask.array.optimization import GETTERS
-
-    if isinstance(task, tuple) and task[0] in GETTERS:
-        sl = task[2][0] # first dimension slice
-        if sl is not None:
-            return True
-    return False
-
-def find_chains(chain, dependents, dsk):
-    """
-    Walk recursively through a dask graph (a directed graph)
-    and find consecutive chains of ``getitem`` tasks.
-
-    This function yields all consecutive chains.
-    """
-    # chain of keys needs to be a list
-    if not isinstance(chain, list):
-        chain = [chain]
-
-    # dependents of last key in chain
-    deps = dependents[chain[-1]]
-
-    # to be a valid chain, need more than element
-    valid = len(chain) > 1
-
-    # each element in chain must be a getter task
-    # ignore first element in chain (the source)
-    valid &= isgetitem(dsk[chain[-1]])
-
-    # check for any valid dependents
-    no_valid_deps = not len(deps) or not any(isgetitem(dsk[dep]) for dep in deps)
-
-    # if chain is valid with no valid deps, it is finished so yield
-    if valid and no_valid_deps:
-        yield chain
-
-    # check dependents if we are on first path, or if current element is valid
-    if len(chain) == 1 or valid:
-        for dep in deps:
-            new_chain = chain + [dep]
-            for chain2 in find_chains(new_chain, dependents, dsk):
-                yield chain2
-
-def expanding_apply(iterable, func):
-    """
-    Perform a running application of ``func`` to ``iterable``
-    """
-    it = iter(iterable)
-    try:
-        total = next(it)
-    except StopIteration:
-        return
-    for element in it:
-        total = func(total, element)
-    return total
-
-class DaskGraphOptimizationFailure(Exception):
-    pass
-
-def optimized_selection(arr, index):
-    """
-    Perform an optimized selection operation on the input dask array ``arr``,
-    as specified by the boolean index ``index``.
-
-    The operation is optimized by inserting slicing tasks directly after
-    the task that last alters the length of the array (along axis=0).
-
-    The procedure used is as follows:
-
-    - Identify the source nodes in the task graph (with no dependencies)
-    - Following each source node, identify the number of consecutive getitem
-      tasks
-    - Compute the size of the fused getitem slices -- if the size is equal to
-      the size of the catalog on the rank, insert the necessary slicing
-      tasks following the last getitem
-
-    Parameters
-    ----------
-    arr : dask.array.Array
-        the dask array that we wish to slice
-    index : array_like
-        a boolean array representing the selection indices; should be
-        the same length as ``arr``
-
-    Returns
-    -------
-    :class:`dask.array.Array` :
-        a new array holding the same data with the selection index applied
-
-    Raises
-    ------
-    DaskGraphOptimizationFailure  :
-        if the array size cannot be determined from the task graph and
-        the selection index applied properly
-    """
-    from operator import getitem, itemgetter
-    from itertools import groupby
-    # catch API changes to DASK
-    try:
-        from dask.array.optimization import fuse_slice, cull, reverse_dict
-        from dask.array.slicing import tokenize
-        from dask.core import subs
-    except ImportError as e:
-        raise DaskGraphOptimizationFailure(e)
-
-    # need the "catalog" attribute
-    if not isinstance(arr, ColumnAccessor):
-        raise DaskGraphOptimizationFailure("input array must be of type 'ColumnAccessor'")
-
-    # cull unused tasks first
-    dsk, dependencies = cull(arr.dask, arr._keys())
-
-    # the dependents
-    dependents = reverse_dict(dependencies)
-
-    # this stores the new slicing tasks
-    dsk2 = dict()
-
-    # source nodes in graph have no dependencies
-    sources = [k for k in dependencies if not len(dependencies[k])]
-
-    # chunk sizes along the first dimension
-    chunk_slices = numpy.append([0],numpy.cumsum(arr.chunks[0]))
-    chunks = {}
-
-    # sum up boolean array to get new total size
-    new_size = int(numpy.sum(index))
-
-    # loop over all of the source tasks
-    name = arr.name
-    for source in sources:
-
-        # initialize the size of blocks to zero
-        blocksizes = {k:0 for k in range(arr.numblocks[0])}
-
-        # find consecutive getitems from this source
-        size = 0
-        chains = []
-        for chain in find_chains(source, dependents, dsk):
-            chains.append(chain)
-
-            # extract the slices from the chain
-            slices = []
-            for kk in chain[1:]: # first object in chain is "source"
-                v = dsk[kk][2][0] # the slice along the 1st axis
-
-                # just save slices
-                if isinstance(v, slice):
-                    slices.append(v)
-                # if array_like, the array gives indices of valid elements
-                elif isinstance(v, (numpy.ndarray,list)):
-                    dummy_slice = slice(0,len(v),None) # dummy slice of the right final size
-                    slices.append(dummy_slice)
-                else:
-                    raise DaskGraphOptimizationFailure("unknown fancy indexing found in graph")
-
-            # fuse all of the slices together and determined size of fused slice
-            total_slice = expanding_apply(slices, fuse_slice)
-
-            # try to identify the stop from previous data
-            if total_slice.stop is None:
-                N = len(arr) # if all gets end in None, use length of array
-                total_slice = slice(total_slice.start, N, total_slice.step)
-
-            # get the size
-            size += get_slice_size(total_slice.start, total_slice.stop, total_slice.step)
-
-        # if no getter tasks, skip this source
-        if not len(chains):
-            continue
-
-        # total slice size must be equal to catalog size to work
-        if arr.catalog.size == size:
-
-            # the last task in every chain starting on 'source'
-            chain_ends = [chain[-1] for chain in chains]
-
-            # group by chain name and account for all chunk blocks
-            for _, subiter in groupby(chain_ends, itemgetter(0)):
-                blocks = [item[1] for item in subiter]
-                if not all(block in blocks for block in range(arr.numblocks[0])):
-                    raise DaskGraphOptimizationFailure("missing blocks from calculation")
-
-            # the input/output names for slicing tasks
-            inname =  chain_ends[0][0] # input task name
-            outname = 'selection-'+tokenize(arr,index,source)
-
-            # determine the slice graph
-            slice_dsk = {}
-            for i, end in enumerate(chain_ends):
-                new_key = list(end)
-                new_key[0] = outname
-
-                # this block number of this task
-                blocknum = new_key[1]
-                block_size = slice(chunk_slices[blocknum], chunk_slices[blocknum+1])
-                index_this_block = index[block_size]
-
-                # add the new slice
-                slice_dsk[tuple(new_key)] = (getitem, end, numpy.where(index_this_block))
-
-                # keep track of the size of this block
-                blocksizes[blocknum] += index_this_block.sum()
-
-            # skip this source if we didnt find the right size
-            if sum(blocksizes.values()) != new_size:
-               continue
-
-            # if last getitem task is array name, we need to rename array
-            if inname == arr.name:
-                name = outname
-
-            # update dependents of last consecutive getitem task
-            # to point to "selection-*" tasks
-            for k,v in slice_dsk.items():
-                old_task_key = v[1]
-                for dep in dependents[old_task_key]:
-
-                    # try to get old task from new dask graph (dsk2) first
-                    # in case we've already updated the task with selection tasks
-                    old_task = dsk2.get(dep, dsk[dep])
-
-                    # perform the substitution
-                    dsk2[dep] = subs(old_task, old_task_key, k)
-
-                # add the slice tasks to the new graph
-                dsk2.update(slice_dsk)
-
-    # if no new tasks, then we failed
-    if not len(dsk2):
-        args = (size, arr.catalog.size)
-        raise DaskGraphOptimizationFailure("computed array length %d, not %d" % args)
-
-    # new size has to be right!
-    if sum(blocksizes.values()) != new_size:
-        args = (sum(blocksizes.values()), new_size)
-        raise DaskGraphOptimizationFailure("computed new sliced size %d, not %d" % args)
-
-    # make the chunks
-    chunks = ()
-    for i in range(arr.numblocks[0]):
-        chunks += (blocksizes[i],)
-    chunks = (chunks,)
-    chunks += arr.chunks[len(chunks):]
-
-    # update the original graph and make new Array
-    dsk.update(dsk2)
-    return da.Array(dsk, name, chunks, dtype=arr.dtype)
-
 
 class ColumnAccessor(da.Array):
     """
@@ -298,40 +33,13 @@ class ColumnAccessor(da.Array):
         return self
 
     def __getitem__(self, key):
-        """
-        If ``key`` is an array-like index with the same length as the
-        underlying catalog, the slice will be performed with the
-        optimization provided by :func:`optimized_selection`.
 
-        Otherwise, the default behavior is returned.
-        """
-        d = None
+        # compute dask index b/c they are not fully supported
+        if isinstance(key, da.Array):
+            key = self.catalog.compute(key)
 
-        # try to optimize the selection
-        sel = key[0] if isinstance(key, tuple) else key
-        if isinstance(sel, (list, numpy.ndarray, da.Array)):
-            if len(sel) == self.catalog.size:
-
-                if isinstance(sel, list):
-                    sel = numpy.asarray(sel)
-                if isinstance(sel, da.Array):
-                    sel = self.catalog.compute(sel)
-
-                # return self if the size is unchanged
-                if sel.sum() == len(self):
-                    return self
-
-                # try to do the optimized selection
-                try:
-                    d = optimized_selection(self, sel)
-                except DaskGraphOptimizationFailure as e:
-                    if self.catalog.comm.rank == 0:
-                        logging.debug("DaskGraphOptimizationFailure: %s" %str(e))
-                    pass
-
-        # the fallback is default behavior
-        if d is None:
-            d = da.Array.__getitem__(self, key)
+        # base class behavior
+        d = da.Array.__getitem__(self, key)
 
         # return a ColumnAccessor (okay b/c __setitem__ checks for circular references)
         toret = ColumnAccessor(self.catalog, d)
@@ -556,8 +264,8 @@ class CatalogSourceBase(object):
         # new size is just number of True entries
         size = index.sum()
 
-        # if size is the same, just return self
-        if size == self.size:
+        # if collective size is unchanged, just return self
+        if self.comm.allreduce(size) == self.csize:
            return self.base if self.base is not None else self
 
         # initialize subset Source of right size
@@ -582,9 +290,11 @@ class CatalogSourceBase(object):
         #.  list of strings specifying column names; returns a CatalogSource
             holding only the selected columns
 
-        .. note::
-            If the :attr:`base` attribute is set, columns will be returned
-            from :attr:`base` instead of from ``self``.
+        Notes
+        -----
+        - Slicing with a boolean array is a **collective** operation
+        - If the :attr:`base` attribute is set, columns will be returned
+          from :attr:`base` instead of from ``self``.
         """
         # handle boolean array slices
         if not isinstance(sel, string_types):
@@ -761,6 +471,10 @@ class CatalogSourceBase(object):
         .. note::
             No copy of data is made.
 
+        .. note::
+            This is different from view in that the attributes dictionary
+            of the copy no longer related to ``self``.
+
         Returns
         -------
         CatalogSource :
@@ -777,6 +491,10 @@ class CatalogSourceBase(object):
         # finally, add the data columns from self
         for col in self.columns:
             toret[col] = self[col]
+
+        # copy the attributes too, so they become decoupled
+        # this is different from view.
+        toret._attrs = self._attrs.copy()
 
         return toret
 
@@ -1165,6 +883,131 @@ class CatalogSource(CatalogSourceBase):
             return NotImplemented
         return self._csize
 
+    def gslice(self, start, stop, end=1, redistribute=True):
+        """
+        Execute a global slice of a CatalogSource.
+
+        .. note::
+            After the global slice is performed, the data is scattered
+            evenly across all ranks.
+
+        Parameters
+        ----------
+        start : int
+            the start index of the global slice
+        stop : int
+            the stop index of the global slice
+        step : int, optional
+            the default step size of the global size
+        redistribute : bool, optional
+            if ``True``, evenly re-distribute the sliced data across all
+            ranks, otherwise just return any local data part of the global
+            slice
+        """
+        from nbodykit.utils import ScatterArray, GatherArray
+
+        # determine the boolean index corresponding to the slice
+        if self.comm.rank == 0:
+            index = numpy.zeros(self.csize, dtype=bool)
+            index[slice(start, stop, end)] = True
+        else:
+            index = None
+        index = self.comm.bcast(index)
+
+        # scatter the index back to all ranks
+        counts = self.comm.allgather(self.size)
+        index = ScatterArray(index, self.comm, root=0, counts=counts)
+
+        # perform the needed local slice
+        subset = self[index]
+
+        # if we don't want to redistribute evenly, just return the slice
+        if not redistribute:
+            return subset
+
+        # re-distribute each column from the sliced data
+        # NOTE: currently Gather/ScatterArray requires numpy arrays, but
+        # in principle we could pass dask arrays around between ranks and
+        # avoid compute() calls
+        data = self.compute(*[subset[col] for col in subset])
+
+        # gather/scatter each column
+        evendata = {}
+        for i, col in enumerate(subset):
+            alldata = GatherArray(data[i], self.comm, root=0)
+            evendata[col] = ScatterArray(alldata, self.comm, root=0)
+
+        # return a new CatalogSource holding the evenly distributed data
+        size = len(evendata[col])
+        toret = self.__class__._from_columns(size, self.comm, **evendata)
+        return toret.__finalize__(self)
+
+    def sort(self, keys, reverse=False, usecols=None):
+        """
+        Return a CatalogSource, sorted globally across all MPI ranks
+        in ascending order by the input keys.
+
+        Sort columns must be floating or integer type.
+
+        .. note::
+            After the sort operation, the data is scattered evenly across
+            all ranks.
+
+        Parameters
+        ----------
+        keys : list, tuple
+            the names of columns to sort by. If multiple columns are provided,
+            the data is sorted consecutively in the order provided
+        reverse : bool, optional
+            if ``True``, perform descending sort operations
+        usecols : list, optional
+            the name of the columns to include in the returned CatalogSource
+        """
+        # single string passed as input
+        if isinstance(keys, string_types):
+            keys = [keys]
+
+        # no duplicated keys
+        if len(set(keys)) != len(keys):
+            raise ValueError("duplicated sort keys")
+
+        # all keys must be valid
+        bad = set(keys) - set(self.columns)
+        if len(bad):
+            raise ValueError("invalid sort keys: %s" %str(bad))
+
+        # check usecols input
+        if usecols is not None:
+            if isinstance(usecols, string_types):
+                usecols = [usecols]
+            if not isinstance(usecols, (list, tuple)):
+                raise ValueError("usecols should be a list or tuple of column names")
+
+            bad = set(usecols) - set(self.columns)
+            if len(bad):
+                raise ValueError("invalid column names in usecols: %s" %str(bad))
+
+        # sort the data
+        data = _sort_data(self.comm, self, list(keys), reverse=reverse, usecols=usecols)
+
+        # get a dictionary of data
+        cols = {}
+        for col in data.dtype.names:
+            cols[col] = data[col]
+
+        # make the new CatalogSource from the data dict
+        size = len(data)
+
+        # NOTE: if we are slicing by columns too, we must return a bare CatalogSource
+        # we cannot guarantee the consistency of the hard column definitions otherwise
+        if usecols is None:
+            toret = self.__class__._from_columns(size, self.comm, **cols)
+            return toret.__finalize__(self)
+        else:
+            toret = CatalogSource._from_columns(size, self.comm, **cols)
+            toret.attrs.update(self.attrs)
+            return toret
+
     @column
     def Selection(self):
         """
@@ -1186,6 +1029,20 @@ class CatalogSource(CatalogSourceBase):
         """
         return ConstantArray(1.0, self.size, chunks=_global_options['dask_chunk_size'])
 
+    @property
+    def Index(self):
+        """
+        The attribute giving the global index rank of each particle in the
+        list. It is an integer from 0 to ``self.csize``.
+
+        Note that slicing changes this index value.
+        """
+        offset = sum(self.comm.allgather(self.size)[:self.comm.rank])
+        # do not use u8, because many numpy casting rules case u8 to f8 automatically.
+        # it is ridiculous.
+        return da.arange(offset, offset + self.size, dtype='i8',
+               chunks=_global_options['dask_chunk_size'])
+
     @column
     def Value(self):
         """
@@ -1199,3 +1056,68 @@ class CatalogSource(CatalogSourceBase):
         By default, this array is set to unity for all particles.
         """
         return ConstantArray(1.0, self.size, chunks=_global_options['dask_chunk_size'])
+
+
+def _sort_data(comm, cat, rankby, reverse=False, usecols=None):
+    """
+    Sort the input data by the specified columns
+
+    Parameters
+    ----------
+    comm :
+        the mpi communicator
+    cat : CatalogSource
+        the catalog holding the data to sort
+    rankby : list of str
+        list of columns to sort by
+    reverse : bool, optional
+        if ``True``, sort in descending order
+    usecols : list, optional
+        only sort these data columns
+    """
+    import mpsort
+
+    # determine which columns we need
+    if usecols is None:
+        usecols = cat.columns
+
+    # remove duplicates from usecols
+    usecols = list(set(usecols))
+
+    # the columns we need in the sort steps
+    columns = list(set(rankby)|set(usecols))
+
+    # make the data to sort
+    dtype = [('_sortkey', 'i8')]
+    for col in cat:
+        if col in columns:
+            dt = (cat[col].dtype.char,)
+            dt += cat[col].shape[1:]
+            if len(dt) == 1: dt = dt[0]
+            dtype.append((col, dt))
+    dtype = numpy.dtype(dtype)
+
+    data = numpy.empty(cat.size, dtype=dtype)
+    for col in columns:
+        data[col] = cat[col]
+
+    # sort the particles by the specified columns and store the
+    # corrected sorted index
+    for col in reversed(rankby):
+        dt = data.dtype[col]
+        rankby_name = col
+
+        # make an integer key for floating columns
+        if issubclass(dt.type, numpy.floating):
+            data['_sortkey'] = numpy.fromstring(data[col].tobytes(), dtype='i8')
+            if reverse:
+                data['_sortkey'] *= -1
+            rankby_name = '_sortkey'
+        elif not issubclass(dt.type, numpy.integer):
+            args = (col, str(dt))
+            raise ValueError("cannot sort by column '%s' with dtype '%s'; must be integer or floating type" %args)
+
+        # do the parallel sort
+        mpsort.sort(data, orderby=rankby_name, comm=comm)
+
+    return data[usecols]

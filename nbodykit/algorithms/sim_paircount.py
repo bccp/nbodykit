@@ -106,7 +106,7 @@ class PairCountBase(object):
             muedges = numpy.linspace(0, 1., self.attrs['Nmu']+1)
             self.result = BinnedStatistic(['r', 'mu'], [redges, muedges], self.result, fields_to_sum=['npairs'])
 
-    def _log(self, pos1, pos2):
+    def _log(self, N1, N2, pos1, pos2):
         """
         Internal function to log the distribution of particles to correlate
         across ranks.
@@ -119,8 +119,6 @@ class PairCountBase(object):
             the second set of particle positions this rank is correlating
         """
         # global counts
-        N1 = self.comm.allreduce(len(pos1))
-        N2 = self.comm.allreduce(len(pos2))
         if self.comm.rank == 0:
             self.logger.info('correlating %d x %d objects in total' %(N1, N2))
 
@@ -131,15 +129,15 @@ class PairCountBase(object):
         # rank 0 logs
         if self.comm.rank == 0:
             args = (numpy.median(sizes1), numpy.median(sizes2))
-            self.logger.info("correlating %d x %d objects (median) per rank" % args)
+            self.logger.info("correlating A x B = %d x %d objects (median) per rank" % args)
 
-            global_min = min(numpy.min(sizes1), numpy.min(sizes2))
-            self.logger.info("min load per rank = %d" % global_min)
+            global_min = numpy.min(sizes1)
+            self.logger.info("min A load per rank = %d" % global_min)
 
-            global_max = max(numpy.max(sizes1), numpy.max(sizes2))
-            self.logger.info("max load per rank = %d" % global_max)
+            global_max = numpy.max(sizes1)
+            self.logger.info("max A load per rank = %d" % global_max)
 
-            args = (N1//self.comm.size, N2//self.comm.size)
+            args = (N1//self.comm.size, N2)
             self.logger.info("(even distribution would result in %d x %d)" % args)
 
     def _decompose(self):
@@ -176,6 +174,7 @@ class PairCountBase(object):
         if self.attrs['periodic']:
             pos1 %= self.attrs['BoxSize']
         pos1, w1 = self.first.compute(pos1, self.first[self.attrs['weight']])
+        N1 = self.comm.allreduce(len(pos1))
 
         # get the (periodic-enforced) position for second
         if self.second is not None:
@@ -183,9 +182,11 @@ class PairCountBase(object):
             if self.attrs['periodic']:
                 pos2 %= self.attrs['BoxSize']
             pos2, w2 = self.second.compute(pos2, self.second[self.attrs['weight']])
+            N2 = self.comm.allreduce(len(pos2))
         else:
             pos2 = pos1
             w2 = w1
+            N2 = N1
 
         # domain decomposition
         grid = [
@@ -211,7 +212,7 @@ class PairCountBase(object):
             w2   = layout.exchange(w2)
 
         # log the sizes of the trees
-        self._log(pos1, pos2)
+        self._log(N1, N2, pos1, pos2)
 
         return (pos1, w1), (pos2, w2)
 
@@ -257,14 +258,14 @@ class PairCountBase(object):
             self.logger.info("calling function '%s'" % name)
 
         # number of iterations
-        N = 1 if self.attrs['show_progress'] else 10
+        N = 10 if self.attrs['show_progress'] else 1
 
         # run in chunks
         pc = None
         chunks = numpy.array_split(range(loads[self.comm.rank]), N, axis=0)
         for i, chunk in enumerate(chunks):
             this_pc = run(chunk)
-            if self.comm.rank == largest_load:
+            if self.comm.rank == largest_load and self.attrs['show_progress']:
                 self.logger.info("%d%% done" % (N*(i+1)))
 
             # sum up the results

@@ -48,7 +48,9 @@ class LogNormalCatalog(CatalogSource):
 
     @CurrentMPIComm.enable
     def __init__(self, Plin, nbar, BoxSize, Nmesh, bias=2., seed=None,
-                    cosmo=None, redshift=None, comm=None, use_cache=False):
+                    cosmo=None, redshift=None,
+                    unitary_amplitude=False, inverted_phase=False,
+                    comm=None, use_cache=False):
 
         self.comm = comm
         self.Plin = Plin
@@ -74,6 +76,8 @@ class LogNormalCatalog(CatalogSource):
         self.attrs['nbar']  = nbar
         self.attrs['redshift'] = redshift
         self.attrs['bias'] = bias
+        self.attrs['unitary_amplitude'] = unitary_amplitude
+        self.attrs['inverted_phase'] = inverted_phase
 
         # set the seed randomly if it is None
         if seed is None:
@@ -132,7 +136,10 @@ class LogNormalCatalog(CatalogSource):
         f = self.cosmo.scale_independent_growth_rate(self.attrs['redshift'])
 
         # compute the linear overdensity and displacement fields
-        delta, disp = mockmaker.gaussian_real_fields(pm, self.Plin, self.attrs['seed'], compute_displacement=True)
+        delta, disp = mockmaker.gaussian_real_fields(pm, self.Plin, self.attrs['seed'], 
+                    unitary_amplitude=self.attrs['unitary_amplitude'],
+                    inverted_phase=self.attrs['inverted_phase'],
+                    compute_displacement=True)
 
         # poisson sample to points
         # this returns position and velocity offsets

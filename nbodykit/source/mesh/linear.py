@@ -20,7 +20,13 @@ class LinearMesh(MeshSource):
     seed : int, optional
         the global random seed, used to set the seeds across all ranks
     remove_variance : bool, optional
+        .. deprecated:: 0.2.9
+            use ``unitary_amplitude`` instead
+    unitary_amplitude: bool, optional
         ``True`` to remove variance from the complex field by fixing the
+        amplitude to :math:`P(k)` and only the phase is random.
+    inverted_phase: bool, optional
+        ``True`` to invert phase of the complex field by fixing the
         amplitude to :math:`P(k)` and only the phase is random.
     comm : MPI communicator
         the MPI communicator
@@ -29,7 +35,11 @@ class LinearMesh(MeshSource):
         return "LinearMesh(seed=%(seed)d)" % self.attrs
 
     @CurrentMPIComm.enable
-    def __init__(self, Plin, BoxSize, Nmesh, seed=None, remove_variance=False, comm=None):
+    def __init__(self, Plin, BoxSize, Nmesh, seed=None,
+            unitary_amplitude=False,
+            inverted_phase=False,
+            remove_variance=None,
+            comm=None):
 
         self.Plin = Plin
 
@@ -44,7 +54,11 @@ class LinearMesh(MeshSource):
                 seed = numpy.random.randint(0, 4294967295)
             seed = self.comm.bcast(seed)
         self.attrs['seed'] = seed
-        self.attrs['remove_variance'] = remove_variance
+        if remove_variance is not None:
+            unitary_amplitude = remove_variance
+
+        self.attrs['unitary_amplitude'] = unitary_amplitude
+        self.attrs['inverted_phase'] = inverted_phase
 
         MeshSource.__init__(self, BoxSize=BoxSize, Nmesh=Nmesh, dtype='f4', comm=comm)
 
@@ -64,7 +78,10 @@ class LinearMesh(MeshSource):
             field in Fourier space
         """
         # generate linear density field with desired seed
-        complex, _ = mockmaker.gaussian_complex_fields(self.pm, self.Plin, self.attrs['seed'], remove_variance=self.attrs['remove_variance'], compute_displacement=False)
+        complex, _ = mockmaker.gaussian_complex_fields(self.pm, self.Plin, self.attrs['seed'],
+                    unitary_amplitude=self.attrs['unitary_amplitude'],
+                    inverted_phase=self.attrs['inverted_phase'],
+                    compute_displacement=False)
         # set normalization to 1 + \delta.
         def filter(k, v):
             mask = numpy.bitwise_and.reduce([ki == 0 for ki in k])

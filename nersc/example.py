@@ -3,10 +3,11 @@ from nbodykit import setup_logging
 
 setup_logging("debug")
 
+# initialize a linear power spectrum class
 cosmo = cosmology.Planck15
+Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='CLASS')
 
-Plin = cosmology.EHPower(cosmo, redshift=0.55)
-# lognormal particles
+# get some lognormal particles
 source = LogNormalCatalog(Plin=Plin, nbar=3e-7, BoxSize=1380., Nmesh=8, seed=42)
 
 # apply RSD

@@ -77,3 +77,42 @@ def test_paint(comm):
 
     # must be the same
     assert_allclose(combined.value, (real1.value + real2.value)/norm, atol=1e-5)
+
+@MPITest([1, 4])
+def test_paint_interlaced(comm):
+
+    CurrentMPIComm.set(comm)
+
+    # the test case fails only if there is enough particles to trigger
+    # the second loop of the interlaced painter; these parameters will do it.
+
+    # the catalog
+    source1 = UniformCatalog(nbar=1e-0, BoxSize=111, seed=111)
+    source2 = UniformCatalog(nbar=1e-0, BoxSize=111, seed=111)
+    source1['Weight'] = 1.0
+    source2['Weight'] = 0.1
+    cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2, use_cache=False)
+
+    # the meshes
+    mesh = cat.to_mesh(Nmesh=32, interlaced=True)
+    mesh1 = source1.to_mesh(Nmesh=32, interlaced=True)
+    mesh2 = source2.to_mesh(Nmesh=32, interlaced=True)
+
+    # paint
+    real1 = mesh1.to_real_field()
+    real2 = mesh2.to_real_field()
+    assert_allclose(real1.cmean(), 1.0)
+    assert_allclose(real2.cmean(), 1.0)
+
+    # un-normalize real1 and real2
+    real1[:] *= real1.attrs['num_per_cell']
+    real2[:] *= real2.attrs['num_per_cell']
+    norm = real1.attrs['num_per_cell'] + real2.attrs['num_per_cell']
+
+    # the combined density field
+    #combined = mesh.to_real_field()
+    combined = mesh.paint()
+
+    assert_allclose(combined.cmean(), 1.0)
+    # must be the same
+    assert_allclose(combined.value, (real1.value + real2.value)/norm, atol=1e-5)

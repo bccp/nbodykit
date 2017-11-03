@@ -42,7 +42,7 @@ class FOF(object):
     """
     logger = logging.getLogger('FOF')
 
-    def __init__(self, source, linking_length, nmin, absolute=False):
+    def __init__(self, source, linking_length, nmin, absolute=False, periodic=True):
 
         self.comm = source.comm
         self._source = source
@@ -54,6 +54,10 @@ class FOF(object):
         self.attrs['linking_length'] = linking_length
         self.attrs['nmin'] = nmin
         self.attrs['absolute'] = absolute
+        self.attrs['periodic'] = periodic
+
+        if periodic and 'BoxSize' not in source.attrs:
+            raise ValueError("Periodic FOF requires BoxSize in .attrs['BoxSize']")
 
         # linking length relative to mean separation
         if not absolute:
@@ -85,7 +89,7 @@ class FOF(object):
             number of FOF halos found
         """
         # run the FOF
-        minid = fof(self._source, self._linking_length, self.comm)
+        minid = fof(self._source, self._linking_length, self.comm, self.attrs['periodic'])
 
         # the sorted labels
         self.labels = _assign_labels(minid, comm=self.comm, thresh=self.attrs['nmin'])
@@ -110,7 +114,7 @@ class FOF(object):
             also included if ``peakcolumn`` is not None
         """
         # the center-of-mass (Position, Velocity, Length)
-        halos = fof_catalog(self._source, self.labels, self.comm, peakcolumn=peakcolumn)
+        halos = fof_catalog(self._source, self.labels, self.comm, peakcolumn=peakcolumn, periodic=self.attrs['periodic'])
         attrs = self._source.attrs.copy()
         attrs.update(self.attrs)
         return ArrayCatalog(halos, comm=self.comm, **attrs)
@@ -167,7 +171,7 @@ class FOF(object):
             peakcolumn = None
         else:
             pass
-        data = fof_catalog(self._source, self.labels, self.comm, peakcolumn=peakcolumn)
+        data = fof_catalog(self._source, self.labels, self.comm, peakcolumn=peakcolumn, periodic=self.attrs['periodic'])
         data = data[data['Length'] > 0]
         halos = ArrayCatalog(data, **attrs)
         if posdef == 'cm':
@@ -271,8 +275,9 @@ def _fof_local(layout, pos, boxsize, ll, comm):
     N = len(pos)
 
     pos = layout.exchange(pos)
+    if boxsize is not None:
+        pos %= boxsize
     data = cluster.dataset(pos, boxsize=boxsize)
-
     fof = cluster.fof(data, linking_length=ll, np=0)
     labels = fof.labels
     del fof
@@ -314,7 +319,7 @@ def _fof_merge(layout, minid, comm):
     minid = layout.gather(minid, mode=numpy.fmin)
     return minid
 
-def fof(source, linking_length, comm):
+def fof(source, linking_length, comm, periodic):
     """
     Run Friends-of-friends halo finder.
 
@@ -346,16 +351,26 @@ def fof(source, linking_length, comm):
 
     np = split_size_3d(comm.size)
 
-    BoxSize = source.attrs.get('BoxSize', None)
-    if BoxSize is None:
-        raise ValueError("cannot compute FOF clustering of source without 'BoxSize' in ``attrs`` dict")
+    if periodic:
+        BoxSize = source.attrs.get('BoxSize', None)
+        if BoxSize is None:
+            raise ValueError("cannot compute FOF clustering of source without 'BoxSize' in ``attrs`` dict")
+        if numpy.isscalar(BoxSize):
+            BoxSize = [BoxSize, BoxSize, BoxSize]
+
+        left = [0, 0, 0]
+        right = BoxSize
+    else:
+        BoxSize = None
+        left = numpy.min(comm.allgather(source['Position'].min(axis=0).compute()), axis=0)
+        right = numpy.max(comm.allgather(source['Position'].max(axis=0).compute()), axis=0)
 
     grid = [
-        numpy.linspace(0, BoxSize[0], np[0] + 1, endpoint=True),
-        numpy.linspace(0, BoxSize[1], np[1] + 1, endpoint=True),
-        numpy.linspace(0, BoxSize[2], np[2] + 1, endpoint=True),
+        numpy.linspace(left[0], right[0], np[0] + 1, endpoint=True),
+        numpy.linspace(left[1], right[1], np[1] + 1, endpoint=True),
+        numpy.linspace(left[2], right[2], np[2] + 1, endpoint=True),
     ]
-    domain = GridND(grid, comm=comm)
+    domain = GridND(grid, comm=comm, periodic=periodic)
 
     Position = source.compute(source['Position'])
     layout = domain.decompose(Position, smoothing=linking_length * 1)
@@ -382,7 +397,7 @@ def fof_find_peaks(source, label, comm,
 
 def fof_catalog(source, label, comm,
                 position='Position', velocity='Velocity', initposition='InitialPosition',
-                peakcolumn=None):
+                peakcolumn=None, periodic=True):
     """
     Catalog of FOF groups based on label from a parent source
 
@@ -434,14 +449,16 @@ def fof_catalog(source, label, comm,
     dtype=[('CMPosition', ('f4', 3)),('CMVelocity', ('f4', 3)),('Length', 'i4')]
     N = count(label, comm=comm)
 
-    # make sure BoxSize is there
-    BoxSize = source.attrs.get('BoxSize', None)
-    if BoxSize is None:
-        raise ValueError("cannot compute halo catalog from source without 'BoxSize' in ``attrs`` dict")
+    if periodic:
+        # make sure BoxSize is there
+        boxsize = source.attrs.get('BoxSize', None)
+        if boxsize is None:
+            raise ValueError("cannot compute halo catalog from source without 'BoxSize' in ``attrs`` dict")
+    else:
+        boxsize = None
 
     # center of mass position
-    hpos = centerofmass(label, source.compute(source[position])/BoxSize, boxsize=1.0, comm=comm)
-    hpos *= BoxSize
+    hpos = centerofmass(label, source.compute(source[position]), boxsize=boxsize, comm=comm)
 
     # center of mass velocity
     hvel = centerofmass(label, source.compute(source[velocity]), boxsize=None, comm=comm)
@@ -449,8 +466,8 @@ def fof_catalog(source, label, comm,
     # center of mass initial position
     if initposition in source:
         dtype.append(('InitialPosition', ('f4', 3)))
-        hpos_init = centerofmass(label, source.compute(source[initposition])/BoxSize, boxsize=1.0, comm=comm)
-        hpos_init *= BoxSize
+        hpos_init = centerofmass(label, source.compute(source[initposition]), boxsize=boxsize, comm=comm)
+        hpos_init
 
     if peakcolumn is not None:
         assert peakcolumn in source
@@ -465,8 +482,7 @@ def fof_catalog(source, label, comm,
         label1 = label * (density >= dmax[label])
 
         # compute the center of mass on the new labels
-        ppos = centerofmass(label1, source.compute(source[position])/BoxSize, boxsize=1.0, comm=comm)
-        ppos *= BoxSize
+        ppos = centerofmass(label1, source.compute(source[position]), boxsize=boxsize, comm=comm)
         pvel = centerofmass(label1, source.compute(source[velocity]), boxsize=None, comm=comm)
 
     dtype = numpy.dtype(dtype)
@@ -649,6 +665,14 @@ class DistributedArray(object):
         prev, next = self.topology.prev(), self.topology.next()
 
         junk, label = numpy.unique(self.local, return_inverse=True)
+
+        if len(label) == 0:
+            # work around numpy bug (<=1.13.3) when label is empty it
+            # spits out booleans?? booleans!!
+            # this causes issues when type cast rules in numpy
+            # are tighten up.
+            label = numpy.int64(label)
+
         if len(self.local) == 0:
             Nunique = 0
         else:
@@ -816,7 +840,7 @@ class LinearTopology(object):
         next = heads[self.comm.rank + 1]
         return next
 
-def centerofmass(label, pos, boxsize=1.0, comm=MPI.COMM_WORLD):
+def centerofmass(label, pos, boxsize, comm=MPI.COMM_WORLD):
     """
     Calulate the center of mass of particles of the same label.
 
@@ -853,9 +877,10 @@ def centerofmass(label, pos, boxsize=1.0, comm=MPI.COMM_WORLD):
                         minlength=len(N))
         comm.Allreduce(MPI.IN_PLACE, posmin, op=MPI.MIN)
         dpos = pos - posmin[label]
-        bhalf = boxsize * 0.5
-        dpos[dpos < -bhalf] += boxsize
-        dpos[dpos >= bhalf] -= boxsize
+        for i in range(dpos.shape[-1]):
+            bhalf = boxsize[i] * 0.5
+            dpos[..., i][dpos[..., i] < -bhalf] += boxsize[i]
+            dpos[..., i][dpos[..., i] >= bhalf] -= boxsize[i]
     else:
         dpos = pos
     dpos = equiv_class(label, dpos, op=numpy.add, dense_labels=True, minlength=len(N))
@@ -863,7 +888,7 @@ def centerofmass(label, pos, boxsize=1.0, comm=MPI.COMM_WORLD):
     comm.Allreduce(MPI.IN_PLACE, dpos, op=MPI.SUM)
     dpos /= N[:, None]
 
-    if boxsize:
+    if boxsize is not None:
         hpos = posmin + dpos
         hpos %= boxsize
     else:

@@ -155,15 +155,17 @@ class CylindricalGroups(object):
         if self.comm.rank == 0:
             self.logger.info("using cpu grid decomposition: %s" %str(np))
 
-        # compute the necessary columns
-        cols = self.source.compute(self.source["Position"], *[self.source[col] for col in self.attrs['rankby']])
-        pos = cols[0]
-        rankby_data = list(cols[1:])
+        # add a column for original index
+        self.source['origind'] = self.source.Index
 
         # sort the data
-        data = _sort_data(comm, pos, rankby, rankby_data)
+        data = self.source.sort(self.attrs['rankby'], usecols=['Position', 'origind'])
+
+        # add a column to track sorted index
+        data['sortindex'] = data.Index
 
         # global min/max across all ranks
+        pos = data.compute(data['Position'])
         posmin = numpy.asarray(comm.allgather(pos.min(axis=0))).min(axis=0)
         posmax = numpy.asarray(comm.allgather(pos.max(axis=0))).max(axis=0)
 
@@ -190,6 +192,9 @@ class CylindricalGroups(object):
             self.logger.info("found %d CGM centrals total" %N_cen)
             self.logger.info("%d/%d are isolated centrals (no satellites)" % (isolated_N_cen,N_cen))
 
+        # delete the column we added to source
+        del self.source['origind']
+
 def cgm(comm, data, domain, rperp, rpar, los, boxsize):
     """
     Perform the cylindrical grouping method
@@ -210,8 +215,8 @@ def cgm(comm, data, domain, rperp, rpar, los, boxsize):
     ----------
     comm :
         the MPI communicator
-    data : array_like
-        structured array with sorted input data, including Position
+    data : CatalogSource
+        catalog with sorted input data, including Position
     domain :
         the domain decomposition
     rperp, rpar : float
@@ -231,10 +236,12 @@ def cgm(comm, data, domain, rperp, rpar, los, boxsize):
     rperp2 = rperp**2; rpar2 = rpar**2
     rmax = (rperp2 + rpar2)**0.5
 
-    layout1    = domain.decompose(data['pos'], smoothing=0)
-    pos1       = layout1.exchange(data['pos'])
-    origind1   = layout1.exchange(data['origind'])
-    sortindex1 = layout1.exchange(data['sortindex'])
+    pos0, origind0, sortindex0 = data.compute(data['Position'], data['origind'], data['sortindex'])
+
+    layout1    = domain.decompose(pos0, smoothing=0)
+    pos1       = layout1.exchange(pos0)
+    origind1   = layout1.exchange(origind0)
+    sortindex1 = layout1.exchange(sortindex0)
 
     # exchange particles across ranks, accounting for smoothing radius
     layout2    = domain.decompose(pos1, smoothing=rmax)
@@ -393,55 +400,6 @@ def cgm(comm, data, domain, rperp, rpar, los, boxsize):
     fields = ['cgm_type', 'cgm_haloid', 'num_cgm_sats']
     return out[fields]
 
-def _sort_data(comm, pos, rankby_names, rankby_data):
-    """
-    Sort the input data by the specified columns
-
-    The columns to use to rank are passed in as ``rankby_names``. If
-    the dtype of those columns is floating, unique integer
-    keys will be generated
-    """
-    # make the data to sort
-    dtype = [('origind', 'u4'),
-             ('sortindex', 'u4'),
-             ('pos', (pos.dtype.str, 3)),
-             ('key', 'u8')]
-    for col, d in zip(rankby_names, rankby_data):
-        dtype.append((col, d.dtype))
-    dtype = numpy.dtype(dtype)
-
-    data = numpy.empty(len(pos), dtype=dtype)
-    data['pos'] = pos
-    for name, d in zip(rankby_names, rankby_data):
-        data[name] = d
-
-    # keep track of the original order
-    sizes = comm.allgather(len(pos))
-    data['origind'] = numpy.arange(sizes[comm.rank], dtype='u4')
-    data['origind'] += sum(sizes[:comm.rank])
-
-    # sort the particles by the specified columns and store the
-    # corrected sorted index
-    for col in reversed(rankby_names):
-        dt = data.dtype[col]
-        rankby_name = col
-
-        # make an integer key for floating columns
-        if issubclass(dt.type, numpy.floating):
-            data['key'] = data_to_sort_key(data[col])
-            rankby_name = 'key'
-        elif not issubclass(dt.type, numpy.integer):
-            args = (col, str(dt))
-            raise ValueError("cannot sort by column '%s' with dtype '%s'; must be integer or floating type" %args)
-
-        # do the parallel sort
-        mpsort.sort(data, orderby=rankby_name, comm=comm)
-
-    # keep track of the sorted order
-    data['sortindex'] = numpy.arange(sizes[comm.rank], dtype='u4')
-    data['sortindex'] += sum(sizes[:comm.rank])
-
-    return data
 
 def _remove_objects_paired_with(df, bad_pairs):
     """

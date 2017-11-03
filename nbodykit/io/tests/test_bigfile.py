@@ -34,17 +34,23 @@ def temporary_data():
 def test_data(comm):
 
     with temporary_data() as (data, tmpfile):
-        
         # read
         ff = BigFile(tmpfile, header='Header')
-        
+
         # check size
         assert ff.attrs['Size'] == 1024
-        
+
         # and data
         numpy.testing.assert_almost_equal(data['Position'], ff['Position'][:])
         numpy.testing.assert_almost_equal(data['Velocity'], ff['Velocity'][:])
 
+@MPITest([1])
+def test_data_auto_header(comm):
+    with temporary_data() as (data, tmpfile):
+        ff = BigFile(tmpfile)
+
+        # check size
+        assert ff.attrs['Size'] == 1024
 
 @MPITest([1])
 def test_pickle(comm):

@@ -40,6 +40,9 @@ miniconda environment for Python 2.7, 3.5, and 3.6.
 .. image:: https://coveralls.io/repos/github/bccp/nbodykit/badge.svg?branch=master
     :alt: Test Coverage
     :target: https://coveralls.io/github/bccp/nbodykit?branch=master
+.. image:: https://img.shields.io/conda/v/bccp/nbodykit.svg
+   :alt: Conda
+   :target: https://anaconda.org/bccp/nbodykit
 .. image:: https://img.shields.io/pypi/v/nbodykit.svg
    :alt: PyPi
    :target: https://pypi.python.org/pypi/nbodykit/
@@ -48,6 +51,21 @@ Documentation
 -------------
 
 The official documentation is hosted on ReadTheDocs at http://nbodykit.readthedocs.org/.
+
+Cookbook Recipes
+----------------
+
+Users can dive right into an interactive cookbook of example recipes using binder.
+We've compiled a set of Jupyter notebooks to help users learn nbodykit by example — just click the launch button below to get started!
+
+.. image:: http://mybinder.org/badge.svg
+    :alt: binder
+    :target: https://mybinder.org/v2/gh/bccp/nbodykit-cookbook/master?filepath=recipes
+
+|
+
+Users can also view a static version of the cookbook recipes
+`in the documentation <http://nbodykit.rtfd.io/en/latest/cookbook/index.html>`_.
 
 Installation
 ------------

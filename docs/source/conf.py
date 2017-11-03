@@ -22,6 +22,71 @@ import os
 sys.path.insert(0, os.path.abspath('..'))
 import nbodykit
 
+from sphinx.ext.autosummary import Autosummary
+from sphinx.ext.autosummary import get_documenter
+from docutils.parsers.rst import directives
+from sphinx.util.inspect import safe_getattr
+import re
+
+class AutoCosmoSummary(Autosummary):
+    """
+    Summarize all methods/attributes of the Cosmology class
+    """
+    exclude = ['dro', 'dro_dict', 'data']
+    option_spec = {
+        'methods': directives.unchanged,
+        'attributes': directives.unchanged
+    }
+    required_arguments = 1
+
+    @staticmethod
+    def get_members(clazz, obj, typ):
+
+        names = set()
+        items = []
+
+        # the default dir
+        for name in dir(obj):
+            try:
+                documenter = get_documenter(safe_getattr(obj, name), obj)
+            except AttributeError:
+                continue
+            if documenter.objtype == typ and not name.startswith('_'):
+                if name not in AutoCosmoSummary.exclude:
+                    items.append((clazz,name))
+                    names.add(name) # keep track of method/attribute conflicts
+
+        # the delegate dro
+        for n in obj.dro:
+            for name in dir(n):
+                try:
+                    documenter = get_documenter(safe_getattr(n, name), n)
+                except AttributeError:
+                    continue
+
+                # dont do conflicts
+                if name not in names:
+                    if documenter.objtype == typ and not name.startswith('_'):
+                        if name not in AutoCosmoSummary.exclude:
+                            x = "%s.%s" %(n.__module__, n.__name__)
+                            items.append((x,name))
+                            names.add(name)
+
+        return ['~%s.%s' %item for item in sorted(items, key=lambda x: x[1])]
+
+    def run(self):
+        clazz = str(self.arguments[0])
+        try:
+            (module_name, class_name) = clazz.rsplit('.', 1)
+            m = __import__(module_name, globals(), locals(), [class_name])
+            c = getattr(m, class_name)
+            if 'methods' in self.options:
+                self.content = self.get_members(clazz, c, 'method')
+            if 'attributes' in self.options:
+                self.content = self.get_members(clazz, c, 'attribute')
+        finally:
+            return super(AutoCosmoSummary, self).run()
+
 # -- General configuration ------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
@@ -38,51 +103,198 @@ extensions = [
     'sphinx.ext.mathjax',
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
-    'IPython.sphinxext.ipython_directive',
-    'IPython.sphinxext.ipython_console_highlighting',
     'sphinx.ext.todo',
     'nbsphinx',
-    'matplotlib.sphinxext.plot_directive',
-    'numpydoc'
+    'numpydoc',
+    'IPython.sphinxext.ipython_console_highlighting',
+    'sphinx_issues',
 ]
 
-os.environ['SOURCE_DIR'] = os.path.split(__file__)[0]
+# store the home directory for the docs
+os.environ['NBKIT_DOCS'] = os.path.split(__file__)[0]
 
-def run_apidoc(*args):
+def autogen_modules():
+    """
+    Produce a file "modules.rst" that includes an ``autosummary`` directive
+    listing all of the modules in nbodykit.
 
-    from sphinx import apidoc
-    sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+    The ``toctree`` option is set such that the corresponding rst files
+    will be auto-generated in ``source/api/_autosummary``.
+    """
+    # current directory
     cur_dir = os.path.abspath(os.path.dirname(__file__))
-    module = os.path.join(cur_dir, "..", '..', "nbodykit")
+
+    # top-level path of source tree
+    toplevel = os.path.join(cur_dir, "..", '..')
+
+    # where to dump the list of modules
     output_path = os.path.join(cur_dir, 'api')
 
-    # find directories to exclude
-    exclude_dirs = []
-    bad = ['tests', 'extern', 'style']
-    for dirpath, dirnames, filenames in os.walk(module):
-        for b in bad:
-            if b in dirnames:
-                exclude_dirs.append(os.path.join(dirpath, b))
-                dirnames.remove(b)
+    # directories and modules to ignore
+    exclude_dirs = ['tests', 'extern', 'style']
+    exclude_modules = ['cosmology.py', '__init__.py']
 
-    # options that will be passed to sphinx-apidoc
-    apidoc.OPTIONS = ['members', 'undoc-members', 'inherited-members', 'show-inheritance']
+    # the list of modules
+    modules = []
 
-    # call sphinx-apidoc
-    apidoc.main(['sphinx-apidoc', '-e', '-o', output_path, module] + exclude_dirs)
+    # walk the tree structure
+    module_dir = os.path.join(toplevel, 'nbodykit')
+    for dirpath, dirs, filenames in os.walk(module_dir):
+
+        # do not walk excluded directories
+        dirs[:] = [d for d in dirs if d not in exclude_dirs]
+
+        # add module with __init__.py
+        if '__init__.py' in filenames:
+            relpath = os.path.relpath(dirpath, toplevel)
+            modules.append(relpath.replace(os.path.sep, '.'))
+
+        # keep track of modules ending in .py
+        for f in filenames:
+
+            # module needs to end with .py
+            if f.endswith('.py') and f not in exclude_modules:
+                path = os.path.join(dirpath, f)
+                relpath = os.path.relpath(path, toplevel) # get path starting with nbodykit.X.X
+                relpath = relpath.replace(os.path.sep, '.')[:-3] # replace slash with dot
+                modules.append(relpath)
+
+    # write the output modules file
+    output_file = os.path.join(output_path, 'modules.rst')
+    with open(output_file, 'w') as ff:
+        header = "Modules"
+        header += "\n" + "="*len(header) + "\n"
+        header = ":orphan:\n\n" + header
+        ff.write(header+".. autosummary::\n\t:toctree: _autosummary\n\t:template: module.rst\n\n")
+        for module in modules:
+            ff.write("\t" + module + "\n")
+
+        # separately add in the cosmology.py module with custom template
+        ff.write("\n.. autosummary::\n\t:toctree: _autosummary\n\t:template: cosmo-module.rst\n\n")
+        ff.write("\tnbodykit.cosmology.cosmology\n")
+
+def autogen_lab_module():
+    """
+    Automatically generate the list of functions, classes, and modules imported
+    into the :mod:`nbodykit.lab`module.
+
+    This saves the list to ``source/api/_autosummary/nbodykit.lab.rst``.
+    """
+    import types
+    from nbodykit import lab
+
+    # all members of the lab module
+    members = dir(lab)
+    d = lab.__dict__
+
+    # get all functions, modules, and classes
+    trim = lambda typ: sorted([m for m in members if isinstance(d[m], typ)])
+    modules = trim(types.ModuleType)
+    classes = trim(types.ClassType)
+    functions = trim(types.FunctionType)
+
+    # the header
+    out = "nbodykit.lab"
+    out += "\n" + "="*len(out) + "\n\n"
+    out += ".. automodule:: nbodykit.lab\n\n"
+    out += "Below are the members of the nbodykit.lab module. We give the imported name of"
+    out += " the member in this module and the full link in parentheses.\n\n"
+
+    # output the list
+    roles = [':mod:', ':class:', ':func:']
+    all_members = [modules, classes, functions]
+    names = ['Modules', 'Classes', 'Functions']
+    for i, name in enumerate(names):
+        members = all_members[i]
+        if not len(members):
+            continue
+        out += ".. rubric:: %s\n\n" %name
+        for member in members:
+            val = d[member]
+            name = ""
+            if hasattr(val, '__module__'):
+                name += val.__module__ + '.'
+            name += val.__name__
+            out += "- %s (%s`%s`)\n" % (member, roles[i], name)
+        out += "\n"
+
+    # the output path
+    cur_dir = os.path.abspath(os.path.dirname(__file__))
+    toplevel = os.path.join(cur_dir, "..", '..')
+    output_path = os.path.join(cur_dir, 'api', '_autosummary')
+    output_file = os.path.join(output_path, 'nbodykit.lab.rst')
+
+    # make the output directory if it doesn't exist
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+
+    # and save
+    with open(output_file, 'w') as ff:
+        ff.write(out)
+
+def download_cookbook():
+    """
+    Download all ``.ipynb`` cookbook recipes from the ``nbodykit-cookbook``
+    GitHub repository into the ``docs/source/cookbook`` directory.
+    """
+    import tarfile
+    from six.moves import urllib
+
+    github_url = "https://github.com/bccp/nbodykit-cookbook"
+    cur_dir = os.path.abspath(os.path.dirname(__file__))
+    cookbook_dir = os.path.join(cur_dir, 'cookbook')
+
+    # download the tarball locally
+    tarball_link = os.path.join(github_url, 'tarball', 'master')
+    tarball_local = os.path.join(cookbook_dir, 'master.tar.gz')
+    urllib.request.urlretrieve(tarball_link, tarball_local)
+
+    # extract the tarball to the cache dir
+    with tarfile.open(tarball_local) as tar:
+
+        members = tar.getmembers()
+        topdir = members[0].name
+        recipes_dir = os.path.join(topdir, 'recipes')
+
+        # extract ipynb notebooks
+        for m in members[1:]:
+            if m.name.endswith('.ipynb'):
+                name = os.path.relpath(m.name, recipes_dir)
+                m.name = name
+                tar.extract(m, path=cookbook_dir)
+
+    # remove the downloaded tarball file
+    if os.path.exists(tarball_local):
+        os.remove(tarball_local)
 
 def setup(app):
-    app.connect('builder-inited', run_apidoc)
+    """
+    Setup steps to prepare the docs build.
+    """
+    # this will download cookbook recipes from nbodykit-cookbook GitHub repo
+    download_cookbook()
 
+    # automatically generate modules.rst file containing all modules
+    # in a autosummary directive listing with 'toctree' option
+    autogen_modules()
 
+    # autogenerate list of all imported modules in nbodykit.lab module
+    autogen_lab_module()
+
+    # add our custom directive to pull in classylss links to Cosmology class
+    app.add_directive('autocosmosummary', AutoCosmoSummary)
+
+# generate API rst files from autosummary command
+autosummary_generate = True
+
+# configure which methods show up
 numpydoc_show_class_members = True
 napoleon_include_special_with_doc = True
 numpydoc_class_members_toctree = False
 
+# link changelog to github
+issues_github_path = 'bccp/nbodykit'
 
-import matplotlib.pyplot as plt
-plt.style.use('seaborn-notebook')
-plot_rcparams = dict(plt.rcParams)
 
 # document __init__ when it has a docstring
 napoleon_include_init_with_doc = True
@@ -203,10 +415,10 @@ html_theme_options = dict(
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
-#html_title = None
+html_title = ""
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
-#html_short_title = None
+html_short_title = ""
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
@@ -375,8 +587,9 @@ intersphinx_mapping = {
     'xarray': ('http://xarray.pydata.org/en/stable/', None),
     'astropy': ('http://docs.astropy.org/en/stable/', None),
     'dask': ('http://dask.pydata.org/en/stable/', None),
-    'halotools': ('https://halotools.readthedocs.io/en/latest/', None),
+    'halotools': ('https://halotools.readthedocs.io/en/stable/', None),
     'pmesh': ('http://rainwoodman.github.io/pmesh/', None),
     'Corrfunc': ('http://corrfunc.readthedocs.io/en/master/', None),
-    'h5py': ('http://docs.h5py.org/en/latest/', None)
+    'h5py': ('http://docs.h5py.org/en/stable/', None),
+    'classylss': ('http://classylss.readthedocs.io/en/stable', None)
 }

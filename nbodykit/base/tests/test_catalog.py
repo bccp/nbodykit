@@ -9,85 +9,6 @@ setup_logging()
 
 
 @MPITest([1, 4])
-def test_consecutive_selections(comm):
-
-    CurrentMPIComm.set(comm)
-
-    # compute with smaller chunk size to test chunking
-    with set_options(dask_chunk_size=100):
-
-        s = UniformCatalog(1000, 1.0, seed=42)
-
-        # slice once
-        subset1 = s[:20]
-        assert 'selection' in subset1['Position'].name # ensure optimized selection succeeded
-
-        # slice again
-        subset2 = subset1[:10]
-        assert 'selection' in subset2['Position'].name # ensure optimized selection succeeded
-
-        assert_array_equal(subset2['Position'].compute(), s['Position'].compute()[:20][:10])
-
-@MPITest([1, 4])
-def test_optimized_selection(comm):
-
-    CurrentMPIComm.set(comm)
-
-    # compute with smaller chunk size to test chunking
-    with set_options(dask_chunk_size=100):
-        s = RandomCatalog(1000, seed=42)
-
-        # ra, dec, z
-        s['z']   = s.rng.normal(loc=0, scale=0.2, size=s.size) # contains z < 0
-        s['ra']  = s.rng.uniform(low=110, high=260, size=s.size)
-        s['dec'] = s.rng.uniform(low=-3.6, high=60., size=s.size)
-
-        # raises exception due to z<0
-        with pytest.raises(Exception):
-            s['Position'] = transform.SkyToCartesian(s['ra'], s['dec'], s['z'], cosmo=cosmology.Planck15)
-            pos = s['Position'].compute()
-
-        # slice (even after adding Position column)
-        subset = s[s['z'] > 0]
-
-        # Position should be evaluatable due to slicing first, then evaluating operations
-        pos = subset['Position'].compute()
-
-@MPITest([1, 4])
-def test_file_optimized_selection(comm):
-
-    import tempfile
-    CurrentMPIComm.set(comm)
-
-    # compute with smaller chunk size to test chunking
-    with set_options(dask_chunk_size=100):
-
-
-        with tempfile.NamedTemporaryFile() as ff:
-
-            # generate data
-            data = numpy.random.random(size=(100,5))
-            numpy.savetxt(ff, data, fmt='%.7e'); ff.seek(0)
-
-            # read nrows
-            names =['a', 'b', 'c', 'd', 'e']
-            s = CSVCatalog(ff.name, names, blocksize=100)
-
-            # add a complicated weight
-            s['WEIGHT'] = s['a'] * (s['b'] + s['c'] - 1.0)
-
-            # test selecting a range
-            valid = (s['a'] > 0.3)&(s['a'] < 0.7)
-            index = valid.compute()
-
-            # slice (even after adding Position column)
-            subset = s[valid]
-
-            # verify all columns
-            for col in s:
-                assert_array_equal(subset[col].compute(), s[col].compute()[index])
-
-@MPITest([1, 4])
 def test_save(comm):
 
     cosmo = cosmology.Planck15
@@ -177,6 +98,27 @@ def test_bad_column(comm):
         data = source.get_hardcolumn('BAD_COLUMN')
 
 @MPITest([4])
+def test_empty_slice(comm):
+    CurrentMPIComm.set(comm)
+
+    source = UniformCatalog(nbar=0.2e-3, BoxSize=1024., seed=42)
+
+    # empty slice returns self
+    source2 = source[source['Selection']]
+    assert source is source2
+
+    # non-empty selection on root only
+    if comm.rank == 0:
+        sel = source.rng.choice([True, False], size=source.size)
+    else:
+        sel = numpy.ones(source.size, dtype=bool)
+
+    # this should trigger a full slice
+    source2 = source[sel]
+    assert source is not source2
+
+
+@MPITest([4])
 def test_slice(comm):
     CurrentMPIComm.set(comm)
 
@@ -214,6 +156,19 @@ def test_dask_slice(comm):
     pos = source['Position']
     pos2 = pos[source['Selection']]
     assert_array_equal(pos.compute()[index], pos2.compute())
+
+@MPITest([1, 4])
+def test_index(comm):
+    CurrentMPIComm.set(comm)
+
+    source = UniformCatalog(nbar=0.2e-3, BoxSize=1024., seed=42)
+    r = numpy.concatenate(comm.allgather(source.Index.compute()))
+    assert_array_equal(r, range(source.csize))
+
+    source = source.gslice(0, 1000)
+    r = numpy.concatenate(comm.allgather(source.Index.compute()))
+    assert_array_equal(r, range(source.csize))
+    assert source.Index.dtype == numpy.dtype('i8')
 
 @MPITest([1 ,4])
 def test_transform(comm):
@@ -333,6 +288,14 @@ def test_copy(comm):
     for k in source.attrs:
         assert k in copy.attrs
 
+    # adding columns to the copy doesn't add to original source
+    copy['TEST2'] = 5.0
+    assert 'TEST2' not in source
+
+    # make sure attrs are independent.
+    source.attrs['foo'] = 123
+    assert 'foo' not in copy.attrs
+
 @MPITest([4])
 def test_view(comm):
     CurrentMPIComm.set(comm)
@@ -354,3 +317,7 @@ def test_view(comm):
     # adding columns to the view changes original source
     view['TEST2'] = 5.0
     assert 'TEST2' in source
+
+    # make sure attrs are dependent.
+    source.attrs['foo'] = 123
+    assert 'foo' in view.attrs

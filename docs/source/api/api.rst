@@ -9,30 +9,17 @@ summarize the most important aspects of the API below.
    :local:
    :backlinks: none
 
-.. _api-io:
+.. _api-lab:
 
-The IO Library (:mod:`nbodykit.io`)
------------------------------------
+The nbodykit lab
+----------------
 
-Base class:
-
-.. autosummary::
-
-  ~nbodykit.io.base.FileType
-
-Subclasses available from the :mod:`nbodykit.io` module:
-
-.. currentmodule:: nbodykit.io
+To make things easier for users, we import all of the
+classes and modules needed to do cool science into a single module:
 
 .. autosummary::
 
-  ~bigfile.BigFile
-  ~binary.BinaryFile
-  ~csv.CSVFile
-  ~fits.FITSFile
-  ~hdf.HDFFile
-  ~stack.FileStack
-  ~tpm.TPMBinaryFile
+    nbodykit.lab
 
 
 .. _api-cosmology:
@@ -42,13 +29,27 @@ Cosmology (:mod:`nbodykit.cosmology`)
 
 .. currentmodule:: nbodykit.cosmology
 
-The main cosmology object is
+The main cosmology object relies on the functionality of the :mod:`classylss`
+package, which provides a binding of the `CLASS CMB Boltzmann code <http://class-code.net>`_.
+The syntax largely follows that used by CLASS. Below, we list the main cosmology class,
+as well as its attributes and methods:
 
 .. autosummary::
 
-  ~cosmology.Cosmology
+    ~cosmology.Cosmology
 
-with available transfer functions computed using
+.. rubric:: Attributes
+
+.. autocosmosummary:: nbodykit.cosmology.cosmology.Cosmology
+    :attributes:
+
+.. rubric:: Methods
+
+.. autocosmosummary:: nbodykit.cosmology.cosmology.Cosmology
+    :methods:
+
+
+There are several transfer functions available to the user:
 
 .. autosummary::
 
@@ -80,17 +81,11 @@ We also have a class for computing LPT background calculations:
 
   ~background.PerturbationGrowth
 
+.. _builtin-cosmos:
+
 The built-in cosmologies are:
 
-===================================== ============================== ====  ===== =======
-Name                                  Source                         H0    Om    Flat
-===================================== ============================== ====  ===== =======
-:attr:`~nbodykit.cosmology.WMAP5`     Komatsu et al. 2009            70.2  0.277 Yes
-:attr:`~nbodykit.cosmology.WMAP7`     Komatsu et al. 2011            70.4  0.272 Yes
-:attr:`~nbodykit.cosmology.WMAP9`     Hinshaw et al. 2013            69.3  0.287 Yes
-:attr:`~nbodykit.cosmology.Planck13`  Planck Collab 2013, Paper XVI  67.8  0.307 Yes
-:attr:`~nbodykit.cosmology.Planck15`  Planck Collab 2015, Paper XIII 67.7  0.307 Yes
-===================================== ============================== ====  ===== =======
+.. include:: builtin-cosmos.rst
 
 .. _api-transform:
 
@@ -134,6 +129,7 @@ And subclasses:
   ~file.TPMBinaryCatalog
   ~file.HDFCatalog
   ~file.FITSCatalog
+  ~file.Gadget1Catalog
   ~array.ArrayCatalog
   ~halos.HaloCatalog
   ~hod.HODCatalog
@@ -197,6 +193,7 @@ Clustering Statistics
     ~nbodykit.algorithms.fftpower.ProjectedFFTPower
     ~nbodykit.algorithms.convpower.ConvolvedFFTPower
     ~nbodykit.algorithms.threeptcf.Multipoles3PCF
+    ~nbodykit.algorithms.fftcorr.FFTCorr
     ~nbodykit.algorithms.sim_paircount.SimulationBoxPairCount
     ~nbodykit.algorithms.survey_paircount.SurveyDataPairCount
     ~nbodykit.algorithms.survey_paircount.AngularPairCount
@@ -246,6 +243,32 @@ Analyzing Results (:class:`~nbodykit.binned_statistic.BinnedStatistic`)
     BinnedStatistic.sel
     BinnedStatistic.squeeze
 
+
+.. _api-io:
+
+The IO Library (:mod:`nbodykit.io`)
+-----------------------------------
+
+Base class:
+
+.. autosummary::
+
+  ~nbodykit.io.base.FileType
+
+Subclasses available from the :mod:`nbodykit.io` module:
+
+
+.. autosummary::
+
+  ~nbodykit.io.bigfile.BigFile
+  ~nbodykit.io.binary.BinaryFile
+  ~nbodykit.io.csv.CSVFile
+  ~nbodykit.io.fits.FITSFile
+  ~nbodykit.io.hdf.HDFFile
+  ~nbodykit.io.stack.FileStack
+  ~nbodykit.io.tpm.TPMBinaryFile
+  ~nbodykit.io.gadget.Gadget1File
+
 Internal Nuts and Bolts
 ------------------------
 
@@ -267,6 +290,7 @@ General Utilities
 .. autosummary::
 
     nbodykit.setup_logging
+    nbodykit.set_options
     nbodykit.utils.JSONEncoder
     nbodykit.utils.JSONDecoder
 

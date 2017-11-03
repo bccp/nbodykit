@@ -5,9 +5,15 @@ class PerturbationGrowth(object):
     """
     Perturbation Growth coefficients at several orders.
 
-    2-LPT is implemented.
+    2-LPT is implemented. This implements the single fluid
+    model of Boltamann equations. Therefore it is accurate
+    only in a matter dominated universe. When background
+    includes the radation contribution, the first order result
+    is tuned to agree
+    at sub-percent level comparing to a true multi-fluid
+    boltzmann code under Planck15 cosmology.
 
-    All derivatives are against ``lna``. (order).
+    All derivatives are against ``lna``.
 
     .. note::
         Formulas are derived from Yin Li's notes on 2LPT.
@@ -50,17 +56,69 @@ class PerturbationGrowth(object):
         self._D1, self._D2 = self._solve()
 
     def D1(self, a, order=0):
+        """ Linear order growth function.
+
+            Parameters
+            ----------
+            a : float, array_like
+                scaling factor
+            order : int
+                order of differentation; 1 for first derivative against log a.
+
+            Returns
+            -------
+            array_like : linear order growth function.
+        """
         lna = np.log(a)
         return np.interp(lna, self.lna, self._D1[:, order])
 
     def D2(self, a, order=0):
+        """ Second order growth function.
+
+            Parameters
+            ----------
+            a : float, array_like
+                scaling factor
+            order : int
+                order of differentation; 1 for first derivative against log a.
+
+            Returns
+            -------
+            array_like : second order growth function.
+        """
         lna = np.log(a)
         return np.interp(lna, self.lna, self._D2[:, order])
 
     def f1(self, a):
+        """ Linear order growth rate
+
+            Parameters
+            ----------
+            a : float, array_like
+                scaling factor
+            order : int
+                order of differentation; 1 for first derivative against log a.
+
+            Returns
+            -------
+            array_like : linear order growth rate.
+        """
         return self.D1(a, order=1) / self.D1(a, order=0)
 
     def f2(self, a):
+        """ Second order growth rate.
+
+            Parameters
+            ----------
+            a : float, array_like
+                scaling factor
+            order : int
+                order of differentation; 1 for first derivative against log a.
+
+            Returns
+            -------
+            array_like : second order growth rate.
+        """
         return self.D2(a, order=1) / self.D2(a, order=0)
 
     def Gp(self, a):
@@ -95,6 +153,9 @@ class PerturbationGrowth(object):
             )
 
     def E(self, a, order=0):
+        """ Hubble function and derivatives against log a.
+
+        """
         if order == 0:
             return self.efunc(1./a - 1.0)
         else:

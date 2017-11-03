@@ -2,6 +2,7 @@ from nbodykit.base.mesh import MeshSource
 from nbodykit.base.catalog import CatalogSource, CatalogSourceBase
 import numpy
 import logging
+import warnings
 
 # for converting from particle to mesh
 from pmesh import window
@@ -94,6 +95,68 @@ class CatalogMesh(CatalogSource, MeshSource):
         obj.base = source
 
         return obj
+
+    def gslice(self, start, stop, end=1, redistribute=True):
+        """
+        Execute a global slice of a CatalogMesh.
+
+        .. note::
+            After the global slice is performed, the data is scattered
+            evenly across all ranks.
+
+        As CatalogMesh objects are views of a CatalogSource, this simply
+        globally slices the underlying CatalogSource.
+
+        Parameters
+        ----------
+        start : int
+            the start index of the global slice
+        stop : int
+            the stop index of the global slice
+        step : int, optional
+            the default step size of the global size
+        redistribute : bool, optional
+            if ``True``, evenly re-distribute the sliced data across all
+            ranks, otherwise just return any local data part of the global
+            slice
+        """
+        # sort the base object
+        newbase = self.base.gslice(start, stop, end=end, redistribute=redistribute)
+
+        # view this base class as a CatalogMesh (with default CatalogMesh parameters)
+        toret = newbase.view(self.__class__)
+
+        # attach the meta-data from self to returned sliced CatalogMesh
+        return toret.__finalize__(self)
+
+    def sort(self, keys, reverse=False, usecols=None):
+        """
+        Sort the CatalogMesh object globally across all MPI ranks
+        in ascending order by the input keys.
+
+        Sort columns must be floating or integer type.
+
+        As CatalogMesh objects are views of a CatalogSource, this simply
+        sorts the underlying CatalogSource.
+
+        Parameters
+        ----------
+        *keys :
+            the names of columns to sort by. If multiple columns are provided,
+            the data is sorted consecutively in the order provided
+        reverse : bool, optional
+            if ``True``, perform descending sort operations
+        usecols : list, optional
+            the name of the columns to include in the returned CatalogSource
+        """
+        # sort the base object
+        newbase = self.base.sort(keys, reverse=reverse, usecols=usecols)
+
+        # view this base class as a CatalogMesh (with default CatalogMesh parameters)
+        toret = newbase.view(self.__class__)
+
+        # attach the meta-data from self to returned sliced CatalogMesh
+        return toret.__finalize__(self)
 
     def __slice__(self, index):
         """
@@ -268,12 +331,8 @@ class CatalogMesh(CatalogSource, MeshSource):
         # since out may have non-zero elements, messing up our interlacing sum
         if self.interlaced:
 
-            # whether we can re-use "toret" workspace
-            if out is None:
-                real1 = toret
-            else:
-                real1 = RealField(pm)
-                real1[:] = 0
+            real1 = RealField(pm)
+            real1[:] = 0
 
             # the second, shifted mesh (always needed)
             real2 = RealField(pm)
@@ -283,8 +342,8 @@ class CatalogMesh(CatalogSource, MeshSource):
         columns = [self.position, self.weight, self.value, self.selection]
         Position, Weight, Value, Selection = self.read(columns)
 
-        # perform optimized selection
-        sel = self.base.compute(Selection) # compute first, so we avoid repeated computes
+        # compute first, so we avoid repeated computes
+        sel = self.base.compute(Selection)
         Position = Position[sel]
         Weight = Weight[sel]
         Value = Value[sel]
@@ -345,21 +404,28 @@ class CatalogMesh(CatalogSource, MeshSource):
                 # paint to two shifted meshes
                 pm.paint(p, mass=w * v, resampler=paintbrush, hold=True, out=real1)
                 pm.paint(p, mass=w * v, resampler=paintbrush, transform=shifted, hold=True, out=real2)
-                c1 = real1.r2c()
-                c2 = real2.r2c()
 
-                # and then combine
-                for k, s1, s2 in zip(c1.slabs.x, c1.slabs, c2.slabs):
-                    kH = sum(k[i] * H[i] for i in range(3))
-                    s1[...] = s1[...] * 0.5 + s2[...] * 0.5 * numpy.exp(0.5 * 1j * kH)
+        # now the loop over particles is done
 
-                # FFT back to real-space
-                # NOTE: cannot use "toret" here in case user supplied "out"
-                c1.c2r(real1)
+        if not self.interlaced:
+            # nothing to do, toret is already filled.
+            pass
+        else:
+            # compose the two interlaced fields into the final result.
+            c1 = real1.r2c()
+            c2 = real2.r2c()
 
-                # need to add to the returned mesh if user supplied "out"
-                if real1 is not toret:
-                    toret[:] += real1[:]
+            # and then combine
+            for k, s1, s2 in zip(c1.slabs.x, c1.slabs, c2.slabs):
+                kH = sum(k[i] * H[i] for i in range(3))
+                s1[...] = s1[...] * 0.5 + s2[...] * 0.5 * numpy.exp(0.5 * 1j * kH)
+
+            # FFT back to real-space
+            # NOTE: cannot use "toret" here in case user supplied "out"
+            c1.c2r(real1)
+
+            # need to add to the returned mesh if user supplied "out"
+            toret[:] += real1[:]
 
         # unweighted number of objects
         N = pm.comm.allreduce(Nlocal)
@@ -372,8 +438,10 @@ class CatalogMesh(CatalogSource, MeshSource):
 
         # make sure we painted something!
         if N == 0:
-            raise ValueError(("trying to paint particle source to mesh, "
-                              "but no particles were found!"))
+            warnings.warn(("trying to paint particle source to mesh, "
+                           "but no particles were found!"),
+                            RuntimeWarning
+                        )
 
         # shot noise is volume / un-weighted number
         shotnoise = numpy.prod(pm.BoxSize) / N

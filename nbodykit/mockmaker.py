@@ -6,7 +6,9 @@ from pmesh.pm import RealField, ComplexField
 from nbodykit.meshtools import SlabIterator
 from nbodykit.utils import GatherArray, ScatterArray
 
-def gaussian_complex_fields(pm, linear_power, seed, remove_variance=False, compute_displacement=False):
+def gaussian_complex_fields(pm, linear_power, seed,
+            unitary_amplitude=False, inverted_phase=False,
+            compute_displacement=False):
     r"""
     Make a Gaussian realization of a overdensity field, :math:`\delta(x)`.
 
@@ -59,9 +61,10 @@ def gaussian_complex_fields(pm, linear_power, seed, remove_variance=False, compu
     compute_displacement : bool, optional
         if ``True``, also return the linear Zel'dovich displacement field;
         default is ``False``
-    remove_variance : bool, optional
-        if ``True``, remove the variance in the amplitude of the guassian,
-        such that the power spectrum of the realization is exactly the input.
+    unitary_amplitude : bool, optional
+        if ``True``, the seed gaussian has unitary_amplitude.
+    inverted_phase: bool, optional
+        if ``True``, the phase of the seed gaussian is inverted
 
     Returns
     -------
@@ -76,7 +79,9 @@ def gaussian_complex_fields(pm, linear_power, seed, remove_variance=False, compu
     # use pmesh to generate random complex white noise field (done in parallel)
     # variance of complex field is unity
     # multiply by P(k)**0.5 to get desired variance
-    delta_k = pm.generate_whitenoise(seed, mode='complex', unitary=remove_variance)
+    delta_k = pm.generate_whitenoise(seed, mode='complex', unitary=unitary_amplitude)
+
+    if inverted_phase: delta_k[...] *= -1
 
     # initialize the displacement fields for (x,y,z)
     if compute_displacement:
@@ -124,7 +129,9 @@ def gaussian_complex_fields(pm, linear_power, seed, remove_variance=False, compu
     return delta_k, disp_k
 
 
-def gaussian_real_fields(pm, linear_power, seed, compute_displacement=False):
+def gaussian_real_fields(pm, linear_power, seed,
+                unitary_amplitude=False,
+                inverted_phase=False, compute_displacement=False):
     r"""
     Make a Gaussian realization of a overdensity field in
     real-space :math:`\delta(x)`.
@@ -150,6 +157,10 @@ def gaussian_real_fields(pm, linear_power, seed, compute_displacement=False):
     compute_displacement : bool, optional
         if ``True``, also return the linear Zel'dovich displacement field;
         default is ``False``
+    unitary_amplitude : bool, optional
+        if ``True``, the seed gaussian has unitary_amplitude.
+    inverted_phase: bool, optional
+        if ``True``, the phase of the seed gaussian is inverted
 
     Returns
     -------
@@ -159,7 +170,10 @@ def gaussian_real_fields(pm, linear_power, seed, compute_displacement=False):
         if requested, the Gaussian displacement field
     """
     # make fourier fields
-    delta_k, disp_k = gaussian_complex_fields(pm, linear_power, seed, compute_displacement=compute_displacement)
+    delta_k, disp_k = gaussian_complex_fields(pm, linear_power, seed,
+                            inverted_phase=inverted_phase,
+                            unitary_amplitude=unitary_amplitude,
+                            compute_displacement=compute_displacement)
 
     # FFT the density to real-space
     delta = delta_k.c2r()
