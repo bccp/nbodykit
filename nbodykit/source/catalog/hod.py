@@ -29,7 +29,6 @@ def find_object_dtypes(data):
             raise TypeError("column '%s' is of type 'O'; must convert to integer or string" %col)
     return data
 
-@add_metaclass(abc.ABCMeta)
 class HODBase(ArrayCatalog):
     """
     A base class to be used for HOD population of a halo catalog.
