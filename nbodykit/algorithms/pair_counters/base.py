@@ -25,6 +25,8 @@ class PairCountBase(object):
             raise ValueError("'Nmu' keyword is required when 'mode' is '2d'")
         if mode == 'projected' and pimax is None:
             raise ValueError("'pimax' keyword is required when 'mode' is 'projected'")
+        if mode == 'projected' and pimax < 1.0:
+            raise ValueError("'pimax' must be at least 1.0 when 'mode' is 'projected'")
 
         self.first = first
         self.second = second
