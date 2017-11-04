@@ -57,6 +57,10 @@ def test_cartesian_to_sky(comm):
     # get RA, DEC, Z
     ra, dec, z = transform.CartesianToSky(s['Position'], cosmo)
 
+    # pos needs to be a dask array
+    with pytest.raises(TypeError):
+        _ = transform.CartesianToSky(s['Position'].compute(), cosmo)
+
     # reverse and check
     pos2 = transform.SkyToCartesian(ra, dec, z, cosmo)
     numpy.testing.assert_allclose(s['Position'], pos2, rtol=1e-5)

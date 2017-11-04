@@ -149,7 +149,7 @@ def CartesianToEquatorial(pos, observer=[0,0,0]):
     return lon, lat
 
 def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0], zmax=100.):
-    """
+    r"""
     Convert Cartesian position coordinates to RA/Dec and redshift,
     using the specified cosmology to convert radial distances from
     the origin into redshift.
@@ -157,13 +157,16 @@ def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0], zmax=100.):
     If velocity is supplied, the returned redshift accounts for the
     additional peculiar velocity shift.
 
+    Users should ensure that ``zmax`` is larger than the largest possible
+    redshift being considered to avoid an interpolation exception.
+
     .. note::
         Cartesian coordinates should be in units of Mpc/h and velocity
         should be in units of km/s.
 
     Parameters
     ----------
-    pos : array_like
+    pos : dask array
         a N x 3 array holding the Cartesian position coordinates in Mpc/h
     cosmo : :class:`~nbodykit.cosmology.cosmology.Cosmology`
         the cosmology used to meausre the comoving distance from ``redshift``
@@ -178,20 +181,36 @@ def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0], zmax=100.):
 
     Returns
     -------
-    ra, dec, z : array_like
+    ra, dec, z : dask array
         the right ascension (in degrees), declination (in degrees), and
         redshift coordinates. RA will be in the range [0,360] and DEC in the
         range [-90, 90]
+
+    Notes
+    -----
+    If velocity is provided, redshift-space distortions are added to the
+    real-space redshift :math:`z_\mathrm{real}`, via:
+
+    .. math::
+
+            z_\mathrm{redshift} = ( v_\mathrm{pec} / c ) (1 + z_\mathrm{reals})
+
+    Raises
+    ------
+    TypeError
+        If the input columns are not dask arrays
     """
     from astropy.constants import c
     from scipy.interpolate import interp1d
+
+    if not isinstance(pos, da.Array):
+        raise TypeError("``pos`` should be a dask array")
 
     # RA,dec coordinates (in degrees)
     ra, dec = CartesianToEquatorial(pos, observer=observer)
 
     # the distance from the origin
     r = da.linalg.norm(pos, axis=-1)
-
 
     def z_from_comoving_distance(x):
         zgrid = numpy.logspace(-8, numpy.log10(zmax), 1024)
