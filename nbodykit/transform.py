@@ -116,7 +116,8 @@ def CartesianToEquatorial(pos, observer=[0,0,0]):
     and declination, using the specified observer location.
 
     .. note::
-        Cartesian coordinates should be in units of Mpc/h.
+        RA and DEC will be returned in degrees, with RA in the range [0,360]
+        and DEC in the range [-90, 90].
 
     Parameters
     ----------
@@ -128,23 +129,24 @@ def CartesianToEquatorial(pos, observer=[0,0,0]):
     Returns
     -------
     ra, dec : array_like
-        the right ascension and declination coordinates
+        the right ascension and declination coordinates, in degrees. RA
+        will be in the range [0,360] and DEC in the range [-90, 90]
     """
     # recenter based on observer
-    pos -= observer
+    pos = pos - observer
 
-    # compute distance from origin
-    r = da.linalg.norm(pos, axis=-1)
+    s = da.hypot(pos[:,0], pos[:,1])
+    lon = da.arctan2(pos[:,1], pos[:,0])
+    lat = da.arctan2(pos[:,2], s)
 
-    # calculate spherical coordinates
-    theta = da.arccos(pos[:,2]/r)
-    phi = da.arctan2(pos[:,1], pos[:,0])
+    # convert to degrees
+    lon = da.rad2deg(lon)
+    lat = da.rad2deg(lat)
 
-    # convert spherical coordinates into ra,dec
-    ra = phi
-    dec = theta - numpy.pi/2.
+    # wrap lon to [0,360]
+    lon = da.mod(lon-360., 360.)
 
-    return ra, dec
+    return lon, lat
 
 def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0]):
     """
@@ -173,7 +175,9 @@ def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0]):
     Returns
     -------
     ra, dec, z : array_like
-        the right ascension, declination, and redshift coordinates
+        the right ascension (in degrees), declination (in degrees), and
+        redshift coordinates. RA will be in the range [0,360] and DEC in the
+        range [-90, 90]
     """
     from astropy.cosmology import z_at_value
     from astropy.constants import c
