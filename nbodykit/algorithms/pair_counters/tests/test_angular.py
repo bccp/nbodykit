@@ -66,8 +66,8 @@ def test_survey_auto(comm):
 
     # verify with kdcount
     npairs, thetaavg, wsum = reference_paircount([ra,dec], w, edges)
-    assert_allclose(npairs, r.result['npairs'])
-    assert_allclose(wsum, r.result['npairs'] * r.result['weightavg'])
+    assert_allclose(npairs, r.pairs['npairs'])
+    assert_allclose(wsum, r.pairs['npairs'] * r.pairs['weightavg'])
 
 @MPITest([1, 4])
 def test_survey_cross(comm):
@@ -95,13 +95,13 @@ def test_survey_cross(comm):
 
     # verify with kdcount
     npairs, thetaavg, wsum = reference_paircount([ra1,dec1], w1, edges, pos2=[ra2,dec2], w2=w2)
-    assert_allclose(npairs, r.result['npairs'])
-    assert_allclose(wsum, r.result['npairs'] * r.result['weightavg'])
+    assert_allclose(npairs, r.pairs['npairs'])
+    assert_allclose(wsum, r.pairs['npairs'] * r.pairs['weightavg'])
 
     # test save
     r.save('angular-paircount-test.json')
     r2 = SurveyDataPairCount.load('angular-paircount-test.json')
-    assert_array_equal(r.result.data, r2.result.data)
+    assert_array_equal(r.pairs.data, r2.pairs.data)
 
     if comm.rank == 0: os.remove('angular-paircount-test.json')
 
@@ -131,8 +131,8 @@ def test_sim_auto(comm):
 
     # verify with kdcount
     npairs, thetaavg, wsum = reference_paircount([ra,dec], w, edges)
-    assert_allclose(npairs, r.result['npairs'])
-    assert_allclose(wsum, r.result['npairs'] * r.result['weightavg'])
+    assert_allclose(npairs, r.pairs['npairs'])
+    assert_allclose(wsum, r.pairs['npairs'] * r.pairs['weightavg'])
 
 @MPITest([1, 4])
 def test_sim_cross(comm):
@@ -157,13 +157,13 @@ def test_sim_cross(comm):
 
     # verify with kdcount
     npairs, thetaavg, wsum = reference_paircount([ra1,dec1], w1, edges, pos2=[ra2,dec2], w2=w2)
-    assert_allclose(npairs, r.result['npairs'])
-    assert_allclose(wsum, r.result['npairs'] * r.result['weightavg'])
+    assert_allclose(npairs, r.pairs['npairs'])
+    assert_allclose(wsum, r.pairs['npairs'] * r.pairs['weightavg'])
 
     # test save
     r.save('angular-paircount-test.json')
     r2 = SimulationBoxPairCount.load('angular-paircount-test.json')
-    assert_array_equal(r.result.data, r2.result.data)
+    assert_array_equal(r.pairs.data, r2.pairs.data)
 
     if comm.rank == 0: os.remove('angular-paircount-test.json')
 

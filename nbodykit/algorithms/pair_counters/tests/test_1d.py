@@ -65,14 +65,14 @@ def test_sim_periodic_auto(comm):
 
     # verify with kdcount
     npairs, ravg, wsum = reference_paircount(pos, w, redges, source.attrs['BoxSize'])
-    assert_allclose(ravg, r.result['r'])
-    assert_allclose(npairs, r.result['npairs'])
-    assert_allclose(wsum, r.result['npairs'] * r.result['weightavg'])
+    assert_allclose(ravg, r.pairs['r'])
+    assert_allclose(npairs, r.pairs['npairs'])
+    assert_allclose(wsum, r.pairs['npairs'] * r.pairs['weightavg'])
 
     # test save
     r.save('paircount-test.json')
     r2 = SimulationBoxPairCount.load('paircount-test.json')
-    assert_array_equal(r.result.data, r2.result.data)
+    assert_array_equal(r.pairs.data, r2.pairs.data)
 
     if comm.rank == 0: os.remove('paircount-test.json')
 
@@ -95,9 +95,9 @@ def test_sim_nonperiodic_auto(comm):
 
     # verify with kdcount
     npairs, ravg, wsum = reference_paircount(pos, w, redges, None)
-    assert_allclose(ravg, r.result['r'])
-    assert_allclose(npairs, r.result['npairs'])
-    assert_allclose(wsum, r.result['npairs'] * r.result['weightavg'])
+    assert_allclose(ravg, r.pairs['r'])
+    assert_allclose(npairs, r.pairs['npairs'])
+    assert_allclose(wsum, r.pairs['npairs'] * r.pairs['weightavg'])
 
 
 @MPITest([1, 3])
@@ -120,9 +120,9 @@ def test_sim_periodic_cross(comm):
 
     # verify with kdcount
     npairs, ravg, wsum = reference_paircount(pos1, None, redges, first.attrs['BoxSize'], pos2=pos2)
-    assert_allclose(ravg, r.result['r'])
-    assert_allclose(npairs, r.result['npairs'])
-    assert_allclose(wsum, r.result['npairs'] * r.result['weightavg'])
+    assert_allclose(ravg, r.pairs['r'])
+    assert_allclose(npairs, r.pairs['npairs'])
+    assert_allclose(wsum, r.pairs['npairs'] * r.pairs['weightavg'])
 
 @MPITest([1])
 def test_bad_los(comm):
@@ -220,9 +220,9 @@ def test_survey_auto(comm):
 
     # verify with kdcount
     npairs, ravg, wsum = reference_paircount(pos, w, redges, None)
-    assert_allclose(ravg, r.result['r'])
-    assert_allclose(npairs, r.result['npairs'])
-    assert_allclose(wsum, r.result['npairs'] * r.result['weightavg'])
+    assert_allclose(ravg, r.pairs['r'])
+    assert_allclose(npairs, r.pairs['npairs'])
+    assert_allclose(wsum, r.pairs['npairs'] * r.pairs['weightavg'])
 
 @MPITest([1, 4])
 def test_survey_cross(comm):
@@ -249,9 +249,9 @@ def test_survey_cross(comm):
 
     # verify with kdcount
     npairs, ravg, wsum = reference_paircount(pos1, w1, redges, None, pos2=pos2, w2=w2)
-    assert_allclose(ravg, r.result['r'])
-    assert_allclose(npairs, r.result['npairs'])
-    assert_allclose(wsum, r.result['npairs'] * r.result['weightavg'])
+    assert_allclose(ravg, r.pairs['r'])
+    assert_allclose(npairs, r.pairs['npairs'])
+    assert_allclose(wsum, r.pairs['npairs'] * r.pairs['weightavg'])
 
 @MPITest([1])
 def test_survey_missing_columns(comm):
