@@ -194,9 +194,8 @@ Clustering Statistics
     ~nbodykit.algorithms.convpower.ConvolvedFFTPower
     ~nbodykit.algorithms.threeptcf.Multipoles3PCF
     ~nbodykit.algorithms.fftcorr.FFTCorr
-    ~nbodykit.algorithms.sim_paircount.SimulationBoxPairCount
-    ~nbodykit.algorithms.survey_paircount.SurveyDataPairCount
-    ~nbodykit.algorithms.survey_paircount.AngularPairCount
+    ~nbodykit.algorithms.pair_counters.simbox.SimulationBoxPairCount
+    ~nbodykit.algorithms.pair_counters.mocksurvey.SurveyDataPairCount
 
 Grouping Methods
 ^^^^^^^^^^^^^^^^
