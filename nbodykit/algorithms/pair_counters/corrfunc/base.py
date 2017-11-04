@@ -182,7 +182,9 @@ class MPICorrfuncCallable(object):
 
             # log all of the output in a new exception
             name = func.__module__ + '.' + func.__name__
-            msg = "calling the function '%s' failed:\n" % name
+            msg = "calling the function '%s' failed, " % name
+            msg += "likely due to issues with input data/parameters. "
+            msg += "Open at issue at https://github.com/bccp/nbodykit/issues for further help.\n"
             msg += "exception: %s\n" % str(e)
             msg += "stdout: %s\n" % stdout
             msg += "stderr: %s" % stderr

@@ -217,3 +217,14 @@ def test_survey_cross(comm):
     assert_array_equal(r.pairs.data, r2.pairs.data)
 
     if comm.rank == 0: os.remove('paircount-test.json')
+
+@MPITest([1])
+def test_missing_Nmu(comm):
+    CurrentMPIComm.set(comm)
+
+    # generate data
+    source = generate_sim_data(seed=42)
+
+    with pytest.raises(ValueError):
+        redges = numpy.linspace(10, 150, 10)
+        r = SimulationBoxPairCount('2d', source, redges)

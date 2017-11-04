@@ -262,3 +262,35 @@ def test_survey_missing_columns(comm):
     # missing column
     with pytest.raises(ValueError):
         r = SurveyDataPairCount('1d', source, redges, cosmology.Planck15, ra='BAD')
+
+@MPITest([1])
+def test_bad_mode(comm):
+    CurrentMPIComm.set(comm)
+    source = generate_survey_data(seed=42)
+    redges = numpy.linspace(10, 150, 10)
+
+    # missing column
+    with pytest.raises(ValueError):
+        r = SurveyDataPairCount('bad mode', source, redges, cosmology.Planck15)
+
+@MPITest([1, 4])
+def test_corrfunc_exception(comm):
+
+    CurrentMPIComm.set(comm)
+    pos = numpy.zeros((100,3))
+    cat = ArrayCatalog({'Position':pos})
+
+    redges = numpy.linspace(0.01, 0.1, 10)
+
+    # corrfunc will throw an error due to bad input data
+    with pytest.raises(Exception):
+        r = SimulationBoxPairCount('1d', cat, redges, periodic=False, BoxSize=[1., 1., 1,])
+
+@MPITest([1, 4])
+def test_missing_corrfunc(comm):
+
+    from nbodykit.algorithms.pair_counters.corrfunc.base import MissingCorrfuncError
+    CurrentMPIComm.set(comm)
+
+    with pytest.raises(Exception):
+        raise MissingCorrfuncError()
