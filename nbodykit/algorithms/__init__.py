@@ -6,9 +6,8 @@ from .convpower import ConvolvedFFTPower
 from .zhist import RedshiftHistogram
 from .fibercollisions import FiberCollisions
 from .threeptcf import Multipoles3PCF
-from .sim_paircount import SimulationBoxPairCount
-from .survey_paircount import SurveyDataPairCount, AngularPairCount
 from .cgm import CylindricalGroups
+from .pair_counters import SurveyDataPairCount, SimulationBoxPairCount
 
 __all__ = ['FFTPower', 'ProjectedFFTPower',
            'FFTCorr',
@@ -18,7 +17,6 @@ __all__ = ['FFTPower', 'ProjectedFFTPower',
            'RedshiftHistogram',
            'FiberCollisions',
            'Multipoles3PCF',
-           'SimulationBoxPairCount',
-           'SurveyDataPairCount', 'AngularPairCount',
-           'CylindricalGroups'
+           'CylindricalGroups',
+           'SurveyDataPairCount', 'SimulationBoxPairCount'
           ]
