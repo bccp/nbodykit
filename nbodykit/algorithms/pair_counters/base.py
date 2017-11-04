@@ -67,7 +67,7 @@ class PairCountBase(object):
             raise ValueError("mode = '%s' should be one of %s" % args)
 
         # save the result as a BinnedStatistic
-        self.pairs = BinnedStatistic(dims, edges, self.result, **kws)
+        self.pairs = BinnedStatistic(dims, edges, self.pairs, **kws)
 
     def save(self, output):
         """
