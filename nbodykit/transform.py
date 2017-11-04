@@ -148,7 +148,7 @@ def CartesianToEquatorial(pos, observer=[0,0,0]):
 
     return lon, lat
 
-def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0]):
+def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0], zmax=100.):
     """
     Convert Cartesian position coordinates to RA/Dec and redshift,
     using the specified cosmology to convert radial distances from
@@ -169,8 +169,12 @@ def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0]):
         the cosmology used to meausre the comoving distance from ``redshift``
     velocity : array_like
         a N x 3 array holding velocity in km/s
-    observer : array_like
+    observer : array_like, optional
         a length 3 array holding the observer location
+    zmax : float, optional
+        the maximum possible redshift, should be set to a reasonably large
+        value to avoid interpolation failure going from comoving distance
+        to redshift
 
     Returns
     -------
@@ -179,22 +183,19 @@ def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0]):
         redshift coordinates. RA will be in the range [0,360] and DEC in the
         range [-90, 90]
     """
-    from astropy.cosmology import z_at_value
     from astropy.constants import c
     from scipy.interpolate import interp1d
 
-    # RA,dec coordinates
+    # RA,dec coordinates (in degrees)
     ra, dec = CartesianToEquatorial(pos, observer=observer)
 
     # the distance from the origin
     r = da.linalg.norm(pos, axis=-1)
 
-    # minimum and maximum redshift corresponding to r
-    zmin = 0.9*z_at_value(cosmo.comoving_distance, r.min(), ztol=1e-5)
-    zmax = 1.1*z_at_value(cosmo.comoving_distance, r.max(), ztol=1e-5)
 
     def z_from_comoving_distance(x):
-        zgrid = numpy.logspace(numpy.log10(zmin), numpy.log10(zmax), 100)
+        zgrid = numpy.logspace(-8, numpy.log10(zmax), 1024)
+        zgrid = numpy.concatenate([[0.], zgrid])
         rgrid = cosmo.comoving_distance(zgrid)
         return interp1d(rgrid, zgrid)(x)
 
@@ -204,7 +205,7 @@ def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0]):
     # add in velocity offsets?
     if velocity is not None:
         vpec =  (pos*velocity).sum(axis=-1) / r
-        z += vpec / c.to('km/s').value * (1 + z_real)
+        z += vpec / c.to('km/s').value * (1 + z)
 
     return ra, dec, z
 

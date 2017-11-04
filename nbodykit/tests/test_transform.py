@@ -33,6 +33,60 @@ def test_sky_to_cartesian(comm):
         s['Position1'] = transform.SkyToCartesian(s['ra'].compute(), s['dec'], s['z'], cosmo)
 
 @MPITest([1, 4])
+def test_cartesian_to_equatorial(comm):
+    CurrentMPIComm.set(comm)
+
+    # make source
+    s = UniformCatalog(nbar=10000, BoxSize=1.0)
+
+    # get RA, DEC
+    ra, dec = transform.CartesianToEquatorial(s['Position'], observer=[0.5, 0.5, 0.5])
+
+    # check bounds
+    assert ((ra >= 0.)&(ra < 360.)).all().compute()
+    assert ((dec >= -90)&(dec < 90.)).all().compute()
+
+@MPITest([1, 4])
+def test_cartesian_to_sky(comm):
+    cosmo = cosmology.Planck15
+    CurrentMPIComm.set(comm)
+
+    # make source
+    s = UniformCatalog(nbar=10000, BoxSize=1.0, seed=42)
+
+    # get RA, DEC, Z
+    ra, dec, z = transform.CartesianToSky(s['Position'], cosmo)
+
+    # reverse and check
+    pos2 = transform.SkyToCartesian(ra, dec, z, cosmo)
+    numpy.testing.assert_allclose(s['Position'], pos2, rtol=1e-5)
+
+@MPITest([1, 4])
+def test_cartesian_to_sky_velocity(comm):
+    cosmo = cosmology.Planck15
+    CurrentMPIComm.set(comm)
+
+    # make source
+    s = UniformCatalog(nbar=1e-5, BoxSize=1380., seed=42)
+
+    # real-space redshift
+    _, _, z_real = transform.CartesianToSky(s['Position'], cosmo,
+                                            velocity=s['Velocity'],
+                                            observer=[-1e4, -1e4, -1e4])
+    # redshift-space redshift
+    _, _, z_redshift = transform.CartesianToSky(s['Position'], cosmo,
+                                                observer=[-1e4, -1e4, -1e4])
+
+    numpy.testing.assert_allclose(z_real, z_redshift, rtol=1e-3)
+
+    # bad z max value
+    with pytest.raises(ValueError):
+        _, _, z = transform.CartesianToSky(s['Position'], cosmo, observer=[-1e4, -1e4, -1e4], zmax=0.5)
+        z = z.compute()
+
+
+
+@MPITest([1, 4])
 def test_stack_columns(comm):
     CurrentMPIComm.set(comm)
 
