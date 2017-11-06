@@ -32,9 +32,10 @@ class PairCountBase(object):
         if mode == 'projected' and pimax < 1.0:
             raise ValueError("'pimax' must be at least 1.0 when 'mode' is 'projected'")
 
-        if 'Position' not in first:
+        # check that Position column is here
+        if mode != 'angular' and 'Position' not in first:
             raise ValueError("the 'first' CatalogSource must define 'Position' column")
-        if second is not None and 'Position' not in second:
+        if mode != 'angular' and second is not None and 'Position' not in second:
             raise ValueError("the 'second' CatalogSource must define 'Position' column")
 
         self.first = first
