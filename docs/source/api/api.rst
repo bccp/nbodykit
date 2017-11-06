@@ -196,6 +196,8 @@ Clustering Statistics
     ~nbodykit.algorithms.fftcorr.FFTCorr
     ~nbodykit.algorithms.pair_counters.simbox.SimulationBoxPairCount
     ~nbodykit.algorithms.pair_counters.mocksurvey.SurveyDataPairCount
+    ~nbodykit.algorithms.paircount_tpcf.tpcf.SimulationBox2PCF
+    ~nbodykit.algorithms.paircount_tpcf.tpcf.SurveyData2PCF
 
 Grouping Methods
 ^^^^^^^^^^^^^^^^
