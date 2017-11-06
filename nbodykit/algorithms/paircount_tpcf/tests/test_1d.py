@@ -136,7 +136,7 @@ def test_survey_auto(comm):
     data, randoms = generate_survey_data(seed=42)
 
     # make the bin edges
-    redges = numpy.linspace(0.01, 20, 10)
+    redges = numpy.linspace(1.0, 50, 5)
 
     # compute 2PCF
     r = SurveyData2PCF('1d', data, randoms, redges, cosmo=cosmo)
@@ -151,3 +151,18 @@ def test_survey_auto(comm):
     assert_allclose(DD['npairs'], r.D1D2['npairs'])
     assert_allclose(DR['npairs'], r.D1R2['npairs'])
     assert_allclose(RR['npairs'], r.R1R2['npairs'])
+
+@MPITest([1])
+def test_low_nbar_randoms(comm):
+    CurrentMPIComm.set(comm)
+
+    # uniform source of particles
+    source = generate_sim_data(seed=42)
+    randoms = UniformCatalog(nbar=3e-6, BoxSize=512., seed=84)
+
+    # make the bin edges
+    redges = numpy.linspace(0.01, 20, 50)
+
+    # compute 2PCF
+    with pytest.warns(UserWarning):
+        r = SimulationBox2PCF('1d', source, redges, periodic=False, randoms1=randoms)

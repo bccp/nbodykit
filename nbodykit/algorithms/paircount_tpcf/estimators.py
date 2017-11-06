@@ -110,9 +110,9 @@ def LandySzalayEstimator(pair_counter, data1, data2, randoms1, randoms2, **kwarg
         randoms2 = randoms1
 
     # determine the sample sizes
-    ND1, NR1 = len(data1), len(randoms1)
-    ND2 = len(data2) if data2 is not None else ND1
-    NR2 = len(randoms2)
+    ND1, NR1 = data1.csize, randoms1.csize
+    ND2 = data2.csize if data2 is not None else ND1
+    NR2 = randoms2.csize
 
     # do data - randoms correlation
     D1R2 = pair_counter(first=data1, second=randoms2, **kwargs).pairs
@@ -146,7 +146,7 @@ def LandySzalayEstimator(pair_counter, data1, data2, randoms1, randoms2, **kwarg
         msg = ("The RR calculation in the Landy-Szalay estimator contains"
         " separation bins with no bins. This will result in NaN values in the resulting"
         " correlation function. Try increasing the number of randoms and/or using"
-        " broader bins.)
+        " broader bins.")
         warnings.warn(msg)
 
     CF = _create_tpcf_result(D1D2, CF)
