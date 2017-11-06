@@ -71,7 +71,7 @@ class AnalyticUniformRandoms(object):
         else:
             return NR1 * NR2 * self.filling_factor
 
-def LandySzalayEstimator(pair_counter, data1, data2, randoms1, randoms2, **kwargs):
+def LandySzalayEstimator(pair_counter, data1, data2, randoms1, randoms2, logger=None, **kwargs):
     """
     Compute the correlation function from data/randoms using the
     Landy - Szalay estimator to compute the correlation function.
@@ -102,8 +102,11 @@ def LandySzalayEstimator(pair_counter, data1, data2, randoms1, randoms2, **kwarg
     """
     # make sure we have the randoms
     assert randoms1 is not None
+    comm = data1.comm
 
     # data1 x data2
+    if logger is not None and comm.rank == 0:
+        logger.info("computing data1 - data2 pair counts")
     D1D2 = pair_counter(first=data1, second=data2, **kwargs).pairs
 
     if randoms2 is None:
@@ -115,13 +118,20 @@ def LandySzalayEstimator(pair_counter, data1, data2, randoms1, randoms2, **kwarg
     NR2 = randoms2.csize
 
     # do data - randoms correlation
+    if logger is not None and comm.rank == 0:
+        logger.info("computing data1 - randoms2 pair counts")
     D1R2 = pair_counter(first=data1, second=randoms2, **kwargs).pairs
+
     if data2 is not None:
+        if logger is not None and comm.rank == 0:
+            logger.info("computing data2 - randoms1 pair counts")
         D2R1 = pair_counter(first=data2, second=randoms1, **kwargs).pairs
     else:
         D2R1 = D1R2
 
     # and randoms - randoms calculation
+    if logger is not None and comm.rank == 0:
+        logger.info("computing randoms1 - randoms2 pair counts")
     R1R2 = pair_counter(first=randoms1, second=randoms2, **kwargs).pairs
 
     # init
@@ -170,10 +180,12 @@ def NaturalEstimator(data_paircount):
     BoxSize = attrs['BoxSize']
 
     # analytic randoms - randoms calculation assuming uniform distribution
-    R1R2 = AnalyticUniformRandoms(mode, edges, BoxSize)(ND1, ND2)
+    _R1R2 = AnalyticUniformRandoms(mode, edges, BoxSize)(ND1, ND2)
+    edges = [D1D2.edges[d] for d in D1D2.dims]
+    R1R2 = BinnedStatistic(D1D2.dims, edges, _R1R2.view([('npairs', 'f8')]))
 
     # and compute the correlation function as DD/RR - 1
-    CF = (D1D2['npairs']*D1D2['weightavg']) / R1R2 - 1.
+    CF = (D1D2['npairs']*D1D2['weightavg']) / R1R2['npairs'] - 1.
 
     # create a BinnedStatistic holding the CF
     CF = _create_tpcf_result(D1D2, CF)
