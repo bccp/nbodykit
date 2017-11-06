@@ -5,10 +5,14 @@ from six import string_types
 
 class SimulationBoxPairCount(PairCountBase):
     r"""
-    Count (weighted) pairs of objects in a simulation box using the
-    :mod:`Corrfunc` package and a 1D, 2D, projected, or angular coordinate basis.
+    Count (weighted) pairs of objects in a simulation box
+    as a function of :math:`r`, :math:`(r,\mu)`, :math:`(r_p, \pi)`, or
+    :math:`\theta` using the :mod:`Corrfunc` package.
 
     See the Notes below for the allowed coordinate dimensions
+
+    The default weighting scheme uses the product of the weights for each
+    object in a pair.
 
     Results are computed when the object is inititalized. See the documenation
     of :func:`~SimulationBoxPairCount.run` for the attributes storing the

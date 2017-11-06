@@ -72,7 +72,18 @@ class CorrfuncResult(object):
 
 class MPICorrfuncCallable(object):
     """
-    A base class to represent MPI-enabled Corrfunc callable.
+    A base class to represent an MPI-enabled :mod:`Corrfunc` callable.
+
+    This class adds the following functionality to the Corrfunc code:
+
+    - If ``show_progress`` is ``True``, execute the function in chunks,
+      logging to screen the progress along the way. This is useful for
+      potentially long running pair counting jobs.
+    - When calling the function, capture stdout/stderr and C-level output
+      and if an error occurs, raise an exception with all generated output for
+      the user.
+
+    The relevant subclasses of this class are in :mod:`mocks` and :mod:`theory`.
     """
     binning_dims = None
     logger = logging.getLogger("MPICorrfuncCallable")
@@ -86,7 +97,7 @@ class MPICorrfuncCallable(object):
 
     def __call__(self, loads, kwargs, callback=None):
         """
-        Internal function that calls :attr:`callable` in iterations, optionally
+        Calls :attr:`callable` in iterations, optionally
         calling ``callback`` before each iteration.
 
         This allows the :mod:`Corrfunc` function :attr:`callable` to be called
