@@ -1,5 +1,8 @@
 from ..pair_counters import SimulationBoxPairCount, SurveyDataPairCount
 from .estimators import LandySzalayEstimator, NaturalEstimator
+from nbodykit import CurrentMPIComm
+from nbodykit.binned_statistic import BinnedStatistic
+
 import numpy
 import warnings
 import logging
@@ -117,8 +120,73 @@ class BasePairCount2PCF(object):
 
             # use the Landy-Szalay estimator
             result = LandySzalayEstimator(pair_counter, self.data1, self.data2,
-                                            self.randoms1, self.randoms2, **attrs)
+                                            self.randoms1, self.randoms2, logger=self.logger, **attrs)
             self.D1D2, self.D1R2, self.D2R1, self.R1R2, self.corr = result
+
+    def __getstate__(self):
+
+        # the correlation
+        edges = [self.corr.edges[d] for d in self.corr.dims]
+        state = {'corr':self.corr.data, 'dims':self.corr.dims, 'edges':edges}
+
+        # the pair counts
+        for pc in ['D1D2', 'D1R2', 'D2R1', 'R1R2', 'wp']:
+            if getattr(self, pc, None) is not None:
+                state[pc] = getattr(self, pc).data
+            else:
+                state[pc] = None
+
+        state['attrs'] = self.attrs
+        return state
+
+    def __setstate__(self, state):
+
+        edges = state.pop('edges')
+        dims = state.pop('dims')
+        self.__dict__.update(state)
+
+        self.corr = BinnedStatistic(dims, edges, self.corr)
+        if self.wp is not None:
+            # NOTE: only edges[0], second dimension was summed over
+            self.wp = BinnedStatistic(dims[:1], edges[:1], self.wp)
+
+        for pc in ['D1D2', 'D1R2', 'D2R1', 'R1R2']:
+            val = getattr(self, pc)
+            if val is not None:
+                setattr(self, pc, BinnedStatistic(dims, edges, val))
+
+    def save(self, output):
+        """
+        Save result as a JSON file with name ``output``
+        """
+        import json
+        from nbodykit.utils import JSONEncoder
+
+        # only the master rank writes
+        if self.comm.rank == 0:
+            self.logger.info('measurement done; saving result to %s' % output)
+
+            with open(output, 'w') as ff:
+                json.dump(self.__getstate__(), ff, cls=JSONEncoder)
+
+    @classmethod
+    @CurrentMPIComm.enable
+    def load(cls, output, comm=None):
+        """
+        Load a result has been saved to disk with :func:`save`.
+        """
+        import json
+        from nbodykit.utils import JSONDecoder
+        if comm.rank == 0:
+            with open(output, 'r') as ff:
+                state = json.load(ff, cls=JSONDecoder)
+        else:
+            state = None
+        state = comm.bcast(state)
+        self = object.__new__(cls)
+        self.__setstate__(state)
+        self.comm = comm
+        return self
 
 
 class SimulationBox2PCF(BasePairCount2PCF):
@@ -216,7 +284,39 @@ class SimulationBox2PCF(BasePairCount2PCF):
 
     def run(self):
         """
-        Run the two-point correlation function algorithm.
+        Run the two-point correlation function algorithm. This attaches
+        the following attributes:
+
+        - :attr:`SimulationBox2PCF.D1D2`
+        - :attr:`SimulationBox2PCF.D1R2`
+        - :attr:`SimulationBox2PCF.D2R1`
+        - :attr:`SimulationBox2PCF.R1R2`
+        - :attr:`SimulationBox2PCF.corr`
+        - :attr:`SimulationBox2PCF.wp` (if ``mode='projected'``)
+
+        Attributes
+        ----------
+        D1D2 : :class:`~nbodykit.binned_statistic.BinnedStatistic`
+            the data1 - data2 pair counts
+        D1R2 : :class:`~nbodykit.binned_statistic.BinnedStatistic`
+            the data1 - randoms2 pair counts
+        D2R1 : :class:`~nbodykit.binned_statistic.BinnedStatistic`
+            the data2 - randoms1 pair counts
+        R1R2 : :class:`~nbodykit.binned_statistic.BinnedStatistic`
+            the randoms1 - randoms2 pair counts
+        corr : :class:`~nbodykit.binned_statistic.BinnedStatistic`
+            the correlation function values, stored as the ``corr`` variable,
+            computed from the pair counts
+        wp : :class:`~nbodykit.binned_statistic.BinnedStatistic`
+            the projected correlation function, :math:`w_p(r_p)`, computed
+            if ``mode='projected'``; correlation is stored as the ``corr`` variable
+
+        Notes
+        -----
+        The :attr:`D1D2`, :attr:`D1R2`, :attr:`D2R1`, and :attr:`R1R2`
+        attributes are identical to the
+        :attr:`~nbodykit.algorithms.SimulationBoxPairCount.pairs` attribute
+        of :class:`~nbodykit.algorithms.SimulationBoxPairCount`.
         """
         # this does most of the work
         BasePairCount2PCF.run(self)
@@ -318,7 +418,39 @@ class SurveyData2PCF(BasePairCount2PCF):
 
     def run(self):
         """
-        Run the two-point correlation function algorithm.
+        Run the two-point correlation function algorithm. This attaches
+        the following attributes:
+
+        - :attr:`SurveyData2PCF.D1D2`
+        - :attr:`SurveyData2PCF.D1R2`
+        - :attr:`SurveyData2PCF.D2R1`
+        - :attr:`SurveyData2PCF.R1R2`
+        - :attr:`SurveyData2PCF.corr`
+        - :attr:`SurveyData2PCF.wp` (if ``mode='projected'``)
+
+        Attributes
+        ----------
+        D1D2 : :class:`~nbodykit.binned_statistic.BinnedStatistic`
+            the data1 - data2 pair counts
+        D1R2 : :class:`~nbodykit.binned_statistic.BinnedStatistic`
+            the data1 - randoms2 pair counts
+        D2R1 : :class:`~nbodykit.binned_statistic.BinnedStatistic`
+            the data2 - randoms1 pair counts
+        R1R2 : :class:`~nbodykit.binned_statistic.BinnedStatistic`
+            the randoms1 - randoms2 pair counts
+        corr : :class:`~nbodykit.binned_statistic.BinnedStatistic`
+            the correlation function values, stored as the ``corr`` variable,
+            computed from the pair counts
+        wp : :class:`~nbodykit.binned_statistic.BinnedStatistic`
+            the projected correlation function, :math:`w_p(r_p)`, computed
+            if ``mode='projected'``; correlation is stored as the ``corr`` variable
+
+        Notes
+        -----
+        The :attr:`D1D2`, :attr:`D1R2`, :attr:`D2R1`, and :attr:`R1R2`
+        attributes are identical to the
+        :attr:`~nbodykit.algorithms.SurveyDataPairCount.pairs` attribute
+        of :class:`~nbodykit.algorithms.SurveyDataPairCount`.
         """
         # this does most of the work
         BasePairCount2PCF.run(self)
