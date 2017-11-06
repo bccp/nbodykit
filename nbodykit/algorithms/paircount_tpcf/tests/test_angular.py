@@ -34,7 +34,7 @@ def reference_sim_tpcf(pos1, theta_edges, randoms=None, pos2=None):
     return angular_tpcf(pos1, theta_edges, sample2=pos2, randoms=randoms,
                             estimator=estimator, do_auto=do_auto)
 
-@MPITest([1, 3])
+@MPITest([4])
 def test_sim_periodic_auto(comm):
     CurrentMPIComm.set(comm)
 
@@ -54,7 +54,7 @@ def test_sim_periodic_auto(comm):
     cf = reference_sim_tpcf(sample1, theta_edges)
     assert_allclose(cf, r.corr['corr'])
 
-@MPITest([1, 3])
+@MPITest([4])
 def test_sim_nonperiodic_auto(comm):
     CurrentMPIComm.set(comm)
 
@@ -74,7 +74,7 @@ def test_sim_nonperiodic_auto(comm):
     cf = reference_sim_tpcf(numpy.vstack([ra1,dec1]).T, theta_edges, randoms=numpy.vstack([ra2,dec2]).T)
     assert_allclose(cf, r.corr['corr'], rtol=1e-5, atol=1e-3)
 
-@MPITest([1, 3])
+@MPITest([4])
 def test_sim_periodic_cross(comm):
     CurrentMPIComm.set(comm)
 
@@ -93,3 +93,23 @@ def test_sim_periodic_cross(comm):
     sample2 = get_spherical_volume(data2)
     cf = reference_sim_tpcf(sample1, theta_edges, pos2=sample2)
     assert_allclose(cf, r.corr['corr'])
+
+@MPITest([4])
+def test_survey_auto(comm):
+    CurrentMPIComm.set(comm)
+
+    # uniform source of particles
+    data = generate_sim_data(seed=42)
+    randoms = generate_sim_data(seed=84)
+
+    # make the bin edges
+    theta_edges = numpy.linspace(0.1, 10.0, 20)
+
+    # compute 2PCF
+    r = SurveyData2PCF('angular', data, randoms, theta_edges)
+
+    # verify with halotools
+    ra1, dec1 = gather_data(data, "RA"),  gather_data(data, "DEC")
+    ra2, dec2 = gather_data(randoms, "RA"),  gather_data(randoms, "DEC")
+    cf = reference_sim_tpcf(numpy.vstack([ra1,dec1]).T, theta_edges, randoms=numpy.vstack([ra2,dec2]).T)
+    assert_allclose(cf, r.corr['corr'], rtol=1e-5, atol=1e-3)
