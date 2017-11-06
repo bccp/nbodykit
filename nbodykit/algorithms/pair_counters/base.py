@@ -23,10 +23,19 @@ class PairCountBase(object):
         # check mode requirements
         if mode == '2d' and Nmu is None:
             raise ValueError("'Nmu' keyword is required when 'mode' is '2d'")
+        if Nmu is not None and mode != '2d':
+            raise ValueError("mode should be '2d' if 'Nmu' is specified")
         if mode == 'projected' and pimax is None:
             raise ValueError("'pimax' keyword is required when 'mode' is 'projected'")
+        if pimax is not None and mode != 'projected':
+            raise ValueError("mode should be 'projected' if 'projected' is specified")
         if mode == 'projected' and pimax < 1.0:
             raise ValueError("'pimax' must be at least 1.0 when 'mode' is 'projected'")
+
+        if 'Position' not in first:
+            raise ValueError("the 'first' CatalogSource must define 'Position' column")
+        if second is not None and 'Position' not in second:
+            raise ValueError("the 'second' CatalogSource must define 'Position' column")
 
         self.first = first
         self.second = second
@@ -39,6 +48,10 @@ class PairCountBase(object):
         self.attrs['Nmu'] = Nmu
         self.attrs['pimax'] = pimax
         self.attrs['show_progress'] = show_progress
+
+        # store the total size of the sources
+        self.attrs['N1'] = first.csize
+        self.attrs['N2'] = second.csize if second is not None else None
 
     def __getstate__(self):
         return {'pairs':self.pairs.data, 'attrs':self.attrs}

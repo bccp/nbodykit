@@ -99,7 +99,7 @@ class SurveyDataPairCount(PairCountBase):
 
         # need cosmology if not angular!
         if mode != 'angular' and cosmo is None:
-            raise ValueError("'cosmo' keyword is required when 'mode' is 'angular'")
+            raise ValueError("'cosmo' keyword is required when 'mode' is not 'angular'")
 
         # save the meta-data
         self.attrs['cosmo'] = cosmo
