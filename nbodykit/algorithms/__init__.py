@@ -8,6 +8,7 @@ from .fibercollisions import FiberCollisions
 from .threeptcf import Multipoles3PCF
 from .cgm import CylindricalGroups
 from .pair_counters import SurveyDataPairCount, SimulationBoxPairCount
+from .paircount_tpcf import SurveyData2PCF, SimulationBox2PCF
 
 __all__ = ['FFTPower', 'ProjectedFFTPower',
            'FFTCorr',
@@ -18,5 +19,6 @@ __all__ = ['FFTPower', 'ProjectedFFTPower',
            'FiberCollisions',
            'Multipoles3PCF',
            'CylindricalGroups',
-           'SurveyDataPairCount', 'SimulationBoxPairCount'
+           'SurveyDataPairCount', 'SimulationBoxPairCount',
+           'SurveyData2PCF', 'SimulationBox2PCF'
           ]
