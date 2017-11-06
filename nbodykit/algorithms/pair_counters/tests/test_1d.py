@@ -294,3 +294,22 @@ def test_missing_corrfunc(comm):
 
     with pytest.raises(Exception):
         raise MissingCorrfuncError()
+
+@MPITest([1])
+def test_missing_Position(comm):
+
+    CurrentMPIComm.set(comm)
+    pos = numpy.zeros((100,3))
+    cat = ArrayCatalog({'MissingPosition':pos})
+    redges = numpy.linspace(0.01, 0.1, 10)
+
+    # cat is missing Position
+    with pytest.raises(Exception):
+        r = SimulationBoxPairCount('1d', cat, redges, periodic=False, BoxSize=[1., 1., 1,])
+
+    cat2 = cat.copy()
+    cat['Position'] = cat['MissingPosition']
+
+    # cat2 is missing Position
+    with pytest.raises(Exception):
+        r = SimulationBoxPairCount('1d', cat, redges, second=cat2, periodic=False, BoxSize=[1., 1., 1,])

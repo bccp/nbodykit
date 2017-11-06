@@ -224,7 +224,12 @@ def test_missing_Nmu(comm):
 
     # generate data
     source = generate_sim_data(seed=42)
+    redges = numpy.linspace(10, 150, 10)
 
+    # missing Nmu
     with pytest.raises(ValueError):
-        redges = numpy.linspace(10, 150, 10)
         r = SimulationBoxPairCount('2d', source, redges)
+
+    # wrong mode
+    with pytest.raises(ValueError):
+        r = SimulationBoxPairCount('1d', source, redges, Nmu=10)

@@ -260,11 +260,15 @@ def test_missing_pimax(comm):
 
     # generate data
     source = generate_sim_data(seed=42)
+    redges = numpy.linspace(10, 150, 10)
 
+    # missing pimax
     with pytest.raises(ValueError):
-        redges = numpy.linspace(10, 150, 10)
         r = SimulationBoxPairCount('projected', source, redges)
 
+    # wrong mode
+    with pytest.raises(ValueError):
+        r = SimulationBoxPairCount('1d', source, redges, pimax=10.)
 
 @MPITest([1])
 def test_bad_pimax(comm):
