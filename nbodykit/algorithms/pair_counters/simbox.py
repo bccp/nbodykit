@@ -73,6 +73,9 @@ class SimulationBoxPairCount(PairCountBase):
     * ``mode='projected'`` : compute pairs as a function of distance perpendicular
       and parallel to the line-of-sight, :math:`r_p` and :math:`\pi`
     * ``mode='angular'`` : compute pairs as a function of angle on the sky, :math:`\theta`
+
+    Note that for angular pair counts, the observer is placed at the center of the
+    box.
     """
     logger = logging.getLogger('SimulationBoxPairCount')
 
