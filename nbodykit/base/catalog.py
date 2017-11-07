@@ -11,7 +11,7 @@ import dask.array as da
 
 class ColumnAccessor(da.Array):
     """
-    Provides access to a Column from a Catalog
+    Provides access to a Column from a Catalog.
 
     This is a thin subclass of :class:`dask.array.Array` to
     provide a reference to the catalog object,
@@ -22,8 +22,17 @@ class ColumnAccessor(da.Array):
     that is not explicitly in-place will return
     a :class:`dask.array.Array`, and losing the pointer to
     the original catalog and the meta data attrs.
+
+    Parameters
+    ----------
+    catalog : CatalogSource
+        the catalog from which the column was accessed
+    daskarray : dask.array.Array
+        the column in dask array form
+    is_default : bool, optional
+        whether this column is a default column
     """
-    def __new__(cls, catalog, daskarray):
+    def __new__(cls, catalog, daskarray, is_default=False):
         self = da.Array.__new__(ColumnAccessor,
                 daskarray.dask,
                 daskarray.name,
@@ -31,6 +40,7 @@ class ColumnAccessor(da.Array):
                 daskarray.dtype,
                 daskarray.shape)
         self.catalog = catalog
+        self.is_default = is_default
         self.attrs = {}
         return self
 
@@ -348,18 +358,20 @@ class CatalogSourceBase(object):
         memowner = self if self.base is None else self.base
 
         # get the right column
+        is_default = False
         if sel in memowner._overrides:
             r = memowner._overrides[sel]
         elif sel in memowner.hardcolumns:
             r = memowner.get_hardcolumn(sel)
         elif sel in memowner._defaults:
             r = getattr(memowner, sel)()
+            is_default = True
         else:
             raise KeyError("column `%s` is not defined in this source; " %sel + \
                             "try adding column via `source[column] = data`")
 
         # return a ColumnAccessor for pretty prints
-        return ColumnAccessor(memowner, r)
+        return ColumnAccessor(memowner, r, is_default=is_default)
 
     def __setitem__(self, col, value):
         """
@@ -436,18 +448,6 @@ class CatalogSourceBase(object):
             return self._attrs
 
     @property
-    def defaults(self):
-        """
-        A list of the hard-coded, default columns in the CatalogSource.
-
-        These objects must be member functions of the class, marked
-        by ``@column(default=True)``
-        """
-        if self.base is not None: return self.base.defaults
-
-        return sorted(self._defaults)
-
-    @property
     def hardcolumns(self):
         """
         A list of the hard-coded columns in the CatalogSource.
@@ -479,7 +479,8 @@ class CatalogSourceBase(object):
         if self.base is not None: return self.base.columns
 
         overrides = list(self._overrides)
-        return sorted(set(self.hardcolumns + overrides + self.defaults))
+        defaults = list(self._defaults)
+        return sorted(set(self.hardcolumns + overrides + defaults))
 
     def copy(self):
         """
@@ -607,7 +608,16 @@ class CatalogSourceBase(object):
         import json
         from nbodykit.utils import JSONEncoder
 
-        if datasets is None: datasets = columns
+        # trim out any default columns; these do not need to be saved as
+        # they are automatically available to every Catalog
+        columns = [col for col in columns if not self[col].is_default]
+
+        # also make sure no default columns in datasets
+        if datasets is None:
+            datasets = columns
+        else:
+            datasets = [col for col in datasets if not self[col].is_default]
+
         if len(datasets) != len(columns):
             raise ValueError("`datasets` must have the same length as `columns`")
 
