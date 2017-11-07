@@ -30,7 +30,8 @@ class ColumnAccessor(da.Array):
     daskarray : dask.array.Array
         the column in dask array form
     is_default : bool, optional
-        whether this column is a default column
+        whether this column is a default column; default columns are not
+        serialized to disk, as they are automatically available as columns
     """
     def __new__(cls, catalog, daskarray, is_default=False):
         self = da.Array.__new__(ColumnAccessor,
@@ -77,7 +78,7 @@ class ColumnAccessor(da.Array):
             r = r + " last: %s" % str(self[-1].compute())
         return r
 
-def column(name=None, default=False):
+def column(name=None, is_default=False):
     """
     Decorator that defines the decorated function as a column in a
     CatalogSource.
@@ -90,12 +91,13 @@ def column(name=None, default=False):
     name : str, optional
         the name of the column; if not provided, the name of the function
         being decorated is used
-    default : bool, optional
-        whether the column is a default column
+    is_default : bool, optional
+        whether the column is a default column; default columns are not
+        serialized to disk
     """
     def decorator(getter, name=name):
         getter.column_name = getter.__name__ if name is None else name
-        getter.default_column = default
+        getter.is_default = is_default
         return getter
 
     # handle the case when decorator was called without arguments
@@ -127,17 +129,18 @@ class ColumnFinder(abc.ABCMeta):
         cls._defaults = set()
         cls._hardcolumns = set()
 
-        # for each class and base classes, track ParameterProperty
-        # and CachedProperty attributes
+        # loop over class and its bases
         classes = inspect.getmro(cls)
         for c in reversed(classes):
 
             # loop over each attribute
             for name in c.__dict__:
                 value = c.__dict__[name]
-                # track cached property
+
+                # if it's member function implementing a column,
+                # record it and check if its a default
                 if getattr(value, 'column_name', None):
-                    if value.default_column:
+                    if value.is_default:
                         cls._defaults.add(value.column_name)
                     else:
                         cls._hardcolumns.add(value.column_name)
@@ -1039,16 +1042,17 @@ class CatalogSource(CatalogSourceBase):
             toret.attrs.update(self.attrs)
             return toret
 
-    @column(default=True)
+    @column(is_default=True)
     def Selection(self):
         """
         A boolean column that selects a subset slice of the CatalogSource.
 
-        By default, this column is set to ``True`` for all particles.
+        By default, this column is set to ``True`` for all particles, and
+        all CatalogSource objects will contain this column.
         """
         return ConstantArray(True, self.size, chunks=_global_options['dask_chunk_size'])
 
-    @column(default=True)
+    @column(is_default=True)
     def Weight(self):
         """
         The column giving the weight to use for each particle on the mesh.
@@ -1056,7 +1060,8 @@ class CatalogSource(CatalogSourceBase):
         The mesh field is a weighted average of ``Value``, with the weights
         given by ``Weight``.
 
-        By default, this array is set to unity for all particles.
+        By default, this array is set to unity for all particles, and
+        all CatalogSource objects will contain this column.
         """
         return ConstantArray(1.0, self.size, chunks=_global_options['dask_chunk_size'])
 
@@ -1074,7 +1079,7 @@ class CatalogSource(CatalogSourceBase):
         return da.arange(offset, offset + self.size, dtype='i8',
                chunks=_global_options['dask_chunk_size'])
 
-    @column(default=True)
+    @column(is_default=True)
     def Value(self):
         """
         When interpolating a CatalogSource on to a mesh, the value of this
@@ -1084,7 +1089,8 @@ class CatalogSource(CatalogSourceBase):
         The mesh field is a weighted average of ``Value``, with the weights
         given by ``Weight``.
 
-        By default, this array is set to unity for all particles.
+        By default, this array is set to unity for all particles, and
+        all CatalogSource objects will contain this column.
         """
         return ConstantArray(1.0, self.size, chunks=_global_options['dask_chunk_size'])
 
