@@ -64,9 +64,6 @@ class HODCatalogBase(HalotoolsMockCatalog):
         if len(missing):
             raise ValueError("missing columns from halotools UserSuppliedHaloCatalog: %s" %str(missing))
 
-        # this ensures that all columns in the halo catalog will propagate to the galaxy catalog
-        model_defaults.default_haloprop_list_inherited_by_mock = halos.halo_table.colnames
-
         # store the attributes
         self.attrs['BoxSize'] = Lbox
         self.attrs['mdef'] = mdef
@@ -109,6 +106,12 @@ class HODCatalogBase(HalotoolsMockCatalog):
         **params :
             key/value pairs of HOD parameters to update
         """
+        # verify input params
+        valid = sorted(self.model.param_dict)
+        missing = set(params) - set(valid) 
+        if len(missing):
+            raise ValueError("invalid HOD parameter names: %s" % str(missing) )
+
         # re-populate
         HalotoolsMockCatalog.repopulate(self, seed=seed, Num_ptcl_requirement=0,
                                         halo_mass_column_key=self.mass, **params)
