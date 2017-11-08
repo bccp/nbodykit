@@ -178,7 +178,7 @@ class HaloCatalog(CatalogSource):
         rkey = model_defaults.get_halo_boundary_key(self.attrs['mdef'])
 
         # global halo ids (across all ranks)
-        halo_id = cat.Index
+        halo_id = cat.Index.compute()
 
         # data columns
         kws                  = {}
