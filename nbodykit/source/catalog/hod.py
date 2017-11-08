@@ -1,56 +1,36 @@
+from .halotools import HalotoolsMockCatalog
 from nbodykit.base.catalog import column
-from nbodykit.source.catalog.array import ArrayCatalog
 from nbodykit import CurrentMPIComm
-from nbodykit.utils import GatherArray, ScatterArray
+from nbodykit.transform import StackColumns
 
-from six import add_metaclass
 import abc
 import logging
 import numpy
 
-def gal_type_integers(galtab):
-    """
-    Convert ``centrals`` to 0 and ``satellites`` to 1
-    in the input galaxy Table
-
-    This operatio is done in place
-    """
-    gal_type = numpy.zeros(len(galtab), dtype='i4')
-    sats = galtab['gal_type'] == 'satellites'
-    gal_type[sats] = 1
-    galtab.replace_column('gal_type', gal_type)
-
-def find_object_dtypes(data):
-    """
-    Utility function to convert 'O' data types to strings
-    """
-    for col in data.colnames:
-        if data.dtype[col] == 'O':
-            raise TypeError("column '%s' is of type 'O'; must convert to integer or string" %col)
-    return data
-
-class HODBase(ArrayCatalog):
+class HODCatalogBase(HalotoolsMockCatalog):
     """
     A base class to be used for HOD population of a halo catalog.
 
-    The user must supply the :func:`__makemodel__` function, which returns
+    The user must supply the :func:`get_model` function, which returns
     the halotools composite HOD model.
 
-    This abstraction allows the user to potentially implement several
-    different types of HOD models quickly, while using the population
+    This abstraction allows the user to implement several
+    different types of HOD models, while using the population
     framework of this base class.
     """
-    logger = logging.getLogger("HODBase")
+    logger = logging.getLogger("HODCatalogBase")
 
     @CurrentMPIComm.enable
     def __init__(self, halos, seed=None, use_cache=False, comm=None, **params):
 
+        from astropy.cosmology import FLRW
         from halotools.empirical_models import model_defaults
+        from halotools.sim_manager import UserSuppliedHaloCatalog, CachedHaloCatalog
 
-        # check type
-        from halotools.sim_manager import UserSuppliedHaloCatalog
-        if not isinstance(halos, UserSuppliedHaloCatalog):
-            raise TypeError("input halos catalog for HOD should be halotools.sim_manager.UserSuppliedHaloCatalog")
+        # check input type
+        if not isinstance(halos, (UserSuppliedHaloCatalog, CachedHaloCatalog)):
+            raise TypeError(("input halos catalog for HalotoolsMockCatalog should be "
+                             "halotools UserSuppliedHaloCatalog or CachedHaloCatalog"))
 
         # try to extract meta-data from catalog
         mdef     = getattr(halos, 'mdef', 'vir')
@@ -59,37 +39,27 @@ class HODBase(ArrayCatalog):
         redshift = getattr(halos, 'redshift', None)
 
         # fail if we are missing any of these
-        for name, attr in zip(['cosmology', 'Lbox', 'redshift'], [cosmo, Lbox, redshift]):
+        required = ['cosmology', 'Lbox', 'redshift']
+        for name, attr in zip(required, [cosmo, Lbox, redshift]):
             if attr is None:
                 raise AttributeError("input UserSuppliedHaloCatalog must have '%s attribute" %name)
 
         # promote astropy cosmology to nbodykit's Cosmology
-        from astropy.cosmology import FLRW
         if isinstance(cosmo, FLRW):
             from nbodykit.cosmology import Cosmology
             cosmo = Cosmology.from_astropy(cosmo)
+        self.cosmo = cosmo
 
         # store the halotools catalog
-        self._halos = halos
-        self.cosmo  = cosmo
-        self.comm   = comm
-
-        # set the seed randomly if it is None
-        if seed is None:
-            if self.comm.rank == 0:
-                seed = numpy.random.randint(0, 4294967295)
-            seed = self.comm.bcast(seed)
-
-        # grab the BoxSize from the halotools catalog
-        self.attrs['BoxSize'] = numpy.empty(3)
-        self.attrs['BoxSize'][:] = Lbox
+        self.halos = halos
 
         # store mass and radius keys
         self.mass   = model_defaults.get_halo_mass_key(mdef)
         self.radius = model_defaults.get_halo_boundary_key(mdef)
 
         # check for any missing columns
-        needed = ['halo_%s' %s for s in ['x','y','z','vx','vy','vz', 'id', 'upid']] + [self.mass, self.radius]
+        needed = ['halo_%s' %s for s in ['x','y','z','vx','vy','vz', 'id', 'upid']]
+        needed += [self.mass, self.radius]
         missing = set(needed) - set(halos.halo_table.colnames)
         if len(missing):
             raise ValueError("missing columns from halotools UserSuppliedHaloCatalog: %s" %str(missing))
@@ -98,34 +68,19 @@ class HODBase(ArrayCatalog):
         model_defaults.default_haloprop_list_inherited_by_mock = halos.halo_table.colnames
 
         # store the attributes
+        self.attrs['BoxSize'] = Lbox
         self.attrs['mdef'] = mdef
         self.attrs['redshift'] = redshift
-        self.attrs['seed'] = seed
-        self.attrs.update(params)
-
-        # add cosmo attributes
         self.attrs['cosmo'] = dict(cosmo)
 
-        # make the model!
-        self._model = self.__makemodel__()
-
-        # set the HOD params
-        for param in self._model.param_dict:
-            if param not in self.attrs:
-                raise ValueError("missing '%s' parameter when initializing HOD" %param)
-            self._model.param_dict[param] = self.attrs[param]
-
         # make the actual source
-        ArrayCatalog.__init__(self, self.__makesource__(), comm=comm, use_cache=use_cache)
-
-        # crash with no particles!
-        if self.csize == 0:
-            raise ValueError("no particles in catalog after populating HOD")
+        HalotoolsMockCatalog.__init__(self, halos, self.get_model(), seed=seed,
+                                        comm=comm, use_cache=use_cache, **params)
 
     @abc.abstractmethod
-    def __makemodel__(self):
+    def get_model(self):
         """
-        Abstract class to be overwritten by user; this should return
+        Abstract function to be overwritten by user; this should return
         the HOD model instance that will be used to do the mock
         population.
 
@@ -138,135 +93,62 @@ class HODBase(ArrayCatalog):
         """
         pass
 
-    def __makesource__(self):
-        """
-        Make the source of galaxies by performing the halo HOD population
-
-        .. note::
-            The mock population is only done by the root, and the resulting
-            catalog is then distributed evenly amongst the available ranks
-        """
-        from astropy.table import Table
-
-        # gather all halos to root
-        halo_table = find_object_dtypes(self._halos.halo_table)
-        all_halos = GatherArray(halo_table.as_array(), self.comm, root=0)
-
-        # root does the mock population
-        if self.comm.rank == 0:
-
-            # set the halo table on the root to the Table containing all halo
-            self._halos.halo_table = Table(data=all_halos, copy=True)
-            del all_halos
-
-            # populate
-            self._model.populate_mock(halocat=self._halos, halo_mass_column_key=self.mass,
-                                      Num_ptcl_requirement=1, seed=self.attrs['seed'])
-
-            # remap gal_type to integers (cen: 0, sats: 1)
-            gal_type_integers(self._model.mock.galaxy_table)
-
-            # crash if any object dtypes
-            data = find_object_dtypes(self._model.mock.galaxy_table).as_array()
-            del self._model.mock.galaxy_table
-        else:
-            data = None
-
-        # log the stats
-        if self.comm.rank == 0:
-            self._log_populated_stats(data)
-
-        return ScatterArray(data, self.comm)
-
     def repopulate(self, seed=None, **params):
         """
-        Update the HOD parameters and then re-populate the mock catalog
+        Update the model parameters and then re-populate the mock catalog.
 
         .. warning::
-            This operation is done in-place, so the size of the Source
-            changes
+            This operation is done in-place, so the size of the
+            CatalogSource changes.
 
         Parameters
         ----------
         seed : int, optional
             the new seed to use when populating the mock
-        params :
+        Num_ptcl_requirement : int, optional
+        **params :
             key/value pairs of HOD parameters to update
         """
-        # set the seed randomly if it is None
-        if seed is None:
-            if self.comm.rank == 0:
-                seed = numpy.random.randint(0, 4294967295)
-            seed = self.comm.bcast(seed)
-        self.attrs['seed'] = seed
+        # re-populate
+        HalotoolsMockCatalog.repopulate(self, seed=seed, Num_ptcl_requirement=0,
+                                        halo_mass_column_key=self.mass, **params)
 
-        # update the HOD model parameters
-        for name in params:
-            if name not in self._model.param_dict:
-                valid = list(self._model.param_dict.keys())
-                raise ValueError("'%s' is not a valid Hod parameter name; valid are: %s" %(name, str(valid)))
-            self._model.param_dict[name] = params[name]
-            self.attrs[name] = params[name]
-
-        # the root will do the mock population
+        # we dont need the galaxy_table copy
+        # data is stored as "_source" attribute internally
         if self.comm.rank == 0:
+            del self.model.mock.galaxy_table
 
-            # re-populate the mock (without halo catalog pre-processing)
-            self._model.mock.populate(Num_ptcl_requirement=1,
-                                      halo_mass_column_key=self.mass,
-                                      seed=self.attrs['seed'])
+        # and log
+        self.log_populated_stats()
 
-            # remap gal_type to integers (cen: 0, sats: 1)
-            gal_type_integers(self._model.mock.galaxy_table)
+    def log_populated_stats(self):
+        """
+        Log statistics of the populated catalog. This is called each
+        time that :func:`repopulate` is called.
 
-            # crash if any object dtypes
-            data = find_object_dtypes(self._model.mock.galaxy_table).as_array()
-            del self._model.mock.galaxy_table
+        Users can override this function in subclasses for custom logging.
+        """
+        # compute the satellite fraction
+        Nsats = self.comm.allreduce((self['gal_type'] == 1).sum())
+        fsat = float(Nsats) / self.csize
+        self.attrs['fsat'] = fsat
 
-        else:
-            data = None
+        # mass distribution stats
+        logmass = numpy.log10(self[self.mass]).compute()
+        avg_logmass = self.comm.reduce(logmass.sum(), root=0) / self.csize
+        sq_logmass = self.comm.reduce(((logmass - avg_logmass)**2).sum(), root=0) / self.csize
+        std_logmass = sq_logmass**0.5
 
-        # log the stats
         if self.comm.rank == 0:
-            self._log_populated_stats(data)
-
-        # re-initialize with new source
-        ArrayCatalog.__init__(self, ScatterArray(data, self.comm), comm=self.comm, use_cache=self.use_cache)
-
-    def _log_populated_stats(self, data):
-        """
-        Internal function to log statistics of the populated catalog
-        """
-        if len(data) > 0:
-
-            fsat = 1.*(data['gal_type'] == 1).sum()/len(data)
-            self.logger.info("satellite fraction: %.2f" %fsat)
-            self.attrs['fsat'] = fsat
-
-            logmass = numpy.log10(data[self.mass])
-            self.logger.info("mean log10 halo mass: %.2f" %logmass.mean())
-            self.logger.info("std log10 halo mass: %.2f" %logmass.std())
-
-    @column
-    def Position(self):
-        """
-        Galaxy positions, in units of Mpc/h
-        """
-        pos = numpy.vstack([self._source['x'], self._source['y'], self._source['z']]).T
-        return self.make_column(pos)
-
-    @column
-    def Velocity(self):
-        """
-        Galaxy velocity, in units of km/s
-        """
-        vel = numpy.vstack([self._source['vx'], self._source['vy'], self._source['vz']]).T
-        return self.make_column(vel)
+            self.logger.info("populated %d objects into %d halos" % (self.csize, len(self.model.mock.halo_table)))
+            self.logger.info("satellite fraction: %.2f" % fsat)
+            self.logger.info("mean log10 halo mass: %.2f" % avg_logmass)
+            self.logger.info("std log10 halo mass: %.2f" % std_logmass)
 
     @column
     def VelocityOffset(self):
         """
-        The RSD velocity offset, in units of Mpc/h
+        The RSD velocity offset, in units of Mpc/h.
 
         This multiplies Velocity by 1 / (a*100*E(z)) = 1 / (a H(z)/h)
         """
@@ -274,10 +156,10 @@ class HODBase(ArrayCatalog):
         rsd_factor = (1+z) / (100*self.cosmo.efunc(z))
         return self['Velocity'] * rsd_factor
 
-class HODCatalog(HODBase):
+class HODCatalog(HODCatalogBase):
     """
-    A CatalogSource that uses the HOD prescription of Zheng et al 2007
-    to populate an input halo catalog with galaxies.
+    A CatalogSource that uses :mod:`halotools` and the HOD prescription of
+    Zheng et al 2007 to populate an input halo catalog with galaxies.
 
     The mock population is done using :mod:`halotools`. See the documentation
     for :class:`halotools.empirical_models.Zheng07Cens` and
@@ -333,7 +215,7 @@ class HODCatalog(HODBase):
     ----------
     `Zheng et al. (2007), arXiv:0703457 <https://arxiv.org/abs/astro-ph/0703457>`_
     """
-    logger = logging.getLogger("HOD")
+    logger = logging.getLogger("HODCatalog")
 
     @CurrentMPIComm.enable
     def __init__(self, halos, logMmin=13.031, sigma_logM=0.38,
@@ -347,18 +229,18 @@ class HODCatalog(HODBase):
         params['logM0'] = logM0
         params['logM1'] = logM1
 
-        HODBase.__init__(self, halos, seed=seed, use_cache=use_cache, comm=comm, **params)
+        HODCatalogBase.__init__(self, halos, seed=seed, use_cache=use_cache, comm=comm, **params)
 
     def __repr__(self):
         names = ['logMmin', 'sigma_logM', 'alpha', 'logM0', 'logM1']
         s = ', '.join(['%s=%.2f' %(k,self.attrs[k]) for k in names])
         return "HODCatalog(%s)" %s
 
-    def __makemodel__(self):
+    def get_model(self):
         """
         Return the Zheng 07 HOD model.
 
-        This model evaluates Eqs. 2 and 5 of Zheng et al. 2007
+        This model evaluates Eqs. 2 and 5 of Zheng et al. 2007.
         """
         from halotools.empirical_models import HodModelFactory
         from halotools.empirical_models import Zheng07Sats, Zheng07Cens
@@ -367,7 +249,7 @@ class HODCatalog(HODBase):
         model = {}
 
         # use concentration from halo table
-        if 'halo_nfw_conc' in self._halos.halo_table.colnames:
+        if 'halo_nfw_conc' in self.halos.halo_table.colnames:
             conc_mass_model = 'direct_from_halo_catalog'
         # use empirical prescription for c(M)
         else:
