@@ -301,8 +301,9 @@ class HalotoolsCachedCatalog(HDFCatalog):
         """
         from halotools.sim_manager import UserSuppliedHaloCatalog
 
-        # get the data
-        columns = [col for col in self if not self[col].is_default]
+        # NOTE: include all columns that start with halo_ since halotools requires this
+        # this means defaults + Position/Velocity won't be added
+        columns = [col for col in self if col.startswith('halo_')]
         data = dict(zip(columns, self.compute(*[self[col] for col in columns])))
 
         # add the meta-data
@@ -397,7 +398,6 @@ class HalotoolsMockCatalog(ArrayCatalog):
             self.halos = UserSuppliedHaloCatalog(**data)
         else:
             self.halos = None
-        del all_halos
 
         # populate the mock and init the base class
         self.repopulate(seed=seed, **params)

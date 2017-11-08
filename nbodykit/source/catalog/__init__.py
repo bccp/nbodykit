@@ -11,7 +11,7 @@ from .array import ArrayCatalog
 from .lognormal import LogNormalCatalog
 from .uniform import UniformCatalog, RandomCatalog
 from .fkp import FKPCatalog
-from .halotools import HaloCatalog, HalotoolsCachedCatalog, HalotoolsMockCatalog
+from .halos import HaloCatalog, HalotoolsCachedCatalog, HalotoolsMockCatalog
 from .hod import HODCatalog
 from .species import MultipleSpeciesCatalog
 

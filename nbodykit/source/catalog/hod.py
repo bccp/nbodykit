@@ -1,4 +1,4 @@
-from .halotools import HalotoolsMockCatalog
+from .halos import HalotoolsMockCatalog
 from nbodykit.base.catalog import column
 from nbodykit import CurrentMPIComm
 from nbodykit.transform import StackColumns
