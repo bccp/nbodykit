@@ -192,6 +192,7 @@ class HaloCatalog(CatalogSource):
         kws[rkey]            = Radius
         kws['halo_nfw_conc'] = Concen
         kws['halo_id']       = halo_id
+        kws['halo_hostid']    = halo_id
         kws['halo_upid']     = numpy.zeros(len(Position)) - 1
         kws['halo_local_id'] = numpy.arange(0, cat.size, dtype='i8')
 
@@ -378,6 +379,12 @@ class HalotoolsMockCatalog(ArrayCatalog):
         if not isinstance(halos, (UserSuppliedHaloCatalog, CachedHaloCatalog)):
             raise TypeError(("input halos catalog for HalotoolsMockCatalog should be "
                              "halotools UserSuppliedHaloCatalog or CachedHaloCatalog"))
+
+        # check what columns are required (by default)
+        needed = model_defaults.default_haloprop_list_inherited_by_mock
+        missing = set(needed) - set(halos.halo_table.colnames)
+        if len(missing):
+            raise ValueError("missing columns from halotools UserSuppliedHaloCatalog: %s" %str(missing))
 
         self.comm = comm
         self.use_cache = use_cache
