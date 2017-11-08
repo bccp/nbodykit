@@ -232,7 +232,6 @@ class HalotoolsCachedCatalog(HDFCatalog):
     def __init__(self, simname, halo_finder, redshift, comm=None, use_cache=False):
 
         from halotools.sim_manager import CachedHaloCatalog, DownloadManager
-        from halotools.sim_manager.cached_halo_catalog import InvalidCacheLogEntry
         from halotools.sim_manager.supported_sims import supported_sim_dict
 
         # the comm
@@ -244,8 +243,7 @@ class HalotoolsCachedCatalog(HDFCatalog):
             try:
                 cached_halos = CachedHaloCatalog(simname=simname, halo_finder=halo_finder, redshift=redshift)
                 fname = cached_halos.fname
-                meta = {k:getattr(cached_halos, k) for k in ['Lbox', 'redshift', 'particle_mass']}
-            except InvalidCacheLogEntry:
+            except Exception as e:
 
                 # try to download on the root rank
                     try:
