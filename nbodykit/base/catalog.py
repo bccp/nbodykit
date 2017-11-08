@@ -1,15 +1,17 @@
 from nbodykit.transform import ConstantArray
 from nbodykit import _global_options, CurrentMPIComm
 
-from six import string_types
+from six import string_types, add_metaclass
 import numpy
 import logging
 import warnings
+import abc
+import inspect
 import dask.array as da
 
 class ColumnAccessor(da.Array):
     """
-    Provides access to a Column from a Catalog
+    Provides access to a Column from a Catalog.
 
     This is a thin subclass of :class:`dask.array.Array` to
     provide a reference to the catalog object,
@@ -20,8 +22,18 @@ class ColumnAccessor(da.Array):
     that is not explicitly in-place will return
     a :class:`dask.array.Array`, and losing the pointer to
     the original catalog and the meta data attrs.
+
+    Parameters
+    ----------
+    catalog : CatalogSource
+        the catalog from which the column was accessed
+    daskarray : dask.array.Array
+        the column in dask array form
+    is_default : bool, optional
+        whether this column is a default column; default columns are not
+        serialized to disk, as they are automatically available as columns
     """
-    def __new__(cls, catalog, daskarray):
+    def __new__(cls, catalog, daskarray, is_default=False):
         self = da.Array.__new__(ColumnAccessor,
                 daskarray.dask,
                 daskarray.name,
@@ -29,6 +41,7 @@ class ColumnAccessor(da.Array):
                 daskarray.dtype,
                 daskarray.shape)
         self.catalog = catalog
+        self.is_default = is_default
         self.attrs = {}
         return self
 
@@ -65,70 +78,74 @@ class ColumnAccessor(da.Array):
             r = r + " last: %s" % str(self[-1].compute())
         return r
 
-def column(name=None):
+def column(name=None, is_default=False):
     """
-    Decorator that defines a function as a column in a CatalogSource
+    Decorator that defines the decorated function as a column in a
+    CatalogSource.
+
+    This can be used as a decorator with or without arguments. If no ``name``
+    is specified, the function name is used.
+
+    Parameters
+    ----------
+    name : str, optional
+        the name of the column; if not provided, the name of the function
+        being decorated is used
+    is_default : bool, optional
+        whether the column is a default column; default columns are not
+        serialized to disk
     """
-    def decorator(getter):
-        getter.column_name = name
+    def decorator(getter, name=name):
+        getter.column_name = getter.__name__ if name is None else name
+        getter.is_default = is_default
         return getter
 
+    # handle the case when decorator was called without arguments
+    # in that case "name" is actually the function we are decorating
     if hasattr(name, '__call__'):
-        # a single callable is provided
         getter = name
-        name = getter.__name__
-        return decorator(getter)
+        return decorator(getter, name=getter.__name__)
     else:
         return decorator
 
-
-def find_columns(cls):
+class ColumnFinder(abc.ABCMeta):
     """
-    Find all hard-coded column names associated with the input class
+    A meta-class that will register all columns of a class that have
+    been marked with the :func:`column` decorator.
 
-    Returns
-    -------
-    hardcolumns : set
-        a set of the names of all hard-coded columns for the
-        input class ``cls``
+    This adds the following attributes to the class definition:
+
+    1. ``_defaults`` : default columns, specified by passing ``default=True`` to
+    the :func:`column` decorator.
+    2. ``_hardcolumns`` : non-default, hard-coded columns
+
+    .. note::
+        This is a subclass of :class:`abc.ABCMeta` so subclasses can
+        define abstract properties, if they need to.
     """
-    hardcolumns = []
+    def __init__(cls, clsname, bases, attrs):
 
-    # search through the class dict for columns
-    for key, value in cls.__dict__.items():
-         if hasattr(value, 'column_name'):
-            hardcolumns.append(value.column_name)
+        # attach the registry attributes
+        cls._defaults = set()
+        cls._hardcolumns = set()
 
-    # recursively search the base classes, too
-    for base in cls.__bases__:
-        hardcolumns += find_columns(base)
+        # loop over class and its bases
+        classes = inspect.getmro(cls)
+        for c in reversed(classes):
 
-    return list(sorted(set(hardcolumns)))
+            # loop over each attribute
+            for name in c.__dict__:
+                value = c.__dict__[name]
 
+                # if it's member function implementing a column,
+                # record it and check if its a default
+                if getattr(value, 'column_name', None):
+                    if value.is_default:
+                        cls._defaults.add(value.column_name)
+                    else:
+                        cls._hardcolumns.add(value.column_name)
 
-def find_column(cls, name):
-    """
-    Find a specific column ``name`` of an input class, or raise
-    an exception if it does not exist
-
-    Returns
-    -------
-    column : callable
-        the callable that returns the column data
-    """
-    # first search through class
-    for key, value in cls.__dict__.items():
-        if not hasattr(value, 'column_name'): continue
-        if value.column_name == name: return value
-
-    for base in cls.__bases__:
-        try: return find_column(base, name)
-        except: pass
-
-    args = (name, str(cls))
-    raise AttributeError("unable to find column '%s' for '%s'" % args)
-
-
+@add_metaclass(ColumnFinder)
 class CatalogSourceBase(object):
     """
     An abstract base class that implements most of the functionality in
@@ -140,6 +157,11 @@ class CatalogSourceBase(object):
     .. note::
         See the docstring for :class:`CatalogSource`. Most often, users should
         implement custom sources as subclasses of :class:`CatalogSource`.
+
+    The names of hard-coded columns, i.e., those defined through member
+    functions of the class, are stored in the :attr:`_defaults` and
+    :attr:`_hardcolumns` attributes. These attributes are computed by the
+    :class:`ColumnFinder` meta-class.
 
     Parameters
     ----------
@@ -190,7 +212,7 @@ class CatalogSourceBase(object):
         # initialize a cache
         obj.use_cache = kwargs.get('use_cache', False)
 
-        # user-provided overrides for columns
+        # user-provided overrides and defaults for columns
         obj._overrides = {}
 
         # stores memory owner
@@ -220,7 +242,8 @@ class CatalogSourceBase(object):
         """
         if isinstance(other, CatalogSourceBase):
             d = other.__dict__.copy()
-            nocopy = ['base', '_overrides', 'comm', '_cache', '_use_cache', '_size', '_csize']
+            nocopy = ['base', '_overrides', '_hardcolumns', '_defaults', 'comm',
+                      '_cache', '_use_cache', '_size', '_csize']
             for key in d:
                 if key not in nocopy:
                     self.__dict__[key] = d[key]
@@ -338,19 +361,20 @@ class CatalogSourceBase(object):
         memowner = self if self.base is None else self.base
 
         # get the right column
+        is_default = False
         if sel in memowner._overrides:
             r = memowner._overrides[sel]
         elif sel in memowner.hardcolumns:
             r = memowner.get_hardcolumn(sel)
+        elif sel in memowner._defaults:
+            r = getattr(memowner, sel)()
+            is_default = True
         else:
             raise KeyError("column `%s` is not defined in this source; " %sel + \
                             "try adding column via `source[column] = data`")
 
-        # evaluate callables if we need to
-        if callable(r): r = r()
-
         # return a ColumnAccessor for pretty prints
-        return ColumnAccessor(memowner, r)
+        return ColumnAccessor(memowner, r, is_default=is_default)
 
     def __setitem__(self, col, value):
         """
@@ -441,11 +465,9 @@ class CatalogSourceBase(object):
         """
         if self.base is not None: return self.base.hardcolumns
 
-        try:
-            self._hardcolumns
-        except AttributeError:
-            self._hardcolumns = find_columns(self.__class__)
-        return self._hardcolumns
+        # return the non-default, hard-coded columns, as determined by
+        # ColumnFinder metaclass
+        return sorted(self._hardcolumns)
 
     @property
     def columns(self):
@@ -459,9 +481,9 @@ class CatalogSourceBase(object):
         """
         if self.base is not None: return self.base.columns
 
-        hcolumns  = list(self.hardcolumns)
         overrides = list(self._overrides)
-        return sorted(set(hcolumns + overrides))
+        defaults = list(self._defaults)
+        return sorted(set(self.hardcolumns + overrides + defaults))
 
     def copy(self):
         """
@@ -514,7 +536,10 @@ class CatalogSourceBase(object):
         """
         if self.base is not None: return self.base.get_hardcolumn(col)
 
-        return find_column(self.__class__, col)(self)
+        if col in self._hardcolumns:
+            return getattr(self, col)()
+        else:
+            raise ValueError("no such hard-coded column %s" %col)
 
     def compute(self, *args, **kwargs):
         """
@@ -586,7 +611,16 @@ class CatalogSourceBase(object):
         import json
         from nbodykit.utils import JSONEncoder
 
-        if datasets is None: datasets = columns
+        # trim out any default columns; these do not need to be saved as
+        # they are automatically available to every Catalog
+        columns = [col for col in columns if not self[col].is_default]
+
+        # also make sure no default columns in datasets
+        if datasets is None:
+            datasets = columns
+        else:
+            datasets = [col for col in datasets if not self[col].is_default]
+
         if len(datasets) != len(columns):
             raise ValueError("`datasets` must have the same length as `columns`")
 
@@ -1008,16 +1042,17 @@ class CatalogSource(CatalogSourceBase):
             toret.attrs.update(self.attrs)
             return toret
 
-    @column
+    @column(is_default=True)
     def Selection(self):
         """
         A boolean column that selects a subset slice of the CatalogSource.
 
-        By default, this column is set to ``True`` for all particles.
+        By default, this column is set to ``True`` for all particles, and
+        all CatalogSource objects will contain this column.
         """
         return ConstantArray(True, self.size, chunks=_global_options['dask_chunk_size'])
 
-    @column
+    @column(is_default=True)
     def Weight(self):
         """
         The column giving the weight to use for each particle on the mesh.
@@ -1025,7 +1060,8 @@ class CatalogSource(CatalogSourceBase):
         The mesh field is a weighted average of ``Value``, with the weights
         given by ``Weight``.
 
-        By default, this array is set to unity for all particles.
+        By default, this array is set to unity for all particles, and
+        all CatalogSource objects will contain this column.
         """
         return ConstantArray(1.0, self.size, chunks=_global_options['dask_chunk_size'])
 
@@ -1043,7 +1079,7 @@ class CatalogSource(CatalogSourceBase):
         return da.arange(offset, offset + self.size, dtype='i8',
                chunks=_global_options['dask_chunk_size'])
 
-    @column
+    @column(is_default=True)
     def Value(self):
         """
         When interpolating a CatalogSource on to a mesh, the value of this
@@ -1053,7 +1089,8 @@ class CatalogSource(CatalogSourceBase):
         The mesh field is a weighted average of ``Value``, with the weights
         given by ``Weight``.
 
-        By default, this array is set to unity for all particles.
+        By default, this array is set to unity for all particles, and
+        all CatalogSource objects will contain this column.
         """
         return ConstantArray(1.0, self.size, chunks=_global_options['dask_chunk_size'])
 
