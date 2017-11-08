@@ -248,13 +248,16 @@ class HalotoolsCachedCatalog(HDFCatalog):
 
                 # try to download on the root rank
                     try:
+                        # download
                         dl = DownloadManager()
                         dl.download_processed_halo_table(simname, halo_finder, redshift)
+
+                        # access the cached halo catalog and get fname attribute
+                        # NOTE: this does not read the data
+                        cached_halos = CachedHaloCatalog(simname=simname, halo_finder=halo_finder, redshift=redshift)
+                        fname = cached_halos.fname
                     except Exception as e:
                         exception = e
-
-                    cached_halos = CachedHaloCatalog(simname=simname, halo_finder=halo_finder, redshift=redshift)
-                    fname = cached_halos.fname
         else:
             fname = None
 
