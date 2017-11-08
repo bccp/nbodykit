@@ -395,9 +395,9 @@ class HalotoolsMockCatalog(ArrayCatalog):
             data = {col:all_halos[col] for col in all_halos.dtype.names}
             data.update({col:getattr(halos, col) for col in ['Lbox', 'redshift', 'particle_mass']})
             self.halos = UserSuppliedHaloCatalog(**data)
-            del all_halos
         else:
             self.halos = None
+        del all_halos
 
         # populate the mock and init the base class
         self.repopulate(seed=seed, **params)
