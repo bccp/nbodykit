@@ -240,34 +240,34 @@ class HalotoolsCachedCatalog(HDFCatalog):
 
         # try to automatically load from the Halotools cache
         exception = None
-        cached_halos = None
-        try:
-            cached_halos = CachedHaloCatalog(simname=simname, halo_finder=halo_finder, redshift=redshift)
-        except InvalidCacheLogEntry:
+        if self.comm.rank == 0:
+            try:
+                cached_halos = CachedHaloCatalog(simname=simname, halo_finder=halo_finder, redshift=redshift)
+                fname = cached_halos.fname
+            except InvalidCacheLogEntry:
 
-            # try to download on the root rank
-            if self.comm.rank == 0:
-                try:
-                    dl = DownloadManager()
-                    dl.download_processed_halo_table(simname, halo_finder, redshift)
-                except Exception as e:
-                    exception = e
+                # try to download on the root rank
+                    try:
+                        dl = DownloadManager()
+                        dl.download_processed_halo_table(simname, halo_finder, redshift)
+                    except Exception as e:
+                        exception = e
 
-        # wait for download to finish
-        self.comm.barrier()
+                    cached_halos = CachedHaloCatalog(simname=simname, halo_finder=halo_finder, redshift=redshift)
+                    fname = cached_halos.fname
+        else:
+            fname = None
 
         # re-raise a download error on all ranks if it occurred
         exception = self.comm.bcast(exception, root=0)
         if exception is not None:
             raise exception
 
-        # get the freshly downloaded catalog
-        # NOTE: this does not read the data until "halo_table" is accessed
-        if cached_halos is None:
-            cached_halos = CachedHaloCatalog(simname=simname, halo_finder=halo_finder, redshift=redshift)
+        # broadcast the file we are loading
+        fname = self.comm.bcast(fname, root=0)
 
         # initialize an HDF catalog
-        HDFCatalog.__init__(self, cached_halos.fname, comm=comm, use_cache=use_cache)
+        HDFCatalog.__init__(self, fname, comm=comm, use_cache=use_cache)
 
         # add some meta-data if it exists
         self.attrs['BoxSize'] = cached_halos.Lbox
