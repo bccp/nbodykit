@@ -244,6 +244,7 @@ class HalotoolsCachedCatalog(HDFCatalog):
             try:
                 cached_halos = CachedHaloCatalog(simname=simname, halo_finder=halo_finder, redshift=redshift)
                 fname = cached_halos.fname
+                meta = {k:getattr(cached_halos, k) for k in ['Lbox', 'redshift', 'particle_mass']}
             except InvalidCacheLogEntry:
 
                 # try to download on the root rank
@@ -256,10 +257,12 @@ class HalotoolsCachedCatalog(HDFCatalog):
                         # NOTE: this does not read the data
                         cached_halos = CachedHaloCatalog(simname=simname, halo_finder=halo_finder, redshift=redshift)
                         fname = cached_halos.fname
+                        meta = {k:getattr(cached_halos, k) for k in ['Lbox', 'redshift', 'particle_mass']}
                     except Exception as e:
                         exception = e
         else:
             fname = None
+            meta = None
 
         # re-raise a download error on all ranks if it occurred
         exception = self.comm.bcast(exception, root=0)
@@ -268,14 +271,15 @@ class HalotoolsCachedCatalog(HDFCatalog):
 
         # broadcast the file we are loading
         fname = self.comm.bcast(fname, root=0)
+        meta = self.comm.bcast(meta, root=0)
 
         # initialize an HDF catalog
         HDFCatalog.__init__(self, fname, comm=comm, use_cache=use_cache)
 
         # add some meta-data if it exists
-        self.attrs['BoxSize'] = cached_halos.Lbox
-        self.attrs['redshift'] = cached_halos.redshift
-        self.attrs['particle_mass'] = cached_halos.particle_mass
+        self.attrs['BoxSize'] = meta['Lbox']
+        self.attrs['redshift'] = meta['redshift']
+        self.attrs['particle_mass'] = meta['particle_mass']
 
         # add the cosmology
         cosmo = supported_sim_dict[simname]().cosmology
