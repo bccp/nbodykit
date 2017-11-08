@@ -3,7 +3,7 @@ from .array import ArrayCatalog
 from nbodykit import CurrentMPIComm, transform
 from nbodykit.cosmology import Cosmology
 from nbodykit.utils import GatherArray, ScatterArray
-from nbodykit.base.catalog import CatalogSourcBase, CatalogSource, column
+from nbodykit.base.catalog import CatalogSourceBase, CatalogSource, column
 
 import numpy
 import logging
