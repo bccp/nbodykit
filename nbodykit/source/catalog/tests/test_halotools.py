@@ -14,6 +14,9 @@ def test_cached_halotools(comm):
 
     # download and load the cached catalog
     cat = HalotoolsCachedCatalog('bolshoi', 'rockstar', 0.5)
+    assert all(col in cat for col in ['Position', 'Velocity'])
+
+    # convert to halotools catalog
     halotools_cat = cat.to_halotools()
     assert isinstance(halotools_cat, UserSuppliedHaloCatalog)
 

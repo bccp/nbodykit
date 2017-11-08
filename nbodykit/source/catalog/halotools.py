@@ -279,6 +279,22 @@ class HalotoolsCachedCatalog(HDFCatalog):
         self.cosmo = Cosmology.from_astropy(cosmo)
         self.attrs['cosmo'] = dict(self.cosmo)
 
+    @column
+    def Position(self):
+        """
+        Halo positions, in units of Mpc/h.
+        """
+        pos = transform.StackColumns(self['halo_x'], self['halo_y'], self['halo_z'])
+        return self.make_column(pos)
+
+    @column
+    def Velocity(self):
+        """
+        Halo velocity, in units of km/s.
+        """
+        vel = transform.StackColumns(self['halo_vx'], self['halo_vy'], self['halo_vz'])
+        return self.make_column(vel)
+
     def to_halotools(self):
         """
         Convert the input CatalogSource to a halotools ``UserSuppliedHaloCatalog``.
