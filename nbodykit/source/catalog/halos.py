@@ -3,7 +3,7 @@ from .array import ArrayCatalog
 from nbodykit import CurrentMPIComm, transform
 from nbodykit.cosmology import Cosmology
 from nbodykit.utils import GatherArray, ScatterArray
-from nbodykit.base.catalog import CatalogSource, column
+from nbodykit.base.catalog import CatalogSourcBase, CatalogSource, column
 
 import numpy
 import logging
@@ -43,7 +43,7 @@ class HaloCatalog(CatalogSource):
             if col not in source:
                 raise ValueError("input source is missing the %s column; '%s' does not exist" %(name, col))
 
-        if not isinstance(source, CatalogSourcBase):
+        if not isinstance(source, CatalogSourceBase):
             raise TypeError("input source to HalotoolsCatalog should be a CatalogSource")
 
         comm = source.comm
