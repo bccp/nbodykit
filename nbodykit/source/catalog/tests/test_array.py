@@ -1,9 +1,41 @@
 from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
-from numpy.testing import assert_allclose
+from numpy.testing import assert_allclose, assert_array_equal
+import pytest
 
 setup_logging("debug")
+
+@MPITest([1, 4])
+def test_table(comm):
+
+    from astropy.table import Table
+    CurrentMPIComm.set(comm)
+
+    data = numpy.ones(100, dtype=[
+            ('Position', ('f4', 3)),
+            ('Velocity', ('f4', 3))]
+            )
+    data = Table(data)
+    source = ArrayCatalog(data, BoxSize=100, Nmesh=32)
+
+    for col in ['Position', 'Velocity']:
+        assert_array_equal(data[col], source[col])
+
+
+@MPITest([1, 4])
+def test_nonstructured_input(comm):
+
+    from astropy.table import Table
+    CurrentMPIComm.set(comm)
+
+    # data should be structured!
+    data = numpy.ones(100)
+    with pytest.raises(ValueError):
+        source = ArrayCatalog(data, BoxSize=100, Nmesh=32)
+
+
+
 
 @MPITest([1, 4])
 def test_array(comm):
