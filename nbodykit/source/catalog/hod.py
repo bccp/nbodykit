@@ -136,8 +136,8 @@ class HODCatalogBase(HalotoolsMockCatalog):
         # mass distribution stats
         mass = self[self.mass].compute()
         logmass = numpy.log10(mass)
-        avg_logmass = self.comm.reduce(logmass.sum(), root=0) / self.csize
-        sq_logmass = self.comm.reduce(((logmass - avg_logmass)**2).sum(), root=0) / self.csize
+        avg_logmass = self.comm.allreduce(logmass.sum()) / self.csize
+        sq_logmass = self.comm.allreduce(((logmass - avg_logmass)**2).sum()) / self.csize
         std_logmass = sq_logmass**0.5
 
         if self.comm.rank == 0:
