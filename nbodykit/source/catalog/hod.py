@@ -134,7 +134,8 @@ class HODCatalogBase(HalotoolsMockCatalog):
         self.attrs['fsat'] = fsat
 
         # mass distribution stats
-        logmass = numpy.log10(self[self.mass]).compute()
+        mass = self[self.mass].compute()
+        logmass = numpy.log10(mass)
         avg_logmass = self.comm.reduce(logmass.sum(), root=0) / self.csize
         sq_logmass = self.comm.reduce(((logmass - avg_logmass)**2).sum(), root=0) / self.csize
         std_logmass = sq_logmass**0.5
