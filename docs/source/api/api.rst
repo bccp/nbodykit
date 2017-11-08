@@ -131,7 +131,9 @@ And subclasses:
   ~file.FITSCatalog
   ~file.Gadget1Catalog
   ~array.ArrayCatalog
-  ~halos.HaloCatalog
+  ~halotools.HaloCatalog
+  ~halotools.HalotoolsCachedCatalog
+  ~halotools.HalotoolsMockCatalog
   ~hod.HODCatalog
   ~lognormal.LogNormalCatalog
   ~uniform.UniformCatalog
