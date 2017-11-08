@@ -243,6 +243,7 @@ class HalotoolsCachedCatalog(HDFCatalog):
             try:
                 cached_halos = CachedHaloCatalog(simname=simname, halo_finder=halo_finder, redshift=redshift)
                 fname = cached_halos.fname
+                meta = {k:getattr(cached_halos, k) for k in ['Lbox', 'redshift', 'particle_mass']}
             except Exception as e:
 
                 # try to download on the root rank
