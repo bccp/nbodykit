@@ -168,6 +168,28 @@ def test_bad_mode(comm):
     with pytest.raises(ValueError):
         field = source.compute(mode='BAD')
 
+@MPITest([1])
+def test_meshfilter(comm):
+    from nbodykit.base.mesh import MeshFilter
+    class MyFilter(MeshFilter):
+        kind = "wavenumber"
+        mode = "complex"
+        def filter(self, k, v):
+            return 2.0 * v
+
+    cosmo = cosmology.Planck15
+    CurrentMPIComm.set(comm)
+
+    Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
+    source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42)
+    source2 = source.apply(MyFilter)
+    source3 = source.apply(MyFilter())
+    r1 = source.paint()
+    r2 = source2.paint()
+    r3 = source3.paint()
+    assert_allclose(r1 * 2, r2)
+    assert_allclose(r1 * 2, r3)
+
 @MPITest([4])
 def test_view(comm):
 
