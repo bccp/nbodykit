@@ -360,7 +360,13 @@ class CatalogMesh(CatalogSource, MeshSource):
 
                 # be sure to use the source to compute
                 position, weight, value = \
-                    self.base.compute(Position[s][sel], Weight[s][sel], Value[s][sel])
+                    self.base.compute(Position[s], Weight[s], Value[s])
+
+                # FIXME: investigate if move selection before compute
+                # speeds up IO.
+                position = position[sel]
+                weight = weight[sel]
+                value = value[sel]
             else:
                 # workaround a potential dask issue on empty dask arrays
                 position = numpy.empty((0, 3), dtype=Position.dtype)
