@@ -3,6 +3,15 @@ from nbodykit.base.mesh import MeshFilter
 import numpy
 
 class TopHatK(MeshFilter):
+    """ A TopHat filter defined in Fourier space.
+
+        Notes
+        -----
+        A fourier space filter is different from a configuration space
+        filter. The TopHat in fourier space creates ringing effects
+        due to the truncation / discretization of modes.
+
+    """
     kind = 'wavenumber'
     mode = 'complex'
 
