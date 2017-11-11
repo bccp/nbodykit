@@ -2,7 +2,7 @@ from nbodykit.base.mesh import MeshFilter
 
 import numpy
 
-class TopHat(MeshFilter):
+class TopHatK(MeshFilter):
     kind = 'wavenumber'
     mode = 'complex'
 
@@ -23,7 +23,7 @@ class TopHat(MeshFilter):
         w[k == 0] = 1.0
         return w * v
 
-class Gaussian(MeshFilter):
+class GaussianK(MeshFilter):
     """ A gaussian filter
 
         .. math ::
