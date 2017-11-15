@@ -9,4 +9,4 @@ def test_bad_options():
 def test_cache_size():
     with set_options(global_cache_size=100):
         cache = GlobalCache.get()
-        assert cache.cache.total_bytes = 100
+        assert cache.cache.total_bytes == 100
