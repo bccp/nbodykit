@@ -9,6 +9,7 @@ dask.set_options(get=dask.get)
 _global_options = {}
 _global_options['dask_cache_size'] = 1e9
 _global_options['dask_chunk_size'] = 100000
+_global_options['paint_chunk_size'] = 1024 * 1024 * 8
 
 class set_options(object):
     """
@@ -21,9 +22,15 @@ class set_options(object):
         chunks should usually hold between 10 MB and 100 MB
     dask_cache_size : float
         the size of the internal dask cache in bytes; default is 1e9
+    paint_chunk_size : int
+        the number of objects to paint at the same time. This is independent
+        from dask chunksize.
     """
     def __init__(self, **kwargs):
         self.old = _global_options.copy()
+        for key in sorted(kwargs):
+            if key not in _global_options:
+                raise KeyError("Option `%s` is not supported" % key)
         _global_options.update(kwargs)
 
     def __enter__(self):
