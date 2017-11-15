@@ -7,7 +7,7 @@ import dask
 dask.set_options(get=dask.get)
 
 _global_options = {}
-_global_options['dask_cache_size'] = 1e9
+_global_options['global_cache_size'] = 1e8 # 100 MB
 _global_options['dask_chunk_size'] = 100000
 _global_options['paint_chunk_size'] = 1024 * 1024 * 8
 
@@ -20,7 +20,7 @@ class set_options(object):
     dask_chunk_size : int
         the number of elements for the default chunk size for dask arrays;
         chunks should usually hold between 10 MB and 100 MB
-    dask_cache_size : float
+    global_cache_size : float
         the size of the internal dask cache in bytes; default is 1e9
     paint_chunk_size : int
         the number of objects to paint at the same time. This is independent
@@ -80,6 +80,54 @@ class CurrentMPIComm(object):
         Set the current MPI communicator to the input value.
         """
         cls._instance = comm
+
+class GlobalCache(object):
+    """
+    A class to faciliate calculation using a global cache via
+    :class:`dask.cache.Cache`.
+    """
+    _instance = None
+
+    @classmethod
+    def get(cls):
+        """
+        Return the global cache object. The default size is controlled
+        by the ``global_cache_size`` global option; see :class:`set_options`.
+
+        Returns
+        -------
+        cache : :class:`dask.cache.Cache`
+            the cache object, as provided by dask
+        """
+        # if not created, use default cache size
+        if not cls._instance:
+            from dask.cache import Cache
+            cls._instance = Cache(_global_options['global_cache_size'])
+
+        return cls._instance
+
+    @classmethod
+    def resize(cls, size):
+        """
+        Re-size the global cache to the specified size in bytes.
+
+        Parameters
+        ----------
+        size : int, optional
+            the desired size of the returned cache in bytes; if not provided,
+            the ``global_cache_size`` global option is used
+        """
+        # get the cachey Cache
+        # NOTE: cachey cache stored as the cache attribute of Dask cache
+        cache = cls.get().cache
+
+        # set the new size
+        cache.available_bytes = size
+
+        # shrink the cache if we need to
+        # NOTE: only removes objects if we need to
+        cache.shrink()
+
 
 _logging_handler = None
 def setup_logging(log_level="info"):
