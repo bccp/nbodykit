@@ -59,7 +59,7 @@ def test_set_options(comm):
 
     CurrentMPIComm.set(comm)
 
-    with set_options(dask_cache_size=5e9, dask_chunk_size=75):
+    with set_options(global_cache_size=5e9, dask_chunk_size=75):
         s = UniformCatalog(1000, 1.0)
 
         # check cache size
