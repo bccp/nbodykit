@@ -35,8 +35,6 @@ class LogNormalCatalog(CatalogSource):
     comm : MPI Communicator, optional
         the MPI communicator instance; default (``None``) sets to the
         current communicator
-    use_cache : bool, optional
-        whether to cache data read from disk; default is ``False``
 
     References
     ----------
@@ -49,8 +47,7 @@ class LogNormalCatalog(CatalogSource):
     @CurrentMPIComm.enable
     def __init__(self, Plin, nbar, BoxSize, Nmesh, bias=2., seed=None,
                     cosmo=None, redshift=None,
-                    unitary_amplitude=False, inverted_phase=False,
-                    comm=None, use_cache=False):
+                    unitary_amplitude=False, inverted_phase=False, comm=None):
 
         self.comm = comm
         self.Plin = Plin
@@ -95,7 +92,7 @@ class LogNormalCatalog(CatalogSource):
         self._size = len(self._source)
 
         # init the base class
-        CatalogSource.__init__(self, comm=comm, use_cache=use_cache)
+        CatalogSource.__init__(self, comm=comm)
 
         # crash with no particles!
         if self.csize == 0:
@@ -136,7 +133,7 @@ class LogNormalCatalog(CatalogSource):
         f = self.cosmo.scale_independent_growth_rate(self.attrs['redshift'])
 
         # compute the linear overdensity and displacement fields
-        delta, disp = mockmaker.gaussian_real_fields(pm, self.Plin, self.attrs['seed'], 
+        delta, disp = mockmaker.gaussian_real_fields(pm, self.Plin, self.attrs['seed'],
                     unitary_amplitude=self.attrs['unitary_amplitude'],
                     inverted_phase=self.attrs['inverted_phase'],
                     compute_displacement=True)

@@ -33,11 +33,9 @@ class FileCatalogBase(CatalogSource):
     comm : MPI Communicator, optional
         the MPI communicator instance; default (``None``) sets to the
         current communicator
-    use_cache : bool, optional
-        whether to cache data read from disk; default is ``False``
     """
     @CurrentMPIComm.enable
-    def __init__(self, filetype, args=(), kwargs={}, comm=None, use_cache=False):
+    def __init__(self, filetype, args=(), kwargs={}, comm=None):
 
         self.comm = comm
         self.filetype = filetype
@@ -60,7 +58,7 @@ class FileCatalogBase(CatalogSource):
         if self.comm.rank == 0:
             self.logger.info("Extra arguments to FileType: %s" % str(args))
 
-        CatalogSource.__init__(self, comm=comm, use_cache=use_cache)
+        CatalogSource.__init__(self, comm=comm)
 
     def __repr__(self):
         path = self._source.path
@@ -115,8 +113,6 @@ Parameters
 comm : MPI Communicator, optional
     the MPI communicator instance; default (``None``) sets to the
     current communicator
-use_cache : bool, optional
-    whether to cache data read from disk; default is ``False``
 attrs : dict, optional
     dictionary of meta-data to store in :attr:`attrs`
 """.format(qualname=qualname)
@@ -156,7 +152,6 @@ def FileCatalogFactory(name, filetype, examples=None):
     """
     def __init__(self, *args, **kwargs):
         comm = kwargs.pop('comm', None)
-        use_cache = kwargs.pop('use_cache', False)
         attrs = kwargs.pop('attrs', {})
         FileCatalogBase.__init__(self, filetype=filetype, args=args, kwargs=kwargs)
         self.attrs.update(attrs)
