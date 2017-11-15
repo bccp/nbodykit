@@ -17,11 +17,11 @@ def test_bad_init(comm):
 
     # cannot specify column as None
     with pytest.raises(ValueError):
-        halos = HaloCatalog(cat, mass=None)
+        halos = HaloCatalog(cat, cosmology.Planck15, 0., mass=None)
 
     # missing column
     with pytest.raises(ValueError):
-        halos = HaloCatalog(cat, mass='MISSING')
+        halos = HaloCatalog(cat, cosmology.Planck15, 0., mass='MISSING')
 
 @MPITest([4])
 def test_missing_boxsize(comm):
@@ -33,7 +33,7 @@ def test_missing_boxsize(comm):
     cat['Mass'] = 1.0
 
     # initialize halos
-    halos = HaloCatalog(cat, mass=None)
+    halos = HaloCatalog(cat, cosmology.Planck15, 0.)
 
     # delete BoxSize
     del halos.attrs['BoxSize']
