@@ -7,13 +7,50 @@ import pytest
 setup_logging()
 
 @MPITest([4])
-def test_cached_halotools(comm):
+def test_bad_init(comm):
+
+    CurrentMPIComm.set(comm)
+
+    # initialize a catalog
+    cat = UniformCatalog(nbar=100, BoxSize=1.0)
+    cat['Mass'] = 1.0
+
+    # cannot specify column as None
+    with pytest.raises(ValueError):
+        halos = HaloCatalog(cat, mass=None)
+
+    # missing column
+    with pytest.raises(ValueError):
+        halos = HaloCatalog(cat, mass='MISSING')
+
+@MPITest([4])
+def test_missing_boxsize(comm):
+
+    CurrentMPIComm.set(comm)
+
+    # initialize a catalog
+    cat = UniformCatalog(nbar=100, BoxSize=1.0)
+    cat['Mass'] = 1.0
+
+    # initialize halos
+    halos = HaloCatalog(cat, mass=None)
+
+    # delete BoxSize
+    del halos.attrs['BoxSize']
+
+    # missing BoxSize!
+    with pytest.raises(ValueError):
+        halocat = halos.to_halotools()
+
+
+@MPITest([4])
+def test_demo_halos(comm):
 
     from halotools.sim_manager import UserSuppliedHaloCatalog
     CurrentMPIComm.set(comm)
 
     # download and load the cached catalog
-    cat = HalotoolsCachedCatalog('bolshoi', 'rockstar', 0.5)
+    cat = DemoHaloCatalog('bolshoi', 'rockstar', 0.5)
     assert all(col in cat for col in ['Position', 'Velocity'])
 
     # convert to halotools catalog
@@ -22,27 +59,14 @@ def test_cached_halotools(comm):
 
     # bad simulation name
     with pytest.raises(Exception):
-        cat = HalotoolsCachedCatalog('BAD', 'rockstar', 0.5)
+        cat = DemoHaloCatalog('BAD', 'rockstar', 0.5)
 
 
 @MPITest([4])
-def test_halotools_mock_catalog(comm):
-
-    from halotools.empirical_models import PrebuiltHodModelFactory
+def test_demo_halos(comm):
     CurrentMPIComm.set(comm)
 
-    # the cached catalog
-    cat = HalotoolsCachedCatalog('bolshoi', 'rockstar', 0.5)
-    halocat = cat.to_halotools() # this is a halotools UserSuppliedHaloCatalog
-
-    # the zheng 07 model
-    zheng07_model = PrebuiltHodModelFactory('zheng07', threshold = -19.5, redshift = 0.5)
-
-    # make a mock
-    mock = HalotoolsMockCatalog(halocat, zheng07_model)
-    assert mock.csize > 0
-
-    # delete a column so the mock population will fail
-    del halocat.halo_table['halo_mvir']
+    # initialize with bad redshift
+    BAD_REDSHIFT = 100.0
     with pytest.raises(Exception):
-        mock = HalotoolsMockCatalog(halocat, zheng07_model)
+        cat = DemoHaloCatalog('bolshoi', 'rockstar', BAD_REDSHIFT)
