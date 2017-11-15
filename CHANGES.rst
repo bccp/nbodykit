@@ -1,9 +1,13 @@
 Changelog
 =========
 
-0.2.9 (unreleased)
+0.2.9 (2017-11-15)
 ------------------
-
+* :issue:`442`: bug fix: fixes MemoryError when data is larger than memory in paint(); adds `paint_chunk_size` default option
+* :issue:`440`: Selection, Value, Weight specified as "default" columns; default columns are not saved to disk
+* :issue:`437`: bug fix: make sure to copy attributes of catalog when copy() is called
+* :issue:`436`: FFT-based correlation function algorithm, FFTCorr addded
+* :issue:`435`: binder badge added to README and documentation for cookbook recipes
 * :issue:`433`: by default, the header file will be found automatically in Bigfile 
 * :issue:`429,432`: updates to documentation
 * :issue:`430`: fix bug in FOF due to stricter numpy casting rules in numpy 1.13.3
