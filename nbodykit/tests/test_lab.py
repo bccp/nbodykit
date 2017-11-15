@@ -60,7 +60,7 @@ def test_set_options(comm):
     CurrentMPIComm.set(comm)
 
     with set_options(dask_cache_size=5e9, dask_chunk_size=75):
-        s = UniformCatalog(1000, 1.0, use_cache=True)
+        s = UniformCatalog(1000, 1.0)
 
         # check cache size
         assert s._cache.cache.available_bytes == 5e9
@@ -68,5 +68,5 @@ def test_set_options(comm):
         # check chunk size
         assert s['Position'].chunks[0][0] == 75
 
-    s = UniformCatalog(1000, 1.0, use_cache=True)
+    s = UniformCatalog(1000, 1.0)
     assert s['Position'].chunks[0][0] == s.size
