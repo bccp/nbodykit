@@ -17,3 +17,9 @@ from nbodykit import cosmology
 from nbodykit import CurrentMPIComm
 from nbodykit import transform
 from nbodykit import io as IO
+
+# HOD models
+from nbodykit.hod import *
+
+# tutorials
+from nbodykit.tutorials import DemoHaloCatalog
