@@ -1,6 +1,4 @@
 from nbodykit.cosmology import Cosmology
-import abc
-from six import add_metaclass
 
 class HODModel(object):
     """
@@ -18,8 +16,6 @@ class HODModel(object):
         Here, mass definition is used to place satellites in halos using
         a NFW profile in order to convert mass to radius.
     """
-
-    @abc.abstractstaticmethod
     def to_halotools(cosmo, redshift, mdef, concentration_key=None, **kwargs):
         """
         Return a {func_name} HOD model in the format of :mod:`halotools`.
