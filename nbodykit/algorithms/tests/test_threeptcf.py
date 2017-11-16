@@ -27,7 +27,7 @@ def test_threeptcf(comm):
 
     # run the algorithm
     ells = list(range(0, 11))
-    r = Multipoles3PCF(cat, ells, edges, BoxSize=BoxSize, weight='w')
+    r = SimulationBox3PCF(cat, ells, edges, BoxSize=BoxSize, weight='w')
 
     # load the result from file
     truth = numpy.empty((8,8,11))
@@ -44,8 +44,10 @@ def test_threeptcf(comm):
         assert_allclose(x * (4*numpy.pi)**2 / (2*ell+1), truth[...,i], rtol=1e-3, err_msg='mismatch for ell=%d' %ell)
 
     # save to temp file
-    tmpfile = tempfile.mktemp()
-    r.save(tmpfile)
-
-    r2 = Multipoles3PCF.load(tmpfile)
+    filename = 'test-threept-cf.json'
+    r.save(filename)
+    r2 = SimulationBox3PCF.load(filename)
     assert_array_equal(r.poles.data, r2.poles.data)
+
+    if comm.rank == 0:
+        os.remove(filename)
