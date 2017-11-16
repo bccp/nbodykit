@@ -16,6 +16,7 @@ class HODModel(object):
         Here, mass definition is used to place satellites in halos using
         a NFW profile in order to convert mass to radius.
     """
+    @staticmethod
     def to_halotools(cosmo, redshift, mdef, concentration_key=None, **kwargs):
         """
         Return a {func_name} HOD model in the format of :mod:`halotools`.
@@ -192,7 +193,7 @@ def HODModelFactory(name, func_name):
     to_halotools.__doc__ = hdr + textwrap.dedent(to_halotools.__doc__)
 
     # make the new class object and return it
-    newclass = type(name, (HODModel,),{"to_halotools": to_halotools, "__doc__":__doc__})
+    newclass = type(name, (HODModel,),{"to_halotools": staticmethod(to_halotools), "__doc__":__doc__})
     return newclass
 
 # generate the specialized models
