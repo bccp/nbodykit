@@ -132,7 +132,8 @@ def decompose_box_data(first, second, attrs, logger, smoothing):
     return (pos1, w1), (pos2, w2)
 
 
-def decompose_survey_data(first, second, attrs, logger, smoothing, angular=False):
+def decompose_survey_data(first, second, attrs, logger, smoothing, domain_factor=2,
+                            angular=False, return_cartesian=False):
     """
     Perform a domain decomposition on survey data, returning the
     domain-demposed position and weight arrays for each object in the
@@ -164,9 +165,14 @@ def decompose_survey_data(first, second, attrs, logger, smoothing, angular=False
         the current active logger
     smoothing :
         the maximum Cartesian separation implied by the user's binning
+    domain_factor : int, optional
+        the factor by which we over-sample the mesh with cells in a given
+        direction; higher values can lead to better performance
     angular : bool, optional
         if ``True``, the Cartesian positions used in the domain
         decomposition are on the unit sphere
+    return_cartesian : bool, optional
+        whether to return the pos as (ra, dec, z), or the Cartesian (x, y, z)
 
     Returns
     -------
@@ -232,14 +238,19 @@ def decompose_survey_data(first, second, attrs, logger, smoothing, angular=False
     # initialize the domain
     # NOTE: over-decompose by factor of 2 to trigger load balancing
     grid = [
-        numpy.linspace(0, boxsize[0], 2*np[0] + 1, endpoint=True),
-        numpy.linspace(0, boxsize[1], 2*np[1] + 1, endpoint=True),
-        numpy.linspace(0, boxsize[2], 2*np[2] + 1, endpoint=True),
+        numpy.linspace(0, boxsize[0], domain_factor*np[0] + 1, endpoint=True),
+        numpy.linspace(0, boxsize[1], domain_factor*np[1] + 1, endpoint=True),
+        numpy.linspace(0, boxsize[2], domain_factor*np[2] + 1, endpoint=True),
     ]
     domain = GridND(grid, comm=comm)
 
     # balance the load
     domain.loadbalance(domain.load(cpos1))
+
+    # if we want to return cartesian, redefine pos
+    if return_cartesian:
+        pos1 = cpos1
+        pos2 = cpos2
 
     # decompose based on cartesian positions
     layout = domain.decompose(cpos1, smoothing=0)
