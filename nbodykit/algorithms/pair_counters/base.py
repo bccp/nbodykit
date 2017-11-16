@@ -142,7 +142,7 @@ def verify_input_sources(first, second, BoxSize, required_columns, inspect_boxsi
         if BoxSize is not None:
             _BoxSize[:] = BoxSize
         if (_BoxSize==0.).all():
-            raise ValueError("BoxSize must be supplied in the source ``attr`` or via the ``BoxSize`` keyword")
+            raise ValueError("BoxSize must be supplied in the source ``attrs`` or via the ``BoxSize`` keyword")
 
         BoxSize2 = second.attrs.get('BoxSize', None)
         if BoxSize1 is not None and BoxSize2 is not None:
