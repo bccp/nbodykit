@@ -9,7 +9,7 @@ class SimulationBoxPairCount(PairCountBase):
     as a function of :math:`r`, :math:`(r,\mu)`, :math:`(r_p, \pi)`, or
     :math:`\theta` using the :mod:`Corrfunc` package.
 
-    See the Notes below for the allowed coordinate dimensions
+    See the Notes below for the allowed coordinate dimensions.
 
     The default weighting scheme uses the product of the weights for each
     object in a pair.
@@ -78,8 +78,9 @@ class SimulationBoxPairCount(PairCountBase):
       and parallel to the line-of-sight, :math:`r_p` and :math:`\pi`
     * ``mode='angular'`` : compute pairs as a function of angle on the sky, :math:`\theta`
 
-    Note that for angular pair counts, the observer is placed at the center of the
-    box.
+    For angular pair counts, the observer is placed at the center of the
+    box when converting Cartesian coordinates to angular coordinates on the
+    unit sphere.
     """
     logger = logging.getLogger('SimulationBoxPairCount')
 
@@ -98,7 +99,8 @@ class SimulationBoxPairCount(PairCountBase):
             raise ValueError("``los`` should be either ['x', 'y', 'z'] or [0,1,2]")
 
         # verify the input sources
-        BoxSize = verify_input_sources(first, second, BoxSize, ['Position', weight])
+        required_cols = ['Position', weight]
+        BoxSize = verify_input_sources(first, second, BoxSize, required_cols)
 
         # init the base class (this verifies input arguments)
         PairCountBase.__init__(self, mode, edges, first, second, Nmu, pimax, show_progress)

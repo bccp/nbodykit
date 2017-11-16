@@ -69,6 +69,10 @@ class SurveyDataPairCount(PairCountBase):
         if ``True``, perform the pair counting calculation in 10 iterations,
         logging the progress after each iteration; this is useful for
         understanding the scaling of the code
+    domain_factor : int, optional
+        the integer value by which to oversubscribe the domain decomposition
+        mesh before balancing loads; this number can affect the distribution
+        of loads on the ranks -- an optimal value will lead to balanced loads
     **config : key/value pairs
         additional keywords to pass to the :mod:`Corrfunc` function
 
@@ -90,7 +94,7 @@ class SurveyDataPairCount(PairCountBase):
     def __init__(self, mode, first, edges, cosmo=None, second=None,
                     Nmu=None, pimax=None,
                     ra='RA', dec='DEC', redshift='Redshift', weight='Weight',
-                    show_progress=False,
+                    show_progress=False, domain_factor=4,
                     **config):
 
         # verify the input sources
@@ -112,6 +116,7 @@ class SurveyDataPairCount(PairCountBase):
         self.attrs['dec'] = dec
         self.attrs['redshift'] = redshift
         self.attrs['config'] = config
+        self.attrs['domain_factor'] = domain_factor
 
         # run the algorithm
         self.run()
@@ -156,7 +161,8 @@ class SurveyDataPairCount(PairCountBase):
         # do a domain decomposition on the data
         (pos1, w1), (pos2, w2) = decompose_survey_data(first, second, attrs,
                                                         self.logger, smoothing,
-                                                        angular=(mode=='angular'))
+                                                        angular=(mode=='angular'),
+                                                        domain_factor=attrs['domain_factor'])
 
         # get the Corrfunc callable based on mode
         if attrs['mode'] in ['1d', '2d']:

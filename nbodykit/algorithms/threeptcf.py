@@ -307,6 +307,10 @@ class SurveyData3PCF(Base3PCF):
         coordinates; default is 'Redshift'
     weight : str, optional
         the name of the column in the source specifying the object weights
+    domain_factor : int, optional
+        the integer value by which to oversubscribe the domain decomposition
+        mesh before balancing loads; this number can affect the distribution
+        of loads on the ranks -- an optimal value will lead to balanced loads
 
     References
     ----------
@@ -314,7 +318,7 @@ class SurveyData3PCF(Base3PCF):
     """
     logger = logging.getLogger("SurveyData3PCF")
 
-    def __init__(self, source, poles, edges, cosmo,
+    def __init__(self, source, poles, edges, cosmo, domain_factor=4,
                     ra='RA', dec='DEC', redshift='Redshift', weight='Weight'):
 
         # initialize the base class
@@ -327,6 +331,7 @@ class SurveyData3PCF(Base3PCF):
         self.attrs['ra'] = ra
         self.attrs['dec'] = dec
         self.attrs['redshift'] = redshift
+        self.attrs['domain_factor'] = domain_factor
 
         # run the algorithm
         self.run()
@@ -354,7 +359,9 @@ class SurveyData3PCF(Base3PCF):
         smoothing = numpy.max(self.attrs['edges'])
         (pos, w), (pos_sec, w_sec) = decompose_survey_data(self.source, None,
                                                             self.attrs, self.logger,
-                                                            smoothing, return_cartesian=True)
+                                                            smoothing,
+                                                            return_cartesian=True,
+                                                            domain_factor=self.attrs['domain_factor'])
 
         # run the algorithm
         self._run(pos, w, pos_sec, w_sec)
