@@ -15,13 +15,11 @@ class ArrayCatalog(CatalogSource):
     comm : MPI Communicator, optional
         the MPI communicator instance; default (``None``) sets to the
         current communicator
-    use_cache : bool, optional
-        whether to cache data read from disk; default is ``False``
     **kwargs :
         additional keywords to store as meta-data in :attr:`attrs`
     """
     @CurrentMPIComm.enable
-    def __init__(self, data, comm=None, use_cache=False, **kwargs):
+    def __init__(self, data, comm=None, **kwargs):
 
         self.comm    = comm
         self._source = data
@@ -49,7 +47,7 @@ class ArrayCatalog(CatalogSource):
         # update the meta-data
         self.attrs.update(kwargs)
 
-        CatalogSource.__init__(self, comm=comm, use_cache=use_cache)
+        CatalogSource.__init__(self, comm=comm)
 
     @property
     def hardcolumns(self):

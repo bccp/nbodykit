@@ -147,7 +147,7 @@ class RandomCatalog(CatalogSource):
         return "RandomCatalog(size=%d, seed=%s)" % args
 
     @CurrentMPIComm.enable
-    def __init__(self, csize, seed=None, comm=None, use_cache=False):
+    def __init__(self, csize, seed=None, comm=None):
 
         self.comm = comm
 
@@ -165,7 +165,7 @@ class RandomCatalog(CatalogSource):
         self._size =  self.rng.size
 
         # init the base class
-        CatalogSource.__init__(self, comm=comm, use_cache=use_cache)
+        CatalogSource.__init__(self, comm=comm)
 
     @property
     def rng(self):
@@ -194,15 +194,13 @@ class UniformCatalog(RandomCatalog):
         the random seed
     comm :
         the MPI communicator
-    use_cache : bool, optional
-        whether to cache data on disk
     """
     def __repr__(self):
         args = (self.size, self.attrs['seed'])
         return "UniformCatalog(size=%d, seed=%s)" % args
 
     @CurrentMPIComm.enable
-    def __init__(self, nbar, BoxSize, seed=None, comm=None, use_cache=False):
+    def __init__(self, nbar, BoxSize, seed=None, comm=None):
 
         self.comm    = comm
 
@@ -214,7 +212,7 @@ class UniformCatalog(RandomCatalog):
         N = rng.poisson(nbar * numpy.prod(self.attrs['BoxSize']))
         if N == 0:
             raise ValueError("no uniform particles generated, try increasing `nbar` parameter")
-        RandomCatalog.__init__(self, N, seed=seed, comm=comm, use_cache=use_cache)
+        RandomCatalog.__init__(self, N, seed=seed, comm=comm)
 
         self._pos = self.rng.uniform(size=(self._size, 3)) * self.attrs['BoxSize']
         self._vel = self.rng.uniform(size=(self._size, 3)) * self.attrs['BoxSize'] * 0.01
