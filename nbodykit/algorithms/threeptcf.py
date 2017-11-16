@@ -1,150 +1,59 @@
-import numpy
-import logging
-
-import kdcount
 from nbodykit import CurrentMPIComm
 from nbodykit.binned_statistic import BinnedStatistic
-from pmesh.domain import GridND
-from nbodykit.utils import split_size_3d
 
-class Multipoles3PCF(object):
+import numpy
+import logging
+import kdcount
+
+class Base3PCF(object):
     """
-    Compute the multipoles of the isotropic, three-point correlation function
-    in configuration space.
+    Base class for implementing common 3PCF calculations.
 
-    This uses the algorithm of Slepian and Eisenstein, 2015 which scales
-    as :math:`\mathcal{O}(N^2)`, where :math:`N` is the number of objects.
-
-    Results are computed when the object is inititalized. See the documenation
-    of :func:`~Multipoles3PCF.run` for the attributes storing the results.
-
-    Parameters
-    ----------
-    source : CatalogSource
-        the input source of particles providing the 'Position' column
-    poles : list of int
-        the list of multipole numbers to compute
-    edges : array_like
-        the edges of the bins of separation to use; length of nbins+1
-    BoxSize : float, 3-vector, optional
-        the size of the box; if periodic boundary conditions used, and 'BoxSize'
-        not provided in the source :attr:`attrs`, it must be provided here
-    periodic : bool, optional
-        whether to use periodic boundary conditions when computing separations
-        between objects
-    weight : str, optional
-        the name of the column in the source specifying the particle weights
-    selection : str, optional
-        if not ``None``, the name of the column to use to select certain objects;
-        should be the name of a boolean column
-
-    References
-    ----------
-    Slepian and Eisenstein, MNRAS 454, 4142-4158 (2015)
+    Users should use :class:`SimulationBox3PCF` or :class:`SurveyData3PCF`.
     """
-    logger = logging.getLogger('Multipoles3PCF')
+    def __init__(self, source, poles, edges, required_cols, BoxSize=None, periodic=None):
 
-    def __init__(self, source, poles, edges, BoxSize=None, periodic=True,
-                 weight='Weight', selection='Selection'):
+        from .pair_counters.base import verify_input_sources
 
-        # check for all of the necessary columns
-        for col in ['Position', weight, selection]:
-            if col not in source:
-                raise ValueError("the '%s' column must be defined in the source" %col)
+        # verify the input sources
+        inspect = periodic is not None
+        BoxSize = verify_input_sources(source, None, BoxSize, required_cols, inspect_boxsize=inspect)
 
-        # store the subset of the source we selected
-        self.source = source[source[selection]]
-        self.comm = source.comm
+        self.source = source
+        self.comm = self.source.comm
+
+        # save the meta-data
         self.attrs = {}
-
-        # need BoxSize
-        self.attrs['BoxSize'] = numpy.empty(3)
-        BoxSize = source.attrs.get('BoxSize', BoxSize)
-        if periodic and BoxSize is None:
-            raise ValueError("please specify a BoxSize if using periodic boundary conditions")
-        self.attrs['BoxSize'][:] = BoxSize
-
-        # test rmax for PBC
-        if periodic and numpy.amax(edges) > 0.5*self.attrs['BoxSize'].min():
-            raise ValueError("periodic pair counts cannot be computed for Rmax > 0.5 * BoxSize")
-
-        # save meta-data
-        self.attrs['edges'] = edges
         self.attrs['poles'] = poles
-        self.attrs['periodic'] = periodic
-        self.attrs['weight'] = weight
-        self.attrs['selection'] = selection
+        self.attrs['edges'] = edges
 
-        self.run()
+        # store periodic/BoxSize for SimulationBox
+        if periodic is not None:
+            self.attrs['BoxSize'] = BoxSize
+            self.attrs['periodic'] = periodic
 
-    def run(self):
+    def _run(self, pos, w, pos_sec, w_sec, boxsize=None):
         """
-        Compute the three-point CF multipoles. This attaches the following
-        the attributes to the class:
+        Internal function to run the 3PCF algorithm on the input data and
+        weights.
 
-        - :attr:`poles`
-
-        Attributes
-        ----------
-        poles : :class:`~nbodykit.binned_statistic.BinnedStatistic`
-            a BinnedStatistic object to hold the multipole results; the
-            binned statistics stores the multipoles as variables ``zeta_0``,
-            ``zeta_1``, etc for :math:`\ell=0,1,` etc. The coordinates
-            of the binned statistic are ``r1`` and ``r2``, which give the
-            separations between the three objects in CF
+        The input data/weights have already been domain-decomposed, and
+        the loads should be balanced on all ranks.
         """
-        redges = self.attrs['edges']
-        comm   = self.comm
-        nbins  = len(redges)-1
+        # maximum radius
+        rmax = numpy.max(self.attrs['edges'])
+
+        # the array to hold output values
+        nbins  = len(self.attrs['edges'])-1
         Nell   = len(self.attrs['poles'])
-
-        if self.attrs['periodic']:
-            boxsize = self.attrs['BoxSize']
-        else:
-            boxsize = None
-
-        # determine processor division for domain decomposition
-        np = split_size_3d(comm.size)
-        if self.comm.rank == 0:
-            self.logger.info("using cpu grid decomposition: %s" %str(np))
-
-        # output zeta
         zeta = numpy.zeros((Nell,nbins,nbins), dtype='f8')
 
         # compute the Ylm expressions we need
         if self.comm.rank == 0:
             self.logger.info("computing Ylm expressions...")
-        Ylm_cache = YlmCache(self.attrs['poles'], comm)
+        Ylm_cache = YlmCache(self.attrs['poles'], self.comm)
         if self.comm.rank ==  0:
             self.logger.info("...done")
-
-        # get the (periodic-enforced) position
-        pos = self.source['Position']
-        if self.attrs['periodic']:
-            pos %= self.attrs['BoxSize']
-        pos, w = self.source.compute(pos, self.source[self.attrs['weight']])
-
-        # global min/max across all ranks
-        posmin = numpy.asarray(comm.allgather(pos.min(axis=0))).min(axis=0)
-        posmax = numpy.asarray(comm.allgather(pos.max(axis=0))).max(axis=0)
-
-        # domain decomposition
-        grid = [numpy.linspace(posmin[i], posmax[i], np[i]+1, endpoint=True) for i in range(3)]
-        domain = GridND(grid, comm=comm)
-
-        layout = domain.decompose(pos, smoothing=0)
-        pos    = layout.exchange(pos)
-        w      = layout.exchange(w)
-
-        # get the position/weight of the secondaries
-        rmax = numpy.max(self.attrs['edges'])
-        if rmax > self.attrs['BoxSize'].max() * 0.25:
-            pos_sec = numpy.concatenate(comm.allgather(pos), axis=0)
-            w_sec   = numpy.concatenate(comm.allgather(w), axis=0)
-        else:
-            layout  = domain.decompose(pos, smoothing=rmax)
-            pos_sec = layout.exchange(pos)
-            w_sec   = layout.exchange(w)
 
         # make the KD-tree holding the secondaries
         tree_sec = kdcount.KDTree(pos_sec, boxsize=boxsize).root
@@ -155,14 +64,11 @@ class Multipoles3PCF(object):
             valid = r > 0.
             r = r[valid]; i = i[valid]
 
-            if iprim % 100 == 0 and self.comm.rank == 0:
-                self.logger.info("done %d centrals" %iprim)
-
             # normalized, re-centered position array (periodic)
             dpos = (pos_sec[i] - pos[iprim])
 
             # enforce periodicity in dpos
-            if self.attrs['periodic']:
+            if boxsize is not None:
                 for axis, col in enumerate(dpos.T):
                     col[col > boxsize[axis]*0.5] -= boxsize[axis]
                     col[col <= -boxsize[axis]*0.5] += boxsize[axis]
@@ -194,26 +100,35 @@ class Multipoles3PCF(object):
                 if m != 0: alm += alm.T # add in the -m contribution for m != 0
                 zeta[l,...] += alm.real
 
+        # determine rank with largest load
+        loads = self.comm.allgather(len(pos))
+        largest_load = numpy.argmax(loads)
+        chunk_size = max(loads) // 10
+
         # compute multipoles for each primary
         for iprim in range(len(pos)):
             tree_prim = kdcount.KDTree(numpy.atleast_2d(pos[iprim]), boxsize=boxsize).root
             tree_sec.enum(tree_prim, rmax, process=callback, iprim=iprim)
 
+            if self.comm.rank == largest_load and iprim % chunk_size == 0:
+                self.logger.info("%d%% done" % (10*iprim//chunk_size))
+
         # sum across all ranks
-        zeta = comm.allreduce(zeta)
+        zeta = self.comm.allreduce(zeta)
 
         # normalize according to Eq. 15 of Slepian et al. 2015
         # differs by factor of (4 pi)^2 / (2l+1) from the C++ code
         zeta /= (4*numpy.pi)
 
         # make a BinnedStatistic
-        dtype = numpy.dtype([('zeta_%d' %i, zeta.dtype) for i in range(Nell)])
+        dtype = numpy.dtype([('corr_%d' %i, zeta.dtype) for i in range(zeta.shape[0])])
         data = numpy.empty(zeta.shape[-2:], dtype=dtype)
-        for i in range(Nell):
-            data['zeta_%d' %i] = zeta[i]
+        for i in range(zeta.shape[0]):
+            data['corr_%d' %i] = zeta[i]
 
         # save the result
-        self.poles = BinnedStatistic(['r1', 'r2'], [redges, redges], data)
+        edges = self.attrs['edges']
+        self.poles = BinnedStatistic(['r1', 'r2'], [edges, edges], data)
 
     def __getstate__(self):
         return {'poles':self.poles.data, 'attrs':self.attrs}
@@ -224,7 +139,7 @@ class Multipoles3PCF(object):
 
     def save(self, output):
         """
-        Save the :attr:`poles` result to a JSON file with name ``output``
+        Save the :attr:`poles` result to a JSON file with name ``output``.
         """
         import json
         from nbodykit.utils import JSONEncoder
@@ -240,8 +155,8 @@ class Multipoles3PCF(object):
     @CurrentMPIComm.enable
     def load(cls, filename, comm=None):
         """
-        Load a Multipoles3PCF result from ``filename`` that has been saved to
-        disk with :func:`~Multipoles3PCF.save`.
+        Load a result from ``filename`` that has been saved to
+        disk with :func:`save`.
         """
         import json
         from nbodykit.utils import JSONDecoder
@@ -256,10 +171,199 @@ class Multipoles3PCF(object):
         self.comm = comm
         return self
 
+class SimulationBox3PCF(Base3PCF):
+    """
+    Compute the multipoles of the isotropic, three-point correlation function
+    in configuration space for data in a simulation box.
+
+    This uses the algorithm of Slepian and Eisenstein, 2015 which scales
+    as :math:`\mathcal{O}(N^2)`, where :math:`N` is the number of objects.
+
+    Results are computed when the object is inititalized. See the documenation
+    of :func:`run` for the attributes storing the results.
+
+    .. note::
+
+        The algorithm expects the positions of objects in a simulation box to
+        be the Cartesian ``x``, ``y``, and ``z`` vectors. For survey data,
+        in the form of right ascension, declination, and
+        redshift, see :class:`~nbodykit.algorithms.SurveyData3PCF`.
+
+    Parameters
+    ----------
+    source : CatalogSource
+        the input source of particles providing the 'Position' column
+    poles : list of int
+        the list of multipole numbers to compute
+    edges : array_like
+        the edges of the bins of separation to use; length of nbins+1
+    BoxSize : float, 3-vector, optional
+        the size of the box; if periodic boundary conditions used, and 'BoxSize'
+        not provided in the source :attr:`attrs`, it must be provided here
+    periodic : bool, optional
+        whether to use periodic boundary conditions when computing separations
+        between objects
+    weight : str, optional
+        the name of the column in the source specifying the particle weights
+
+    References
+    ----------
+    Slepian and Eisenstein, MNRAS 454, 4142-4158 (2015)
+    """
+    logger = logging.getLogger("SimulationBox3PCF")
+
+    def __init__(self, source, poles, edges, BoxSize=None, periodic=True, weight='Weight'):
+
+        # initialize the base class
+        required_cols = ['Position', weight]
+        Base3PCF.__init__(self, source, poles, edges, required_cols,
+                            BoxSize=BoxSize, periodic=periodic)
+
+        # save the weight column
+        self.attrs['weight'] = weight
+
+        # check largest possible separation
+        if periodic:
+            min_box_side = 0.5*self.attrs['BoxSize'].min()
+            if numpy.amax(edges) > min_box_side:
+                raise ValueError(("periodic pair counts cannot be computed for Rmax > BoxSize/2"))
+
+        # run the algorithm
+        self.run()
+
+
+    def run(self):
+        """
+        Compute the three-point CF multipoles. This attaches the following
+        the attributes to the class:
+
+        - :attr:`poles`
+
+        Attributes
+        ----------
+        poles : :class:`~nbodykit.binned_statistic.BinnedStatistic`
+            a BinnedStatistic object to hold the multipole results; the
+            binned statistics stores the multipoles as variables ``corr_0``,
+            ``corr_1``, etc for :math:`\ell=0,1,` etc. The coordinates
+            of the binned statistic are ``r1`` and ``r2``, which give the
+            separations between the three objects in CF.
+        """
+        from .pair_counters.domain import decompose_box_data
+
+        # the box size to use
+        if self.attrs['periodic']:
+            boxsize = self.attrs['BoxSize']
+        else:
+            boxsize = None
+
+        # domain decompose the data
+        smoothing = numpy.max(self.attrs['edges'])
+        (pos, w), (pos_sec, w_sec) = decompose_box_data(self.source, None, self.attrs,
+                                                        self.logger, smoothing)
+
+        # run the algorithm
+        self._run(pos, w, pos_sec, w_sec, boxsize=boxsize)
+
+class SurveyData3PCF(Base3PCF):
+    """
+    Compute the multipoles of the isotropic, three-point correlation function
+    in configuration space for observational survey data.
+
+    This uses the algorithm of Slepian and Eisenstein, 2015 which scales
+    as :math:`\mathcal{O}(N^2)`, where :math:`N` is the number of objects.
+
+    Results are computed when the object is inititalized. See the documenation
+    of :func:`run` for the attributes storing the results.
+
+    .. note::
+
+        The algorithm expects the positions of objects from a survey catalog
+        be the sky coordinates, right ascension and declination, and redshift.
+        For simulation box data in Cartesian coordinates, see
+        :class:`~nbodykit.algorithms.SimulationBox3PCF`.
+
+    .. warning::
+        The right ascension and declination columns should be specified
+        in degrees.
+
+    Parameters
+    ----------
+    source : CatalogSource
+        the input source of particles providing the 'Position' column
+    poles : list of int
+        the list of multipole numbers to compute
+    edges : array_like
+        the edges of the bins of separation to use; length of nbins+1
+    cosmo : :class:`~nbodykit.cosmology.cosmology.Cosmology`
+        the cosmology instance used to convert redshifts into comoving distances
+    ra : str, optional
+        the name of the column in the source specifying the
+        right ascension coordinates in units of degrees; default is 'RA'
+    dec : str, optional
+        the name of the column in the source specifying the declination
+        coordinates; default is 'DEC'
+    redshift : str, optional
+        the name of the column in the source specifying the redshift
+        coordinates; default is 'Redshift'
+    weight : str, optional
+        the name of the column in the source specifying the object weights
+
+    References
+    ----------
+    Slepian and Eisenstein, MNRAS 454, 4142-4158 (2015)
+    """
+    logger = logging.getLogger("SurveyData3PCF")
+
+    def __init__(self, source, poles, edges, cosmo,
+                    ra='RA', dec='DEC', redshift='Redshift', weight='Weight'):
+
+        # initialize the base class
+        required_cols = [ra, dec, redshift, weight]
+        Base3PCF.__init__(self, source, poles, edges, required_cols)
+
+        # save meta-data
+        self.attrs['cosmo'] = cosmo
+        self.attrs['weight'] = weight
+        self.attrs['ra'] = ra
+        self.attrs['dec'] = dec
+        self.attrs['redshift'] = redshift
+
+        # run the algorithm
+        self.run()
+
+    def run(self):
+        """
+        Compute the three-point CF multipoles. This attaches the following
+        the attributes to the class:
+
+        - :attr:`poles`
+
+        Attributes
+        ----------
+        poles : :class:`~nbodykit.binned_statistic.BinnedStatistic`
+            a BinnedStatistic object to hold the multipole results; the
+            binned statistics stores the multipoles as variables ``corr_0``,
+            ``corr_1``, etc for :math:`\ell=0,1,` etc. The coordinates
+            of the binned statistic are ``r1`` and ``r2``, which give the
+            separations between the three objects in CF.
+        """
+        from .pair_counters.domain import decompose_survey_data
+
+        # domain decompose the data
+        # NOTE: pos and pos_sec are Cartesian!
+        smoothing = numpy.max(self.attrs['edges'])
+        (pos, w), (pos_sec, w_sec) = decompose_survey_data(self.source, None,
+                                                            self.attrs, self.logger,
+                                                            smoothing, return_cartesian=True)
+
+        # run the algorithm
+        self._run(pos, w, pos_sec, w_sec)
+
+
 class YlmCache(object):
     """
     A class to compute spherical harmonics :math:`Y_{lm}` up
-    to a specified maximum :math:`\ell`
+    to a specified maximum :math:`\ell`.
 
     During calculation, the necessary power of Cartesian unit
     vectors are cached in memory to avoid repeated calculations
@@ -271,9 +375,9 @@ class YlmCache(object):
         from sympy.utilities.lambdify import implemented_function
         from sympy.parsing.sympy_parser import parse_expr
 
-        self.ells = list(ells)
-        self.max_ell = max(ells)
-        lms = [(int(l),int(m)) for l in ells for m in range(0, l+1)]
+        self.ells = numpy.asarray(ells).astype(int)
+        self.max_ell = max(self.ells)
+        lms = [(l,m) for l in ells for m in range(0, l+1)]
 
         # compute the Ylm string expressions in parallel
         exprs = []
