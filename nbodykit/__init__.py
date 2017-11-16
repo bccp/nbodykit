@@ -11,35 +11,6 @@ _global_options['global_cache_size'] = 1e8 # 100 MB
 _global_options['dask_chunk_size'] = 100000
 _global_options['paint_chunk_size'] = 1024 * 1024 * 8
 
-class set_options(object):
-    """
-    Set global configuration options.
-
-    Parameters
-    ----------
-    dask_chunk_size : int
-        the number of elements for the default chunk size for dask arrays;
-        chunks should usually hold between 10 MB and 100 MB
-    global_cache_size : float
-        the size of the internal dask cache in bytes; default is 1e9
-    paint_chunk_size : int
-        the number of objects to paint at the same time. This is independent
-        from dask chunksize.
-    """
-    def __init__(self, **kwargs):
-        self.old = _global_options.copy()
-        for key in sorted(kwargs):
-            if key not in _global_options:
-                raise KeyError("Option `%s` is not supported" % key)
-        _global_options.update(kwargs)
-
-    def __enter__(self):
-        return
-
-    def __exit__(self, type, value, traceback):
-        _global_options.clear()
-        _global_options.update(self.old)
-
 class CurrentMPIComm(object):
     """
     A class to faciliate getting and setting the current MPI communicator.
@@ -127,6 +98,45 @@ class GlobalCache(object):
         # shrink the cache if we need to
         # NOTE: only removes objects if we need to
         cache.shrink()
+
+class set_options(object):
+    """
+    Set global configuration options.
+
+    Parameters
+    ----------
+    dask_chunk_size : int
+        the number of elements for the default chunk size for dask arrays;
+        chunks should usually hold between 10 MB and 100 MB
+    global_cache_size : float
+        the size of the internal dask cache in bytes; default is 1e9
+    paint_chunk_size : int
+        the number of objects to paint at the same time. This is independent
+        from dask chunksize.
+    """
+    def __init__(self, **kwargs):
+        self.old = _global_options.copy()
+        for key in sorted(kwargs):
+            if key not in _global_options:
+                raise KeyError("Option `%s` is not supported" % key)
+        _global_options.update(kwargs)
+
+        # resize the global Cache!
+        self.updated_cache_size = False
+        if 'global_cache_size' in kwargs:
+            GlobalCache.resize(_global_options['global_cache_size'])
+            self.updated_cache_size = True
+
+    def __enter__(self):
+        return
+
+    def __exit__(self, type, value, traceback):
+        _global_options.clear()
+        _global_options.update(self.old)
+
+        # resize Cache to original size
+        if self.updated_cache_size:
+            GlobalCache.resize(_global_options['global_cache_size'])
 
 
 _logging_handler = None
