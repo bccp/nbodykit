@@ -415,7 +415,8 @@ def _remove_objects_paired_with(df, bad_pairs):
     # exception could be raised if no pairs need to be dropped
     # so just reset index and return
     try:
-        to_drop = df.loc[bad_pairs]['sort_i'].values
+        bad_pair_index = df.index.intersection(bad_pairs).unique()
+        to_drop = df.loc[bad_pair_index]['sort_i'].values
         df.reset_index(inplace=True)
         df.set_index('sort_i', inplace=True)
         df.drop(to_drop,inplace=True)
@@ -468,7 +469,8 @@ def _find_centrals(comm, df, on_other_ranks, centrals, maybes):
     cens_grouped.apply(find_local_centrals)
 
     # the pairs associated with objects that might be satellites
-    maybe_cen_groups = df.loc[list(maybes)].dropna()
+    maybe_index = df.index.intersection(list(maybes)).unique()
+    maybe_cen_groups = df.loc[maybe_index]
 
     # gather data on maybes
     maybes_data = comm.gather(maybe_cen_groups)
