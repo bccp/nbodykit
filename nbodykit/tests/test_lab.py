@@ -1,6 +1,6 @@
 from runtests.mpi import MPITest
 from nbodykit.lab import *
-from nbodykit import setup_logging, set_options
+from nbodykit import setup_logging, set_options, GlobalCache
 
 # debug logging
 setup_logging("debug")
@@ -63,7 +63,8 @@ def test_set_options(comm):
         s = UniformCatalog(1000, 1.0)
 
         # check cache size
-        assert s._cache.cache.available_bytes == 5e9
+        cache = GlobalCache.get()
+        assert cache.cache.available_bytes == 5e9
 
         # check chunk size
         assert s['Position'].chunks[0][0] == 75
