@@ -1,24 +1,35 @@
+# FFT-based
 from .fftpower import FFTPower, ProjectedFFTPower
 from .fftcorr import FFTCorr
-from .kdtree import KDDensity
-from .fof import FOF
 from .convpower import ConvolvedFFTPower
-from .zhist import RedshiftHistogram
+
+# grouping
+from .fof import FOF
 from .fibercollisions import FiberCollisions
-from .threeptcf import Multipoles3PCF
 from .cgm import CylindricalGroups
+
+# pair counters, correlation functions
 from .pair_counters import SurveyDataPairCount, SimulationBoxPairCount
 from .paircount_tpcf import SurveyData2PCF, SimulationBox2PCF
+from .threeptcf import SimulationBox3PCF, SurveyData3PCF
 
-__all__ = ['FFTPower', 'ProjectedFFTPower',
+# miscellaneous
+from .kdtree import KDDensity
+from .zhist import RedshiftHistogram
+
+__all__ = ['FFTPower',
+           'ProjectedFFTPower',
            'FFTCorr',
-           'KDDensity',
-           'FOF',
            'ConvolvedFFTPower',
-           'RedshiftHistogram',
+           'FOF',
            'FiberCollisions',
-           'Multipoles3PCF',
            'CylindricalGroups',
-           'SurveyDataPairCount', 'SimulationBoxPairCount',
-           'SurveyData2PCF', 'SimulationBox2PCF'
+           'SurveyDataPairCount',
+           'SurveyData2PCF',
+           'SurveyData3PCF',
+           'SimulationBoxPairCount',
+           'SimulationBox2PCF',
+           'SimulationBox3PCF',
+           'KDDensity',
+           'RedshiftHistogram',
           ]
