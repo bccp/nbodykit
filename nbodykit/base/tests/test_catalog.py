@@ -2,10 +2,24 @@ from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging, set_options
 
+import os
 import pytest
 from numpy.testing import assert_allclose, assert_array_equal
 
 setup_logging()
+
+@MPITest([1])
+def test_default_columns(comm):
+    CurrentMPIComm.set(comm)
+
+    cat = UniformCatalog(nbar=100, BoxSize=1.0)
+
+    # weight column is default
+    assert cat['Weight'].is_default
+
+    # override the default value --> no longer default
+    cat['Weight'] = 10.
+    assert not cat['Weight'].is_default
 
 
 @MPITest([1, 4])
@@ -31,10 +45,14 @@ def test_save(comm):
     source.attrs['empty'] = None
 
     # save to a BigFile
-    source.save(tmpfile, ['Position', 'Velocity'])
+    source.save(tmpfile, source.columns)
+
+    # assert that no default columns were saved
+    datasets = os.listdir(tmpfile)
+    assert not any(col in datasets for col in ['Value', 'Selection', 'Weight'])
 
     # load as a BigFileCatalog
-    source2 = BigFileCatalog(tmpfile, header='Header', attrs={"Nmesh":32})
+    source2 = BigFileCatalog(tmpfile, attrs={"Nmesh":32})
 
     # check sources
     for k in source.attrs:
@@ -94,7 +112,7 @@ def test_bad_column(comm):
         data = source.read(['BAD_COLUMN'])
 
     # read a missing column
-    with pytest.raises(AttributeError):
+    with pytest.raises(ValueError):
         data = source.get_hardcolumn('BAD_COLUMN')
 
 @MPITest([4])

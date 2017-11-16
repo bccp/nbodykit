@@ -1,5 +1,6 @@
 from nbodykit.base.mesh import MeshSource
 from nbodykit.base.catalog import CatalogSource, CatalogSourceBase
+from nbodykit import _global_options
 import numpy
 import logging
 import warnings
@@ -340,30 +341,32 @@ class CatalogMesh(CatalogSource, MeshSource):
 
         # read the necessary data (as dask arrays)
         columns = [self.position, self.weight, self.value, self.selection]
+
         Position, Weight, Value, Selection = self.read(columns)
 
-        # compute first, so we avoid repeated computes
-        sel = self.base.compute(Selection)
-        Position = Position[sel]
-        Weight = Weight[sel]
-        Value = Value[sel]
-
-        # compute
-        position, weight, value = self.base.compute(Position, Weight, Value)
-
         # ensure the slices are synced, since decomposition is collective
-        N = max(pm.comm.allgather(len(Position)))
+        Nlocalmax = max(pm.comm.allgather(len(Position)))
 
-        # paint data in chunks on each rank
-        chunksize = 1024 ** 2
-        for i in range(0, N, chunksize):
+        # paint data in chunks on each rank;
+        # we do this by chunk 8 million is pretty big anyways.
+        chunksize = _global_options['paint_chunk_size']
+        for i in range(0, Nlocalmax, chunksize):
             s = slice(i, i + chunksize)
 
             if len(Position) != 0:
 
+                # selection has to be computed many times when data is `large`.
+                sel = self.base.compute(Selection[s])
+
                 # be sure to use the source to compute
                 position, weight, value = \
                     self.base.compute(Position[s], Weight[s], Value[s])
+
+                # FIXME: investigate if move selection before compute
+                # speeds up IO.
+                position = position[sel]
+                weight = weight[sel]
+                value = value[sel]
             else:
                 # workaround a potential dask issue on empty dask arrays
                 position = numpy.empty((0, 3), dtype=Position.dtype)
@@ -405,6 +408,12 @@ class CatalogMesh(CatalogSource, MeshSource):
                 pm.paint(p, mass=w * v, resampler=paintbrush, hold=True, out=real1)
                 pm.paint(p, mass=w * v, resampler=paintbrush, transform=shifted, hold=True, out=real2)
 
+            Nglobal = pm.comm.allreduce(Nlocal)
+
+            if pm.comm.rank == 0:
+                self.logger.info("painted %d out of %d objects to mesh" 
+                    % (Nglobal, self.base.csize))
+
         # now the loop over particles is done
 
         if not self.interlaced:
@@ -427,6 +436,7 @@ class CatalogMesh(CatalogSource, MeshSource):
             # need to add to the returned mesh if user supplied "out"
             toret[:] += real1[:]
 
+
         # unweighted number of objects
         N = pm.comm.allreduce(Nlocal)
 
@@ -436,7 +446,8 @@ class CatalogMesh(CatalogSource, MeshSource):
         # weighted number density (objs/cell)
         nbar = 1. * W / numpy.prod(pm.Nmesh)
 
-        # make sure we painted something!
+        # make sure we painted something or nbar is nan; in which case
+        # we set the density to uniform everywhere.
         if N == 0:
             warnings.warn(("trying to paint particle source to mesh, "
                            "but no particles were found!"),

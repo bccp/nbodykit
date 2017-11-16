@@ -1,5 +1,6 @@
 from runtests.mpi import MPITest
 from nbodykit.lab import *
+from nbodykit import set_options
 from nbodykit import setup_logging
 from numpy.testing import assert_array_equal, assert_allclose
 import pytest
@@ -72,6 +73,23 @@ def test_tsc_interlacing(comm):
     # compute the power spectrum -- should be flat shot noise
     # if the compensation worked
     r = FFTPower(mesh, mode='1d', kmin=0.02)
+
+@MPITest([1])
+def test_paint_chunksize(comm):
+
+    CurrentMPIComm.set(comm)
+    source = UniformCatalog(nbar=3e-2, BoxSize=512., seed=42)
+
+    # interlacing with TSC
+    mesh = source.to_mesh(window='tsc', Nmesh=64, interlaced=True, compensated=True)
+
+    with set_options(paint_chunk_size=source.csize // 4):
+        r1 = mesh.paint()
+
+    with set_options(paint_chunk_size=source.csize):
+        r2 = mesh.paint()
+
+    assert_allclose(r1, r2)
 
 @MPITest([4])
 def test_cic_interlacing(comm):
