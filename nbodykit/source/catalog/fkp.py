@@ -83,12 +83,8 @@ class FKPCatalog(MultipleSpeciesCatalog):
         """
         from nbodykit.utils import get_data_bounds
 
-        # the position and selection columns of the randoms catalog
-        sel = self.compute(self['randoms'][selection])
-        pos = self['randoms'][position][sel]
-
-        # the min/max of the position data
-        pos_min, pos_max = get_data_bounds(self.compute(pos), self.comm)
+        # compute the min/max of the position data
+        pos_min, pos_max = get_data_bounds(position, self.comm, selection=selection)
 
         # used to center the data in the first cartesian quadrant
         delta = abs(pos_max - pos_min)
