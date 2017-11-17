@@ -240,13 +240,18 @@ def shift_to_box_center(pos, BoxSize, comm):
         the position array, shifted such that observer is in the box center
     """
     from nbodykit.utils import get_data_bounds
+
+    # make BoxSize is a 3-vector
+    _BoxSize = numpy.empty(3)
+    _BoxSize[:] = BoxSize
+
+    # get min/max of position (3-vectors)
     pos_min, pos_max = get_data_bounds(pos, comm)
-    pos_min, pos_max = pos_min.min(), pos_max.min()
 
     # Position is [0, BoxSize] --> shift to center of box
-    if pos_min > 0. and pos_max < BoxSize:
-        pos += 0.5 * BoxSize
-    elif pos_min > -0.5*BoxSize and pos_max < 0.5*BoxSize:
+    if (pos_min > 0.).all() and (pos_max < _BoxSize).all():
+        pos -= 0.5 * _BoxSize
+    elif (pos_min > -0.5*_BoxSize).all() and (pos_max < 0.5*_BoxSize).all():
         pass
     else:
         raise ValueError("input Position should be bounded by [0,BoxSize] or [-BoxSize/2,BoxSize/2]")
