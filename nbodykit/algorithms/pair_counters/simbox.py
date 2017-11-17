@@ -145,6 +145,7 @@ class SimulationBoxPairCount(PairCountBase):
         """
         # setup
         mode = self.attrs['mode']
+        BoxSize = self.attrs['BoxSize']
         first, second = self.first, self.second
         attrs = self.attrs.copy()
 
@@ -160,6 +161,7 @@ class SimulationBoxPairCount(PairCountBase):
         elif mode == 'angular':
             smoothing = 2 * numpy.sin(0.5 * numpy.deg2rad(smoothing))
 
+        # if not angular, decompose sim box data (x,y,z)
         if mode != 'angular':
             from .domain import decompose_box_data
 
@@ -170,16 +172,23 @@ class SimulationBoxPairCount(PairCountBase):
             # reorder to make LOS last column
             pos1 = pos1[:,axes_order]
             pos2 = pos2[:,axes_order]
-        else:
 
+        # NOTE: if doing angular, shift observer to box center and use RA, DEC
+        # go from (x,y,z) to (ra,dec), using observer in the middle of the box
+        else:
             from nbodykit.transform import CartesianToEquatorial
+            from nbodykit.utils import get_data_bounds
             from .domain import decompose_survey_data
 
-            # go from (x,y,z) to (ra,dec), using observer in the middle of the box
-            BoxCenter = 0.5*attrs['BoxSize']
-            first['ra'], first['dec'] = CartesianToEquatorial(first['Position'], BoxCenter)
+            # make sure Position is shifted to an observer at box center
+            # and then convert to RA,DEC
+            pos1 = shift_to_box_center(first['Position'], BoxSize, self.comm)
+            first['ra'], first['dec'] = CartesianToEquatorial(pos1)
+
+            # do the same thing for second source
             if second is not None and second is not first:
-                second['ra'], second['dec'] = CartesianToEquatorial(second['Position'], BoxCenter)
+                pos2 = shift_to_box_center(second['Position'], BoxSize, self.comm)
+                second['ra'], second['dec'] = CartesianToEquatorial(pos2)
 
             # domain decompose the data
             attrs['ra'], attrs['dec'] = 'ra', 'dec'
@@ -206,3 +215,40 @@ class SimulationBoxPairCount(PairCountBase):
 
         # do the calculation
         self.pairs = func(pos1, w1, pos2, w2, **attrs['config'])
+
+
+def shift_to_box_center(pos, BoxSize, comm):
+    """
+    Find the bounds of the input position array, and if needed, shift the
+    position to an observer at the box center.
+
+    Position should be bounded by [0, BoxSize] or [-BoxSize/2, BoxSize/2];
+    if not, an exception will be raised.
+
+    Parameters
+    ----------
+    pos : dask array
+        the dask array holding the Position
+    BoxSize : array_like
+        the size of the box
+    comm :
+        the MPI communicator
+
+    Returns
+    -------
+    pos : dask array
+        the position array, shifted such that observer is in the box center
+    """
+    from nbodykit.utils import get_data_bounds
+    pos_min, pos_max = get_data_bounds(pos, comm)
+    pos_min, pos_max = pos_min.min(), pos_max.min()
+
+    # Position is [0, BoxSize] --> shift to center of box
+    if pos_min > 0. and pos_max < BoxSize:
+        pos += 0.5 * BoxSize
+    elif pos_min > -0.5*BoxSize and pos_max < 0.5*BoxSize:
+        pass
+    else:
+        raise ValueError("input Position should be bounded by [0,BoxSize] or [-BoxSize/2,BoxSize/2]")
+
+    return pos
