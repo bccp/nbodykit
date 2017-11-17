@@ -3,7 +3,7 @@
 from six.moves.html_parser import HTMLParser
 from six.moves.urllib.error import HTTPError
 from six.moves.urllib.request import urlopen
-from six import string_types
+from six import string_types, PY2
 import os
 import re
 
@@ -96,7 +96,9 @@ def mirror(url, target=None):
     response = urlopen(url)
 
     # HTML file --> keep parsing
-    if response.info().get_content_type() == 'text/html':
+    info = response.info()
+    content_type = info.type if PY2 else info.get_content_type()
+    if content_type == 'text/html':
         contents = response.read().decode()
 
         parser = ListingParser(url)
