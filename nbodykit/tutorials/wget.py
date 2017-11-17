@@ -1,10 +1,13 @@
 # Found from https://gist.github.com/remram44/6540454
 
 from six.moves.html_parser import HTMLParser
+from six.moves.urllib.error import HTTPError
 from six.moves.urllib.request import urlopen
 import os
 import re
 
+# where the main nbodykit data examples live
+data_url = "http://portal.nersc.gov/project/m779/nbodykit/example-data"
 
 re_url = re.compile(r'^(([a-zA-Z_-]+)://([^/]+))(/.*)?$')
 
@@ -53,8 +56,31 @@ class ListingParser(HTMLParser):
                     break
 
 
-def mirror(url, target):
-    """ Mirror a URL recursively to a local target """
+def print_download_progress(count, block_size, total_size):
+    import sys
+    pct_complete = float(count * block_size) / total_size
+    msg = "\r- Download progress: {0:.1%}".format(pct_complete)
+    sys.stdout.write(msg)
+    sys.stdout.flush()
+
+def mirror(url, target=None):
+    """
+    Mirror a URL recursively to a local target.
+
+    If ``target`` is not supplied, the last part of the url is used as
+    the target.
+
+    Parameters
+    ----------
+    url : str
+        the URL to download
+    target : str, optional
+        the local file target to save the url to; if not provided, the
+        last part of the url is used.
+    """
+    if target is None:
+        target = os.path.normpath(url).split(os.path.sep)[-1]
+
     def mkdir():
         if not mkdir.done:
             try:
@@ -64,8 +90,10 @@ def mirror(url, target):
             mkdir.done = True
     mkdir.done = False
 
+    # open the URL so we can parse it
     response = urlopen(url)
 
+    # HTML file --> keep parsing
     if response.info().get_content_type() == 'text/html':
         contents = response.read().decode()
 
@@ -81,7 +109,7 @@ def mirror(url, target):
             if '?' in name:
                 continue
             mkdir()
-            download_directory(link, os.path.join(target, name))
+            mirror(link, os.path.join(target, name))
         if not mkdir.done:
             # We didn't find anything to write inside this directory
             # Maybe it's a HTML file?
@@ -91,6 +119,7 @@ def mirror(url, target):
                     target = target + '.html'
                 with open(target, 'wb') as fp:
                     fp.write(contents.encode())
+    # just download the file
     else:
         buffer_size = 4096*32
         with open(target, 'wb') as fp:
@@ -98,3 +127,69 @@ def mirror(url, target):
             while chunk:
                 fp.write(chunk)
                 chunk = response.read(buffer_size)
+
+def available_examples():
+    """
+    Return a list of available example data files from the nbodykit
+    data repository on NERSC.
+
+    Returns
+    -------
+    examples : list
+        list of the available file names for download
+    """
+    # read the contents of the main data URL
+    response = urlopen(data_url)
+    contents = response.read().decode()
+
+    # parse the available files
+    parser = ListingParser(data_url)
+    parser.feed(contents)
+
+    # get relative paths and remove bad links
+    available = [os.path.relpath(link, data_url) for link in parser.links]
+    available = [link for link in available if not any(link.startswith(bad) for bad in ['.', '?'])]
+    return sorted(available)
+
+
+def download_example_data(filename, download_dirname=None):
+    """
+    Download a data file from the nbodykit repository of example data.
+
+    For a list of valid file names, see :func:`available_examples`.
+
+    Parameters
+    ----------
+    filename : str
+        the name of the example file to download (relative to the path of the
+        nbodykit repository); see :func:`available_examples` for the example
+        file names
+    download_dirname : str, optional
+        a local directory to download the file to; if not specified, the
+        file will be downloaded to the current working directory
+    """
+    # make sure the download directory exists
+    if download_dirname is not None:
+        if not os.path.isdir(download_dirname):
+            raise ValueError("specified download directory is not valid")
+
+    # where we are saving locally
+    if download_dirname is not None:
+        target = os.path.join(download_dirname, filename)
+    else:
+        target = None
+
+    # the full url to the data we want
+    url = os.path.join(data_url, filename)
+
+    # try to mirror locally
+    try:
+        mirror(url, target=target)
+    except HTTPError as err:
+
+        # if not found, print available file names, else just raise
+        if err.code == 404:
+            args = (filename, str(available_examples()))
+            raise ValueError("no such example file '%s'\n\navailable examples are: %s" % args)
+        else:
+            raise
