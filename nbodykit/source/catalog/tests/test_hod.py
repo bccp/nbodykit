@@ -1,5 +1,6 @@
 from runtests.mpi import MPITest
 from nbodykit.lab import *
+from nbodykit.tutorials import DemoHaloCatalog
 from nbodykit import setup_logging
 import shutil
 import pytest

@@ -1,7 +1,6 @@
 from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
-import shutil
 import pytest
 
 setup_logging()
@@ -41,32 +40,3 @@ def test_missing_boxsize(comm):
     # missing BoxSize!
     with pytest.raises(ValueError):
         halocat = halos.to_halotools()
-
-
-@MPITest([4])
-def test_demo_halos(comm):
-
-    from halotools.sim_manager import UserSuppliedHaloCatalog
-    CurrentMPIComm.set(comm)
-
-    # download and load the cached catalog
-    cat = DemoHaloCatalog('bolshoi', 'rockstar', 0.5)
-    assert all(col in cat for col in ['Position', 'Velocity'])
-
-    # convert to halotools catalog
-    halotools_cat = cat.to_halotools()
-    assert isinstance(halotools_cat, UserSuppliedHaloCatalog)
-
-    # bad simulation name
-    with pytest.raises(Exception):
-        cat = DemoHaloCatalog('BAD', 'rockstar', 0.5)
-
-
-@MPITest([4])
-def test_demo_halos(comm):
-    CurrentMPIComm.set(comm)
-
-    # initialize with bad redshift
-    BAD_REDSHIFT = 100.0
-    with pytest.raises(Exception):
-        cat = DemoHaloCatalog('bolshoi', 'rockstar', BAD_REDSHIFT)

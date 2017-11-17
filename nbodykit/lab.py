@@ -21,5 +21,5 @@ from nbodykit import io as IO
 # HOD models
 from nbodykit.hod import *
 
-# tutorials
-from nbodykit.tutorials.halos import DemoHaloCatalog
+# the tutorials module
+from nbodykit import tutorials
