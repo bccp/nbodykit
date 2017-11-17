@@ -370,7 +370,7 @@ def _populate_mock(halos, model, seed=None, halocat=None, **params):
     data = ScatterArray(data, halos.comm, root=0)
 
     # re-initialize with new source
-    galcat = ArrayCatalog(data, comm=halos.comm, use_cache=halos.use_cache)
+    galcat = ArrayCatalog(data, comm=halos.comm)
 
     # crash with no particles!
     if galcat.csize == 0:

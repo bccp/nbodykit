@@ -32,7 +32,7 @@ class DemoHaloCatalog(HaloCatalog):
     >>> print(halos.columns)
     """
     @CurrentMPIComm.enable
-    def __init__(self, simname, halo_finder, redshift, comm=None, use_cache=False):
+    def __init__(self, simname, halo_finder, redshift, comm=None):
 
         from halotools.sim_manager import CachedHaloCatalog, DownloadManager
         from halotools.sim_manager.supported_sims import supported_sim_dict
@@ -78,7 +78,7 @@ class DemoHaloCatalog(HaloCatalog):
         meta = self.comm.bcast(meta, root=0)
 
         # initialize an HDF catalog and add Position/Velocity
-        cat = HDFCatalog(fname, comm=comm, use_cache=use_cache)
+        cat = HDFCatalog(fname, comm=comm)
         cat['Position'] = transform.StackColumns(cat['halo_x'], cat['halo_y'], cat['halo_z'])
         cat['Velocity'] = transform.StackColumns(cat['halo_vx'], cat['halo_vy'], cat['halo_vz'])
 

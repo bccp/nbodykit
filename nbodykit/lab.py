@@ -22,4 +22,4 @@ from nbodykit import io as IO
 from nbodykit.hod import *
 
 # tutorials
-from nbodykit.tutorials import DemoHaloCatalog
+from nbodykit.tutorials.halos import DemoHaloCatalog
