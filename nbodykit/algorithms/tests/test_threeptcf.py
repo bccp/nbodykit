@@ -88,7 +88,7 @@ def test_survey_threeptcf(comm):
     # test equality between survey result and reference
     for i, ell in enumerate(ells):
         a = r.poles['corr_%d' %ell]
-        a = ref.poles['corr_%d' %ell]
+        b = ref.poles['corr_%d' %ell]
         assert_allclose(a, b, rtol=1e-5, err_msg='mismatch for ell=%d' %ell)
 
     # save to temp file
