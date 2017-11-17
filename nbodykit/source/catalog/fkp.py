@@ -34,9 +34,6 @@ class FKPCatalog(MultipleSpeciesCatalog):
     BoxPad : float, 3-vector, optional
         optionally apply this additional buffer to the extent of the
         Cartesian box
-    use_cache : bool, optional
-        if ``True``, use the built-in dask cache system to cache
-        data, providing significant speed-ups; requires :mod:`cachey`
 
     References
     ----------
@@ -47,7 +44,7 @@ class FKPCatalog(MultipleSpeciesCatalog):
     def __repr__(self):
         return "FKPCatalog(species=%s)" %str(self.attrs['species'])
 
-    def __init__(self, data, randoms, BoxSize=None, BoxPad=0.02, use_cache=True):
+    def __init__(self, data, randoms, BoxSize=None, BoxPad=0.02):
 
         # init the base class
         MultipleSpeciesCatalog.__init__(self, ['data', 'randoms'], data, randoms)

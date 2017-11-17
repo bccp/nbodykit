@@ -15,7 +15,7 @@ def test_get_syntax(comm):
 
     source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42)
     source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84)
-    cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2, use_cache=True)
+    cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2)
 
     # test either get syntax
     test1 = numpy.random.random(size=len(source1))
@@ -35,7 +35,7 @@ def test_columns(comm):
     source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42)
     source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84)
 
-    cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2, use_cache=True, BoxSize=512., Nmesh=128)
+    cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2, BoxSize=512., Nmesh=128)
 
     assert 'BoxSize' in cat.attrs
     assert 'Nmesh' in cat.attrs
@@ -79,7 +79,7 @@ def test_getitem(comm):
     source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42)
     source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84)
 
-    cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2, use_cache=True)
+    cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2)
 
     for source, name in zip([source1, source2], ['data', 'randoms']):
         subcat = cat[name] # should be equal to source
@@ -98,7 +98,7 @@ def test_setitem(comm):
     source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42)
     source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84)
 
-    cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2, use_cache=True)
+    cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2)
 
     # bad name
     with pytest.raises(ValueError):
@@ -124,7 +124,7 @@ def test_bad_slice(comm):
     source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42)
     source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84)
 
-    cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2, use_cache=True)
+    cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2)
 
     # test with a column slice
     with pytest.raises(ValueError):

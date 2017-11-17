@@ -1,6 +1,11 @@
 nbodykit: a massively parallel large-scale structure toolkit
 ============================================================
 
+.. image:: https://zenodo.org/badge/34348490.svg
+   :target: https://zenodo.org/badge/latestdoi/34348490
+
+|
+
 **nbodykit** is an open source project and Python package providing
 a set of algorithms useful in the analysis of cosmological
 datasets from N-body simulations and large-scale structure surveys.
