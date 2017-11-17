@@ -3,8 +3,10 @@
 from six.moves.html_parser import HTMLParser
 from six.moves.urllib.error import HTTPError
 from six.moves.urllib.request import urlopen
+from six import string_types
 import os
 import re
+
 
 # where the main nbodykit data examples live
 data_url = "http://portal.nersc.gov/project/m779/nbodykit/example-data"
@@ -152,7 +154,7 @@ def available_examples():
     return sorted(available)
 
 
-def download_example_data(filename, download_dirname=None):
+def download_example_data(filenames, download_dirname=None):
     """
     Download a data file from the nbodykit repository of example data.
 
@@ -160,36 +162,42 @@ def download_example_data(filename, download_dirname=None):
 
     Parameters
     ----------
-    filename : str
-        the name of the example file to download (relative to the path of the
+    filenames : str, list of str
+        the name(s) of the example file to download (relative to the path of the
         nbodykit repository); see :func:`available_examples` for the example
         file names
     download_dirname : str, optional
         a local directory to download the file to; if not specified, the
         file will be downloaded to the current working directory
     """
+    if isinstance(filenames, string_types):
+        filenames = [filenames]
+
     # make sure the download directory exists
     if download_dirname is not None:
         if not os.path.isdir(download_dirname):
             raise ValueError("specified download directory is not valid")
 
-    # where we are saving locally
-    if download_dirname is not None:
-        target = os.path.join(download_dirname, filename)
-    else:
-        target = None
+    # download all requested filenames
+    for filename in filenames:
 
-    # the full url to the data we want
-    url = os.path.join(data_url, filename)
-
-    # try to mirror locally
-    try:
-        mirror(url, target=target)
-    except HTTPError as err:
-
-        # if not found, print available file names, else just raise
-        if err.code == 404:
-            args = (filename, str(available_examples()))
-            raise ValueError("no such example file '%s'\n\navailable examples are: %s" % args)
+        # where we are saving locally
+        if download_dirname is not None:
+            target = os.path.join(download_dirname, filename)
         else:
-            raise
+            target = None
+
+        # the full url to the data we want
+        url = os.path.join(data_url, filename)
+
+        # try to mirror locally
+        try:
+            mirror(url, target=target)
+        except HTTPError as err:
+
+            # if not found, print available file names, else just raise
+            if err.code == 404:
+                args = (filename, str(available_examples()))
+                raise ValueError("no such example file '%s'\n\navailable examples are: %s" % args)
+            else:
+                raise
