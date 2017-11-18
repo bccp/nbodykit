@@ -11,7 +11,7 @@ the top-level directory):
 where
 
 - ``BENCHNAME``: the name of the test file/function to run, e.g.,
-  ``nbodykit/benchmarks/fftpower/test_fftpower.py``.
+  ``nbodykit/benchmarks/test_fftpower.py``.
 
 - ``BENCHDIR``: the directory where the benchmarking results will be saved
 
