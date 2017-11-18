@@ -10,7 +10,7 @@ toplevel = os.path.split(os.path.abspath(__file__))[0]
 
 def minutes_to_job_time(minutes):
     h, m = divmod(minutes, 60)
-    return "%02d:%02d" % (h, m)
+    return "%02d:%02d:00" % (h, m)
 
 def get_nodes_from_cores(cores, host):
     if host == 'cori':
