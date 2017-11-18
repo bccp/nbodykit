@@ -17,7 +17,7 @@ TESTNAMES = ['test_strong_scaling']
 def add_commands(sample, testname, ncores):
 
     # the name of the benchmark test to run
-    bench_name = os.path.join('benchmarks', algorithm, 'test_' + algorithm + '.py')
+    bench_name = os.path.join('benchmarks', 'test_' + algorithm + '.py')
     bench_name += "::" + testname
 
     # the output directory
