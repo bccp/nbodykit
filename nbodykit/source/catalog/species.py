@@ -25,8 +25,6 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
         catalogs to be combined into a single catalog, which give the
         data for different species of particles; as many catalogs
         as names must be provided
-    use_cache : bool, optional
-        whether to cache data when reading; default is ``True``
 
     Examples
     --------
@@ -58,9 +56,6 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
 
     def __init__(self, names, *species, **kwargs):
 
-        # whether to use the cache
-        self.use_cache = kwargs.pop('use_cache', True)
-
         # input checks
         if len(species) < 2:
             raise ValueError("need at least 2 particle species to initialize MultipleSpeciesCatalog")
@@ -87,11 +82,6 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
 
         # store copies of the original input catalogs as (name:catalog) dict
         self._sources = {name:cat.copy() for name,cat in zip(names, species)}
-
-        # turn on cache?
-        if self.use_cache:
-            for name in names:
-                self._sources[name].use_cache = True
 
     @property
     def species(self):

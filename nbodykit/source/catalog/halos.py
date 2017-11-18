@@ -54,7 +54,7 @@ class HaloCatalog(CatalogSource):
         self._size = self._source.size
 
         # init the base class
-        CatalogSource.__init__(self, comm=comm, use_cache=False)
+        CatalogSource.__init__(self, comm=comm)
 
     @column
     def Mass(self):

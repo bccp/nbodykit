@@ -1,5 +1,5 @@
 from nbodykit.transform import ConstantArray
-from nbodykit import _global_options, CurrentMPIComm
+from nbodykit import _global_options, CurrentMPIComm, GlobalCache
 
 from six import string_types, add_metaclass
 import numpy
@@ -167,8 +167,6 @@ class CatalogSourceBase(object):
     ----------
     comm :
         the MPI communicator to use for this object
-    use_cache : bool, optional
-        whether to cache intermediate dask task results; default is ``False``
     """
     logger = logging.getLogger('CatalogSourceBase')
 
@@ -209,9 +207,6 @@ class CatalogSourceBase(object):
         # ensure self.comm is set, though usually already set by the child.
         obj.comm = kwargs.get('comm', CurrentMPIComm.get())
 
-        # initialize a cache
-        obj.use_cache = kwargs.get('use_cache', False)
-
         # user-provided overrides and defaults for columns
         obj._overrides = {}
 
@@ -243,7 +238,7 @@ class CatalogSourceBase(object):
         if isinstance(other, CatalogSourceBase):
             d = other.__dict__.copy()
             nocopy = ['base', '_overrides', '_hardcolumns', '_defaults', 'comm',
-                      '_cache', '_use_cache', '_size', '_csize']
+                      '_size', '_csize']
             for key in d:
                 if key not in nocopy:
                     self.__dict__[key] = d[key]
@@ -294,7 +289,7 @@ class CatalogSourceBase(object):
         # initialize subset Source of right size
         subset_data = {col:self[col][index] for col in self}
         cls = self.__class__ if self.base is None else self.base.__class__
-        toret = cls._from_columns(size, self.comm, use_cache=self.use_cache, **subset_data)
+        toret = cls._from_columns(size, self.comm, **subset_data)
 
         # attach the needed attributes
         toret.__finalize__(self)
@@ -339,7 +334,7 @@ class CatalogSourceBase(object):
 
                     # return a CatalogSource only holding the selected columns
                     subset_data = {col:self[col] for col in sel}
-                    toret = CatalogSource._from_columns(self.size, self.comm, use_cache=self.use_cache, **subset_data)
+                    toret = CatalogSource._from_columns(self.size, self.comm, **subset_data)
                     toret.attrs.update(self.attrs)
                     return toret
 
@@ -412,34 +407,6 @@ class CatalogSourceBase(object):
         raise ValueError("unable to delete column '%s' from CatalogSource" %col)
 
     @property
-    def use_cache(self):
-        """
-        If set to ``True``, use the built-in caching features of ``dask``
-        to cache data in memory.
-        """
-        return self._use_cache
-
-    @use_cache.setter
-    def use_cache(self, val):
-        """
-        Initialize a Cache object of size set by the ``dask_cache_size``
-        global configuration option, which is 1 GB by default.
-
-        See :class:`~nbodykit.set_options` to control the value of
-        ``dask_cache_size``.
-        """
-        if val:
-            try:
-                from dask.cache import Cache
-                if not hasattr(self, '_cache'):
-                    self._cache = Cache(_global_options['dask_cache_size'])
-            except ImportError:
-                warnings.warn("caching of CatalogSource requires ``cachey`` module; turning cache off")
-        else:
-            if hasattr(self, '_cache'): delattr(self, '_cache')
-        self._use_cache = val
-
-    @property
     def attrs(self):
         """
         A dictionary storing relevant meta-data about the CatalogSource.
@@ -503,7 +470,7 @@ class CatalogSourceBase(object):
             a new CatalogSource that holds all of the data columns of ``self``
         """
         # a new empty object with proper size
-        toret = CatalogSourceBase.__new__(self.__class__, self.comm, self.use_cache)
+        toret = CatalogSourceBase.__new__(self.__class__, self.comm)
         toret._size = self.size
         toret._csize = self.csize
 
@@ -549,8 +516,11 @@ class CatalogSourceBase(object):
         This should be called on the return value of :func:`read`
         to converts any dask arrays to numpy arrays.
 
-        If :attr:`use_cache` is ``True``, this internally caches data, using
-        dask's built-in cache features.
+        This uses the global cache as controlled by
+        :class:`nbodykit.GlobalCache` to cache dask task computations.
+        The default size is controlled by the ``global_cache_size`` global
+        option; see :class:`set_options`. To set the size, see
+        :func:`nbodykit.GlobalCache.resize`.
 
         .. note::
             If the :attr:`base` attribute is set, ``compute()``
@@ -569,18 +539,17 @@ class CatalogSourceBase(object):
         IO calls -- we turn this off feature off by default. Eventually we
         want our own optimizer probably.
         """
-        if self.base is not None: return self.base.compute(*args, **kwargs)
-
         import dask
+
+        # return the base compute if it exists
+        if self.base is not None:
+            return self.base.compute(*args, **kwargs)
 
         # do not optimize graph (can lead to slower optimizations)
         kwargs.setdefault('optimize_graph', False)
 
-        # use a cache?
-        if self.use_cache and hasattr(self, '_cache'):
-            with self._cache:
-                toret = dask.compute(*args, **kwargs)
-        else:
+        # compute using global cache
+        with GlobalCache.get():
             toret = dask.compute(*args, **kwargs)
 
         # do not return tuples of length one
@@ -686,7 +655,7 @@ class CatalogSourceBase(object):
         """
         # an empty class
         type = self.__class__ if type is None else type
-        obj = CatalogSourceBase.__new__(type, self.comm, self.use_cache)
+        obj = CatalogSourceBase.__new__(type, self.comm)
 
         # propagate the size attributes
         obj._size = self.size
@@ -807,13 +776,11 @@ class CatalogSource(CatalogSourceBase):
     ----------
     comm :
         the MPI communicator to use for this object
-    use_cache : bool, optional
-        whether to cache intermediate dask task results; default is ``False``
     """
     logger = logging.getLogger('CatalogSource')
 
     @classmethod
-    def _from_columns(cls, size, comm, use_cache=False, **columns):
+    def _from_columns(cls, size, comm, **columns):
         """
         An internal constructor to create a CatalogSource (or subclass)
         from a set of columns.
@@ -829,7 +796,7 @@ class CatalogSource(CatalogSourceBase):
             set for the returned object are :attr:`size` and :attr:`csize`.
         """
         # the new empty object to return
-        obj = CatalogSourceBase.__new__(cls, comm, use_cache)
+        obj = CatalogSourceBase.__new__(cls, comm)
 
         # compute the sizes
         obj._size = size

@@ -14,6 +14,6 @@ from nbodykit.algorithms import *
 
 from nbodykit.batch import TaskManager
 from nbodykit import cosmology
-from nbodykit import CurrentMPIComm
+from nbodykit import CurrentMPIComm, GlobalCache
 from nbodykit import transform
 from nbodykit import io as IO

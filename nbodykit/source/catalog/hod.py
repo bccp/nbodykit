@@ -43,7 +43,7 @@ class HODBase(ArrayCatalog):
     logger = logging.getLogger("HODBase")
 
     @CurrentMPIComm.enable
-    def __init__(self, halos, seed=None, use_cache=False, comm=None, **params):
+    def __init__(self, halos, seed=None, comm=None, **params):
 
         from halotools.empirical_models import model_defaults
 
@@ -116,7 +116,7 @@ class HODBase(ArrayCatalog):
             self._model.param_dict[param] = self.attrs[param]
 
         # make the actual source
-        ArrayCatalog.__init__(self, self.__makesource__(), comm=comm, use_cache=use_cache)
+        ArrayCatalog.__init__(self, self.__makesource__(), comm=comm)
 
         # crash with no particles!
         if self.csize == 0:
@@ -231,7 +231,7 @@ class HODBase(ArrayCatalog):
             self._log_populated_stats(data)
 
         # re-initialize with new source
-        ArrayCatalog.__init__(self, ScatterArray(data, self.comm), comm=self.comm, use_cache=self.use_cache)
+        ArrayCatalog.__init__(self, ScatterArray(data, self.comm), comm=self.comm)
 
     def _log_populated_stats(self, data):
         """
@@ -338,7 +338,7 @@ class HODCatalog(HODBase):
     @CurrentMPIComm.enable
     def __init__(self, halos, logMmin=13.031, sigma_logM=0.38,
                     alpha=0.76, logM0=13.27, logM1=14.08,
-                    seed=None, use_cache=False, comm=None):
+                    seed=None, comm=None):
 
         params = {}
         params['logMmin'] = logMmin
@@ -347,7 +347,7 @@ class HODCatalog(HODBase):
         params['logM0'] = logM0
         params['logM1'] = logM1
 
-        HODBase.__init__(self, halos, seed=seed, use_cache=use_cache, comm=comm, **params)
+        HODBase.__init__(self, halos, seed=seed, comm=comm, **params)
 
     def __repr__(self):
         names = ['logMmin', 'sigma_logM', 'alpha', 'logM0', 'logM1']
