@@ -24,7 +24,7 @@ def add_commands(sample, testname, ncores):
     bench_dir = os.path.join(results_dir, sample, str(ncores))
 
     # make the command
-    args = (bench_dir, bench_name, sample, ncores)
+    args = (bench_name, sample, bench_dir, ncores)
     cmd = "python ../benchmark.py {} --sample {} --bench-dir {} -n {}".format(*args)
 
     # and register
