@@ -1,5 +1,8 @@
 import pytest
 import numpy
+from nbodykit.lab import UniformCatalog, LogNormalCatalog
+from nbodykit.cosmology import LinearPower
+from nbodykit.transform import CartesianToSky
 
 class BenchmarkingSample(object):
     """
@@ -68,10 +71,6 @@ class BenchmarkingSample(object):
         sample. The catalog also includes (RA, DEC, Z) coordinates in
         addition to Position.
         """
-        from nbodykit.lab import LogNormalCatalog
-        from nbodykit.cosmology import LinearPower
-        from nbodykit.transform import CartesianToSky
-
         redshift = 0.
         nbar = self.N/self.BoxSize.prod()
 
@@ -92,14 +91,10 @@ class BenchmarkingSample(object):
 
         The overall ``N`` used here is ``alpha * self.N``.
         """
-        from nbodykit.lab import LogNormalCatalog
-        from nbodykit.cosmology import LinearPower
-        from nbodykit.transform import CartesianToSky
-
         nbar = alpha * self.N/self.BoxSize.prod()
         cat = UniformCatalog(nbar=nbar, BoxSize=self.BoxSize, seed=seed)
-        cat['NZ'] = nbar
-        
+        cat['NZ'] = nbar/alpha
+
         # add sky coordinates too
         cat['RA'], cat['DEC'], cat['Z'] = CartesianToSky(cat['Position'], self.cosmo, observer=0)
 
