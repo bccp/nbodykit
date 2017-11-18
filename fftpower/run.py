@@ -21,7 +21,7 @@ def add_commands(sample, testname, ncores):
     bench_name += "::" + testname
 
     # the output directory
-    bench_dir = os.path.join(results_dir, sample, ncores)
+    bench_dir = os.path.join(results_dir, sample, str(ncores))
 
     # make the command
     args = (bench_dir, bench_name, sample, ncores)
