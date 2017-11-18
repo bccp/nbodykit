@@ -12,7 +12,6 @@ from .lognormal import LogNormalCatalog
 from .uniform import UniformCatalog, RandomCatalog
 from .fkp import FKPCatalog
 from .halos import HaloCatalog
-from .hod import HODCatalog
 from .species import MultipleSpeciesCatalog
 
 __all__ = ['CSVCatalog',
@@ -27,5 +26,4 @@ __all__ = ['CSVCatalog',
            'UniformCatalog', 'RandomCatalog',
            'FKPCatalog',
            'HaloCatalog',
-           'HODCatalog',
            'MultipleSpeciesCatalog']

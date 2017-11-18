@@ -132,13 +132,12 @@ And subclasses:
   ~file.Gadget1Catalog
   ~array.ArrayCatalog
   ~halos.HaloCatalog
-  ~hod.HODCatalog
   ~lognormal.LogNormalCatalog
   ~uniform.UniformCatalog
   ~uniform.RandomCatalog
   ~fkp.FKPCatalog
   ~species.MultipleSpeciesCatalog
-
+  ~nbodykit.tutorials.DemoHaloCatalog
 
 Interpolating Objects to a Mesh
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
