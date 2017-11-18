@@ -51,38 +51,38 @@ def test_no_galaxies(comm):
     halos = DemoHaloCatalog('bolshoi', 'rockstar', 0.5)
 
     # no galaxies populated into halos
+    # NOTE: logMmin is unrealistically large here
     with pytest.raises(ValueError):
-        hod = halos.populate(Zheng07Model, seed=42, logMmin=16)
+        hod = halos.populate(Zheng07Model, seed=42, logMmin=17)
 
 @MPITest([4])
 def test_repopulate(comm):
 
     CurrentMPIComm.set(comm)
-    halos = DemoHaloCatalog('bolshoi', 'rockstar', 0.5)
 
-    # do not call repopulate first
-    with pytest.raises(ValueError):
-        hod = halos.repopulate()
+    # initialize the halos
+    halos = DemoHaloCatalog('bolshoi', 'rockstar', 0.5)
 
     # populate the mock first
     hod = halos.populate(Zheng07Model, seed=42)
     size = hod.csize
 
     # repopulate (with same seed --> same catalog)
-    hod = halos.repopulate(seed=42)
+    hod.repopulate(seed=42)
     assert hod.csize == size
 
-    # repopulate with random seed --> different catalog
-    hod = halos.repopulate()
-    assert hod.csize != size
+    # repopulate with random seed
+    # make sure root sets a random seed and it's saved
+    hod.repopulate(seed=None)
+    assert hod.attrs['seed'] is not None
 
     # new params, same seed
-    hod = halos.repopulate(seed=42, alpha=1.0)
+    hod.repopulate(seed=42, alpha=1.0)
     assert hod.csize != size
 
     # bad param name
     with pytest.raises(ValueError):
-        hod = halos.repopulate(seed=42, bad_param_name=1.0)
+        hod.repopulate(seed=42, bad_param_name=1.0)
 
 
 @MPITest([4])

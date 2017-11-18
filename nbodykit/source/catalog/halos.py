@@ -210,7 +210,8 @@ class HaloCatalog(CatalogSource):
 
         This assumes that this is the first time this catalog has been
         populated with the input model. To re-populate using the same
-        model (but different parameters), use :func:`repopulate`.
+        model (but different parameters), call the :func:`repopulate`
+        function of the returned :class:`PopulatedHaloCatalog`.
 
         Parameters
         ----------
@@ -225,6 +226,11 @@ class HaloCatalog(CatalogSource):
         **params :
             key/value pairs specifying the model parameters to use
 
+        Returns
+        -------
+        cat : :class:`PopulatedHaloCatalog`
+            the catalog object storing information about the populated objects
+
         Examples
         --------
         Initialize a demo halo catalog:
@@ -237,9 +243,9 @@ class HaloCatalog(CatalogSource):
         >>> from nbodykit.hod import Zheng07Model
         >>> galcat = cat.populate(Zheng07Model, seed=42)
 
-        And then re-populate with new parameters:
+        And then re-populate galaxy catalog with new parameters:
 
-        >>> galcat2 = cat.repopulate(alpha=0.9, logMmin=13.5, seed=42)
+        >>> galcat.repopulate(alpha=0.9, logMmin=13.5, seed=42)
         """
         from nbodykit.hod import HODModel
         from halotools.empirical_models import ModelFactory
@@ -274,17 +280,43 @@ class HaloCatalog(CatalogSource):
         # return the populated catalog
         return _populate_mock(self, model, seed=seed, halocat=halocat, **params)
 
+
+class PopulatedHaloCatalog(ArrayCatalog):
+    """
+    A CatalogSource to represent a set of objects populated into a
+    :class:`HaloCatalog`.
+
+    .. note::
+        Users should not access this class directly, but rather, call
+        :func:`HaloCatalog.populate` to generate a :class:`PopulatedHaloCatalog`.
+
+    Parameters
+    ----------
+    data : structured numpy.ndarray
+        the data of the populated objects
+    model :
+        the Halotools model instance
+    cosmo : :class:`nbodykit.cosmology.cosmology.Cosmology`
+        the cosmology instance
+    """
+    @CurrentMPIComm.enable
+    def __init__(self, data, model, cosmo, comm=None):
+        ArrayCatalog.__init__(self, data, comm=comm)
+        self.model = model
+        self.cosmo = cosmo
+
     def repopulate(self, seed=None, **params):
         """
-        Re-populate the HaloCatalog with specified ``seed`` or model parameters.
+        Re-populate the catalog in-place, using the specified ``seed``
+        or model parameters.
 
-        This re-uses the model that was last used to populate this catalog.
-        If this is the first population, :func:`populate` should be used
-        instead.
+        This re-uses the model that was last used to create this catalog.
+        It is faster than :func:`HaloCatalog.populate` as it avoids
+        initialization steps. It is intended to be used when looping over
+        different parameter sets, e.g., when performing parameter optimization.
 
-        This is faster than :func:`populate` as it avoids initialization steps,
-        as is intended to be used when looping over different parameter sets,
-        e.g., when performing parameter optimization.
+        .. note::
+            This operation is performed in-place.
 
         Parameters
         ----------
@@ -292,20 +324,11 @@ class HaloCatalog(CatalogSource):
             the random seed to use when populating the mock
         **params :
             key/value pairs specifying the model parameters to use
-
-        Raises
-        ------
-        ValueError :
-            if :func:`populate` has not been called on this catalog before
         """
-        # need a model!
-        if not hasattr(self, 'model'):
-            raise ValueError("no model attached to HaloCatalog; call populate() first")
-
-        return _populate_mock(self, self.model, seed=seed, **params)
+        _populate_mock(self, self.model, seed=seed, inplace=True, **params)
 
 
-def _populate_mock(halos, model, seed=None, halocat=None, **params):
+def _populate_mock(cat, model, seed=None, halocat=None, inplace=False, **params):
     """
     Internal function to perform the mock population on a HaloCatalog, given
     a :mod:`halotools` model.
@@ -325,9 +348,9 @@ def _populate_mock(halos, model, seed=None, halocat=None, **params):
 
     # set the seed randomly if it is None
     if seed is None:
-        if halos.comm.rank == 0:
+        if cat.comm.rank == 0:
             seed = numpy.random.randint(0, 4294967295)
-        seed = halos.comm.bcast(seed)
+        seed = cat.comm.bcast(seed)
 
     # the types of galaxies we are populating
     gal_types = getattr(model, 'gal_types', [])
@@ -335,16 +358,16 @@ def _populate_mock(halos, model, seed=None, halocat=None, **params):
     exception = None
     try:
         # the root will do the mock population
-        if halos.comm.rank == 0:
+        if cat.comm.rank == 0:
 
             # re-populate the mock (without halo catalog pre-processing)
-            kws = {'seed':seed, 'Num_ptcl_requirement':0, 'halo_mass_column_key':halos.attrs['halo_mass_key']}
+            kws = {'seed':seed, 'Num_ptcl_requirement':0, 'halo_mass_column_key':cat.attrs['halo_mass_key']}
             if hasattr(model, 'mock'):
                 model.mock.populate(**kws)
             # populating model for the first time (initialization costs)
             else:
                 if halocat is None:
-                    raise ValueError("halocat cannot be None if we are re-populating!")
+                    raise ValueError("halocat cannot be None if we are populating for the first time")
                 model.populate_mock(halocat=halocat, **kws)
 
             # enumerate gal types as integers
@@ -362,15 +385,19 @@ def _populate_mock(halos, model, seed=None, halocat=None, **params):
         exception = e
 
     # re-raise the error
-    exception = halos.comm.bcast(exception, root=0)
+    exception = cat.comm.bcast(exception, root=0)
     if exception is not None:
         raise exception
 
     # re-scatter the data evenly
-    data = ScatterArray(data, halos.comm, root=0)
+    data = ScatterArray(data, cat.comm, root=0)
 
     # re-initialize with new source
-    galcat = ArrayCatalog(data, comm=halos.comm)
+    if inplace:
+        PopulatedHaloCatalog.__init__(cat, data, model, cat.cosmo, comm=cat.comm)
+        galcat = cat
+    else:
+        galcat = PopulatedHaloCatalog(data, model, cat.cosmo, comm=cat.comm)
 
     # crash with no particles!
     if galcat.csize == 0:
@@ -381,18 +408,25 @@ def _populate_mock(halos, model, seed=None, halocat=None, **params):
     galcat['Velocity'] = transform.StackColumns(galcat['vx'], galcat['vy'], galcat['vz'])
 
     # add VelocityOffset
-    z = halos.attrs['redshift']
-    rsd_factor = (1+z) / (100.*halos.cosmo.efunc(z))
+    z = cat.attrs['redshift']
+    rsd_factor = (1+z) / (100.*cat.cosmo.efunc(z))
     galcat['VelocityOffset'] = galcat['Velocity'] * rsd_factor
 
     # add meta-data
-    galcat.attrs.update(halos.attrs)
+    galcat.attrs.update(cat.attrs)
     galcat.attrs.update(model.param_dict)
     galcat.attrs['seed'] = seed
     galcat.attrs['gal_types'] = {t:i for i,t in enumerate(gal_types)}
 
-    # and log some info!
-    _log_populated_stats(galcat, halos.csize)
+    # propagate total number of halos for logging
+    if galcat.comm.rank == 0:
+        Nhalos = len(galcat.model.mock.halo_table)
+    else:
+        Nhalos = None
+    Nhalos = galcat.comm.bcast(Nhalos, root=0)
+
+    # and log some info
+    _log_populated_stats(galcat, Nhalos)
 
     return galcat
 
