@@ -19,6 +19,9 @@ git checkout {{ tag }}
 
 # install correct nbodykit version to computing nodes
 bcast-pip .
+bcast-pip git+git://github.com/bccp/runtests.git
+
+command="srun -n {{ cores }}"
 
 echo ===== Running with {{ cores }} cores =====
-srun -n {{ cores }} python -u run-tests.py {{ benchname }} -m {{ sample }} --bench --no-build --bench-dir {{ benchdir }}
+python -u run-tests.py {{ benchname }} --mpirun=$command -m {{ sample }} --bench --no-build --bench-dir {{ benchdir }}
