@@ -72,7 +72,9 @@ def test_survey_threeptcf(comm):
     cat['Position'] -= 0.5*BoxSize
 
     # transform to RA/DEC/Z
+    # NOTE: we update Position here to get exact same Position as SurveyData3PCF
     cat['RA'], cat['DEC'], cat['Z'] = transform.CartesianToSky(cat['Position'], cosmo)
+    cat['Position'] = transform.SkyToCartesian(cat['RA'], cat['DEC'], cat['Z'], cosmo)
 
     # r binning
     nbins = 8
