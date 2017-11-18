@@ -1,7 +1,7 @@
 from nbodykit.lab import *
 import pytest
 
-def run_benchmark(benchmark, sample):
+def test_strong_scaling(benchmark, sample):
 
     # generate fake ra,dec,z
     with benchmark("Data"):
@@ -20,18 +20,3 @@ def run_benchmark(benchmark, sample):
 
     # save meta-data
     benchmark.attrs.update(N=sample.N, sample=sample.name)
-
-
-def test_strong_scaling(benchmark, sample):
-
-    # run the benchmark
-    run_benchmark(benchmark, sample)
-
-@pytest.mark.parametrize('N', [1e4, 1e5, 1e6])
-def test_weak_scaling(benchmark, sample, N):
-
-    # set N properly
-    sample.N = N
-
-    # run with this config
-    run_benchmark(benchmark, sample)
