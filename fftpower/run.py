@@ -24,8 +24,8 @@ def add_commands(sample, testname, ncores):
     bench_dir = os.path.join(results_dir, sample, ncores)
 
     # make the command
-    kws = {'bench_dir':bench_dir, 'bench_name':bench_name, 'sample':sample, 'ncores':ncores}
-    cmd = f"python ../benchmark.py {bench_name} --sample {sample} --bench-dir {bench_dir} -n {ncores}".format(**kws)
+    args = (bench_dir, bench_name, sample, ncores)
+    cmd = "python ../benchmark.py {} --sample {} --bench-dir {} -n {}".format(*args)
 
     # and register
     tag = {'sample':sample, 'testname':testname, 'ncores':ncores}
