@@ -24,11 +24,12 @@ def add_commands(sample, testname, ncores):
     bench_dir = os.path.join(results_dir, sample, ncores)
 
     # make the command
-    command = f"python ../benchmark.py {bench_name} --sample {sample} --bench-dir {bench_dir} -n {ncores}"
+    kws = {'bench_dir':bench_dir, 'bench_name':bench_name, 'sample':sample, 'ncores':ncores}
+    cmd = f"python ../benchmark.py {bench_name} --sample {sample} --bench-dir {bench_dir} -n {ncores}".format(**kws)
 
     # and register
     tag = {'sample':sample, 'testname':testname, 'ncores':ncores}
-    BenchmarkRunner.register(command, tag=tag)
+    BenchmarkRunner.register(cmd, tag=tag)
 
 
 if __name__ == '__main__':
