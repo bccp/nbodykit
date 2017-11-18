@@ -25,7 +25,7 @@ def test_download_directory(comm):
 @MPITest([1])
 def test_download_file(comm):
 
-    # download Gadget1P snapshots directory
+    # download TPM snapshot file
     filename = 'tpm_1.0000.bin.00'
     download_example_data(filename)
 
@@ -43,9 +43,15 @@ def test_download_failure(comm):
         download_example_data(filename)
 
 @MPITest([1])
+def test_missing_dirname(comm):
+
+    with pytest.raises(Exception):
+        download_example_data('Gadget1P', download_dirname='MISSING')
+
+@MPITest([1])
 def test_download_to_location(comm):
 
-    # download Gadget1P snapshots directory
+    # download Gadget1P snapshots directory to specific directory
     filename = 'Gadget1P'
     loc = tempfile.mkdtemp()
     download_example_data(filename, download_dirname=loc)

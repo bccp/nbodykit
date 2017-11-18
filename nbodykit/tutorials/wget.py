@@ -58,13 +58,6 @@ class ListingParser(HTMLParser):
                     break
 
 
-def print_download_progress(count, block_size, total_size):
-    import sys
-    pct_complete = float(count * block_size) / total_size
-    msg = "\r- Download progress: {0:.1%}".format(pct_complete)
-    sys.stdout.write(msg)
-    sys.stdout.flush()
-
 def mirror(url, target=None):
     """
     Mirror a URL recursively to a local target.
