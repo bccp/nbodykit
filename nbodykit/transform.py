@@ -206,8 +206,11 @@ def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0], zmax=100.):
     if not isinstance(pos, da.Array):
         raise TypeError("``pos`` should be a dask array")
 
+    # recenter position
+    pos = pos - observer
+
     # RA,dec coordinates (in degrees)
-    ra, dec = CartesianToEquatorial(pos, observer=observer)
+    ra, dec = CartesianToEquatorial(pos)
 
     # the distance from the origin
     r = da.linalg.norm(pos, axis=-1)
