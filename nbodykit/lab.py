@@ -1,7 +1,6 @@
 """
 The nbodykit lab, containing all of the necessary ingredients to use nbodykit.
 """
-
 from mpi4py import MPI
 import numpy
 

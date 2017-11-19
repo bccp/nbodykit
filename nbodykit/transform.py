@@ -110,6 +110,127 @@ def ConstantArray(value, size, chunks=100000):
     return da.from_array(toret, chunks=chunks)
 
 
+def CartesianToEquatorial(pos, observer=[0,0,0]):
+    """
+    Convert Cartesian position coordinates to equatorial right ascension
+    and declination, using the specified observer location.
+
+    .. note::
+        RA and DEC will be returned in degrees, with RA in the range [0,360]
+        and DEC in the range [-90, 90].
+
+    Parameters
+    ----------
+    pos : array_like
+        a N x 3 array holding the Cartesian position coordinates
+    observer : array_like
+        a length 3 array holding the observer location
+
+    Returns
+    -------
+    ra, dec : array_like
+        the right ascension and declination coordinates, in degrees. RA
+        will be in the range [0,360] and DEC in the range [-90, 90]
+    """
+    # recenter based on observer
+    pos = pos - observer
+
+    s = da.hypot(pos[:,0], pos[:,1])
+    lon = da.arctan2(pos[:,1], pos[:,0])
+    lat = da.arctan2(pos[:,2], s)
+
+    # convert to degrees
+    lon = da.rad2deg(lon)
+    lat = da.rad2deg(lat)
+
+    # wrap lon to [0,360]
+    lon = da.mod(lon-360., 360.)
+
+    return lon, lat
+
+def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0], zmax=100.):
+    r"""
+    Convert Cartesian position coordinates to RA/Dec and redshift,
+    using the specified cosmology to convert radial distances from
+    the origin into redshift.
+
+    If velocity is supplied, the returned redshift accounts for the
+    additional peculiar velocity shift.
+
+    Users should ensure that ``zmax`` is larger than the largest possible
+    redshift being considered to avoid an interpolation exception.
+
+    .. note::
+        Cartesian coordinates should be in units of Mpc/h and velocity
+        should be in units of km/s.
+
+    Parameters
+    ----------
+    pos : dask array
+        a N x 3 array holding the Cartesian position coordinates in Mpc/h
+    cosmo : :class:`~nbodykit.cosmology.cosmology.Cosmology`
+        the cosmology used to meausre the comoving distance from ``redshift``
+    velocity : array_like
+        a N x 3 array holding velocity in km/s
+    observer : array_like, optional
+        a length 3 array holding the observer location
+    zmax : float, optional
+        the maximum possible redshift, should be set to a reasonably large
+        value to avoid interpolation failure going from comoving distance
+        to redshift
+
+    Returns
+    -------
+    ra, dec, z : dask array
+        the right ascension (in degrees), declination (in degrees), and
+        redshift coordinates. RA will be in the range [0,360] and DEC in the
+        range [-90, 90]
+
+    Notes
+    -----
+    If velocity is provided, redshift-space distortions are added to the
+    real-space redshift :math:`z_\mathrm{real}`, via:
+
+    .. math::
+
+            z_\mathrm{redshift} = ( v_\mathrm{pec} / c ) (1 + z_\mathrm{reals})
+
+    Raises
+    ------
+    TypeError
+        If the input columns are not dask arrays
+    """
+    from astropy.constants import c
+    from scipy.interpolate import interp1d
+
+    if not isinstance(pos, da.Array):
+        raise TypeError("``pos`` should be a dask array")
+
+    # recenter position
+    pos = pos - observer
+
+    # RA,dec coordinates (in degrees)
+    ra, dec = CartesianToEquatorial(pos)
+
+    # the distance from the origin
+    r = da.linalg.norm(pos, axis=-1)
+
+    def z_from_comoving_distance(x):
+        zgrid = numpy.logspace(-8, numpy.log10(zmax), 1024)
+        zgrid = numpy.concatenate([[0.], zgrid])
+        rgrid = cosmo.comoving_distance(zgrid)
+        return interp1d(rgrid, zgrid)(x)
+
+    # invert distance - redshift relation
+    z = r.map_blocks(z_from_comoving_distance)
+
+    # add in velocity offsets?
+    if velocity is not None:
+        vpec =  (pos*velocity).sum(axis=-1) / r
+        z += vpec / c.to('km/s').value * (1 + z)
+
+    return ra, dec, z
+
 def SkyToUnitSphere(ra, dec, degrees=True):
     """
     Convert sky coordinates (``ra``, ``dec``) to Cartesian coordinates on
