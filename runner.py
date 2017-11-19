@@ -132,9 +132,16 @@ class BenchmarkRunner(object):
         # add the commands
         _add_commands()
 
-    def register(self, command, tag={}):
+    def register(self, command, tag):
         """
         Register a new command with the specified tag.
+
+        Parameters
+        ----------
+        command : str
+            the command to run
+        tag : dict
+            the dict of key/values that represents this command
         """
         self.commands.append(command)
         self.tags.append(tag)
