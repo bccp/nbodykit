@@ -7,7 +7,7 @@ except ImportError: fastpm = None
 
 setup_logging()
 
-@pytest.mark.skipif(fastpm is None, "fastpm is not installed")
+@pytest.mark.skipif(fastpm is None, reason="fastpm is not installed")
 def test_strong_scaling(benchmark):
 
     from fastpm.nbkit import FastPMCatalogSource
@@ -33,6 +33,6 @@ def test_strong_scaling(benchmark):
 
     # compute and save galaxy power spectrum
     # result consistent on all ranks
-    with benchmark("FFTPower")
+    with benchmark("FFTPower"):
         r = FFTPower(hod, mode='1d', Nmesh=128)
         r.save('galaxy-power.json')
