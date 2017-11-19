@@ -17,19 +17,15 @@ cd $scratch;
 # remove tmp directory on EXIT
 trap "rm -rf $scratch" EXIT
 
-# clone nbodykit
-git clone https://github.com/bccp/nbodykit
-
-# checkout correct source version
-cd nbodykit
-git checkout {{ tag }}
-
 # install correct nbodykit version to computing nodes
-bcast-pip git+git://github.com/nickhand/nbodykit.git@correlation
+bcast-pip git+git://github.com/bccp/nbodykit.git@{{ tag }}
 bcast-pip git+git://github.com/bccp/runtests.git
 
-# checkout the benchmarks
+# clone nbodykit (so we can run benchmarks)
+git clone https://github.com/bccp/nbodykit
+cd nbodykit
 git checkout benchmark-tests
 
+# call run-tests with desired number of cores
 echo ===== Running with {{ cores }} cores =====
 python -u run-tests.py {{ benchname }} --mpirun "srun -n {{ cores }}" {{ sample }} --bench --no-build --bench-dir {{ benchdir }} -s
