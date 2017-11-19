@@ -189,7 +189,7 @@ class BenchmarkRunner(object):
 
         # this is a hack using dummy arguments here so we can parse
         # successfully (these are ignored)
-        dummy = ['benchname', '--sample', 'boss', '--bench-dir', 'None', '-n', '1']
+        dummy = ['benchname', '--sample', 'boss_like', '--bench-dir', 'None', '-n', '1']
         args = parser.parse_args(dummy + args)
 
         # the config dict

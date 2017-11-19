@@ -38,7 +38,7 @@ class NERSCBenchmark(object):
         parser.add_argument('benchname', type=str, help=h)
 
         h = 'the name of the sample to run'
-        parser.add_argument('--sample', type=str, choices=['boss', 'desi'], help=h, required=True)
+        parser.add_argument('--sample', type=str, choices=['boss_like', 'desi_like'], help=h, required=True)
 
         h = 'the output path to save the benchmark result to'
         parser.add_argument('--bench-dir', type=str, help=h, required=True)
