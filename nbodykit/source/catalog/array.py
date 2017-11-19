@@ -1,17 +1,20 @@
 from nbodykit.base.catalog import CatalogSource
+from nbodykit.utils import is_structured_array
 from nbodykit import CurrentMPIComm
+from astropy.table import Table
 import numpy
 
 class ArrayCatalog(CatalogSource):
     """
-    A CatalogSource initialized from a dictionary or structured ndarray.
+    A CatalogSource initialized from an in-memory :obj:`dict`,
+    structured :class:`numpy.ndarray`, or :class:`astropy.table.Table`.
 
     Parameters
     ----------
-    data : obj:`dict` or :class:`numpy.ndarray`
-        a dictionary or structured ndarray; items are interpreted
-        as the columns of the catalog; the length of any item is used
-        as the size of the catalog.
+    data : obj:`dict`, :class:`numpy.ndarray`, :class:`astropy.table.Table`
+        a dictionary, structured ndarray, or astropy Table; items are
+        interpreted as the columns of the catalog; the length of any item is
+        used as the size of the catalog.
     comm : MPI Communicator, optional
         the MPI communicator instance; default (``None``) sets to the
         current communicator
@@ -21,15 +24,26 @@ class ArrayCatalog(CatalogSource):
     @CurrentMPIComm.enable
     def __init__(self, data, comm=None, **kwargs):
 
+        # convert astropy Tables to structured numpy arrays
+        if isinstance(data, Table):
+            data = data.as_array()
+
+        # check for structured data
+        if not isinstance(data, dict):
+            if not is_structured_array(data):
+                raise ValueError(("input data to ArrayCatalog must have a "
+                                   "structured data type with fields"))
+
         self.comm    = comm
         self._source = data
 
+        # compute the data type
         if hasattr(data, 'dtype'):
             keys = sorted(data.dtype.names)
         else:
             keys = sorted(data.keys())
-
         dtype = numpy.dtype([(key, (data[key].dtype, data[key].shape[1:])) for key in keys])
+        self._dtype = dtype
 
         # verify data types are the same
         dtypes = self.comm.gather(dtype, root=0)
@@ -37,13 +51,13 @@ class ArrayCatalog(CatalogSource):
             if any(dt != dtypes[0] for dt in dtypes):
                 raise ValueError("mismatch between dtypes across ranks in Array")
 
+        # the local size
         self._size = len(self._source[keys[0]])
 
         for key in keys:
             if len(self._source[key]) != self._size:
                 raise ValueError("column `%s` and column `%s` has different size" % (keys[0], key))
 
-        self._dtype = dtype
         # update the meta-data
         self.attrs.update(kwargs)
 

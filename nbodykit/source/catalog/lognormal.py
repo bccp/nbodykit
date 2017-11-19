@@ -146,10 +146,6 @@ class LogNormalCatalog(CatalogSource):
         # move particles from initial position based on the Zeldovich displacement
         pos[:] = (pos + disp) % BoxSize
 
-        # RSD in the Zel'dovich approx bring in extra factor of f
-        # add this to both velocity and velocity offset
-        disp[:] *= f
-
         # velocity from displacement (assuming Mpc/h)
         # this is f * H(z) * a / h = f 100 E(z) a --> converts from Mpc/h to km/s
         z = self.attrs['redshift']
@@ -165,6 +161,6 @@ class LogNormalCatalog(CatalogSource):
         source = numpy.empty(len(pos), dtype)
         source['Position'][:] = pos[:] # in Mpc/h
         source['Velocity'][:] = vel[:] # in km/s
-        source['VelocityOffset'][:] = disp[:] # in Mpc/h
+        source['VelocityOffset'][:] = f*disp[:] # in Mpc/h
 
         return source, pm

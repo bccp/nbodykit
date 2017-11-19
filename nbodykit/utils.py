@@ -5,14 +5,26 @@ import functools
 import contextlib
 import os, sys
 
-def get_data_bounds(data, comm):
+def is_structured_array(arr):
     """
-    Return the global minimum/maximum of a numpy array along the
+    Test if the input array is a structured array
+    by testing for `dtype.names`
+    """
+    if not isinstance(arr, numpy.ndarray) or not hasattr(arr, 'dtype'):
+        return False
+    return arr.dtype.char ==  'V'
+
+def get_data_bounds(data, comm, selection=None):
+
+    """
+    Return the global minimum/maximum of a numpy/dask array along the
     first axis.
+
+    This is computed in chunks to avoid memory errors on large data.
 
     Parameters
     ----------
-    data : numpy.ndarray
+    data : numpy.ndarray or dask.array.Array
         the data to find the bounds of
     comm :
         the MPI communicator
@@ -22,14 +34,40 @@ def get_data_bounds(data, comm):
     min, max :
         the min/max of ``data``
     """
-    assert isinstance(data, numpy.ndarray)
+    import dask.array as da
 
-    # min/max
+    # local min/max on this rank
     dmin = numpy.ones(data.shape[1:]) * (numpy.inf)
     dmax = numpy.ones_like(dmin) * (-numpy.inf)
-    if len(data):
-        dmin = data.min(axis=0)
-        dmax = data.max(axis=0)
+
+    # max size
+    Nlocalmax = max(comm.allgather(len(data)))
+
+    # compute in chunks to avoid memory error
+    chunksize = 1024**2 * 8
+    for i in range(0, Nlocalmax, chunksize):
+        s = slice(i, i + chunksize)
+
+        if len(data) != 0:
+
+            # selection has to be computed many times when data is `large`.
+            if selection is not None:
+                sel = selection[s]
+                if isinstance(selection, da.Array):
+                    sel = sel.compute()
+
+            # be sure to use the source to compute
+            d = data[s]
+            if isinstance(data, da.Array):
+                d = d.compute()
+
+            # select
+            if selection is not None:
+                d = d[sel]
+
+            # update min/max on this rank
+            dmin = numpy.min([d.min(axis=0), dmin], axis=0)
+            dmax = numpy.max([d.max(axis=0), dmax], axis=0)
 
     # global min/max across all ranks
     dmin = numpy.asarray(comm.allgather(dmin)).min(axis=0)
