@@ -24,8 +24,8 @@ class BenchmarkingSample(object):
     """
     samples = ['test', 'boss_like', 'desi_like']
     test      = {'BoxSize' : 100.,  'Nmesh':64,   'N':1e3}
-    boss_like = {'BoxSize' : 1380., 'Nmesh':1024, 'N':1e6}
-    desi_like = {'BoxSize' : 2500., 'Nmesh':1024, 'N':1e7}
+    boss_like = {'BoxSize' : 2500., 'Nmesh':1024, 'N':1e6}
+    desi_like = {'BoxSize' : 5000., 'Nmesh':1024, 'N':3e7}
 
     def __init__(self, name):
         assert name in self.samples, 'valid names are: %s' % str(self.samples)
@@ -77,10 +77,12 @@ class BenchmarkingSample(object):
         # lognormal catalog
         Plin = LinearPower(self.cosmo, redshift=self.redshift, transfer='EisensteinHu')
         cat = LogNormalCatalog(Plin=Plin, nbar=nbar, BoxSize=self.BoxSize, Nmesh=self.Nmesh, seed=seed)
-        cat['NZ'] = nbar
 
         # add sky coordinates too
-        cat['RA'], cat['DEC'], cat['Z'] = CartesianToSky(cat['Position'], self.cosmo, observer=0)
+        cat['RA'], cat['DEC'], cat['Z'] = CartesianToSky(cat['Position'], self.cosmo, observer=0.5*self.BoxSize)
+
+        # and n(z)
+        cat['NZ'] = nbar
 
         return cat
 
@@ -93,10 +95,12 @@ class BenchmarkingSample(object):
         """
         nbar = alpha * self.N/self.BoxSize.prod()
         cat = UniformCatalog(nbar=nbar, BoxSize=self.BoxSize, seed=seed)
-        cat['NZ'] = nbar/alpha
 
         # add sky coordinates too
-        cat['RA'], cat['DEC'], cat['Z'] = CartesianToSky(cat['Position'], self.cosmo, observer=0)
+        cat['RA'], cat['DEC'], cat['Z'] = CartesianToSky(cat['Position'], self.cosmo, observer=0.5*self.BoxSize)
+
+        # and n(z)
+        cat['NZ'] = nbar/alpha
 
         return cat
 
