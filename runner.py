@@ -1,4 +1,4 @@
-from argparse import ArgumentParser, Action, SUPPRESS
+from argparse import ArgumentParser, Action, SUPPRESS, RawDescriptionHelpFormatter
 import os
 import textwrap as tw
 import itertools
@@ -224,10 +224,12 @@ class BenchmarkRunner(object):
 
     def parse_args(self):
         """
-        Parse the command-line arguments
+        Parse the command-line arguments.
         """
-        desc = "run the ``benchmarks.py`` script from a set of registered commands"
-        parser = ArgumentParser(description=desc)
+        desc = ("run the ``benchmarks.py`` script from a set of registered commands"
+                "\n\nUnrecognized command line arguments specified here will be passed\n"
+                "to ``benchmark.py``; see ``benchmark.py`` for options")
+        parser = ArgumentParser(description=desc, formatter_class=RawDescriptionHelpFormatter)
 
         h = 'the integer number of the test to run'
         parser.add_argument('testno', type=int, help=h)
