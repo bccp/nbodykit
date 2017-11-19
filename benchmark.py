@@ -30,9 +30,15 @@ class NERSCBenchmark(object):
     """
 
     @staticmethod
-    def to_dataframe(path):
+    def load(path):
         """
         Return a NERSC benchmark result as a pandas dataframe.
+
+        Parameters
+        ----------
+        path : str
+            the path to a directory holding the results; this directory
+            should hold a ``config.json`` file.
         """
         import pandas as pd
 
