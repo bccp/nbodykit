@@ -15,7 +15,7 @@ scratch=$(mktemp -d)
 cd $scratch;
 
 # remove tmp directory on EXIT
-#trap "rm -rf $scratch" EXIT
+trap "rm -rf $scratch" EXIT
 
 # clone nbodykit
 git clone https://github.com/bccp/nbodykit
