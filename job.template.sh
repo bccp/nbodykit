@@ -28,5 +28,8 @@ git checkout {{ tag }}
 bcast-pip .
 bcast-pip git+git://github.com/bccp/runtests.git
 
+# checkout the benchmarks
+git checkout benchmark-tests
+
 echo ===== Running with {{ cores }} cores =====
 python -u run-tests.py {{ benchname }} --mpirun "srun -n {{ cores }}" -m {{ sample }} --bench --no-build --bench-dir {{ benchdir }}
