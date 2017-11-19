@@ -15,11 +15,10 @@ def test_strong_scaling(benchmark):
     # setup initial conditions
     cosmo = cosmology.Planck15
     power = cosmology.LinearPower(cosmo, 0)
-    with benchmark("InitialConditions"):
-        linear = LinearMesh(power, BoxSize=512, Nmesh=512)
 
     # run a computer simulation!
     with benchmark("Simulation"):
+        linear = LinearMesh(power, BoxSize=512, Nmesh=512)
         sim = FastPMCatalogSource(linear, Nsteps=10)
 
     # run FOF to identify halo groups
