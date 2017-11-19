@@ -7,7 +7,7 @@ from runner import BenchmarkRunner
 this_dir = os.path.abspath(os.path.dirname(__file__))
 
 # CONFIGURATION
-ncores = [64, 128, 256, 512]
+ncores = [1, 4, 16, 64, 128, 256, 512]
 test_functions = ['test_strong_scaling']
 
 
