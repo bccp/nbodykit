@@ -6,6 +6,9 @@ import tempfile
 import subprocess
 import numpy
 
+# valid benchmarking sample names
+SAMPLES = ['boss_like', 'desi_like', 'dm_like']
+
 # the directory this file lives in
 toplevel = os.path.split(os.path.abspath(__file__))[0]
 
@@ -61,7 +64,7 @@ class NERSCBenchmark(object):
 
                     # first path is sample, if it exists
                     sample = os.path.normpath(dirpath).split(os.path.sep)[0]
-                    if sample not in ['boss_like', 'desi_like']:
+                    if sample not in SAMPLES:
                         sample = ""
 
                     # load the JSON file
@@ -91,7 +94,7 @@ class NERSCBenchmark(object):
         parser.add_argument('benchname', type=str, help=h)
 
         h = 'the name of the sample to run'
-        parser.add_argument('--sample', type=str, default=None, choices=['boss_like', 'desi_like'], help=h)
+        parser.add_argument('--sample', type=str, default=None, choices=SAMPLES, help=h)
 
         h = 'the output path to save the benchmark result to'
         parser.add_argument('--bench-dir', type=str, help=h, required=True)

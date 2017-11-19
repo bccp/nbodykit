@@ -15,8 +15,9 @@ if __name__ == '__main__':
 
     result_dir = os.path.join(this_dir, 'results') # output directory
     test_path = 'benchmarks/test_emulator.py' # the test file we want to run
+    samples = [] # do not run any specific samples
 
     # initialize and run
     runner = BenchmarkRunner(test_path, result_dir)
-    runner.add_commands(test_functions, ncores, samples=[])
+    runner.add_commands(test_functions, ncores, samples)
     runner.execute()

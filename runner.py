@@ -96,7 +96,7 @@ class BenchmarkRunner(object):
         self.commands = []
         self.tags = []
 
-    def add_commands(self, testnames, ncores, samples=['boss_like', 'desi_like']):
+    def add_commands(self, testnames, ncores, samples):
         """
         Register benchmarks for different configurations of
         test names and number of cores.
