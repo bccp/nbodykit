@@ -29,8 +29,8 @@ def parametrize(params):
     params : dict
         the dictionary holding the param lists
     """
-    keys = list(params.keys())
-    params = list(itertools.product(*[params[k] for k in sorted(params)]))
+    keys = sorted(list(params.keys()))
+    params = list(itertools.product(*[params[k] for k in keys]))
     def wrapped(func):
         def func_wrapper(*args, **kwargs):
             for p in params:
