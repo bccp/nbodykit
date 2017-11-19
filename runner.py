@@ -4,7 +4,6 @@ import textwrap as tw
 import itertools
 import json
 import hashlib
-import platform
 
 def generate_unique_id(d, N=10):
     """
@@ -17,23 +16,18 @@ def generate_unique_id(d, N=10):
     N : int, optional
         return the first ``N`` characters from the hash string
     """
-    import hashlib
-
     s = json.dumps(d, sort_keys=True).encode()
     return hashlib.sha1(s).hexdigest()[:N]
 
-def get_machine_info():
-    """
-    Return information about the machine, including host,
-    system, and the python version.
-    """
-    return {'host':platform.node(),
-            'system': platform.system(),
-            'python_version': ".".join(platform.python_version_tuple())}
-
 def parametrize(params):
     """
-    Execute a function for each of the input parameters.
+    Execute a function for the product of the parameters in the
+    ``params`` dict, using ``itertools``.
+
+    Pararameters
+    ------------
+    params : dict
+        the dictionary holding the param lists
     """
     keys = list(params.keys())
     params = list(itertools.product(*[params[k] for k in params]))
@@ -71,14 +65,11 @@ def InfoAction(runner):
             print("Registered commands\n" + "-"*19)
             for i, command in enumerate(runner.commands):
                 tag = runner.tags[i]
-                c = tw.dedent(command).strip()
-                c = tw.fill(c, initial_indent=' '*4, subsequent_indent=' '*4, width=80)
-
                 header = "%d:" %i
                 if len(tag):
                     header = header + " " + ", ".join(["'%s' = %s" %(k,tag[k]) for k in tag])
                 header += "\n"
-                print("%s\n%s\n" %(header, c))
+                print(str(header))
 
             parser.exit()
 
@@ -122,19 +113,21 @@ class BenchmarkRunner(object):
         @parametrize({'sample': self.samples, 'testname':testnames, 'ncores':ncores})
         def _add_commands(sample, testname, ncores):
 
-            # the name of the benchmark test to run
-            bench_name = self.test_path + "::" + testname
+            def command(sample, ncores, testname):
+                # the name of the benchmark test to run
+                bench_name = self.test_path + "::" + testname
 
-            # the output directory
-            bench_dir = os.path.join(self.result_dir, sample, str(ncores))
+                # the output directory
+                bench_dir = os.path.join(self.result_dir, sample, str(ncores))
 
-            # make the command
-            args = (bench_name, sample, bench_dir, ncores)
-            cmd = "python ../benchmark.py {} --sample {} --bench-dir {} -n {}".format(*args)
+                # make the command
+                args = (bench_name, sample, bench_dir, ncores)
+                cmd = "python ../benchmark.py {} --sample {} --bench-dir {} -n {}".format(*args)
+                return cmd
 
             # and register
             tag = {'sample':sample, 'testname':testname, 'ncores':ncores}
-            self.register(cmd, tag=tag)
+            self.register(command, tag=tag)
 
         # add the commands
         _add_commands()
@@ -154,21 +147,52 @@ class BenchmarkRunner(object):
         ns, unknown = self.parse_args()
 
         # setup the output directory
-        self._store_config()
+        self._store_config(unknown)
+
+        # get the command, optionally evaluating it
+        command = self.commands[ns.testno]
+        if callable(command):
+            command = command(**self.tags[ns.testno])
 
         # append unknown command-line args
-        command = self.commands[ns.testno] + ' ' + ' '.join(unknown)
+        command += ' ' + ' '.join(unknown)
 
         # execute
         self._execute(command)
 
-    def _store_config(self):
+    def _store_config(self, args):
         """
         Internal function to store the configuration.
+
+        Here, the configuration consists of:
+
+        - host: the NERSC host name
+        - python_version: the python version we use to execute the test
+        - git_tag: the git tag we checkout before running the tests
+
+        This configuration dict will be hashed to a unique string, and the
+        results stored in that dictionary. The dict is saved to the
+        file ``config.json`` in the top-level directory if it doesn't exist
+        already.
         """
-        # setup the hash and
-        machine_info = get_machine_info()
-        hashstr = generate_unique_id(machine_info)
+        from benchmark import NERSCBenchmark
+
+        # parse additional command line options that are being passed to benchmark.py
+        parser = NERSCBenchmark.get_parser()
+
+        # this is a hack using dummy arguments here so we can parse
+        # successfully (these are ignored)
+        dummy = ['benchname', '--sample', 'boss', '--bench-dir', 'None', '-n', '1']
+        args = parser.parse_args(dummy + args)
+
+        # the config dict
+        config = {}
+        config['host'] = os.environ.get('NERSC_HOST', None)
+        config['python_version'] = args.py
+        config['git_tag'] = args.tag
+
+        # get the hash string
+        hashstr = generate_unique_id(config)
 
         # update the result directory
         self.result_dir = os.path.join(self.result_dir, hashstr)
@@ -178,7 +202,7 @@ class BenchmarkRunner(object):
         # dump config to JSON file, if it doesnt exist
         cfg_file = os.path.join(self.result_dir, 'config.json')
         if not os.path.exists(cfg_file):
-            json.dump(machine_info, open(cfg_file, 'w'))
+            json.dump(config, open(cfg_file, 'w'))
 
 
     def _execute(self, command):
