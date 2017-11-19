@@ -75,11 +75,11 @@ def test_cartesian_to_sky_velocity(comm):
 
     # real-space redshift
     _, _, z_real = transform.CartesianToSky(s['Position'], cosmo,
-                                            velocity=s['Velocity'],
-                                            observer=[-1e4, -1e4, -1e4])
+                                            observer=[-1e3, -1e3, -1e3])
     # redshift-space redshift
     _, _, z_redshift = transform.CartesianToSky(s['Position'], cosmo,
-                                                observer=[-1e4, -1e4, -1e4])
+                                                velocity=s['Velocity'],
+                                                observer=[-1e3, -1e3, -1e3])
 
     numpy.testing.assert_allclose(z_real, z_redshift, rtol=1e-3)
 
