@@ -1,5 +1,8 @@
 from nbodykit.lab import *
+from nbodykit import setup_logging
 import pytest
+
+setup_logging()
 
 def test_strong_scaling(benchmark, sample):
 
