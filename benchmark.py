@@ -4,6 +4,7 @@ import os
 from jinja2 import Environment, FileSystemLoader, Template
 import tempfile
 import subprocess
+import numpy
 
 # the directory this file lives in
 toplevel = os.path.split(os.path.abspath(__file__))[0]
@@ -27,6 +28,36 @@ class NERSCBenchmark(object):
     """
     Class to submit benchmark tasks to NERSC.
     """
+
+    @staticmethod
+    def to_dataframe(path):
+        """
+        Return a NERSC benchmark result as a pandas dataframe.
+        """
+        import pandas as pd
+
+        cfg_file = os.path.join(path, 'config.json')
+        if not os.path.exists(cfg_file):
+            raise ValueError("the path should contain a 'config.json' file")
+
+        config = json.load(open(cfg_file, 'r'))
+
+        rows = []
+        for dirpath, dirnames, filenames in os.walk(path):
+            for filename in filenames:
+                if filename != 'config.json' and filename.endswith('.json'):
+                    sample = os.path.normpath(dirpath).split(os.path.sep)[0]
+                    d = json.load(open(os.path.join(dirpath, filename), 'r'))
+                    for test in d['tests']:
+                        for tag in d['tags']:
+                            x = d[test][tag]
+                            rows.append((sample, test, tag, len(x), numpy.median(x), numpy.mean(x), numpy.min(x), numpy.max(x)))
+
+
+        names = ['sample', 'name', 'tag', 'ncores', 'dt_median', 'dt_mean', 'dt_min', 'dt_max']
+        df = pd.DataFrame(data=rows, columns=names)
+        df.config = config
+        return df
 
     @classmethod
     def get_parser(cls):
