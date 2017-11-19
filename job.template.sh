@@ -10,6 +10,13 @@
 # activate environment
 source /usr/common/contrib/bccp/conda-activate.sh {{ python_version }}
 
+# make a temp directory and cd there
+scratch=$(mktemp -d)
+cd $scratch;
+
+# remove tmp directory on EXIT
+trap "rm -rf $scratch" EXIT
+
 # clone nbodykit
 git clone https://github.com/bccp/nbodykit
 
