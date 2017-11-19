@@ -25,7 +25,7 @@ class BenchmarkingSample(object):
     samples   = ['test', 'boss_like', 'desi_like']
     test      = {'BoxSize' : 100.,  'Nmesh':64,   'N':1e3}
     boss_like = {'BoxSize' : 2500., 'Nmesh':1024, 'N':1e6}
-    desi_like = {'BoxSize' : 5000., 'Nmesh':1024, 'N':3e7}
+    desi_like = {'BoxSize' : 5000., 'Nmesh':1024, 'N':1e7}
 
     def __init__(self, name):
         assert name in self.samples, 'valid names are: %s' % str(self.samples)
