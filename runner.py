@@ -88,8 +88,6 @@ class BenchmarkRunner(object):
         the directory where we want to save the results, passed via
         ``--bench-dir``
     """
-    samples = ['boss_like', 'desi_like']
-
     def __init__(self, test_path, result_dir):
         self.test_path = test_path
         self.result_dir = result_dir
@@ -98,7 +96,7 @@ class BenchmarkRunner(object):
         self.commands = []
         self.tags = []
 
-    def add_commands(self, testnames, ncores):
+    def add_commands(self, testnames, ncores, samples=['boss_like', 'desi_like']):
         """
         Register benchmarks for different configurations of
         test names and number of cores.
@@ -109,11 +107,16 @@ class BenchmarkRunner(object):
             a list of the test functions we want to run
         ncores : list of int
             a list of the number of cores we want to run
+        samples : list of str
+            the list of names of benchmarking samples that we want to run
         """
-        @parametrize({'sample': self.samples, 'testname':testnames, 'ncores':ncores})
-        def _add_commands(sample, testname, ncores):
+        params = {'testname':testnames, 'ncores':ncores}
+        if len(samples): params['sample'] = samples
 
-            def command(sample, ncores, testname):
+        @parametrize(params)
+        def _add_commands(testname, ncores, sample=None):
+
+            def command(testname, ncores, sample=None):
                 # the name of the benchmark test to run
                 bench_name = self.test_path + "::" + testname
 
@@ -121,13 +124,16 @@ class BenchmarkRunner(object):
                 bench_dir = os.path.join(self.result_dir, sample, str(ncores))
 
                 # make the command
-                args = (bench_name, sample, bench_dir, ncores)
-                cmd = "python ../benchmark.py {} --sample {} --bench-dir {} -n {}".format(*args)
+                args = (bench_name, bench_dir, ncores)
+                cmd = "python ../benchmark.py {} --bench-dir {} -n {}".format(*args)
+                if sample is not None:
+                    cmd += " --sample " + sample
                 return cmd
 
             # and register
-            tag = {'sample':sample, 'testname':testname, 'ncores':ncores}
-            self.register(command, tag=tag)
+            tag = {'testname':testname, 'ncores':ncores}
+            if sample is not None: tag['sample'] = sample
+            self.register(command, tag)
 
         # add the commands
         _add_commands()
