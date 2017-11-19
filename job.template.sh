@@ -15,7 +15,7 @@ scratch=$(mktemp -d)
 cd $scratch;
 
 # remove tmp directory on EXIT
-trap "rm -rf $scratch" EXIT
+#trap "rm -rf $scratch" EXIT
 
 # clone nbodykit
 git clone https://github.com/bccp/nbodykit
@@ -25,7 +25,7 @@ cd nbodykit
 git checkout {{ tag }}
 
 # install correct nbodykit version to computing nodes
-bcast-pip .
+bcast-pip git+git://github.com/nickhand/nbodykit.git@correlation
 bcast-pip git+git://github.com/bccp/runtests.git
 
 # checkout the benchmarks
