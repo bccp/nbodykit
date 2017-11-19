@@ -27,8 +27,8 @@ def main(ns):
 
     # determine the NERSC host
     host = os.environ.get('NERSC_HOST', None)
-    # if host is None:
-    #     raise RuntimeError("benchmark.py should be executed on NERSC")
+    if host is None:
+         raise RuntimeError("benchmark.py should be executed on NERSC")
 
     # make the benchmark directory absolute
     ns.bench_dir = os.path.normpath(os.path.abspath(ns.bench_dir))
@@ -57,7 +57,7 @@ def main(ns):
     config['haswell_config'] = "#SBATCH -C haswell" if host == 'cori' else ""
     config['output_file'] = output_file
     config['sample'] = ns.sample
-    config['job'] = ns.bench_dir.split(os.path.sep)[-1]
+    config['job'] = "benchmark.py"
 
     # render the template
     rendered = tpl.render(**config)
