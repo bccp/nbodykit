@@ -8,12 +8,12 @@ def test_strong_scaling(benchmark, sample):
 
     # generate fake (x,y,z)
     with benchmark("Data"):
-        data = sample.data(seed=42)
+        data = sample.data(N=100e6, seed=42)
 
     # run FOF
     with benchmark("Algorithm"):
-        fof = FOF(data, linking_length=0.2, nmin=5)
+        fof = FOF(data, linking_length=0.2, nmin=20)
         peaks = fof.find_features()
 
     # save meta-data
-    benchmark.attrs.update(N=sample.N, sample=sample.name)
+    benchmark.attrs.update(N=100e6, sample=sample.name)
