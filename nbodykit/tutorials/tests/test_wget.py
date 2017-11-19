@@ -1,6 +1,7 @@
 from runtests.mpi import MPITest
 from nbodykit.tutorials import download_example_data
 from nbodykit import setup_logging, CurrentMPIComm
+from six.moves.urllib.error import HTTPError
 import pytest
 import shutil
 import os
@@ -8,6 +9,7 @@ import tempfile
 
 setup_logging()
 
+@pytest.mark.xfail(raises=HTTPError)
 @MPITest([1])
 def test_download_directory(comm):
 
@@ -22,6 +24,7 @@ def test_download_directory(comm):
     # remove the downloaded file
     shutil.rmtree(filename)
 
+@pytest.mark.xfail(raises=HTTPError)
 @MPITest([1])
 def test_download_file(comm):
 
@@ -35,19 +38,22 @@ def test_download_file(comm):
     # remove filename
     os.remove(filename)
 
+@pytest.mark.xfail(raises=HTTPError)
 @MPITest([1])
 def test_download_failure(comm):
 
     filename = 'MISSING'
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         download_example_data(filename)
 
+@pytest.mark.xfail(raises=HTTPError)
 @MPITest([1])
 def test_missing_dirname(comm):
 
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         download_example_data('Gadget1P', download_dirname='MISSING')
 
+@pytest.mark.xfail(raises=HTTPError)
 @MPITest([1])
 def test_download_to_location(comm):
 
