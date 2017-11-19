@@ -22,7 +22,7 @@ class BenchmarkingSample(object):
 
     >>> python run-tests.py benchmarks --no-build --bench -m boss
     """
-    samples = ['test', 'boss_like', 'desi_like']
+    samples   = ['test', 'boss_like', 'desi_like']
     test      = {'BoxSize' : 100.,  'Nmesh':64,   'N':1e3}
     boss_like = {'BoxSize' : 2500., 'Nmesh':1024, 'N':1e6}
     desi_like = {'BoxSize' : 5000., 'Nmesh':1024, 'N':3e7}
@@ -76,7 +76,7 @@ class BenchmarkingSample(object):
 
         # lognormal catalog
         Plin = LinearPower(self.cosmo, redshift=self.redshift, transfer='EisensteinHu')
-        cat = LogNormalCatalog(Plin=Plin, nbar=nbar, BoxSize=self.BoxSize, Nmesh=self.Nmesh, seed=seed)
+        cat = LogNormalCatalog(Plin=Plin, nbar=nbar, BoxSize=self.BoxSize, Nmesh=512, seed=seed)
 
         # add sky coordinates too
         cat['RA'], cat['DEC'], cat['Z'] = CartesianToSky(cat['Position'], self.cosmo, observer=0.5*self.BoxSize)
