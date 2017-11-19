@@ -65,7 +65,7 @@ class CatalogMesh(CatalogSource, MeshSource):
         assert isinstance(source, CatalogSourceBase)
 
         # new, empty CatalogSource
-        obj = CatalogSourceBase.__new__(cls, source.comm, source.use_cache)
+        obj = CatalogSourceBase.__new__(cls, source.comm)
 
         # copy over size from the CatalogSource
         obj._size = source.size
@@ -411,7 +411,7 @@ class CatalogMesh(CatalogSource, MeshSource):
             Nglobal = pm.comm.allreduce(Nlocal)
 
             if pm.comm.rank == 0:
-                self.logger.info("painted %d out of %d objects to mesh" 
+                self.logger.info("painted %d out of %d objects to mesh"
                     % (Nglobal, self.base.csize))
 
         # now the loop over particles is done

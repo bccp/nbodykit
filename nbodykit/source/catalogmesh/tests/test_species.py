@@ -15,7 +15,7 @@ def test_boxsize_nmesh(comm):
     # the catalog
     source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42)
     source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84)
-    cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2, use_cache=True)
+    cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2)
 
     # this should work (infer BoxSize)
     mesh = cat.to_mesh(Nmesh=32)
@@ -37,7 +37,7 @@ def test_getitem(comm):
     # the catalog
     source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42)
     source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84)
-    cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2, use_cache=True)
+    cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2)
 
     # the mesh
     mesh = cat.to_mesh(Nmesh=32, BoxSize=512)
@@ -56,7 +56,7 @@ def test_paint(comm):
     # the catalog
     source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42)
     source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84)
-    cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2, use_cache=True)
+    cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2)
 
     # the meshes
     mesh = cat.to_mesh(Nmesh=32, BoxSize=512)
@@ -91,7 +91,7 @@ def test_paint_interlaced(comm):
     source2 = UniformCatalog(nbar=1e-0, BoxSize=111, seed=111)
     source1['Weight'] = 1.0
     source2['Weight'] = 0.1
-    cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2, use_cache=False)
+    cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2)
 
     # the meshes
     mesh = cat.to_mesh(Nmesh=32, interlaced=True)

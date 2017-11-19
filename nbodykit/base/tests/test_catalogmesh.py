@@ -38,7 +38,7 @@ def test_sort_ascending(comm):
     CurrentMPIComm.set(comm)
 
     # the mesh to sort
-    d = UniformCatalog(100, 1.0, use_cache=True)
+    d = UniformCatalog(100, 1.0)
     d['mass'] = 10**(d.rng.uniform(low=12, high=15, size=d.size))
     mesh = d.to_mesh(Nmesh=32)
 

@@ -5,7 +5,17 @@ import functools
 import contextlib
 import os, sys
 
+def is_structured_array(arr):
+    """
+    Test if the input array is a structured array
+    by testing for `dtype.names`
+    """
+    if not isinstance(arr, numpy.ndarray) or not hasattr(arr, 'dtype'):
+        return False
+    return arr.dtype.char ==  'V'
+
 def get_data_bounds(data, comm, selection=None):
+
     """
     Return the global minimum/maximum of a numpy/dask array along the
     first axis.

@@ -35,8 +35,6 @@ class LogNormalCatalog(CatalogSource):
     comm : MPI Communicator, optional
         the MPI communicator instance; default (``None``) sets to the
         current communicator
-    use_cache : bool, optional
-        whether to cache data read from disk; default is ``False``
 
     References
     ----------
@@ -49,8 +47,7 @@ class LogNormalCatalog(CatalogSource):
     @CurrentMPIComm.enable
     def __init__(self, Plin, nbar, BoxSize, Nmesh, bias=2., seed=None,
                     cosmo=None, redshift=None,
-                    unitary_amplitude=False, inverted_phase=False,
-                    comm=None, use_cache=False):
+                    unitary_amplitude=False, inverted_phase=False, comm=None):
 
         self.comm = comm
         self.Plin = Plin
@@ -95,7 +92,7 @@ class LogNormalCatalog(CatalogSource):
         self._size = len(self._source)
 
         # init the base class
-        CatalogSource.__init__(self, comm=comm, use_cache=use_cache)
+        CatalogSource.__init__(self, comm=comm)
 
         # crash with no particles!
         if self.csize == 0:
@@ -136,7 +133,7 @@ class LogNormalCatalog(CatalogSource):
         f = self.cosmo.scale_independent_growth_rate(self.attrs['redshift'])
 
         # compute the linear overdensity and displacement fields
-        delta, disp = mockmaker.gaussian_real_fields(pm, self.Plin, self.attrs['seed'], 
+        delta, disp = mockmaker.gaussian_real_fields(pm, self.Plin, self.attrs['seed'],
                     unitary_amplitude=self.attrs['unitary_amplitude'],
                     inverted_phase=self.attrs['inverted_phase'],
                     compute_displacement=True)
@@ -148,10 +145,6 @@ class LogNormalCatalog(CatalogSource):
 
         # move particles from initial position based on the Zeldovich displacement
         pos[:] = (pos + disp) % BoxSize
-
-        # RSD in the Zel'dovich approx bring in extra factor of f
-        # add this to both velocity and velocity offset
-        disp[:] *= f
 
         # velocity from displacement (assuming Mpc/h)
         # this is f * H(z) * a / h = f 100 E(z) a --> converts from Mpc/h to km/s
@@ -168,6 +161,6 @@ class LogNormalCatalog(CatalogSource):
         source = numpy.empty(len(pos), dtype)
         source['Position'][:] = pos[:] # in Mpc/h
         source['Velocity'][:] = vel[:] # in km/s
-        source['VelocityOffset'][:] = disp[:] # in Mpc/h
+        source['VelocityOffset'][:] = f*disp[:] # in Mpc/h
 
         return source, pm
