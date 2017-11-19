@@ -88,7 +88,7 @@ class BenchmarkRunner(object):
         the directory where we want to save the results, passed via
         ``--bench-dir``
     """
-    samples = ['boss', 'desi']
+    samples = ['boss_like', 'desi_like']
 
     def __init__(self, test_path, result_dir):
         self.test_path = test_path
