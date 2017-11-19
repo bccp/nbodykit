@@ -42,24 +42,40 @@ class NERSCBenchmark(object):
         """
         import pandas as pd
 
+        # make sure config file exists first
         cfg_file = os.path.join(path, 'config.json')
         if not os.path.exists(cfg_file):
             raise ValueError("the path should contain a 'config.json' file")
 
+        # load the config so we can attach to dataframe
         config = json.load(open(cfg_file, 'r'))
 
+        # walk the directory and load .json files
         rows = []
         for dirpath, dirnames, filenames in os.walk(path):
+
+            # check all files for .json extension
             for filename in filenames:
+
                 if filename != 'config.json' and filename.endswith('.json'):
+
+                    # first path is sample, if it exists
                     sample = os.path.normpath(dirpath).split(os.path.sep)[0]
+                    if sample not in ['boss_like', 'desi_like']:
+                        sample = ""
+
+                    # load the JSON file
                     d = json.load(open(os.path.join(dirpath, filename), 'r'))
+
+                    # add a row for each tagged benchmark in each test function
                     for test in d['tests']:
                         for tag in d['tags']:
                             x = d[test][tag]
-                            rows.append((sample, test, tag, len(x), numpy.median(x), numpy.mean(x), numpy.min(x), numpy.max(x)))
+                            row = (sample, test, tag, len(x))
+                            row += (numpy.median(x), numpy.mean(x), numpy.min(x), numpy.max(x))
+                            rows.append(row)
 
-
+        # make the data frame
         names = ['sample', 'name', 'tag', 'ncores', 'dt_median', 'dt_mean', 'dt_min', 'dt_max']
         df = pd.DataFrame(data=rows, columns=names)
         df.config = config

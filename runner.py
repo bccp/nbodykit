@@ -121,7 +121,10 @@ class BenchmarkRunner(object):
                 bench_name = self.test_path + "::" + testname
 
                 # the output directory
-                bench_dir = os.path.join(self.result_dir, sample, str(ncores))
+                if sample is not None:
+                    bench_dir = os.path.join(self.result_dir, sample, str(ncores))
+                else:
+                    bench_dir = os.path.join(self.result_dir, str(ncores))
 
                 # make the command
                 args = (bench_name, bench_dir, ncores)
