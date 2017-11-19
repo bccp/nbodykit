@@ -32,4 +32,4 @@ bcast-pip git+git://github.com/bccp/runtests.git
 git checkout benchmark-tests
 
 echo ===== Running with {{ cores }} cores =====
-python -u run-tests.py {{ benchname }} --mpirun "srun -n {{ cores }}" -m {{ sample }} --bench --no-build --bench-dir {{ benchdir }} -s
+python -u run-tests.py {{ benchname }} --mpirun "srun -n {{ cores }}" {{ sample }} --bench --no-build --bench-dir {{ benchdir }} -s

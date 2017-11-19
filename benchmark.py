@@ -75,7 +75,7 @@ class NERSCBenchmark(object):
         parser.add_argument('benchname', type=str, help=h)
 
         h = 'the name of the sample to run'
-        parser.add_argument('--sample', type=str, choices=['boss_like', 'desi_like'], help=h, required=True)
+        parser.add_argument('--sample', type=str, default=None, choices=['boss_like', 'desi_like'], help=h)
 
         h = 'the output path to save the benchmark result to'
         parser.add_argument('--bench-dir', type=str, help=h, required=True)
@@ -145,8 +145,13 @@ class NERSCBenchmark(object):
         config['nodes'] = get_nodes_from_cores(ns.cores, host)
         config['haswell_config'] = "#SBATCH -C haswell" if host == 'cori' else ""
         config['output_file'] = output_file
-        config['sample'] = ns.sample
         config['job'] = "benchmark.py"
+
+        # the option to select specific sample
+        if ns.sample is not None:
+            config['sample'] = "-m %s" %ns.sample
+        else:
+            config['sample'] = ""
 
         # render the template
         rendered = tpl.render(**config)
