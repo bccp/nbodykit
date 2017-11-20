@@ -15,7 +15,8 @@ if __name__ == '__main__':
 
     result_dir = os.path.join(this_dir, 'results') # output directory
     test_path = 'benchmarks/test_threeptcf.py' # the test file we want to run
-
+    samples = ['boss_like', 'desi_like']
+    
     # initialize and run
     runner = BenchmarkRunner(test_path, result_dir)
     runner.add_commands(test_functions, ncores, samples)
