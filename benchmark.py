@@ -44,7 +44,8 @@ class NERSCBenchmark(object):
             should hold a ``config.json`` file.
         """
         import pandas as pd
-
+        import json
+        
         # make sure config file exists first
         cfg_file = os.path.join(path, 'config.json')
         if not os.path.exists(cfg_file):
