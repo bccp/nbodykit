@@ -18,7 +18,7 @@ def test_strong_scaling(benchmark, sample):
         edges = numpy.linspace(10., 150.0, nbins+1)
 
         # run the algorithm
-        r = SimulationBoxPairCount('1d', data, redges, periodic=True)
+        r = SimulationBoxPairCount('1d', data, edges, periodic=True)
 
     # save meta-data
     benchmark.attrs.update(N=sample.N, sample=sample.name)
