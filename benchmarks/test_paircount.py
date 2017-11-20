@@ -15,10 +15,11 @@ def test_strong_scaling(benchmark, sample):
 
         # r binning
         nbins = 10
+        Nmu = 100
         edges = numpy.linspace(10., 150.0, nbins+1)
 
         # run the algorithm
-        r = SimulationBoxPairCount('1d', data, edges, periodic=True)
+        r = SimulationBoxPairCount('2d', data, edges, periodic=True, Nmu=Nmu)
 
     # save meta-data
     benchmark.attrs.update(N=sample.N, sample=sample.name)
