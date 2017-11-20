@@ -63,7 +63,7 @@ class NERSCBenchmark(object):
                 if filename != 'config.json' and filename.endswith('.json'):
 
                     # first path is sample, if it exists
-                    sample = os.path.normpath(dirpath).split(os.path.sep)[0]
+                    sample = os.path.relpath(os.path.normpath(dirpath), path).split(os.path.sep)[0]
                     if sample not in SAMPLES:
                         sample = ""
 
