@@ -15,10 +15,15 @@ def test_strong_scaling(benchmark):
     # setup initial conditions
     cosmo = cosmology.Planck15
     power = cosmology.LinearPower(cosmo, 0)
+    linear = LinearMesh(power, BoxSize=512, Nmesh=512)
+
+    with benchmark("FFTPower-Linear"):
+        # compute and save linear P(k)
+        r = FFTPower(linear, mode="1d")
+        r.save("linear-power.json")
 
     # run a computer simulation!
     with benchmark("Simulation"):
-        linear = LinearMesh(power, BoxSize=512, Nmesh=512)
         sim = FastPMCatalogSource(linear, Nsteps=10)
 
     with benchmark("FFTPower-Matter"):
