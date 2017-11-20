@@ -17,6 +17,6 @@ if __name__ == '__main__':
     test_path = 'benchmarks/test_threeptcf.py' # the test file we want to run
 
     # initialize and run
-    runner = BenchmarkRunner(test_path, result_dir, samples)
-    runner.add_commands(test_functions, ncores)
+    runner = BenchmarkRunner(test_path, result_dir)
+    runner.add_commands(test_functions, ncores, samples)
     runner.execute()

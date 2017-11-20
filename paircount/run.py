@@ -18,6 +18,6 @@ if __name__ == '__main__':
     samples = ['boss_like', 'desi_like']
 
     # initialize and run
-    runner = BenchmarkRunner(test_path, result_dir, samples)
-    runner.add_commands(test_functions, ncores)
+    runner = BenchmarkRunner(test_path, result_dir)
+    runner.add_commands(test_functions, ncores, samples)
     runner.execute()
