@@ -1,5 +1,0 @@
-[run]
-omit =
-    **/tests/*py
-    **/nbodykit/extern/*
-    **/nbodykit/style/*
