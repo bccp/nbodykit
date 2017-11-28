@@ -1,0 +1,3 @@
+halotools
+h5py
+fitsio

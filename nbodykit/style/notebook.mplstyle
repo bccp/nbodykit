@@ -1,0 +1,42 @@
+figure.figsize: 12, 7
+figure.edgecolor: white
+figure.facecolor: white
+
+text.usetex: False
+
+lines.linewidth: 2.5
+lines.markeredgewidth: 0
+lines.markersize: 10
+lines.dash_capstyle: butt
+
+legend.fancybox: True
+legend.fontsize: 16
+
+font.size: 14
+
+
+axes.prop_cycle: cycler('color', ['1f77b4', 'ff7f0e', '2ca02c', 'd62728', '9467bd', '8c564b', 'e377c2', '7f7f7f', 'bcbd22', '17becf'])
+axes.linewidth: 2
+axes.titlesize: 22
+axes.labelsize: 16
+
+xtick.labelsize: 14
+ytick.labelsize: 14
+xtick.major.size: 8
+xtick.minor.size: 5
+xtick.minor.width: 2
+xtick.major.width: 2
+ytick.major.size: 8
+ytick.major.width: 2
+ytick.minor.size: 5
+ytick.minor.width: 2
+
+axes.grid: True
+grid.alpha: 0.3
+grid.linewidth: 0.5
+grid.linestyle: --
+grid.color: black
+
+savefig.transparent: False
+savefig.bbox: tight
+savefig.format: png
