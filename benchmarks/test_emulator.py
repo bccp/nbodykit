@@ -154,6 +154,13 @@ def test_strong_scaling(benchmark):
     #with benchmark("FOF-fof_catalog"):
     halos = to_halos_with_benchmarks(benchmark, fof, 1e12, cosmo, 0.)
 
+    with benchmark('halotools-import'):
+        from halotools.empirical_models import model_defaults
+
+    with benchmark('halotools-get_keys'):
+        mass_key = model_defaults.get_halo_mass_key('vir')
+        radius_key = model_defaults.get_halo_boundary_key('vir')
+
     # with benchmark("FFTPower-Halo"):
     #     # compute and save halo P(k)
     #     r = FFTPower(halos, mode="1d", Nmesh=512)
