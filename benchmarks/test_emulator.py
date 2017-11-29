@@ -7,54 +7,6 @@ except ImportError: fastpm = None
 
 setup_logging()
 
-def make_halo_catalog(benchmark, source, cosmo, redshift, mdef='vir',
-                        mass='Mass', position='Position', velocity='Velocity'):
-
-    from halotools.empirical_models import model_defaults
-    from nbodykit.base.catalog import CatalogSourceBase, CatalogSource
-
-    with benchmark('HaloCatalog-checks'):
-        # make sure all of the columns are there
-        required = ['mass', 'position', 'velocity']
-        for name, col in zip(required, [mass, position, velocity]):
-            if col is None:
-                raise ValueError("the %s column cannot be None in HaloCatalog" %name)
-            if col not in source:
-                raise ValueError("input source is missing the %s column; '%s' does not exist" %(name, col))
-
-        if not isinstance(source, CatalogSourceBase):
-            raise TypeError("input source to HalotoolsCatalog should be a CatalogSource")
-
-    with benchmark('HaloCatalog-init'):
-        comm = source.comm
-        toret = CatalogSource.__new__(HaloCatalog, comm=comm)
-        toret._source = source
-        toret.cosmo = cosmo
-
-    # get the attrs from the source
-    with benchmark('HaloCatalog-attrs-1'):
-        toret.attrs.update(source.attrs)
-
-    # and save the parameters
-    with benchmark('HaloCatalog-attrs-2'):
-        toret.attrs['redshift'] = redshift
-        toret.attrs['cosmo']    = dict(toret.cosmo)
-        toret.attrs['mass']     = mass
-        toret.attrs['velocity'] = velocity
-        toret.attrs['position'] = position
-        toret.attrs['mdef']     = mdef
-
-    # names of the mass and radius fields, based on mass def
-    with benchmark('HaloCatalog-halo-keys'):
-        toret.attrs['halo_mass_key'] = model_defaults.get_halo_mass_key(mdef)
-        toret.attrs['halo_radius_key'] = model_defaults.get_halo_boundary_key(mdef)
-
-    # the size
-    with benchmark('HaloCatalog-size'):
-        toret._size = toret._source.size
-
-    return toret
-
 def to_halos_with_benchmarks(benchmark, fof, particle_mass, cosmo, redshift,
                                 mdef='vir', posdef='cm', peakcolumn='Density'):
 
@@ -89,8 +41,9 @@ def to_halos_with_benchmarks(benchmark, fof, particle_mass, cosmo, redshift,
         # add the halo mass column
         halos['Mass'] = particle_mass * halos['Length']
 
-    coldefs = {'mass':'Mass', 'velocity':'Velocity', 'position':'Position'}
-    toret = make_halo_catalog(benchmark, halos, cosmo, redshift, mdef=mdef, **coldefs)
+    with benchmark('to_halos-HaloCatalog'):
+        coldefs = {'mass':'Mass', 'velocity':'Velocity', 'position':'Position'}
+        toret = HaloCatalog(halos, cosmo, redshift, mdef=mdef, **coldefs)
     return toret
 
 def fof_catalog_with_benchmarks(benchmark, source, label, comm,
@@ -197,16 +150,16 @@ def test_strong_scaling(benchmark):
     # run FOF to identify halo groups
     with benchmark("FOF"):
         fof = FOF(sim, 0.2, nmin=20)
-
-    #with benchmark("FOF-fof_catalog"):
-    halos = to_halos_with_benchmarks(benchmark, fof, 1e12, cosmo, 0.)
-
+        
     with benchmark('halotools-import'):
         from halotools.empirical_models import model_defaults
 
     with benchmark('halotools-get_keys'):
         mass_key = model_defaults.get_halo_mass_key('vir')
         radius_key = model_defaults.get_halo_boundary_key('vir')
+
+    #with benchmark("FOF-fof_catalog"):
+    halos = to_halos_with_benchmarks(benchmark, fof, 1e12, cosmo, 0.)
 
     # with benchmark("FFTPower-Halo"):
     #     # compute and save halo P(k)
