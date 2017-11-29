@@ -24,6 +24,7 @@ bcast-pip git+git://github.com/bccp/runtests.git
 # clone nbodykit (so we can run benchmarks)
 git clone https://github.com/bccp/nbodykit
 cd nbodykit
+git checkout benchmark-tests
 
 # call run-tests with desired number of cores
 echo ===== Running with {{ cores }} cores =====
