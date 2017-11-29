@@ -20,7 +20,7 @@ def test_strong_scaling(benchmark, sample):
 
     # to
     with benchmark('to_halos'):
-        halos = fof.to_halos(1e12, cosmology.Planc15, 0.)
+        halos = fof.to_halos(1e12, cosmology.Planck15, 0.)
 
     # save meta-data
     benchmark.attrs.update(N=sample.N, sample=sample.name)
