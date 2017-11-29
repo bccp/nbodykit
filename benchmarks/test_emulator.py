@@ -34,6 +34,8 @@ def test_strong_scaling(benchmark):
     # run FOF to identify halo groups
     with benchmark("FOF"):
         fof = FOF(sim, 0.2, nmin=20)
+
+    with benchmark("FOF-to_halos"):
         halos = fof.to_halos(1e12, cosmo, 0.)
 
     with benchmark("FFTPower-Halo"):
