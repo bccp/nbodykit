@@ -13,6 +13,7 @@ def fof_catalog_with_benchmarks(benchmark, source, label, comm,
                                 peakcolumn=None, periodic=True):
 
     from nbodykit.utils import ScatterArray
+    from nbodykit.algorithms.fof import count, centerofmass, equiv_class
 
     # make sure all of the columns are there
     for col in [position, velocity]:
