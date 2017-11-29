@@ -467,7 +467,6 @@ def fof_catalog(source, label, comm,
     if initposition in source:
         dtype.append(('InitialPosition', ('f4', 3)))
         hpos_init = centerofmass(label, source.compute(source[initposition]), boxsize=boxsize, comm=comm)
-        hpos_init
 
     if peakcolumn is not None:
         assert peakcolumn in source
