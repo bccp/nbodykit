@@ -7,6 +7,45 @@ except ImportError: fastpm = None
 
 setup_logging()
 
+def to_halos_with_benchmarks(benchmark, fof, particle_mass, cosmo, redshift,
+                                mdef='vir', posdef='cm', peakcolumn='Density'):
+
+    with benchmark('to_halos-import'):
+        from nbodykit.source import HaloCatalog
+    assert posdef in ['cm', 'peak'], "``posdef`` should be 'cm' or 'peak'"
+
+    # meta-data
+    with benchmark('to_halos-attrs'):
+        attrs = fof._source.attrs.copy()
+        attrs.update(fof.attrs)
+        attrs['particle_mass'] = particle_mass
+
+    if posdef == 'cm':
+        # using the center-of-mass (Position, Velocity, Length) for each halo
+        # not needing a column for peaks.
+        peakcolumn = None
+    else:
+        pass
+
+    data = fof_catalog_with_benchmarks(benchmark, fof._source, fof.labels, fof.comm, peakcolumn=peakcolumn, periodic=fof.attrs['periodic'])
+
+    with benchmark('to_halos-ArrayCatalog'):
+        data = data[data['Length'] > 0]
+        halos = ArrayCatalog(data, **attrs)
+        if posdef == 'cm':
+            halos['Position'] = halos['CMPosition']
+            halos['Velocity'] = halos['CMVelocity']
+        elif posdef == 'peak':
+            halos['Position'] = halos['PeakPosition']
+            halos['Velocity'] = halos['PeakVelocity']
+        # add the halo mass column
+        halos['Mass'] = particle_mass * halos['Length']
+
+    with benchmark('to_halos-HaloCatalog'):
+        coldefs = {'mass':'Mass', 'velocity':'Velocity', 'position':'Position'}
+        toret = HaloCatalog(halos, cosmo, redshift, mdef=mdef, **coldefs)
+    return toret
+
 def fof_catalog_with_benchmarks(benchmark, source, label, comm,
                                 position='Position', velocity='Velocity',
                                 initposition='InitialPosition',
@@ -113,7 +152,7 @@ def test_strong_scaling(benchmark):
         fof = FOF(sim, 0.2, nmin=20)
 
     #with benchmark("FOF-fof_catalog"):
-    halos = fof_catalog_with_benchmarks(benchmark, sim, fof.labels, fof.comm)
+    halos = to_halos_with_benchmarks(benchmark, fof, 1e12, cosmo, 0.)
 
     # with benchmark("FFTPower-Halo"):
     #     # compute and save halo P(k)
