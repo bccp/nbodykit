@@ -35,8 +35,6 @@ class HaloCatalog(CatalogSource):
     def __init__(self, source, cosmo, redshift, mdef='vir',
                  mass='Mass', position='Position', velocity='Velocity'):
 
-        from halotools.empirical_models import model_defaults
-
         # make sure all of the columns are there
         required = ['mass', 'position', 'velocity']
         for name, col in zip(required, [mass, position, velocity]):
@@ -64,8 +62,8 @@ class HaloCatalog(CatalogSource):
         self.attrs['mdef']     = mdef
 
         # names of the mass and radius fields, based on mass def
-        self.attrs['halo_mass_key'] = model_defaults.get_halo_mass_key(mdef)
-        self.attrs['halo_radius_key'] = model_defaults.get_halo_boundary_key(mdef)
+        self.attrs['halo_mass_key'] = 'halo_m' + mdef
+        self.attrs['halo_radius_key'] = 'halo_r' + mdef
 
         # the size
         self._size = self._source.size

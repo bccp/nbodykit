@@ -85,7 +85,6 @@ class Zheng07Model(HODModel):
         """
         from halotools.empirical_models import Zheng07Sats, Zheng07Cens, NFWPhaseSpace, TrivialPhaseSpace
         from halotools.empirical_models import HodModelFactory
-        from halotools.empirical_models.model_defaults import get_halo_mass_key
 
         kwargs.setdefault('modulate_with_cenocc', True)
 
@@ -100,7 +99,7 @@ class Zheng07Model(HODModel):
             conc_mass_model = 'direct_from_halo_catalog'
 
         # determine mass column
-        mass_key = get_halo_mass_key(mdef)
+        mass_key = 'halo_m' + mdef
 
         # occupation functions
         cenocc = Zheng07Cens(prim_haloprop_key=mass_key, **kwargs)
@@ -164,7 +163,6 @@ def HODModelFactory(name, func_name):
         :class:`~halotools.empirical_models.HodModelFactory`
             the halotools object implementing the HOD model
         """
-        from halotools.empirical_models.model_defaults import get_halo_mass_key
         from halotools.empirical_models import PrebuiltHodModelFactory
 
         # modulate sats with cen occ model by default
@@ -181,7 +179,7 @@ def HODModelFactory(name, func_name):
             conc_mass_model = 'direct_from_halo_catalog'
 
         # determine mass column
-        mass_key = get_halo_mass_key(mdef)
+        mass_key = 'halo_m' + mdef
 
         # the configuration
         kwargs.update({'cosmology':cosmo, 'redshift':redshift, 'mdef':mdef, 'prim_haloprop_key':mass_key})
