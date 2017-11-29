@@ -11,9 +11,16 @@ def test_strong_scaling(benchmark, sample):
         data = sample.data(seed=42)
 
     # run FOF
-    with benchmark("Algorithm"):
+    with benchmark("FOF"):
         fof = FOF(data, linking_length=0.2, nmin=20)
+
+    # find features
+    with benchmark("find_features"):
         peaks = fof.find_features()
+
+    # to
+    with benchmark('to_halos'):
+        halos = fof.to_halos(1e12, cosmology.Planc15, 0.)
 
     # save meta-data
     benchmark.attrs.update(N=sample.N, sample=sample.name)
