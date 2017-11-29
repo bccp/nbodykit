@@ -112,7 +112,7 @@ def test_strong_scaling(benchmark):
         fof = FOF(sim, 0.2, nmin=20)
 
     #with benchmark("FOF-fof_catalog"):
-    halos = fof_catalog_with_benchmarks(benchmark, sim, sim.labels, sim.comm)
+    halos = fof_catalog_with_benchmarks(benchmark, sim, fof.labels, fof.comm)
 
     # with benchmark("FFTPower-Halo"):
     #     # compute and save halo P(k)
