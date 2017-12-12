@@ -500,16 +500,22 @@ class CatalogMesh(CatalogSource, MeshSource):
         - if ``interlaced = True``:
           - :func:`CompensateCIC` if using CIC window
           - :func:`CompensateTSC` if using TSC window
+          - :func:`CompensatePCS` if using PCS window
         - if ``interlaced = False``:
-          - :func:`CompensateCICAliasing` if using CIC window
-          - :func:`CompensateTSCAliasing` if using TSC window
+          - :func:`CompensateCICShotnoise` if using CIC window
+          - :func:`CompensateTSCShotnoise` if using TSC window
+          - :func:`CompensatePCSShotnoise` if using PCS window
         """
         if self.interlaced:
             d = {'cic' : self.CompensateCIC,
-                 'tsc' : self.CompensateTSC}
+                 'tsc' : self.CompensateTSC,
+                 'pcs' : self.CompensatePCS,
+                }
         else:
-            d = {'cic' : self.CompensateCICAliasing,
-                 'tsc' : self.CompensateTSCAliasing}
+            d = {'cic' : self.CompensateCICShotnoise,
+                 'tsc' : self.CompensateTSCShotnoise,
+                 'pcs' : self.CompensatePCSShotnoise,
+                }
 
         if not self.window in d:
             raise ValueError("compensation for window %s is not defined" % self.window)
@@ -543,6 +549,30 @@ class CatalogMesh(CatalogSource, MeshSource):
         return v
 
     @staticmethod
+    def CompensatePCS(w, v):
+        """
+        Return the Fourier-space kernel that accounts for the convolution of
+        the gridded field with the PCS window function in configuration space.
+
+        .. note::
+            see equation 18 (with p=4) of
+            `Jing et al 2005 <https://arxiv.org/abs/astro-ph/0409240>`_
+
+        Parameters
+        ----------
+        w : list of arrays
+            the list of "circular" coordinate arrays, ranging from
+            :math:`[-\pi, \pi)`.
+        v : array_like
+            the field array
+        """
+        for i in range(3):
+            wi = w[i]
+            tmp = (numpy.sinc(0.5 * wi / numpy.pi) ) ** 4
+            v = v / tmp
+        return v
+
+    @staticmethod
     def CompensateCIC(w, v):
         """
         Return the Fourier-space kernel that accounts for the convolution of
@@ -568,11 +598,11 @@ class CatalogMesh(CatalogSource, MeshSource):
         return v
 
     @staticmethod
-    def CompensateTSCAliasing(w, v):
+    def CompensateTSCShotnoise(w, v):
         """
         Return the Fourier-space kernel that accounts for the convolution of
         the gridded field with the TSC window function in configuration space,
-        as well as the approximate aliasing correction
+        as well as the approximate aliasing correction to the first order
 
         .. note::
             see equation 20 of
@@ -593,11 +623,38 @@ class CatalogMesh(CatalogSource, MeshSource):
         return v
 
     @staticmethod
-    def CompensateCICAliasing(w, v):
+    def CompensatePCSShotnoise(w, v):
+        """
+        Return the Fourier-space kernel that accounts for the convolution of
+        the gridded field with the PCS window function in configuration space,
+        as well as the approximate aliasing correction to first order
+
+        .. note::
+
+            YF: I derived this by fitting the result to s ** 3
+            according to the form given in equation 20 of Jing et al.
+            It must be possible to derive this manually.
+
+        Parameters
+        ----------
+        w : list of arrays
+            the list of "circular" coordinate arrays, ranging from
+            :math:`[-\pi, \pi)`.
+        v : array_like
+            the field array
+        """
+        for i in range(3):
+            wi = w[i]
+            s = numpy.sin(0.5 * wi)**2
+            v = v / (1 - 4./3. * s + 2./5. * s**2 - 4./315. * s**3) ** 0.5
+        return v
+
+    @staticmethod
+    def CompensateCICShotnoise(w, v):
         """
         Return the Fourier-space kernel that accounts for the convolution of
         the gridded field with the CIC window function in configuration space,
-        as well as the approximate aliasing correction
+        as well as the approximate aliasing correction to the first order
 
         .. note::
             see equation 20 of
