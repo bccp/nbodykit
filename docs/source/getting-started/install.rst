@@ -34,14 +34,9 @@ manager. The distribution can be downloaded and installed for free from
 https://www.continuum.io/downloads.
 
 We have pre-built binaries for nbodykit and all of its dependencies available
-via Anaconda that are compatible with Linux and macOS platforms. The package can
-be installed into your current conda environment using:
-
-.. code-block:: bash
-
-  $ conda install -c bccp nbodykit
-
-Alternatively, to install nbodykit into a fresh Anaconda environment, use
+via Anaconda that are compatible with Linux and macOS platforms.
+To avoid dependency conflicts, we recommend installing nbodykit into a
+fresh environment. This can be achieved with the following commands:
 
 .. code-block:: bash
 
