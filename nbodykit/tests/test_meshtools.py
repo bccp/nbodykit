@@ -75,18 +75,20 @@ def test_hermitian_weights(comm):
     data = data[:] + 1j*data[:]
 
     cfield[...] = data[:]
-    x = cfield.x
+    k = cfield.k
 
     # iterate over symmetry axis
-    for i, slab in enumerate(SlabIterator(x, axis=2, symmetry_axis=2)):
+    for i, slab in enumerate(SlabIterator(k, axis=2, symmetry_axis=2)):
 
         # nonsingular weights give indices of positive frequencies
         nonsig = slab.nonsingular
         weights = slab.hermitian_weights
 
         # weights == 2 when iterating frequency is positive
-        if numpy.float(slab.coords(2)) > 0.:
-            assert weights > 1
+        kz = numpy.float(slab.coords(2))
+        kNyquist = numpy.pi
+        if kz > 0. and kz < kNyquist:
+            assert weights == 2.0
             assert numpy.all(nonsig == True)
         else:
             assert weights == 1.0

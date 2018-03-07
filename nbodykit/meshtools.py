@@ -169,7 +169,7 @@ class MeshSlab(object):
 
                 # get the indices that have positive and non-Nyquist freq along symmetry axis
                 symmaxis_ind = numpy.arange(symmaxis_shape)
-                nonsingular = numpy.logical_and(symmaxis_ind > 0, 2 * symmaxis_ind != symmaxis_shape)
+                nonsingular = (symmaxis_ind > 0) & (2 * symmaxis_ind != symmaxis_shape)
                 nonsingular.shape = self._coords[self.symmetry_axis].shape
                 nonsingular = numpy.take(nonsingular, 0, axis=self.axis)
 
