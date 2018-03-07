@@ -75,7 +75,7 @@ def test_hermitian_weights(comm):
     data = data[:] + 1j*data[:]
 
     cfield[...] = data[:]
-    k = cfield.k
+    k = cfield.x
 
     # iterate over symmetry axis
     for i, slab in enumerate(SlabIterator(k, axis=2, symmetry_axis=2)):
