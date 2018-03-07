@@ -138,7 +138,7 @@ class MeshSlab(object):
     @property
     def nonsingular(self):
         """
-        The indices on the slab of the positive frequencies
+        The indices on the slab of the positive and non-Nyquist frequencies
         along the dimension specified by `symmetry_axis`
 
         Returns
@@ -146,7 +146,7 @@ class MeshSlab(object):
         idx : array_like, self.shape
             Return a boolean array with the shape of the slab,
             with `True` elements giving the elements with
-            positive freq along `symmetry_axis`
+            positive and non-Nyquist freq along `symmetry_axis`
         """
         try:
             return self._nonsingular
@@ -155,18 +155,22 @@ class MeshSlab(object):
             # initially, return slice that includes all elements
             idx = numpy.ones(self.shape, dtype=bool)
 
+            symmaxis_shape = self.meshshape[self.symmetry_axis]
+
             # iteration axis is symmetry axis
             if self.symmetry_axis == self.axis:
 
-                # check if current iteration value is positive
-                if numpy.float(self.coords(self.axis)) <= 0.:
+                # check if current iteration value is positive and non-Nyquist
+                if self._index == 0 or 2 * self._index == symmaxis_shape:
                     idx = numpy.zeros(self.shape, dtype=bool)
 
             # one of slab dimensions is symmetry axis
             else:
 
-                # get the indices that have positive freq along symmetry axis
-                nonsingular = (self._coords[self.symmetry_axis] > 0.)
+                # get the indices that have positive and non-Nyquist freq along symmetry axis
+                symmaxis_ind = numpy.arange(symmaxis_shape)
+                nonsingular = (symmaxis_ind > 0) & (2 * symmaxis_ind != symmaxis_shape)
+                nonsingular.shape = self._coords[self.symmetry_axis].shape
                 nonsingular = numpy.take(nonsingular, 0, axis=self.axis)
 
                 idx[...] = nonsingular
@@ -180,7 +184,7 @@ class MeshSlab(object):
         Weights to be applied to quantities on the slab in order
         to account for Hermitian symmetry
 
-        These weights double-count the positive frequencies along
+        These weights double-count the positive and non-Nyquist frequencies along
         the `symmetry_axis`.
         """
         try:
@@ -193,7 +197,7 @@ class MeshSlab(object):
             # iteration axis is symmetry axis
             elif self.axis == self.symmetry_axis:
                 toret = 1.
-                if numpy.float(self.coords(self.symmetry_axis)) > 0.:
+                if self._index > 0 and 2 * self._index != self.meshshape[self.symmetry_axis]:
                     toret = 2.
             # only nonsingular plane gets factor of 2
             else:

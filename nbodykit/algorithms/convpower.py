@@ -19,7 +19,7 @@ def get_real_Ylm(l, m):
     l : int
         the degree of the harmonic
     m : int
-        the order of the harmonic; abs(m) < l
+        the order of the harmonic; abs(m) <= l
 
     Returns
     -------
