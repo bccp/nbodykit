@@ -139,7 +139,12 @@ class MeshSlab(object):
     def nonsingular(self):
         """
         The indices on the slab of the positive frequencies
-        along the dimension specified by `symmetry_axis`
+        along the dimension specified by `symmetry_axis`.
+
+        This takes advantage of the fact that :class:`pmesh.pm.ComplexField`
+        shifts the Nyquist frequencies to the negative halves.
+        Therefore this ensures that the zero and Nyquist planes perpendicular
+        to the symmetry axis have weight 1, whereas other modes have weight 2.
 
         Returns
         -------
