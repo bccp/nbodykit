@@ -225,6 +225,41 @@ def test_survey_auto(comm):
     assert_allclose(wsum, r.pairs['npairs'] * r.pairs['weightavg'])
 
 @MPITest([1, 4])
+def test_survey_auto_endianess(comm):
+
+    cosmo = cosmology.Planck15
+    CurrentMPIComm.set(comm)
+
+    # random particles
+    source = generate_survey_data(seed=42)
+
+    source['RA'] = source['RA'].astype('>f8')
+    source['DEC'] = source['DEC'].astype('>f8')
+    source['Redshift'] = source['Redshift'].astype('>f8')
+    # add some weights b/w 0 and 1
+    source['Weight'] = source.rng.uniform(size=len(source)).astype('>f8')
+    source['Position'] = source['Position'].astype('>f8')
+
+    # make the bin edges
+    redges = numpy.linspace(10, 150, 10)
+
+    # do the weighted paircount
+    r = SurveyDataPairCount('1d', source, redges, cosmo, weight='Weight')
+
+    # cannot compute r=0
+    with pytest.raises(ValueError):
+        r = SurveyDataPairCount('1d', source, numpy.linspace(0, 10.0, 10), cosmo)
+
+    pos = gather_data(source, 'Position')
+    w = gather_data(source, 'Weight')
+
+    # verify with kdcount
+    npairs, ravg, wsum = reference_paircount(pos, w, redges, None)
+    assert_allclose(ravg, r.pairs['r'])
+    assert_allclose(npairs, r.pairs['npairs'])
+    assert_allclose(wsum, r.pairs['npairs'] * r.pairs['weightavg'])
+
+@MPITest([1, 4])
 def test_survey_cross(comm):
 
     cosmo = cosmology.Planck15
