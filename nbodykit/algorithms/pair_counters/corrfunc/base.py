@@ -70,6 +70,10 @@ class CorrfuncResult(object):
 
         return CorrfuncResult(data)
 
+def tonativeendian(arr):
+    arr = arr.astype(arr.dtype.newbyteorder('='))
+    return arr
+
 class MPICorrfuncCallable(object):
     """
     A base class to represent an MPI-enabled :mod:`Corrfunc` callable.
@@ -181,6 +185,16 @@ class MPICorrfuncCallable(object):
             and C-level output), unless an exception occurs.
         """
         from nbodykit.utils import captured_output
+
+        kws = kws.copy()
+
+        # cast the array items to the native endianness
+        # because corrfunc doesn't understand otherwise.
+        # https://github.com/bccp/nbodykit/issues/467
+
+        for key, value in kws.items():
+            if isinstance(value, numpy.ndarray):
+                kws[key] = tonativeendian(value)
 
         try:
             # record progress capture output for everything but root
