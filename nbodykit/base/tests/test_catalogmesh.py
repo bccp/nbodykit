@@ -230,3 +230,27 @@ def test_view(comm):
     # adding columns to the view changes original source
     view['TEST2'] = 5.0
     assert 'TEST2' in source
+
+@MPITest([1, 4])
+def test_apply(comm):
+    CurrentMPIComm.set(comm)
+
+    # the CatalogSource
+    source = UniformCatalog(nbar=0.2e-3, BoxSize=1024., seed=42)
+    source['TEST'] = 10.
+    source['Position2'] = source['Position']
+    source.attrs['TEST'] = 10.0
+
+    # the mesh
+    mesh = source.to_mesh(position='Position2', Nmesh=32)
+    mesh = mesh.apply(lambda k, v: v)
+
+    real = mesh.paint()
+    # view
+    view = mesh.view()
+    assert view.base is mesh
+    assert isinstance(view, mesh.__class__)
+
+    # check meta-data
+    for k in mesh.attrs:
+        assert k in view.attrs

@@ -353,23 +353,26 @@ class CatalogSourceBase(object):
                 raise KeyError("strings and boolean arrays are the only supported indexing methods")
 
         # owner of the memory (either self or base)
-        memowner = self if self.base is None else self.base
-
-        # get the right column
-        is_default = False
-        if sel in memowner._overrides:
-            r = memowner._overrides[sel]
-        elif sel in memowner.hardcolumns:
-            r = memowner.get_hardcolumn(sel)
-        elif sel in memowner._defaults:
-            r = getattr(memowner, sel)()
-            is_default = True
+        if self.base is None:
+            # get the right column
+            is_default = False
+            if sel in self._overrides:
+                r = self._overrides[sel]
+            elif sel in self.hardcolumns:
+                r = self.get_hardcolumn(sel)
+            elif sel in self._defaults:
+                r = getattr(self, sel)()
+                is_default = True
+            else:
+                raise KeyError("column `%s` is not defined in this source; " %sel + \
+                                "try adding column via `source[column] = data`")
+            # return a ColumnAccessor for pretty prints
+            return ColumnAccessor(self, r, is_default=is_default)
         else:
-            raise KeyError("column `%s` is not defined in this source; " %sel + \
-                            "try adding column via `source[column] = data`")
+            # chain to the memory owner
+            # this will not work if there are overrides
+            return self.base.__getitem__(sel)
 
-        # return a ColumnAccessor for pretty prints
-        return ColumnAccessor(memowner, r, is_default=is_default)
 
     def __setitem__(self, col, value):
         """
