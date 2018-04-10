@@ -9,16 +9,17 @@ def test_mcfit():
     c = Cosmology()
     Plin = LinearPower(c, redshift=0)
 
-    # do Pk to CF
-    k = numpy.logspace(-4, 2, 1024)
-    CF = pk_to_xi(k, Plin(k))
+    for ell in [0, 2, 4]:
+        # do Pk to CF
+        k = numpy.logspace(-4, 2, 1024)
+        CF = pk_to_xi(k, Plin(k))
 
-    # do CF to Pk
-    r = numpy.logspace(-3, 3, 1024)
-    Pk2 = xi_to_pk(r, CF(r))(k)
+        # do CF to Pk
+        r = numpy.logspace(-3, 3, 1024)
+        Pk2 = xi_to_pk(r, CF(r))(k)
 
-    idx = (k>1e-2)&(k<10.)
-    assert_allclose(Pk2[idx], Plin(k[idx]), rtol=1e-2)
+        idx = (k>1e-2)&(k<10.)
+        assert_allclose(Pk2[idx], Plin(k[idx]), rtol=1e-2)
 
 def test_linear():
 
