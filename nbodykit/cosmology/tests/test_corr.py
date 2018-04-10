@@ -15,7 +15,7 @@ def test_mcfit():
         CF = pk_to_xi(k, Plin(k), ell=ell)
 
         # do CF to Pk; use Plin for ell>0 just for testing
-        r = numpy.logspace(-3, 3, 1024)
+        r = numpy.logspace(-2, 4, 1024)
         Pk2 = xi_to_pk(r, CF(r), ell=ell)(k)
 
         idx = (k>1e-2)&(k<10.)
