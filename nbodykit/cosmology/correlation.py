@@ -5,10 +5,11 @@ from .power.zeldovich import ZeldovichPower
 
 NUM_PTS = 1024
 
-def xi_to_pk(r, xi, extrap=False):
+def xi_to_pk(r, xi, ell=0, extrap=False):
     r"""
-    Return a callable function returning the power spectrum, as computed
-    from the Fourier transform of the input :math:`r` and :math:`\xi(r)` arrays.
+    Return a callable function returning the power spectrum multipole of degree
+    :math:`\ell`, as computed from the Fourier transform of the input :math:`r`
+    and :math:`\xi_\ell(r)` arrays.
 
     This uses the :mod:`mcfit` package perform the FFT.
 
@@ -17,7 +18,10 @@ def xi_to_pk(r, xi, extrap=False):
     r : array_like
         separation values where ``xi`` is evaluated
     xi : array_like
-        the array holding the correlation function values
+        the array holding the correlation function multipole values
+    ell : int
+        multipole degree of the input correlation function and the output power
+        spectrum; monopole by default
     extrap : bool, optional
         whether to extrapolate the power spectrum with a power law; can improve
         the smoothness of the FFT
@@ -27,15 +31,16 @@ def xi_to_pk(r, xi, extrap=False):
     InterpolatedUnivariateSpline :
         a spline holding the interpolated power spectrum values
     """
-    P = mcfit.xi2P(r)
+    P = mcfit.xi2P(r, l=ell)
     kk, Pk = P(xi, extrap=extrap)
     return InterpolatedUnivariateSpline(kk, Pk)
 
 
-def pk_to_xi(k, Pk, extrap=True):
+def pk_to_xi(k, Pk, ell=0, extrap=True):
     r"""
-    Return a callable function returning the correlation function, as computed
-    from the Fourier transform of the input :math:`k` and :math:`P(k)` arrays.
+    Return a callable function returning the correlation function multipole of
+    degree :math:`\ell`, as computed from the Fourier transform of the input
+    :math:`k` and :math:`P_\ell(k)` arrays.
 
     This uses the :mod:`mcfit` package perform the FFT.
 
@@ -44,7 +49,10 @@ def pk_to_xi(k, Pk, extrap=True):
     k : array_like
         wavenumbers where ``Pk`` is evaluated
     Pk : array_like
-        the array holding the power spectrum values
+        the array holding the power spectrum multipole values
+    ell : int
+        multipole degree of the input power spectrum and the output correlation
+        function; monopole by default
     extrap : bool, optional
         whether to extrapolate the power spectrum with a power law; can improve
         the smoothness of the FFT
@@ -54,7 +62,7 @@ def pk_to_xi(k, Pk, extrap=True):
     InterpolatedUnivariateSpline :
         a spline holding the interpolated correlation function values
     """
-    xi = mcfit.P2xi(k)
+    xi = mcfit.P2xi(k, l=ell)
     rr, CF = xi(Pk, extrap=extrap)
     return InterpolatedUnivariateSpline(rr, CF)
 
