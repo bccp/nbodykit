@@ -1,7 +1,10 @@
 Changelog
 =========
 
-0.3.1 (unreleased)
+0.3.2 (unreleased)
+------------------
+
+0.3.1 (2018-04-10)
 ------------------
 * :issue:`468`:  corrfunc and big-endian floating point numbers
 * :issue:`470`:  Add hankel tranforms for ell>0 
