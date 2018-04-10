@@ -1,7 +1,13 @@
 Changelog
 =========
 
-0.3.0 (unreleased)
+0.3.1 (unreleased)
+------------------
+* :issue:`468`:  corrfunc and big-endian floating point numbers
+* :issue:`470`:  Add hankel tranforms for ell>0 
+* :issue:`469`:  Fix a regression painting 'apply'ed meshes.
+
+0.3.0 (2017-12-18)
 ------------------
 * :issue:`439`: added updated pair counter algorithms, SurveyDataPairCount and SimulationBoxPairCount.
 * :issue:`439`: added correlation function algorithms, SurveyData2PCF and SimulationBox2PCF
