@@ -34,7 +34,7 @@ def reference_sim_tpcf(pos1, theta_edges, randoms=None, pos2=None):
     return angular_tpcf(pos1, theta_edges, sample2=pos2, randoms=randoms,
                             estimator=estimator, do_auto=do_auto)
 
-@MPITest([4])
+@MPITest([1, 4])
 def test_sim_periodic_auto(comm):
     CurrentMPIComm.set(comm)
 
@@ -54,7 +54,7 @@ def test_sim_periodic_auto(comm):
     cf = reference_sim_tpcf(sample1, theta_edges)
     assert_allclose(cf, r.corr['corr'])
 
-@MPITest([4])
+@MPITest([1, 4])
 def test_sim_nonperiodic_auto(comm):
     CurrentMPIComm.set(comm)
 
@@ -74,7 +74,7 @@ def test_sim_nonperiodic_auto(comm):
     cf = reference_sim_tpcf(numpy.vstack([ra1,dec1]).T, theta_edges, randoms=numpy.vstack([ra2,dec2]).T)
     assert_allclose(cf, r.corr['corr'], rtol=1e-5, atol=1e-3)
 
-@MPITest([4])
+@MPITest([1, 4])
 def test_sim_periodic_cross(comm):
     CurrentMPIComm.set(comm)
 
@@ -94,7 +94,7 @@ def test_sim_periodic_cross(comm):
     cf = reference_sim_tpcf(sample1, theta_edges, pos2=sample2)
     assert_allclose(cf, r.corr['corr'])
 
-@MPITest([4])
+@MPITest([1, 4])
 def test_survey_auto(comm):
     CurrentMPIComm.set(comm)
 
