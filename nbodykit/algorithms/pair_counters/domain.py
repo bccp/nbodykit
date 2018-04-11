@@ -200,7 +200,7 @@ def decompose_survey_data(first, second, attrs, logger, smoothing, domain_factor
     cosmo = attrs.get('cosmo', None) if not angular else None
     if not angular and cosmo is None:
         raise ValueError("need a cosmology to decompose non-angular survey data")
-    cpos1, boxsize1, rdist1 = get_cartesian(comm, pos1, cosmo=cosmo)
+    cpos1, cpos1_min, cpos1_max, rdist1 = get_cartesian(comm, pos1, cosmo=cosmo)
 
     # pass in comoving dist to Corrfunc instead of redshift
     if not angular:
@@ -215,7 +215,7 @@ def decompose_survey_data(first, second, attrs, logger, smoothing, domain_factor
         N2 = comm.allreduce(len(pos2))
 
         # get comoving dist and boxsize
-        cpos2, boxsize2, rdist2 = get_cartesian(comm, pos2, cosmo=cosmo)
+        cpos2, cpos2_min, cpos2_max, rdist2 = get_cartesian(comm, pos2, cosmo=cosmo)
 
         # pass in comoving distance instead of redshift
         if not angular:
@@ -224,23 +224,29 @@ def decompose_survey_data(first, second, attrs, logger, smoothing, domain_factor
         pos2 = pos1
         w2 = w1
         N2 = N1
-        boxsize2 = boxsize1
+        cpos2_min = cpos1_min
+        cpos2_max = cpos1_max
         cpos2 = cpos1
 
     # determine global boxsize
     if second is None:
-        boxsize = boxsize1
+        cpos_min = cpos1_min
+        cpos_max = cpos1_max
     else:
-        boxsizes = numpy.vstack([boxsize1, boxsize2])
-        argmax = numpy.argmax(boxsizes, axis=0)
-        boxsize = boxsizes[argmax, [0,1,2]]
+        cpos_min = numpy.min(numpy.vstack([cpos1_min, cpos2_min]), axis=0)
+        cpos_max = numpy.max(numpy.vstack([cpos1_max, cpos2_max]), axis=0)
+
+    boxsize = cpos_max - cpos_min
+
+    if comm.rank == 0:
+        logger.info("position variable range on rank 0 (max, min) = %s, %s" % (cpos_max, cpos_min))
 
     # initialize the domain
     # NOTE: over-decompose by factor of 2 to trigger load balancing
     grid = [
-        numpy.linspace(0, boxsize[0], domain_factor*np[0] + 1, endpoint=True),
-        numpy.linspace(0, boxsize[1], domain_factor*np[1] + 1, endpoint=True),
-        numpy.linspace(0, boxsize[2], domain_factor*np[2] + 1, endpoint=True),
+        numpy.linspace(cpos_min[0], cpos_max[0], domain_factor*np[0] + 1, endpoint=True),
+        numpy.linspace(cpos_min[1], cpos_max[1], domain_factor*np[1] + 1, endpoint=True),
+        numpy.linspace(cpos_min[2], cpos_max[2], domain_factor*np[2] + 1, endpoint=True),
     ]
     domain = GridND(grid, comm=comm)
 
@@ -299,6 +305,9 @@ def get_cartesian(comm, pos, cosmo=None):
 
     # min/max of position
     cpos_min, cpos_max = get_data_bounds(cpos, comm)
-    boxsize = numpy.ceil(abs(cpos_max - cpos_min))
+    boxsize = abs(cpos_max - cpos_min)
 
-    return cpos, boxsize, rdist
+    # some padding to avoid weird effects with domain decomposition
+    # like sitting on an edge and goes out of bound due to round off errors.
+
+    return cpos, cpos_min - 1e-3 * boxsize, cpos_max + 1e-3 * boxsize, rdist
