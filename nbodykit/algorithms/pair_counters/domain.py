@@ -248,7 +248,7 @@ def decompose_survey_data(first, second, attrs, logger, smoothing, domain_factor
         numpy.linspace(cpos_min[1], cpos_max[1], domain_factor*np[1] + 1, endpoint=True),
         numpy.linspace(cpos_min[2], cpos_max[2], domain_factor*np[2] + 1, endpoint=True),
     ]
-    domain = GridND(grid, comm=comm)
+    domain = GridND(grid, comm=comm, periodic=False)
 
     # balance the load
     domain.loadbalance(domain.load(cpos1))
