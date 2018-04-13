@@ -54,7 +54,7 @@ class BigFile(FileType):
         with bigfile.BigFile(filename=path) as ff:
             columns = ff[self.dataset].blocks
             if header is Automatic:
-                for header in ['Header', 'header', './']:
+                for header in ['Header', 'header', '.']:
                     if header in columns: break
 
             if exclude is None:
