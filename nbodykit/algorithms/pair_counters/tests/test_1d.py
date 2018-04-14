@@ -20,8 +20,8 @@ def generate_survey_data(seed):
     s = RandomCatalog(1000, seed=seed)
 
     s['Redshift'] = s.rng.normal(loc=0.5, scale=0.1, size=s.size)
-    s['RA'] = s.rng.uniform(low=110, high=260, size=s.size)
-    s['DEC'] = s.rng.uniform(low=-3.6, high=60., size=s.size)
+    s['RA'] = s.rng.uniform(low=0, high=360, size=s.size)
+    s['DEC'] = s.rng.uniform(low=-60, high=60., size=s.size)
     s['Position'] = transform.SkyToCartesian(s['RA'], s['DEC'], s['Redshift'], cosmo=cosmo)
 
     return s
