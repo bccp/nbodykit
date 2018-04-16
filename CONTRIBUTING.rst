@@ -10,7 +10,6 @@ Requesting a Feature
 --------------------
 
 You can use `GitHub issues <https://github.com/bccp/nbodykit/issues>`_
-or send mail to nbodykit-issues@fire.fundersclub.com
 to request features you would like to see in nbodykit.
 
 1. Provide a clear and detailed explanation of the feature you want to add
@@ -39,17 +38,15 @@ report:
    Make sure to delete `is:open` on the issue search to find solved tickets as
    well. It is possible that this bug has been encountered before.
 
-3. Open up an issue on GitHub or send an email to nbodykit-issues@fire.fundersclub.com.
-
-4. Please include the versions of Python, nbodykit, and other dependency
+3. Please include the versions of Python, nbodykit, and other dependency
    libraries if they are applicable (numpy, scipy, etc)
 
-5. Provide us with the logging output of the script from when the bug was encountered,
+4. Provide us with the logging output of the script from when the bug was encountered,
    including a traceback if appropriate. If at all possible, provide us with
    a standalone script that will reproduce the issue. Issues have a much higher chance
    of being resolved quickly if we can easily reproduce the bug.
 
-6. Take a stab at fixing the bug yourself! The :mod:`runtests` module used by
+5. Take a stab at fixing the bug yourself! The :mod:`runtests` module used by
    nbodykit supports on-line debugging via the
    `PDB interface <https://docs.python.org/3/library/pdb.html>`_.  It also
    supports drop-in replacements for PDB such as
