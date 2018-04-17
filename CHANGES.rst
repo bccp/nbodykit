@@ -3,6 +3,7 @@ Changelog
 
 0.3.2 (unreleased)
 ------------------
+* :issue:`475`:  proper normalization of the Landy-Szalay estimator, included R1R2 option and to_xil function
 
 0.3.1 (2018-04-10)
 ------------------
