@@ -52,6 +52,8 @@ class MeshSource(object):
         self.attrs['BoxSize'] = self.pm.BoxSize.copy()
         self.attrs['Nmesh'] = self.pm.Nmesh.copy()
 
+        # modify the underlying method
+        # actions may have been overriden!
         self._actions = []
         self.base = None
 
@@ -71,7 +73,7 @@ class MeshSource(object):
             self.pm = other.pm
             self.attrs.update(other.attrs)
             self._actions = []
-            self.actions.extend(other.actions)
+            self._actions.extend(other.actions)
 
         return self
 
@@ -155,7 +157,9 @@ class MeshSource(object):
             assert kind in ['wavenumber', 'circular', 'index']
 
         view = self.view()
-        view.actions.append((mode, func, kind))
+        # modify the underlying method
+        # actions may have been overriden!
+        view._actions.append((mode, func, kind))
         return view
 
     def __len__(self):

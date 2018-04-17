@@ -230,9 +230,10 @@ def test_view(comm):
     # adding columns to the view changes original source
     view['TEST2'] = 5.0
     assert 'TEST2' in source
+class CodeReached(BaseException): pass
 
 @MPITest([1, 4])
-def test_apply(comm):
+def test_apply_nocompensation(comm):
     CurrentMPIComm.set(comm)
 
     # the CatalogSource
@@ -242,10 +243,16 @@ def test_apply(comm):
     source.attrs['TEST'] = 10.0
 
     # the mesh
-    mesh = source.to_mesh(position='Position2', Nmesh=32)
-    mesh = mesh.apply(lambda k, v: v)
+    mesh = source.to_mesh(position='Position2', Nmesh=32, compensated=False)
 
-    real = mesh.paint()
+    def raisefunc(k, v):
+        raise StopIteration
+
+    mesh = mesh.apply(raisefunc)
+
+    with pytest.raises(StopIteration):
+        mesh.paint()
+
     # view
     view = mesh.view()
     assert view.base is mesh
@@ -254,3 +261,25 @@ def test_apply(comm):
     # check meta-data
     for k in mesh.attrs:
         assert k in view.attrs
+
+@MPITest([1])
+def test_apply_compensated(comm):
+    CurrentMPIComm.set(comm)
+
+    # the CatalogSource
+    source = UniformCatalog(nbar=0.2e-3, BoxSize=1024., seed=42)
+    source['TEST'] = 10.
+    source['Position2'] = source['Position']
+    source.attrs['TEST'] = 10.0
+
+    # the mesh
+    mesh = source.to_mesh(position='Position2', Nmesh=32, compensated=True)
+
+    def raisefunc(k, v):
+        raise StopIteration
+
+    mesh = mesh.apply(raisefunc)
+
+    with pytest.raises(StopIteration):
+        mesh.paint()
+
