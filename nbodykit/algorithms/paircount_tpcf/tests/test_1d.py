@@ -32,8 +32,6 @@ def generate_survey_data(seed):
     # make the randoms (ensure nbar is high enough to not have missing values)
     r = UniformCatalog(nbar=3e-4, BoxSize=512., seed=seed*2)
     r['RA'], r['DEC'], r['Redshift'] = transform.CartesianToSky(r['Position'], cosmo)
-    
-    r['Weight'] = numpy.random.random(size=len(r))
 
     return d, r
 
@@ -146,7 +144,7 @@ def test_sim_periodic_cross(comm):
     cf = reference_sim_tpcf(pos1, redges, data1.attrs['BoxSize'], pos2=pos2)
     assert_allclose(cf, r.corr['corr'])
 
-@MPITest([4])
+@MPITest([1])
 def test_survey_auto(comm):
     cosmo = cosmology.Planck15
     CurrentMPIComm.set(comm)
@@ -159,6 +157,12 @@ def test_survey_auto(comm):
 
     # compute 2PCF
     r = SurveyData2PCF('1d', data, randoms, redges, cosmo=cosmo)
+    
+    # R1R2 computed separately
+    R1R2 = SurveyDataPairCount('1d', randoms, redges, cosmo=cosmo)
+    rGivenR1R2 = SurveyData2PCF('1d', data, randoms, redges, cosmo=cosmo, R1R2=R1R2)
+    # verify CF
+    assert_allclose(r.corr['corr'], rGivenR1R2.corr['corr'])
 
     # run Corrfunc to verify
     pos1 = make_corrfunc_input(data, cosmo)
@@ -184,14 +188,20 @@ def test_survey_cross(comm):
     redges = numpy.linspace(0.01, 10.0, 5)
 
     # compute 2PCF
-    r = SurveyData2PCF('1d', data1, randoms2, redges, cosmo=cosmo, data2=data2, randoms2=randoms2)
+    r = SurveyData2PCF('1d', data1, randoms1, redges, cosmo=cosmo, data2=data2, randoms2=randoms2)
+    
+    # R1R2 computed separately
+    R1R2 = SurveyDataPairCount('1d', randoms1, redges, cosmo=cosmo, second=randoms2)
+    rGivenR1R2 = SurveyData2PCF('1d', data1, randoms1, redges, cosmo=cosmo, data2=data2, randoms2=randoms2, R1R2=R1R2)
+    # verify CF
+    assert_allclose(r.corr['corr'], rGivenR1R2.corr['corr'])
 
     # run Corrfunc to verify
     data1 = make_corrfunc_input(data1, cosmo)
     randoms1 = make_corrfunc_input(randoms1, cosmo)
     data2 = make_corrfunc_input(data2, cosmo)
     randoms2 = make_corrfunc_input(randoms2, cosmo)
-    D1D2, D1R2, D2R1, R1R2, cf = reference_survey_tpcf(data1, randoms2, redges,
+    D1D2, D1R2, D2R1, R1R2, cf = reference_survey_tpcf(data1, randoms1, redges,
                                                         data2=data2, randoms2=randoms2)
 
     # verify pair counts and CF

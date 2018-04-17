@@ -178,3 +178,26 @@ def test_survey_cross(comm):
     assert_allclose(D1R2['npairs'], r.D1R2['npairs'])
     assert_allclose(D2R1['npairs'], r.D2R1['npairs'])
     assert_allclose(R1R2['npairs'], r.R1R2['npairs'])
+
+    
+@MPITest([4])    
+def test_xil(comm):
+    cosmo = cosmology.Planck15
+    CurrentMPIComm.set(comm)
+
+    # data and randoms
+    data1, randoms1 = generate_survey_data(seed=42)
+    data2, randoms2 = generate_survey_data(seed=84)
+
+    # make the bin edges
+    redges = numpy.linspace(0.01, 10, 5)
+    Nmu = 10
+    ells = [0,2,4]
+
+    # compute 2PCF
+    r = SurveyData2PCF('2d', data1, randoms2, redges, Nmu=Nmu, cosmo=cosmo, data2=data2, randoms2=randoms2)
+    xil,mu_sel = r.to_xil(ells=ells, mu_range=None, mu_sel=None, return_mu_sel=True)
+    xil,mu_sel = r.to_xil(ells=ells, mu_range=[0.2,0.5], mu_sel=None, return_mu_sel=True)
+    xil = r.to_xil(ells=ells, mu_range=[0.2,0.5], mu_sel=[1,2,5], return_mu_sel=False)
+    
+    

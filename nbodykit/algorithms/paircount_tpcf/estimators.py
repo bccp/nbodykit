@@ -88,6 +88,8 @@ def LandySzalayEstimator(pair_counter, data1, data2, randoms1, randoms2, R1R2=No
         the randoms catalog corresponding to ``data1``
     randoms2 : CatalogSource, None
         the second randoms catalog; can be None for auto-correlations
+    R1R2 : SimulationBoxPairCount, SurveyDataPairCount, optional
+        if provided, random pairs R1R2 are not recalculated
     **kwargs :
         the parameters passed to the ``pair_counter`` class to count pairs
 
@@ -104,8 +106,7 @@ def LandySzalayEstimator(pair_counter, data1, data2, randoms1, randoms2, R1R2=No
     assert randoms1 is not None
     comm = data1.comm
     
-    if randoms2 is None:
-        randoms2 = randoms1
+    if randoms2 is None: randoms2 = randoms1
         
     # and randoms - randoms calculation
     if logger is not None and comm.rank == 0:

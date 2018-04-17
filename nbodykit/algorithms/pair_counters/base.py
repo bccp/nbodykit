@@ -48,7 +48,7 @@ class PairCountBase(object):
         self.attrs['N1'] = first.csize
         self.attrs['N2'] = second.csize if second is not None else None
         
-       	if second is None:
+       	if second is None or second==first:
             wpairs1, wpairs2 = self.comm.allreduce(first.compute(first[weight].sum())), self.comm.allreduce(first.compute((first[weight]**2).sum()))
             self.attrs['weightedpairs'] = 0.5*(wpairs1**2-wpairs2)
         else:

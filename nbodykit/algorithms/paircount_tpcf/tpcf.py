@@ -121,7 +121,7 @@ class BasePairCount2PCF(object):
             # use the first randoms for both
             if self.data2 is not None and self.randoms2 is None:
                 self.randoms2 = self.randoms1
-
+            
             # use the Landy-Szalay estimator
             result = LandySzalayEstimator(pair_counter, self.data1, self.data2,
                                             self.randoms1, self.randoms2, R1R2=self.R1R2,
@@ -227,7 +227,7 @@ class BasePairCount2PCF(object):
         dims = [x]
         edges = [self.corr.edges[x]]
         
-        if not mu_sel:
+        if mu_sel is None:
             if mu_range: mu_sel = numpy.nonzero((self.corr.edges['mu'][:-1]>=mu_range[0]) & (self.corr.edges['mu'][1:]<=mu_range[1]))[0]
             else: mu_sel = slice(len(self.corr.edges['mu'])-1)
         
@@ -242,33 +242,6 @@ class BasePairCount2PCF(object):
         
         if return_mu_sel: return BinnedStatistic(dims=dims, edges=edges ,data=data, poles=ells), mu_sel
         return BinnedStatistic(dims=dims, edges=edges ,data=data, poles=ells)
-
-
-    def to_xirmu(self, mu_edges, mu_sels=None, return_mu_sels=False):
-    
-    	# new data array
-    	x = str(self.corr.dims[0])
-        dtype = numpy.dtype([(x, 'f8'),('corr', 'f8')])
-        data = numpy.zeros((self.corr.shape[0], len(mu_edges)-1), dtype=dtype)
-        dims = self.corr.dims
-        edges = [self.corr.edges[x], mu_edges]
-        
-        if not mu_sels:
-            mu_sels = []
-            for mu_low,mu_high in zip(mu_edges[:-1],mu_edges[1:]):
-                mu_sels += [numpy.nonzero((self.corr.edges['mu'][:-1]>=mu_low) & (self.corr.edges['mu'][1:]<=mu_high))[0]]
-         
-        weights = self.R1R2['npairs']*self.R1R2['weightavg']
-        weights[weights==0.] = numpy.nan
-                
-        for imu, mu_sel in enumerate(mu_sels):
-            edges[1][imu], edges[1][imu+1] = self.corr.edges['mu'][:-1][mu_sel][0], self.corr.edges['mu'][1:][mu_sel][-1]
-            data[x][:,imu] = numpy.average(self.corr[x][:,mu_sel],weights=weights[:,mu_sel],axis=-1)
-            data['corr'][:,imu] = numpy.average(self.corr['corr'][:,mu_sel],weights=weights[:,mu_sel],axis=-1)
-    		
-        #return self.corr.reindex(dim='mu',spacing=numpy.mean(numpy.diff(mu_edges)),weights=self.R1R2['npairs']*self.R1R2['weightavg'],force=False,return_spacing=False,fields_to_sum=[])
-        if return_mu_sels: return BinnedStatistic(dims, edges, data), mu_sels
-        return BinnedStatistic(dims, edges, data)
 		
 
 class SimulationBox2PCF(BasePairCount2PCF):
