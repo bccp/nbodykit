@@ -2,7 +2,7 @@ from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import set_options
 from nbodykit import setup_logging
-from numpy.testing import assert_array_equal, assert_allclose, assert_raises
+from numpy.testing import assert_array_equal, assert_allclose
 import pytest
 
 # debug logging
@@ -246,11 +246,12 @@ def test_apply_nocompensation(comm):
     mesh = source.to_mesh(position='Position2', Nmesh=32, compensated=False)
 
     def raisefunc(k, v):
-        raise CodeReached
+        raise StopIteration
 
     mesh = mesh.apply(raisefunc)
 
-    assert_raises(CodeReached, mesh.paint)
+    with pytest.raises(StopIteration):
+        mesh.paint()
 
     # view
     view = mesh.view()
@@ -260,9 +261,6 @@ def test_apply_nocompensation(comm):
     # check meta-data
     for k in mesh.attrs:
         assert k in view.attrs
-
-    def raise_filter(k, v):
-        raise
 
 @MPITest([1])
 def test_apply_compensated(comm):
@@ -278,9 +276,10 @@ def test_apply_compensated(comm):
     mesh = source.to_mesh(position='Position2', Nmesh=32, compensated=True)
 
     def raisefunc(k, v):
-        raise CodeReached
+        raise StopIteration
 
     mesh = mesh.apply(raisefunc)
 
-    assert_raises(CodeReached, mesh.paint)
+    with pytest.raises(StopIteration):
+        mesh.paint()
 
