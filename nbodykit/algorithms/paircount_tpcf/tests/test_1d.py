@@ -32,6 +32,8 @@ def generate_survey_data(seed):
     # make the randoms (ensure nbar is high enough to not have missing values)
     r = UniformCatalog(nbar=3e-4, BoxSize=512., seed=seed*2)
     r['RA'], r['DEC'], r['Redshift'] = transform.CartesianToSky(r['Position'], cosmo)
+    
+    r['Weight'] = numpy.random.random(size=len(r))
 
     return d, r
 

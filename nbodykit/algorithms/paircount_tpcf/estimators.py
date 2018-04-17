@@ -71,7 +71,7 @@ class AnalyticUniformRandoms(object):
         else:
             return NR1 * NR2 * self.filling_factor
 
-def LandySzalayEstimator(pair_counter, data1, data2, randoms1, randoms2, logger=None, **kwargs):
+def LandySzalayEstimator(pair_counter, data1, data2, randoms1, randoms2, R1R2=None, logger=None, **kwargs):
     """
     Compute the correlation function from data/randoms using the
     Landy - Szalay estimator to compute the correlation function.
@@ -103,65 +103,59 @@ def LandySzalayEstimator(pair_counter, data1, data2, randoms1, randoms2, logger=
     # make sure we have the randoms
     assert randoms1 is not None
     comm = data1.comm
-
+    
+    if randoms2 is None:
+        randoms2 = randoms1
+        
+    # and randoms - randoms calculation
+    if logger is not None and comm.rank == 0:
+        logger.info("computing randoms1 - randoms2 pair counts")
+    if not R1R2:
+        R1R2 = pair_counter(first=randoms1, second=randoms2, **kwargs)
+    
     # data1 x data2
     if logger is not None and comm.rank == 0:
         logger.info("computing data1 - data2 pair counts")
-    D1D2 = pair_counter(first=data1, second=data2, **kwargs).pairs
-
-    if randoms2 is None:
-        randoms2 = randoms1
-
-    # determine the sample sizes
-    ND1, NR1 = data1.csize, randoms1.csize
-    ND2 = data2.csize if data2 is not None else ND1
-    NR2 = randoms2.csize
+    D1D2 = pair_counter(first=data1, second=data2, **kwargs)
 
     # do data - randoms correlation
     if logger is not None and comm.rank == 0:
         logger.info("computing data1 - randoms2 pair counts")
-    D1R2 = pair_counter(first=data1, second=randoms2, **kwargs).pairs
+    D1R2 = pair_counter(first=data1, second=randoms2, **kwargs)
 
     if data2 is not None:
         if logger is not None and comm.rank == 0:
             logger.info("computing data2 - randoms1 pair counts")
-        D2R1 = pair_counter(first=data2, second=randoms1, **kwargs).pairs
+        D2R1 = pair_counter(first=data2, second=randoms1, **kwargs)
     else:
         D2R1 = D1R2
-
-    # and randoms - randoms calculation
-    if logger is not None and comm.rank == 0:
-        logger.info("computing randoms1 - randoms2 pair counts")
-    R1R2 = pair_counter(first=randoms1, second=randoms2, **kwargs).pairs
+    
+    fDD, fDR, fRD = R1R2.attrs['weightedpairs']/D1D2.attrs['weightedpairs'], R1R2.attrs['weightedpairs']/D1R2.attrs['weightedpairs'], R1R2.attrs['weightedpairs']/D2R1.attrs['weightedpairs']
+  
+    nonzero = R1R2.pairs['npairs'] > 0
 
     # init
-    CF = numpy.zeros(D1D2.shape)
+    CF = numpy.zeros(D1D2.pairs.shape)
     CF[:] = numpy.nan
-
-    fN1 = float(NR1)/ND1
-    fN2 = float(NR2)/ND2
-    nonzero = R1R2['npairs'] > 0
+    Error = numpy.zeros(D1D2.pairs.shape)
+    Error[:] = numpy.nan
 
     # the Landy - Szalay estimator
     # (DD - DR - RD + RR) / RR
-    xi = fN1 * fN2 * (D1D2['npairs']*D1D2['weightavg'])[nonzero]
-    xi -= fN1 * (D1R2['npairs']*D1R2['weightavg'])[nonzero]
-    xi -= fN2 * (D2R1['npairs']*D2R1['weightavg'])[nonzero]
-    xi /= (R1R2['npairs']*R1R2['weightavg'])[nonzero]
-    xi += 1.
+    DD, DR, RD, RR = (D1D2.pairs['npairs']*D1D2.pairs['weightavg'])[nonzero], (D1R2.pairs['npairs']*D1R2.pairs['weightavg'])[nonzero], (D2R1.pairs['npairs']*D2R1.pairs['weightavg'])[nonzero], (R1R2.pairs['npairs']*R1R2.pairs['weightavg'])[nonzero]
+    xi = (fDD * DD - fDR * DR - fRD * RD)/RR + 1
     CF[nonzero] = xi[:]
-
+    
     # warn about NaNs in the estimator
-    if data1.comm.rank == 0 and numpy.isnan(CF).any():
+    if comm.rank == 0 and numpy.isnan(CF).any():
         msg = ("The RR calculation in the Landy-Szalay estimator contains"
         " separation bins with no bins. This will result in NaN values in the resulting"
         " correlation function. Try increasing the number of randoms and/or using"
         " broader bins.")
         warnings.warn(msg)
 
-    CF = _create_tpcf_result(D1D2, CF)
-    return D1D2, D1R2, D2R1, R1R2, CF
-
+    CF = _create_tpcf_result(D1D2.pairs, CF)
+    return D1D2.pairs, D1R2.pairs, D2R1.pairs, R1R2.pairs, CF
 
 def NaturalEstimator(data_paircount):
     """

@@ -103,7 +103,7 @@ class SurveyDataPairCount(PairCountBase):
         verify_input_sources(first, second, None, required_cols, inspect_boxsize=False)
 
         # init the base class (this verifies input arguments)
-        PairCountBase.__init__(self, mode, edges, first, second, Nmu, pimax, show_progress)
+        PairCountBase.__init__(self, mode, edges, first, second, Nmu, pimax, weight, show_progress)
 
         # need cosmology if not angular!
         if mode != 'angular' and cosmo is None:
