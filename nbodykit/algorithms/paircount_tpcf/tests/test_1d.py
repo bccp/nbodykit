@@ -144,7 +144,7 @@ def test_sim_periodic_cross(comm):
     cf = reference_sim_tpcf(pos1, redges, data1.attrs['BoxSize'], pos2=pos2)
     assert_allclose(cf, r.corr['corr'])
 
-@MPITest([1])
+@MPITest([4])
 def test_survey_auto(comm):
     cosmo = cosmology.Planck15
     CurrentMPIComm.set(comm)
