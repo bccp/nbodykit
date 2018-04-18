@@ -78,6 +78,7 @@ def reference_survey_tpcf(data1, randoms1, redges, data2=None, randoms2=None):
     # combine using Landy-Szalay
     ND1 = len(ra_d1); ND2 = len(ra_d2)
     NR1 = len(ra_r1); NR2 = len(ra_r2)
+    
     CF = convert_3d_counts_to_cf(ND1, ND2, NR1, NR2, D1D2, D1R2, D2R1, R1R2)
 
     return D1D2, D1R2, D2R1, R1R2, CF

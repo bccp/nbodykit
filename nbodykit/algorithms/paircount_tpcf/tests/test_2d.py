@@ -162,14 +162,14 @@ def test_survey_cross(comm):
     Nmu = 3
 
     # compute 2PCF
-    r = SurveyData2PCF('2d', data1, randoms2, redges, Nmu=Nmu, cosmo=cosmo, data2=data2, randoms2=randoms2)
+    r = SurveyData2PCF('2d', data1, randoms1, redges, Nmu=Nmu, cosmo=cosmo, data2=data2, randoms2=randoms2)
 
     # run Corrfunc to verify
     data1 = make_corrfunc_input(data1, cosmo)
     randoms1 = make_corrfunc_input(randoms1, cosmo)
     data2 = make_corrfunc_input(data2, cosmo)
     randoms2 = make_corrfunc_input(randoms2, cosmo)
-    D1D2, D1R2, D2R1, R1R2, cf = reference_survey_tpcf(data1, randoms2, redges, Nmu,
+    D1D2, D1R2, D2R1, R1R2, cf = reference_survey_tpcf(data1, randoms1, redges, Nmu,
                                                         data2=data2, randoms2=randoms2)
 
     # verify pair counts and CF

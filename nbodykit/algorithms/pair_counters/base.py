@@ -47,13 +47,13 @@ class PairCountBase(object):
         # store the total size of the sources
         self.attrs['N1'] = first.csize
         self.attrs['N2'] = second.csize if second is not None else None
-        
-       	if second is None or second==first:
+
+        if second is None or second is first:
             wpairs1, wpairs2 = self.comm.allreduce(first.compute(first[weight].sum())), self.comm.allreduce(first.compute((first[weight]**2).sum()))
             self.attrs['weightedpairs'] = 0.5*(wpairs1**2-wpairs2)
         else:
-       	    wpairs1, wpairs2 = self.comm.allreduce(first.compute(first[weight].sum())), self.comm.allreduce(second.compute(second[weight].sum()))
-       	    self.attrs['weightedpairs'] = 0.5*wpairs1*wpairs2
+            wpairs1, wpairs2 = self.comm.allreduce(first.compute(first[weight].sum())), self.comm.allreduce(second.compute(second[weight].sum()))
+            self.attrs['weightedpairs'] = 0.5*wpairs1*wpairs2
        	    
     def __getstate__(self):
         return {'pairs':self.pairs.data, 'attrs':self.attrs}
