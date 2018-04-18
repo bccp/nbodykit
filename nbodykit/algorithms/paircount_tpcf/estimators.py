@@ -156,7 +156,7 @@ def LandySzalayEstimator(pair_counter, data1, data2, randoms1, randoms2, R1R2=No
         warnings.warn(msg)
 
     CF = _create_tpcf_result(D1D2.pairs, CF)
-    return D1D2.pairs, D1R2.pairs, D2R1.pairs, R1R2.pairs, CF
+    return D1D2, D1R2, D2R1, R1R2, CF
 
 def NaturalEstimator(data_paircount):
     """

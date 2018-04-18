@@ -127,6 +127,12 @@ class BasePairCount2PCF(object):
                                             self.randoms1, self.randoms2, R1R2=self.R1R2,
                                             logger=self.logger, **attrs)
             self.D1D2, self.D1R2, self.D2R1, self.R1R2, self.corr = result
+            
+            self.attrs['weightedpairs'] = {}
+            for pc in ['D1D2', 'D1R2', 'D2R1', 'R1R2']:
+                PC = getattr(self, pc)
+                self.attrs['weightedpairs'][pc] = PC.attrs['weightedpairs']
+                setattr(self,pc,PC.pairs)
        
 
     def __getstate__(self):
