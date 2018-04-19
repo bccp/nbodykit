@@ -133,8 +133,9 @@ def GatherArray(data, comm, root=0):
         the data on each rank to gather
     comm : MPI communicator
         the MPI communicator
-    root : int
-        the rank number to gather the data to
+    root : int, or Ellipsis
+        the rank number to gather the data to. If root is Ellipsis,
+        broadcast the result to all ranks.
 
     Returns
     -------
@@ -150,7 +151,7 @@ def GatherArray(data, comm, root=0):
     local_length = data.shape[0]
 
     # check dtypes and shapes
-    shapes = comm.gather(data.shape, root=root)
+    shapes = comm.allgather(data.shape)
     dtypes = comm.allgather(data.dtype)
 
     # check for structured data
@@ -171,14 +172,14 @@ def GatherArray(data, comm, root=0):
         newshape[0] = newlength
 
         # the return array
-        if comm.rank == root:
+        if root is Ellipsis or comm.rank == root:
             recvbuffer = numpy.empty(newshape, dtype=dtypes[0], order='C')
         else:
             recvbuffer = None
 
         for name in dtypes[0].names:
             d = GatherArray(data[name], comm, root=root)
-            if comm.rank == 0:
+            if root is Ellipsis or comm.rank == root:
                 recvbuffer[name] = d
 
         return recvbuffer
@@ -188,13 +189,14 @@ def GatherArray(data, comm, root=0):
         raise ValueError("object data types ('O') not allowed in structured data in GatherArray")
 
     # check for bad dtypes and bad shapes
-    if comm.rank == root:
+    if root is Ellipsis or comm.rank == root:
         bad_shape = any(s[1:] != shapes[0][1:] for s in shapes[1:])
         bad_dtype = any(dt != dtypes[0] for dt in dtypes[1:])
     else:
         bad_shape = None; bad_dtype = None
 
     bad_shape, bad_dtype = comm.bcast((bad_shape, bad_dtype))
+
     if bad_shape:
         raise ValueError("mismatch between shape[1:] across ranks in GatherArray")
     if bad_dtype:
@@ -215,7 +217,7 @@ def GatherArray(data, comm, root=0):
     newshape[0] = newlength
 
     # the return array
-    if comm.rank == root:
+    if root is Ellipsis or comm.rank == root:
         recvbuffer = numpy.empty(newshape, dtype=dtype, order='C')
     else:
         recvbuffer = None
@@ -229,8 +231,11 @@ def GatherArray(data, comm, root=0):
     offsets[1:] = counts.cumsum()[:-1]
 
     # gather to root
-    comm.Barrier()
-    comm.Gatherv([data, dt], [recvbuffer, (counts, offsets), dt], root=root)
+    if root is Ellipsis:
+        comm.Allgatherv([data, dt], [recvbuffer, (counts, offsets), dt])
+    else:
+        comm.Gatherv([data, dt], [recvbuffer, (counts, offsets), dt], root=root)
+
     dt.Free()
 
     return recvbuffer
