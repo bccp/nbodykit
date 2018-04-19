@@ -13,7 +13,7 @@ class LogNormalCatalog(CatalogSource):
     Parameters
     ----------
     Plin : callable
-        callable specifying the linear power spectrum
+        callable specifying the linear power spectrum at the desired redshift.
     nbar : float
         the number density of the particles in the box, assumed constant across
         the box; this is used when Poisson sampling the density field
