@@ -9,6 +9,38 @@ from nbodykit.base.catalog import CatalogSource
 class FFTRecon(MeshSource):
     """
     Standard FFT based reconstruction algorithm for a periodic box.
+    The algorithm does not deal with redshift distortion.
+
+    References:
+
+        Eisenstein et al, 2007
+        http://adsabs.harvard.edu/abs/2007ApJ...664..675E
+        Section 3, paragraph starting with 'Restoring in full the ...'
+
+    However, a cleaner description is in Schmitfull et al 2015,
+
+        http://adsabs.harvard.edu/cgi-bin/bib_query?arXiv:1508.06972
+
+        Equation 38.
+
+    Parameters
+    ----------
+    data : CatalogSource,
+        the data catalog, e.g. halos. `data.attrs['BoxSize']` is used if argument `BoxSize` is not given.
+    ran  :  CatalogSource
+        the random catalog, e.g. from a `UniformCatalog` object.
+    Nmesh : int
+        The size of the FFT Mesh. Rule of thumb is that the size of a mesh cell
+        shall be 2 ~ 4 times smaller than the smoothing length, `R`.
+    R : float
+        The radius of smoothing. 10 to 20 Mpc/h is usually cool.
+    bias : float
+        The bias of the data catalog.
+    position: string
+        column to use for picking up the Position of the objects.
+    BoxSize : float or array_like
+        the size of the periodic box.
+
     """
 
     @CurrentMPIComm.enable
