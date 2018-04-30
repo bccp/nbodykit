@@ -42,6 +42,37 @@ def test_json_quantity(comm):
     os.remove(tmpfile)
 
 @MPITest([2])
+def test_gather_array(comm):
+    CurrentMPIComm.set(comm)
+
+    # object arrays must fail
+    data1a = numpy.ones(10, dtype=[('test', 'f8')])
+    data2a = numpy.ones(10, dtype='f8')
+
+    data1 = GatherArray(data1a, comm, root=0)
+    if comm.rank == 0:
+        numpy.testing.assert_array_equal(data1['test'], 1)
+        assert len(data1) == 10 * comm.size
+    else:
+        assert data1 is None
+
+    data2 = GatherArray(data2a, comm, root=0)
+    if comm.rank == 0:
+        numpy.testing.assert_array_equal(data2, 1)
+        assert len(data2) == 10 * comm.size
+    else:
+        assert data2 is None
+
+    data2 = GatherArray(data2a, comm, root=Ellipsis)
+    numpy.testing.assert_array_equal(data2, 1)
+    assert len(data2) == 10 * comm.size
+
+    data1 = GatherArray(data1a, comm, root=Ellipsis)
+    numpy.testing.assert_array_equal(data1['test'], 1)
+    assert len(data1) == 10 * comm.size
+
+
+@MPITest([2])
 def test_gather_objects(comm):
     CurrentMPIComm.set(comm)
 
@@ -54,6 +85,12 @@ def test_gather_objects(comm):
 
     with pytest.raises(ValueError):
         data2 = GatherArray(data2, comm, root=0)
+
+    with pytest.raises(ValueError):
+        data1 = GatherArray(data1, comm, root=Ellipsis)
+
+    with pytest.raises(ValueError):
+        data2 = GatherArray(data2, comm, root=Ellipsis)
 
 @MPITest([2])
 def test_scatter_objects(comm):
@@ -87,6 +124,9 @@ def test_gather_bad_data(comm):
     with pytest.raises(ValueError):
         data = GatherArray(data, comm, root=0)
 
+    with pytest.raises(ValueError):
+        data = GatherArray(data, comm, root=Ellipsis)
+
 @MPITest([2])
 def test_gather_bad_dtype(comm):
     CurrentMPIComm.set(comm)
@@ -100,6 +140,9 @@ def test_gather_bad_dtype(comm):
     # shape mismatch
     with pytest.raises(ValueError):
         data = GatherArray(data, comm, root=0)
+
+    with pytest.raises(ValueError):
+        data = GatherArray(data, comm, root=Ellipsis)
 
 @MPITest([2])
 def test_gather_bad_shape(comm):
@@ -115,6 +158,9 @@ def test_gather_bad_shape(comm):
     with pytest.raises(ValueError):
         data = GatherArray(data, comm, root=0)
 
+    with pytest.raises(ValueError):
+        data = GatherArray(data, comm, root=Ellipsis)
+
 @MPITest([2])
 def test_gather_list(comm):
     CurrentMPIComm.set(comm)
@@ -125,6 +171,9 @@ def test_gather_list(comm):
     # can't gather a list
     with pytest.raises(ValueError):
         data = GatherArray(list(data), comm, root=0)
+
+    with pytest.raises(ValueError):
+        data = GatherArray(list(data), comm, root=Ellipsis)
 
 @MPITest([2])
 def test_scatter_list(comm):
