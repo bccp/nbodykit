@@ -67,7 +67,7 @@ class FFTRecon(MeshSource):
         if BoxSize is None:
             BoxSize = data.attrs['BoxSize']
 
-        pm = ParticleMesh(BoxSize=BoxSize, Nmesh=_Nmesh)
+        pm = ParticleMesh(BoxSize=BoxSize, Nmesh=_Nmesh, comm=comm)
         self.pm = pm
 
         assert position in data.columns
