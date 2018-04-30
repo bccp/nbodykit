@@ -85,11 +85,13 @@ class BigFile(FileType):
         """ Find header from the file block by default. """
         if header is Automatic:
             for header in ['Header', 'header', '.']:
-                if header in ff.columns: break
+                if header in ff.blocks: break
 
-        if not header in ff.columns:
-            raise KeyError("header block `%s` is not defined in the bigfile. Candidates can be `%s`"
-                    % (header, str(ff.columns))
+        # shall not make the assertion here because header can be nested deep.
+        # then not shown in ff.blocks. try catch may work better.
+        #if not header in ff.blocks:
+        #    raise KeyError("header block `%s` is not defined in the bigfile. Candidates can be `%s`"
+        #            % (header, str(ff.blocks))
 
         return header
 
