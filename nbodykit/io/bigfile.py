@@ -30,13 +30,14 @@ class BigFile(FileType):
         the name of the directory holding the bigfile data
     exclude : list of str, optional
         the data sets to exlude from loading within bigfile; default
-        is the header
+        is the header. If any list is given, the name of the header column
+        must be given too if it is not part of the data set.
     header : str, optional
         the path to the header; default is to use a column 'Header'.
         It is relative to the file, not the dataset.
     dataset : str
-        load a specific dataset from the bigfile; default is to starting
-        from the root.
+        finding columns from a specific dataset in the bigfile;
+        the default is start looking for columns from the root.
     """
     def __init__(self, path, exclude=None, header=Automatic, dataset='./'):
 
@@ -53,11 +54,10 @@ class BigFile(FileType):
         # the file path
         with bigfile.BigFile(filename=path) as ff:
             columns = ff[self.dataset].blocks
-            if header is Automatic:
-                for header in ['Header', 'header', '.']:
-                    if header in columns: break
+            header = self.find_header(header, ff)
 
             if exclude is None:
+                # by default exclude header only.
                 exclude = [header]
 
             columns = list(set(columns) - set(exclude))
@@ -80,6 +80,18 @@ class BigFile(FileType):
                 # copy over an array
                 else:
                     self.attrs[k] = numpy.array(attrs[k], copy=True)
+
+    def _find_header(self, header, ff):
+        """ Find header from the file block by default. """
+        if header is Automatic:
+            for header in ['Header', 'header', '.']:
+                if header in ff.columns: break
+
+        if not header in ff.columns:
+            raise KeyError("header block `%s` is not defined in the bigfile. Candidates can be `%s`"
+                    % (header, str(ff.columns))
+
+        return header
 
     def read(self, columns, start, stop, step=1):
         """
