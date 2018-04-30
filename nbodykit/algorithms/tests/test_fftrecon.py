@@ -16,7 +16,7 @@ def test_fftrecon(comm):
 
     # should have used something better but this is fast enough
     data = LogNormalCatalog(Plin=Plin, bias=2, nbar=3e-3, BoxSize=512., Nmesh=64, seed=42)
-    ran = UniformCatalog(nbar=8e-3, BoxSize=512., seed=42)
+    ran = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42)
 
     mesh = FFTRecon(data=data, ran=ran, bias=2, Nmesh=64)
 
