@@ -54,7 +54,7 @@ class BigFile(FileType):
         # the file path
         with bigfile.BigFile(filename=path) as ff:
             columns = ff[self.dataset].blocks
-            header = self.find_header(header, ff)
+            header = self._find_header(header, ff)
 
             if exclude is None:
                 # by default exclude header only.
