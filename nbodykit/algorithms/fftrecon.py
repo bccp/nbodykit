@@ -120,14 +120,15 @@ class FFTRecon(MeshSource):
         nbar_r = (self.ran.csize / self.pm.Nmesh.prod())
 
         layout = self.pm.decompose(dpos)
-        rlayout = self.pm.decompose(rpos)
-
         delta_d = self.pm.paint(dpos, layout=layout)
         delta_d[...] /= nbar_d
-        delta_r = self.pm.paint(rpos, layout=rlayout)
+
+        layout = self.pm.decompose(rpos)
+        delta_r = self.pm.paint(rpos, layout=layout)
         delta_r[...] /= nbar_r
 
-        return delta_d - delta_r
+        delta_d[...] -= delta_r
+        return delta_d
 
     def _compute_s(self, dpos, rpos):
         """ Computing the reconstruction displacement of data and random """
@@ -152,28 +153,42 @@ class FFTRecon(MeshSource):
                 return 1j * k[d] / k2 * v
             return kernel
 
-        layout = self.pm.decompose(dpos)
-        rlayout = self.pm.decompose(rpos)
+        def work_with_delta_d():
+            layout = self.pm.decompose(dpos)
 
-        delta_d = self.pm.paint(dpos, layout=layout)
-        delta_d[...] /= nbar_d
+            delta_d = self.pm.paint(dpos, layout=layout)
+            delta_d[...] /= nbar_d
 
-        delta_dc = delta_d.r2c(out=Ellipsis)
+            delta_dc = delta_d.r2c(out=Ellipsis)
 
-        s_d = numpy.empty_like(dpos)
-        s_r = numpy.empty_like(rpos)
+            s_d = numpy.empty_like(dpos)
 
-        for d in range(3):
-            tmp = delta_dc.apply(kernel(d)).c2r(out=Ellipsis)
-            s_d[..., d] = tmp.readout(dpos, layout=layout)
-            s_r[..., d] = tmp.readout(rpos, layout=rlayout)
+            for d in range(3):
+                tmp = delta_dc.apply(kernel(d)).c2r(out=Ellipsis)
+                s_d[..., d] = tmp.readout(dpos, layout=layout)
+            return s_d, delta_dc
+
+        s_d, delta_dc = work_with_delta_d()
+
+        def work_with_delta_r():
+            s_r = numpy.empty_like(rpos)
+            layout = self.pm.decompose(rpos)
+
+            for d in range(3):
+                tmp = delta_dc.apply(kernel(d)).c2r(out=Ellipsis)
+                s_r[..., d] = tmp.readout(rpos, layout=layout)
+            return s_r
+
+        s_r = work_with_delta_r()
+
+        del delta_dc
 
         # convention 1: shifting data only
-        s_d *= (1 + self.attrs['los'] * self.attrs['f'])
+        s_d[...] *= (1 + self.attrs['los'] * self.attrs['f'])
 
         # convention 2: shifting data only
         if self.attrs['revert_rsd_random']:
-            s_r *= (1 + self.attrs['los'] * self.attrs['f'])
+            s_r[...] *= (1 + self.attrs['los'] * self.attrs['f'])
         
         return s_d, s_r
 
