@@ -5,6 +5,7 @@ import logging
 from nbodykit import CurrentMPIComm
 from nbodykit.base.mesh import MeshSource
 from nbodykit.base.catalog import CatalogSource
+from nbodykit import _global_options
 
 class FFTRecon(MeshSource):
     """
@@ -108,29 +109,46 @@ class FFTRecon(MeshSource):
         return self.run()
 
     def run(self):
-        dpos = self.data[self.position].compute()
-        rpos = self.ran[self.position].compute()
 
-        s_d, s_r = self._compute_s(dpos, rpos)
-        return self._paint(dpos - s_d, rpos - s_r)
+        s_d, s_r = self._compute_s()
+        return self._paint(s_d, s_r)
 
-    def _paint(self, dpos, rpos):
+    def work_with(self, cat, s):
+        pm = self.pm
+        delta = pm.create(mode='real', value=0)
+
+        # ensure the slices are synced, since decomposition is collective
+        Nlocalmax = max(pm.comm.allgather(cat.size))
+
+        nbar = (cat.csize / self.pm.Nmesh.prod())
+
+        chunksize = _global_options['paint_chunk_size']
+
+        for i in range(0, Nlocalmax, chunksize):
+            sl = slice(i, i + chunksize)
+
+            if s is not None:
+                dpos = (cat[self.position].astype('f4')[sl] - s[sl]).compute()
+            else:
+                dpos = (cat[self.position].astype('f4')[sl]).compute()
+
+            layout = self.pm.decompose(dpos)
+            self.pm.paint(dpos, layout=layout, out=delta)
+
+        delta[...] /= nbar
+
+        return delta
+
+    def _paint(self, s_d, s_r):
         """ Convert the displacements of data and random to a single reconstruction mesh object. """
-        nbar_d = (self.data.csize / self.pm.Nmesh.prod())
-        nbar_r = (self.ran.csize / self.pm.Nmesh.prod())
 
-        layout = self.pm.decompose(dpos)
-        delta_d = self.pm.paint(dpos, layout=layout)
-        delta_d[...] /= nbar_d
-
-        layout = self.pm.decompose(rpos)
-        delta_r = self.pm.paint(rpos, layout=layout)
-        delta_r[...] /= nbar_r
+        delta_d = self.work_with(self.data, s_d)
+        delta_r = self.work_with(self.ran, s_r)
 
         delta_d[...] -= delta_r
         return delta_d
 
-    def _compute_s(self, dpos, rpos):
+    def _compute_s(self):
         """ Computing the reconstruction displacement of data and random """
 
         nbar_d = (self.data.csize / self.pm.Nmesh.prod())
@@ -153,35 +171,21 @@ class FFTRecon(MeshSource):
                 return 1j * k[d] / k2 * v
             return kernel
 
-        def work_with_delta_d():
+        delta_d = self.work_with(self.data, None).r2c(out=Ellipsis)
+
+        def solve_displacement(cat, delta_d):
+            dpos = cat[self.position].astype('f4').compute()
             layout = self.pm.decompose(dpos)
 
-            delta_d = self.pm.paint(dpos, layout=layout)
-            delta_d[...] /= nbar_d
-
-            delta_dc = delta_d.r2c(out=Ellipsis)
-
-            s_d = numpy.empty_like(dpos)
+            s_d = numpy.empty_like(dpos, dtype='f4')
 
             for d in range(3):
-                tmp = delta_dc.apply(kernel(d)).c2r(out=Ellipsis)
-                s_d[..., d] = tmp.readout(dpos, layout=layout)
-            return s_d, delta_dc
+                delta_d.apply(kernel(d)).c2r(out=Ellipsis) \
+                       .readout(dpos, layout=layout, out=s_d[..., d])
+            return s_d
 
-        s_d, delta_dc = work_with_delta_d()
-
-        def work_with_delta_r():
-            s_r = numpy.empty_like(rpos)
-            layout = self.pm.decompose(rpos)
-
-            for d in range(3):
-                tmp = delta_dc.apply(kernel(d)).c2r(out=Ellipsis)
-                s_r[..., d] = tmp.readout(rpos, layout=layout)
-            return s_r
-
-        s_r = work_with_delta_r()
-
-        del delta_dc
+        s_d = solve_displacement(self.data, delta_d)
+        s_r = solve_displacement(self.ran, delta_d)
 
         # convention 1: shifting data only
         s_d[...] *= (1 + self.attrs['los'] * self.attrs['f'])
