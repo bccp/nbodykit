@@ -200,7 +200,7 @@ class UniformCatalog(RandomCatalog):
         return "UniformCatalog(size=%d, seed=%s)" % args
 
     @CurrentMPIComm.enable
-    def __init__(self, nbar, BoxSize, seed=None, comm=None):
+    def __init__(self, nbar, BoxSize, seed=None, dtype='f8', comm=None):
 
         self.comm    = comm
 
@@ -214,8 +214,8 @@ class UniformCatalog(RandomCatalog):
             raise ValueError("no uniform particles generated, try increasing `nbar` parameter")
         RandomCatalog.__init__(self, N, seed=seed, comm=comm)
 
-        self._pos = self.rng.uniform(size=(self._size, 3)) * self.attrs['BoxSize']
-        self._vel = self.rng.uniform(size=(self._size, 3)) * self.attrs['BoxSize'] * 0.01
+        self._pos = (self.rng.uniform(size=(self._size, 3)) * self.attrs['BoxSize']).astype(dtype)
+        self._vel = (self.rng.uniform(size=(self._size, 3)) * self.attrs['BoxSize'] * 0.01).astype(dtype)
 
     @column
     def Position(self):
