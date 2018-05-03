@@ -12,17 +12,17 @@ setup_logging()
 def gather_data(source, name):
     return numpy.concatenate(source.comm.allgather(source[name].compute()), axis=0)
 
-def generate_sim_data(seed):
-    return UniformCatalog(nbar=3e-6, BoxSize=512., seed=seed)
+def generate_sim_data(seed, dtype='f8'):
+    return UniformCatalog(nbar=3e-6, BoxSize=512., seed=seed, dtype=dtype)
 
-def generate_survey_data(seed):
+def generate_survey_data(seed, dtype='f8'):
     cosmo = cosmology.Planck15
     s = RandomCatalog(1000, seed=seed)
 
-    s['Redshift'] = s.rng.normal(loc=0.5, scale=0.1, size=s.size)
-    s['RA'] = s.rng.uniform(low=0, high=360, size=s.size)
-    s['DEC'] = s.rng.uniform(low=-60, high=60., size=s.size)
-    s['Position'] = transform.SkyToCartesian(s['RA'], s['DEC'], s['Redshift'], cosmo=cosmo)
+    s['Redshift'] = s.rng.normal(loc=0.5, scale=0.1, size=s.size).astype(dtype)
+    s['RA'] = s.rng.uniform(low=0, high=360, size=s.size).astype(dtype)
+    s['DEC'] = s.rng.uniform(low=-60, high=60., size=s.size).astype(dtype)
+    s['Position'] = transform.SkyToCartesian(s['RA'], s['DEC'], s['Redshift'], cosmo=cosmo).astype(dtype)
 
     return s
 
@@ -106,8 +106,8 @@ def test_sim_periodic_cross(comm):
     CurrentMPIComm.set(comm)
 
     # generate data
-    first = generate_sim_data(seed=42)
-    second = generate_sim_data(seed=84)
+    first = generate_sim_data(seed=42, dtype='f4')
+    second = generate_sim_data(seed=84, dtype='f8')
 
     # make the bin edges
     redges = numpy.linspace(10, 150, 10)
@@ -120,7 +120,7 @@ def test_sim_periodic_cross(comm):
 
     # verify with kdcount
     npairs, ravg, wsum = reference_paircount(pos1, None, redges, first.attrs['BoxSize'], pos2=pos2)
-    assert_allclose(ravg, r.pairs['r'])
+    assert_allclose(ravg, r.pairs['r'], rtol=1e-6)
     assert_allclose(npairs, r.pairs['npairs'])
     assert_allclose(wsum, r.pairs['npairs'] * r.pairs['weightavg'])
 
@@ -266,9 +266,10 @@ def test_survey_cross(comm):
     CurrentMPIComm.set(comm)
 
     # random particles
-    first = generate_survey_data(seed=42)
+    first = generate_survey_data(seed=42, dtype='f4')
     first['Weight'] = first.rng.uniform(size=first.size)
-    second = generate_survey_data(seed=84)
+    # mismatched dtype shouldn't fail
+    second = generate_survey_data(seed=84, dtype='f8')
     second['Weight'] = second.rng.uniform(size=second.size)
 
     # make the bin edges
@@ -284,7 +285,7 @@ def test_survey_cross(comm):
 
     # verify with kdcount
     npairs, ravg, wsum = reference_paircount(pos1, w1, redges, None, pos2=pos2, w2=w2)
-    assert_allclose(ravg, r.pairs['r'])
+    assert_allclose(ravg, r.pairs['r'], rtol=1e-6)
     assert_allclose(npairs, r.pairs['npairs'])
     assert_allclose(wsum, r.pairs['npairs'] * r.pairs['weightavg'])
 

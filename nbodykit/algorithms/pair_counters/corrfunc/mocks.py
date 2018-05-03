@@ -42,10 +42,10 @@ class CorrfuncMocksCallable(MPICorrfuncCallable):
         kws.update(config)
 
         def callback(kws, chunk):
-            kws['RA1'] = pos1[chunk][:,0]
-            kws['DEC1'] = pos1[chunk][:,1]
-            if threedims: kws['CZ1'] = pos1[chunk][:,2]
-            kws['weights1'] = w1[chunk].astype(pos1.dtype)
+            kws['RA1'] = pos1[chunk][:,0].astype(pos2.dtype)
+            kws['DEC1'] = pos1[chunk][:,1].astype(pos2.dtype)
+            if threedims: kws['CZ1'] = pos1[chunk][:,2].astype(pos2.dtype)
+            kws['weights1'] = w1[chunk].astype(pos2.dtype)
 
         # compute the result
         sizes = self.comm.allgather(len(pos1))
