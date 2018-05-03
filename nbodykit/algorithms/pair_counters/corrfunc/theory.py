@@ -52,10 +52,10 @@ class CorrfuncTheoryCallable(MPICorrfuncCallable):
         kws.update(config)
 
         def callback(kws, chunk):
-            kws['X1'] = pos1[chunk][:,0]
-            kws['Y1'] = pos1[chunk][:,1]
-            kws['Z1'] = pos1[chunk][:,2] # LOS defined with respect to this axis
-            kws['weights1'] = w1[chunk].astype(pos1.dtype)
+            kws['X1'] = pos1[chunk][:,0].astype(pos2.dtype)
+            kws['Y1'] = pos1[chunk][:,1].astype(pos2.dtype)
+            kws['Z1'] = pos1[chunk][:,2].astype(pos2.dtype) # LOS defined with respect to this axis
+            kws['weights1'] = w1[chunk].astype(pos2.dtype)
 
         # compute the result
         sizes = self.comm.allgather(len(pos1))

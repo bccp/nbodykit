@@ -1,12 +1,8 @@
-.. currentmodule:: nbodykit.algorithms
+.. currentmodule:: nbodykit.algorithms.paircount_tpcf.tpcf
 
+Correlation Function for Data in a Simulation Box (:class:`~SimulationBox2PCF`)
+===============================================================================
 
-Pair Counts for Data in a Simulation Box (:class:`~sim_paircount.SimulationBoxPairCount`)
-=========================================================================================
-
-Pair Counts for Survey Data (:class:`~survey_paircount.SurveyDataPairCount`)
-============================================================================
-
-
-Angular Pair Counts for Survey Data (:class:`~survey_paircount.AngularPairCount`)
-=================================================================================
+Correlation Function for Survey Data (:class:`~SurveyData2PCF`)
+===============================================================
+This includes angular clustering as well.

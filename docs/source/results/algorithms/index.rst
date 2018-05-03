@@ -28,6 +28,7 @@ Correlation Function Algorithms
   :maxdepth: 1
 
   fftcorr
+  paircount
   two-pt-cf
   three-pt-cf
 

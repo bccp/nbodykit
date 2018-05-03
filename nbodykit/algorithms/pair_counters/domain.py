@@ -253,6 +253,9 @@ def decompose_survey_data(first, second, attrs, logger, smoothing, domain_factor
     # balance the load
     domain.loadbalance(domain.load(cpos1))
 
+    if comm.rank == 0:
+        logger.info("Load balance done")
+
     # if we want to return cartesian, redefine pos
     if return_cartesian:
         pos1 = cpos1
