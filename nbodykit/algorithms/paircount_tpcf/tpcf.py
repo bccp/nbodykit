@@ -58,7 +58,6 @@ class BasePairCount2PCF(object):
         self.R1R2 = R1R2
 
 
-        
     def run(self):
         """
         Run the two-point correlation function algorithm.
@@ -121,19 +120,12 @@ class BasePairCount2PCF(object):
             # use the first randoms for both
             if self.data2 is not None and self.randoms2 is None:
                 self.randoms2 = self.randoms1
-            
+
             # use the Landy-Szalay estimator
             result = LandySzalayEstimator(pair_counter, self.data1, self.data2,
                                             self.randoms1, self.randoms2, R1R2=self.R1R2,
                                             logger=self.logger, **attrs)
             self.D1D2, self.D1R2, self.D2R1, self.R1R2, self.corr = result
-            
-            self.attrs['weightedpairs'] = {}
-            for pc in ['D1D2', 'D1R2', 'D2R1', 'R1R2']:
-                PC = getattr(self, pc)
-                self.attrs['weightedpairs'][pc] = PC.attrs['weightedpairs']
-                setattr(self,pc,PC.pairs)
-       
 
     def __getstate__(self):
 
@@ -199,7 +191,7 @@ class BasePairCount2PCF(object):
         self.__setstate__(state)
         self.comm = comm
         return self
-        
+
     def to_xil(self, ells, mu_range=None, mu_sel=None, return_mu_sel=False):
         r"""
         Invert the measured wedges :math:`\xi(r,mu)` into correlation
@@ -213,8 +205,9 @@ class BasePairCount2PCF(object):
             the range of :math:`\mu` to use to calculate multipoles; only bins whose edges are
             within mu_range[0] - mu-range[1] are used; if not provided, all bins are used
         mu_sel : array_like, optional
-            the indices of bins to use to calculate multipoles;
-            if not provided, all bins within mu_range (if provided; else all bins) are used
+            the indices of `\mu` to use to calculate multipoles;
+            if mu_sel not provided: if mu_range provided, all `\mu` within mu_range (nearest '\mu' selected)
+            are used, else, all `\mu` are used
         return_mu_sel : boolean
             if True, returns the indices of the :math:`\mu`-bins used to calculate multipoles
 
@@ -232,23 +225,25 @@ class BasePairCount2PCF(object):
         data = numpy.zeros((self.corr.shape[0]), dtype=dtype)
         dims = [x]
         edges = [self.corr.edges[x]]
-        
-        if mu_sel is None:
-            if mu_range: mu_sel = numpy.nonzero((self.corr.edges['mu'][:-1]>=mu_range[0]) & (self.corr.edges['mu'][1:]<=mu_range[1]))[0]
-            else: mu_sel = slice(len(self.corr.edges['mu'])-1)
-        
-        mu_range = numpy.diff(self.corr.edges['mu'])[mu_sel]
-        mu_mid = ((self.corr.edges['mu'][1:] + self.corr.edges['mu'][:-1])/2.)[mu_sel]
+
+        if mu_sel:
+            sliced = self.corr[:,mu_sel]
+        else:
+            if mu_range: sliced = self.corr.sel(mu=slice(*mu_range), method='nearest')
+            else: sliced = self.corr
+
+        mu_bins = numpy.diff(sliced.edges['mu'])
+        mu_mid = (sliced.edges['mu'][1:] + sliced.edges['mu'][:-1])/2.
 
         for ell in ells:
             legendrePolynomial = (2.*ell+1.)*legendre(ell)(mu_mid)
-            data['corr_%d' %ell] = numpy.sum(self.corr['corr'][:,mu_sel]*legendrePolynomial*mu_range,axis=-1)/numpy.sum(mu_range)
+            data['corr_%d' %ell] = numpy.sum(sliced['corr']*legendrePolynomial*mu_bins,axis=-1)/numpy.sum(mu_bins)
 
-        data[x] = numpy.mean(self.corr[x],axis=-1)
-        
+        data[x] = numpy.mean(sliced[x],axis=-1)
+
         if return_mu_sel: return BinnedStatistic(dims=dims, edges=edges ,data=data, poles=ells), mu_sel
         return BinnedStatistic(dims=dims, edges=edges ,data=data, poles=ells)
-		
+
 
 class SimulationBox2PCF(BasePairCount2PCF):
     r"""
@@ -429,7 +424,7 @@ class SurveyData2PCF(BasePairCount2PCF):
         if not specified and ``data2`` is provied, then ``randoms1`` will be used
         for both.
     R1R2 : SurveyDataPairCount, optional
-        if provided, random pairs R1R2 are not recalculated in the Landy-Szalay estimator   
+        if provided, random pairs R1R2 are not recalculated in the Landy-Szalay estimator
     ra : str, optional
         the name of the column in the source specifying the
         right ascension coordinates in units of degrees; default is 'RA'
@@ -558,7 +553,3 @@ def _restrict_to_spherical_volume(source):
     # restrict to sphere less than half of box size
     keep = r < 0.5 * source.attrs['BoxSize'].min()
     return source[keep]
-    
-    
-  
-

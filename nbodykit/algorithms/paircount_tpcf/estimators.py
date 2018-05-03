@@ -105,15 +105,15 @@ def LandySzalayEstimator(pair_counter, data1, data2, randoms1, randoms2, R1R2=No
     # make sure we have the randoms
     assert randoms1 is not None
     comm = data1.comm
-    
+
     if randoms2 is None: randoms2 = randoms1
-        
+
     # and randoms - randoms calculation
     if logger is not None and comm.rank == 0:
         logger.info("computing randoms1 - randoms2 pair counts")
     if not R1R2:
         R1R2 = pair_counter(first=randoms1, second=randoms2, **kwargs)
-    
+
     # data1 x data2
     if logger is not None and comm.rank == 0:
         logger.info("computing data1 - data2 pair counts")
@@ -130,9 +130,11 @@ def LandySzalayEstimator(pair_counter, data1, data2, randoms1, randoms2, R1R2=No
         D2R1 = pair_counter(first=data2, second=randoms1, **kwargs)
     else:
         D2R1 = D1R2
-    
-    fDD, fDR, fRD = R1R2.attrs['weightedpairs']/D1D2.attrs['weightedpairs'], R1R2.attrs['weightedpairs']/D1R2.attrs['weightedpairs'], R1R2.attrs['weightedpairs']/D2R1.attrs['weightedpairs']
-  
+
+    fDD = R1R2.attrs['weighted_npairs']/D1D2.attrs['weighted_npairs']
+    fDR = R1R2.attrs['weighted_npairs']/D1R2.attrs['weighted_npairs']
+    fRD = R1R2.attrs['weighted_npairs']/D2R1.attrs['weighted_npairs']
+
     nonzero = R1R2.pairs['npairs'] > 0
 
     # init
@@ -143,10 +145,13 @@ def LandySzalayEstimator(pair_counter, data1, data2, randoms1, randoms2, R1R2=No
 
     # the Landy - Szalay estimator
     # (DD - DR - RD + RR) / RR
-    DD, DR, RD, RR = (D1D2.pairs['npairs']*D1D2.pairs['weightavg'])[nonzero], (D1R2.pairs['npairs']*D1R2.pairs['weightavg'])[nonzero], (D2R1.pairs['npairs']*D2R1.pairs['weightavg'])[nonzero], (R1R2.pairs['npairs']*R1R2.pairs['weightavg'])[nonzero]
+    DD = (D1D2.pairs['npairs']*D1D2.pairs['weightavg'])[nonzero]
+    DR = (D1R2.pairs['npairs']*D1R2.pairs['weightavg'])[nonzero]
+    RD = (D2R1.pairs['npairs']*D2R1.pairs['weightavg'])[nonzero]
+    RR = (R1R2.pairs['npairs']*R1R2.pairs['weightavg'])[nonzero]
     xi = (fDD * DD - fDR * DR - fRD * RD)/RR + 1
     CF[nonzero] = xi[:]
-    
+
     # warn about NaNs in the estimator
     if comm.rank == 0 and numpy.isnan(CF).any():
         msg = ("The RR calculation in the Landy-Szalay estimator contains"
@@ -156,7 +161,7 @@ def LandySzalayEstimator(pair_counter, data1, data2, randoms1, randoms2, R1R2=No
         warnings.warn(msg)
 
     CF = _create_tpcf_result(D1D2.pairs, CF)
-    return D1D2, D1R2, D2R1, R1R2, CF
+    return D1D2.pairs, D1R2.pairs, D2R1.pairs, R1R2.pairs, CF
 
 def NaturalEstimator(data_paircount):
     """

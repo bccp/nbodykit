@@ -179,8 +179,8 @@ def test_survey_cross(comm):
     assert_allclose(D2R1['npairs'], r.D2R1['npairs'])
     assert_allclose(R1R2['npairs'], r.R1R2['npairs'])
 
-    
-@MPITest([4])    
+
+@MPITest([4])
 def test_xil(comm):
     cosmo = cosmology.Planck15
     CurrentMPIComm.set(comm)
@@ -199,5 +199,3 @@ def test_xil(comm):
     xil,mu_sel = r.to_xil(ells=ells, mu_range=None, mu_sel=None, return_mu_sel=True)
     xil,mu_sel = r.to_xil(ells=ells, mu_range=[0.2,0.5], mu_sel=None, return_mu_sel=True)
     xil = r.to_xil(ells=ells, mu_range=[0.2,0.5], mu_sel=[1,2,5], return_mu_sel=False)
-    
-    

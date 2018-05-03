@@ -8,6 +8,7 @@ import os
 import pytest
 
 setup_logging()
+data_dir = os.path.join(os.path.split(os.path.abspath(__file__))[0], 'data')
 
 def get_spherical_volume(source):
     pos = gather_data(source, "Position")
@@ -35,43 +36,24 @@ def reference_sim_tpcf(pos1, theta_edges, randoms=None, pos2=None):
                             estimator=estimator, do_auto=do_auto)
 
 @MPITest([1, 4])
-def test_sim_periodic_auto(comm):
-    CurrentMPIComm.set(comm)
-
-    # uniform source of particles
-    source = generate_sim_data(seed=42)
-
-    # make the bin edges
-    theta_edges = numpy.linspace(0.01, 1.0, 20)
-
-    # compute 2PCF
-    r = SimulationBox2PCF('angular', source, theta_edges)
-
-    # trim to a spherical volume
-    sample1 = get_spherical_volume(source)
-
-    # verify with halotools
-    cf = reference_sim_tpcf(sample1, theta_edges)
-    assert_allclose(cf, r.corr['corr'])
-
-@MPITest([1, 4])
 def test_sim_nonperiodic_auto(comm):
     CurrentMPIComm.set(comm)
 
     # uniform source of particles
-    source = generate_sim_data(seed=42)
-    randoms = generate_sim_data(seed=84)
+    BoxSize = 1.
+    source = CSVCatalog(os.path.join(data_dir,'test_angular_sim_data.dat'),names=['x', 'y', 'z'])
+    source['Position'] = transform.StackColumns(source['x'], source['y'], source['z'])
+    randoms = CSVCatalog(os.path.join(data_dir,'test_angular_sim_randoms.dat'),names=['x', 'y', 'z'])
+    randoms['Position'] = transform.StackColumns(randoms['x'], randoms['y'], randoms['z'])
 
     # make the bin edges
     theta_edges = numpy.linspace(0.1, 10.0, 20)
 
     # compute 2PCF
-    r = SimulationBox2PCF('angular', source, theta_edges, periodic=False, randoms1=randoms)
+    r = SimulationBox2PCF('angular', source, theta_edges, periodic=False, BoxSize=BoxSize, randoms1=randoms)
 
-    # verify with halotools
-    ra1, dec1 = gather_data(source, "RA"),  gather_data(source, "DEC")
-    ra2, dec2 = gather_data(randoms, "RA"),  gather_data(randoms, "DEC")
-    cf = reference_sim_tpcf(numpy.vstack([ra1,dec1]).T, theta_edges, randoms=numpy.vstack([ra2,dec2]).T)
+    # verify with reference
+    cf = numpy.loadtxt(os.path.join(data_dir,'test_angular_sim_nonperiodic_auto.dat'))
     assert_allclose(cf, r.corr['corr'], rtol=1e-5, atol=1e-3)
 
 @MPITest([1, 4])
@@ -99,8 +81,9 @@ def test_survey_auto(comm):
     CurrentMPIComm.set(comm)
 
     # uniform source of particles
-    data = generate_sim_data(seed=42)
-    randoms = generate_sim_data(seed=84)
+
+    data = CSVCatalog(os.path.join(data_dir,'test_angular_survey_data.dat'),names=['RA', 'DEC'])
+    randoms = CSVCatalog(os.path.join(data_dir,'test_angular_survey_randoms.dat'),names=['RA', 'DEC'])
 
     # make the bin edges
     theta_edges = numpy.linspace(0.1, 10.0, 20)
@@ -108,8 +91,11 @@ def test_survey_auto(comm):
     # compute 2PCF
     r = SurveyData2PCF('angular', data, randoms, theta_edges)
 
-    # verify with halotools
-    ra1, dec1 = gather_data(data, "RA"),  gather_data(data, "DEC")
-    ra2, dec2 = gather_data(randoms, "RA"),  gather_data(randoms, "DEC")
-    cf = reference_sim_tpcf(numpy.vstack([ra1,dec1]).T, theta_edges, randoms=numpy.vstack([ra2,dec2]).T)
-    assert_allclose(cf, r.corr['corr'], rtol=1e-5, atol=1e-3)
+    # load reference
+    DD, DR, _, RR, cf = numpy.loadtxt(os.path.join(data_dir,'test_angular_survey_auto.dat'),unpack=True)
+
+    # verify pair counts and CF
+    assert_allclose(cf, r.corr['corr'])
+    assert_allclose(DD, r.D1D2['npairs'])
+    assert_allclose(DR, r.D1R2['npairs'])
+    assert_allclose(RR, r.R1R2['npairs'])
