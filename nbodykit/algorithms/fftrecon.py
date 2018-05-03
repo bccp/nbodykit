@@ -48,8 +48,13 @@ class FFTRecon(MeshSource):
     position: string
         column to use for picking up the Position of the objects.
     BoxSize : float or array_like
-        the size of the periodic box.
+        the size of the periodic box, default is to infer from the data.
 
+    scheme : string
+        The reconstruction scheme.
+        `LGS` is the standard reconstruction (Lagrangian growth shift).
+        `LF2` is the F2 Lagrangian reconstruction.
+        `LRR` is the random-random Lagrangian reconstruction. (in Schmitfull et al 2015, table I).
     """
 
     @CurrentMPIComm.enable
@@ -63,8 +68,11 @@ class FFTRecon(MeshSource):
             R=20,
             position='Position',
             revert_rsd_random=False,
+            scheme='LGS',
             BoxSize=None,
             comm=None):
+
+        assert scheme in ['LGS', 'LF2', 'LRR']
 
         assert isinstance(data, CatalogSource)
         assert isinstance(ran, CatalogSource)
@@ -99,13 +107,15 @@ class FFTRecon(MeshSource):
         self.attrs['f'] = f
         self.attrs['los'] = los
         self.attrs['R'] = R
+        self.attrs['scheme'] = scheme
         self.attrs['revert_rsd_random'] = bool(revert_rsd_random)
 
         self.data = data
         self.ran = ran
 
         if self.comm.rank == 0:
-            self.logger.info("Reconstruction for bias=%g, f=%g, smoothing R=%g los=%s\n" % (self.attrs['bias'], self.attrs['f'], self.attrs['R'], str(self.attrs['los'])))
+            self.logger.info("Reconstruction for bias=%g, f=%g, smoothing R=%g los=%s" % (self.attrs['bias'], self.attrs['f'], self.attrs['R'], str(self.attrs['los'])))
+            self.logger.info("Reconstruction scheme = %s" % (self.attrs['scheme']))
 
     def to_real_field(self):
         return self.run()
@@ -144,22 +154,52 @@ class FFTRecon(MeshSource):
     def _paint(self, s_d, s_r):
         """ Convert the displacements of data and random to a single reconstruction mesh object. """
 
-        delta_d = self.work_with(self.data, s_d)
-        delta_d_mean = delta_d.cmean()
-        if self.comm.rank == 0:
-            self.logger.info("painted delta_d, mean=%g" % delta_d_mean)
+        def _summary_field(field, name):
+            cmean = field.cmean()
+            if self.comm.rank == 0:
+                self.logger.info("painted %s, mean=%g" % (name, cmean))
 
-        delta_r = self.work_with(self.ran, s_r)
-        delta_r_mean = delta_r.cmean()
-        if self.comm.rank == 0:
-            self.logger.info("painted delta_r, mean=%g" % delta_r_mean)
+        def LGS(delta_s_r):
+            delta_s_d = self.work_with(self.data, s_d)
+            _summary_field(delta_s_d, "delta_s_d (shifted)")
 
-        delta_d[...] -= delta_r
-        recon_mean = delta_d.cmean()
-        if self.comm.rank == 0:
-            self.logger.info("painted reconstructed field, mean=%g" % recon_mean)
+            delta_s_d[...] -= delta_s_r
+            return delta_s_d
+
+        def LRR(delta_s_r):
+            delta_s_nr = self.work_with(self.ran, -s_r)
+            _summary_field(delta_s_nr, "delta_s_nr (reverse shifted)")
+
+            delta_d = self.work_with(self.data, None)
+            _summary_field(delta_d, "delta_d (unshifted)")
+
+            delta_s_nr[...] += delta_s_r[...]
+            delta_s_nr[...] *= 0.5
+            delta_d[...] -= delta_s_nr
+            return delta_d
+
+        def LF2(delta_s_r):
+            lgs = LGS(delta_s_r)
+            lrr = LRR(delta_s_r) 
+            lgs[...] *= 3.0 / 7.0
+            lrr[...] *= 4.0 / 7.0
+            lgs[...] += lrr
+            return lgs
+
+        delta_s_r = self.work_with(self.ran, s_r)
+        _summary_field(delta_s_r, "delta_s_r (shifted)")
+
+        if self.attrs['scheme'] == 'LGS':
+            delta_recon = LGS(delta_s_r)
+        elif self.attrs['scheme'] == 'LF2':
+            delta_recon = LF2(delta_s_r)
+        elif self.attrs['scheme'] == 'LRR':
+            delta_recon = LRR(delta_s_r)
+            
+        _summary_field(delta_recon, "delta_recon")
+
         # FIXME: perhaps change to 1 + delta for consistency. But it means loss of precision in f4 
-        return delta_d
+        return delta_recon
 
     def _compute_s(self):
         """ Computing the reconstruction displacement of data and random """
