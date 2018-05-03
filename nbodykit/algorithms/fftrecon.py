@@ -1,6 +1,7 @@
 import os
 import numpy
 import logging
+import warnings
 
 from nbodykit import CurrentMPIComm
 from nbodykit.base.mesh import MeshSource
@@ -9,8 +10,7 @@ from nbodykit import _global_options
 
 class FFTRecon(MeshSource):
     """
-    Standard FFT based reconstruction algorithm for a periodic box.
-    The algorithm does not deal with redshift distortion.
+    FFT based Lagrangian reconstruction algorithm in a periodic box.
 
     References:
 
@@ -18,11 +18,16 @@ class FFTRecon(MeshSource):
         http://adsabs.harvard.edu/abs/2007ApJ...664..675E
         Section 3, paragraph starting with 'Restoring in full the ...'
 
-    However, a cleaner description is in Schmitfull et al 2015,
+    We follow a cleaner description in Schmitfull et al 2015,
 
         http://adsabs.harvard.edu/cgi-bin/bib_query?arXiv:1508.06972
 
-        Equation 38.
+    Table I, and text below. Schemes are LGS, LF2 and LRR.
+
+    A slight difference against the paper is that Redshift distortion
+    and bias are corrected in the linear order. The Random shifting
+    followed Martin White's suggestion to exclude the RSD by default.
+    (with default `revert_rsd_random=False`.)
 
     Parameters
     ----------
@@ -54,7 +59,7 @@ class FFTRecon(MeshSource):
         The reconstruction scheme.
         `LGS` is the standard reconstruction (Lagrangian growth shift).
         `LF2` is the F2 Lagrangian reconstruction.
-        `LRR` is the random-random Lagrangian reconstruction. (in Schmitfull et al 2015, table I).
+        `LRR` is the random-random Lagrangian reconstruction.
     """
 
     @CurrentMPIComm.enable
@@ -95,6 +100,10 @@ class FFTRecon(MeshSource):
 
         pm = ParticleMesh(BoxSize=BoxSize, Nmesh=_Nmesh, comm=comm)
         self.pm = pm
+
+        if (self.pm.BoxSize / self.pm.Nmesh).max() > R:
+            if comm.rank == 0:
+                warnings.warn("The smoothing radius smaller than the mesh cell size. This may produce undesired numerical results.")
 
         assert position in data.columns
         assert position in ran.columns
