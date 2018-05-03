@@ -104,6 +104,8 @@ class FFTRecon(MeshSource):
         self.data = data
         self.ran = ran
 
+        if self.comm.rank == 0:
+            self.logger.info("Reconstruction for bias=%g, f=%g, smoothing R=%g los=%s\n" % (self.attrs['bias'], self.attrs['f'], self.attrs['R'], str(self.attrs['los'])))
 
     def to_real_field(self):
         return self.run()
@@ -133,7 +135,7 @@ class FFTRecon(MeshSource):
                 dpos = (cat[self.position].astype('f4')[sl]).compute()
 
             layout = self.pm.decompose(dpos)
-            self.pm.paint(dpos, layout=layout, out=delta)
+            self.pm.paint(dpos, layout=layout, out=delta, hold=True)
 
         delta[...] /= nbar
 
@@ -143,9 +145,20 @@ class FFTRecon(MeshSource):
         """ Convert the displacements of data and random to a single reconstruction mesh object. """
 
         delta_d = self.work_with(self.data, s_d)
+        delta_d_mean = delta_d.cmean()
+        if self.comm.rank == 0:
+            self.logger.info("painted delta_d, mean=%g" % delta_d_mean)
+
         delta_r = self.work_with(self.ran, s_r)
+        delta_r_mean = delta_r.cmean()
+        if self.comm.rank == 0:
+            self.logger.info("painted delta_r, mean=%g" % delta_r_mean)
 
         delta_d[...] -= delta_r
+        recon_mean = delta_d.cmean()
+        if self.comm.rank == 0:
+            self.logger.info("painted reconstructed field, mean=%g" % recon_mean)
+        # FIXME: perhaps change to 1 + delta for consistency. But it means loss of precision in f4 
         return delta_d
 
     def _compute_s(self):
@@ -176,8 +189,7 @@ class FFTRecon(MeshSource):
         def solve_displacement(cat, delta_d):
             dpos = cat[self.position].astype('f4').compute()
             layout = self.pm.decompose(dpos)
-
-            s_d = numpy.empty_like(dpos, dtype='f4')
+            s_d = numpy.zeros_like(dpos, dtype='f4')
 
             for d in range(3):
                 delta_d.apply(kernel(d)).c2r(out=Ellipsis) \
@@ -185,7 +197,14 @@ class FFTRecon(MeshSource):
             return s_d
 
         s_d = solve_displacement(self.data, delta_d)
+        s_d_std = (self.comm.allreduce((s_d ** 2).sum(axis=0)) / self.data.csize) ** 0.5
+        if self.comm.rank == 0:
+            self.logger.info("Solved displacements of data, std(s_d) = %s" % str(s_d_std))
+
         s_r = solve_displacement(self.ran, delta_d)
+        s_r_std = (self.comm.allreduce((s_r ** 2).sum(axis=0)) / self.ran.csize) ** 0.5
+        if self.comm.rank == 0:
+            self.logger.info("Solved displacements of randoms, std(s_r) = %s" % str(s_r_std))
 
         # convention 1: shifting data only
         s_d[...] *= (1 + self.attrs['los'] * self.attrs['f'])
