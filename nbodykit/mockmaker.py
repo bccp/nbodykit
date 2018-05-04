@@ -104,6 +104,9 @@ def gaussian_complex_fields(pm, linear_power, seed,
 
         # the square of the norm of k on the mesh
         k2 = sum(kk**2 for kk in kslab)
+        zero_idx = k2 == 0.
+
+        k2[zero_idx] = 1. # avoid dividing by zero
 
         # the linear power (function of k)
         power = linear_power((k2**0.5).flatten())
@@ -112,7 +115,6 @@ def gaussian_complex_fields(pm, linear_power, seed,
         delta_slab[...].flat *= (power*norm)**0.5
 
         # set k == 0 to zero (zero config-space mean)
-        zero_idx = k2 == 0.
         delta_slab[zero_idx] = 0.
 
         # compute the displacement
