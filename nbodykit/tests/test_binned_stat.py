@@ -271,3 +271,29 @@ def test_reindex(comm):
         with pytest.raises(ValueError):
             new = dataset.reindex('mu', 0.4, force=False)
         new = dataset.reindex('mu', 0.4, force=True)
+
+@MPITest([1])
+def test_subclass_copy_sel(comm):
+    # this test asserts the sel returns instance of subclass.
+    # and the copy method can change the class.
+
+    class A(BinnedStatistic):
+        def mymethod(self):
+            return self.copy(cls=BinnedStatistic)
+
+    # load from JSON
+    dataset = A.from_json(os.path.join(data_dir, 'dataset_2d.json'))
+
+    dataset.mymethod()
+
+    # no exact match fails
+    with pytest.raises(IndexError):
+        sliced = dataset.sel(k=0.1)
+
+    # this should be squeezed
+    sliced = dataset.sel(k=0.1, method='nearest')
+    assert len(sliced.dims) == 1
+
+    assert isinstance(sliced, A)
+    assert isinstance(sliced.mymethod(), BinnedStatistic)
+
