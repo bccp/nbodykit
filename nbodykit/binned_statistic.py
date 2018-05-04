@@ -527,12 +527,17 @@ class BinnedStatistic(object):
         return cls(dims, edges, data, **meta)
 
 
-    def copy(self):
+    def copy(self, cls=None):
         """
-        Returns a copy of the BinnedStatistic
+        Returns a copy of the BinnedStatistic, optionally change the type
+        to cls. cls must be a subclass of BinnedStatistic.
         """
         attrs = self.__copy_attrs__()
-        cls = self.__class__
+        if cls is None:
+            cls = self.__class__
+        if not issubclass(cls, BinnedStatistic):
+            raise TypeError("The cls argument must be a subclass of BinnedStatistic")
+
         return cls.__construct_direct__(self.data.copy(), self.mask.copy(), **attrs)
 
     def rename_variable(self, old_name, new_name):
