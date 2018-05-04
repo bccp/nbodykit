@@ -196,6 +196,5 @@ def test_xil(comm):
 
     # compute 2PCF
     r = SurveyData2PCF('2d', data1, randoms2, redges, Nmu=Nmu, cosmo=cosmo, data2=data2, randoms2=randoms2)
-    xil,mu_sel = r.to_xil(ells=ells, mu_range=None, mu_sel=None, return_mu_sel=True)
-    xil,mu_sel = r.to_xil(ells=ells, mu_range=[0.2,0.5], mu_sel=None, return_mu_sel=True)
-    xil = r.to_xil(ells=ells, mu_range=[0.2,0.5], mu_sel=[1,2,5], return_mu_sel=False)
+    xil = r.to_xil(ells=ells)
+    xil = r.to_xil(ells=ells, mu_range=[0.2,0.5])

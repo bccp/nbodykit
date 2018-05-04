@@ -192,7 +192,7 @@ class BasePairCount2PCF(object):
         self.comm = comm
         return self
 
-    def to_xil(self, ells, mu_range=None, mu_sel=None, return_mu_sel=False):
+    def to_xil(self, ells, mu_range=None):
         r"""
         Invert the measured wedges :math:`\xi(r,mu)` into correlation
         multipoles, :math:`\xi_\ell(r)`.
@@ -202,14 +202,8 @@ class BasePairCount2PCF(object):
         ells : array_like
             the list of multipoles to compute
         mu_range: array_like, optional
-            the range of :math:`\mu` to use to calculate multipoles; only bins whose edges are
-            within mu_range[0] - mu-range[1] are used; if not provided, all bins are used
-        mu_sel : array_like, optional
-            the indices of `\mu` to use to calculate multipoles;
-            if mu_sel not provided: if mu_range provided, all `\mu` within mu_range (nearest '\mu' selected)
-            are used, else, all `\mu` are used
-        return_mu_sel : boolean
-            if True, returns the indices of the :math:`\mu`-bins used to calculate multipoles
+            the range of :math:`\mu` to use to calculate multipoles (nearest '\mu' selected);
+            if not provided, all `\mu`-bins are used
 
         Returns
         -------
@@ -226,11 +220,8 @@ class BasePairCount2PCF(object):
         dims = [x]
         edges = [self.corr.edges[x]]
 
-        if mu_sel:
-            sliced = self.corr[:,mu_sel]
-        else:
-            if mu_range: sliced = self.corr.sel(mu=slice(*mu_range), method='nearest')
-            else: sliced = self.corr
+        if mu_range: sliced = self.corr.sel(mu=slice(*mu_range), method='nearest')
+        else: sliced = self.corr
 
         mu_bins = numpy.diff(sliced.edges['mu'])
         mu_mid = (sliced.edges['mu'][1:] + sliced.edges['mu'][:-1])/2.
@@ -241,7 +232,6 @@ class BasePairCount2PCF(object):
 
         data[x] = numpy.mean(sliced[x],axis=-1)
 
-        if return_mu_sel: return BinnedStatistic(dims=dims, edges=edges ,data=data, poles=ells), mu_sel
         return BinnedStatistic(dims=dims, edges=edges ,data=data, poles=ells)
 
 

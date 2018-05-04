@@ -8,7 +8,6 @@ import os
 import pytest
 
 setup_logging()
-data_dir = os.path.join(os.path.split(os.path.abspath(__file__))[0], 'data')
 
 def make_corrfunc_input(data, cosmo):
     ra = gather_data(data, 'RA')
@@ -102,29 +101,32 @@ def test_sim_periodic_auto(comm):
     cf = reference_sim_tpcf(pos, redges, source.attrs['BoxSize'])
     assert_allclose(cf, r.corr['corr'])
 
+
 @MPITest([4])
 def test_sim_nonperiodic_auto(comm):
     CurrentMPIComm.set(comm)
 
     # uniform source of particles
-    BoxSize = 512.
-    source = CSVCatalog(os.path.join(data_dir,'test_1d_sim_data.dat'),names=['x', 'y', 'z'])
-    source['Position'] = transform.StackColumns(source['x'], source['y'], source['z'])
-    randoms = CSVCatalog(os.path.join(data_dir,'test_1d_sim_randoms.dat'),names=['x', 'y', 'z'])
-    randoms['Position'] = transform.StackColumns(randoms['x'], randoms['y'], randoms['z'])
+    source = generate_sim_data(seed=42)
+    randoms = generate_sim_data(seed=84)
 
     # make the bin edges
     redges = numpy.linspace(0.01, 20, 10)
 
     # compute 2PCF
-    r = SimulationBox2PCF('1d', source, redges, periodic=False, BoxSize=BoxSize, randoms1=randoms)
+    r = SimulationBox2PCF('1d', source, redges, periodic=False, randoms1=randoms)
 
     # need randoms if non-periodic!
     with pytest.raises(ValueError):
         r = SimulationBox2PCF('1d', source, redges, periodic=False)
 
     # verify with reference
-    cf = numpy.loadtxt(os.path.join(data_dir,'test_1d_sim_nonperiodic_auto.dat'))
+    cf = [0.1158045, -0.03074509, -0.0227549, 0.01194295, -0.01553021, -0.001123882, -0.005164478, -0.002296215, 0.003764593]
+
+    # verify with halotools // uses N*N instead of N*(N-1) normalization
+    #pos_d = gather_data(source, "Position")
+    #pos_r = gather_data(randoms, "Position")
+    #cf = reference_sim_tpcf(pos_d, redges, None, randoms=pos_r)
     assert_allclose(cf, r.corr['corr'], rtol=1e-5, atol=1e-5)
 
 @MPITest([4])
@@ -153,8 +155,7 @@ def test_survey_auto(comm):
     CurrentMPIComm.set(comm)
 
     # data and randoms
-    data = CSVCatalog(os.path.join(data_dir,'test_1d_survey_data.dat'),names=['RA', 'DEC', 'Redshift'])
-    randoms = CSVCatalog(os.path.join(data_dir,'test_1d_survey_randoms.dat'),names=['RA', 'DEC', 'Redshift'])
+    data, randoms = generate_survey_data(seed=42)
 
     # make the bin edges
     redges = numpy.linspace(1.0, 10, 5)
@@ -162,17 +163,20 @@ def test_survey_auto(comm):
     # compute 2PCF
     r = SurveyData2PCF('1d', data, randoms, redges, cosmo=cosmo)
 
-    # R1R2 computed separately
-    R1R2 = SurveyDataPairCount('1d', randoms, redges, cosmo=cosmo)
-    rGivenR1R2 = SurveyData2PCF('1d', data, randoms, redges, cosmo=cosmo, R1R2=R1R2)
-    # verify CF
-    assert_allclose(r.corr['corr'], rGivenR1R2.corr['corr'])
+    # verify with reference
+    cf = [0.02063144, -0.03316382, 0.009656524, 0.008670488]
+    DD = [1628, 6412, 14774, 26046]
+    DR = [1626, 6546, 14562, 25983]
+    RR = [1658, 6462, 14492, 26144]
 
-    # load reference
-    DD, DR, _, RR, cf = numpy.loadtxt(os.path.join(data_dir,'test_1d_survey_auto.dat'),unpack=True)
+    # run Corrfunc to verify // uses N*N instead of N*(N-1) normalization
+    #pos1 = make_corrfunc_input(data, cosmo)
+    #pos2 = make_corrfunc_input(randoms, cosmo)
+    #DD, DR, _, RR, cf = reference_survey_tpcf(pos1, pos2, redges)
+    #DD, DR, RR = DD['npairs'], DR['npairs'], RR['npairs']
 
     # verify pair counts and CF
-    assert_allclose(cf, r.corr['corr'])
+    assert_allclose(cf, r.corr['corr'], rtol=1e-7, atol=1e-5)
     assert_allclose(DD, r.D1D2['npairs'])
     assert_allclose(DR, r.D1R2['npairs'])
     assert_allclose(RR, r.R1R2['npairs'])
