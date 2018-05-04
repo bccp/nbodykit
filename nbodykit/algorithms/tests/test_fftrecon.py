@@ -14,14 +14,20 @@ def test_fftrecon(comm):
     Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
     CurrentMPIComm.set(comm)
 
-    # should have used something better but this is fast enough
-    data = LogNormalCatalog(Plin=Plin, bias=2, nbar=3e-3, BoxSize=512., Nmesh=64, seed=42)
-    ran = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42)
+    # very high bias to increase the accuracy of reconstruction;
+    # since shotnoise is high.
+    data = LogNormalCatalog(Plin=Plin, bias=4, nbar=1e-4, BoxSize=1024., Nmesh=64, seed=42)
+    ran = UniformCatalog(nbar=1e-4, BoxSize=1024., seed=42)
 
-    mesh = FFTRecon(data=data, ran=ran, bias=2, Nmesh=64)
+    # lognormal mocks don't have the correct small scale power for reconstruction,
+    # so we heavily smooth and assert the reconstruction
+    # doesn't mess it all up.
+
+    mesh = FFTRecon(data=data, ran=ran, bias=4, Nmesh=64, R=40)
 
     r1 = FFTPower(mesh, mode='1d')
     r2 = FFTPower(data, mode='1d')
 
     # reconstruction shouldn't have matter much on large scale.
-    assert_allclose(r1.power['power'][:5], r2.power['power'][:5], rtol=0.05)
+    assert_allclose(r1.power['power'][:5], r2.power['power'][:5], rtol=0.04)
+
