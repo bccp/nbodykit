@@ -161,27 +161,28 @@ class FFTRecon(MeshSource):
 
         return delta
 
+    def _summary_field(self, field, name):
+        cmean = field.cmean()
+        if self.comm.rank == 0:
+            self.logger.info("painted %s, mean=%g" % (name, cmean))
+
+
     def _paint(self, s_d, s_r):
         """ Convert the displacements of data and random to a single reconstruction mesh object. """
 
-        def _summary_field(field, name):
-            cmean = field.cmean()
-            if self.comm.rank == 0:
-                self.logger.info("painted %s, mean=%g" % (name, cmean))
-
         def LGS(delta_s_r):
             delta_s_d = self.work_with(self.data, s_d)
-            _summary_field(delta_s_d, "delta_s_d (shifted)")
+            self._summary_field(delta_s_d, "delta_s_d (shifted)")
 
             delta_s_d[...] -= delta_s_r
             return delta_s_d
 
         def LRR(delta_s_r):
             delta_s_nr = self.work_with(self.ran, -s_r)
-            _summary_field(delta_s_nr, "delta_s_nr (reverse shifted)")
+            self._summary_field(delta_s_nr, "delta_s_nr (reverse shifted)")
 
             delta_d = self.work_with(self.data, None)
-            _summary_field(delta_d, "delta_d (unshifted)")
+            self._summary_field(delta_d, "delta_d (unshifted)")
 
             delta_s_nr[...] += delta_s_r[...]
             delta_s_nr[...] *= 0.5
@@ -197,7 +198,7 @@ class FFTRecon(MeshSource):
             return lgs
 
         delta_s_r = self.work_with(self.ran, s_r)
-        _summary_field(delta_s_r, "delta_s_r (shifted)")
+        self._summary_field(delta_s_r, "delta_s_r (shifted)")
 
         if self.attrs['scheme'] == 'LGS':
             delta_recon = LGS(delta_s_r)
@@ -206,16 +207,13 @@ class FFTRecon(MeshSource):
         elif self.attrs['scheme'] == 'LRR':
             delta_recon = LRR(delta_s_r)
             
-        _summary_field(delta_recon, "delta_recon")
+        self._summary_field(delta_recon, "delta_recon")
 
         # FIXME: perhaps change to 1 + delta for consistency. But it means loss of precision in f4 
         return delta_recon
 
     def _compute_s(self):
         """ Computing the reconstruction displacement of data and random """
-
-        nbar_d = (self.data.csize / self.pm.Nmesh.prod())
-        nbar_r = (self.ran.csize / self.pm.Nmesh.prod())
 
         def kernel(d):
             def kernel(k, v):
@@ -234,7 +232,9 @@ class FFTRecon(MeshSource):
                 return 1j * k[d] / k2 * v
             return kernel
 
-        delta_d = self.work_with(self.data, None).r2c(out=Ellipsis)
+        delta_d = self.work_with(self.data, None)
+        self._summary_field(delta_d, "delta_d (unshifted)")
+        delta_d = delta_d.r2c(out=Ellipsis)
 
         def solve_displacement(cat, delta_d):
             dpos = cat[self.position].astype('f4').compute()
