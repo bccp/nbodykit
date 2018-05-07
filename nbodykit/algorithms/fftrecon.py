@@ -141,7 +141,8 @@ class FFTRecon(MeshSource):
         # ensure the slices are synced, since decomposition is collective
         Nlocalmax = max(pm.comm.allgather(cat.size))
 
-        nbar = (cat.csize / self.pm.Nmesh.prod())
+        # python 2.7 wants floats.
+        nbar = (1.0 * cat.csize / self.pm.Nmesh.prod())
 
         chunksize = _global_options['paint_chunk_size']
 
