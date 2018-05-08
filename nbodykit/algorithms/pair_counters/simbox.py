@@ -103,7 +103,7 @@ class SimulationBoxPairCount(PairCountBase):
         BoxSize = verify_input_sources(first, second, BoxSize, required_cols)
 
         # init the base class (this verifies input arguments)
-        PairCountBase.__init__(self, mode, edges, first, second, Nmu, pimax, show_progress)
+        PairCountBase.__init__(self, mode, edges, first, second, Nmu, pimax, weight, show_progress)
 
         # save the rest of the meta-data
         self.attrs['BoxSize'] = BoxSize

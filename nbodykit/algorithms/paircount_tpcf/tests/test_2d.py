@@ -162,14 +162,14 @@ def test_survey_cross(comm):
     Nmu = 3
 
     # compute 2PCF
-    r = SurveyData2PCF('2d', data1, randoms2, redges, Nmu=Nmu, cosmo=cosmo, data2=data2, randoms2=randoms2)
+    r = SurveyData2PCF('2d', data1, randoms1, redges, Nmu=Nmu, cosmo=cosmo, data2=data2, randoms2=randoms2)
 
     # run Corrfunc to verify
     data1 = make_corrfunc_input(data1, cosmo)
     randoms1 = make_corrfunc_input(randoms1, cosmo)
     data2 = make_corrfunc_input(data2, cosmo)
     randoms2 = make_corrfunc_input(randoms2, cosmo)
-    D1D2, D1R2, D2R1, R1R2, cf = reference_survey_tpcf(data1, randoms2, redges, Nmu,
+    D1D2, D1R2, D2R1, R1R2, cf = reference_survey_tpcf(data1, randoms1, redges, Nmu,
                                                         data2=data2, randoms2=randoms2)
 
     # verify pair counts and CF
@@ -178,3 +178,23 @@ def test_survey_cross(comm):
     assert_allclose(D1R2['npairs'], r.D1R2['npairs'])
     assert_allclose(D2R1['npairs'], r.D2R1['npairs'])
     assert_allclose(R1R2['npairs'], r.R1R2['npairs'])
+
+
+@MPITest([4])
+def test_xil(comm):
+    cosmo = cosmology.Planck15
+    CurrentMPIComm.set(comm)
+
+    # data and randoms
+    data1, randoms1 = generate_survey_data(seed=42)
+    data2, randoms2 = generate_survey_data(seed=84)
+
+    # make the bin edges
+    redges = numpy.linspace(0.01, 10, 5)
+    Nmu = 10
+    ells = [0,2,4]
+
+    # compute 2PCF
+    r = SurveyData2PCF('2d', data1, randoms2, redges, Nmu=Nmu, cosmo=cosmo, data2=data2, randoms2=randoms2)
+    xil = r.to_xil(ells=ells)
+    xil = r.to_xil(ells=ells, mu_range=[0.2,0.5])
