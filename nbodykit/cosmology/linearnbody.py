@@ -147,7 +147,32 @@ class LinearNbody:
         """
             Convert synchronuous gauge velocity (h_prime) to the momentum in n-body gauge.
 
-            This function repacks the columns to cdm, baryon and ncdm for both q and p.
+            This function repacks the columns to cdm, baryon and ncdm for both q and p, such
+            that at a = a0,
+
+            .. code::
+
+                q = - d
+
+                p = a v = - a dd / dt
+
+            Parameters
+            ----------
+            cosmology : object, Cosmology.
+                the cosmology object to obtain hubble (with dimension of time unit)
+            a0 : float
+                the scaling factor to seed, 0.01 for z=99
+            Tk : structured array
+                use a precomputed transfer function, must be
+                the same format as the output of Cosmology.get_transfer(),
+                with 'k' in h/Mpc units, 'd_cdm', 'd_b', 'd_ncdm[0]' and
+                'h_prime'.
+
+            Returns
+            -------
+            k: array of (Nk)
+            q0: array of (Nk, 3)
+            p0: array of (Nk, 3)
 
         """
         if Tk is None:
