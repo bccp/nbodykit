@@ -192,9 +192,10 @@ def test_xil(comm):
     # make the bin edges
     redges = numpy.linspace(0.01, 10, 5)
     Nmu = 10
-    ells = [0,2,4]
+    poles = [0,2,4]
 
     # compute 2PCF
     r = SurveyData2PCF('2d', data1, randoms2, redges, Nmu=Nmu, cosmo=cosmo, data2=data2, randoms2=randoms2)
-    xil = r.to_xil(ells=ells)
-    xil = r.to_xil(ells=ells, mu_range=[0.2,0.5])
+    xil = r.corr.to_poles(poles)
+    xil = r.corr.sel(mu=slice(0.2, 0.5), method='nearest').to_poles(poles)
+

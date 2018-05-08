@@ -2,6 +2,55 @@ from nbodykit.binned_statistic import BinnedStatistic
 import numpy
 import warnings
 
+class WedgeBinnedStatistic(BinnedStatistic):
+    """
+        A BinnedStatistic of wedges that can be converted to multiples.
+    """
+
+    def to_poles(self, poles):
+        r"""
+        Invert the measured wedges :math:`\xi(r,mu)` into correlation
+        multipoles, :math:`\xi_\ell(r)`.
+
+        To select a mu_range, use
+
+        .. code::
+
+            poles = self.sel(mu=slice(*mu_range), method='nearest').to_poles(poles)
+
+        Parameters
+        ----------
+        poles: array_like
+            the list of multipoles to compute
+
+        Returns
+        -------
+        xi_ell : BinnedStatistic
+            a data set holding the :math:`\xi_\ell(r)` multipoles
+        """
+        from scipy.special import legendre
+        from scipy.integrate import quad
+
+        # new data array
+        x = str(self.dims[0])
+        dtype = numpy.dtype([(x, 'f8')] + [('corr_%d' %ell, 'f8') for ell in poles])
+        data = numpy.zeros((self.shape[0]), dtype=dtype)
+        dims = [x]
+        edges = [self.edges[x]]
+
+        # FIXME: use something fancier than the central point.
+        mu_bins = numpy.diff(self.edges['mu'])
+        mu_mid = (self.edges['mu'][1:] + self.edges['mu'][:-1])/2.
+
+        for ell in poles:
+            legendrePolynomial = (2.*ell+1.)*legendre(ell)(mu_mid)
+            data['corr_%d' %ell] = numpy.sum(self['corr']*legendrePolynomial*mu_bins,axis=-1)/numpy.sum(mu_bins)
+
+        data[x] = numpy.mean(self[x],axis=-1)
+
+        return BinnedStatistic(dims=dims, edges=edges, data=data, poles=poles)
+
+
 class AnalyticUniformRandoms(object):
     """
     Internal class to compute analytic pair counts for uniformly
@@ -182,7 +231,7 @@ def NaturalEstimator(data_paircount):
     # analytic randoms - randoms calculation assuming uniform distribution
     _R1R2 = AnalyticUniformRandoms(mode, edges, BoxSize)(ND1, ND2)
     edges = [D1D2.edges[d] for d in D1D2.dims]
-    R1R2 = BinnedStatistic(D1D2.dims, edges, _R1R2.view([('npairs', 'f8')]))
+    R1R2 = WedgeBinnedStatistic(D1D2.dims, edges, _R1R2.view([('npairs', 'f8')]))
 
     # and compute the correlation function as DD/RR - 1
     CF = (D1D2['npairs']*D1D2['weightavg']) / R1R2['npairs'] - 1.
@@ -202,4 +251,4 @@ def _create_tpcf_result(D1D2, CF):
     data['corr'] = CF[:]
     data[x] = D1D2[x]
     edges = [D1D2.edges[d] for d in D1D2.dims]
-    return BinnedStatistic(D1D2.dims, edges, data)
+    return WedgeBinnedStatistic(D1D2.dims, edges, data)

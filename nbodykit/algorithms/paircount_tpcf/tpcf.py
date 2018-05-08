@@ -1,5 +1,5 @@
 from ..pair_counters import SimulationBoxPairCount, SurveyDataPairCount
-from .estimators import LandySzalayEstimator, NaturalEstimator
+from .estimators import LandySzalayEstimator, NaturalEstimator, WedgeBinnedStatistic
 from nbodykit import CurrentMPIComm
 from nbodykit.binned_statistic import BinnedStatistic
 
@@ -149,15 +149,15 @@ class BasePairCount2PCF(object):
         dims = state.pop('dims')
         self.__dict__.update(state)
 
-        self.corr = BinnedStatistic(dims, edges, self.corr)
+        self.corr = WedgeBinnedStatistic(dims, edges, self.corr)
         if self.wp is not None:
             # NOTE: only edges[0], second dimension was summed over
-            self.wp = BinnedStatistic(dims[:1], edges[:1], self.wp)
+            self.wp = WedgeBinnedStatistic(dims[:1], edges[:1], self.wp)
 
         for pc in ['D1D2', 'D1R2', 'D2R1', 'R1R2']:
             val = getattr(self, pc)
             if val is not None:
-                setattr(self, pc, BinnedStatistic(dims, edges, val))
+                setattr(self, pc, WedgeBinnedStatistic(dims, edges, val))
 
     def save(self, output):
         """
@@ -191,48 +191,6 @@ class BasePairCount2PCF(object):
         self.__setstate__(state)
         self.comm = comm
         return self
-
-    def to_xil(self, ells, mu_range=None):
-        r"""
-        Invert the measured wedges :math:`\xi(r,mu)` into correlation
-        multipoles, :math:`\xi_\ell(r)`.
-
-        Parameters
-        ----------
-        ells : array_like
-            the list of multipoles to compute
-        mu_range: array_like, optional
-            the range of :math:`\mu` to use to calculate multipoles (nearest '\mu' selected);
-            if not provided, all `\mu`-bins are used
-
-        Returns
-        -------
-        xil : BinnedStatistic
-            a data set holding the :math:`\xi_\ell(r)` multipoles
-        """
-        from scipy.special import legendre
-        from scipy.integrate import quad
-
-        # new data array
-        x = str(self.corr.dims[0])
-        dtype = numpy.dtype([(x, 'f8')] + [('corr_%d' %ell, 'f8') for ell in ells])
-        data = numpy.zeros((self.corr.shape[0]), dtype=dtype)
-        dims = [x]
-        edges = [self.corr.edges[x]]
-
-        if mu_range: sliced = self.corr.sel(mu=slice(*mu_range), method='nearest')
-        else: sliced = self.corr
-
-        mu_bins = numpy.diff(sliced.edges['mu'])
-        mu_mid = (sliced.edges['mu'][1:] + sliced.edges['mu'][:-1])/2.
-
-        for ell in ells:
-            legendrePolynomial = (2.*ell+1.)*legendre(ell)(mu_mid)
-            data['corr_%d' %ell] = numpy.sum(sliced['corr']*legendrePolynomial*mu_bins,axis=-1)/numpy.sum(mu_bins)
-
-        data[x] = numpy.mean(sliced[x],axis=-1)
-
-        return BinnedStatistic(dims=dims, edges=edges ,data=data, poles=ells)
 
 
 class SimulationBox2PCF(BasePairCount2PCF):
