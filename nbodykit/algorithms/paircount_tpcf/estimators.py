@@ -2,6 +2,55 @@ from nbodykit.binned_statistic import BinnedStatistic
 import numpy
 import warnings
 
+class WedgeBinnedStatistic(BinnedStatistic):
+    """
+        A BinnedStatistic of wedges that can be converted to multiples.
+    """
+
+    def to_poles(self, poles):
+        r"""
+        Invert the measured wedges :math:`\xi(r,mu)` into correlation
+        multipoles, :math:`\xi_\ell(r)`.
+
+        To select a mu_range, use
+
+        .. code::
+
+            poles = self.sel(mu=slice(*mu_range), method='nearest').to_poles(poles)
+
+        Parameters
+        ----------
+        poles: array_like
+            the list of multipoles to compute
+
+        Returns
+        -------
+        xi_ell : BinnedStatistic
+            a data set holding the :math:`\xi_\ell(r)` multipoles
+        """
+        from scipy.special import legendre
+        from scipy.integrate import quad
+
+        # new data array
+        x = str(self.dims[0])
+        dtype = numpy.dtype([(x, 'f8')] + [('corr_%d' %ell, 'f8') for ell in poles])
+        data = numpy.zeros((self.shape[0]), dtype=dtype)
+        dims = [x]
+        edges = [self.edges[x]]
+
+        # FIXME: use something fancier than the central point.
+        mu_bins = numpy.diff(self.edges['mu'])
+        mu_mid = (self.edges['mu'][1:] + self.edges['mu'][:-1])/2.
+
+        for ell in poles:
+            legendrePolynomial = (2.*ell+1.)*legendre(ell)(mu_mid)
+            data['corr_%d' %ell] = numpy.sum(self['corr']*legendrePolynomial*mu_bins,axis=-1)/numpy.sum(mu_bins)
+
+        data[x] = numpy.mean(self[x],axis=-1)
+
+        return BinnedStatistic(dims=dims, edges=edges, data=data, poles=poles)
+
+
 class AnalyticUniformRandoms(object):
     """
     Internal class to compute analytic pair counts for uniformly
@@ -16,15 +65,15 @@ class AnalyticUniformRandoms(object):
     * mode='projected': volume of cylinder
     * mode='angular': area of spherical cap
     """
-    def __init__(self, mode, edges, BoxSize):
+    def __init__(self, mode, dims, edges, BoxSize):
 
         assert mode in ['1d', '2d', 'projected', 'angular']
         self.mode = mode
         self.edges = edges
+        self.dims = dims
         self.BoxSize = BoxSize
 
-    @property
-    def filling_factor(self):
+    def get_filling_factor(self):
         """
         This gives the ratio of the volume (or area) occupied by each bin to
         the global volume (or area).
@@ -64,14 +113,32 @@ class AnalyticUniformRandoms(object):
 
     def __call__(self, NR1, NR2=None):
         """
-        Evaluate the expected randoms pair counts.
-        """
-        if NR2 is None:
-            return NR1 ** 2  * self.filling_factor
-        else:
-            return NR1 * NR2 * self.filling_factor
+        Evaluate the expected randoms pair counts, and the weighted_npairs, returns
+        as an object that looks like the result of paircount.
 
-def LandySzalayEstimator(pair_counter, data1, data2, randoms1, randoms2, logger=None, **kwargs):
+        """
+        edges = [self.edges[d] for d in self.dims] # sequentialize it, poor API!
+
+        if NR2 is None:
+            R1R2 = NR1 ** 2  * self.get_filling_factor()
+            wnpairs = NR1 * (NR1 - 1) * 0.5
+        else:
+            R1R2 = NR1 * NR2 * self.get_filling_factor()
+            wnpairs = NR1 * NR2 * 0.5
+
+        data = numpy.empty_like(R1R2, dtype=[('npairs', 'f8'), ('weightavg', 'f8')])
+        data['npairs'] = R1R2
+        data['weightavg'] = 1
+        pairs = WedgeBinnedStatistic(self.dims, edges, data)
+
+        R1R2 = lambda : None
+        R1R2.attrs = {}
+        R1R2.pairs = pairs
+        R1R2.attrs['weighted_npairs']= wnpairs
+
+        return R1R2
+
+def LandySzalayEstimator(pair_counter, data1, data2, randoms1, randoms2, R1R2=None, logger=None, **kwargs):
     """
     Compute the correlation function from data/randoms using the
     Landy - Szalay estimator to compute the correlation function.
@@ -88,6 +155,8 @@ def LandySzalayEstimator(pair_counter, data1, data2, randoms1, randoms2, logger=
         the randoms catalog corresponding to ``data1``
     randoms2 : CatalogSource, None
         the second randoms catalog; can be None for auto-correlations
+    R1R2 : SimulationBoxPairCount, SurveyDataPairCount, optional
+        if provided, random pairs R1R2 are not recalculated
     **kwargs :
         the parameters passed to the ``pair_counter`` class to count pairs
 
@@ -104,93 +173,94 @@ def LandySzalayEstimator(pair_counter, data1, data2, randoms1, randoms2, logger=
     assert randoms1 is not None
     comm = data1.comm
 
-    # data1 x data2
-    if logger is not None and comm.rank == 0:
-        logger.info("computing data1 - data2 pair counts")
-    D1D2 = pair_counter(first=data1, second=data2, **kwargs).pairs
-
-    if randoms2 is None:
-        randoms2 = randoms1
-
-    # determine the sample sizes
-    ND1, NR1 = data1.csize, randoms1.csize
-    ND2 = data2.csize if data2 is not None else ND1
-    NR2 = randoms2.csize
-
-    # do data - randoms correlation
-    if logger is not None and comm.rank == 0:
-        logger.info("computing data1 - randoms2 pair counts")
-    D1R2 = pair_counter(first=data1, second=randoms2, **kwargs).pairs
-
-    if data2 is not None:
-        if logger is not None and comm.rank == 0:
-            logger.info("computing data2 - randoms1 pair counts")
-        D2R1 = pair_counter(first=data2, second=randoms1, **kwargs).pairs
-    else:
-        D2R1 = D1R2
+    if randoms2 is None: randoms2 = randoms1
 
     # and randoms - randoms calculation
     if logger is not None and comm.rank == 0:
         logger.info("computing randoms1 - randoms2 pair counts")
-    R1R2 = pair_counter(first=randoms1, second=randoms2, **kwargs).pairs
+    if not R1R2:
+        R1R2 = pair_counter(first=randoms1, second=randoms2, **kwargs)
+
+    # data1 x data2
+    if logger is not None and comm.rank == 0:
+        logger.info("computing data1 - data2 pair counts")
+    D1D2 = pair_counter(first=data1, second=data2, **kwargs)
+
+    # do data - randoms correlation
+    if logger is not None and comm.rank == 0:
+        logger.info("computing data1 - randoms2 pair counts")
+    D1R2 = pair_counter(first=data1, second=randoms2, **kwargs)
+
+    if data2 is not None:
+        if logger is not None and comm.rank == 0:
+            logger.info("computing data2 - randoms1 pair counts")
+        D2R1 = pair_counter(first=data2, second=randoms1, **kwargs)
+    else:
+        D2R1 = D1R2
+
+    fDD = R1R2.attrs['weighted_npairs']/D1D2.attrs['weighted_npairs']
+    fDR = R1R2.attrs['weighted_npairs']/D1R2.attrs['weighted_npairs']
+    fRD = R1R2.attrs['weighted_npairs']/D2R1.attrs['weighted_npairs']
+
+    nonzero = R1R2.pairs['npairs'] > 0
 
     # init
-    CF = numpy.zeros(D1D2.shape)
+    CF = numpy.zeros(D1D2.pairs.shape)
     CF[:] = numpy.nan
-
-    fN1 = float(NR1)/ND1
-    fN2 = float(NR2)/ND2
-    nonzero = R1R2['npairs'] > 0
+    Error = numpy.zeros(D1D2.pairs.shape)
+    Error[:] = numpy.nan
 
     # the Landy - Szalay estimator
     # (DD - DR - RD + RR) / RR
-    xi = fN1 * fN2 * (D1D2['npairs']*D1D2['weightavg'])[nonzero]
-    xi -= fN1 * (D1R2['npairs']*D1R2['weightavg'])[nonzero]
-    xi -= fN2 * (D2R1['npairs']*D2R1['weightavg'])[nonzero]
-    xi /= (R1R2['npairs']*R1R2['weightavg'])[nonzero]
-    xi += 1.
+    DD = (D1D2.pairs['npairs']*D1D2.pairs['weightavg'])[nonzero]
+    DR = (D1R2.pairs['npairs']*D1R2.pairs['weightavg'])[nonzero]
+    RD = (D2R1.pairs['npairs']*D2R1.pairs['weightavg'])[nonzero]
+    RR = (R1R2.pairs['npairs']*R1R2.pairs['weightavg'])[nonzero]
+    xi = (fDD * DD - fDR * DR - fRD * RD)/RR + 1
     CF[nonzero] = xi[:]
 
     # warn about NaNs in the estimator
-    if data1.comm.rank == 0 and numpy.isnan(CF).any():
+    if comm.rank == 0 and numpy.isnan(CF).any():
         msg = ("The RR calculation in the Landy-Szalay estimator contains"
         " separation bins with no bins. This will result in NaN values in the resulting"
         " correlation function. Try increasing the number of randoms and/or using"
         " broader bins.")
         warnings.warn(msg)
 
-    CF = _create_tpcf_result(D1D2, CF)
-    return D1D2, D1R2, D2R1, R1R2, CF
+    CF = _create_tpcf_result(D1D2.pairs, CF)
+    return D1D2.pairs, D1R2.pairs, D2R1.pairs, R1R2.pairs, CF
 
-
-def NaturalEstimator(data_paircount):
+def NaturalEstimator(D1D2):
     """
     Internal function to computing the correlation function using
     analytic randoms and the so-called "natural" correlation function
     estimator, :math:`DD/RR - 1`.
     """
-    # data1 x data2
-    D1D2 = data_paircount.pairs
-    attrs = data_paircount.attrs
+    attrs = D1D2.attrs
 
     # determine the sample sizes
-    ND1, ND2 = attrs['N1'], attrs['N2']
-    edges = D1D2.edges
+    if attrs['is_cross']:
+        ND1, ND2 = attrs['N1'], attrs['N2']
+    else:
+        ND1, ND2 = attrs['N1'], None
+
     mode = attrs['mode']
     BoxSize = attrs['BoxSize']
 
     # analytic randoms - randoms calculation assuming uniform distribution
-    _R1R2 = AnalyticUniformRandoms(mode, edges, BoxSize)(ND1, ND2)
-    edges = [D1D2.edges[d] for d in D1D2.dims]
-    R1R2 = BinnedStatistic(D1D2.dims, edges, _R1R2.view([('npairs', 'f8')]))
+    R1R2 = AnalyticUniformRandoms(mode, D1D2.pairs.dims, D1D2.pairs.edges, BoxSize)(ND1, ND2)
 
     # and compute the correlation function as DD/RR - 1
-    CF = (D1D2['npairs']*D1D2['weightavg']) / R1R2['npairs'] - 1.
+    fDD = R1R2.attrs['weighted_npairs'] / D1D2.attrs['weighted_npairs']
+    RR = R1R2.pairs['npairs'] * R1R2.pairs['weightavg']
+    DD = D1D2.pairs['npairs'] * D1D2.pairs['weightavg']
+
+    CF = (DD * fDD) / RR - 1.
 
     # create a BinnedStatistic holding the CF
-    CF = _create_tpcf_result(D1D2, CF)
+    CF = _create_tpcf_result(D1D2.pairs, CF)
 
-    return R1R2, CF
+    return R1R2.pairs, CF
 
 def _create_tpcf_result(D1D2, CF):
     """
@@ -202,4 +272,4 @@ def _create_tpcf_result(D1D2, CF):
     data['corr'] = CF[:]
     data[x] = D1D2[x]
     edges = [D1D2.edges[d] for d in D1D2.dims]
-    return BinnedStatistic(D1D2.dims, edges, data)
+    return WedgeBinnedStatistic(D1D2.dims, edges, data)

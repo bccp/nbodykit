@@ -1,5 +1,5 @@
 from ..pair_counters import SimulationBoxPairCount, SurveyDataPairCount
-from .estimators import LandySzalayEstimator, NaturalEstimator
+from .estimators import LandySzalayEstimator, NaturalEstimator, WedgeBinnedStatistic
 from nbodykit import CurrentMPIComm
 from nbodykit.binned_statistic import BinnedStatistic
 
@@ -34,13 +34,15 @@ class BasePairCount2PCF(object):
         if not provided, analytic randoms will be used
     data2 : CatalogSource, optional
         the second data catalog to cross-correlate; must have a 'Position' column
+    R1R2 : SimulationBoxPairCount, SurveyDataPairCount, optional
+        if provided, random pairs R1R2 are not recalculated in the Landy-Szalay estimator
     **kws :
         additional keyword arguments passed to the appropriate pair counting class
     """
 
     def __init__(self, mode, data1, edges,
                     Nmu=None, pimax=None,
-                    randoms1=None, randoms2=None, data2=None, **kws):
+                    randoms1=None, randoms2=None, data2=None, R1R2=None, **kws):
 
         self.comm = data1.comm
 
@@ -53,6 +55,7 @@ class BasePairCount2PCF(object):
         self.data2 = data2
         self.randoms1 = randoms1
         self.randoms2 = randoms2
+        self.R1R2 = R1R2
 
 
     def run(self):
@@ -63,7 +66,7 @@ class BasePairCount2PCF(object):
 
         1. If no randoms were provided, and the data is in a simulation box with
            periodic boundary conditions, the natural estimator
-           :math:`DD/DD-1` is used.
+           :math:`DD/RR - 1` is used.
         2. If randoms were provided, the Landy-Szalay estimator is used:
            :math:`(D_1 D_2 - D_1 R_2 - D_2 R_1 + R_1 R_2) / R_1 R_2`
 
@@ -120,7 +123,8 @@ class BasePairCount2PCF(object):
 
             # use the Landy-Szalay estimator
             result = LandySzalayEstimator(pair_counter, self.data1, self.data2,
-                                            self.randoms1, self.randoms2, logger=self.logger, **attrs)
+                                            self.randoms1, self.randoms2, R1R2=self.R1R2,
+                                            logger=self.logger, **attrs)
             self.D1D2, self.D1R2, self.D2R1, self.R1R2, self.corr = result
 
     def __getstate__(self):
@@ -145,15 +149,15 @@ class BasePairCount2PCF(object):
         dims = state.pop('dims')
         self.__dict__.update(state)
 
-        self.corr = BinnedStatistic(dims, edges, self.corr)
+        self.corr = WedgeBinnedStatistic(dims, edges, self.corr)
         if self.wp is not None:
             # NOTE: only edges[0], second dimension was summed over
-            self.wp = BinnedStatistic(dims[:1], edges[:1], self.wp)
+            self.wp = WedgeBinnedStatistic(dims[:1], edges[:1], self.wp)
 
         for pc in ['D1D2', 'D1R2', 'D2R1', 'R1R2']:
             val = getattr(self, pc)
             if val is not None:
-                setattr(self, pc, BinnedStatistic(dims, edges, val))
+                setattr(self, pc, WedgeBinnedStatistic(dims, edges, val))
 
     def save(self, output):
         """
@@ -231,6 +235,8 @@ class SimulationBox2PCF(BasePairCount2PCF):
     randoms2 : CatalogSource, optional
         the catalog specifying the un-clustered, random distribution for ``data2``;
         if not provided, analytic randoms will be used
+    R1R2 : SimulationBoxPairCount, optional
+        if provided, random pairs R1R2 are not recalculated in the Landy-Szalay estimator
     periodic : bool, optional
         whether to use periodic boundary conditions
     BoxSize : float, 3-vector, optional
@@ -268,7 +274,7 @@ class SimulationBox2PCF(BasePairCount2PCF):
     logger = logging.getLogger('SimulationBox2PCF')
 
     def __init__(self, mode, data1, edges, Nmu=None, pimax=None,
-                    data2=None, randoms1=None, randoms2=None,
+                    data2=None, randoms1=None, randoms2=None, R1R2=None,
                     periodic=True, BoxSize=None, los='z',
                     weight='Weight', show_progress=False, **config):
 
@@ -365,6 +371,8 @@ class SurveyData2PCF(BasePairCount2PCF):
         the catalog specifying the un-clustered, random distribution for ``data2``;
         if not specified and ``data2`` is provied, then ``randoms1`` will be used
         for both.
+    R1R2 : SurveyDataPairCount, optional
+        if provided, random pairs R1R2 are not recalculated in the Landy-Szalay estimator
     ra : str, optional
         the name of the column in the source specifying the
         right ascension coordinates in units of degrees; default is 'RA'
@@ -402,7 +410,7 @@ class SurveyData2PCF(BasePairCount2PCF):
     logger = logging.getLogger('SurveyData2PCF')
 
     def __init__(self, mode, data1, randoms1, edges, cosmo=None,
-                    Nmu=None, pimax=None, data2=None, randoms2=None,
+                    Nmu=None, pimax=None, data2=None, randoms2=None, R1R2=None,
                     ra='RA', dec='DEC', redshift='Redshift', weight='Weight',
                     show_progress=False, **config):
 

@@ -8,7 +8,7 @@ class PairCountBase(object):
 
     Users should use one of the subclasses of this class.
     """
-    def __init__(self, mode, edges, first, second, Nmu, pimax, show_progress=False):
+    def __init__(self, mode, edges, first, second, Nmu, pimax, weight, show_progress=False):
 
         # check input 'mode'
         valid_modes = ['1d', '2d', 'projected', 'angular']
@@ -47,6 +47,17 @@ class PairCountBase(object):
         # store the total size of the sources
         self.attrs['N1'] = first.csize
         self.attrs['N2'] = second.csize if second is not None else None
+
+        if second is None or second is first:
+            wpairs1, wpairs2 = self.comm.allreduce(first.compute(first[weight].sum())), self.comm.allreduce(first.compute((first[weight]**2).sum()))
+            # for auto excluding self pairs to avoid a biased estimator. The factor 0.5 is by convention.
+            # In the end it will cancel out in two point function estimators.
+            self.attrs['weighted_npairs'] = 0.5*(wpairs1**2-wpairs2)
+            self.attrs['is_cross'] = False
+        else:
+            wpairs1, wpairs2 = self.comm.allreduce(first.compute(first[weight].sum())), self.comm.allreduce(second.compute(second[weight].sum()))
+            self.attrs['weighted_npairs'] = 0.5*wpairs1*wpairs2
+            self.attrs['is_cross'] = True
 
     def __getstate__(self):
         return {'pairs':self.pairs.data, 'attrs':self.attrs}

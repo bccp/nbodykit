@@ -147,9 +147,9 @@ def test_sim_periodic_cross(comm):
     pos2 = gather_data(data2, "Position")
     cf = reference_sim_tpcf(pos1, redges, pimax, data1.attrs['BoxSize'], pos2=pos2)
     assert_allclose(cf, r.corr['corr'])
-
     r.save('paircount-test.json')
     r2 = SimulationBox2PCF.load('paircount-test.json')
+
     assert_array_equal(r.corr.data, r2.corr.data)
     assert_array_equal(r.wp.data, r2.wp.data)
     if comm.rank == 0: os.remove('paircount-test.json')
@@ -169,14 +169,14 @@ def test_survey_cross(comm):
     pimax = 10
 
     # compute 2PCF
-    r = SurveyData2PCF('projected', data1, randoms2, redges, pimax=pimax, cosmo=cosmo, data2=data2, randoms2=randoms2)
+    r = SurveyData2PCF('projected', data1, randoms1, redges, pimax=pimax, cosmo=cosmo, data2=data2, randoms2=randoms2)
 
     # run Corrfunc to verify
     data1 = make_corrfunc_input(data1, cosmo)
     randoms1 = make_corrfunc_input(randoms1, cosmo)
     data2 = make_corrfunc_input(data2, cosmo)
     randoms2 = make_corrfunc_input(randoms2, cosmo)
-    D1D2, D1R2, D2R1, R1R2, cf, wp = reference_survey_tpcf(data1, randoms2, redges, pimax,
+    D1D2, D1R2, D2R1, R1R2, cf, wp = reference_survey_tpcf(data1, randoms1, redges, pimax,
                                                         data2=data2, randoms2=randoms2)
 
     # verify pair counts and CF
