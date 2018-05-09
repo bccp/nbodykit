@@ -1,6 +1,7 @@
 # FFT-based
 from .fftpower import FFTPower, ProjectedFFTPower
 from .fftcorr import FFTCorr
+from .fftrecon import FFTRecon
 from .convpower import ConvolvedFFTPower
 
 # grouping
@@ -32,4 +33,5 @@ __all__ = ['FFTPower',
            'SimulationBox3PCF',
            'KDDensity',
            'RedshiftHistogram',
+           'FFTRecon',
           ]
