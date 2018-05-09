@@ -65,15 +65,15 @@ class AnalyticUniformRandoms(object):
     * mode='projected': volume of cylinder
     * mode='angular': area of spherical cap
     """
-    def __init__(self, mode, edges, BoxSize):
+    def __init__(self, mode, dims, edges, BoxSize):
 
         assert mode in ['1d', '2d', 'projected', 'angular']
         self.mode = mode
         self.edges = edges
+        self.dims = dims
         self.BoxSize = BoxSize
 
-    @property
-    def filling_factor(self):
+    def get_filling_factor(self):
         """
         This gives the ratio of the volume (or area) occupied by each bin to
         the global volume (or area).
@@ -113,12 +113,30 @@ class AnalyticUniformRandoms(object):
 
     def __call__(self, NR1, NR2=None):
         """
-        Evaluate the expected randoms pair counts.
+        Evaluate the expected randoms pair counts, and the weighted_npairs, returns
+        as an object that looks like the result of paircount.
+
         """
+        edges = [self.edges[d] for d in self.dims] # sequentialize it, poor API!
+
         if NR2 is None:
-            return NR1 ** 2  * self.filling_factor
+            R1R2 = NR1 ** 2  * self.get_filling_factor()
+            wnpairs = NR1 * (NR1 - 1) * 0.5
         else:
-            return NR1 * NR2 * self.filling_factor
+            R1R2 = NR1 * NR2 * self.get_filling_factor()
+            wnpairs = NR1 * NR2 * 0.5
+
+        data = numpy.empty_like(R1R2, dtype=[('npairs', 'f8'), ('weightavg', 'f8')])
+        data['npairs'] = R1R2
+        data['weightavg'] = 1
+        pairs = WedgeBinnedStatistic(self.dims, edges, data)
+
+        R1R2 = lambda : None
+        R1R2.attrs = {}
+        R1R2.pairs = pairs
+        R1R2.attrs['weighted_npairs']= wnpairs
+
+        return R1R2
 
 def LandySzalayEstimator(pair_counter, data1, data2, randoms1, randoms2, R1R2=None, logger=None, **kwargs):
     """
@@ -212,34 +230,37 @@ def LandySzalayEstimator(pair_counter, data1, data2, randoms1, randoms2, R1R2=No
     CF = _create_tpcf_result(D1D2.pairs, CF)
     return D1D2.pairs, D1R2.pairs, D2R1.pairs, R1R2.pairs, CF
 
-def NaturalEstimator(data_paircount):
+def NaturalEstimator(D1D2):
     """
     Internal function to computing the correlation function using
     analytic randoms and the so-called "natural" correlation function
     estimator, :math:`DD/RR - 1`.
     """
-    # data1 x data2
-    D1D2 = data_paircount.pairs
-    attrs = data_paircount.attrs
+    attrs = D1D2.attrs
 
     # determine the sample sizes
-    ND1, ND2 = attrs['N1'], attrs['N2']
-    edges = D1D2.edges
+    if attrs['is_cross']:
+        ND1, ND2 = attrs['N1'], attrs['N2']
+    else:
+        ND1, ND2 = attrs['N1'], None
+
     mode = attrs['mode']
     BoxSize = attrs['BoxSize']
 
     # analytic randoms - randoms calculation assuming uniform distribution
-    _R1R2 = AnalyticUniformRandoms(mode, edges, BoxSize)(ND1, ND2)
-    edges = [D1D2.edges[d] for d in D1D2.dims]
-    R1R2 = WedgeBinnedStatistic(D1D2.dims, edges, _R1R2.view([('npairs', 'f8')]))
+    R1R2 = AnalyticUniformRandoms(mode, D1D2.pairs.dims, D1D2.pairs.edges, BoxSize)(ND1, ND2)
 
     # and compute the correlation function as DD/RR - 1
-    CF = (D1D2['npairs']*D1D2['weightavg']) / R1R2['npairs'] - 1.
+    fDD = R1R2.attrs['weighted_npairs'] / D1D2.attrs['weighted_npairs']
+    RR = R1R2.pairs['npairs'] * R1R2.pairs['weightavg']
+    DD = D1D2.pairs['npairs'] * D1D2.pairs['weightavg']
+
+    CF = (DD * fDD) / RR - 1.
 
     # create a BinnedStatistic holding the CF
-    CF = _create_tpcf_result(D1D2, CF)
+    CF = _create_tpcf_result(D1D2.pairs, CF)
 
-    return R1R2, CF
+    return R1R2.pairs, CF
 
 def _create_tpcf_result(D1D2, CF):
     """

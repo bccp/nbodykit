@@ -147,9 +147,9 @@ def test_sim_periodic_cross(comm):
     pos2 = gather_data(data2, "Position")
     cf = reference_sim_tpcf(pos1, redges, pimax, data1.attrs['BoxSize'], pos2=pos2)
     assert_allclose(cf, r.corr['corr'])
-
     r.save('paircount-test.json')
     r2 = SimulationBox2PCF.load('paircount-test.json')
+
     assert_array_equal(r.corr.data, r2.corr.data)
     assert_array_equal(r.wp.data, r2.wp.data)
     if comm.rank == 0: os.remove('paircount-test.json')

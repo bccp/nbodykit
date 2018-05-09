@@ -50,10 +50,14 @@ class PairCountBase(object):
 
         if second is None or second is first:
             wpairs1, wpairs2 = self.comm.allreduce(first.compute(first[weight].sum())), self.comm.allreduce(first.compute((first[weight]**2).sum()))
+            # for auto excluding self pairs to avoid a biased estimator. The factor 0.5 is by convention.
+            # In the end it will cancel out in two point function estimators.
             self.attrs['weighted_npairs'] = 0.5*(wpairs1**2-wpairs2)
+            self.attrs['is_cross'] = False
         else:
             wpairs1, wpairs2 = self.comm.allreduce(first.compute(first[weight].sum())), self.comm.allreduce(second.compute(second[weight].sum()))
             self.attrs['weighted_npairs'] = 0.5*wpairs1*wpairs2
+            self.attrs['is_cross'] = True
 
     def __getstate__(self):
         return {'pairs':self.pairs.data, 'attrs':self.attrs}

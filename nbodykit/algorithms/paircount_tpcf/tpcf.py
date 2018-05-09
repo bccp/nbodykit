@@ -66,7 +66,7 @@ class BasePairCount2PCF(object):
 
         1. If no randoms were provided, and the data is in a simulation box with
            periodic boundary conditions, the natural estimator
-           :math:`DD/DD-1` is used.
+           :math:`DD/RR - 1` is used.
         2. If randoms were provided, the Landy-Szalay estimator is used:
            :math:`(D_1 D_2 - D_1 R_2 - D_2 R_1 + R_1 R_2) / R_1 R_2`
 
