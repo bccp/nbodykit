@@ -1,9 +1,20 @@
 Changelog
 =========
 
-0.3.2 (unreleased)
+0.3.3 (unreleased)
+------------------
+
+0.3.2 (2018-05-14)
 ------------------
 * :issue:`475`:  proper normalization of the Landy-Szalay estimator, included R1R2 option and to_xil function
+* :issue:`487`:  Linear theory correspondant of nbody simulation. (three fluid model)
+* :issue:`486`:  overdecomposition in FOF
+* :issue:`483`:  switching to a new type in BinnedStatistics.copy()
+* :issue:`482`:  Fix a crash when two datasets passed into corrfunc are of different dtypes.
+* :issue:`480`:  BigFileCatalog shall look for header relative to the root of file.
+* :issue:`479`:  GatherArray allows root=Ellipsis (for allbather)
+* :issue:`476`:  Fix MeshSource.apply if MeshSource.action is overriden
+* :issue:`471`:  Decompose of surveydata to the correct bounds.
 
 0.3.1 (2018-04-10)
 ------------------
