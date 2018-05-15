@@ -140,7 +140,7 @@ class SimulationBoxPairCount(PairCountBase):
 
             - ``r``, ``rp``, or ``theta`` : the mean separation value in the bin
             - ``npairs``: the number of pairs in the bin
-            - ``weightavg``: the average weight value in the bin; each pair
+            - ``wnpairs``: the average weight value in the bin; each pair
               contributes the product of the individual weight values
         """
         # setup
@@ -216,6 +216,7 @@ class SimulationBoxPairCount(PairCountBase):
         # do the calculation
         self.pairs = func(pos1, w1, pos2, w2, **attrs['config'])
 
+        self.pairs.attrs['total_wnpairs'] = self.attrs['total_wnpairs']
 
 def shift_to_box_center(pos, BoxSize, comm):
     """

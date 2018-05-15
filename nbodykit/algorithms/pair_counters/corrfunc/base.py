@@ -164,16 +164,20 @@ class MPICorrfuncCallable(object):
         if 's' in dims: dims[dims.index('s')] = 'r'
 
         # make a new structured array
-        dtype = numpy.dtype([(dims[0], 'f8'), ('npairs', 'u8'), ('weightavg', 'f8')])
+        dtype = numpy.dtype([(dims[0], 'f8'),
+                    ('npairs', 'u8'),
+                    ('wnpairs', 'f8')])
         data = numpy.zeros(pc.shape, dtype=dtype)
 
         # copy over main results
         data[dims[0]] = pc[self.binning_dims[0]+'avg']
         data['npairs'] = pc['npairs']
-        data['weightavg'] = pc['weightavg']
+        data['wnpairs'] = pc['weightavg'] * pc['npairs']
+        # patch up when there is no pair, the weighted value shall be zero as well.
+        data['wnpairs'][pc['npairs'] == 0] = 0
 
         # return the BinnedStatistic
-        return BinnedStatistic(dims, self.edges, data, fields_to_sum=['npairs'])
+        return BinnedStatistic(dims, self.edges, data, fields_to_sum=['npairs', 'wnpairs'])
 
     def _run(self, func, kws):
         """

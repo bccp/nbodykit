@@ -113,7 +113,7 @@ class AnalyticUniformRandoms(object):
 
     def __call__(self, NR1, NR2=None):
         """
-        Evaluate the expected randoms pair counts, and the weighted_npairs, returns
+        Evaluate the expected randoms pair counts, and the total_weight, returns
         as an object that looks like the result of paircount.
 
         """
@@ -121,20 +121,21 @@ class AnalyticUniformRandoms(object):
 
         if NR2 is None:
             R1R2 = NR1 ** 2  * self.get_filling_factor()
-            wnpairs = NR1 * (NR1 - 1) * 0.5
+            total_wnpairs = NR1 * (NR1 - 1) * 0.5
         else:
             R1R2 = NR1 * NR2 * self.get_filling_factor()
-            wnpairs = NR1 * NR2 * 0.5
+            total_wnpairs = NR1 * NR2 * 0.5
 
-        data = numpy.empty_like(R1R2, dtype=[('npairs', 'f8'), ('weightavg', 'f8')])
+        data = numpy.empty_like(R1R2, dtype=[('npairs', 'f8'), ('wnpairs', 'f8')])
         data['npairs'] = R1R2
-        data['weightavg'] = 1
+        data['wnpairs'] = R1R2
         pairs = WedgeBinnedStatistic(self.dims, edges, data)
 
         R1R2 = lambda : None
         R1R2.attrs = {}
         R1R2.pairs = pairs
-        R1R2.attrs['weighted_npairs']= wnpairs
+        R1R2.attrs['total_wnpairs']= total_wnpairs
+        R1R2.pairs.attrs['total_wnpairs']= total_wnpairs
 
         return R1R2
 
@@ -198,9 +199,9 @@ def LandySzalayEstimator(pair_counter, data1, data2, randoms1, randoms2, R1R2=No
     else:
         D2R1 = D1R2
 
-    fDD = R1R2.attrs['weighted_npairs']/D1D2.attrs['weighted_npairs']
-    fDR = R1R2.attrs['weighted_npairs']/D1R2.attrs['weighted_npairs']
-    fRD = R1R2.attrs['weighted_npairs']/D2R1.attrs['weighted_npairs']
+    fDD = R1R2.attrs['total_wnpairs']/D1D2.attrs['total_wnpairs']
+    fDR = R1R2.attrs['total_wnpairs']/D1R2.attrs['total_wnpairs']
+    fRD = R1R2.attrs['total_wnpairs']/D2R1.attrs['total_wnpairs']
 
     nonzero = R1R2.pairs['npairs'] > 0
 
@@ -212,10 +213,10 @@ def LandySzalayEstimator(pair_counter, data1, data2, randoms1, randoms2, R1R2=No
 
     # the Landy - Szalay estimator
     # (DD - DR - RD + RR) / RR
-    DD = (D1D2.pairs['npairs']*D1D2.pairs['weightavg'])[nonzero]
-    DR = (D1R2.pairs['npairs']*D1R2.pairs['weightavg'])[nonzero]
-    RD = (D2R1.pairs['npairs']*D2R1.pairs['weightavg'])[nonzero]
-    RR = (R1R2.pairs['npairs']*R1R2.pairs['weightavg'])[nonzero]
+    DD = (D1D2.pairs['wnpairs'])[nonzero]
+    DR = (D1R2.pairs['wnpairs'])[nonzero]
+    RD = (D2R1.pairs['wnpairs'])[nonzero]
+    RR = (R1R2.pairs['wnpairs'])[nonzero]
     xi = (fDD * DD - fDR * DR - fRD * RD)/RR + 1
     CF[nonzero] = xi[:]
 
@@ -251,9 +252,9 @@ def NaturalEstimator(D1D2):
     R1R2 = AnalyticUniformRandoms(mode, D1D2.pairs.dims, D1D2.pairs.edges, BoxSize)(ND1, ND2)
 
     # and compute the correlation function as DD/RR - 1
-    fDD = R1R2.attrs['weighted_npairs'] / D1D2.attrs['weighted_npairs']
-    RR = R1R2.pairs['npairs'] * R1R2.pairs['weightavg']
-    DD = D1D2.pairs['npairs'] * D1D2.pairs['weightavg']
+    fDD = R1R2.attrs['total_wnpairs'] / D1D2.attrs['total_wnpairs']
+    RR = R1R2.pairs['wnpairs']
+    DD = D1D2.pairs['wnpairs']
 
     CF = (DD * fDD) / RR - 1.
 

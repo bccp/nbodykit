@@ -88,7 +88,7 @@ def reference_survey_paircount(pos1, w1, rp_bins, pimax, pos2=None, w2=None, los
     # initialize the return arrays
     npairs = numpy.zeros(shape, dtype='i8')
     rpavg = numpy.zeros(shape, dtype='f8')
-    weightavg = numpy.zeros(shape, dtype='f8')
+    wnpairs = numpy.zeros(shape, dtype='f8')
 
     # mean rp values
     rpavg.flat += numpy.bincount(multi_index, weights=rp, minlength=rpavg.size)
@@ -98,11 +98,10 @@ def reference_survey_paircount(pos1, w1, rp_bins, pimax, pos2=None, w2=None, los
     npairs.flat += numpy.bincount(multi_index, minlength=npairs.size)
     npairs = npairs[1:-1,1:-1]
 
-    # mean weights
-    weightavg.flat += numpy.bincount(multi_index, weights=w1[i]*w2[j], minlength=weightavg.size)
-    weightavg = weightavg[1:-1,1:-1]
+    wnpairs.flat += numpy.bincount(multi_index, weights=w1[i]*w2[j], minlength=wnpairs.size)
+    wnpairs = wnpairs[1:-1,1:-1]
 
-    return npairs, rpavg/npairs, weightavg/npairs
+    return npairs, rpavg/npairs, wnpairs
 
 
 @MPITest([1, 3])
@@ -213,10 +212,10 @@ def test_survey_auto(comm):
     w = gather_data(source, 'Weight')
 
     # verify with kdcount
-    npairs, ravg, wavg = reference_survey_paircount(pos, w, redges, pimax)
+    npairs, ravg, wnpairs = reference_survey_paircount(pos, w, redges, pimax)
     assert_allclose(ravg, r.pairs['rp'], rtol=1e-5)
     assert_allclose(npairs, r.pairs['npairs'])
-    assert_allclose(wavg, r.pairs['weightavg'])
+    assert_allclose(wnpairs, r.pairs['wnpairs'])
 
 @MPITest([1, 4])
 def test_survey_cross(comm):
@@ -242,10 +241,10 @@ def test_survey_cross(comm):
     w2 = gather_data(second, 'Weight')
 
     # verify with kdcount
-    npairs, ravg, wavg = reference_survey_paircount(pos1, w1, redges, pimax, pos2=pos2, w2=w2)
+    npairs, ravg, wnpairs = reference_survey_paircount(pos1, w1, redges, pimax, pos2=pos2, w2=w2)
     assert_allclose(ravg, r.pairs['rp'], rtol=1e-3)
     assert_allclose(npairs, r.pairs['npairs'])
-    assert_allclose(wavg, r.pairs['weightavg'])
+    assert_allclose(wnpairs, r.pairs['wnpairs'])
 
     # test save
     r.save('paircount-test.json')
