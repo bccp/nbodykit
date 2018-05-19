@@ -332,7 +332,7 @@ def cgm(comm, data, domain, rperp, rpar, los, boxsize):
     # to find centrals, considers objects that could be satellites of another
     # (pairs with sort_j > sort_i)
     possible_cens = df[(df['sort_j']>df.index.values)]
-    possible_cens = possible_cens.drop(centrals)
+    possible_cens = possible_cens.drop(centrals, errors='ignore')
     _remove_objects_paired_with(possible_cens, centrals) # remove objs paired with cens
 
     # sorted indices of objects that have pairs on other ranks
@@ -461,7 +461,7 @@ def _find_centrals(comm, df, on_other_ranks, centrals, maybes):
     # only need to examine objects that have all higher priority pairs
     # on the same rank --> if they have pairs on other ranks, then they are already
     # marked as "maybes" centrals
-    same_rank_df = df.drop(on_other_ranks)
+    same_rank_df = df.drop(on_other_ranks, errors='ignore')
 
     # group by centrals and find the local centrals
     # these are objects with no higher priority pairs

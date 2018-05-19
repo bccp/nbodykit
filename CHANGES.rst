@@ -3,6 +3,7 @@ Changelog
 
 0.3.3 (unreleased)
 ------------------
+* :issue:`491`:  update compatibility with pandas 0.23.0 in cgm.
 
 0.3.2 (2018-05-14)
 ------------------
