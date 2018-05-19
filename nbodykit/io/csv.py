@@ -306,7 +306,7 @@ class CSVFile(FileType):
 
         # make the partitions
         self.partitions, self._sizes = make_partitions(path, blocksize, self.pandas_config)
-        self.size = sum(self._sizes)
+        self.size = numpy.sum(self._sizes, dtype='intp')
 
     def read(self, columns, start, stop, step=1):
         """

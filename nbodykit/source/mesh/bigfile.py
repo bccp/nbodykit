@@ -100,7 +100,7 @@ class BigFileMesh(MeshSource):
             if self.comm.rank == 0:
                 self.logger.info("reading real field from %s" % self.path)
             real2 = RealField(pmread)
-            start = sum(self.comm.allgather(real2.size)[:self.comm.rank])
+            start = numpy.sum(self.comm.allgather(real2.size)[:self.comm.rank], dtype='intp')
             end = start + real2.size
             real2.unsort(ds[start:end])
 
@@ -129,7 +129,7 @@ class BigFileMesh(MeshSource):
         with BigFileMPI(comm=self.comm, filename=self.path)[self.dataset] as ds:
             complex2 = ComplexField(pmread)
             assert self.comm.allreduce(complex2.size) == ds.size
-            start = sum(self.comm.allgather(complex2.size)[:self.comm.rank])
+            start = numpy.sum(self.comm.allgather(complex2.size)[:self.comm.rank], dtype='intp')
             end = start + complex2.size
             complex2.unsort(ds[start:end])
 

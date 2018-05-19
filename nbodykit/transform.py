@@ -79,7 +79,7 @@ def ConcatenateSources(*sources, **kwargs):
             raise ValueError(("cannot concatenate sources: columns are missing "
                               "from some sources"))
     # the total size
-    size = sum(src.size for src in sources)
+    size = numpy.sum([src.size for src in sources], dtype='intp')
 
     data = {}
     for col in columns:

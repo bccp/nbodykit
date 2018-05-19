@@ -1043,7 +1043,7 @@ class CatalogSource(CatalogSourceBase):
 
         Note that slicing changes this index value.
         """
-        offset = sum(self.comm.allgather(self.size)[:self.comm.rank])
+        offset = numpy.sum(self.comm.allgather(self.size)[:self.comm.rank], dtype='intp')
         # do not use u8, because many numpy casting rules case u8 to f8 automatically.
         # it is ridiculous.
         return da.arange(offset, offset + self.size, dtype='i8',
