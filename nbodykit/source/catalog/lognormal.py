@@ -140,7 +140,7 @@ class LogNormalCatalog(CatalogSource):
 
         # poisson sample to points
         # this returns position and velocity offsets
-        kws = {'bias':self.attrs['bias'], 'seed':self.attrs['seed'], 'comm':self.comm}
+        kws = {'bias':self.attrs['bias'], 'seed':self.attrs['seed']}
         pos, disp = mockmaker.poisson_sample_to_points(delta, disp, pm, self.attrs['nbar'], **kws)
 
         # move particles from initial position based on the Zeldovich displacement
