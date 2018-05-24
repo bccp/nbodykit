@@ -3,6 +3,16 @@ import numpy
 from nbodykit.utils import FrontPadArray
 
 class MPIRandomState:
+    """ A Random number generator that is invariant against number of ranks,
+        when the total size of random number requested is kept the same.
+
+        The algorithm here assumes the random number generator from numpy
+        produces uncorrelated results when the seeds are sampled from a single
+        RNG.
+
+        The sampler methods are collective calls.
+
+    """
     def __init__(self, comm, seed, size, chunksize=10000):
         self.comm = comm
         self.seed = seed
@@ -32,12 +42,14 @@ class MPIRandomState:
         return padded[0], padded[1:]
 
     def poisson(self, lam, itemshape=(), dtype='f8'):
+        """ Produce `self.size` poissons. This is a collective MPI call. """
         def func(rng, args, size):
             lam, = args
             return rng.poisson(lam=lam, size=size)
         return self._call_rngmethod(func, (lam,), itemshape, dtype)
 
     def uniform(self, low=0., high=1.0, itemshape=(), dtype='f8'):
+        """ Produce `self.size` uniforms. This is a collective MPI call. """
         def func(rng, args, size):
             low, high = args
             return rng.uniform(low=low, high=high,size=size)
