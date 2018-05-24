@@ -1,8 +1,11 @@
 from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
+from nbodykit.utils import GatherArray
 
 from numpy.testing import assert_allclose
+from numpy.testing import assert_array_equal
+from mpi4py import MPI
 
 setup_logging("debug")
 
@@ -31,6 +34,22 @@ def test_lognormal_dense(comm):
 
     real = mesh.paint(mode='real')
     assert_allclose(real.cmean(), 1.0, rtol=1e-5)
+
+@MPITest([4])
+def test_lognormal_invariance(comm):
+    cosmo = cosmology.Planck15
+    CurrentMPIComm.set(comm)
+
+    Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
+    source = LogNormalCatalog(Plin=Plin, nbar=0.5e-2, BoxSize=1024., Nmesh=32, seed=42)
+    source1 = LogNormalCatalog(Plin=Plin, nbar=0.5e-2, BoxSize=1024., Nmesh=32, seed=42, comm=MPI.COMM_SELF)
+
+    assert source.csize == source1.size
+
+    allpos = GatherArray(source['Position'].compute(), root=Ellipsis, comm=comm)
+    assert_allclose(allpos, source1['Position'])
+    alldis = GatherArray(source['Velocity'].compute(), root=Ellipsis, comm=comm)
+    assert_allclose(alldis, source1['Velocity'])
 
 @MPITest([1])
 def test_lognormal_velocity(comm):
