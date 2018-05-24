@@ -295,7 +295,6 @@ def poisson_sample_to_points(delta, displacement, pm, nbar, bias=1., seed=None):
 
     # fight round off errors, if any
     N_per_cell = numpy.int64(N_per_cell + 0.5)
-    N_per_cell[...] = 1
 
     pos = pos_mesh.repeat(N_per_cell, axis=0)
     disp = disp_mesh.repeat(N_per_cell, axis=0)
