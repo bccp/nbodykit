@@ -342,7 +342,6 @@ def ScatterArray(data, comm, root=0, counts=None):
     dt.Free()
     return recvbuffer
 
-
 def FrontPadArray(array, front, comm):
     """ Padding an array in the front with items before this rank.
 
@@ -357,10 +356,11 @@ def FrontPadArray(array, front, comm):
     torecv[torecv > N] = N[torecv > N] # fully enclosed
 
     if comm.allreduce(torecv.sum() != front, MPI.LOR):
-        raise ValueError("cannot work out a plan to padd items. Some front values are too large. %d %d" % (torecv.sum(), front))
+        raise ValueError("cannot work out a plan to padd items. Some front values are too large. %d %d"
+            % (torecv.sum(), front))
 
     tosend = comm.alltoall(torecv)
-    sendbuf = [ array[-items:] if items > 0 else [] for i, items in enumerate(tosend)]
+    sendbuf = [ array[-items:] if items > 0 else array[0:0] for i, items in enumerate(tosend)]
     recvbuf = comm.alltoall(sendbuf)
     return numpy.concatenate(list(recvbuf) + [array], axis=0)
 

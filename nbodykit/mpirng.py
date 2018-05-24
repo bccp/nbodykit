@@ -1,124 +1,78 @@
 from numpy.random import RandomState
 import numpy
-import functools
-import contextlib
+from nbodykit.utils import FrontPadArray
 
-N_PER_SEED = 100000
+class MPIRandomState:
+    def __init__(self, comm, seed, size, chunksize=10000):
+        self.comm = comm
+        self.seed = seed
+        self.chunksize = chunksize
 
-def _mpi_enabled_rng(func):
-    """
-    A decorator that handles generating random numbers in parallel
-    in a manner that is independent of the number of ranks
+        self.size = size
+        self.csize = numpy.sum(comm.allgather(size), dtype='intp')
 
-    Designed to be used with :class:`MPIRandomState`
-    """
-    @functools.wraps(func)
-    def func_wrapper(*args, **kwargs):
+        self._start = numpy.sum(comm.allgather(size)[:comm.rank], dtype='intp')
+        self._end = self._start + self.size
 
-        self = func.__self__
-        size = kwargs.get('size', None)
-        if size is not None and isinstance(size, int):
-            size = (size,)
+        self._first_ichunk = self._start // chunksize
 
-        # do nothing if size not provided or wrong
-        if size is None or size[0] != self.size:
-            return func(*args, **kwargs)
+        self._skip = self._start - self._first_ichunk * chunksize
 
-        # size matches the "size" attribute
-        else:
-            toret = []
+        nchunks = (comm.allreduce(numpy.array(size, dtype='intp')) + chunksize - 1) // chunksize
 
-            # loop through chunks that this rank is responsible for
-            for chunk, (start, stop) in zip(self._chunks, self._slices):
-                with self.seeded_context(self._seeds[chunk]):
+        rng = RandomState(seed)
+        self._seeds = rng.randint(0, high=0xffffffff, size=nchunks)
 
-                    kwargs['size'] = (N_PER_SEED,) + size[1:]
-                    if chunk == self.N // N_PER_SEED:
-                        kwargs['size'] = (self.N % N_PER_SEED,) + size[1:]
-                    toret.append(func(*args, **kwargs)[start:stop])
-            return numpy.concatenate(toret, axis=0)
+    def prepare_args_and_result(self, args, itemshape, dtype):
+        r = numpy.zeros((self.size,) + tuple(itemshape), dtype=dtype)
 
-    func_wrapper.mpi_enabled = True
-    return func_wrapper
+        r_and_args = numpy.broadcast_arrays(r, *args)
 
-class MPIRandomState(RandomState):
-    """
-    A wrapper around :class:`numpy.random.RandomState` that can return
-    random numbers in parallel, independent of the number of ranks.
+        padded = [FrontPadArray(a, self._skip, self.comm) for a in r_and_args]
+        return padded[0], padded[1:]
 
-    Parameters
-    ----------
-    comm : MPI communicator
-        the MPI communicator
-    seed : int
-        the global seed that seeds all other random seeds
-    localsize : int
-        the local size of the random numbers to generate; we return chunks of
-        the total on each CPU, based on the CPU's rank
-    """
-    def __init__(self, comm, seed, localsize):
+    def poisson(self, lam, itemshape=(), dtype='f8'):
+        def func(rng, args, size):
+            lam, = args
+            return rng.poisson(lam=lam, size=size)
+        return self._call_rngmethod(func, (lam,), itemshape, dtype)
 
-        RandomState.__init__(self, seed=seed)
+    def uniform(self, low=0., high=1.0, itemshape=(), dtype='f8'):
+        def func(rng, args, size):
+            low, high = args
+            return rng.uniform(low=low, high=high,size=size)
+        return self._call_rngmethod(func, (low, high), itemshape, dtype)
 
-        N = comm.allreduce(numpy.int64(localsize))
-
-        # the number of seeds to generate N particles
-        n_seeds = N // N_PER_SEED
-        if N % N_PER_SEED: n_seeds += 1
-
-        self.comm        = comm
-        self.global_seed = seed
-        self.N           = N
-
-        start = numpy.sum(comm.allgather(localsize)[:comm.rank], dtype='intp')
-        stop  = start + localsize
-        self.size  = stop - start
-
-        # generate the full set of seeds from the global seed
-        rng = numpy.random.RandomState(seed=seed)
-        self._seeds = rng.randint(0, high=0xffffffff, size=n_seeds)
-
-        # sizes of each chunk
-        sizes = [N_PER_SEED]*(N//N_PER_SEED)
-        if N % N_PER_SEED: sizes.append(N % N_PER_SEED)
-
-        # the local chunks this rank is responsible for
-        cumsizes = numpy.insert(numpy.cumsum(sizes), 0, 0)
-        chunk_range = numpy.searchsorted(cumsizes[1:], [start, stop])
-        self._chunks = list(range(chunk_range[0], chunk_range[1]+1))
-
-        # and the slices for each local chunk
-        self._slices = []
-        for chunk in self._chunks:
-            start_size = cumsizes[chunk]
-            sl = (max(start-start_size, 0), min(stop-start_size, sizes[chunk]))
-            self._slices.append(sl)
-
-    def __dir__(self):
+    def _call_rngmethod(self, func, args, itemshape, dtype='f8'):
         """
-        Explicitly set the attributes as those of the RandomState class too
-        """
-        d1 = set(RandomState().__dir__())
-        d2 = set(RandomState.__dir__(self))
-        return list(d1|d2)
+            Loop over the seed table, and call func(rng, args, size)
+            on each rng, with matched input args and size.
 
-    def __getattribute__(self, name):
-        """
-        Decorate callable functions of RandomState such that they return
-        chunks of the total `N` random numbers generated
-        """
-        attr = RandomState.__getattribute__(self, name)
-        if callable(attr) and not getattr(attr, 'mpi_enabled', False):
-            attr = _mpi_enabled_rng(attr)
-        return attr
+            the args are padded in the front such that the rng is invariant
+            no matter how self.size is distributed.
 
-    @contextlib.contextmanager
-    def seeded_context(self, seed):
+            truncate the return value at the front to match the requested `self.size`.
         """
-        A context manager to set and then restore the random seed
-        """
-        startstate = self.get_state()
-        self.seed(seed)
-        yield
-        self.set_state(startstate)
+
+        padded_r, running_args = self.prepare_args_and_result(args, itemshape, dtype)
+
+        running_r = padded_r
+        ichunk = self._first_ichunk
+
+        while len(running_r) > 0:
+            nreq = min(len(running_r), self.chunksize)
+            seed = self._seeds[ichunk]
+            rng = RandomState(seed)
+            args = tuple([a[:nreq] for a in running_args])
+
+            firstchunk = func(rng, args=args,
+                size=(nreq,) + tuple(itemshape))
+
+            running_r[:nreq] = firstchunk
+            running_r = running_r[nreq:]
+            running_args = tuple([a[nreq:] for a in running_args])
+
+            ichunk = ichunk + 1
+
+        return padded_r[self._skip:]
 
