@@ -48,12 +48,20 @@ class MPIRandomState:
 
         r = numpy.zeros((self.size,) + tuple(itemshape), dtype=dtype)
 
-        r_and_args = numpy.broadcast_arrays(r, *args)
+        r_and_args = (r,) + tuple(args)
+        r_and_args_b = numpy.broadcast_arrays(*r_and_args)
 
-        padded = [
-            a if numpy.isscalar(a) else
-            FrontPadArray(a, self._skip, self.comm)
-            for a in r_and_args ]
+        padded = []
+
+        # we don't need to pad scalars,
+        # loop over broadcasted and non broadcast version to figure this out)
+        for a, a_b in zip(r_and_args, r_and_args_b):
+            if numpy.isscalar(a):
+                # use the scalar, no need to pad.
+                padded.append(a)
+            else:
+                # not a scalar, pad
+                padded.append(FrontPadArray(a_b, self._skip, self.comm))
 
         return padded[0], padded[1:]
 
@@ -93,7 +101,7 @@ class MPIRandomState:
 
             seed = self._seeds[ichunk]
             rng = RandomState(seed)
-            args = tuple([a[:nreq] for a in running_args])
+            args = tuple([a if numpy.isscalar(a) else a[:nreq] for a in running_args])
 
             # generate nreq random items from the sampler 
             chunk = sampler(rng, args=args,
@@ -103,7 +111,7 @@ class MPIRandomState:
 
             # update running arrays, since we have finished nreq items
             running_r = running_r[nreq:]
-            running_args = tuple([a[nreq:] for a in running_args])
+            running_args = tuple([a if numpy.isscalar(a) else a[nreq:] for a in running_args])
 
             ichunk = ichunk + 1
 
