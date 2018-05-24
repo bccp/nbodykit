@@ -45,7 +45,7 @@ class RandomCatalog(CatalogSource):
         end   = (comm.rank + 1) * csize // comm.size
         self._size =  end - start
 
-        self._rng = MPIRandomState(comm, seed, self._size)
+        self._rng = MPIRandomState(comm, seed=seed, size=self._size)
 
         # init the base class
         CatalogSource.__init__(self, comm=comm)
@@ -97,8 +97,8 @@ class UniformCatalog(RandomCatalog):
             raise ValueError("no uniform particles generated, try increasing `nbar` parameter")
         RandomCatalog.__init__(self, N, seed=seed, comm=comm)
 
-        self._pos = (self.rng.uniform(size=(self._size, 3)) * self.attrs['BoxSize']).astype(dtype)
-        self._vel = (self.rng.uniform(size=(self._size, 3)) * self.attrs['BoxSize'] * 0.01).astype(dtype)
+        self._pos = (self.rng.uniform(itemshape=(3,)) * self.attrs['BoxSize']).astype(dtype)
+        self._vel = (self.rng.uniform(itemshape=(3,)) * self.attrs['BoxSize'] * 0.01).astype(dtype)
 
     @column
     def Position(self):
