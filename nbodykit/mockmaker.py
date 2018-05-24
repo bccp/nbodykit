@@ -219,7 +219,8 @@ def lognormal_transform(density, bias=1.):
     """
     toret = density.copy()
     toret[:] = numpy.exp(bias * density.value)
-    toret[:] /= numpy.mean(toret)
+    toret[:] /= toret.cmean(dtype='f8')
+
     return toret
 
 
