@@ -259,6 +259,10 @@ def poisson_sample_to_points(delta, displacement, pm, nbar, bias=1., seed=None):
     """
     comm = delta.pm.comm
 
+    # seed1 used for poisson sampling
+    # seed2 used for uniform shift within a cell.
+    seed1, seed2 = numpy.random.RandomState(seed).randint(0, 0xfffffff, size=2)
+
     # apply the lognormal transformation to the initial conditions density
     # this creates a positive-definite delta (necessary for Poisson sampling)
     lagrangian_bias = bias - 1.
@@ -268,15 +272,17 @@ def poisson_sample_to_points(delta, displacement, pm, nbar, bias=1., seed=None):
     H = delta.BoxSize / delta.Nmesh
     overallmean = H.prod() * nbar
 
-    # number of objects in each cell (per rank)
+    # number of objects in each cell (per rank, as a RealField)
     cellmean = delta * overallmean
 
     # create a random state with the input seed
-    rng = MPIRandomState(seed=seed, comm=comm, size=delta.size)
+    rng = MPIRandomState(seed=seed1, comm=comm, size=delta.size)
+
+    # generate poissons. Note that we use ravel/unravel to
+    # maintain MPI invariane.
     Nravel = rng.poisson(lam=cellmean.ravel())
     N = delta.pm.create(mode='real')
     N.unravel(Nravel)
-    print('total', N.csum(), comm.size)
 
     pos_mesh = delta.pm.generate_uniform_particle_grid(shift=0.0)
     disp_mesh = numpy.empty_like(pos_mesh)
@@ -304,10 +310,11 @@ def poisson_sample_to_points(delta, displacement, pm, nbar, bias=1., seed=None):
         orderby[...] *= delta.Nmesh[i]
         orderby[...] += numpy.int64(pos[:, i] / H[i] + 0.5)
 
+    # sort by ID to maintain MPI invariance.
     pos = mpsort.sort(pos, orderby=orderby, comm=comm)
     disp = mpsort.sort(disp, orderby=orderby, comm=comm)
 
-    rng_shift = MPIRandomState(seed=seed + 1, comm=comm, size=len(pos))
+    rng_shift = MPIRandomState(seed=seed2, comm=comm, size=len(pos))
     in_cell_shift = rng_shift.uniform(0, H[i], itemshape=(delta.ndim,))
 
     pos[...] += in_cell_shift
