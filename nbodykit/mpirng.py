@@ -33,12 +33,25 @@ class MPIRandomState:
         rng = RandomState(seed)
         self._seeds = rng.randint(0, high=0xffffffff, size=nchunks)
 
-    def prepare_args_and_result(self, args, itemshape, dtype):
+    def _prepare_args_and_result(self, args, itemshape, dtype):
+        """ pad every item in args with values from previous ranks,
+            and create an array for holding the result with the same length.
+
+            Returns
+            -------
+            padded_r, padded_args
+
+        """
+
         r = numpy.zeros((self.size,) + tuple(itemshape), dtype=dtype)
 
         r_and_args = numpy.broadcast_arrays(r, *args)
 
-        padded = [FrontPadArray(a, self._skip, self.comm) for a in r_and_args]
+        padded = [
+            a if numpy.isscalar(a) else
+            FrontPadArray(a, self._skip, self.comm)
+            for a in r_and_args ]
+
         return padded[0], padded[1:]
 
     def poisson(self, lam, itemshape=(), dtype='f8'):
