@@ -13,7 +13,7 @@ class MPIRandomState:
         The sampler methods are collective calls.
 
     """
-    def __init__(self, comm, seed, size, chunksize=10000):
+    def __init__(self, comm, seed, size, chunksize=100000):
         self.comm = comm
         self.seed = seed
         self.chunksize = chunksize
