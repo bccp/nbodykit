@@ -1,8 +1,8 @@
 from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
-from nbodykit.utils import ScatterArray, GatherArray
-
+from nbodykit.utils import ScatterArray, GatherArray, FrontPadArray
+from numpy.testing import assert_array_equal
 import os
 import pytest
 
@@ -207,3 +207,23 @@ def test_scatter_wrong_counts(comm):
     # wrong counts sum
     with pytest.raises(ValueError):
         data = ScatterArray(data, comm, root=0, counts=[5, 7])
+
+@MPITest([4])
+def test_frontpad_array(comm):
+    CurrentMPIComm.set(comm)
+
+    # object arrays must fail
+    data1 = numpy.ones(10) * comm.rank
+
+    data2 = FrontPadArray(data1, comm.rank * 2, comm)
+    assert len(data2) == len(data1) + comm.rank * 2
+    assert_array_equal(data2[:comm.rank * 2], comm.rank - 1)
+    assert_array_equal(data2[comm.rank * 2:], data1)
+
+    data2 = FrontPadArray(data1, comm.rank * 10, comm)
+    assert len(data2) == len(data1) + comm.rank * 10
+
+    assert_array_equal(data2[comm.rank * 10:], data1)
+
+    for i in range(comm.rank):
+        assert_array_equal(data2[(comm.rank - i - 1) * 10:(comm.rank - i)* 10], comm.rank - i - 1)
