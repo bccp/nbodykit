@@ -5,6 +5,7 @@ from mpi4py import MPI
 from pmesh.pm import RealField, ComplexField
 from nbodykit.meshtools import SlabIterator
 from nbodykit.utils import GatherArray, ScatterArray
+from nbodykit.mpirng import MPIRandomState
 
 def gaussian_complex_fields(pm, linear_power, seed,
             unitary_amplitude=False, inverted_phase=False,
