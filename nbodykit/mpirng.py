@@ -12,6 +12,9 @@ class MPIRandomState:
 
         The sampler methods are collective calls.
 
+        The result is only invariant under diif comm.size when allreduce(size)
+        and chunksize are kept invariant.
+
     """
     def __init__(self, comm, seed, size, chunksize=100000):
         self.comm = comm
@@ -55,22 +58,22 @@ class MPIRandomState:
         return padded[0], padded[1:]
 
     def poisson(self, lam, itemshape=(), dtype='f8'):
-        """ Produce `self.size` poissons. This is a collective MPI call. """
-        def func(rng, args, size):
+        """ Produce `self.size` poissons, each of shape itemshape. This is a collective MPI call. """
+        def sampler(rng, args, size):
             lam, = args
             return rng.poisson(lam=lam, size=size)
-        return self._call_rngmethod(func, (lam,), itemshape, dtype)
+        return self._call_rngmethod(sampler, (lam,), itemshape, dtype)
 
     def uniform(self, low=0., high=1.0, itemshape=(), dtype='f8'):
-        """ Produce `self.size` uniforms. This is a collective MPI call. """
-        def func(rng, args, size):
+        """ Produce `self.size` uniforms, each of shape itemshape. This is a collective MPI call. """
+        def sampler(rng, args, size):
             low, high = args
             return rng.uniform(low=low, high=high,size=size)
-        return self._call_rngmethod(func, (low, high), itemshape, dtype)
+        return self._call_rngmethod(sampler, (low, high), itemshape, dtype)
 
-    def _call_rngmethod(self, func, args, itemshape, dtype='f8'):
+    def _call_rngmethod(self, sampler, args, itemshape, dtype='f8'):
         """
-            Loop over the seed table, and call func(rng, args, size)
+            Loop over the seed table, and call sampler(rng, args, size)
             on each rng, with matched input args and size.
 
             the args are padded in the front such that the rng is invariant
@@ -79,21 +82,26 @@ class MPIRandomState:
             truncate the return value at the front to match the requested `self.size`.
         """
 
-        padded_r, running_args = self.prepare_args_and_result(args, itemshape, dtype)
+        padded_r, running_args = self._prepare_args_and_result(args, itemshape, dtype)
 
         running_r = padded_r
         ichunk = self._first_ichunk
 
         while len(running_r) > 0:
+            # at most get a full chunk, or the remaining items
             nreq = min(len(running_r), self.chunksize)
+
             seed = self._seeds[ichunk]
             rng = RandomState(seed)
             args = tuple([a[:nreq] for a in running_args])
 
-            firstchunk = func(rng, args=args,
+            # generate nreq random items from the sampler 
+            chunk = sampler(rng, args=args,
                 size=(nreq,) + tuple(itemshape))
 
-            running_r[:nreq] = firstchunk
+            running_r[:nreq] = chunk
+
+            # update running arrays, since we have finished nreq items
             running_r = running_r[nreq:]
             running_args = tuple([a[nreq:] for a in running_args])
 
