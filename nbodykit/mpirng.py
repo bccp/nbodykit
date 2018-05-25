@@ -78,7 +78,7 @@ class MPIRandomState:
         def sampler(rng, args, size):
             loc, scale = args
             return rng.normal(loc=loc, scale=scale, size=size)
-        return self._call_rngmethod(sampler, (lam,), itemshape, dtype)
+        return self._call_rngmethod(sampler, (loc, scale), itemshape, dtype)
 
     def uniform(self, low=0., high=1.0, itemshape=(), dtype='f8'):
         """ Produce `self.size` uniforms, each of shape itemshape. This is a collective MPI call. """
