@@ -267,7 +267,7 @@ def test_survey_cross(comm):
 
     # random particles
     first = generate_survey_data(seed=42, dtype='f4')
-    first['Weight'] = first.rng.uniform()
+    first['Weight'] = first.rng.uniform(dtype='f4')
     # mismatched dtype shouldn't fail
     second = generate_survey_data(seed=84, dtype='f8')
     second['Weight'] = second.rng.uniform()
@@ -285,9 +285,11 @@ def test_survey_cross(comm):
 
     # verify with kdcount
     npairs, ravg, wsum = reference_paircount(pos1, w1, redges, None, pos2=pos2, w2=w2)
-    assert_allclose(ravg, r.pairs['r'], rtol=1e-6)
     assert_allclose(npairs, r.pairs['npairs'])
     assert_allclose(wsum, r.pairs['wnpairs'])
+    # the error can be larger due to single precision positions in one of
+    # the dataset
+    assert_allclose(ravg, r.pairs['r'], rtol=1e-5)
 
 @MPITest([1])
 def test_survey_missing_columns(comm):
