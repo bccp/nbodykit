@@ -3,6 +3,7 @@ from nbodykit import cosmology
 from nbodykit.utils import attrs_to_dict
 from nbodykit import CurrentMPIComm
 
+import logging
 import numpy
 
 class LogNormalCatalog(CatalogSource):
@@ -43,6 +44,8 @@ class LogNormalCatalog(CatalogSource):
     """
     def __repr__(self):
         return "LogNormalCatalog(seed=%(seed)d, bias=%(bias)g)" %self.attrs
+
+    logger = logging.getLogger("LogNormalCatalog")
 
     @CurrentMPIComm.enable
     def __init__(self, Plin, nbar, BoxSize, Nmesh, bias=2., seed=None,
@@ -132,16 +135,25 @@ class LogNormalCatalog(CatalogSource):
         # growth rate to do RSD in the Zel'dovich approx
         f = self.cosmo.scale_independent_growth_rate(self.attrs['redshift'])
 
+        if self.comm.rank == 0:
+            self.logger.info("Growth Rate is %g" % f)
+
         # compute the linear overdensity and displacement fields
         delta, disp = mockmaker.gaussian_real_fields(pm, self.Plin, self.attrs['seed'],
                     unitary_amplitude=self.attrs['unitary_amplitude'],
                     inverted_phase=self.attrs['inverted_phase'],
                     compute_displacement=True)
 
+        if self.comm.rank == 0:
+            self.logger.info("gaussian field is generated")
+
         # poisson sample to points
         # this returns position and velocity offsets
         kws = {'bias':self.attrs['bias'], 'seed':self.attrs['seed']}
         pos, disp = mockmaker.poisson_sample_to_points(delta, disp, pm, self.attrs['nbar'], **kws)
+
+        if self.comm.rank == 0:
+            self.logger.info("poisson sampling is generated")
 
         # move particles from initial position based on the Zeldovich displacement
         pos[:] = (pos + disp) % BoxSize
