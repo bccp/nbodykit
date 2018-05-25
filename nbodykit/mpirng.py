@@ -73,6 +73,14 @@ class MPIRandomState:
             return rng.poisson(lam=lam, size=size)
         return self._call_rngmethod(sampler, (lam,), itemshape, dtype)
 
+    def choice(self, choices, itemshape=(), replace=True, p=None):
+        """ Produce `self.size` choices, each of shape itemshape. This is a collective MPI call. """
+        dtype = numpy.array(choices).dtype
+        def sampler(rng, args, size):
+            return rng.choice(choices, size=size, replace=replace, p=p)
+
+        return self._call_rngmethod(sampler, (), itemshape, dtype)
+
     def normal(self, loc=0, scale=1, itemshape=(), dtype='f8'):
         """ Produce `self.size` normals, each of shape itemshape. This is a collective MPI call. """
         def sampler(rng, args, size):
