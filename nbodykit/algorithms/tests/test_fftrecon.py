@@ -29,5 +29,5 @@ def test_fftrecon(comm):
     r2 = FFTPower(data, mode='1d')
 
     # reconstruction shouldn't have matter much on large scale.
-    assert_allclose(r1.power['power'][:5], r2.power['power'][:5], rtol=0.04)
+    assert_allclose(r1.power['power'][:5], r2.power['power'][:5], rtol=0.05)
 

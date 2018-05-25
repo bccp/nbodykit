@@ -39,7 +39,7 @@ def test_sort_ascending(comm):
 
     # the mesh to sort
     d = UniformCatalog(100, 1.0)
-    d['mass'] = 10**(d.rng.uniform(low=12, high=15, size=d.size))
+    d['mass'] = 10**(d.rng.uniform(low=12, high=15))
     mesh = d.to_mesh(Nmesh=32)
 
     # invalid sort key
