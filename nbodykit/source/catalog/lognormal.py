@@ -142,14 +142,15 @@ class LogNormalCatalog(CatalogSource):
         delta, disp = mockmaker.gaussian_real_fields(pm, self.Plin, self.attrs['seed'],
                     unitary_amplitude=self.attrs['unitary_amplitude'],
                     inverted_phase=self.attrs['inverted_phase'],
-                    compute_displacement=True)
+                    compute_displacement=True,
+                    logger=self.logger)
 
         if self.comm.rank == 0:
             self.logger.info("gaussian field is generated")
 
         # poisson sample to points
         # this returns position and velocity offsets
-        kws = {'bias':self.attrs['bias'], 'seed':self.attrs['seed']}
+        kws = {'bias':self.attrs['bias'], 'seed':self.attrs['seed'], 'logger' : self.logger}
         pos, disp = mockmaker.poisson_sample_to_points(delta, disp, pm, self.attrs['nbar'], **kws)
 
         if self.comm.rank == 0:
