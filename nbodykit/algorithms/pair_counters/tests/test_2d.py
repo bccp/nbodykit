@@ -63,7 +63,7 @@ def test_sim_periodic_auto(comm):
     source = generate_sim_data(seed=42)
 
     # add some weights b/w 0 and 1
-    source['Weight'] = source.rng.uniform(size=len(source))
+    source['Weight'] = source.rng.uniform()
 
     # make the bin edges
     redges = numpy.linspace(10, 150, 10)
