@@ -78,6 +78,9 @@ def gaussian_complex_fields(pm, linear_power, seed,
     if not isinstance(seed, numbers.Integral):
         raise ValueError("the seed used to generate the linear field must be an integer")
 
+    if logger and pm.comm.rank == 0:
+        logger.info("Generating whitenoise")
+
     # use pmesh to generate random complex white noise field (done in parallel)
     # variance of complex field is unity
     # multiply by P(k)**0.5 to get desired variance
