@@ -36,6 +36,16 @@ def test_mpirng_small_chunk(comm):
     assert_array_equal(all, correct)
 
 @MPITest([4])
+def test_mpirng_unique(comm):
+    rng = MPIRandomState(comm, seed=1234, size=10, chunksize=3)
+
+    local1 = rng.uniform()
+    local2 = rng.uniform()
+
+    # it shouldn't be the same!
+    assert (local1 != local2).any()
+
+@MPITest([4])
 def test_mpirng_args(comm):
     rng = MPIRandomState(comm, seed=1234, size=10, chunksize=3)
 

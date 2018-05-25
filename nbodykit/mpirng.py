@@ -10,7 +10,8 @@ class MPIRandomState:
         produces uncorrelated results when the seeds are sampled from a single
         RNG.
 
-        The sampler methods are collective calls.
+        The sampler methods are collective calls; multiple calls will return
+        uncorrerlated results.
 
         The result is only invariant under diif comm.size when allreduce(size)
         and chunksize are kept invariant.
@@ -32,9 +33,9 @@ class MPIRandomState:
         self._skip = self._start - self._first_ichunk * chunksize
 
         nchunks = (comm.allreduce(numpy.array(size, dtype='intp')) + chunksize - 1) // chunksize
+        self.nchunks = nchunks
 
-        rng = RandomState(seed)
-        self._seeds = rng.randint(0, high=0xffffffff, size=nchunks)
+        self._serial_rng = RandomState(seed)
 
     def _prepare_args_and_result(self, args, itemshape, dtype):
         """ pad every item in args with values from previous ranks,
@@ -72,6 +73,13 @@ class MPIRandomState:
             return rng.poisson(lam=lam, size=size)
         return self._call_rngmethod(sampler, (lam,), itemshape, dtype)
 
+    def normal(self, loc=0, scale=1, itemshape=(), dtype='f8'):
+        """ Produce `self.size` normals, each of shape itemshape. This is a collective MPI call. """
+        def sampler(rng, args, size):
+            loc, scale = args
+            return rng.normal(loc=loc, scale=scale, size=size)
+        return self._call_rngmethod(sampler, (lam,), itemshape, dtype)
+
     def uniform(self, low=0., high=1.0, itemshape=(), dtype='f8'):
         """ Produce `self.size` uniforms, each of shape itemshape. This is a collective MPI call. """
         def sampler(rng, args, size):
@@ -90,6 +98,8 @@ class MPIRandomState:
             truncate the return value at the front to match the requested `self.size`.
         """
 
+        seeds = self._serial_rng.randint(0, high=0xffffffff, size=self.nchunks)
+
         padded_r, running_args = self._prepare_args_and_result(args, itemshape, dtype)
 
         running_r = padded_r
@@ -99,7 +109,7 @@ class MPIRandomState:
             # at most get a full chunk, or the remaining items
             nreq = min(len(running_r), self.chunksize)
 
-            seed = self._seeds[ichunk]
+            seed = seeds[ichunk]
             rng = RandomState(seed)
             args = tuple([a if numpy.isscalar(a) else a[:nreq] for a in running_args])
 
