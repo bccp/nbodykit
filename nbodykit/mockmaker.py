@@ -10,7 +10,7 @@ import mpsort
 
 def gaussian_complex_fields(pm, linear_power, seed,
             unitary_amplitude=False, inverted_phase=False,
-            compute_displacement=False):
+            compute_displacement=False, logger=None):
     r"""
     Make a Gaussian realization of a overdensity field, :math:`\delta(x)`.
 
@@ -83,6 +83,9 @@ def gaussian_complex_fields(pm, linear_power, seed,
     # multiply by P(k)**0.5 to get desired variance
     delta_k = pm.generate_whitenoise(seed, mode='complex', unitary=unitary_amplitude)
 
+    if logger and pm.comm.rank == 0:
+        logger.info("Write noise generated")
+
     if inverted_phase: delta_k[...] *= -1
 
     # initialize the displacement fields for (x,y,z)
@@ -129,13 +132,16 @@ def gaussian_complex_fields(pm, linear_power, seed,
                     disp_slab[...] *= kslab[i] / k2 * delta_slab[...]
                     disp_slab[zero_idx] = 0. # no bulk displacement
 
+    if logger and pm.comm.rank == 0:
+        logger.info("Displacement computed in fourier space")
+
     # return Fourier-space density and displacement (which could be None)
     return delta_k, disp_k
 
 
 def gaussian_real_fields(pm, linear_power, seed,
                 unitary_amplitude=False,
-                inverted_phase=False, compute_displacement=False):
+                inverted_phase=False, compute_displacement=False, logger=None):
     r"""
     Make a Gaussian realization of a overdensity field in
     real-space :math:`\delta(x)`.
@@ -177,14 +183,25 @@ def gaussian_real_fields(pm, linear_power, seed,
     delta_k, disp_k = gaussian_complex_fields(pm, linear_power, seed,
                             inverted_phase=inverted_phase,
                             unitary_amplitude=unitary_amplitude,
-                            compute_displacement=compute_displacement)
+                            compute_displacement=compute_displacement,
+                            logger=logger)
 
     # FFT the density to real-space
     delta = delta_k.c2r()
 
+    std = (delta ** 2).cmean() ** 0.5
+
+    if logger and pm.comm.rank == 0:
+        logger.info("Overdensity computed in configuration space: std = %s" % str(std))
+
     # FFT the velocity back to real space
     if compute_displacement:
         disp = [disp_k[i].c2r() for i in range(delta.ndim)]
+
+        std = [(disp[i] ** 2).cmean() ** 0.5 for i in range(delta.ndim)]
+
+        if logger and pm.comm.rank == 0:
+            logger.info("Displacement computed in configuration space: std = %s" % str(std))
     else:
         disp = None
 
@@ -225,7 +242,7 @@ def lognormal_transform(density, bias=1.):
     return toret
 
 
-def poisson_sample_to_points(delta, displacement, pm, nbar, bias=1., seed=None):
+def poisson_sample_to_points(delta, displacement, pm, nbar, bias=1., seed=None, logger=None):
     """
     Poisson sample the linear delta and displacement fields to points.
 
@@ -268,6 +285,9 @@ def poisson_sample_to_points(delta, displacement, pm, nbar, bias=1., seed=None):
     lagrangian_bias = bias - 1.
     delta = lognormal_transform(delta, bias=lagrangian_bias)
 
+    if logger and pm.comm.rank == 0:
+        logger.info("Lognormal transformation done")
+
     # mean number of objects per cell
     H = delta.BoxSize / delta.Nmesh
     overallmean = H.prod() * nbar
@@ -284,6 +304,10 @@ def poisson_sample_to_points(delta, displacement, pm, nbar, bias=1., seed=None):
     N = delta.pm.create(mode='real')
     N.unravel(Nravel)
 
+    Ntot = N.csum()
+    if logger and pm.comm.rank == 0:
+        logger.info("Poisson sampling done, total number of objects is %d" % Ntot)
+
     pos_mesh = delta.pm.generate_uniform_particle_grid(shift=0.0)
     disp_mesh = numpy.empty_like(pos_mesh)
 
@@ -299,6 +323,12 @@ def poisson_sample_to_points(delta, displacement, pm, nbar, bias=1., seed=None):
     pos = pos_mesh.repeat(N_per_cell, axis=0)
     disp = disp_mesh.repeat(N_per_cell, axis=0)
 
+    del pos_mesh
+    del disp_mesh
+
+    if logger and pm.comm.rank == 0:
+        logger.info("catalog produced. Assigning in cell shift.")
+
     # generate linear ordering of the positions.
     # this should have been a method in pmesh, e.g. argument
     # to genereate_uniform_particle_grid(return_id=True);
@@ -313,10 +343,16 @@ def poisson_sample_to_points(delta, displacement, pm, nbar, bias=1., seed=None):
     pos = mpsort.sort(pos, orderby=orderby, comm=comm)
     disp = mpsort.sort(disp, orderby=orderby, comm=comm)
 
+    if logger and pm.comm.rank == 0:
+        logger.info("sorting done")
+
     rng_shift = MPIRandomState(seed=seed2, comm=comm, size=len(pos))
     in_cell_shift = rng_shift.uniform(0, H[i], itemshape=(delta.ndim,))
 
     pos[...] += in_cell_shift
     pos[...] %= delta.BoxSize
+
+    if logger and pm.comm.rank == 0:
+        logger.info("catalog shifted.")
 
     return pos, disp
