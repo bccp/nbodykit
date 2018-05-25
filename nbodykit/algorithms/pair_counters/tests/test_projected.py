@@ -102,7 +102,7 @@ def reference_survey_paircount(pos1, w1, rp_bins, pimax, pos2=None, w2=None, los
     weightavg.flat += numpy.bincount(multi_index, weights=w1[i]*w2[j], minlength=weightavg.size)
     weightavg = weightavg[1:-1,1:-1]
 
-    return npairs, rpavg/npairs, weightavg/npairs
+    return npairs, numpy.nan_to_num(rpavg/npairs), numpy.nan_to_num(weightavg/npairs)
 
 
 @MPITest([1, 3])
