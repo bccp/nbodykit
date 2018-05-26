@@ -16,8 +16,8 @@ def gather_data(source, name):
 
 def generate_survey_data(seed):
     s = RandomCatalog(1000, seed=seed)
-    s['RA'] = s.rng.uniform(low=50, high=260, size=s.size)
-    s['DEC'] = s.rng.uniform(low=-10.6, high=60., size=s.size)
+    s['RA'] = s.rng.uniform(low=50, high=260)
+    s['DEC'] = s.rng.uniform(low=-10.6, high=60.)
     return s
 
 def generate_sim_data(seed):
@@ -48,7 +48,7 @@ def test_survey_auto(comm):
     source = generate_survey_data(seed=42)
 
     # add some weights b/w 0 and 1
-    source['Weight'] = source.rng.uniform(size=len(source))
+    source['Weight'] = source.rng.uniform()
 
     # make the bin edges
     edges = numpy.linspace(0.001, 1.0, 10)
@@ -75,9 +75,9 @@ def test_survey_cross(comm):
 
     # random particles with weights
     first = generate_survey_data(seed=42)
-    first['Weight'] = first.rng.uniform(size=first.size)
+    first['Weight'] = first.rng.uniform()
     second = generate_survey_data(seed=84)
-    second['Weight'] = second.rng.uniform(size=second.size)
+    second['Weight'] = second.rng.uniform()
 
     # make the bin edges
     edges = numpy.linspace(0.001, 1.0, 10)
@@ -113,7 +113,7 @@ def test_sim_auto(comm):
     source = generate_sim_data(seed=42)
 
     # add some weights b/w 0 and 1
-    source['Weight'] = source.rng.uniform(size=len(source))
+    source['Weight'] = source.rng.uniform()
 
     # make the bin edges
     edges = numpy.linspace(0.001, 1.0, 10)
@@ -140,9 +140,9 @@ def test_sim_cross(comm):
 
     # random particles with weights
     first = generate_sim_data(seed=42)
-    first['Weight'] = first.rng.uniform(size=first.size)
+    first['Weight'] = first.rng.uniform()
     second = generate_sim_data(seed=84)
-    second['Weight'] = second.rng.uniform(size=second.size)
+    second['Weight'] = second.rng.uniform()
 
     # make the bin edges
     edges = numpy.linspace(0.001, 1.0, 10)

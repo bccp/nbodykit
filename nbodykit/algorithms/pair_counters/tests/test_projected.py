@@ -18,9 +18,9 @@ def generate_survey_data(seed):
     s = RandomCatalog(1000, seed=seed)
 
     # ra, dec, z
-    s['Redshift'] = s.rng.normal(loc=0.5, scale=0.1, size=s.size)
-    s['RA'] = s.rng.uniform(low=110, high=260, size=s.size)
-    s['DEC'] = s.rng.uniform(low=-3.6, high=60., size=s.size)
+    s['Redshift'] = s.rng.normal(loc=0.5, scale=0.1)
+    s['RA'] = s.rng.uniform(low=110, high=260)
+    s['DEC'] = s.rng.uniform(low=-3.6, high=60.)
 
     # position
     s['Position'] = transform.SkyToCartesian(s['RA'], s['DEC'], s['Redshift'], cosmo=cosmo)
@@ -102,7 +102,7 @@ def reference_survey_paircount(pos1, w1, rp_bins, pimax, pos2=None, w2=None, los
     weightavg.flat += numpy.bincount(multi_index, weights=w1[i]*w2[j], minlength=weightavg.size)
     weightavg = weightavg[1:-1,1:-1]
 
-    return npairs, rpavg/npairs, weightavg/npairs
+    return npairs, numpy.nan_to_num(rpavg/npairs), numpy.nan_to_num(weightavg/npairs)
 
 
 @MPITest([1, 3])
@@ -113,7 +113,7 @@ def test_sim_periodic_auto(comm):
     source = generate_sim_data(seed=42)
 
     # add some weights b/w 0 and 1
-    source['Weight'] = source.rng.uniform(size=len(source))
+    source['Weight'] = source.rng.uniform()
 
     # make the bin edges
     redges = numpy.linspace(10, 150, 10)
@@ -136,7 +136,7 @@ def test_sim_diff_los(comm):
     source = generate_sim_data(seed=42)
 
     # add some weights b/w 0 and 1
-    source['Weight'] = source.rng.uniform(size=len(source))
+    source['Weight'] = source.rng.uniform()
 
     # make the bin edges
     redges = numpy.linspace(10, 150, 10)
@@ -200,7 +200,7 @@ def test_survey_auto(comm):
 
     # random particles
     source = generate_survey_data(seed=42)
-    source['Weight'] = source.rng.uniform(size=source.size)
+    source['Weight'] = source.rng.uniform()
 
     # make the bin edges
     redges = numpy.linspace(10, 1000., 10)
@@ -225,9 +225,9 @@ def test_survey_cross(comm):
 
     # random particles
     first = generate_survey_data(seed=42)
-    first['Weight'] = first.rng.uniform(size=first.size)
+    first['Weight'] = first.rng.uniform()
     second = generate_survey_data(seed=84)
-    second['Weight'] = second.rng.uniform(size=second.size)
+    second['Weight'] = second.rng.uniform()
 
     # make the bin edges
     redges = numpy.linspace(10, 150, 10)

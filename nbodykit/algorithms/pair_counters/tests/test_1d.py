@@ -19,9 +19,9 @@ def generate_survey_data(seed, dtype='f8'):
     cosmo = cosmology.Planck15
     s = RandomCatalog(1000, seed=seed)
 
-    s['Redshift'] = s.rng.normal(loc=0.5, scale=0.1, size=s.size).astype(dtype)
-    s['RA'] = s.rng.uniform(low=0, high=360, size=s.size).astype(dtype)
-    s['DEC'] = s.rng.uniform(low=-60, high=60., size=s.size).astype(dtype)
+    s['Redshift'] = s.rng.normal(loc=0.5, scale=0.1).astype(dtype)
+    s['RA'] = s.rng.uniform(low=0, high=360).astype(dtype)
+    s['DEC'] = s.rng.uniform(low=-60, high=60.).astype(dtype)
     s['Position'] = transform.SkyToCartesian(s['RA'], s['DEC'], s['Redshift'], cosmo=cosmo).astype(dtype)
 
     return s
@@ -48,7 +48,7 @@ def test_sim_periodic_auto(comm):
     source = generate_sim_data(seed=42)
 
     # add some weights b/w 0 and 1
-    source['Weight'] = source.rng.uniform(size=len(source))
+    source['Weight'] = source.rng.uniform()
 
     # make the bin edges
     redges = numpy.linspace(10, 150, 10)
@@ -203,7 +203,7 @@ def test_survey_auto(comm):
     source = generate_survey_data(seed=42)
 
     # add some weights b/w 0 and 1
-    source['Weight'] = source.rng.uniform(size=len(source))
+    source['Weight'] = source.rng.uniform()
 
     # make the bin edges
     redges = numpy.linspace(10, 150, 10)
@@ -237,7 +237,7 @@ def test_survey_auto_endianess(comm):
     source['DEC'] = source['DEC'].astype('>f8')
     source['Redshift'] = source['Redshift'].astype('>f8')
     # add some weights b/w 0 and 1
-    source['Weight'] = source.rng.uniform(size=len(source)).astype('>f8')
+    source['Weight'] = source.rng.uniform().astype('>f8')
     source['Position'] = source['Position'].astype('>f8')
 
     # make the bin edges
@@ -267,10 +267,10 @@ def test_survey_cross(comm):
 
     # random particles
     first = generate_survey_data(seed=42, dtype='f4')
-    first['Weight'] = first.rng.uniform(size=first.size)
+    first['Weight'] = first.rng.uniform(dtype='f4')
     # mismatched dtype shouldn't fail
     second = generate_survey_data(seed=84, dtype='f8')
-    second['Weight'] = second.rng.uniform(size=second.size)
+    second['Weight'] = second.rng.uniform()
 
     # make the bin edges
     redges = numpy.linspace(10, 150, 10)
@@ -285,8 +285,10 @@ def test_survey_cross(comm):
 
     # verify with kdcount
     npairs, ravg, wsum = reference_paircount(pos1, w1, redges, None, pos2=pos2, w2=w2)
-    assert_allclose(ravg, r.pairs['r'], rtol=1e-6)
     assert_allclose(npairs, r.pairs['npairs'])
+    # the error can be larger due to single precision positions in one of
+    # the dataset
+    assert_allclose(ravg, r.pairs['r'], rtol=1e-5)
     assert_allclose(wsum, r.pairs['npairs'] * r.pairs['weightavg'])
 
 @MPITest([1])

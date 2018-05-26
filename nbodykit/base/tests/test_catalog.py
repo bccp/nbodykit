@@ -126,10 +126,9 @@ def test_empty_slice(comm):
     assert source is source2
 
     # non-empty selection on root only
-    if comm.rank == 0:
-        sel = source.rng.choice([True, False], size=source.size)
-    else:
-        sel = numpy.ones(source.size, dtype=bool)
+    sel = source.rng.choice([True, False])
+    if comm.rank != 0:
+        sel[...] = True
 
     # this should trigger a full slice
     source2 = source[sel]

@@ -5,10 +5,12 @@ from mpi4py import MPI
 from pmesh.pm import RealField, ComplexField
 from nbodykit.meshtools import SlabIterator
 from nbodykit.utils import GatherArray, ScatterArray
+from nbodykit.mpirng import MPIRandomState
+import mpsort
 
 def gaussian_complex_fields(pm, linear_power, seed,
             unitary_amplitude=False, inverted_phase=False,
-            compute_displacement=False):
+            compute_displacement=False, logger=None):
     r"""
     Make a Gaussian realization of a overdensity field, :math:`\delta(x)`.
 
@@ -76,10 +78,16 @@ def gaussian_complex_fields(pm, linear_power, seed,
     if not isinstance(seed, numbers.Integral):
         raise ValueError("the seed used to generate the linear field must be an integer")
 
+    if logger and pm.comm.rank == 0:
+        logger.info("Generating whitenoise")
+
     # use pmesh to generate random complex white noise field (done in parallel)
     # variance of complex field is unity
     # multiply by P(k)**0.5 to get desired variance
     delta_k = pm.generate_whitenoise(seed, mode='complex', unitary=unitary_amplitude)
+
+    if logger and pm.comm.rank == 0:
+        logger.info("Write noise generated")
 
     if inverted_phase: delta_k[...] *= -1
 
@@ -127,13 +135,16 @@ def gaussian_complex_fields(pm, linear_power, seed,
                     disp_slab[...] *= kslab[i] / k2 * delta_slab[...]
                     disp_slab[zero_idx] = 0. # no bulk displacement
 
+    if logger and pm.comm.rank == 0:
+        logger.info("Displacement computed in fourier space")
+
     # return Fourier-space density and displacement (which could be None)
     return delta_k, disp_k
 
 
 def gaussian_real_fields(pm, linear_power, seed,
                 unitary_amplitude=False,
-                inverted_phase=False, compute_displacement=False):
+                inverted_phase=False, compute_displacement=False, logger=None):
     r"""
     Make a Gaussian realization of a overdensity field in
     real-space :math:`\delta(x)`.
@@ -175,14 +186,25 @@ def gaussian_real_fields(pm, linear_power, seed,
     delta_k, disp_k = gaussian_complex_fields(pm, linear_power, seed,
                             inverted_phase=inverted_phase,
                             unitary_amplitude=unitary_amplitude,
-                            compute_displacement=compute_displacement)
+                            compute_displacement=compute_displacement,
+                            logger=logger)
 
     # FFT the density to real-space
     delta = delta_k.c2r()
 
+    std = (delta ** 2).cmean() ** 0.5
+
+    if logger and pm.comm.rank == 0:
+        logger.info("Overdensity computed in configuration space: std = %s" % str(std))
+
     # FFT the velocity back to real space
     if compute_displacement:
         disp = [disp_k[i].c2r() for i in range(delta.ndim)]
+
+        std = [(disp[i] ** 2).cmean() ** 0.5 for i in range(delta.ndim)]
+
+        if logger and pm.comm.rank == 0:
+            logger.info("Displacement computed in configuration space: std = %s" % str(std))
     else:
         disp = None
 
@@ -218,11 +240,12 @@ def lognormal_transform(density, bias=1.):
     """
     toret = density.copy()
     toret[:] = numpy.exp(bias * density.value)
-    toret[:] /= numpy.mean(toret)
+    toret[:] /= toret.cmean(dtype='f8')
+
     return toret
 
 
-def poisson_sample_to_points(delta, displacement, pm, nbar, bias=1., seed=None, comm=None):
+def poisson_sample_to_points(delta, displacement, pm, nbar, bias=1., seed=None, logger=None):
     """
     Poisson sample the linear delta and displacement fields to points.
 
@@ -254,77 +277,85 @@ def poisson_sample_to_points(delta, displacement, pm, nbar, bias=1., seed=None, 
         the displacement field sampled for each of the generated particles in the
         same units as the ``pos`` array
     """
-    if comm is None:
-        comm = MPI.COMM_WORLD
+    comm = delta.pm.comm
 
-    # create a random state with the input seed
-    rng = numpy.random.RandomState(seed)
+    # seed1 used for poisson sampling
+    # seed2 used for uniform shift within a cell.
+    seed1, seed2 = numpy.random.RandomState(seed).randint(0, 0xfffffff, size=2)
 
     # apply the lognormal transformation to the initial conditions density
     # this creates a positive-definite delta (necessary for Poisson sampling)
     lagrangian_bias = bias - 1.
     delta = lognormal_transform(delta, bias=lagrangian_bias)
 
+    if logger and pm.comm.rank == 0:
+        logger.info("Lognormal transformation done")
+
     # mean number of objects per cell
     H = delta.BoxSize / delta.Nmesh
     overallmean = H.prod() * nbar
 
-    # number of objects in each cell (per rank)
-    cellmean = delta.value*overallmean
-    cellmean = GatherArray(cellmean.flatten(), comm, root=0)
+    # number of objects in each cell (per rank, as a RealField)
+    cellmean = delta * overallmean
 
-    # rank 0 computes the poisson sampling
-    if comm.rank == 0:
-        N = rng.poisson(cellmean)
-    else:
-        N = None
+    # create a random state with the input seed
+    rng = MPIRandomState(seed=seed1, comm=comm, size=delta.size)
 
-    # scatter N back evenly across the ranks
-    counts = comm.allgather(delta.value.size)
-    N = ScatterArray(N, comm, root=0, counts=counts).reshape(delta.shape)
+    # generate poissons. Note that we use ravel/unravel to
+    # maintain MPI invariane.
+    Nravel = rng.poisson(lam=cellmean.ravel())
+    N = delta.pm.create(mode='real')
+    N.unravel(Nravel)
 
-    Nlocal = N.sum() # local number of particles
-    Ntot = comm.allreduce(Nlocal) # the collective number of particles
-    nonzero_cells = N.nonzero() # indices of nonzero cells
+    Ntot = N.csum()
+    if logger and pm.comm.rank == 0:
+        logger.info("Poisson sampling done, total number of objects is %d" % Ntot)
 
-    # initialize the mesh of particle positions and displacement
-    # this has the shape: (number of dimensions, number of nonzero cells)
-    pos_mesh = numpy.empty(numpy.shape(nonzero_cells), dtype=delta.dtype)
+    pos_mesh = delta.pm.generate_uniform_particle_grid(shift=0.0)
     disp_mesh = numpy.empty_like(pos_mesh)
 
-    # generate the coordinates for each nonzero cell
-    for i in range(delta.ndim):
+    # no need to do decompose because pos_mesh is strictly within the
+    # local volume of the RealField.
+    N_per_cell = N.readout(pos_mesh, resampler='nnb')
+    for i in range(N.ndim):
+        disp_mesh[:, i] = displacement[i].readout(pos_mesh, resampler='nnb')
 
-        # particle positions initially on the coordinate grid
-        pos_mesh[i] = numpy.squeeze(delta.pm.x[i])[nonzero_cells[i]]
+    # fight round off errors, if any
+    N_per_cell = numpy.int64(N_per_cell + 0.5)
 
-        # displacements for each particle
-        disp_mesh[i] = displacement[i][nonzero_cells]
+    pos = pos_mesh.repeat(N_per_cell, axis=0)
+    disp = disp_mesh.repeat(N_per_cell, axis=0)
 
-    # rank 0 computes the in-cell uniform offsets
-    if comm.rank == 0:
-        in_cell_shift = numpy.empty((Ntot, delta.ndim), dtype=delta.dtype)
-        for i in range(delta.ndim):
-            in_cell_shift[:,i] = rng.uniform(0, H[i], size=Ntot)
-    else:
-        in_cell_shift = None
+    del pos_mesh
+    del disp_mesh
 
-    # scatter the in-cell uniform offsets back to the ranks
-    counts = comm.allgather(Nlocal)
-    in_cell_shift = ScatterArray(in_cell_shift, comm, root=0, counts=counts)
+    if logger and pm.comm.rank == 0:
+        logger.info("catalog produced. Assigning in cell shift.")
 
-    # initialize the output array of particle positions and displacement
-    # this has shape: (local number of particles, number of dimensions)
-    pos = numpy.zeros((Nlocal, delta.ndim), dtype=delta.dtype)
-    disp = numpy.zeros_like(pos)
+    # generate linear ordering of the positions.
+    # this should have been a method in pmesh, e.g. argument
+    # to genereate_uniform_particle_grid(return_id=True);
 
-    # coordinates of each object (placed randomly in each cell)
-    for i in range(delta.ndim):
-        pos[:,i] = numpy.repeat(pos_mesh[i], N[nonzero_cells]) + in_cell_shift[:,i]
-        pos[:,i] %= delta.BoxSize[i]
+    # FIXME: after pmesh update, remove this
+    orderby = numpy.int64(pos[:, 0] / H[0] + 0.5)
+    for i in range(1, delta.ndim):
+        orderby[...] *= delta.Nmesh[i]
+        orderby[...] += numpy.int64(pos[:, i] / H[i] + 0.5)
 
-    # displacements of each object
-    for i in range(delta.ndim):
-        disp[:,i] = numpy.repeat(disp_mesh[i], N[nonzero_cells])
+    # sort by ID to maintain MPI invariance.
+    pos = mpsort.sort(pos, orderby=orderby, comm=comm)
+    disp = mpsort.sort(disp, orderby=orderby, comm=comm)
+
+    if logger and pm.comm.rank == 0:
+        logger.info("sorting done")
+
+    rng_shift = MPIRandomState(seed=seed2, comm=comm, size=len(pos))
+    in_cell_shift = rng_shift.uniform(0, H[i], itemshape=(delta.ndim,))
+
+    pos[...] += in_cell_shift
+    pos[...] %= delta.BoxSize
+
+    if logger and pm.comm.rank == 0:
+        logger.info("catalog shifted.")
 
     return pos, disp

@@ -46,7 +46,7 @@ def test_periodic_cgm(comm):
     source = UniformCatalog(3e-4, BoxSize=256, seed=42)
 
     # add mass
-    logmass = source.rng.uniform(12, 15, size=source.size)
+    logmass = source.rng.uniform(12, 15)
     source['halo_mvir'] = 10**(logmass)
 
     # add fake galaxy types
@@ -88,7 +88,7 @@ def test_nonperiodic_cgm(comm):
     source = UniformCatalog(3e-4, BoxSize=256, seed=42)
 
     # add mass
-    logmass = source.rng.uniform(12, 15, size=source.size)
+    logmass = source.rng.uniform(12, 15)
     source['halo_mvir'] = 10**(logmass)
 
     # add fake galaxy types
