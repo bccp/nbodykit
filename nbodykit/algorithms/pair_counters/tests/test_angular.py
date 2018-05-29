@@ -67,7 +67,7 @@ def test_survey_auto(comm):
     # verify with kdcount
     npairs, thetaavg, wsum = reference_paircount([ra,dec], w, edges)
     assert_allclose(npairs, r.pairs['npairs'])
-    assert_allclose(wsum, r.pairs['npairs'] * r.pairs['weightavg'])
+    assert_allclose(wsum, r.pairs['wnpairs'])
 
 @MPITest([1, 4])
 def test_survey_cross(comm):
@@ -96,7 +96,7 @@ def test_survey_cross(comm):
     # verify with kdcount
     npairs, thetaavg, wsum = reference_paircount([ra1,dec1], w1, edges, pos2=[ra2,dec2], w2=w2)
     assert_allclose(npairs, r.pairs['npairs'])
-    assert_allclose(wsum, r.pairs['npairs'] * r.pairs['weightavg'])
+    assert_allclose(wsum, r.pairs['wnpairs'])
 
     # test save
     r.save('angular-paircount-test.json')
@@ -132,7 +132,7 @@ def test_sim_auto(comm):
     # verify with kdcount
     npairs, thetaavg, wsum = reference_paircount([ra,dec], w, edges)
     assert_allclose(npairs, r.pairs['npairs'])
-    assert_allclose(wsum, r.pairs['npairs'] * r.pairs['weightavg'])
+    assert_allclose(wsum, r.pairs['wnpairs'])
 
 @MPITest([1, 4])
 def test_sim_cross(comm):
@@ -158,7 +158,7 @@ def test_sim_cross(comm):
     # verify with kdcount
     npairs, thetaavg, wsum = reference_paircount([ra1,dec1], w1, edges, pos2=[ra2,dec2], w2=w2)
     assert_allclose(npairs, r.pairs['npairs'])
-    assert_allclose(wsum, r.pairs['npairs'] * r.pairs['weightavg'])
+    assert_allclose(wsum, r.pairs['wnpairs'])
 
     # test save
     r.save('angular-paircount-test.json')

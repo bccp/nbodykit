@@ -52,11 +52,11 @@ class PairCountBase(object):
             wpairs1, wpairs2 = self.comm.allreduce(first.compute(first[weight].sum())), self.comm.allreduce(first.compute((first[weight]**2).sum()))
             # for auto excluding self pairs to avoid a biased estimator. The factor 0.5 is by convention.
             # In the end it will cancel out in two point function estimators.
-            self.attrs['weighted_npairs'] = 0.5*(wpairs1**2-wpairs2)
+            self.attrs['total_wnpairs'] = 0.5*(wpairs1**2-wpairs2)
             self.attrs['is_cross'] = False
         else:
             wpairs1, wpairs2 = self.comm.allreduce(first.compute(first[weight].sum())), self.comm.allreduce(second.compute(second[weight].sum()))
-            self.attrs['weighted_npairs'] = 0.5*wpairs1*wpairs2
+            self.attrs['total_wnpairs'] = 0.5*wpairs1*wpairs2
             self.attrs['is_cross'] = True
 
     def __getstate__(self):
@@ -67,7 +67,7 @@ class PairCountBase(object):
         edges = self.attrs['edges']
 
         # reconstruct the result based on mode
-        kws = {'fields_to_sum' : ['npairs']}
+        kws = {'fields_to_sum' : ['npairs', 'wnpairs']}
         if self.attrs['mode'] == '1d':
             dims, edges = ['r'], [edges]
 

@@ -79,7 +79,7 @@ def test_sim_periodic_auto(comm):
     npairs, ravg, wsum = reference_sim_paircount(pos, w, redges, Nmu, source.attrs['BoxSize'])
     assert_allclose(ravg, r.pairs['r'])
     assert_allclose(npairs, r.pairs['npairs'])
-    assert_allclose(wsum, r.pairs['npairs'] * r.pairs['weightavg'])
+    assert_allclose(wsum, r.pairs['wnpairs'])
 
 @MPITest([3])
 def test_sim_diff_los(comm):
@@ -105,7 +105,7 @@ def test_sim_diff_los(comm):
     npairs, ravg, wsum = reference_sim_paircount(pos, w, redges, Nmu, source.attrs['BoxSize'], los=0)
     assert_allclose(ravg, r.pairs['r'])
     assert_allclose(npairs, r.pairs['npairs'])
-    assert_allclose(wsum, r.pairs['npairs'] * r.pairs['weightavg'])
+    assert_allclose(wsum, r.pairs['wnpairs'])
 
 @MPITest([1, 3])
 def test_sim_nonperiodic_auto(comm):
@@ -129,7 +129,7 @@ def test_sim_nonperiodic_auto(comm):
     npairs, ravg, wsum = reference_sim_paircount(pos, w, redges, Nmu, None)
     assert_allclose(ravg, r.pairs['r'])
     assert_allclose(npairs, r.pairs['npairs'])
-    assert_allclose(wsum, r.pairs['npairs'] * r.pairs['weightavg'])
+    assert_allclose(wsum, r.pairs['wnpairs'])
 
 
 @MPITest([1, 3])
@@ -154,7 +154,7 @@ def test_sim_periodic_cross(comm):
     npairs, ravg, wsum = reference_sim_paircount(pos1, None, redges, Nmu, first.attrs['BoxSize'], pos2=pos2)
     assert_allclose(ravg, r.pairs['r'])
     assert_allclose(npairs, r.pairs['npairs'])
-    assert_allclose(wsum, r.pairs['npairs'] * r.pairs['weightavg'])
+    assert_allclose(wsum, r.pairs['wnpairs'])
 
 @MPITest([1, 4])
 def test_survey_auto(comm):
@@ -179,7 +179,7 @@ def test_survey_auto(comm):
     npairs, ravg, wsum = reference_survey_paircount(pos, w, redges, Nmu)
     assert_allclose(ravg, r.pairs['r'])
     assert_allclose(npairs, r.pairs['npairs'])
-    assert_allclose(wsum, r.pairs['npairs'] * r.pairs['weightavg'])
+    assert_allclose(wsum, r.pairs['wnpairs'])
 
 
 @MPITest([1, 4])
@@ -209,7 +209,7 @@ def test_survey_cross(comm):
     npairs, ravg, wsum = reference_survey_paircount(pos1, w1, redges, Nmu, pos2=pos2, w2=w2)
     assert_allclose(ravg, r.pairs['r'])
     assert_allclose(npairs, r.pairs['npairs'])
-    assert_allclose(wsum, r.pairs['npairs'] * r.pairs['weightavg'])
+    assert_allclose(wsum, r.pairs['wnpairs'])
 
     # test save
     r.save('paircount-test.json')
