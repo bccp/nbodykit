@@ -1,9 +1,14 @@
 Changelog
 =========
 
-0.3.3 (unreleased)
+0.3.4 (unreleased)
+------------------
+
+0.3.3 (2018-05-30)
 ------------------
 * :issue:`491`:  update compatibility with pandas 0.23.0 in cgm.
+* :issue:`490`:  write more useful weights and pairs in the paircount result.
+* :issue:`493,494`:  update for deprecation in pmesh
 
 0.3.2 (2018-05-14)
 ------------------
