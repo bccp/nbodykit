@@ -296,7 +296,7 @@ def poisson_sample_to_points(delta, displacement, pm, nbar, bias=1., seed=None, 
     for i in range(delta.ndim):
 
         # particle positions initially on the coordinate grid
-        pos_mesh[i] = numpy.squeeze(delta.pm.x[i])[nonzero_cells[i]]
+        pos_mesh[i] = numpy.squeeze(delta.x[i])[nonzero_cells[i]]
 
         # displacements for each particle
         disp_mesh[i] = displacement[i][nonzero_cells]
