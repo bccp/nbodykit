@@ -1,6 +1,6 @@
 import numpy
 import logging
-from pmesh.pm import ParticleMesh, RealField, ComplexField
+from pmesh.pm import ParticleMesh, RealField, BaseComplexField
 
 class MeshSource(object):
     """
@@ -274,7 +274,7 @@ class MeshSource(object):
             # ensure var is the right mode
 
             if action[0] == 'complex':
-                if not isinstance(var, ComplexField):
+                if not isinstance(var, BaseComplexField):
                     var = var.r2c(out=Ellipsis)
             if action[0] == 'real':
                 if not isinstance(var, RealField):
@@ -289,12 +289,17 @@ class MeshSource(object):
                 kwargs['out'] = Ellipsis
                 var.apply(**kwargs)
 
+        # FIXME: get rid of this after pmesh 0.1.45+
+        # cast to the correct type (transposed complex or real)
+        from pmesh.pm import _typestr_to_type
+
+        var = var.cast(type=_typestr_to_type(mode), out=var)
         pm = self.pm.resize(Nmesh)
 
         if any(pm.Nmesh != self.pm.Nmesh):
             # resample if the output mesh mismatches
             # XXX: this could be done more efficiently.
-            var1 = pm.create(mode=mode)
+            var1 = pm.create(type=mode)
             var.resample(out=var1)
             var = var1
 
@@ -365,7 +370,7 @@ class MeshSource(object):
                     bb.attrs['ndarray.shape'] = field.pm.Nmesh
                     bb.attrs['BoxSize'] = field.pm.BoxSize
                     bb.attrs['Nmesh'] = field.pm.Nmesh
-                elif isinstance(field, ComplexField):
+                elif isinstance(field, BaseComplexField):
                     bb.attrs['ndarray.shape'] = field.Nmesh, field.Nmesh, field.Nmesh // 2 + 1
                     bb.attrs['BoxSize'] = field.pm.BoxSize
                     bb.attrs['Nmesh'] = field.pm.Nmesh

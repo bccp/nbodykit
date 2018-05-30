@@ -130,7 +130,7 @@ class LogNormalCatalog(CatalogSource):
         # the particle mesh for gridding purposes
         _Nmesh = numpy.empty(3, dtype='i8')
         _Nmesh[:] = Nmesh
-        pm = ParticleMesh(BoxSize=BoxSize, Nmesh=_Nmesh, dtype='f4', comm=self.comm, transposed=False)
+        pm = ParticleMesh(BoxSize=BoxSize, Nmesh=_Nmesh, dtype='f4', comm=self.comm)
 
         # growth rate to do RSD in the Zel'dovich approx
         f = self.cosmo.scale_independent_growth_rate(self.attrs['redshift'])

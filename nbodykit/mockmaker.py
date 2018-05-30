@@ -84,7 +84,7 @@ def gaussian_complex_fields(pm, linear_power, seed,
     # use pmesh to generate random complex white noise field (done in parallel)
     # variance of complex field is unity
     # multiply by P(k)**0.5 to get desired variance
-    delta_k = pm.generate_whitenoise(seed, mode='complex', unitary=unitary_amplitude)
+    delta_k = pm.generate_whitenoise(seed, type='untransposedcomplex', unitary=unitary_amplitude)
 
     if logger and pm.comm.rank == 0:
         logger.info("Write noise generated")
@@ -93,7 +93,7 @@ def gaussian_complex_fields(pm, linear_power, seed,
 
     # initialize the displacement fields for (x,y,z)
     if compute_displacement:
-        disp_k = [ComplexField(pm) for i in range(delta_k.ndim)]
+        disp_k = [pm.create(type='untransposedcomplex') for i in range(delta_k.ndim)]
         for i in range(delta_k.ndim): disp_k[i][:] = 1j
     else:
         disp_k = None
