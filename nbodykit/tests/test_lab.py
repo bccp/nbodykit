@@ -26,7 +26,7 @@ def test_fftpower(comm):
     result.save(output)
 
 @MPITest([1, 4])
-def test_paint(comm):
+def test_compute(comm):
     cosmo = cosmology.Planck15
 
     CurrentMPIComm.set(comm)
@@ -48,8 +48,8 @@ def test_paint(comm):
 
     source = source.apply(filter)
 
-    real = source.paint(mode='real')
-    complex = source.paint(mode='complex')
+    real = source.compute(mode='real')
+    complex = source.compute(mode='complex')
 
     source.save(output="./test_paint-real-%d.bigfile" % comm.size, mode='real')
     source.save(output="./test_paint-complex-%d.bigfile" % comm.size, mode='complex')

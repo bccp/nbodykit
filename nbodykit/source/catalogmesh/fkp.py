@@ -42,7 +42,7 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
     """
     logger = logging.getLogger('FKPCatalogMesh')
 
-    def __new__(cls, source, BoxSize, Nmesh, dtype, selection,
+    def __init__(self, source, BoxSize, Nmesh, dtype, selection,
                     comp_weight, fkp_weight, nbar, value='Value',
                     position='Position', interlaced=False,
                     compensated=False, window='cic'):
@@ -55,16 +55,14 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         position = '_RecenteredPosition'
         weight = '_TotalWeight'
 
-        obj = super(FKPCatalogMesh, cls).__new__(cls, source, BoxSize, Nmesh,
+        MultipleSpeciesCatalogMesh.__init__(self, source, BoxSize, Nmesh,
                         dtype, weight, value, selection, position=position,
                         interlaced=interlaced, compensated=compensated, window=window)
 
-        obj._uncentered_position = uncentered_position
-        obj.comp_weight = comp_weight
-        obj.fkp_weight = fkp_weight
-        obj.nbar = nbar
-
-        return obj
+        self._uncentered_position = uncentered_position
+        self.comp_weight = comp_weight
+        self.fkp_weight = fkp_weight
+        self.nbar = nbar
 
     def recenter_box(self, BoxSize, BoxCenter):
         """
@@ -82,7 +80,7 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         # update meta-data
         for val, name in zip([BoxSize, BoxCenter], ['BoxSize', 'BoxCenter']):
             self.attrs[name] = val
-            self.base.attrs[name] = val
+            self.source.attrs[name] = val
 
 
     def to_real_field(self):
@@ -127,18 +125,18 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
             the field object holding the FKP density field in real space
         """
         # add necessary FKP columns for INTERNAL use
-        for name in self.base.species:
+        for name in self.source.species:
 
             # a total weight for the mesh is completeness weight x FKP weight
-            self[name]['_TotalWeight'] = self.TotalWeight(name)
+            self.source[name]['_TotalWeight'] = self.TotalWeight(name)
 
             # position on the mesh is re-centered to [-BoxSize/2, BoxSize/2]
-            self[name]['_RecenteredPosition'] = self.RecenteredPosition(name)
+            self.source[name]['_RecenteredPosition'] = self.RecenteredPosition(name)
 
         attrs = {}
 
         # determine alpha, the weighted number ratio
-        for name in self.base.species:
+        for name in self.source.species:
             attrs[name+'.W'] = self.weighted_total(name)
         attrs['alpha'] = attrs['data.W'] / attrs['randoms.W']
 
@@ -164,9 +162,9 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         real.attrs.pop('randoms.shotnoise', None)
 
         # delete internal columns
-        for name in self.base.species:
-            del self[name+'/_RecenteredPosition']
-            del self[name+'/_TotalWeight']
+        for name in self.source.species:
+            del self.source[name+'/_RecenteredPosition']
+            del self.source[name+'/_TotalWeight']
 
         return real
 
@@ -179,7 +177,7 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         position array.
         """
         assert name in ['data', 'randoms']
-        return self[name][self._uncentered_position] - self.attrs['BoxCenter']
+        return self.source[name][self._uncentered_position] - self.attrs['BoxCenter']
 
     def TotalWeight(self, name):
         """
@@ -187,7 +185,7 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         the FKP weight.
         """
         assert name in ['data', 'randoms']
-        return self[name][self.comp_weight] * self[name][self.fkp_weight]
+        return self.source[name][self.comp_weight] * self.source[name][self.fkp_weight]
 
     def weighted_total(self, name):
         r"""
@@ -201,11 +199,11 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
             W = \sum w_\mathrm{comp}
         """
         # the selection
-        sel = self.compute(self[name][self.selection])
+        sel = self.source.compute(self.source[name][self.selection])
 
         # the selected mesh for "name"
-        mesh = self[name][sel]
+        selected = self.source[name][sel]
 
         # sum up completeness weights
-        wsum = self.compute(mesh[self.comp_weight].sum())
+        wsum = self.source.compute(selected[self.comp_weight].sum())
         return self.comm.allreduce(wsum)

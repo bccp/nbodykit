@@ -84,10 +84,10 @@ def test_paint_chunksize(comm):
     mesh = source.to_mesh(window='tsc', Nmesh=64, interlaced=True, compensated=True)
 
     with set_options(paint_chunk_size=source.csize // 4):
-        r1 = mesh.paint()
+        r1 = mesh.compute()
 
     with set_options(paint_chunk_size=source.csize):
-        r2 = mesh.paint()
+        r2 = mesh.compute()
 
     assert_allclose(r1, r2)
 
@@ -153,37 +153,6 @@ def test_no_compensation(comm):
     # cannot compute compensation
     with pytest.raises(ValueError):
         actions = mesh.actions
-
-@MPITest([1, 4])
-def test_copy(comm):
-
-    CurrentMPIComm.set(comm)
-    source = UniformCatalog(nbar=0.2e-3, BoxSize=1024., seed=42)
-    source['TEST'] = 10
-    source.attrs['TEST'] = 'TEST'
-
-    # make the mesh
-    source = source.to_mesh(Nmesh=32)
-
-    # store original data
-    data = {}
-    for col in source:
-        data[col] = source[col].compute()
-
-    # make copy
-    copy = source.copy()
-
-    # modify original
-    source['Position'] += 100.
-    source['Velocity'] *= 10.
-
-    # check data is equal to original
-    for col in copy:
-        assert_array_equal(copy[col].compute(), data[col])
-
-    # check meta-data
-    for k in source.attrs:
-        assert k in copy.attrs
 
 @MPITest([4])
 def test_slice(comm):
@@ -251,7 +220,7 @@ def test_apply_nocompensation(comm):
     mesh = mesh.apply(raisefunc)
 
     with pytest.raises(StopIteration):
-        mesh.paint()
+        mesh.compute()
 
     # view
     view = mesh.view()
@@ -281,5 +250,5 @@ def test_apply_compensated(comm):
     mesh = mesh.apply(raisefunc)
 
     with pytest.raises(StopIteration):
-        mesh.paint()
+        mesh.compute()
 

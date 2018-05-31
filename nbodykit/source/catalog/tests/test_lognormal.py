@@ -20,7 +20,7 @@ def test_lognormal_sparse(comm):
 
     mesh = source.to_mesh(compensated=False)
 
-    real = mesh.paint(mode='real')
+    real = mesh.compute(mode='real')
     assert_allclose(real.cmean(), 1.0)
 
 @MPITest([1, 4])
@@ -32,7 +32,7 @@ def test_lognormal_dense(comm):
     source = LogNormalCatalog(Plin=Plin, nbar=0.2e-2, BoxSize=128., Nmesh=8, seed=42)
     mesh = source.to_mesh(compensated=False)
 
-    real = mesh.paint(mode='real')
+    real = mesh.compute(mode='real')
     assert_allclose(real.cmean(), 1.0, rtol=1e-5)
 
 @MPITest([4])
@@ -62,7 +62,7 @@ def test_lognormal_velocity(comm):
     source['Value'] = source['Velocity'][:, 0]**2
     mesh = source.to_mesh(compensated=False)
 
-    real = mesh.paint(mode='real')
+    real = mesh.compute(mode='real')
     velsum = comm.allreduce((source['Velocity'][:, 0]**2).sum().compute())
     velmean = velsum / source.csize
 

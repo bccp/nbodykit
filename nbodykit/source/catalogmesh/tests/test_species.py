@@ -44,12 +44,10 @@ def test_getitem(comm):
 
     for source, name in zip([source1, source2], ['data', 'randoms']):
         submesh = mesh[name] # should be equal to source
-        for col in source:
-            assert col in submesh
-            assert_array_equal(submesh[col].compute(), source[col].compute())
+        assert submesh.source is cat[name]
 
 @MPITest([1, 4])
-def test_paint(comm):
+def test_compute(comm):
 
     CurrentMPIComm.set(comm)
 
@@ -111,7 +109,7 @@ def test_paint_interlaced(comm):
 
     # the combined density field
     #combined = mesh.to_real_field()
-    combined = mesh.paint()
+    combined = mesh.compute()
 
     assert_allclose(combined.cmean(), 1.0)
     # must be the same

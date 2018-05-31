@@ -97,13 +97,13 @@ class FFTBase(object):
         p3d : array_like (complex)
             the 3D complex array holding the power spectrum
         """
-        c1 = self.first.paint(mode='complex', Nmesh=self.attrs['Nmesh'])
+        c1 = self.first.compute(mode='complex', Nmesh=self.attrs['Nmesh'])
 
         # compute the auto power of single supplied field
         if self.first is self.second:
             c2 = c1
         else:
-            c2 = self.second.paint(mode='complex', Nmesh=self.attrs['Nmesh'])
+            c2 = self.second.compute(mode='complex', Nmesh=self.attrs['Nmesh'])
 
         # calculate the 3d power spectrum, slab-by-slab to save memory
         p3d = c1
@@ -356,13 +356,13 @@ class FFTPower(FFTBase):
         p3d : array_like (complex)
             the 3D complex array holding the power spectrum
         """
-        c1 = self.first.paint(mode='complex', Nmesh=self.attrs['Nmesh'])
+        c1 = self.first.compute(mode='complex', Nmesh=self.attrs['Nmesh'])
 
         # compute the auto power of single supplied field
         if self.first is self.second:
             c2 = c1
         else:
-            c2 = self.second.paint(mode='complex', Nmesh=self.attrs['Nmesh'])
+            c2 = self.second.compute(mode='complex', Nmesh=self.attrs['Nmesh'])
 
         # calculate the 3d power spectrum, slab-by-slab to save memory
         p3d = c1
@@ -476,7 +476,7 @@ class ProjectedFFTPower(FFTBase):
             - modes :
                 the number of Fourier modes averaged together in each bin
         """
-        c1 = self.first.paint(Nmesh=self.attrs['Nmesh'], mode='complex')
+        c1 = self.first.compute(Nmesh=self.attrs['Nmesh'], mode='complex')
         r1 = c1.preview(self.attrs['Nmesh'], axes=self.attrs['axes'])
         # average along projected axes;
         # part of product is the rfftn vs r2c (for axes)
@@ -487,7 +487,7 @@ class ProjectedFFTPower(FFTBase):
         if self.first is self.second:
             c2 = c1
         else:
-            c2 = self.second.paint(Nmesh=self.attrs['Nmesh'], mode='complex')
+            c2 = self.second.compute(Nmesh=self.attrs['Nmesh'], mode='complex')
             r2 = c2.preview(self.attrs['Nmesh'], axes=self.attrs['axes'])
             c2 = numpy.fft.rfftn(r2) / self.attrs['Nmesh'].prod() # average along projected axes
 

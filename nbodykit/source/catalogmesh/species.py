@@ -12,7 +12,7 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
     designed to paint the density field from a sum of multiple types
     of particles.
 
-    The :func:`paint` function paints the density field summed over
+    The :func:`compute` function paints the density field summed over
     all particle species.
 
     Parameters
@@ -39,14 +39,17 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
     """
     logger = logging.getLogger('MultipleSpeciesCatalogMesh')
 
-    def __new__(cls, source, *args, **kwargs):
+    def __init__(self, source, *args, **kwargs):
 
         from nbodykit.source.catalog import MultipleSpeciesCatalog
         if not isinstance(source, MultipleSpeciesCatalog):
             raise TypeError(("the input source for MultipleSpeciesCatalogMesh "
                              "must be a MultipleSpeciesCatalog"))
 
-        return super(MultipleSpeciesCatalogMesh, cls).__new__(cls, source, *args, **kwargs)
+        CatalogMesh.__init__(self, source, *args, **kwargs)
+
+    def __iter__(self):
+        return iter(self.source)
 
     def __getitem__(self, key):
         """
@@ -58,19 +61,29 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
         :func:`CatalogSource.__getitem__`.
         """
         # return a Mesh holding only the specific species
-        if isinstance(key, string_types) and key in self.base.species:
+        if isinstance(key, string_types) and key in self.source.species:
 
             # CatalogSource holding only requested species
-            cat = self.base[key]
+            cat = self.source[key]
 
             # view as a catalog mesh
-            mesh = cat.view(CatalogMesh)
+            mesh = CatalogMesh(cat,
+                    BoxSize=self.attrs['BoxSize'],
+                    Nmesh=self.attrs['Nmesh'],
+                    dtype=self.dtype,
+                    weight=self.weight,
+                    value=self.value,
+                    selection=self.selection,
+                    position=self.position,
+                    interlaced=self.interlaced,
+                    compensated=self.compensated,
+                    window=self.window,
+                )
 
             # attach attributes from self
             return mesh.__finalize__(self)
-
-        # return the base class behavior
-        return CatalogMesh.__getitem__(self, key)
+        else:
+            raise KeyError("species '%s' not found" % key)
 
     def to_real_field(self, normalize=True):
         r"""
@@ -110,7 +123,7 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
         real = self.pm.create(mode='real', value=0)
 
         # loop over each species
-        for name in self.base.species:
+        for name in self.source.species:
 
             if self.pm.comm.rank == 0:
                 self.logger.info("painting the '%s' species" %name)
@@ -138,8 +151,8 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
 
         # compute total shot noise by summing of shot noise each species
         real.attrs['shotnoise'] = 0
-        total_weight = sum(real.attrs['%s.W' %name] for name in self.base.species)
-        for name in self.base.species:
+        total_weight = sum(real.attrs['%s.W' %name] for name in self.source.species)
+        for name in self.source.species:
             this_Pshot = real.attrs['%s.shotnoise' %name]
             this_weight = real.attrs['%s.W' %name]
             real.attrs['shotnoise'] += (this_weight/total_weight)**2 * this_Pshot

@@ -69,7 +69,7 @@ def test_real_save(comm):
         assert_array_equal(source2.attrs[k], source.attrs[k])
 
     # check data
-    assert_array_equal(source2.paint(mode='complex'), source.paint(mode='complex'))
+    assert_array_equal(source2.compute(mode='complex'), source.compute(mode='complex'))
 
     # cleanup
     comm.barrier()
@@ -107,7 +107,7 @@ def test_real_save(comm):
         assert_array_equal(source2.attrs[k], source.attrs[k])
 
     # check data
-    assert_array_equal(source2.paint(mode='real'), source.paint(mode='real'))
+    assert_array_equal(source2.compute(mode='real'), source.compute(mode='real'))
 
     # cleanup
     comm.barrier()
@@ -125,7 +125,7 @@ def test_preview(comm):
     source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42)
 
     # the painted RealField
-    real = source.paint(mode='real')
+    real = source.compute(mode='real')
 
     preview = source.preview()
     assert_allclose(preview.sum(), real.csum(), rtol=1e-5)
@@ -145,7 +145,7 @@ def test_resample(comm):
     source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42)
 
     # re-sample to Nmesh=32
-    real = source.paint(mode='real', Nmesh=32)
+    real = source.compute(mode='real', Nmesh=32)
 
     # and preview at same resolution
     preview = source.preview(Nmesh=32)
@@ -172,7 +172,7 @@ def test_bad_mode(comm):
         field = source.to_field(mode='BAD')
 
     with pytest.raises(ValueError):
-        field = source.paint(mode='BAD')
+        field = source.compute(mode='BAD')
 
 @MPITest([4])
 def test_view(comm):

@@ -144,9 +144,9 @@ class ConvolvedFFTPower(object):
                     use_fkp_weights=False,
                     P0_FKP=None):
 
-        first = _cast_source(first, Nmesh=Nmesh)
+        first = _cast_mesh(first, Nmesh=Nmesh)
         if second is not None:
-            second = _cast_source(second, Nmesh=Nmesh)
+            second = _cast_mesh(second, Nmesh=Nmesh)
         else:
             second = first
 
@@ -194,22 +194,22 @@ class ConvolvedFFTPower(object):
 
         # add FKP weights
         if use_fkp_weights:
-            for source in [self.first, self.second]:
+            for mesh in [self.first, self.second]:
                 if self.comm.rank == 0:
-                    args = (source.fkp_weight, P0_FKP)
+                    args = (mesh.fkp_weight, P0_FKP)
                     self.logger.info("adding FKP weights as the '%s' column, using P0 = %.4e" %args)
 
-            for name in ['data', 'randoms']:
+                for name in ['data', 'randoms']:
 
-                # print a warning if we are overwriting a non-default column
-                old_fkp_weights = source[name][source.fkp_weight]
-                if source.compute(old_fkp_weights.sum()) != len(old_fkp_weights):
-                    warn = "it appears that we are overwriting FKP weights for the '%s' " %name
-                    warn += "source in FKPCatalog when using 'use_fkp_weights=True' in ConvolvedFFTPower"
-                    warnings.warn(warn)
+                    # print a warning if we are overwriting a non-default column
+                    old_fkp_weights = mesh.source[name][mesh.fkp_weight]
+                    if mesh.source.compute(old_fkp_weights.sum()) != len(old_fkp_weights):
+                        warn = "it appears that we are overwriting FKP weights for the '%s' " %name
+                        warn += "source in FKPCatalog when using 'use_fkp_weights=True' in ConvolvedFFTPower"
+                        warnings.warn(warn)
 
-                nbar = source[name][source.nbar]
-                source[name][source.fkp_weight] = 1.0 / (1. + P0_FKP * nbar)
+                    nbar = mesh.source[name][mesh.nbar]
+                    mesh.source[name][mesh.fkp_weight] = 1.0 / (1. + P0_FKP * nbar)
 
         # store meta-data
         self.attrs = {}
@@ -461,7 +461,7 @@ class ConvolvedFFTPower(object):
         Ylms = [[get_real_Ylm(l,m) for m in range(-l, l+1)] for l in poles[1:]]
 
         # paint the 1st FKP density field to the mesh (paints: data - alpha*randoms, essentially)
-        rfield1 = self.first.paint(Nmesh=self.attrs['Nmesh'])
+        rfield1 = self.first.compute(Nmesh=self.attrs['Nmesh'])
         meta1 = rfield1.attrs.copy()
         if rank == 0:
             self.logger.info("%s painting of 'first' done" %self.first.window)
@@ -485,7 +485,7 @@ class ConvolvedFFTPower(object):
         if self.first is not self.second:
 
             # paint the second field
-            rfield2 = self.second.paint(Nmesh=self.attrs['Nmesh'])
+            rfield2 = self.second.compute(Nmesh=self.attrs['Nmesh'])
             meta2 = rfield2.attrs.copy()
             if rank == 0: self.logger.info("%s painting of 'second' done" %self.second.window)
 
@@ -670,11 +670,11 @@ class ConvolvedFFTPower(object):
         if name+'.norm' not in self.attrs:
 
             # the selection (same for first/second)
-            sel = self.first.compute(self.first[name][self.first.selection])
+            sel = self.first.source.compute(self.first.source[name][self.first.selection])
 
             # selected first/second meshes for "name" (data or randoms)
-            first = self.first[name][sel]
-            second = self.second[name][sel]
+            first = self.first.source[name][sel]
+            second = self.second.source[name][sel]
 
             # these are assumed the same b/w first and second meshes
             comp_weight = first[self.first.comp_weight]
@@ -690,7 +690,7 @@ class ConvolvedFFTPower(object):
             A  = nbar*comp_weight*fkp_weight1*fkp_weight2
             if name == 'randoms':
                 A *= alpha
-            A = self.first.compute(A.sum())
+            A = first.compute(A.sum())
             self.attrs[name+'.norm'] = self.comm.allreduce(A)
 
         return self.attrs[name+'.norm']
@@ -718,11 +718,11 @@ class ConvolvedFFTPower(object):
             for name in ['data', 'randoms']:
 
                 # the selection (same for first/second)
-                sel = self.first.compute(self.first[name][self.first.selection])
+                sel = self.first.source.compute(self.first.source[name][self.first.selection])
 
                 # selected first/second meshes for "name" (data or randoms)
-                first = self.first[name][sel]
-                second = self.second[name][sel]
+                first = self.first.source[name][sel]
+                second = self.second.source[name][sel]
 
                 # completeness weights (assumed same for first/second)
                 comp_weight = first[self.first.comp_weight]
@@ -745,26 +745,26 @@ class ConvolvedFFTPower(object):
         # divide by normalization from randoms
         return Pshot / self.attrs['randoms.norm']
 
-def _cast_source(source, Nmesh):
+def _cast_mesh(mesh, Nmesh):
     """
     Cast an object to a MeshSource. Nmesh is used only on FKPCatalog
     """
     from nbodykit.source.catalog import FKPCatalog
     from nbodykit.source.catalogmesh import FKPCatalogMesh
-    if not isinstance(source, (FKPCatalogMesh, FKPCatalog)):
+    if not isinstance(mesh, (FKPCatalogMesh, FKPCatalog)):
         raise TypeError("input sources should be a FKPCatalog or FKPCatalogMesh")
 
-    if isinstance(source, FKPCatalog):
+    if isinstance(mesh, FKPCatalog):
         # if input is CatalogSource, use defaults to make it into a mesh
-        if not isinstance(source, FKPCatalogMesh):
-            source = source.to_mesh(Nmesh=Nmesh, dtype='f8', compensated=False)
+        if not isinstance(mesh, FKPCatalogMesh):
+            mesh = mesh.to_mesh(Nmesh=Nmesh, dtype='f8', compensated=False)
 
-    if Nmesh is not None and any(source.attrs['Nmesh'] != Nmesh):
-        raise ValueError(("Mismatched Nmesh between __init__ and source.attrs; "
+    if Nmesh is not None and any(mesh.attrs['Nmesh'] != Nmesh):
+        raise ValueError(("Mismatched Nmesh between __init__ and mesh.attrs; "
                           "if trying to re-sample with a different mesh, specify "
                           "`Nmesh` as keyword of to_mesh()"))
 
-    return source
+    return mesh
 
 def get_compensation(mesh):
     toret = None
@@ -784,7 +784,7 @@ def copy_meta(attrs, meta, prefix=""):
 
 def is_valid_crosscorr(first, second):
 
-    if second.base is not first.base:
+    if second.source is not first.source:
         return False
 
     same_cols = ['selection', 'comp_weight', 'nbar']
