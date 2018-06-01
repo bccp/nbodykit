@@ -10,13 +10,22 @@ thisdir = os.path.abspath(os.path.split(__file__)[0])
 def run_notebook(filename):
 
     run_path = os.path.split(filename)[0]
+
     with open(filename) as f:
         nb = nbformat.read(f, as_version=4)
 
-    ep = ExecutePreprocessor(timeout=600, kernel_name='python3')
-    ep.preprocess(nb, {'metadata': {'path': run_path}})
-    with open(filename, 'wt') as f:
-        nbformat.write(nb, f)
+    try:
+        ep = ExecutePreprocessor(timeout=600, kernel_name='python3')
+        ep.preprocess(nb, {'metadata': {'path': run_path}})
+
+        # FIXME: use tempfile and mv to avoid interruption
+        # better split the source code of the notebook and the compiled targets.
+        with open(filename, 'wt') as f:
+            nbformat.write(nb, f)
+
+    except Exception as e:
+        print('processing', filename, e)
+
 
 def sort_paths(paths):
     dirs = []; files = []
