@@ -140,7 +140,7 @@ class BinnedStatistic(object):
     :func:`reindex` will re-bin the coordinate arrays along the specified
     dimension
     """
-    def __init__(self, dims, edges, data, fields_to_sum=[], **kwargs):
+    def __init__(self, dims, edges, data, fields_to_sum=[], coords=None, **kwargs):
 
         # number of dimensions must match
         if len(dims) != len(edges):
@@ -161,7 +161,10 @@ class BinnedStatistic(object):
         # coordinates are the bin centers
         self.coords = {}
         for i, dim in enumerate(self.dims):
-            self.coords[dim] = 0.5 * (edges[i][1:] + edges[i][:-1])
+            if coords is not None and coords[i] is not None:
+                self.coords[dim] = numpy.copy(coords[i])
+            else:
+                self.coords[dim] = 0.5 * (edges[i][1:] + edges[i][:-1])
 
         # store variables as a structured array
         self.data = data.copy()
@@ -178,6 +181,20 @@ class BinnedStatistic(object):
         # save and track metadata
         self.attrs = {}
         for k in kwargs: self.attrs[k] = kwargs[k]
+
+    @classmethod
+    def from_state(kls, state):
+        obj = kls(dims=state['dims'], edges=state['edges'], coords=state['coords'], data=state['data'])
+        obj.attrs.update(state['attrs'])
+        return obj
+
+    def __getstate__(self):
+        return dict(
+                dims=self.dims,
+                edges=[self.edges[dim] for dim in self.dims],
+                coords=[self.coords[dim] for dim in self.dims],
+                data=self.data,
+                attrs=self.attrs)
 
     @property
     def shape(self):
@@ -416,9 +433,7 @@ class BinnedStatistic(object):
         """
         import json
         from nbodykit.utils import JSONEncoder
-
-        edges = [self.edges[dim] for dim in self.dims]
-        state = {'edges':edges, 'attrs':self.attrs, 'data':self.data, 'dims':self.dims}
+        state = self.__getstate__()
         with open(filename, 'w') as ff:
             json.dump(state, ff, cls=JSONEncoder)
 
@@ -473,11 +488,14 @@ class BinnedStatistic(object):
         if edges is None:
             raise ValueError("no `edges` found in JSON file; please specify as keyword argument")
 
+        # the coords
+        coords = state.pop('coords', None)
+
         # meta-data
         attrs = state.pop('attrs', {})
         attrs.update(kwargs)
 
-        return cls(dims, edges, data, **attrs)
+        return cls(dims, edges, data, coords=coords, **attrs)
 
     @classmethod
     def from_plaintext(cls, dims, filename, **kwargs):

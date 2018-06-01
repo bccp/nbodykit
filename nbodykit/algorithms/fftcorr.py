@@ -11,6 +11,7 @@ from nbodykit.base.catalogmesh import CatalogMesh
 
 from .fftpower import FFTBase
 from .fftpower import project_to_basis
+from .fftpower import _find_unique_edges
 
 class FFTCorr(FFTBase):
     r"""
@@ -48,7 +49,8 @@ class FFTCorr(FFTBase):
         if `mode = 1d`, then ``Nmu`` is set to 1
     dr : float, optional
         the linear spacing of ``r`` bins to use; if not provided, the
-        fundamental mode  of the box is used
+        fundamental mode  of the box is used; if `dr=0`, the bins are tight, such
+        that each bin has a unique r value.
     rmin : float, optional
         the lower edge of the first ``r`` bin to use
     poles : list of int, optional
@@ -95,14 +97,11 @@ class FFTCorr(FFTBase):
         function returns nothing, but attaches several attributes
         to the class:
 
-        - :attr:`edges`
         - :attr:`corr`
         - :attr:`poles`
 
         Attributes
         ----------
-        edges : array_like
-            the edges of the wavenumber bins
         corr : :class:`~nbodykit.binned_statistic.BinnedStatistic`
             a BinnedStatistic object that holds the measured :math:`\xi(r)` or
             :math:`\xi(r,\mu)`. It stores the following variables:
@@ -162,11 +161,16 @@ class FFTCorr(FFTBase):
         # (accounting for possibly anisotropic box)
         dr = self.attrs['dr']
         rmin = self.attrs['rmin']
-        redges = numpy.arange(rmin, 0.5 * y3d.BoxSize.min() + dr/2, dr)
+        if dr > 0:
+            redges = numpy.arange(rmin, 0.5 * y3d.BoxSize.min() + dr/2, dr)
+            rcenters = None
+        else:
+            redges, rcenters = _find_unique_edges(y3d.x, y3d.BoxSize / y3d.Nmesh, self.comm)
 
         # project on to the desired basis
         muedges = numpy.linspace(0, 1, self.attrs['Nmu']+1, endpoint=True)
         edges = [redges, muedges]
+        coords = [rcenters, None]
         result, pole_result = project_to_basis(y3d, edges,
                                                poles=self.attrs['poles'],
                                                los=self.attrs['los'])
@@ -175,7 +179,8 @@ class FFTCorr(FFTBase):
         if self.attrs['mode'] == "1d":
             cols = ['r', 'corr', 'modes']
             icols = [0, 2, 3]
-            edges = edges[0]
+            edges = edges[0:1]
+            coords = coords[0:1]
         else:
             cols = ['r', 'mu', 'corr', 'modes']
             icols = [0, 1, 2, 3]
@@ -199,29 +204,29 @@ class FFTCorr(FFTBase):
                 poles[col][:] = result[icol]
 
         # set all the necessary results
-        self.edges = edges
-        self.poles = poles
-        self.corr = corr
 
-        self._make_datasets()
+        self.corr, self.poles = self._make_datasets(edges, poles, corr, coords)
 
     def __getstate__(self):
         state = dict(
-                     edges=self.edges,
-                     corr=self.corr.data,
-                     poles=getattr(self.poles, 'data', None),
-                     attrs=self.attrs)
+                    corr=self.corr.__getstate__(),
+                    poles=self.poles.__getstate__() if self.poles is not None else None,
+                    attrs=self.attrs)
         return state
 
     def __setstate__(self, state):
-        self.__dict__.update(state)
-        self._make_datasets()
+        self.attrs = state['attrs']
+        self.corr = BinnedStatistic.from_state(state['corr'])
+        if state['poles'] is not None:
+            self.poles = BinnedStatistic.from_state(state['poles'])
 
-    def _make_datasets(self):
+    def _make_datasets(self, edges, poles, corr, coords):
 
         if self.attrs['mode'] == '1d':
-            self.corr = BinnedStatistic(['r'], [self.edges], self.corr, fields_to_sum=['modes'], **self.attrs)
+            corr = BinnedStatistic(['r'], edges, corr, fields_to_sum=['modes'], coords=coords, **self.attrs)
         else:
-            self.corr = BinnedStatistic(['r', 'mu'], self.edges, self.corr, fields_to_sum=['modes'], **self.attrs)
-        if self.poles is not None:
-            self.poles = BinnedStatistic(['r'], [self.corr.edges['r']], self.poles, fields_to_sum=['modes'], **self.attrs)
+            corr = BinnedStatistic(['r', 'mu'], edges, corr, fields_to_sum=['modes'], coords=coords, **self.attrs)
+        if poles is not None:
+            poles = BinnedStatistic(['r'], [corr.edges['r']], poles, fields_to_sum=['modes'], coords=coords, **self.attrs)
+
+        return corr, poles
