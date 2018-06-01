@@ -191,11 +191,36 @@ def test_sel(comm):
     sliced = dataset.sel(k=[0.1], method='nearest')
     assert sliced.shape[0] == 1
 
+    # this return empty k with arbitary edges.
+    sliced = dataset.sel(k=[], method='nearest')
+    assert sliced.shape[0] == 0
+
     # slice in a specific k-range
     sliced = dataset.sel(k=slice(0.02, 0.15), mu=[0.5], method='nearest')
     assert sliced.shape[1] == 1
     assert numpy.alltrue((sliced['k'] >= 0.02)&(sliced['k'] <= 0.15))
 
+@MPITest([1])
+def test_take(comm):
+
+    dataset = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_2d.json'))
+
+    sliced = dataset.take(k=[8])
+    assert sliced.shape[0] == 1
+    assert len(sliced.dims) == 2
+
+    sliced = dataset.take(k=[])
+    assert sliced.shape[0] == 0
+    assert len(sliced.dims) == 2
+
+    dataset.take(k=dataset.coords['k'] < 0.3)
+    assert len(sliced.dims) == 2
+
+    dataset.take(dataset['modes'] > 0)
+    assert len(sliced.dims) == 2
+
+    dataset.take(dataset['k'] < 0.3)
+    assert len(sliced.dims) == 2
 
 @MPITest([1])
 def test_squeeze(comm):

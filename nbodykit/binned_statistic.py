@@ -254,7 +254,10 @@ class BinnedStatistic(object):
         edges = {}
         coords = {}
         for i, dim in enumerate(self.dims):
-            idx = indices[i] + [indices[i][-1]+1]
+            if len(indices[i]) > 0:
+                idx = list(indices[i]) + [indices[i][-1]+1]
+            else:
+                idx = [0]
             edges[dim] = self.edges[dim][idx]
             coords[dim] = 0.5 * (edges[dim][1:] + edges[dim][:-1])
 
@@ -608,33 +611,103 @@ class BinnedStatistic(object):
         >>> pkmu.sel(k=slice(0.1, 0.4), mu=0.5)
         <BinnedStatistic: dims: (k: 30), variables: ('mu', 'k', 'power')>
         """
-        indices = [list(range(0, self.shape[i])) for i in range(len(self.dims))]
+        indices = {}
         squeezed_dims = []
-        for dim in indexers:
-            key = indexers[dim]
-            i = self.dims.index(dim)
+        for dim, key in indexers.items():
 
             if isinstance(key, list):
-                indices[i] = [self._get_index(dim, k, method=method) for k in key]
+                indices[dim] = [self._get_index(dim, k, method=method) for k in key]
             elif isinstance(key, slice):
                 new_slice = []
                 for name in ['start', 'stop']:
                     new_slice.append(self._get_index(dim, getattr(key, name), method=method))
-                indices[i] = list(range(*slice(*new_slice).indices(self.shape[i])))
+                i = self.dims.index(dim)
+                indices[dim] = list(range(*slice(*new_slice).indices(self.shape[i])))
             elif not numpy.isscalar(key):
                 raise IndexError("please index using a list, slice, or scalar value")
             else:
-                indices[i] = [self._get_index(dim, key, method=method)]
+                indices[dim] = [self._get_index(dim, key, method=method)]
                 squeezed_dims.append(dim)
 
         # can't squeeze all dimensions!!
         if len(squeezed_dims) == len(self.dims):
             raise IndexError("cannot return object with all remaining dimensions squeezed")
 
-        # check for empty slices
-        for i, idx in enumerate(indices):
-            if not len(idx):
-                raise KeyError("trying to use empty slice for dimension '%s'" %self.dims[i])
+        toret = self.take(**indices)
+
+        for dim in squeezed_dims:
+            toret = toret.squeeze(dim)
+        return toret
+
+    def take(self, *masks, **indices):
+        """
+        Take a subset of a BinnedStatistic from given list of indices.
+        This is more powerful but more verbose than `sel`. Also the
+        result is never squeezed, even if only a single item along the direction
+        is used.
+
+        Parameters
+        ----------
+        masks : array_like (boolean)
+            a list of masks that are of the same shape as the data.
+
+        indices: dict (string : array_like)
+            mapping from axes (by name, dim) to items to select (list/array_like).
+            Each item is a valid selector for numpy's fancy indexing.
+
+        Returns
+        -------
+        new BinnedStatistic, where only items selected by all axes are kept.
+
+        Examples
+        --------
+        >>> pkmu
+        <BinnedStatistic: dims: (k: 200, mu: 5), variables: ('mu', 'k', 'power')>
+
+        # similar to pkmu.sel(k > 0.4), select the bin centers
+        >>> pkmu.take(k=pkmu.coords['k'] > 0.4)
+        <BinnedStatistic: dims: (mu: 5), variables: ('mu', 'k', 'power')>
+
+        # also similar to pkmu.sel(k > 0.4), select the bin averages
+        >>> pkmu.take(pkmu['k'] > 0.4)
+        <BinnedStatistic: dims: (k: 30), variables: ('mu', 'k', 'power')>
+
+        # impossible with sel.
+        >>> pkmu.take(pkmu['modes'] > 0)
+
+        """
+        indices_dict = {}
+        indices_dict.update(indices) # rename for a cleaner API.
+
+        # flatten the masks, will keep items that are true everywhere
+        mask = numpy.ones(self.shape, dtype='?')
+        for m in masks: mask = mask & m
+
+        indices = [numpy.ones(self.shape[i], dtype='?') for i in range(len(self.dims))]
+
+        # update indices with masks
+        for i, dim in enumerate(self.dims):
+            axis = list(range(len(self.dims)))
+            axis.remove(i)
+            axis = tuple(axis)
+            mask1 = mask.all(axis=axis)
+            indices[i] &= mask1
+
+        # update indices with indices_dict
+        for dim, index in indices_dict.items():
+            i = self.dims.index(dim)
+            if isinstance(index, numpy.ndarray) and index.dtype == numpy.dtype('?'):
+                # boolean mask?
+                assert index.ndim == 1
+                indices[i] &= index
+            else:
+                mask1 = numpy.zeros(self.shape[i], dtype='?')
+                mask1.put(index, True)
+                indices[i] &= mask1
+
+        # convert to indices
+        for i in range(len(indices)):
+            indices[i] = indices[i].nonzero()[0]
 
         data = self.data.copy()
         mask = self.mask.copy()
@@ -643,8 +716,7 @@ class BinnedStatistic(object):
             mask = numpy.take(mask, idx, axis=i)
 
         toret = self.__finalize__(data, mask, indices)
-        for dim in squeezed_dims:
-            toret = toret.squeeze(dim)
+
         return toret
 
     def squeeze(self, dim=None):
