@@ -132,7 +132,7 @@ class FFTRecon(MeshSource):
     def run(self):
 
         s_d, s_r = self._compute_s()
-        return self._paint(s_d, s_r)
+        return self._helper_paint(s_d, s_r)
 
     def work_with(self, cat, s):
         pm = self.pm
@@ -167,7 +167,7 @@ class FFTRecon(MeshSource):
             self.logger.info("painted %s, mean=%g" % (name, cmean))
 
 
-    def _paint(self, s_d, s_r):
+    def _helper_paint(self, s_d, s_r):
         """ Convert the displacements of data and random to a single reconstruction mesh object. """
 
         def LGS(delta_s_r):

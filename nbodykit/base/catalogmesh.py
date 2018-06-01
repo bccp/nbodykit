@@ -9,7 +9,7 @@ import warnings
 from pmesh import window
 from pmesh.pm import RealField, ComplexField
 
-class CatalogMesh(CatalogSource, MeshSource):
+class CatalogMesh(MeshSource):
     """
     A view of a CatalogSource object which knows how to create a MeshSource
     object from itself.
@@ -52,179 +52,36 @@ class CatalogMesh(CatalogSource, MeshSource):
     logger = logging.getLogger('CatalogMesh')
 
     def __repr__(self):
-        if isinstance(self.base, CatalogMesh):
-            return repr(self.base)
-        else:
-            return "(%s as CatalogMesh)" % repr(self.base)
+        return "(%s as CatalogMesh)" % repr(self.source)
 
-    def __new__(cls, source, BoxSize, Nmesh, dtype, weight,
+    def __init__(self, source, BoxSize, Nmesh, dtype, weight,
                     value, selection, position='Position', interlaced=False,
                     compensated=False, window='cic', **kwargs):
 
         # source here must be a CatalogSource
         assert isinstance(source, CatalogSourceBase)
 
-        # new, empty CatalogSource
-        obj = CatalogSourceBase.__new__(cls, source.comm)
-
-        # copy over size from the CatalogSource
-        obj._size = source.size
-        obj._csize = source.csize
-
         # copy over the necessary meta-data to attrs
-        obj.attrs['BoxSize'] = BoxSize
-        obj.attrs['Nmesh'] = Nmesh
-        obj.attrs['interlaced'] = interlaced
-        obj.attrs['compensated'] = compensated
-        obj.attrs['window'] = window
+        self.attrs['BoxSize'] = BoxSize
+        self.attrs['Nmesh'] = Nmesh
+        self.attrs['interlaced'] = interlaced
+        self.attrs['compensated'] = compensated
+        self.attrs['window'] = window
 
         # copy meta-data from source too
-        obj.attrs.update(source.attrs)
+        self.attrs.update(source.attrs)
+
+        self.source = source
 
         # store others as straight attributes
-        obj.dtype = dtype
-        obj.weight = weight
-        obj.value = value
-        obj.selection = selection
-        obj.position = position
+        self.dtype = dtype
+        self.weight = weight
+        self.value = value
+        self.selection = selection
+        self.position = position
 
         # add in the Mesh Source attributes
-        MeshSource.__init__(obj, obj.comm, Nmesh, BoxSize, dtype)
-
-        # finally set the base as the input CatalogSource
-        # NOTE: set this AFTER MeshSource.__init__()
-        obj.base = source
-
-        return obj
-
-    def gslice(self, start, stop, end=1, redistribute=True):
-        """
-        Execute a global slice of a CatalogMesh.
-
-        .. note::
-            After the global slice is performed, the data is scattered
-            evenly across all ranks.
-
-        As CatalogMesh objects are views of a CatalogSource, this simply
-        globally slices the underlying CatalogSource.
-
-        Parameters
-        ----------
-        start : int
-            the start index of the global slice
-        stop : int
-            the stop index of the global slice
-        step : int, optional
-            the default step size of the global size
-        redistribute : bool, optional
-            if ``True``, evenly re-distribute the sliced data across all
-            ranks, otherwise just return any local data part of the global
-            slice
-        """
-        # sort the base object
-        newbase = self.base.gslice(start, stop, end=end, redistribute=redistribute)
-
-        # view this base class as a CatalogMesh (with default CatalogMesh parameters)
-        toret = newbase.view(self.__class__)
-
-        # attach the meta-data from self to returned sliced CatalogMesh
-        return toret.__finalize__(self)
-
-    def sort(self, keys, reverse=False, usecols=None):
-        """
-        Sort the CatalogMesh object globally across all MPI ranks
-        in ascending order by the input keys.
-
-        Sort columns must be floating or integer type.
-
-        As CatalogMesh objects are views of a CatalogSource, this simply
-        sorts the underlying CatalogSource.
-
-        Parameters
-        ----------
-        *keys :
-            the names of columns to sort by. If multiple columns are provided,
-            the data is sorted consecutively in the order provided
-        reverse : bool, optional
-            if ``True``, perform descending sort operations
-        usecols : list, optional
-            the name of the columns to include in the returned CatalogSource
-        """
-        # sort the base object
-        newbase = self.base.sort(keys, reverse=reverse, usecols=usecols)
-
-        # view this base class as a CatalogMesh (with default CatalogMesh parameters)
-        toret = newbase.view(self.__class__)
-
-        # attach the meta-data from self to returned sliced CatalogMesh
-        return toret.__finalize__(self)
-
-    def __slice__(self, index):
-        """
-        Return a slice of a CatalogMesh object.
-
-        This slices the CatalogSource object stored as the :attr:`base`
-        attribute, and then views that sliced object as a CatalogMesh.
-
-        Parameters
-        ----------
-        index : array_like
-            either a dask or numpy boolean array; this determines which
-            rows are included in the returned object
-
-        Returns
-        -------
-        subset
-            the particle source with the same meta-data as ``self``, and
-            with the sliced data arrays
-        """
-        # this slice of the CatalogSource will be the base of the mesh
-        base = super(CatalogMesh, self).__slice__(index)
-
-        # view this base class as a CatalogMesh (with default CatalogMesh parameters)
-        toret = base.view(self.__class__)
-
-        # attach the meta-data from self to returned sliced CatalogMesh
-        return toret.__finalize__(self)
-
-    def copy(self):
-        """
-        Return a shallow copy of ``self``.
-
-        .. note::
-            No copy of data is made.
-
-        Returns
-        -------
-        CatalogMesh :
-            a new CatalogMesh that holds all of the data columns of ``self``
-        """
-        # copy the base and view it as a CatalogMesh
-        toret = self.base.copy().view(self.__class__)
-
-        # attach the meta-data from self to returned sliced CatalogMesh
-        return toret.__finalize__(self)
-
-    def __finalize__(self, other):
-        """
-        Finalize the creation of a CatalogMesh object by copying over
-        attributes from a second CatalogMesh.
-
-        This also copies over the relevant MeshSource attributes via a
-        call to :func:`MeshSource.__finalize__`.
-
-        Parameters
-        ----------
-        obj : CatalogMesh
-            the second CatalogMesh to copy over attributes from
-        """
-        if isinstance(other, CatalogSourceBase):
-            self = CatalogSourceBase.__finalize__(self, other)
-
-        if isinstance(other, MeshSource):
-            self = MeshSource.__finalize__(self, other)
-
-        return self
+        MeshSource.__init__(self, source.comm, Nmesh, BoxSize, dtype)
 
     @property
     def interlaced(self):
@@ -307,7 +164,7 @@ class CatalogMesh(CatalogSource, MeshSource):
             the painted real field; this has a ``attrs`` dict storing meta-data
         """
         # check for 'Position' column
-        if self.position not in self:
+        if self.position not in self.source:
             msg = "in order to paint a CatalogSource to a RealField, add a "
             msg += "column named '%s', representing the particle positions" %self.position
             raise ValueError(msg)
@@ -342,7 +199,7 @@ class CatalogMesh(CatalogSource, MeshSource):
         # read the necessary data (as dask arrays)
         columns = [self.position, self.weight, self.value, self.selection]
 
-        Position, Weight, Value, Selection = self.read(columns)
+        Position, Weight, Value, Selection = self.source.read(columns)
 
         # ensure the slices are synced, since decomposition is collective
         Nlocalmax = max(pm.comm.allgather(len(Position)))
@@ -356,11 +213,11 @@ class CatalogMesh(CatalogSource, MeshSource):
             if len(Position) != 0:
 
                 # selection has to be computed many times when data is `large`.
-                sel = self.base.compute(Selection[s])
+                sel = self.source.compute(Selection[s])
 
                 # be sure to use the source to compute
                 position, weight, value = \
-                    self.base.compute(Position[s], Weight[s], Value[s])
+                    self.source.compute(Position[s], Weight[s], Value[s])
 
                 # FIXME: investigate if move selection before compute
                 # speeds up IO.
@@ -412,7 +269,7 @@ class CatalogMesh(CatalogSource, MeshSource):
 
             if pm.comm.rank == 0:
                 self.logger.info("painted %d out of %d objects to mesh"
-                    % (Nglobal, self.base.csize))
+                    % (Nglobal, self.source.csize))
 
         # now the loop over particles is done
 
@@ -466,7 +323,7 @@ class CatalogMesh(CatalogSource, MeshSource):
 
         csum = toret.csum()
         if pm.comm.rank == 0:
-            self.logger.info("painted %d out of %d objects to mesh" %(N,self.base.csize))
+            self.logger.info("painted %d out of %d objects to mesh" %(N, self.source.csize))
             self.logger.info("mean particles per cell is %g", nbar)
             self.logger.info("sum is %g ", csum)
             self.logger.info("normalized the convention to 1 + delta")

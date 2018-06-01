@@ -1,6 +1,7 @@
 import numpy
 import logging
 from pmesh.pm import ParticleMesh, RealField, BaseComplexField
+import warnings
 
 class MeshSource(object):
     """
@@ -230,7 +231,17 @@ class MeshSource(object):
 
         return var
 
+    def compute(self, mode='real', Nmesh=None):
+        """
+            Compute / Fetch the mesh object into memory as a RealField or ComplexField object.
+        """
+        return self._paint_XXX(mode=mode, Nmesh=Nmesh)
+
     def paint(self, mode="real", Nmesh=None):
+        warnings.warn("the paint method is deprecated from the Public API. Use .compute() instead.", DeprecationWarning)
+        return self._paint_XXX(mode=mode, Nmesh=Nmesh)
+
+    def _paint_XXX(self, mode="real", Nmesh=None):
         """
         Paint the density on the mesh and apply
         any transformation functions specified in :attr:`actions`.
@@ -360,7 +371,7 @@ class MeshSource(object):
         import json
         from nbodykit.utils import JSONEncoder
 
-        field = self.paint(mode=mode)
+        field = self.compute(mode=mode)
 
         with bigfile.BigFileMPI(self.pm.comm, output, create=True) as ff:
             data = numpy.empty(shape=field.size, dtype=field.dtype)
