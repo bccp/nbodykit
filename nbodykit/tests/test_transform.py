@@ -17,9 +17,9 @@ def test_sky_to_cartesian(comm):
     s = RandomCatalog(csize=100, seed=42)
 
     # ra, dec, z
-    s['z']   = s.rng.normal(loc=0.5, scale=0.1, size=s.size)
-    s['ra']  = s.rng.uniform(low=110, high=260, size=s.size)
-    s['dec'] = s.rng.uniform(low=-3.6, high=60., size=s.size)
+    s['z']   = s.rng.normal(loc=0.5, scale=0.1)
+    s['ra']  = s.rng.uniform(low=110, high=260)
+    s['dec'] = s.rng.uniform(low=-3.6, high=60)
 
     # make the position array
     s['Position1'] = transform.SkyToCartesian(s['ra'], s['dec'], s['z'], cosmo)
@@ -98,9 +98,9 @@ def test_stack_columns(comm):
     s = RandomCatalog(csize=100, seed=42)
 
     # add x,y,z
-    s['x'] = s.rng.uniform(0, 2600., size=s.size)
-    s['y'] = s.rng.uniform(0, 2600., size=s.size)
-    s['z'] = s.rng.uniform(0, 2600., size=s.size)
+    s['x'] = s.rng.uniform(0, 2600.)
+    s['y'] = s.rng.uniform(0, 2600.)
+    s['z'] = s.rng.uniform(0, 2600.)
 
     # stack
     s['Position'] = transform.StackColumns(s['x'], s['y'], s['z'])
