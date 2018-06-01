@@ -8,7 +8,7 @@ import pytest
 
 setup_logging()
 
-@MPITest([4])
+@MPITest([1, 4])
 def test_no_seed(comm):
 
     CurrentMPIComm.set(comm)
@@ -19,7 +19,7 @@ def test_no_seed(comm):
     # seed is set randomly
     assert hod.attrs['seed'] is not None
 
-@MPITest([4])
+@MPITest([1, 4])
 def test_bad_model(comm):
 
     CurrentMPIComm.set(comm)
@@ -29,7 +29,7 @@ def test_bad_model(comm):
         hod = halos.populate('Zheng07Model')
 
 
-@MPITest([4])
+@MPITest([1, 4])
 def test_failed_populate(comm):
 
     CurrentMPIComm.set(comm)
@@ -44,7 +44,7 @@ def test_failed_populate(comm):
         hod = halos.populate(model)
 
 
-@MPITest([4])
+@MPITest([1, 4])
 def test_no_galaxies(comm):
 
     CurrentMPIComm.set(comm)
@@ -55,7 +55,7 @@ def test_no_galaxies(comm):
     with pytest.raises(ValueError):
         hod = halos.populate(Zheng07Model, seed=42, logMmin=17)
 
-@MPITest([4])
+@MPITest([1, 4])
 def test_repopulate(comm):
 
     CurrentMPIComm.set(comm)
@@ -85,7 +85,7 @@ def test_repopulate(comm):
         hod.repopulate(seed=42, bad_param_name=1.0)
 
 
-@MPITest([4])
+@MPITest([1, 4])
 def test_hod_cm(comm):
 
     CurrentMPIComm.set(comm)
@@ -111,7 +111,7 @@ def test_hod_cm(comm):
     # compute the power
     r = FFTPower(hod.to_mesh(Nmesh=128), mode='2d', Nmu=5, los=[0,0,1])
 
-@MPITest([4])
+@MPITest([1, 4])
 def test_hod_peak(comm):
 
     CurrentMPIComm.set(comm)
@@ -139,7 +139,7 @@ def test_hod_peak(comm):
     # compute the power
     r = FFTPower(hod.to_mesh(Nmesh=128), mode='2d', Nmu=5, los=[0,0,1])
 
-@MPITest([4])
+@MPITest([1, 4])
 def test_save(comm):
 
     CurrentMPIComm.set(comm)
