@@ -88,22 +88,28 @@ class FFTBase(object):
 
         return self
 
-    def _compute_3d_power(self):
+    def _compute_3d_power(self, first, second):
         """
-        Compute and return the 3D power from two input sources
+        Compute and return the power as a function of k vector, for two input sources
 
         Returns
         -------
         p3d : array_like (complex)
             the 3D complex array holding the power spectrum
+        attrs : dict
+            meta data of the 3d power
         """
-        c1 = self.first.compute(mode='complex', Nmesh=self.attrs['Nmesh'])
+        attrs = {}
+        # add self.attrs
+        attrs.update(self.attrs)
+
+        c1 = first.compute(mode='complex', Nmesh=self.attrs['Nmesh'])
 
         # compute the auto power of single supplied field
-        if self.first is self.second:
+        if first is second:
             c2 = c1
         else:
-            c2 = self.second.compute(mode='complex', Nmesh=self.attrs['Nmesh'])
+            c2 = second.compute(mode='complex', Nmesh=self.attrs['Nmesh'])
 
         # calculate the 3d power spectrum, slab-by-slab to save memory
         p3d = c1
@@ -124,7 +130,7 @@ class FFTBase(object):
         # get the number of objects (in a safe manner)
         N1 = c1.attrs.get('N', 0)
         N2 = c2.attrs.get('N', 0)
-        self.attrs.update({'N1':N1, 'N2':N2})
+        attrs.update({'N1':N1, 'N2':N2})
 
         # add shotnoise (nonzero only for auto-spectra)
         Pshot = 0
@@ -136,9 +142,11 @@ class FFTBase(object):
                                    "of discrete data in FFTPower"))
             else:
                 Pshot = c1.attrs['shotnoise']
-        self.attrs['shotnoise'] = Pshot
+        attrs['shotnoise'] = Pshot
 
-        return p3d
+
+        return p3d, attrs
+
 
 class FFTPower(FFTBase):
     """
@@ -216,19 +224,17 @@ class FFTPower(FFTBase):
         self.attrs['dk'] = dk
         self.attrs['kmin'] = kmin
 
-        self.run()
+        self.power, self.poles = self.run()
+
+        # for compatibility, copy power's attrs into self.
+        self.attrs.update(self.power.attrs)
 
     def run(self):
         """
-        Compute the power spectrum in a periodic box, using FFTs. This
-        function returns nothing, but attaches several attributes
-        to the class:
+        Compute the power spectrum in a periodic box, using FFTs.
 
-        - :attr:`power`
-        - :attr:`poles`
-
-        Attributes
-        ----------
+        Returns 
+        -------
         power : :class:`~nbodykit.binned_statistic.BinnedStatistic`
             a BinnedStatistic object that holds the measured :math:`P(k)` or
             :math:`P(k,\mu)`. It stores the following variables:
@@ -255,7 +261,7 @@ class FFTPower(FFTBase):
             - modes :
                 the number of Fourier modes averaged together in each bin
 
-        attrs : dict
+        power.attrs, poles.attrs : dict
             dictionary of meta-data; in addition to storing the input parameters,
             it includes the following fields computed during the algorithm
             execution:
@@ -275,7 +281,7 @@ class FFTPower(FFTBase):
         if self.attrs['mode'] == "1d": self.attrs['Nmu'] = 1
 
         # measure the 3D power (y3d is a ComplexField)
-        y3d = self._compute_3d_power()
+        y3d, attrs = self._compute_3d_power(self.first, self.second)
 
         # binning in k out to the minimum nyquist frequency
         # (accounting for possibly anisotropic box)
@@ -323,7 +329,7 @@ class FFTPower(FFTBase):
             for icol, col in enumerate(cols):
                 poles[col][:] = result[icol]
 
-        self.power, self.poles = self._make_datasets(edges, poles, power, coords)
+        return self._make_datasets(edges, poles, power, coords, attrs)
 
     def __getstate__(self):
         state = dict(
@@ -338,68 +344,17 @@ class FFTPower(FFTBase):
         if state['poles'] is not None:
             self.poles = BinnedStatistic.from_state(state['poles'])
 
-    def _make_datasets(self, edges, poles, power, coords):
+    def _make_datasets(self, edges, poles, power, coords, attrs):
 
         if self.attrs['mode'] == '1d':
-            power = BinnedStatistic(['k'], edges, power, fields_to_sum=['modes'], coords=coords, **self.attrs)
+            power = BinnedStatistic(['k'], edges, power, fields_to_sum=['modes'], coords=coords, **attrs)
         else:
-            power = BinnedStatistic(['k', 'mu'], edges, power, fields_to_sum=['modes'], coords=coords, **self.attrs)
+            power = BinnedStatistic(['k', 'mu'], edges, power, fields_to_sum=['modes'], coords=coords, **attrs)
 
         if poles is not None:
-            poles = BinnedStatistic(['k'], [power.edges['k']], poles, fields_to_sum=['modes'], coords=[power.coords['k']], **self.attrs)
+            poles = BinnedStatistic(['k'], [power.edges['k']], poles, fields_to_sum=['modes'], coords=[power.coords['k']], **attrs)
 
         return power, poles
-    def _compute_3d_power(self):
-        """
-        Compute and return the 3D power from two input sources
-
-        Returns
-        -------
-        p3d : array_like (complex)
-            the 3D complex array holding the power spectrum
-        """
-        c1 = self.first.compute(mode='complex', Nmesh=self.attrs['Nmesh'])
-
-        # compute the auto power of single supplied field
-        if self.first is self.second:
-            c2 = c1
-        else:
-            c2 = self.second.compute(mode='complex', Nmesh=self.attrs['Nmesh'])
-
-        # calculate the 3d power spectrum, slab-by-slab to save memory
-        p3d = c1
-        for (s0, s1, s2) in zip(p3d.slabs, c1.slabs, c2.slabs):
-            s0[...] = s1 * s2.conj()
-
-        for i, s0 in zip(p3d.slabs.i, p3d.slabs):
-            # clear the zero mode.
-            mask = True
-            for i1 in i:
-                mask = mask & (i1 == 0)
-            s0[mask] = 0
-
-        # the complex field is dimensionless; power is L^3
-        # ref to http://icc.dur.ac.uk/~tt/Lectures/UA/L4/cosmology.pdf
-        p3d[...] *= self.attrs['BoxSize'].prod()
-
-        # get the number of objects (in a safe manner)
-        N1 = c1.attrs.get('N', 0)
-        N2 = c2.attrs.get('N', 0)
-        self.attrs.update({'N1':N1, 'N2':N2})
-
-        # add shotnoise (nonzero only for auto-spectra)
-        Pshot = 0
-        if self.first is self.second:
-            if 'shotnoise' not in c1.attrs:
-                if isinstance(self.first, CatalogMesh):
-                    import warnings
-                    warnings.warn(("no 'shotnoise' found for auto power spectrum "
-                                   "of discrete data in FFTPower"))
-            else:
-                Pshot = c1.attrs['shotnoise']
-        self.attrs['shotnoise'] = Pshot
-
-        return p3d
 
 class ProjectedFFTPower(FFTBase):
     """

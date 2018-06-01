@@ -89,19 +89,17 @@ class FFTCorr(FFTBase):
         self.attrs['dr'] = dr
         self.attrs['rmin'] = rmin
 
-        self.run()
+        self.corr, self.poles = self.run()
+
+        # compatability
+        self.attrs.update(self.corr.attrs)
 
     def run(self):
         r"""
-        Compute the correlation function in a periodic box, using FFTs. This
-        function returns nothing, but attaches several attributes
-        to the class:
+        Compute the correlation function in a periodic box, using FFTs.
 
-        - :attr:`corr`
-        - :attr:`poles`
-
-        Attributes
-        ----------
+        returns
+        -------
         corr : :class:`~nbodykit.binned_statistic.BinnedStatistic`
             a BinnedStatistic object that holds the measured :math:`\xi(r)` or
             :math:`\xi(r,\mu)`. It stores the following variables:
@@ -128,7 +126,7 @@ class FFTCorr(FFTBase):
             - modes :
                 the number of modes averaged together in each bin
 
-        attrs : dict
+        corr.attrs, poles.attrs : dict
             dictionary of meta-data; in addition to storing the input parameters,
             it includes the following fields computed during the algorithm
             execution:
@@ -148,7 +146,7 @@ class FFTCorr(FFTBase):
         if self.attrs['mode'] == "1d": self.attrs['Nmu'] = 1
 
         # measure the 3D power (y3d is a ComplexField)
-        y3d = self._compute_3d_power()
+        y3d, attrs = self._compute_3d_power(self.first, self.second)
 
         # measure the 3D correlation (y3d is a RealField)
         y3d = y3d.c2r(out=Ellipsis)
@@ -204,8 +202,7 @@ class FFTCorr(FFTBase):
                 poles[col][:] = result[icol]
 
         # set all the necessary results
-
-        self.corr, self.poles = self._make_datasets(edges, poles, corr, coords)
+        return self._make_datasets(edges, poles, corr, coords, attrs)
 
     def __getstate__(self):
         state = dict(
@@ -220,13 +217,13 @@ class FFTCorr(FFTBase):
         if state['poles'] is not None:
             self.poles = BinnedStatistic.from_state(state['poles'])
 
-    def _make_datasets(self, edges, poles, corr, coords):
+    def _make_datasets(self, edges, poles, corr, coords, attrs):
 
         if self.attrs['mode'] == '1d':
-            corr = BinnedStatistic(['r'], edges, corr, fields_to_sum=['modes'], coords=coords, **self.attrs)
+            corr = BinnedStatistic(['r'], edges, corr, fields_to_sum=['modes'], coords=coords, **attrs)
         else:
-            corr = BinnedStatistic(['r', 'mu'], edges, corr, fields_to_sum=['modes'], coords=coords, **self.attrs)
+            corr = BinnedStatistic(['r', 'mu'], edges, corr, fields_to_sum=['modes'], coords=coords, **attrs)
         if poles is not None:
-            poles = BinnedStatistic(['r'], [corr.edges['r']], poles, fields_to_sum=['modes'], coords=coords, **self.attrs)
+            poles = BinnedStatistic(['r'], [corr.edges['r']], poles, fields_to_sum=['modes'], coords=coords, **attrs)
 
         return corr, poles
