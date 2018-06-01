@@ -281,7 +281,6 @@ class MeshSource(object):
         else:
             attrs = var.attrs
 
-        print('_paint', actions)
         for action in actions:
             # ensure var is the right mode
 
