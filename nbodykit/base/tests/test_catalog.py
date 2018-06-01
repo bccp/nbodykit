@@ -78,10 +78,8 @@ def test_tomesh(comm):
     source['Weight2'] = source['Velocity'][:, 2]
 
     mesh = source.to_mesh(Nmesh=128, compensated=True)
-    assert_allclose(source['Position'], mesh['Position'])
 
     mesh = source.to_mesh(Nmesh=128, compensated=True, interlaced=True)
-    assert_allclose(source['Position'], mesh['Position'])
 
     mesh = source.to_mesh(Nmesh=128, weight='Weight0')
 
