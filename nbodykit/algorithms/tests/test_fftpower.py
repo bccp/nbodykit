@@ -60,16 +60,15 @@ def test_fftpower_poles(comm):
     assert_array_equal(modes_1d, r.poles['modes'])
     assert_allclose(mono_from_pkmu, mono)
 
-
 @MPITest([1])
-def test_fftpower_padding(comm):
+def test_fftpower_unique(comm):
 
     CurrentMPIComm.set(comm)
     source = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42)
 
-    r = FFTPower(source, mode='1d', BoxSize=1024, Nmesh=32)
-    assert r.attrs['N1'] != 0
-    assert r.attrs['N2'] != 0
+    r = FFTPower(source, mode='1d', Nmesh=32, dk=0)
+    p = r.power
+    assert_allclose(p.coords['k'], p['k'], rtol=1e-6)
 
 @MPITest([1])
 def test_fftpower_padding(comm):
