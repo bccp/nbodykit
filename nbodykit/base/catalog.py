@@ -670,6 +670,38 @@ class CatalogSourceBase(object):
         # attach the necessary attributes from self
         return obj.__finalize__(self)
 
+    def decompose(self, domain, position='Position', freeze=[]):
+        """
+        Domain Decompose a catalog, sending items to the ranks according to the
+        supplied domain object. Using the `position` column as the Position.
+
+        This will read in the full position and create a rather large O(size) per rank
+        object to host which rank hosts which object.
+
+        Parameters
+        ----------
+        domain : :pyclass:`pmesh.domain.GridND` object
+            An easiest way to find a domain object is to use `pm.domain`, where `pm`
+            is a :pyclass:`pmesh.pm.ParticleMesh` object.
+
+        position : string_like
+            column to use to compute the position.
+
+        freeze: list of string_like
+            column to 'freeze', these will be pre-exchanged such that they
+            no longer need to be exchanged per request.
+
+        Returns
+        -------
+        CatalogSource
+            A decomposed catalog source, where each rank only contains objects
+            belongs to the rank as claimed by the domain object.
+
+            `self.attrs` are carried over as a shallow copy to the returned object.
+        """
+        from nbodykit.base.decomposed import DecomposedCatalog
+        return DecomposedCatalog(self, domain=domain, position=position, freeze=freeze)
+
     def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4', interlaced=False,
                 compensated=False, window='cic', weight='Weight',
                 value='Value', selection='Selection', position='Position'):
