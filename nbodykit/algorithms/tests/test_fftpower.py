@@ -43,6 +43,65 @@ def test_cic_aliasing(comm):
     red_chi2 = (residual**2).sum()/len(Pk) # should be about 0.5-0.6
     assert red_chi2 < 1.0
 
+@MPITest([1])
+def test_fftpower_advanced(comm):
+    from nbodykit.algorithms.fftpower import MagProjection, MagMuProjection, MagPoleProjection, ZRhoProjection
+
+    CurrentMPIComm.set(comm)
+    source = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42)
+
+    r = FFTPower(source, mode=MagProjection(
+            numpy.linspace(0, 16 * 2 * numpy.pi / 512., 17, endpoint=True)
+            ), Nmesh=32)
+    p = r.power
+
+    r2 = FFTPower(source, mode='1d', Nmesh=32)
+    p2 = r2.power
+
+    # FIXME: this is not expect to be the same because of round off errors.
+    # perhaps try some very narrow bins?
+
+    #assert p.shape == p2.shape
+    #assert_allclose(p['modes'], p2['modes'], atol=16)
+    #assert_allclose(p['power'], p2['power'], rtol=1e-5)
+
+    r = FFTPower(source, mode=MagMuProjection(
+            kedges = numpy.linspace(0, 16 * 2 * numpy.pi / 512., 17, endpoint=True),
+            muedges = numpy.linspace(0, 1, 6, endpoint=True),
+            los=[0, 0, 1],
+            ), Nmesh=32)
+
+    p = r.power
+
+    r2 = FFTPower(source, mode='2d', Nmesh=32)
+    p2 = r2.power
+
+    assert p.shape == p2.shape
+
+    # FIXME: this is not expect to be the same because of round off errors.
+    # perhaps try some very narrow bins?
+
+    assert_allclose(p.coords['mu'], p2.coords['mu'])
+    assert_allclose(p.coords['k'], p2.coords['k'])
+    #assert_allclose(p['modes'], p2['modes'], atol=16)
+    #assert_allclose(p['power'], p2['power'], rtol=1e-5)
+
+    r = FFTPower(source, mode=MagPoleProjection(
+            kedges = numpy.linspace(0, 16 * 2 * numpy.pi / 512., 17, endpoint=True),
+            poles = [0, 2, 4],
+            los=[0, 0, 1],
+            ), Nmesh=32)
+
+    p = r.power
+    assert_array_equal(p.coords['pole'], [0, 2, 4])
+    assert_allclose(p['pole'], [[0, 2, 4]] * len(p['pole']))
+
+    r = FFTPower(source, mode=ZRhoProjection(
+            numpy.linspace(0, 16 * 2 * numpy.pi / 512., 17, endpoint=True),
+            numpy.linspace(0, 16 * 2 * numpy.pi / 512., 17, endpoint=True),
+            los=[0, 0, 1],
+            ), Nmesh=32)
+    p = r.power
 
 @MPITest([1])
 def test_fftpower_poles(comm):
