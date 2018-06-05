@@ -88,6 +88,8 @@ class LogNormalCatalog(CatalogSource):
 
         # make the actual source
         self._source, pm = self._makesource(BoxSize=BoxSize, Nmesh=Nmesh)
+        self.pm = pm
+
         self.attrs['Nmesh'] = pm.Nmesh.copy()
         self.attrs['BoxSize'] = pm.BoxSize.copy()
 
