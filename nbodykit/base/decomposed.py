@@ -14,33 +14,28 @@ class DecomposedCatalog(CatalogSource):
         freeze : list
             a list of columns to already exchange
     """
-    def __init__(self, source, domain, position='Position', freeze=[]):
+    def __init__(self, source, domain, position='Position', columns=[]):
 
         self.domain = domain
         self.source = source
-        self.position = position
-        self.layout = domain.decompose(source[position].compute())
 
-        self._size = self.layout.newlength
+        layout = domain.decompose(source[position].compute())
+
+        self._size = layout.newlength
 
         CatalogSource.__init__(self, comm=source.comm)
         self.attrs.update(source.attrs)
+
         self._frozen = {}
+        if columns is None: columns = source.columns
 
-        self.freeze(freeze)
-
-    def freeze(self, columns):
         for column in columns:
-            if column not in self._frozen:
-                self._frozen[column] = self.get_hardcolumn(column)
+            data = source[column].compute()
+            self._frozen[column] = self.make_column(layout.exchange(data))
 
     @property
     def hardcolumns(self):
-        return self.source.columns
+        return sorted(list(self._frozen.keys()))
 
     def get_hardcolumn(self, col):
-        if col not in self._frozen:
-            data = self.source[col].compute()
-            return self.make_column(self.layout.exchange(data))
-        else:
-            return self.make_column(self._frozen[col])
+        return self._frozen[col]

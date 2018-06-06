@@ -670,13 +670,12 @@ class CatalogSourceBase(object):
         # attach the necessary attributes from self
         return obj.__finalize__(self)
 
-    def decompose(self, domain, position='Position', freeze=[]):
+    def decompose(self, domain, position='Position', columns=None):
         """
         Domain Decompose a catalog, sending items to the ranks according to the
         supplied domain object. Using the `position` column as the Position.
 
-        This will read in the full position and create a rather large O(size) per rank
-        object to host which rank hosts which object.
+        This will read in the full position array and all of the requested columns.
 
         Parameters
         ----------
@@ -687,9 +686,9 @@ class CatalogSourceBase(object):
         position : string_like
             column to use to compute the position.
 
-        freeze: list of string_like
-            column to 'freeze', these will be pre-exchanged such that they
-            no longer need to be exchanged per request.
+        columns: list of string_like
+            columns to include in the new catalog, if not supplied, all catalogs
+            will be exchanged.
 
         Returns
         -------
@@ -700,7 +699,7 @@ class CatalogSourceBase(object):
             `self.attrs` are carried over as a shallow copy to the returned object.
         """
         from nbodykit.base.decomposed import DecomposedCatalog
-        return DecomposedCatalog(self, domain=domain, position=position, freeze=freeze)
+        return DecomposedCatalog(self, domain=domain, position=position, columns=columns)
 
     def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4', interlaced=False,
                 compensated=False, window='cic', weight='Weight',

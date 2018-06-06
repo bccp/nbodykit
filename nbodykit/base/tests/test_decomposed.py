@@ -15,10 +15,17 @@ def test_decomposed(comm):
     Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
     source = LogNormalCatalog(Plin=Plin, nbar=1e-5, BoxSize=128., Nmesh=8, seed=42)
 
-    decomposed = source.decompose(domain=source.pm.domain, freeze=['Position'])
+    decomposed = source.decompose(domain=source.pm.domain, columns=None)
 
     assert 'Position' in decomposed
     assert 'Velocity' in decomposed
 
     assert len(decomposed['Position'].compute()) == decomposed.size
     assert len(decomposed['Velocity'].compute()) == decomposed.size
+
+    decomposed = source.decompose(domain=source.pm.domain, columns=['Position'])
+
+    assert 'Position' in decomposed
+    assert 'Velocity' not in decomposed
+
+    assert len(decomposed['Position'].compute()) == decomposed.size
