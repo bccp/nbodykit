@@ -174,13 +174,14 @@ def test_dask_slice(comm):
 
 @MPITest([1, 4])
 def test_index(comm):
-    CurrentMPIComm.set(comm)
 
-    source = UniformCatalog(nbar=0.2e-3, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=0.2e-3, BoxSize=512., seed=42, comm=comm)
     r = numpy.concatenate(comm.allgather(source.Index.compute()))
     assert_array_equal(r, range(source.csize))
 
     source = source.gslice(0, 1000)
+    assert source.comm.size == comm.size
+
     r = numpy.concatenate(comm.allgather(source.Index.compute()))
     assert_array_equal(r, range(source.csize))
     assert source.Index.dtype == numpy.dtype('i8')
@@ -278,8 +279,7 @@ def test_columnaccessor():
 @MPITest([1, 4])
 def test_copy(comm):
 
-    CurrentMPIComm.set(comm)
-    source = UniformCatalog(nbar=0.2e-3, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=0.2e-3, BoxSize=512., seed=42, comm=comm)
     source['TEST'] = 10
     source.attrs['TEST'] = 'TEST'
 
@@ -290,6 +290,8 @@ def test_copy(comm):
 
     # make copy
     copy = source.copy()
+
+    assert copy.comm.size == comm.size
 
     # modify original
     source['Position'] += 100.
@@ -313,15 +315,15 @@ def test_copy(comm):
 
 @MPITest([4])
 def test_view(comm):
-    CurrentMPIComm.set(comm)
-
     # the CatalogSource
-    source = UniformCatalog(nbar=0.2e-3, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=0.2e-3, BoxSize=512., seed=42, comm=comm)
     source['TEST'] = 10.
     source.attrs['TEST'] = 10.0
 
     # view
     view = source.view()
+    assert view.comm.size == comm.size
+
     assert view.base is source
     assert isinstance(view, source.__class__)
 
