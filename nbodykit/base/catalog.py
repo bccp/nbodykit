@@ -473,7 +473,7 @@ class CatalogSourceBase(object):
             a new CatalogSource that holds all of the data columns of ``self``
         """
         # a new empty object with proper size
-        toret = CatalogSourceBase.__new__(self.__class__, self.comm)
+        toret = CatalogSourceBase.__new__(self.__class__, comm=self.comm)
         toret._size = self.size
         toret._csize = self.csize
 
@@ -658,7 +658,7 @@ class CatalogSourceBase(object):
         """
         # an empty class
         type = self.__class__ if type is None else type
-        obj = CatalogSourceBase.__new__(type, self.comm)
+        obj = CatalogSourceBase.__new__(type, comm=self.comm)
 
         # propagate the size attributes
         obj._size = self.size
@@ -799,7 +799,7 @@ class CatalogSource(CatalogSourceBase):
             set for the returned object are :attr:`size` and :attr:`csize`.
         """
         # the new empty object to return
-        obj = CatalogSourceBase.__new__(cls, comm)
+        obj = CatalogSourceBase.__new__(cls, comm=comm)
 
         # compute the sizes
         obj._size = size
