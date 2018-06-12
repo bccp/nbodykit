@@ -47,7 +47,7 @@ install:
     - pip install .[extras]
 
 script:
-    - python run-tests.py --mpirun='mpirun -n 4' --with-coverage
+    - python run-tests.py -v --mpirun='mpirun -n 4' --with-coverage
 
 after_success:
     - coveralls
