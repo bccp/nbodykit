@@ -16,14 +16,14 @@ class Perturbation:
 
     """
 
-    def __init__(self, a):
+    def __init__(self, a, a_normalize=1.0):
 
         if a is None:
             lna = np.log(np.logspace(-7, 0, 1024*10, endpoint=True))
         else:
             a = np.array(a, copy=True).ravel() # ensure this is 1-d
-            if 1.0 not in a: # ensure redshift 0 is in the list, for normalization
-                a = np.concatenate([[1.0], a])
+            if a_normalize not in a: # ensure redshift 0 is in the list, for normalization
+                a = np.concatenate([[a_normalize], a])
             a.sort()
             if a[0] > 1e-7: # add a high redshift starting point.
                 a = np.concatenate([[1e-7], a])
@@ -33,7 +33,7 @@ class Perturbation:
 
         y0 = self.get_initial_condition()
 
-        self._D1, self._D2 = self._solve(y0)
+        self._D1, self._D2 = self._solve(y0, a_normalize)
 
 
     def D1(self, a, order=0):
@@ -108,6 +108,12 @@ class Perturbation:
         """
         return self.D1(a)
 
+    def Gp2(self, a):
+        """ Gp for second order LPT
+        FastPM growth factor function, eq, 19
+         """
+        return self.D2(a)
+
     def gp(self, a):
         """
         Notice the derivative of D1 is against ln a but gp is d D1 / da, so
@@ -115,11 +121,22 @@ class Perturbation:
         """
         return self.D1(a, order=1) / a
 
+
+    def gp2(self, a):
+        """ gp for second order LPT
+        """
+        return self.D2(a, order=1) / a
+
     def Gf(self, a):
         """
         FastPM growth factor function, eq, 20
         """
         return self.D1(a, 1) * a ** 2 * self.E(a)
+
+    def Gf2(self, a):
+        """ Gf but for second order LPT
+        """
+        return self.D2(a, 1) * a ** 2 * self.E(a)
 
     def gf(self, a):
         """
@@ -129,6 +146,16 @@ class Perturbation:
         return 1 / a * (
             self.D1(a, 2) * a ** 2 * self.E(a) \
             +  self.D1(a, 1) * (
+                    a ** 2 * self.E(a, order=1)
+                +   2 * a ** 2 * self.E(a))
+            )
+    def gf2(self, a):
+        """
+            gf but for second order LPT
+        """
+        return 1 / a * (
+            self.D2(a, 2) * a ** 2 * self.E(a) \
+            +  self.D2(a, 1) * (
                     a ** 2 * self.E(a, order=1)
                 +   2 * a ** 2 * self.E(a))
             )
@@ -156,7 +183,7 @@ class Perturbation:
         D2p = F2
         return D1p, F1p, D2p, F2p
 
-    def _solve(self, y0):
+    def _solve(self, y0, a_normalize):
         # solve with critical point at a=1.0, lna=0.
         y = odeint(self.ode, y0, self.lna, tcrit=[0.], atol=0)
 
@@ -171,8 +198,8 @@ class Perturbation:
         v1 = np.array(v1)
         v2 = np.array(v2)
 
-        ind = abs(self.lna).argmin()
-        # normalization to 1 at a=1.0
+        ind = abs(self.lna - np.log(a_normalize)).argmin()
+        # normalization to 1 at a=a_normalize
         v1 /= v1[ind][0]
         v2 /= v2[ind][0]
         return v1, v2
@@ -201,15 +228,16 @@ class MatterDominated(Perturbation):
         a list of time steps where the factors are exact.
         other a values are interpolated.
     """
-    def __init__(self, Omega0_m, Omega0_lambda=None, Omega0_k=0, a=None):
+    def __init__(self, Omega0_m, Omega0_lambda=None, Omega0_k=0, a=None, a_normalize=1.0):
         if Omega0_lambda is None:
             Omega0_lambda = 1 - Omega0_k - Omega0_m
 
         self.Omega0_lambda = Omega0_lambda
         self.Omega0_m = Omega0_m
         self.Omega0_k = Omega0_k
-
-        Perturbation.__init__(self, a)
+        # Om0 is added for backward compatiblity
+        self.Om0 = Omega0_m
+        Perturbation.__init__(self, a, a_normalize)
 
     def get_initial_condition(self):
         a0 = np.exp(self.lna[0])
@@ -249,16 +277,18 @@ class RadiationDominated(Perturbation):
         a list of time steps where the factors are exact.
         other a values are interpolated.
     """
-    def __init__(self, cosmo, a=None):
+    def __init__(self, cosmo, a=None, a_normalize=1.0):
 #        assert cosmo.Ogamma0 == 0
 #        assert cosmo.Onu0 == 0
 
         self._cosmo = cosmo
         self.Omega0_m = cosmo.Om0
 
+        # Om0 is added for backward compatiblity
+        self.Om0 = self.Omega0_m
         self.Omega0_gamma = cosmo.Ogamma0
 
-        Perturbation.__init__(self, a)
+        Perturbation.__init__(self, a, a_normalize)
 
     def get_initial_condition(self):
         # suggested by Yin Li, not so sensitive to a_H
