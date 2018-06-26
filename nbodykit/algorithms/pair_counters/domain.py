@@ -204,6 +204,7 @@ def decompose_survey_data(first, second, attrs, logger, smoothing, domain_factor
 
     # pass in comoving dist to Corrfunc instead of redshift
     if not angular:
+        pos1 = pos1.copy() # we need to overwrite it; dask doesn't always return a copy after 0.18.1
         pos1[:,2] = rdist1
 
     # set up position for second too
@@ -219,6 +220,7 @@ def decompose_survey_data(first, second, attrs, logger, smoothing, domain_factor
 
         # pass in comoving distance instead of redshift
         if not angular:
+            pos2 = pos2.copy() # we need to overwrite it; dask doesn't always return a copy after 0.18.1
             pos2[:,2] = rdist2
     else:
         pos2 = pos1

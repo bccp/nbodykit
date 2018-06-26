@@ -2,9 +2,15 @@ from .version import __version__
 
 from mpi4py import MPI
 
-# prevents too many threads exception when using MPI and dask
 import dask
-dask.set_options(get=dask.get)
+
+try:
+    # prevents too many threads exception when using MPI and dask
+    # by disabling threading in dask.
+    dask.config.set(scheduler='synchronous') 
+except:
+    # deprecated since 0.18.1
+    dask.set_options(get=dask.get)
 
 _global_options = {}
 _global_options['global_cache_size'] = 1e8 # 100 MB
