@@ -5,7 +5,7 @@ python:
     - 3.6
 
 env:
-    - NUMPY_VERSION=1.12
+    - NUMPY_VERSION=1.13
 
 cache:
     directories:
@@ -38,8 +38,8 @@ install:
     - conda install --yes --file requirements-extras.txt
 
     # pin h5py due to https://github.com/astropy/astropy/pull/7509
-    - conda install --yes -f h5py=2.7
-    
+    - conda install --yes -f h5py
+    #
     # submitting coverage to coveralls
     - pip install coveralls
 
