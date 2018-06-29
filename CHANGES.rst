@@ -1,8 +1,19 @@
 Changelog
 =========
 
-0.3.4 (unreleased)
+0.3.5 (unreleased)
 ------------------
+
+0.3.4 (2018-06-29)
+------------------
+* :issue:`495`:  Improve scaling of LogNormal catalog
+* :issue:`497`:  take method to BinnedStatistic
+* :issue:`498`:  add compute method to Catalog interface; CatalogMesh no longer a Catalog
+* :issue:`500`:  unique binning in FFTPower and FFTCorr
+* :issue:`503`:  redistributing a catalog spatially
+* :issue:`504`:  Catalog.copy hangs
+* :issue:`505`:  update docrep to 0.2.3
+* :issue:`506`:  compatible with dask 0.18.1.
 
 0.3.3 (2018-05-30)
 ------------------
