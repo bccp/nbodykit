@@ -7,7 +7,7 @@ from numpy.testing import assert_allclose
 def test_mcfit():
 
     c = Cosmology()
-    Plin = LinearPower(c, redshift=0)
+    Plin = LinearPower(c, redshift=0, transfer='EisensteinHu')
 
     for ell in [0, 2, 4]:
         # do Pk to CF; use Plin for ell>0 just for testing
@@ -25,7 +25,7 @@ def test_linear():
 
     # linear power
     c = Cosmology()
-    Plin = LinearPower(c, redshift=0)
+    Plin = LinearPower(c, redshift=0, transfer='EisensteinHu')
 
     # desired separation (in Mpc/h)
     r = numpy.logspace(0, numpy.log10(150), 500)
@@ -68,7 +68,7 @@ def test_halofit():
 def test_zeldovich():
 
     # zeldovich power
-    Pzel = ZeldovichPower(Cosmology(), redshift=0)
+    Pzel = ZeldovichPower(Cosmology(), redshift=0, nmax=1, transfer='EisensteinHu')
 
     # desired separation (in Mpc/h)
     r = numpy.logspace(0, numpy.log10(150), 500)

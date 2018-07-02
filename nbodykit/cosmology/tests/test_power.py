@@ -140,7 +140,7 @@ def test_zeldovich():
 
     # initialize the power
     c = Cosmology().match(sigma8=0.82)
-    P = ZeldovichPower(c, redshift=0)
+    P = ZeldovichPower(c, redshift=0, nmax=1)
 
     # compute for scalar
     Pk = P(0.1)
