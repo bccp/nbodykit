@@ -15,7 +15,7 @@ def test_fof(comm):
 
     # lognormal particles
     Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
-    source = LogNormalCatalog(Plin=Plin, nbar=3e-3, BoxSize=512., Nmesh=128, seed=42)
+    source = LogNormalCatalog(Plin=Plin, nbar=3e-3, BoxSize=128., Nmesh=32, seed=42)
 
     # compute P(k,mu) and multipoles
     fof = FOF(source, linking_length=0.2, nmin=20)
@@ -43,7 +43,7 @@ def test_fof_parallel_no_merge(comm):
 def test_fof_parallel_merge(comm):
     CurrentMPIComm.set(comm)
     from pmesh.pm import ParticleMesh
-    pm = ParticleMesh(BoxSize=[32, 32, 32], Nmesh=[32, 32, 32], comm=comm)
+    pm = ParticleMesh(BoxSize=[8, 8, 8], Nmesh=[8, 8, 8], comm=comm)
     Q = pm.generate_uniform_particle_grid(shift=0)
     Q1 = Q.copy()
     Q1[:] += 0.01
@@ -68,7 +68,7 @@ def test_fof_nonperiodic(comm):
 
     # lognormal particles
     Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
-    source = LogNormalCatalog(Plin=Plin, nbar=3e-3, BoxSize=512., Nmesh=128, seed=42)
+    source = LogNormalCatalog(Plin=Plin, nbar=3e-3, BoxSize=128., Nmesh=32, seed=42)
 
     source['Density'] = KDDensity(source, margin=1).density
 

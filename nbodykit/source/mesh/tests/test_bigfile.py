@@ -17,7 +17,7 @@ def test_bigfile_grid(comm):
 
     # input linear mesh
     Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
-    source = LinearMesh(Plin, BoxSize=512, Nmesh=64, seed=42)
+    source = LinearMesh(Plin, BoxSize=512, Nmesh=32, seed=42)
 
     real = source.compute(mode='real')
     complex = source.compute(mode="complex")
