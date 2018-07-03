@@ -107,7 +107,7 @@ def test_view(comm):
     CurrentMPIComm.set(comm)
 
     # the CatalogSource
-    source = UniformCatalog(nbar=0.2e-3, BoxSize=1024., seed=42)
+    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42)
     source['TEST'] = 10.
     source.attrs['TEST'] = 10.0
 
@@ -129,7 +129,7 @@ def test_apply_nocompensation(comm):
     CurrentMPIComm.set(comm)
 
     # the CatalogSource
-    source = UniformCatalog(nbar=0.2e-3, BoxSize=1024., seed=42)
+    source = UniformCatalog(nbar=2e-4, BoxSize=512, seed=42)
     source['TEST'] = 10.
     source['Position2'] = source['Position']
     source.attrs['TEST'] = 10.0
@@ -159,7 +159,7 @@ def test_apply_compensated(comm):
     CurrentMPIComm.set(comm)
 
     # the CatalogSource
-    source = UniformCatalog(nbar=0.2e-3, BoxSize=1024., seed=42)
+    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42)
     source['TEST'] = 10.
     source['Position2'] = source['Position']
     source.attrs['TEST'] = 10.0

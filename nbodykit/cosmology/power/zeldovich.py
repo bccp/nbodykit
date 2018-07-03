@@ -8,7 +8,6 @@ from .linear import LinearPower
 NUM_PTS = 1024
 KMIN = 1e-5
 KMAX = 1e2
-NMAX = 15
 
 def isiterable(obj):
     """Returns `True` if the given object is iterable."""
@@ -49,11 +48,14 @@ class ZeldovichPower(object):
         the redshift to compute the power at
     Plin : class:`LinearPower`
         the linear power spectrum class used to compute the Zel'dovich power
+    nmax : int
+        max order of integrals.
     """
-    def __init__(self, cosmo, redshift, transfer='CLASS'):
+    def __init__(self, cosmo, redshift, transfer='CLASS', nmax=32):
 
         # initialize the linear power
-        self.Plin = LinearPower(cosmo, redshift, transfer='CLASS')
+        self.Plin = LinearPower(cosmo, redshift, transfer=transfer)
+        self.nmax = nmax
 
         self.cosmo = self.Plin.cosmo
         self._sigma8 = self.cosmo.sigma8
@@ -166,7 +168,7 @@ class ZeldovichPower(object):
 
             # do the full integral
             Pzel = 0.0
-            for n in range(0, NMAX+1):
+            for n in range(0, self.nmax + 1):
 
                 I = ZeldovichPowerIntegral(self._r, n)
                 if n > 0:

@@ -27,7 +27,7 @@ def test_fftcorr_poles(comm):
 def test_fftcorr_unique(comm):
 
     CurrentMPIComm.set(comm)
-    source = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42)
 
     r = FFTCorr(source, mode='1d', Nmesh=32, dr=0)
     p = r.corr
@@ -37,7 +37,7 @@ def test_fftcorr_unique(comm):
 def test_fftcorr_padding(comm):
 
     CurrentMPIComm.set(comm)
-    source = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42)
 
     r = FFTCorr(source, mode='1d', BoxSize=1024, Nmesh=32)
     assert r.attrs['N1'] != 0
@@ -47,7 +47,7 @@ def test_fftcorr_padding(comm):
 def test_fftcorr_save(comm):
 
     CurrentMPIComm.set(comm)
-    source = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42)
 
     r = FFTCorr(source, mode='2d', Nmesh=32)
     r.save('fftcorr-test.json')
@@ -67,9 +67,8 @@ def test_fftcorr_mismatch_boxsize(comm):
     CurrentMPIComm.set(comm)
 
     # input sources
-    source1 = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42)
-    Plin = cosmology.LinearPower(cosmo, 0.55, transfer='NoWiggleEisensteinHu')
-    source2 = LinearMesh(Plin, BoxSize=1024, Nmesh=32, seed=33)
+    source1 = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42)
+    source2 = UniformCatalog(nbar=3e-4, BoxSize=1024., seed=42)
 
     r = FFTCorr(source1, second=source2, mode='1d', BoxSize=1024, Nmesh=32)
 
@@ -80,9 +79,8 @@ def test_fftcorr_mismatch_boxsize_fail(comm):
     CurrentMPIComm.set(comm)
 
     # input sources
-    mesh1 = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42).to_mesh(Nmesh=32)
-    Plin = cosmology.LinearPower(cosmo, 0.55, transfer='NoWiggleEisensteinHu')
-    mesh2 = LinearMesh(Plin, BoxSize=1024, Nmesh=32, seed=33)
+    mesh1 = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42).to_mesh(Nmesh=32)
+    mesh2 = UniformCatalog(nbar=3e-4, BoxSize=1024., seed=42).to_mesh(Nmesh=32)
 
     # raises an exception b/c meshes have different box sizes
     with pytest.raises(ValueError):

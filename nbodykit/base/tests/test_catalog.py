@@ -39,7 +39,7 @@ def test_save(comm):
     tmpfile = comm.bcast(tmpfile)
 
     # initialize a uniform catalog
-    source = UniformCatalog(nbar=0.2e-3, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42)
 
     # add a non-array attrs (saved as JSON)
     source.attrs['empty'] = None
@@ -72,7 +72,7 @@ def test_save(comm):
 def test_tomesh(comm):
     CurrentMPIComm.set(comm)
 
-    source = UniformCatalog(nbar=0.2e-2, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42)
     source['Weight0'] = source['Velocity'][:, 0]
     source['Weight1'] = source['Velocity'][:, 1]
     source['Weight2'] = source['Velocity'][:, 2]
@@ -103,7 +103,7 @@ def test_tomesh(comm):
 @MPITest([4])
 def test_bad_column(comm):
     CurrentMPIComm.set(comm)
-    source = UniformCatalog(nbar=0.2e-3, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42)
 
     # read a missing column
     with pytest.raises(ValueError):
@@ -117,7 +117,7 @@ def test_bad_column(comm):
 def test_empty_slice(comm):
     CurrentMPIComm.set(comm)
 
-    source = UniformCatalog(nbar=0.2e-3, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42)
 
     # empty slice returns self
     source2 = source[source['Selection']]
@@ -137,7 +137,7 @@ def test_empty_slice(comm):
 def test_slice(comm):
     CurrentMPIComm.set(comm)
 
-    source = UniformCatalog(nbar=0.2e-3, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42)
 
     # slice a subset
     subset = source[:10]
@@ -161,7 +161,7 @@ def test_slice(comm):
 def test_dask_slice(comm):
     CurrentMPIComm.set(comm)
 
-    source = UniformCatalog(nbar=0.2e-3, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42)
 
     # add a selection column
     index = numpy.random.choice([True, False], size=len(source))
@@ -175,7 +175,7 @@ def test_dask_slice(comm):
 @MPITest([1, 4])
 def test_index(comm):
 
-    source = UniformCatalog(nbar=0.2e-3, BoxSize=512., seed=42, comm=comm)
+    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
     r = numpy.concatenate(comm.allgather(source.Index.compute()))
     assert_array_equal(r, range(source.csize))
 
@@ -212,7 +212,7 @@ def test_transform(comm):
 def test_getitem_columns(comm):
     CurrentMPIComm.set(comm)
 
-    source = UniformCatalog(nbar=0.2e-3, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42)
 
     # bad column name
     with pytest.raises(KeyError):
@@ -227,7 +227,7 @@ def test_getitem_columns(comm):
 def test_delitem(comm):
 
     CurrentMPIComm.set(comm)
-    source = UniformCatalog(nbar=0.2e-3, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42)
 
     # add a test column
     test = numpy.ones(source.size)
@@ -247,7 +247,7 @@ def test_delitem(comm):
 
 def test_columnaccessor():
     from nbodykit.base.catalog import ColumnAccessor
-    source = UniformCatalog(nbar=0.2e-3, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42)
 
     c = source['Position']
     truth = c[0].compute()
@@ -279,7 +279,7 @@ def test_columnaccessor():
 @MPITest([1, 4])
 def test_copy(comm):
 
-    source = UniformCatalog(nbar=0.2e-3, BoxSize=512., seed=42, comm=comm)
+    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
     source['TEST'] = 10
     source.attrs['TEST'] = 'TEST'
 
@@ -316,7 +316,7 @@ def test_copy(comm):
 @MPITest([4])
 def test_view(comm):
     # the CatalogSource
-    source = UniformCatalog(nbar=0.2e-3, BoxSize=512., seed=42, comm=comm)
+    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
     source['TEST'] = 10.
     source.attrs['TEST'] = 10.0
 

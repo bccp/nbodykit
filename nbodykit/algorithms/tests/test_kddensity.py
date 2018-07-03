@@ -15,7 +15,7 @@ def test_kddensity(comm):
     CurrentMPIComm.set(comm)
 
     Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
-    source = LogNormalCatalog(Plin=Plin, nbar=3e-3, BoxSize=512., Nmesh=128, seed=42)
+    source = LogNormalCatalog(Plin=Plin, nbar=3e-4, BoxSize=64., Nmesh=16, seed=42)
 
     kdden = KDDensity(source)
     assert kdden.density.size == source.size

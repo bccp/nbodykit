@@ -21,7 +21,7 @@ def test_lognormal_sparse(comm):
     mesh = source.to_mesh(compensated=False)
 
     real = mesh.compute(mode='real')
-    assert_allclose(real.cmean(), 1.0)
+    assert_allclose(real.cmean(), 1.0, 1e-5)
 
 @MPITest([1, 4])
 def test_lognormal_dense(comm):
