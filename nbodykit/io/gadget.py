@@ -2,6 +2,7 @@ from .binary import BinaryFile
 import numpy
 from six import string_types
 from . import tools
+import warnings
 
 DefaultColumnDefs = [
     ('Position', ('auto', 3), 'all', ),
@@ -97,6 +98,8 @@ class Gadget1File(BinaryFile):
             for column, spec, ptypes in columndefs:
                 if not isinstance(spec, tuple):
                     spec = spec, ()
+                if len(spec) == 1:
+                    spec = spec[0], ()
 
                 if ptypes == 'all':
                     ptypes = [0, 1, 2, 3, 4, 5]
@@ -116,11 +119,11 @@ class Gadget1File(BinaryFile):
                     a = numpy.fromfile(ff, dtype='i4', count=1)[0]
                     ptr += 4
 
-                    prec = a // N # compute precision from blocksize
+                    itemsize = a // N # compute precision from blocksize
 
-                    blocksize = N * prec
+                    blocksize = N * itemsize
 
-                    offsets[column] = ptr + reloffset * prec
+                    offsets[column] = ptr + reloffset * itemsize
 
                     ptr += a
 
@@ -131,16 +134,20 @@ class Gadget1File(BinaryFile):
                     if a != b or b != blocksize:
                         raise IOError("F77 unformatted meta data for `%s` disagrees with true size: starting = %d truth = %d ending = %d" % (column, a, blocksize, b))
 
+                    itemshape = numpy.prod(spec[1])
+                    prec = itemsize // itemshape 
                 else:
                     offsets[column] = ptr
-                    prec = 4
+                    warnings.warn("Cannot decide the item size of `%s`, assuming 4 bytes." % (column))
+                    prec = None
 
-                if column == 'ID':
-                    if spec[0] == 'auto':
-                        spec = ('i8' if prec == 8 else 'i4', spec[1])
-                else:
-                    if spec[0] == 'auto':
-                        spec = ('f8' if prec == 8 else 'f4', spec[1])
+                if spec[0] == 'auto':
+                    if column == 'ID':
+                        mapping = {8:'i8', 4:'i4', None:'i4'}
+                    else:
+                        mapping = {8:'f8', 4:'f4', None:'f8'}
+
+                    spec = mapping[prec], spec[1]
 
                 if column == "Mass" or ptype in ptypes:
                     dtype.append((column, spec))

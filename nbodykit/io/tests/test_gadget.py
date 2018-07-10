@@ -29,6 +29,10 @@ def test_data(comm):
         f.read(['Density'], 0, f.size)
         f.read(['SmoothingLength'], 0, f.size)
 
+        assert f.dtype['Position'].base == numpy.dtype('f4')
+        assert f.dtype['ID'].base == numpy.dtype('i4')
+        assert f.dtype['Density'].base == numpy.dtype('f4')
+
         f = Gadget1File(ff.name, ptype=1)
         assert(f.attrs['Time'] == 1.0)
         assert(f.attrs['BoxSize'] == 50000.0)
