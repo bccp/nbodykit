@@ -482,7 +482,7 @@ class ProjectedFFTPower(FFTBase):
         self.power = numpy.empty(len(kedges) - 1,
                 dtype=[('k', 'f8'), ('power', 'c16'), ('modes', 'f8')])
 
-        with numpy.errstate(invalid='ignore'):
+        with numpy.errstate(invalid='ignore', divide='ignore'):
             self.power['k'] = (xsum / Nsum)[1:-1]
             self.power['power'] = (Psum / Nsum)[1:-1] * boxsize.prod() # dimension is 'volume'
             self.power['modes'] = Nsum[1:-1]
@@ -678,7 +678,7 @@ def project_to_basis(y3d, edges, los=[0, 0, 1], poles=[]):
 
     # reshape and slice to remove out of bounds points
     sl = slice(1, -1)
-    with numpy.errstate(invalid='ignore'):
+    with numpy.errstate(invalid='ignore', divide='ignore'):
 
         # 2D binned results
         y2d       = (ysum[0,...] / Nsum)[sl,sl] # ell=0 is first index
