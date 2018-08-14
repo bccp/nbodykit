@@ -129,7 +129,7 @@ def gaussian_complex_fields(pm, linear_power, seed,
         if compute_displacement:
 
             # ignore division where k==0 and set to 0
-            with numpy.errstate(invalid='ignore'):
+            with numpy.errstate(invalid='ignore', divide='ignore'):
                 for i in range(delta_k.ndim):
                     disp_slab = islabs[2+i]
                     disp_slab[...] *= kslab[i] / k2 * delta_slab[...]

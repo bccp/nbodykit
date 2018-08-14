@@ -132,7 +132,7 @@ class MeshSlab(object):
         array_like, (slab.shape)
             the `mu` value at each point in the slab
         """
-        with numpy.errstate(invalid='ignore'):
+        with numpy.errstate(invalid='ignore', divide='ignore'):
             return sum(self.coords(i) * los[i] for i in range(self.ndim)) / self.norm2()**0.5
 
     @property
