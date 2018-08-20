@@ -114,7 +114,7 @@ def test_sim_threeptcf_pedantic(comm):
     cat['Position'] = transform.StackColumns(cat['x'], cat['y'], cat['z'])
     cat['Position'] *= BoxSize
 
-    cat = cat
+    cat = cat[::20]
 
     # r binning
     nbins = 8
