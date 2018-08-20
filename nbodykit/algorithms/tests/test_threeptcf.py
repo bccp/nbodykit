@@ -121,7 +121,7 @@ def test_sim_threeptcf_pedantic(comm):
     edges = numpy.linspace(0, 200.0, nbins+1)
 
     # run the algorithm
-    ells = list(range(0, 2))[::-1]
+    ells = [0, 2, 4, 8]
     r = SimulationBox3PCF(cat, ells, edges, BoxSize=BoxSize, weight='w')
     p_fast = r.run()
     p_pedantic = r.run(pedantic=True)
