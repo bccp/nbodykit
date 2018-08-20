@@ -101,3 +101,39 @@ def test_survey_threeptcf(comm):
 
     if comm.rank == 0:
         os.remove(filename)
+
+@MPITest([1])
+def test_sim_threeptcf_shuffled(comm):
+
+    CurrentMPIComm.set(comm)
+    BoxSize = 400.0
+
+    # load the test data
+    filename = os.path.join(data_dir, 'threeptcf_sim_data.dat')
+    cat = CSVCatalog(filename, names=['x', 'y', 'z', 'w'])
+    cat['Position'] = transform.StackColumns(cat['x'], cat['y'], cat['z'])
+    cat['Position'] *= BoxSize
+
+    cat = cat
+
+    # r binning
+    nbins = 8
+    edges = numpy.linspace(0, 200.0, nbins+1)
+
+    # run the algorithm
+    ells = list(range(0, 2))[::-1]
+    r = SimulationBox3PCF(cat, ells, edges, BoxSize=BoxSize, weight='w')
+
+    # load the result from file
+    truth = numpy.empty((8,8,11))
+    with open(os.path.join(data_dir, 'threeptcf_sim_result.dat'), 'r') as ff:
+        for line in ff:
+            fields = line.split()
+            i, j = int(fields[0]), int(fields[1])
+            truth[i,j,:] = list(map(float, fields[2:]))
+            truth[j,i,:] = truth[i,j,:]
+
+    # test equality
+    for i, ell in enumerate(ells):
+        x = r.poles['corr_%d' %ell]
+        assert_allclose(x * (4*numpy.pi)**2 / (2*ell+1), truth[...,i], rtol=1e-3, err_msg='mismatch for ell=%d' %ell)
