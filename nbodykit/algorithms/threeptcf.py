@@ -1,6 +1,6 @@
 from nbodykit import CurrentMPIComm
 from nbodykit.binned_statistic import BinnedStatistic
-
+from collections import OrderedDict
 import numpy
 import logging
 import kdcount
@@ -98,7 +98,7 @@ class Base3PCF(object):
                 # compute alm * conjugate(alm)
                 alm = w0*numpy.outer(alm, alm.conj())
                 if m != 0: alm += alm.T # add in the -m contribution for m != 0
-                zeta[l,...] += alm.real
+                zeta[Ylm_cache.ell_to_iell[l], ...] += alm.real
 
         # determine rank with largest load
         loads = self.comm.allgather(len(pos))
@@ -121,10 +121,10 @@ class Base3PCF(object):
         zeta /= (4*numpy.pi)
 
         # make a BinnedStatistic
-        dtype = numpy.dtype([('corr_%d' %i, zeta.dtype) for i in range(zeta.shape[0])])
+        dtype = numpy.dtype([('corr_%d' % ell, zeta.dtype) for ell in self.attrs['poles']])
         data = numpy.empty(zeta.shape[-2:], dtype=dtype)
-        for i in range(zeta.shape[0]):
-            data['corr_%d' %i] = zeta[i]
+        for i, ell in enumerate(self.attrs['poles']):
+            data['corr_%d' % ell] = zeta[i]
 
         # save the result
         edges = self.attrs['edges']
@@ -384,6 +384,12 @@ class YlmCache(object):
 
         self.ells = numpy.asarray(ells).astype(int)
         self.max_ell = max(self.ells)
+
+        # look up table from ell to iell, index for cummulating results.
+        self.ell_to_iell = numpy.empty(self.max_ell + 1, dtype=int)
+        for iell, ell in enumerate(self.ells):
+            self.ell_to_iell[ell] = iell
+
         lms = [(l,m) for l in ells for m in range(0, l+1)]
 
         # compute the Ylm string expressions in parallel
@@ -417,7 +423,7 @@ class YlmCache(object):
         self._cache = {}
 
         # make the Ylm functions
-        self._Ylms = {}
+        self._Ylms = OrderedDict()
         for lm, expr in exprs:
             expr = parse_expr(expr, local_dict={'zhat':zhat, 'xpyhat':xpyhat})
             for var in args[lm]:

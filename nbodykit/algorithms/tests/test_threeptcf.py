@@ -134,6 +134,6 @@ def test_sim_threeptcf_shuffled(comm):
             truth[j,i,:] = truth[i,j,:]
 
     # test equality
-    for i, ell in enumerate(ells):
+    for i, ell in enumerate(sorted(ells)):
         x = r.poles['corr_%d' %ell]
         assert_allclose(x * (4*numpy.pi)**2 / (2*ell+1), truth[...,i], rtol=1e-3, err_msg='mismatch for ell=%d' %ell)
