@@ -32,7 +32,7 @@ class Base3PCF(object):
             self.attrs['BoxSize'] = BoxSize
             self.attrs['periodic'] = periodic
 
-    def _run(self, pos, w, pos_sec, w_sec, boxsize=None):
+    def _run(self, pos, w, pos_sec, w_sec, boxsize=None, bunchsize=10000):
         """
         Internal function to run the 3PCF algorithm on the input data and
         weights.
@@ -108,7 +108,7 @@ class Base3PCF(object):
         # compute multipoles for each primary
         for iprim in range(len(pos)):
             tree_prim = kdcount.KDTree(numpy.atleast_2d(pos[iprim]), boxsize=boxsize).root
-            tree_sec.enum(tree_prim, rmax, process=callback, iprim=iprim)
+            tree_sec.enum(tree_prim, rmax, process=callback, iprim=iprim, bunch=bunchsize)
 
             if self.comm.rank == largest_load and iprim % chunk_size == 0:
                 self.logger.info("%d%% done" % (10*iprim//chunk_size))
@@ -128,7 +128,8 @@ class Base3PCF(object):
 
         # save the result
         edges = self.attrs['edges']
-        self.poles = BinnedStatistic(['r1', 'r2'], [edges, edges], data)
+        poles = BinnedStatistic(['r1', 'r2'], [edges, edges], data)
+        return poles
 
     def __getstate__(self):
         return {'poles':self.poles.data, 'attrs':self.attrs}
@@ -229,10 +230,10 @@ class SimulationBox3PCF(Base3PCF):
                 raise ValueError(("periodic pair counts cannot be computed for Rmax > BoxSize/2"))
 
         # run the algorithm
-        self.run()
+        self.poles = self.run()
 
 
-    def run(self):
+    def run(self, pedantic=False):
         """
         Compute the three-point CF multipoles. This attaches the following
         the attributes to the class:
@@ -262,7 +263,10 @@ class SimulationBox3PCF(Base3PCF):
                                                         self.logger, smoothing)
 
         # run the algorithm
-        self._run(pos, w, pos_sec, w_sec, boxsize=boxsize)
+        if pedantic:
+            return self._run(pos, w, pos_sec, w_sec, boxsize=boxsize, bunchsize=1)
+        else:
+            return self._run(pos, w, pos_sec, w_sec, boxsize=boxsize)
 
 class SurveyData3PCF(Base3PCF):
     """
@@ -334,7 +338,7 @@ class SurveyData3PCF(Base3PCF):
         self.attrs['domain_factor'] = domain_factor
 
         # run the algorithm
-        self.run()
+        self.poles = self.run()
 
     def run(self):
         """
@@ -364,7 +368,7 @@ class SurveyData3PCF(Base3PCF):
                                                             domain_factor=self.attrs['domain_factor'])
 
         # run the algorithm
-        self._run(pos, w, pos_sec, w_sec)
+        return self._run(pos, w, pos_sec, w_sec)
 
 
 class YlmCache(object):

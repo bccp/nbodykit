@@ -103,6 +103,36 @@ def test_survey_threeptcf(comm):
         os.remove(filename)
 
 @MPITest([1])
+def test_sim_threeptcf_pedantic(comm):
+
+    CurrentMPIComm.set(comm)
+    BoxSize = 400.0
+
+    # load the test data
+    filename = os.path.join(data_dir, 'threeptcf_sim_data.dat')
+    cat = CSVCatalog(filename, names=['x', 'y', 'z', 'w'])
+    cat['Position'] = transform.StackColumns(cat['x'], cat['y'], cat['z'])
+    cat['Position'] *= BoxSize
+
+    cat = cat
+
+    # r binning
+    nbins = 8
+    edges = numpy.linspace(0, 200.0, nbins+1)
+
+    # run the algorithm
+    ells = list(range(0, 2))[::-1]
+    r = SimulationBox3PCF(cat, ells, edges, BoxSize=BoxSize, weight='w')
+    p_fast = r.run()
+    p_pedantic = r.run(pedantic=True)
+
+    # test equality
+    for i, ell in enumerate(sorted(ells)):
+        x1 = p_fast['corr_%d' %ell]
+        x2 = p_pedantic['corr_%d' %ell]
+        assert_allclose(x1, x2)
+
+@MPITest([1])
 def test_sim_threeptcf_shuffled(comm):
 
     CurrentMPIComm.set(comm)
