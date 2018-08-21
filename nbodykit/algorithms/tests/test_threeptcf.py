@@ -5,6 +5,11 @@ from numpy.testing import assert_allclose, assert_array_equal
 import os
 
 setup_logging("debug")
+
+# The test result data is computed with Daniel Eisenstein's (private?)
+# C++ implementation on the same input data set for poles up to l=11;
+# so we shall agree with it to high precision.
+
 data_dir = os.path.join(os.path.split(os.path.abspath(__file__))[0], 'data')
 
 @MPITest([4])
