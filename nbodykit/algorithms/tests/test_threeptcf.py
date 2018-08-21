@@ -6,9 +6,13 @@ import os
 
 setup_logging("debug")
 
-# The test result data is computed with Daniel Eisenstein's (private?)
+# The test result data (threeptcf_sim_result.dat) is computed with
+# Daniel Eisenstein's
 # C++ implementation on the same input data set for poles up to l=11;
-# so we shall agree with it to high precision.
+# We shall agree with it to high precision.
+#
+# If we need to reproduced these files:
+# Nick Hand sent the code and instructions to Yu Feng on Aug-20-2018.
 
 data_dir = os.path.join(os.path.split(os.path.abspath(__file__))[0], 'data')
 
