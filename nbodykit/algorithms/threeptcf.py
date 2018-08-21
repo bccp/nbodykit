@@ -108,25 +108,28 @@ class Base3PCF(object):
         largest_load = numpy.argmax(loads)
         chunk_size = max(loads) // 10
 
-        # compute multipoles for each primary
+        # compute multipoles for each primary (s vector in the paper)
         for iprim in range(len(pos)):
+            # alms must be clean for each primary particle; (s) in eq 15 and 8 of arXiv:1506.02040v2
+            alms.clear()
+            walms.clear()
             tree_prim = kdcount.KDTree(numpy.atleast_2d(pos[iprim]), boxsize=boxsize).root
             tree_sec.enum(tree_prim, rmax, process=callback, iprim=iprim, bunch=bunchsize)
 
             if self.comm.rank == largest_load and iprim % chunk_size == 0:
                 self.logger.info("%d%% done" % (10*iprim//chunk_size))
 
-        # combine alms into zeta;
-        # this cannot be done in the callback because
-        # it is a nonlinear function (outer product) of alm.
-        for (l, m) in alms:
-            alm = alms[(l, m)]
-            walm = walms[(l, m)]
+            # combine alms into zeta(s);
+            # this cannot be done in the callback because
+            # it is a nonlinear function (outer product) of alm.
+            for (l, m) in alms:
+                alm = alms[(l, m)]
+                walm = walms[(l, m)]
 
-            # compute alm * conjugate(alm)
-            alm_w_alm = numpy.outer(walm, alm.conj())
-            if m != 0: alm_w_alm += alm_w_alm.T # add in the -m contribution for m != 0
-            zeta[Ylm_cache.ell_to_iell[l], ...] += alm_w_alm.real
+                # compute alm * conjugate(alm)
+                alm_w_alm = numpy.outer(walm, alm.conj())
+                if m != 0: alm_w_alm += alm_w_alm.T # add in the -m contribution for m != 0
+                zeta[Ylm_cache.ell_to_iell[l], ...] += alm_w_alm.real
 
         # sum across all ranks
         zeta = self.comm.allreduce(zeta)
