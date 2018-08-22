@@ -46,7 +46,7 @@ class MeshSlab(object):
         """
         toret = [slice(None)]*self.ndim
         toret[self.axis] = self._index
-        return toret
+        return tuple(toret)
 
     @property
     def meshshape(self):
