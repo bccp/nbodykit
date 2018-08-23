@@ -1,8 +1,15 @@
 Changelog
 =========
 
-0.3.5 (unreleased)
+0.3.6 (Unreleased)
 ------------------
+
+0.3.5 (2018-08-23)
+------------------
+* :issue:`509`:  Fix auto detection of f8 type in Gadget1 file reader
+* :issue:`513`:  Ignore divide errors.
+* :issue:`516`:  Fix several bugs in three point function
+* :issue:`517`:  Improve compatibility with numpy 1.15.x's new indexing convention.
 
 0.3.4 (2018-06-29)
 ------------------
