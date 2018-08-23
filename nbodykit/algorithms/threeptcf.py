@@ -1,6 +1,6 @@
 from nbodykit import CurrentMPIComm
 from nbodykit.binned_statistic import BinnedStatistic
-
+from collections import OrderedDict
 import numpy
 import logging
 import kdcount
@@ -32,7 +32,7 @@ class Base3PCF(object):
             self.attrs['BoxSize'] = BoxSize
             self.attrs['periodic'] = periodic
 
-    def _run(self, pos, w, pos_sec, w_sec, boxsize=None):
+    def _run(self, pos, w, pos_sec, w_sec, boxsize=None, bunchsize=10000):
         """
         Internal function to run the 3PCF algorithm on the input data and
         weights.
@@ -47,6 +47,8 @@ class Base3PCF(object):
         nbins  = len(self.attrs['edges'])-1
         Nell   = len(self.attrs['poles'])
         zeta = numpy.zeros((Nell,nbins,nbins), dtype='f8')
+        alms = {}
+        walms = {}
 
         # compute the Ylm expressions we need
         if self.comm.rank == 0:
@@ -90,28 +92,44 @@ class Base3PCF(object):
                 weights = Ylms[(l,m)] * w_sec[i]
 
                 # sum over for each radial bin
-                alm = numpy.zeros(nbins, dtype='c8')
-                alm += numpy.bincount(dig, weights=weights.real, minlength=nbins+2)[1:-1]
-                if m != 0:
-                    alm += 1j*numpy.bincount(dig, weights=weights.imag, minlength=nbins+2)[1:-1]
+                alm = alms.setdefault((l, m), numpy.zeros(nbins, dtype='c16'))
+                walm = walms.setdefault((l, m), numpy.zeros(nbins, dtype='c16'))
 
-                # compute alm * conjugate(alm)
-                alm = w0*numpy.outer(alm, alm.conj())
-                if m != 0: alm += alm.T # add in the -m contribution for m != 0
-                zeta[l,...] += alm.real
+                r1 = numpy.bincount(dig, weights=weights.real, minlength=nbins+2)[1:-1]
+                alm[...] += r1
+                walm[...] += w0 * r1
+                if m != 0:
+                    i1 = numpy.bincount(dig, weights=weights.imag, minlength=nbins+2)[1:-1]
+                    alm[...] += 1j*i1
+                    walm[...] += w0*1j*i1
 
         # determine rank with largest load
         loads = self.comm.allgather(len(pos))
         largest_load = numpy.argmax(loads)
         chunk_size = max(loads) // 10
 
-        # compute multipoles for each primary
+        # compute multipoles for each primary (s vector in the paper)
         for iprim in range(len(pos)):
+            # alms must be clean for each primary particle; (s) in eq 15 and 8 of arXiv:1506.02040v2
+            alms.clear()
+            walms.clear()
             tree_prim = kdcount.KDTree(numpy.atleast_2d(pos[iprim]), boxsize=boxsize).root
-            tree_sec.enum(tree_prim, rmax, process=callback, iprim=iprim)
+            tree_sec.enum(tree_prim, rmax, process=callback, iprim=iprim, bunch=bunchsize)
 
             if self.comm.rank == largest_load and iprim % chunk_size == 0:
                 self.logger.info("%d%% done" % (10*iprim//chunk_size))
+
+            # combine alms into zeta(s);
+            # this cannot be done in the callback because
+            # it is a nonlinear function (outer product) of alm.
+            for (l, m) in alms:
+                alm = alms[(l, m)]
+                walm = walms[(l, m)]
+
+                # compute alm * conjugate(alm)
+                alm_w_alm = numpy.outer(walm, alm.conj())
+                if m != 0: alm_w_alm += alm_w_alm.T # add in the -m contribution for m != 0
+                zeta[Ylm_cache.ell_to_iell[l], ...] += alm_w_alm.real
 
         # sum across all ranks
         zeta = self.comm.allreduce(zeta)
@@ -121,14 +139,15 @@ class Base3PCF(object):
         zeta /= (4*numpy.pi)
 
         # make a BinnedStatistic
-        dtype = numpy.dtype([('corr_%d' %i, zeta.dtype) for i in range(zeta.shape[0])])
+        dtype = numpy.dtype([('corr_%d' % ell, zeta.dtype) for ell in self.attrs['poles']])
         data = numpy.empty(zeta.shape[-2:], dtype=dtype)
-        for i in range(zeta.shape[0]):
-            data['corr_%d' %i] = zeta[i]
+        for i, ell in enumerate(self.attrs['poles']):
+            data['corr_%d' % ell] = zeta[i]
 
         # save the result
         edges = self.attrs['edges']
-        self.poles = BinnedStatistic(['r1', 'r2'], [edges, edges], data)
+        poles = BinnedStatistic(['r1', 'r2'], [edges, edges], data)
+        return poles
 
     def __getstate__(self):
         return {'poles':self.poles.data, 'attrs':self.attrs}
@@ -229,10 +248,10 @@ class SimulationBox3PCF(Base3PCF):
                 raise ValueError(("periodic pair counts cannot be computed for Rmax > BoxSize/2"))
 
         # run the algorithm
-        self.run()
+        self.poles = self.run()
 
 
-    def run(self):
+    def run(self, pedantic=False):
         """
         Compute the three-point CF multipoles. This attaches the following
         the attributes to the class:
@@ -262,7 +281,10 @@ class SimulationBox3PCF(Base3PCF):
                                                         self.logger, smoothing)
 
         # run the algorithm
-        self._run(pos, w, pos_sec, w_sec, boxsize=boxsize)
+        if pedantic:
+            return self._run(pos, w, pos_sec, w_sec, boxsize=boxsize, bunchsize=1)
+        else:
+            return self._run(pos, w, pos_sec, w_sec, boxsize=boxsize)
 
 class SurveyData3PCF(Base3PCF):
     """
@@ -334,7 +356,7 @@ class SurveyData3PCF(Base3PCF):
         self.attrs['domain_factor'] = domain_factor
 
         # run the algorithm
-        self.run()
+        self.poles = self.run()
 
     def run(self):
         """
@@ -364,7 +386,7 @@ class SurveyData3PCF(Base3PCF):
                                                             domain_factor=self.attrs['domain_factor'])
 
         # run the algorithm
-        self._run(pos, w, pos_sec, w_sec)
+        return self._run(pos, w, pos_sec, w_sec)
 
 
 class YlmCache(object):
@@ -384,6 +406,12 @@ class YlmCache(object):
 
         self.ells = numpy.asarray(ells).astype(int)
         self.max_ell = max(self.ells)
+
+        # look up table from ell to iell, index for cummulating results.
+        self.ell_to_iell = numpy.empty(self.max_ell + 1, dtype=int)
+        for iell, ell in enumerate(self.ells):
+            self.ell_to_iell[ell] = iell
+
         lms = [(l,m) for l in ells for m in range(0, l+1)]
 
         # compute the Ylm string expressions in parallel
@@ -417,7 +445,7 @@ class YlmCache(object):
         self._cache = {}
 
         # make the Ylm functions
-        self._Ylms = {}
+        self._Ylms = OrderedDict()
         for lm, expr in exprs:
             expr = parse_expr(expr, local_dict={'zhat':zhat, 'xpyhat':xpyhat})
             for var in args[lm]:
