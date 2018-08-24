@@ -11,9 +11,7 @@ setup_logging()
 @MPITest([1, 4])
 def test_no_seed(comm):
 
-    CurrentMPIComm.set(comm)
-
-    halos = DemoHaloCatalog('bolshoi', 'rockstar', 0.5)
+    halos = DemoHaloCatalog('bolshoi', 'rockstar', 0.5, comm=comm)
     hod = halos.populate(Zheng07Model)
 
     # seed is set randomly
@@ -22,9 +20,7 @@ def test_no_seed(comm):
 @MPITest([1, 4])
 def test_bad_model(comm):
 
-    CurrentMPIComm.set(comm)
-
-    halos = DemoHaloCatalog('bolshoi', 'rockstar', 0.5)
+    halos = DemoHaloCatalog('bolshoi', 'rockstar', 0.5, comm=comm)
     with pytest.raises(TypeError):
         hod = halos.populate('Zheng07Model')
 
@@ -32,10 +28,8 @@ def test_bad_model(comm):
 @MPITest([1, 4])
 def test_failed_populate(comm):
 
-    CurrentMPIComm.set(comm)
-
     # the demo halos
-    halos = DemoHaloCatalog('bolshoi', 'rockstar', 0.5)
+    halos = DemoHaloCatalog('bolshoi', 'rockstar', 0.5, comm=comm)
 
     # initialize model with bad MASS column
     model = Zheng07Model.to_halotools(halos.cosmo, halos.attrs['redshift'], '200c')
@@ -47,8 +41,7 @@ def test_failed_populate(comm):
 @MPITest([1, 4])
 def test_no_galaxies(comm):
 
-    CurrentMPIComm.set(comm)
-    halos = DemoHaloCatalog('bolshoi', 'rockstar', 0.5)
+    halos = DemoHaloCatalog('bolshoi', 'rockstar', 0.5, comm=comm)
 
     # no galaxies populated into halos
     # NOTE: logMmin is unrealistically large here
@@ -58,10 +51,8 @@ def test_no_galaxies(comm):
 @MPITest([1, 4])
 def test_repopulate(comm):
 
-    CurrentMPIComm.set(comm)
-
     # initialize the halos
-    halos = DemoHaloCatalog('bolshoi', 'rockstar', 0.5)
+    halos = DemoHaloCatalog('bolshoi', 'rockstar', 0.5, comm=comm)
 
     # populate the mock first
     hod = halos.populate(Zheng07Model, seed=42)
@@ -88,15 +79,13 @@ def test_repopulate(comm):
 @MPITest([1, 4])
 def test_hod_cm(comm):
 
-    CurrentMPIComm.set(comm)
-
     redshift = 0.55
     cosmo = cosmology.Planck15
     BoxSize = 512
 
     # lognormal particles
     Plin = cosmology.LinearPower(cosmo, redshift=redshift, transfer='EisensteinHu')
-    source = LogNormalCatalog(Plin=Plin, nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
+    source = LogNormalCatalog(Plin=Plin, nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42, comm=comm)
 
     # run FOF
     r = FOF(source, linking_length=0.2, nmin=20)
@@ -114,15 +103,13 @@ def test_hod_cm(comm):
 @MPITest([1, 4])
 def test_hod_peak(comm):
 
-    CurrentMPIComm.set(comm)
-
     redshift = 0.55
     cosmo = cosmology.Planck15
     BoxSize = 512
 
     # lognormal particles
     Plin = cosmology.LinearPower(cosmo, redshift=redshift, transfer='EisensteinHu')
-    source = LogNormalCatalog(Plin=Plin, nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
+    source = LogNormalCatalog(Plin=Plin, nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42, comm=comm)
 
     source['Density'] = KDDensity(source).density
 
@@ -142,15 +129,13 @@ def test_hod_peak(comm):
 @MPITest([1, 4])
 def test_save(comm):
 
-    CurrentMPIComm.set(comm)
-
     redshift = 0.55
     cosmo = cosmology.Planck15
     BoxSize = 512
 
     # lognormal particles
     Plin = cosmology.LinearPower(cosmo, redshift=redshift, transfer='EisensteinHu')
-    source = LogNormalCatalog(Plin=Plin, nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42)
+    source = LogNormalCatalog(Plin=Plin, nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42, comm=comm)
 
     # run FOF
     r = FOF(source, linking_length=0.2, nmin=20)

@@ -13,11 +13,10 @@ def test_bigfile_grid(comm):
     import tempfile
 
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     # input linear mesh
     Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
-    source = LinearMesh(Plin, BoxSize=512, Nmesh=32, seed=42)
+    source = LinearMesh(Plin, BoxSize=512, Nmesh=32, seed=42, comm=comm)
 
     real = source.compute(mode='real')
     complex = source.compute(mode="complex")
@@ -32,7 +31,7 @@ def test_bigfile_grid(comm):
     source.save(output, dataset='Field')
 
     # now load it and paint to the algorithm's ParticleMesh
-    source = BigFileMesh(path=output, dataset='Field')
+    source = BigFileMesh(path=output, dataset='Field', comm=comm)
     loaded_real = source.compute()
 
     # compare to direct algorithm result
@@ -41,7 +40,7 @@ def test_bigfile_grid(comm):
     source.save(output, dataset='FieldC', mode='complex')
 
     # now load it and paint to the algorithm's ParticleMesh
-    source = BigFileMesh(path=output, dataset='FieldC')
+    source = BigFileMesh(path=output, dataset='FieldC', comm=comm)
     loaded_real = source.compute(mode="complex")
 
     # compare to direct algorithm result

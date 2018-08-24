@@ -11,10 +11,9 @@ setup_logging("debug")
 def test_sky_to_cartesian(comm):
 
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     # make source
-    s = RandomCatalog(csize=100, seed=42)
+    s = RandomCatalog(csize=100, seed=42, comm=comm)
 
     # ra, dec, z
     s['z']   = s.rng.normal(loc=0.5, scale=0.1)
@@ -34,10 +33,9 @@ def test_sky_to_cartesian(comm):
 
 @MPITest([1, 4])
 def test_cartesian_to_equatorial(comm):
-    CurrentMPIComm.set(comm)
 
     # make source
-    s = UniformCatalog(nbar=10000, BoxSize=1.0)
+    s = UniformCatalog(nbar=10000, BoxSize=1.0, comm=comm)
 
     # get RA, DEC
     ra, dec = transform.CartesianToEquatorial(s['Position'], observer=[0.5, 0.5, 0.5])
@@ -49,10 +47,9 @@ def test_cartesian_to_equatorial(comm):
 @MPITest([1, 4])
 def test_cartesian_to_sky(comm):
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     # make source
-    s = UniformCatalog(nbar=10000, BoxSize=1.0, seed=42)
+    s = UniformCatalog(nbar=10000, BoxSize=1.0, seed=42, comm=comm)
 
     # get RA, DEC, Z
     ra, dec, z = transform.CartesianToSky(s['Position'], cosmo)
@@ -68,10 +65,9 @@ def test_cartesian_to_sky(comm):
 @MPITest([1, 4])
 def test_cartesian_to_sky_velocity(comm):
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     # make source
-    s = UniformCatalog(nbar=1e-5, BoxSize=1380., seed=42)
+    s = UniformCatalog(nbar=1e-5, BoxSize=1380., seed=42, comm=comm)
 
     # real-space redshift
     _, _, z_real = transform.CartesianToSky(s['Position'], cosmo,
@@ -92,10 +88,9 @@ def test_cartesian_to_sky_velocity(comm):
 
 @MPITest([1, 4])
 def test_stack_columns(comm):
-    CurrentMPIComm.set(comm)
 
     # make source
-    s = RandomCatalog(csize=100, seed=42)
+    s = RandomCatalog(csize=100, seed=42, comm=comm)
 
     # add x,y,z
     s['x'] = s.rng.uniform(0, 2600.)
@@ -116,11 +111,10 @@ def test_stack_columns(comm):
 
 @MPITest([1, 4])
 def test_combine(comm):
-    CurrentMPIComm.set(comm)
 
     # make two sources
-    s1 = UniformCatalog(3e-6, 2600)
-    s2 = UniformCatalog(3e-6, 2600)
+    s1 = UniformCatalog(3e-6, 2600, comm=comm)
+    s2 = UniformCatalog(3e-6, 2600, comm=comm)
 
     # concatenate all columns
     cat = transform.ConcatenateSources(s1, s2)

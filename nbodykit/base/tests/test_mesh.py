@@ -13,7 +13,6 @@ setup_logging()
 def test_lost_attrs(comm):
 
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     # initialize an output directory
     if comm.rank == 0:
@@ -24,7 +23,7 @@ def test_lost_attrs(comm):
 
     # linear mesh
     Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
-    source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42)
+    source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42, comm=comm)
 
     # a hard to save attribute
     source.attrs['bad'] = cosmo.to_astropy()
@@ -42,7 +41,6 @@ def test_lost_attrs(comm):
 def test_real_save(comm):
 
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     # initialize an output directory
     if comm.rank == 0:
@@ -53,7 +51,7 @@ def test_real_save(comm):
 
     # linear mesh
     Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
-    source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42)
+    source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42, comm=comm)
 
     # a hard to save attribute
     source.attrs['empty'] = None
@@ -80,7 +78,6 @@ def test_real_save(comm):
 def test_real_save(comm):
 
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     # initialize an output directory
     if comm.rank == 0:
@@ -91,7 +88,7 @@ def test_real_save(comm):
 
     # linear mesh
     Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
-    source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42)
+    source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42, comm=comm)
 
     # a hard to save attribute
     source.attrs['empty'] = None
@@ -100,7 +97,7 @@ def test_real_save(comm):
     source.save(tmpfile, mode='real')
 
     # load as a BigFileMesh
-    source2 = BigFileMesh(tmpfile, dataset='Field')
+    source2 = BigFileMesh(tmpfile, dataset='Field', comm=comm)
 
     # check sources
     for k in source.attrs:
@@ -118,11 +115,10 @@ def test_real_save(comm):
 def test_preview(comm):
 
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     # linear mesh
     Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
-    source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42)
+    source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42, comm=comm)
 
     # the painted RealField
     real = source.compute(mode='real')
@@ -138,11 +134,10 @@ def test_preview(comm):
 def test_resample(comm):
 
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     # linear mesh
     Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
-    source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42)
+    source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42, comm=comm)
 
     # re-sample to Nmesh=32
     real = source.compute(mode='real', Nmesh=32)
@@ -162,11 +157,10 @@ def test_resample(comm):
 def test_bad_mode(comm):
 
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     # linear mesh
     Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
-    source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42)
+    source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42, comm=comm)
 
     with pytest.raises(ValueError):
         field = source.to_field(mode='BAD')
@@ -179,11 +173,10 @@ def test_view(comm):
 
     from nbodykit.base.mesh import MeshSource
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     # linear mesh
     Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
-    source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42)
+    source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42, comm=comm)
     source.attrs['TEST'] = 10.0
 
     # view

@@ -10,8 +10,7 @@ setup_logging("debug")
 @MPITest([1])
 def test_fftcorr_poles(comm):
 
-    CurrentMPIComm.set(comm)
-    source = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42, comm=comm)
 
     r = FFTCorr(source, mode='2d', BoxSize=1024, Nmesh=32, poles=[0,2,4])
     pkmu = r.corr['corr'].real
@@ -26,8 +25,7 @@ def test_fftcorr_poles(comm):
 @MPITest([1])
 def test_fftcorr_unique(comm):
 
-    CurrentMPIComm.set(comm)
-    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
 
     r = FFTCorr(source, mode='1d', Nmesh=32, dr=0)
     p = r.corr
@@ -36,8 +34,7 @@ def test_fftcorr_unique(comm):
 @MPITest([1])
 def test_fftcorr_padding(comm):
 
-    CurrentMPIComm.set(comm)
-    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
 
     r = FFTCorr(source, mode='1d', BoxSize=1024, Nmesh=32)
     assert r.attrs['N1'] != 0
@@ -46,8 +43,7 @@ def test_fftcorr_padding(comm):
 @MPITest([1])
 def test_fftcorr_save(comm):
 
-    CurrentMPIComm.set(comm)
-    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
 
     r = FFTCorr(source, mode='2d', Nmesh=32)
     r.save('fftcorr-test.json')
@@ -64,11 +60,10 @@ def test_fftcorr_save(comm):
 def test_fftcorr_mismatch_boxsize(comm):
 
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     # input sources
-    source1 = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42)
-    source2 = UniformCatalog(nbar=3e-4, BoxSize=1024., seed=42)
+    source1 = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
+    source2 = UniformCatalog(nbar=3e-4, BoxSize=1024., seed=42, comm=comm)
 
     r = FFTCorr(source1, second=source2, mode='1d', BoxSize=1024, Nmesh=32)
 
@@ -76,11 +71,10 @@ def test_fftcorr_mismatch_boxsize(comm):
 def test_fftcorr_mismatch_boxsize_fail(comm):
 
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     # input sources
-    mesh1 = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42).to_mesh(Nmesh=32)
-    mesh2 = UniformCatalog(nbar=3e-4, BoxSize=1024., seed=42).to_mesh(Nmesh=32)
+    mesh1 = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm).to_mesh(Nmesh=32)
+    mesh2 = UniformCatalog(nbar=3e-4, BoxSize=1024., seed=42, comm=comm).to_mesh(Nmesh=32)
 
     # raises an exception b/c meshes have different box sizes
     with pytest.raises(ValueError):

@@ -14,14 +14,14 @@ setup_logging()
 def gather_data(source, name):
     return numpy.concatenate(source.comm.allgather(source[name].compute()), axis=0)
 
-def generate_survey_data(seed):
-    s = RandomCatalog(1000, seed=seed)
+def generate_survey_data(seed, comm):
+    s = RandomCatalog(1000, seed=seed, comm=comm)
     s['RA'] = s.rng.uniform(low=50, high=260)
     s['DEC'] = s.rng.uniform(low=-10.6, high=60.)
     return s
 
-def generate_sim_data(seed):
-    s = UniformCatalog(nbar=1000, BoxSize=1.0, seed=seed)
+def generate_sim_data(seed, comm):
+    s = UniformCatalog(nbar=1000, BoxSize=1.0, seed=seed, comm=comm)
     s['RA'], s['DEC'] = transform.CartesianToEquatorial(s['Position'], observer=0.5*s.attrs['BoxSize'])
     return s
 
@@ -42,10 +42,9 @@ def reference_paircount(pos1, w1, edges, pos2=None, w2=None):
 
 @MPITest([1, 4])
 def test_survey_auto(comm):
-    CurrentMPIComm.set(comm)
 
     # random particles
-    source = generate_survey_data(seed=42)
+    source = generate_survey_data(seed=42, comm=comm)
 
     # add some weights b/w 0 and 1
     source['Weight'] = source.rng.uniform()
@@ -71,12 +70,11 @@ def test_survey_auto(comm):
 
 @MPITest([1, 4])
 def test_survey_cross(comm):
-    CurrentMPIComm.set(comm)
 
     # random particles with weights
-    first = generate_survey_data(seed=42)
+    first = generate_survey_data(seed=42, comm=comm)
     first['Weight'] = first.rng.uniform()
-    second = generate_survey_data(seed=84)
+    second = generate_survey_data(seed=84, comm=comm)
     second['Weight'] = second.rng.uniform()
 
     # make the bin edges
@@ -107,10 +105,9 @@ def test_survey_cross(comm):
 
 @MPITest([1, 4])
 def test_sim_auto(comm):
-    CurrentMPIComm.set(comm)
 
     # random particles
-    source = generate_sim_data(seed=42)
+    source = generate_sim_data(seed=42, comm=comm)
 
     # add some weights b/w 0 and 1
     source['Weight'] = source.rng.uniform()
@@ -136,12 +133,11 @@ def test_sim_auto(comm):
 
 @MPITest([1, 4])
 def test_sim_cross(comm):
-    CurrentMPIComm.set(comm)
 
     # random particles with weights
-    first = generate_sim_data(seed=42)
+    first = generate_sim_data(seed=42, comm=comm)
     first['Weight'] = first.rng.uniform()
-    second = generate_sim_data(seed=84)
+    second = generate_sim_data(seed=84, comm=comm)
     second['Weight'] = second.rng.uniform()
 
     # make the bin edges
@@ -171,8 +167,7 @@ def test_sim_cross(comm):
 @MPITest([1])
 def test_missing_columns(comm):
 
-    CurrentMPIComm.set(comm)
-    source = generate_survey_data(seed=42)
+    source = generate_survey_data(seed=42, comm=comm)
     edges = numpy.linspace(0.01, 10.0, 10)
 
     # missing column

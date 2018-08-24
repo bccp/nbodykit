@@ -10,9 +10,7 @@ setup_logging("debug")
 @MPITest([4])
 def test_bad_input(comm):
 
-    CurrentMPIComm.set(comm)
-
-    source = UniformCatalog(3e-4, BoxSize=256, seed=42)
+    source = UniformCatalog(3e-4, BoxSize=256, seed=42, comm=comm)
     source['gal_type'] = 1
 
     # cannot rank by missing column
@@ -41,9 +39,7 @@ def test_bad_input(comm):
 @MPITest([4])
 def test_periodic_cgm(comm):
 
-    CurrentMPIComm.set(comm)
-
-    source = UniformCatalog(3e-4, BoxSize=256, seed=42)
+    source = UniformCatalog(3e-4, BoxSize=256, seed=42, comm=comm)
 
     # add mass
     logmass = source.rng.uniform(12, 15)
@@ -83,9 +79,7 @@ def test_periodic_cgm(comm):
 @MPITest([1, 4])
 def test_nonperiodic_cgm(comm):
 
-    CurrentMPIComm.set(comm)
-
-    source = UniformCatalog(3e-4, BoxSize=256, seed=42)
+    source = UniformCatalog(3e-4, BoxSize=256, seed=42, comm=comm)
 
     # add mass
     logmass = source.rng.uniform(12, 15)

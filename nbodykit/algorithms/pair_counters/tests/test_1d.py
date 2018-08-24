@@ -12,12 +12,12 @@ setup_logging()
 def gather_data(source, name):
     return numpy.concatenate(source.comm.allgather(source[name].compute()), axis=0)
 
-def generate_sim_data(seed, dtype='f8'):
-    return UniformCatalog(nbar=3e-6, BoxSize=512., seed=seed, dtype=dtype)
+def generate_sim_data(seed, dtype, comm):
+    return UniformCatalog(nbar=3e-6, BoxSize=512., seed=seed, dtype=dtype, comm=comm)
 
-def generate_survey_data(seed, dtype='f8'):
+def generate_survey_data(seed, dtype, comm):
     cosmo = cosmology.Planck15
-    s = RandomCatalog(1000, seed=seed)
+    s = RandomCatalog(1000, seed=seed, comm=comm)
 
     s['Redshift'] = s.rng.normal(loc=0.5, scale=0.1).astype(dtype)
     s['RA'] = s.rng.uniform(low=0, high=360).astype(dtype)
@@ -42,10 +42,9 @@ def reference_paircount(pos1, w1, redges, boxsize, pos2=None, w2=None, los=2):
 
 @MPITest([1, 3])
 def test_sim_periodic_auto(comm):
-    CurrentMPIComm.set(comm)
 
     # uniform source of particles
-    source = generate_sim_data(seed=42)
+    source = generate_sim_data(seed=42, dtype='f8', comm=comm)
 
     # add some weights b/w 0 and 1
     source['Weight'] = source.rng.uniform()
@@ -78,10 +77,9 @@ def test_sim_periodic_auto(comm):
 
 @MPITest([1, 3])
 def test_sim_nonperiodic_auto(comm):
-    CurrentMPIComm.set(comm)
 
     # uniform source of particles
-    source = generate_sim_data(seed=42)
+    source = generate_sim_data(seed=42, dtype='f8', comm=comm)
     source['Weight'] = numpy.random.random(size=len(source))
 
     # make the bin edges
@@ -103,11 +101,9 @@ def test_sim_nonperiodic_auto(comm):
 @MPITest([1, 3])
 def test_sim_periodic_cross(comm):
 
-    CurrentMPIComm.set(comm)
-
     # generate data
-    first = generate_sim_data(seed=42, dtype='f4')
-    second = generate_sim_data(seed=84, dtype='f8')
+    first = generate_sim_data(seed=42, dtype='f4', comm=comm)
+    second = generate_sim_data(seed=84, dtype='f8', comm=comm)
 
     # make the bin edges
     redges = numpy.linspace(10, 150, 10)
@@ -127,8 +123,7 @@ def test_sim_periodic_cross(comm):
 @MPITest([1])
 def test_bad_los(comm):
 
-    CurrentMPIComm.set(comm)
-    source = generate_sim_data(seed=42)
+    source = generate_sim_data(seed=42, dtype='f8', comm=comm)
     redges = numpy.linspace(10, 150, 10)
 
     # should be 'x', 'y', 'z'
@@ -149,8 +144,7 @@ def test_bad_los(comm):
 @MPITest([1])
 def test_bad_rmax(comm):
 
-    CurrentMPIComm.set(comm)
-    source = generate_sim_data(seed=42)
+    source = generate_sim_data(seed=42, dtype='f8', comm=comm)
     redges = numpy.linspace(10, 400., 10)
 
     # rmax is too big
@@ -160,8 +154,7 @@ def test_bad_rmax(comm):
 @MPITest([1])
 def test_noncubic_box(comm):
 
-    CurrentMPIComm.set(comm)
-    source = UniformCatalog(nbar=3e-6, BoxSize=[512., 512., 256], seed=42)
+    source = UniformCatalog(nbar=3e-6, BoxSize=[512., 512., 256], seed=42, comm=comm)
     redges = numpy.linspace(10, 100., 10)
 
     # cannot do non-cubic boxes
@@ -171,11 +164,9 @@ def test_noncubic_box(comm):
 @MPITest([1])
 def test_bad_boxsize(comm):
 
-    CurrentMPIComm.set(comm)
-
     # uniform source of particles
-    first = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42)
-    second = UniformCatalog(nbar=3e-5, BoxSize=256., seed=42)
+    first = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42, comm=comm)
+    second = UniformCatalog(nbar=3e-5, BoxSize=256., seed=42, comm=comm)
 
     # make the bin edges
     redges = numpy.linspace(10, 50., 10)
@@ -197,10 +188,9 @@ def test_bad_boxsize(comm):
 def test_survey_auto(comm):
 
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     # random particles
-    source = generate_survey_data(seed=42)
+    source = generate_survey_data(seed=42, dtype='f8', comm=comm)
 
     # add some weights b/w 0 and 1
     source['Weight'] = source.rng.uniform()
@@ -228,10 +218,9 @@ def test_survey_auto(comm):
 def test_survey_auto_endianess(comm):
 
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     # random particles
-    source = generate_survey_data(seed=42)
+    source = generate_survey_data(seed=42, dtype='f8', comm=comm)
 
     source['RA'] = source['RA'].astype('>f8')
     source['DEC'] = source['DEC'].astype('>f8')
@@ -263,13 +252,12 @@ def test_survey_auto_endianess(comm):
 def test_survey_cross(comm):
 
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     # random particles
-    first = generate_survey_data(seed=42, dtype='f4')
+    first = generate_survey_data(seed=42, dtype='f4', comm=comm)
     first['Weight'] = first.rng.uniform(dtype='f4')
     # mismatched dtype shouldn't fail
-    second = generate_survey_data(seed=84, dtype='f8')
+    second = generate_survey_data(seed=84, dtype='f8', comm=comm)
     second['Weight'] = second.rng.uniform()
 
     # make the bin edges
@@ -293,8 +281,7 @@ def test_survey_cross(comm):
 
 @MPITest([1])
 def test_survey_missing_columns(comm):
-    CurrentMPIComm.set(comm)
-    source = generate_survey_data(seed=42)
+    source = generate_survey_data(seed=42, dtype='f8', comm=comm)
     redges = numpy.linspace(10, 150, 10)
 
     # missing column
@@ -303,8 +290,7 @@ def test_survey_missing_columns(comm):
 
 @MPITest([1])
 def test_bad_mode(comm):
-    CurrentMPIComm.set(comm)
-    source = generate_survey_data(seed=42)
+    source = generate_survey_data(seed=42, dtype='f8', comm=comm)
     redges = numpy.linspace(10, 150, 10)
 
     # missing column
@@ -314,9 +300,8 @@ def test_bad_mode(comm):
 @MPITest([1, 4])
 def test_corrfunc_exception(comm):
 
-    CurrentMPIComm.set(comm)
     pos = numpy.zeros((100,3))
-    cat = ArrayCatalog({'Position':pos})
+    cat = ArrayCatalog({'Position':pos}, comm=comm)
 
     redges = numpy.linspace(0.01, 0.1, 10)
 
@@ -328,7 +313,6 @@ def test_corrfunc_exception(comm):
 def test_missing_corrfunc(comm):
 
     from nbodykit.algorithms.pair_counters.corrfunc.base import MissingCorrfuncError
-    CurrentMPIComm.set(comm)
 
     with pytest.raises(Exception):
         raise MissingCorrfuncError()
@@ -336,9 +320,8 @@ def test_missing_corrfunc(comm):
 @MPITest([1])
 def test_missing_Position(comm):
 
-    CurrentMPIComm.set(comm)
     pos = numpy.zeros((100,3))
-    cat = ArrayCatalog({'MissingPosition':pos})
+    cat = ArrayCatalog({'MissingPosition':pos}, comm=comm)
     redges = numpy.linspace(0.01, 0.1, 10)
 
     # cat is missing Position

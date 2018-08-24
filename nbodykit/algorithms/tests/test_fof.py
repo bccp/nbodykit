@@ -11,11 +11,9 @@ setup_logging("debug")
 def test_fof(comm):
     cosmo = cosmology.Planck15
 
-    CurrentMPIComm.set(comm)
-
     # lognormal particles
     Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
-    source = LogNormalCatalog(Plin=Plin, nbar=3e-3, BoxSize=128., Nmesh=32, seed=42)
+    source = LogNormalCatalog(Plin=Plin, nbar=3e-3, BoxSize=128., Nmesh=32, seed=42, comm=comm)
 
     # compute P(k,mu) and multipoles
     fof = FOF(source, linking_length=0.2, nmin=20)
@@ -27,11 +25,10 @@ def test_fof(comm):
 
 @MPITest([1, 4])
 def test_fof_parallel_no_merge(comm):
-    CurrentMPIComm.set(comm)
     from pmesh.pm import ParticleMesh
     pm = ParticleMesh(BoxSize=[8, 8, 8], Nmesh=[8, 8, 8], comm=comm)
     Q = pm.generate_uniform_particle_grid()
-    cat = ArrayCatalog({'Position' : Q}, BoxSize=pm.BoxSize, Nmesh=pm.Nmesh)
+    cat = ArrayCatalog({'Position' : Q}, BoxSize=pm.BoxSize, Nmesh=pm.Nmesh, comm=comm)
 
     fof = FOF(cat, linking_length=0.9, nmin=0)
     
@@ -41,7 +38,6 @@ def test_fof_parallel_no_merge(comm):
 
 @MPITest([1, 4])
 def test_fof_parallel_merge(comm):
-    CurrentMPIComm.set(comm)
     from pmesh.pm import ParticleMesh
     pm = ParticleMesh(BoxSize=[8, 8, 8], Nmesh=[8, 8, 8], comm=comm)
     Q = pm.generate_uniform_particle_grid(shift=0)
@@ -52,7 +48,7 @@ def test_fof_parallel_merge(comm):
     Q3 = Q.copy()
     Q3[:] += 0.02
     cat = ArrayCatalog({'Position' : 
-            numpy.concatenate([Q, Q1, Q2, Q3], axis=0)}, BoxSize=pm.BoxSize, Nmesh=pm.Nmesh)
+            numpy.concatenate([Q, Q1, Q2, Q3], axis=0)}, BoxSize=pm.BoxSize, Nmesh=pm.Nmesh, comm=comm)
 
     fof = FOF(cat, linking_length=0.011 * 3 ** 0.5, nmin=0, absolute=True)
 
@@ -64,11 +60,9 @@ def test_fof_parallel_merge(comm):
 def test_fof_nonperiodic(comm):
     cosmo = cosmology.Planck15
 
-    CurrentMPIComm.set(comm)
-
     # lognormal particles
     Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
-    source = LogNormalCatalog(Plin=Plin, nbar=3e-3, BoxSize=128., Nmesh=32, seed=42)
+    source = LogNormalCatalog(Plin=Plin, nbar=3e-3, BoxSize=128., Nmesh=32, seed=42, comm=comm)
 
     source['Density'] = KDDensity(source, margin=1).density
 

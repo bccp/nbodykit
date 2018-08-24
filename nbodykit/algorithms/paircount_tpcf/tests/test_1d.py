@@ -19,18 +19,18 @@ def make_corrfunc_input(data, cosmo):
 def gather_data(source, name):
     return numpy.concatenate(source.comm.allgather(source[name].compute()), axis=0)
 
-def generate_sim_data(seed):
-    return UniformCatalog(nbar=3e-4, BoxSize=512., seed=seed)
+def generate_sim_data(seed, comm):
+    return UniformCatalog(nbar=3e-4, BoxSize=512., seed=seed, comm=comm)
 
-def generate_survey_data(seed):
+def generate_survey_data(seed, comm):
 
     # make the data
     cosmo = cosmology.Planck15
-    d = UniformCatalog(nbar=3e-4, BoxSize=512., seed=seed)
+    d = UniformCatalog(nbar=3e-4, BoxSize=512., seed=seed, comm=comm)
     d['RA'], d['DEC'], d['Redshift'] = transform.CartesianToSky(d['Position'], cosmo)
 
     # make the randoms (ensure nbar is high enough to not have missing values)
-    r = UniformCatalog(nbar=3e-4, BoxSize=512., seed=seed*2)
+    r = UniformCatalog(nbar=3e-4, BoxSize=512., seed=seed*2, comm=comm)
     r['RA'], r['DEC'], r['Redshift'] = transform.CartesianToSky(r['Position'], cosmo)
 
     return d, r
@@ -85,10 +85,9 @@ def reference_survey_tpcf(data1, randoms1, redges, data2=None, randoms2=None):
 
 @MPITest([4])
 def test_sim_periodic_auto(comm):
-    CurrentMPIComm.set(comm)
 
     # uniform source of particles
-    source = generate_sim_data(seed=42)
+    source = generate_sim_data(seed=42, comm=comm)
 
     # make the bin edges
     redges = numpy.linspace(0.01, 20, 10)
@@ -104,11 +103,10 @@ def test_sim_periodic_auto(comm):
 
 @MPITest([4])
 def test_sim_nonperiodic_auto(comm):
-    CurrentMPIComm.set(comm)
 
     # uniform source of particles
-    source = generate_sim_data(seed=42)
-    randoms = generate_sim_data(seed=84)
+    source = generate_sim_data(seed=42, comm=comm)
+    randoms = generate_sim_data(seed=84, comm=comm)
 
     # make the bin edges
     redges = numpy.linspace(0.01, 20, 10)
@@ -131,11 +129,10 @@ def test_sim_nonperiodic_auto(comm):
 
 @MPITest([4])
 def test_sim_periodic_cross(comm):
-    CurrentMPIComm.set(comm)
 
     # uniform source of particles
-    data1 = generate_sim_data(seed=42)
-    data2 = generate_sim_data(seed=84)
+    data1 = generate_sim_data(seed=42, comm=comm)
+    data2 = generate_sim_data(seed=84, comm=comm)
 
     # make the bin edges
     redges = numpy.linspace(0.01, 20, 10)
@@ -152,10 +149,9 @@ def test_sim_periodic_cross(comm):
 @MPITest([4])
 def test_survey_auto(comm):
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     # data and randoms
-    data, randoms = generate_survey_data(seed=42)
+    data, randoms = generate_survey_data(seed=42, comm=comm)
 
     # make the bin edges
     redges = numpy.linspace(1.0, 10, 5)
@@ -184,11 +180,10 @@ def test_survey_auto(comm):
 @MPITest([4])
 def test_survey_cross(comm):
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     # data and randoms
-    data1, randoms1 = generate_survey_data(seed=42)
-    data2, randoms2 = generate_survey_data(seed=84)
+    data1, randoms1 = generate_survey_data(seed=42, comm=comm)
+    data2, randoms2 = generate_survey_data(seed=84, comm=comm)
 
     # make the bin edges
     redges = numpy.linspace(0.01, 10.0, 5)
@@ -219,11 +214,10 @@ def test_survey_cross(comm):
 
 @MPITest([1])
 def test_low_nbar_randoms(comm):
-    CurrentMPIComm.set(comm)
 
     # uniform source of particles
-    source = generate_sim_data(seed=42)
-    randoms = UniformCatalog(nbar=3e-6, BoxSize=512., seed=84)
+    source = generate_sim_data(seed=42, comm=comm)
+    randoms = UniformCatalog(nbar=3e-6, BoxSize=512., seed=84, comm=comm)
 
     # make the bin edges
     redges = numpy.linspace(0.01, 5.0, 2)

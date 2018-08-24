@@ -10,15 +10,13 @@ setup_logging()
 @MPITest([1, 4])
 def test_paint(comm):
 
-    CurrentMPIComm.set(comm)
-
     NBAR1 = 3e-5; WEIGHT1 = 1.05
     NBAR2 = 3e-3; WEIGHT2 = 0.95
     P0_FKP = 2e4
 
     # the catalog
-    source1 = UniformCatalog(nbar=NBAR1, BoxSize=512., seed=42)
-    source2 = UniformCatalog(nbar=NBAR2, BoxSize=512., seed=84)
+    source1 = UniformCatalog(nbar=NBAR1, BoxSize=512., seed=42, comm=comm)
+    source2 = UniformCatalog(nbar=NBAR2, BoxSize=512., seed=84, comm=comm)
 
     # add completeness weights
     source1['Weight'] = WEIGHT1

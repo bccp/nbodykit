@@ -11,12 +11,12 @@ setup_logging()
 def gather_data(source, name):
     return numpy.concatenate(source.comm.allgather(source[name].compute()), axis=0)
 
-def generate_sim_data(seed):
-    return UniformCatalog(nbar=3e-6, BoxSize=512., seed=seed)
+def generate_sim_data(seed, comm):
+    return UniformCatalog(nbar=3e-6, BoxSize=512., seed=seed, comm=comm)
 
-def generate_survey_data(seed):
+def generate_survey_data(seed, comm):
     cosmo = cosmology.Planck15
-    s = RandomCatalog(1000, seed=seed)
+    s = RandomCatalog(1000, seed=seed, comm=comm)
 
     # ra, dec, z
     s['Redshift'] = s.rng.normal(loc=0.5, scale=0.1)
@@ -57,10 +57,9 @@ def reference_survey_paircount(pos1, w1, redges, Nmu, pos2=None, w2=None, los=2)
 
 @MPITest([1, 3])
 def test_sim_periodic_auto(comm):
-    CurrentMPIComm.set(comm)
 
     # uniform source of particles
-    source = generate_sim_data(seed=42)
+    source = generate_sim_data(seed=42, comm=comm)
 
     # add some weights b/w 0 and 1
     source['Weight'] = source.rng.uniform()
@@ -83,10 +82,9 @@ def test_sim_periodic_auto(comm):
 
 @MPITest([3])
 def test_sim_diff_los(comm):
-    CurrentMPIComm.set(comm)
 
     # uniform source of particles
-    source = generate_sim_data(seed=42)
+    source = generate_sim_data(seed=42, comm=comm)
 
     # add some weights b/w 0 and 1
     source['Weight'] = source.rng.uniform()
@@ -109,10 +107,9 @@ def test_sim_diff_los(comm):
 
 @MPITest([1, 3])
 def test_sim_nonperiodic_auto(comm):
-    CurrentMPIComm.set(comm)
 
     # uniform source of particles
-    source = generate_sim_data(seed=42)
+    source = generate_sim_data(seed=42, comm=comm)
     source['Weight'] = numpy.random.random(size=len(source))
 
     # make the bin edges
@@ -134,11 +131,10 @@ def test_sim_nonperiodic_auto(comm):
 
 @MPITest([1, 3])
 def test_sim_periodic_cross(comm):
-    CurrentMPIComm.set(comm)
 
     # generate data
-    first = generate_sim_data(seed=42)
-    second = generate_sim_data(seed=84)
+    first = generate_sim_data(seed=42, comm=comm)
+    second = generate_sim_data(seed=84, comm=comm)
 
     # make the bin edges
     redges = numpy.linspace(10, 40., 10)
@@ -159,10 +155,9 @@ def test_sim_periodic_cross(comm):
 @MPITest([1, 4])
 def test_survey_auto(comm):
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     # random particles
-    source = generate_survey_data(seed=42)
+    source = generate_survey_data(seed=42, comm=comm)
     source['Weight'] = source.rng.uniform()
 
     # make the bin edges
@@ -185,12 +180,11 @@ def test_survey_auto(comm):
 @MPITest([1, 4])
 def test_survey_cross(comm):
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     # random particles
-    first = generate_survey_data(seed=42)
+    first = generate_survey_data(seed=42, comm=comm)
     first['Weight'] = first.rng.uniform()
-    second = generate_survey_data(seed=84)
+    second = generate_survey_data(seed=84, comm=comm)
     second['Weight'] = second.rng.uniform()
 
     # make the bin edges
@@ -220,10 +214,9 @@ def test_survey_cross(comm):
 
 @MPITest([1])
 def test_missing_Nmu(comm):
-    CurrentMPIComm.set(comm)
 
     # generate data
-    source = generate_sim_data(seed=42)
+    source = generate_sim_data(seed=42, comm=comm)
     redges = numpy.linspace(10, 150, 10)
 
     # missing Nmu

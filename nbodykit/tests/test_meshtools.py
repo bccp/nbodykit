@@ -13,7 +13,6 @@ setup_logging("debug")
 @MPITest([1])
 def test_wrong_ndim(comm):
 
-    CurrentMPIComm.set(comm)
     numpy.random.seed(42)
 
     pm = ParticleMesh(BoxSize=8.0, Nmesh=[8,8], comm=comm, dtype='f8')
@@ -29,7 +28,6 @@ def test_wrong_ndim(comm):
 @MPITest([1])
 def test_wrong_coords_shape(comm):
 
-    CurrentMPIComm.set(comm)
     numpy.random.seed(42)
 
     pm = ParticleMesh(BoxSize=8.0, Nmesh=[8, 8], comm=comm, dtype='f8')
@@ -48,7 +46,6 @@ def test_wrong_coords_shape(comm):
 @MPITest([1, 4])
 def test_2d_slab(comm):
 
-    CurrentMPIComm.set(comm)
     numpy.random.seed(42)
 
     pm = ParticleMesh(BoxSize=8.0, Nmesh=[8, 8], comm=comm, dtype='f8')
@@ -66,7 +63,6 @@ def test_2d_slab(comm):
 @MPITest([1, 4])
 def test_hermitian_weights(comm):
 
-    CurrentMPIComm.set(comm)
     numpy.random.seed(42)
 
     pm = ParticleMesh(BoxSize=8.0, Nmesh=[8, 8, 8], comm=comm, dtype='f8')

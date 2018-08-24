@@ -10,11 +10,9 @@ setup_logging()
 @MPITest([1])
 def test_boxsize_nmesh(comm):
 
-    CurrentMPIComm.set(comm)
-
     # the catalog
-    source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42)
-    source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84)
+    source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42, comm=comm)
+    source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84, comm=comm)
     cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2)
 
     # this should work (infer BoxSize)
@@ -32,11 +30,9 @@ def test_boxsize_nmesh(comm):
 @MPITest([1, 4])
 def test_getitem(comm):
 
-    CurrentMPIComm.set(comm)
-
     # the catalog
-    source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42)
-    source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84)
+    source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42, comm=comm)
+    source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84, comm=comm)
     cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2)
 
     # the mesh
@@ -49,11 +45,9 @@ def test_getitem(comm):
 @MPITest([1, 4])
 def test_compute(comm):
 
-    CurrentMPIComm.set(comm)
-
     # the catalog
-    source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42)
-    source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84)
+    source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42, comm=comm)
+    source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84, comm=comm)
     cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2)
 
     # the meshes
@@ -79,14 +73,12 @@ def test_compute(comm):
 @MPITest([1, 4])
 def test_paint_interlaced(comm):
 
-    CurrentMPIComm.set(comm)
-
     # the test case fails only if there is enough particles to trigger
     # the second loop of the interlaced painter; these parameters will do it.
 
     # the catalog
-    source1 = UniformCatalog(nbar=1e-0, BoxSize=111, seed=111)
-    source2 = UniformCatalog(nbar=1e-0, BoxSize=111, seed=111)
+    source1 = UniformCatalog(nbar=1e-0, BoxSize=111, seed=111, comm=comm)
+    source2 = UniformCatalog(nbar=1e-0, BoxSize=111, seed=111, comm=comm)
     source1['Weight'] = 1.0
     source2['Weight'] = 0.1
     cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2)

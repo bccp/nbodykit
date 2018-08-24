@@ -12,13 +12,12 @@ def test_save(comm):
     N = 1000
     FSKY = 1.0
     
-    CurrentMPIComm.set(comm)
     cosmo = cosmology.Planck15
     
     # create the source
-    source = RandomCatalog(N, seed=42)
+    source = RandomCatalog(N, seed=42, comm=comm)
     source['z'] = source.rng.normal(loc=0.5, scale=0.1)
-    
+
     # compute the histogram
     r = RedshiftHistogram(source, FSKY, cosmo, redshift='z')
     r.run()    
@@ -39,11 +38,10 @@ def test_unweighted(comm):
     N = 1000
     FSKY = 1.0
     
-    CurrentMPIComm.set(comm)
     cosmo = cosmology.Planck15
     
     # create the source
-    source = RandomCatalog(N, seed=42)
+    source = RandomCatalog(N, seed=42, comm=comm)
     source['z'] = source.rng.normal(loc=0.5, scale=0.1)
     
     # compute the histogram
@@ -58,11 +56,10 @@ def test_weighted(comm):
     N = 1000
     FSKY = 1.0
     
-    CurrentMPIComm.set(comm)
     cosmo = cosmology.Planck15
     
     # create the source
-    source = RandomCatalog(N, seed=42)
+    source = RandomCatalog(N, seed=42, comm=comm)
     source['z'] = source.rng.normal(loc=0.5, scale=0.1)
     source['weight'] = source.rng.uniform(0, high=1.)
     

@@ -12,12 +12,11 @@ def test_fftrecon(comm):
     cosmo = cosmology.Planck15
     # this should generate 15 particles
     Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
-    CurrentMPIComm.set(comm)
 
     # very high bias to increase the accuracy of reconstruction;
     # since shotnoise is high.
-    data = LogNormalCatalog(Plin=Plin, bias=4, nbar=1e-4, BoxSize=1024., Nmesh=64, seed=42)
-    ran = UniformCatalog(nbar=1e-4, BoxSize=1024., seed=42)
+    data = LogNormalCatalog(Plin=Plin, bias=4, nbar=1e-4, BoxSize=1024., Nmesh=64, seed=42, comm=comm)
+    ran = UniformCatalog(nbar=1e-4, BoxSize=1024., seed=42, comm=comm)
 
     # lognormal mocks don't have the correct small scale power for reconstruction,
     # so we heavily smooth and assert the reconstruction

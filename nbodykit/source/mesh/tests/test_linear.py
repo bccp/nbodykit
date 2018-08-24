@@ -10,11 +10,10 @@ setup_logging()
 def test_paint(comm):
 
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     # linear grid
     Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
-    source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42)
+    source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42, comm=comm)
 
     # compute P(k) from linear grid
     r = FFTPower(source, mode='1d', Nmesh=64, dk=0.01, kmin=0.005)

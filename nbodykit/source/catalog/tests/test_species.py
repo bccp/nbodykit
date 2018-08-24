@@ -11,10 +11,8 @@ setup_logging()
 @MPITest([1, 4])
 def test_get_syntax(comm):
 
-    CurrentMPIComm.set(comm)
-
-    source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42)
-    source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84)
+    source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42, comm=comm)
+    source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84, comm=comm)
     cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2)
 
     # test either get syntax
@@ -30,10 +28,8 @@ def test_get_syntax(comm):
 @MPITest([1, 4])
 def test_columns(comm):
 
-    CurrentMPIComm.set(comm)
-
-    source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42)
-    source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84)
+    source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42, comm=comm)
+    source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84, comm=comm)
 
     cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2, BoxSize=512., Nmesh=128)
 
@@ -48,10 +44,8 @@ def test_columns(comm):
 @MPITest([1, 4])
 def test_bad_input(comm):
 
-    CurrentMPIComm.set(comm)
-
-    source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42)
-    source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84)
+    source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42, comm=comm)
+    source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84, comm=comm)
 
     # need 2 species
     with pytest.raises(ValueError):
@@ -74,10 +68,8 @@ def test_bad_input(comm):
 @MPITest([1, 4])
 def test_getitem(comm):
 
-    CurrentMPIComm.set(comm)
-
-    source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42)
-    source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84)
+    source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42, comm=comm)
+    source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84, comm=comm)
 
     cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2)
 
@@ -93,10 +85,8 @@ def test_getitem(comm):
 @MPITest([1, 4])
 def test_setitem(comm):
 
-    CurrentMPIComm.set(comm)
-
-    source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42)
-    source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84)
+    source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42, comm=comm)
+    source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84, comm=comm)
 
     cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2)
 
@@ -119,10 +109,8 @@ def test_setitem(comm):
 @MPITest([1, 4])
 def test_bad_slice(comm):
 
-    CurrentMPIComm.set(comm)
-
-    source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42)
-    source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84)
+    source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42, comm=comm)
+    source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84, comm=comm)
 
     cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2)
 
