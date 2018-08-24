@@ -92,8 +92,7 @@ class MPICorrfuncCallable(object):
     binning_dims = None
     logger = logging.getLogger("MPICorrfuncCallable")
 
-    @CurrentMPIComm.enable
-    def __init__(self, callable, comm=None, show_progress=True):
+    def __init__(self, callable, comm, show_progress=True):
 
         self.callable = callable
         self.comm = comm

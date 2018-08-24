@@ -171,15 +171,15 @@ class SurveyDataPairCount(PairCountBase):
         # get the Corrfunc callable based on mode
         if attrs['mode'] in ['1d', '2d']:
             from .corrfunc.mocks import DDsmu_mocks
-            func = DDsmu_mocks(attrs['edges'], Nmu, show_progress=attrs['show_progress'])
+            func = DDsmu_mocks(attrs['edges'], Nmu, comm=self.comm, show_progress=attrs['show_progress'])
 
         elif attrs['mode'] == 'projected':
             from .corrfunc.mocks import DDrppi_mocks
-            func = DDrppi_mocks(attrs['edges'], attrs['pimax'], show_progress=attrs['show_progress'])
+            func = DDrppi_mocks(attrs['edges'], attrs['pimax'], comm=self.comm, show_progress=attrs['show_progress'])
 
         elif attrs['mode'] == 'angular':
             from .corrfunc.mocks import DDtheta_mocks
-            func = DDtheta_mocks(attrs['edges'], show_progress=attrs['show_progress'])
+            func = DDtheta_mocks(attrs['edges'], comm=self.comm, show_progress=attrs['show_progress'])
 
         # do the calculation
         self.pairs = func(pos1, w1, pos2, w2, **attrs['config'])

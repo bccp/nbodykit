@@ -14,9 +14,9 @@ class CorrfuncMocksCallable(MPICorrfuncCallable):
     """
     binning_dims = None
 
-    def __init__(self, func, edges, show_progress=True):
+    def __init__(self, func, edges, comm, show_progress=True):
 
-        MPICorrfuncCallable.__init__(self, func, show_progress=show_progress)
+        MPICorrfuncCallable.__init__(self, func, comm, show_progress=show_progress)
         self.edges = edges
 
     def __call__(self, pos1, w1, pos2, w2, **config):
@@ -58,7 +58,7 @@ class DDsmu_mocks(CorrfuncMocksCallable):
     """
     binning_dims = ['s', 'mu']
 
-    def __init__(self, edges, Nmu, show_progress=True):
+    def __init__(self, edges, Nmu, comm, show_progress=True):
         try:
             from Corrfunc.mocks import DDsmu_mocks
         except ImportError:
@@ -67,6 +67,7 @@ class DDsmu_mocks(CorrfuncMocksCallable):
         self.Nmu = Nmu
         mu_edges = numpy.linspace(0., 1., Nmu+1)
         CorrfuncMocksCallable.__init__(self, DDsmu_mocks, [edges, mu_edges],
+                                        comm, 
                                         show_progress=show_progress)
 
     def __call__(self, pos1, w1, pos2, w2, **config):
@@ -80,13 +81,14 @@ class DDtheta_mocks(CorrfuncMocksCallable):
     """
     binning_dims = ['theta']
 
-    def __init__(self, edges, show_progress=True):
+    def __init__(self, edges, comm, show_progress=True):
         try:
             from Corrfunc.mocks import DDtheta_mocks
         except ImportError:
             raise MissingCorrfuncError()
 
         CorrfuncMocksCallable.__init__(self, DDtheta_mocks, [edges],
+                                        comm,
                                         show_progress=show_progress)
 
 class DDrppi_mocks(CorrfuncMocksCallable):
@@ -95,7 +97,7 @@ class DDrppi_mocks(CorrfuncMocksCallable):
     """
     binning_dims = ['rp', 'pi']
 
-    def __init__(self, edges, pimax, show_progress=True):
+    def __init__(self, edges, pimax, comm, show_progress=True):
         try:
             from Corrfunc.mocks import DDrppi_mocks
         except ImportError:
@@ -104,6 +106,7 @@ class DDrppi_mocks(CorrfuncMocksCallable):
         self.pimax = pimax
         pi_bins = numpy.linspace(0, pimax, int(pimax)+1)
         CorrfuncMocksCallable.__init__(self, DDrppi_mocks, [edges, pi_bins],
+                                        comm,
                                         show_progress=show_progress)
 
     def __call__(self, pos1, w1, pos2, w2, **config):

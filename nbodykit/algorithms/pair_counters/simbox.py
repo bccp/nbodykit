@@ -197,6 +197,8 @@ class SimulationBoxPairCount(PairCountBase):
 
         # get the Corrfunc callable based on mode
         kws = {k:attrs[k] for k in ['periodic', 'BoxSize', 'show_progress']}
+        kws['comm'] = self.comm
+
         if attrs['mode'] == '1d':
             from .corrfunc.theory import DD
             func = DD(attrs['edges'], **kws)
