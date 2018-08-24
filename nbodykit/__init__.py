@@ -4,6 +4,9 @@ from mpi4py import MPI
 
 import dask
 
+import warnings
+
+
 try:
     # prevents too many threads exception when using MPI and dask
     # by disabling threading in dask.
@@ -17,11 +20,13 @@ _global_options['global_cache_size'] = 1e8 # 100 MB
 _global_options['dask_chunk_size'] = 100000
 _global_options['paint_chunk_size'] = 1024 * 1024 * 8
 
+from contextlib import contextmanager
+
 class CurrentMPIComm(object):
     """
     A class to faciliate getting and setting the current MPI communicator.
     """
-    _instance = None
+    _stack = [MPI.COMM_WORLD]
 
     @staticmethod
     def enable(func):
@@ -39,24 +44,61 @@ class CurrentMPIComm(object):
         return wrapped
 
     @classmethod
+    @contextmanager
+    def enter(cls, comm):
+        """
+        Enters a context where the current default MPI communicator is modified to the
+        argument `comm`. After leaving the context manager the communicator is restored.
+
+        Example:
+
+        .. code ::
+
+            with CurrentMPIComm.enter(comm):
+                cat = UniformCatalog(...)
+
+        is identical to 
+
+        .. code ::
+
+            cat = UniformCatalog(..., comm=comm)
+
+        """
+        cls.push(comm)
+
+        yield
+
+        cls.pop()
+
+    @classmethod
+    def push(cls, comm):
+        """ Switch to a new current default MPI communicator """
+        cls._stack.append(comm)
+        cls._stack[-1].barrier()
+
+    @classmethod
+    def pop(cls):
+        """ Restore to the previous current default MPI communicator """
+        cls._stack.pop()
+        cls._stack[-1].barrier()
+
+    @classmethod
     def get(cls):
         """
-        Get the current MPI communicator, returning ``MPI.COMM_WORLD``
-        if it has not be explicitly set yet.
+        Get the default current MPI communicator. The initial value is ``MPI.COMM_WORLD``.
         """
-        # initialize MPI and set the comm if we need to
-        if not cls._instance:
-            comm = MPI.COMM_WORLD
-            cls._instance = comm
-
-        return cls._instance
+        return cls._stack[-1]
 
     @classmethod
     def set(cls, comm):
         """
         Set the current MPI communicator to the input value.
         """
-        cls._instance = comm
+
+        warnings.warn("CurrentMPIComm.set is deprecated. Use `with CurrentMPIComm.enter(comm):` instead")
+        cls._stack[-1].barrier()
+        cls._stack[-1] = comm
+        cls._stack[-1].barrier()
 
 class GlobalCache(object):
     """
