@@ -200,20 +200,22 @@ class CatalogSourceBase(object):
         else:
             return da.from_array(array, chunks=_global_options['dask_chunk_size'])
 
-    def __new__(cls, *args, **kwargs):
+    @staticmethod
+    def create_instance(cls, comm):
 
         obj = object.__new__(cls)
-
-        # ensure self.comm is set, though usually already set by the child.
-        obj.comm = kwargs.get('comm', CurrentMPIComm.get())
-
-        # user-provided overrides and defaults for columns
-        obj._overrides = {}
-
-        # stores memory owner
-        obj.base = None
+        CatalogSourceBase.__init__(obj, comm)
 
         return obj
+
+    def __init__(self, comm):
+        # user-provided overrides and defaults for columns
+        self._overrides = {}
+
+        # stores memory owner
+        self.base = None
+
+        self.comm = comm
 
     def __finalize__(self, other):
         """
@@ -473,7 +475,7 @@ class CatalogSourceBase(object):
             a new CatalogSource that holds all of the data columns of ``self``
         """
         # a new empty object with proper size
-        toret = CatalogSourceBase.__new__(self.__class__, comm=self.comm)
+        toret = CatalogSourceBase.create_instance(self.__class__, comm=self.comm)
         toret._size = self.size
         toret._csize = self.csize
 
@@ -658,7 +660,7 @@ class CatalogSourceBase(object):
         """
         # an empty class
         type = self.__class__ if type is None else type
-        obj = CatalogSourceBase.__new__(type, comm=self.comm)
+        obj = CatalogSourceBase.create_instsance(type, comm=self.comm)
 
         # propagate the size attributes
         obj._size = self.size
@@ -830,7 +832,7 @@ class CatalogSource(CatalogSourceBase):
             set for the returned object are :attr:`size` and :attr:`csize`.
         """
         # the new empty object to return
-        obj = CatalogSourceBase.__new__(cls, comm=comm)
+        obj = CatalogSourceBase.create_instance(cls, comm=comm)
 
         # compute the sizes
         obj._size = size
@@ -842,7 +844,9 @@ class CatalogSource(CatalogSourceBase):
 
         return obj
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, comm):
+
+        CatalogSourceBase.__init__(self, comm)
 
         # if size is implemented, compute the csize
         if self.size is not NotImplemented:

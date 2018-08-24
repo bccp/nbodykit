@@ -16,6 +16,7 @@ def test_decomposed(comm):
 
     decomposed = source.decompose(domain=source.pm.domain, columns=None)
 
+    assert decomposed.comm == source.comm
     assert 'Position' in decomposed
     assert 'Velocity' in decomposed
 
@@ -23,6 +24,7 @@ def test_decomposed(comm):
     assert len(decomposed['Velocity'].compute()) == decomposed.size
 
     decomposed = source.decompose(domain=source.pm.domain, columns=['Position'])
+    assert decomposed.comm == source.comm
 
     assert 'Position' in decomposed
     assert 'Velocity' not in decomposed
