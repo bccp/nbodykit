@@ -62,8 +62,9 @@ def test_map(comm):
 
     def fftpower(seed):
 
-        # uniform particles
-        source = UniformCatalog(nbar=3e-7, BoxSize=1380., seed=seed, comm=comm)
+        # uniform particles shall not use comm, since this is testing
+        # TaskManager setting CurrentMPIComm
+        source = UniformCatalog(nbar=3e-7, BoxSize=1380., seed=seed)
 
         # compute P(k,mu) and multipoles
         r = FFTPower(source, mode='2d', Nmesh=8, poles=[0,2,4])
