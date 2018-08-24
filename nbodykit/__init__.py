@@ -21,12 +21,14 @@ _global_options['dask_chunk_size'] = 100000
 _global_options['paint_chunk_size'] = 1024 * 1024 * 8
 
 from contextlib import contextmanager
+import logging
 
 class CurrentMPIComm(object):
     """
     A class to faciliate getting and setting the current MPI communicator.
     """
     _stack = [MPI.COMM_WORLD]
+    logger = logging.getLogger("CurrentMPIComm")
 
     @staticmethod
     def enable(func):
@@ -74,13 +76,20 @@ class CurrentMPIComm(object):
     def push(cls, comm):
         """ Switch to a new current default MPI communicator """
         cls._stack.append(comm)
+        if comm.rank == 0:
+            cls.logger.info("Entering a current communicator of size %d" % comm.size)
         cls._stack[-1].barrier()
-
     @classmethod
     def pop(cls):
         """ Restore to the previous current default MPI communicator """
-        cls._stack.pop()
+        comm = cls._stack[-1]
+        if comm.rank == 0:
+            cls.logger.info("Leaving current communicator of size %d" % comm.size)
         cls._stack[-1].barrier()
+        cls._stack.pop()
+        comm = cls._stack[-1]
+        if comm.rank == 0:
+            cls.logger.info("Restored current communicator to size %d" % comm.size)
 
     @classmethod
     def get(cls):

@@ -53,6 +53,13 @@ def test_compute(comm):
         source.save(output="./test_paint-complex-%d.bigfile" % comm.size, mode='complex')
 
 @MPITest([1, 4])
+def test_current_mpicomm(comm):
+    cosmo = cosmology.Planck15
+
+    with CurrentMPIComm.enter(comm):
+        pass
+
+@MPITest([1, 4])
 def test_set_options(comm):
 
     with CurrentMPIComm.enter(comm):
