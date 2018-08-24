@@ -245,9 +245,10 @@ def test_delitem(comm):
     del source['test']
     assert 'test' not in source
 
-def test_columnaccessor():
+@MPITest([1])
+def test_columnaccessor(comm):
     from nbodykit.base.catalog import ColumnAccessor
-    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
 
     c = source['Position']
     truth = c[0].compute()
