@@ -148,7 +148,7 @@ def test_save(comm):
     hod.save('tmp-hod.bigfile', ['Position', 'Velocity', 'gal_type'])
 
     # read tmp file
-    cat = BigFileCatalog('tmp-hod.bigfile', header="Header")
+    cat = BigFileCatalog('tmp-hod.bigfile', header="Header", comm=comm)
 
     try:
         # check attrs
