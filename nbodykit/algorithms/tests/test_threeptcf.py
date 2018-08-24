@@ -54,7 +54,7 @@ def test_sim_threeptcf(comm):
     # save to temp file
     filename = 'test-threept-cf.json'
     r.save(filename)
-    r2 = SimulationBox3PCF.load(filename)
+    r2 = SimulationBox3PCF.load(filename, comm=comm)
     assert_array_equal(r.poles.data, r2.poles.data)
 
     if comm.rank == 0:
@@ -103,7 +103,7 @@ def test_survey_threeptcf(comm):
     # save to temp file
     filename = 'test-threept-cf.json'
     r.save(filename)
-    r2 = SurveyData3PCF.load(filename)
+    r2 = SurveyData3PCF.load(filename, comm=comm)
     assert_array_equal(r.poles.data, r2.poles.data)
 
     if comm.rank == 0:

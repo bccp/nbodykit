@@ -48,7 +48,7 @@ def test_fftcorr_save(comm):
     r = FFTCorr(source, mode='2d', Nmesh=32)
     r.save('fftcorr-test.json')
 
-    r2 = FFTCorr.load('fftcorr-test.json')
+    r2 = FFTCorr.load('fftcorr-test.json', comm=comm)
 
     assert_array_equal(r.corr['r'], r2.corr['r'])
     assert_array_equal(r.corr['corr'], r2.corr['corr'])

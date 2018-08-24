@@ -23,7 +23,7 @@ def test_save(comm):
     r.run()    
     r.save('zhist-test.json')
 
-    r2 = RedshiftHistogram.load('zhist-test.json')
+    r2 = RedshiftHistogram.load('zhist-test.json', comm=comm)
 
     assert_array_equal(r.bin_edges, r.bin_edges)
     assert_array_equal(r.bin_centers, r2.bin_centers)

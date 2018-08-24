@@ -98,7 +98,7 @@ def test_survey_cross(comm):
 
     # test save
     r.save('angular-paircount-test.json')
-    r2 = SurveyDataPairCount.load('angular-paircount-test.json')
+    r2 = SurveyDataPairCount.load('angular-paircount-test.json', comm=comm)
     assert_array_equal(r.pairs.data, r2.pairs.data)
 
     if comm.rank == 0: os.remove('angular-paircount-test.json')
@@ -158,7 +158,7 @@ def test_sim_cross(comm):
 
     # test save
     r.save('angular-paircount-test.json')
-    r2 = SimulationBoxPairCount.load('angular-paircount-test.json')
+    r2 = SimulationBoxPairCount.load('angular-paircount-test.json', comm=comm)
     assert_array_equal(r.pairs.data, r2.pairs.data)
 
     if comm.rank == 0: os.remove('angular-paircount-test.json')

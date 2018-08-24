@@ -242,7 +242,7 @@ def test_selection(comm):
     r.save("conv-power-with-selection.json")
 
     # load and check output
-    r2 = ConvolvedFFTPower.load("conv-power-with-selection.json")
+    r2 = ConvolvedFFTPower.load("conv-power-with-selection.json", comm=comm)
     assert_array_equal(r.poles.data, r2.poles.data)
 
 @MPITest([1, 4])

@@ -83,7 +83,7 @@ def test_fftpower_save(comm):
     r = FFTPower(source, mode='2d', Nmesh=32)
     r.save('fftpower-test.json')
 
-    r2 = FFTPower.load('fftpower-test.json')
+    r2 = FFTPower.load('fftpower-test.json', comm=comm)
 
     assert_array_equal(r.power['k'], r2.power['k'])
     assert_array_equal(r.power['power'], r2.power['power'])
