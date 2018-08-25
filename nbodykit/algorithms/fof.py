@@ -3,7 +3,7 @@ from __future__ import print_function
 import numpy
 import logging
 from mpi4py import MPI
-from nbodykit.source import ArrayCatalog
+from nbodykit.source.catalog import ArrayCatalog
 from nbodykit.utils import split_size_3d
 
 class FOF(object):

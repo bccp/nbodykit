@@ -7,7 +7,6 @@ from nbodykit.binned_statistic import BinnedStatistic
 from nbodykit.meshtools import SlabIterator
 from nbodykit.base.catalog import CatalogSourceBase
 from nbodykit.base.mesh import MeshSource
-from nbodykit.base.catalogmesh import CatalogMesh
 
 class FFTBase(object):
     """
@@ -135,12 +134,7 @@ class FFTBase(object):
         # add shotnoise (nonzero only for auto-spectra)
         Pshot = 0
         if self.first is self.second:
-            if 'shotnoise' not in c1.attrs:
-                if isinstance(self.first, CatalogMesh):
-                    import warnings
-                    warnings.warn(("no 'shotnoise' found for auto power spectrum "
-                                   "of discrete data in FFTPower"))
-            else:
+            if 'shotnoise' in c1.attrs:
                 Pshot = c1.attrs['shotnoise']
         attrs['shotnoise'] = Pshot
 

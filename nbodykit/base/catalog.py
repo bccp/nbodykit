@@ -751,7 +751,7 @@ class CatalogSourceBase(object):
             a mesh object that provides an interface for gridding particle
             data onto a specified mesh
         """
-        from nbodykit.base.catalogmesh import CatalogMesh
+        from nbodykit.source.mesh import CatalogMesh
         from pmesh.window import methods
 
         # make sure all of the columns exist

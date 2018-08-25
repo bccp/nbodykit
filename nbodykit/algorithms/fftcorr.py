@@ -7,7 +7,6 @@ from nbodykit.binned_statistic import BinnedStatistic
 from nbodykit.meshtools import SlabIterator
 from nbodykit.base.catalog import CatalogSourceBase
 from nbodykit.base.mesh import MeshSource
-from nbodykit.base.catalogmesh import CatalogMesh
 
 from .fftpower import FFTBase
 from .fftpower import project_to_basis

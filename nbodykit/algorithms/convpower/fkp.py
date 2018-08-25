@@ -6,7 +6,7 @@ import warnings
 from nbodykit import CurrentMPIComm
 from nbodykit.utils import timer
 from nbodykit.binned_statistic import BinnedStatistic
-from .fftpower import project_to_basis
+from nbodykit.algorithms.fftpower import project_to_basis
 from pmesh.pm import ComplexField
 
 def get_real_Ylm(l, m):

@@ -10,9 +10,9 @@ from .file import Gadget1Catalog
 from .array import ArrayCatalog
 from .lognormal import LogNormalCatalog
 from .uniform import UniformCatalog, RandomCatalog
-from .fkp import FKPCatalog
 from .halos import HaloCatalog
 from .species import MultipleSpeciesCatalog
+from .decomposed import DecomposedCatalog
 
 __all__ = ['CSVCatalog',
            'BinaryCatalog',
@@ -24,6 +24,6 @@ __all__ = ['CSVCatalog',
            'ArrayCatalog',
            'LogNormalCatalog',
            'UniformCatalog', 'RandomCatalog',
-           'FKPCatalog',
            'HaloCatalog',
+           'DecomposedCatalog',
            'MultipleSpeciesCatalog']
