@@ -1,4 +1,5 @@
 from nbodykit.source.catalogmesh.species import MultipleSpeciesCatalogMesh
+from nbodykit.base.catalogmesh import CatalogMesh
 from nbodykit.utils import attrs_to_dict
 import logging
 import numpy
@@ -64,6 +65,39 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         self.fkp_weight = fkp_weight
         self.nbar = nbar
 
+    def __getitem__(self, key):
+        """
+        If indexed by a species name, return a CatalogMesh object holding
+        only the data columns for that species with the same parameters as
+        the current object.
+
+        If not a species name, this has the same behavior as
+        :func:`CatalogSource.__getitem__`.
+        """
+        assert key in self.source.species, "the species is not defined in the source"
+
+        # CatalogSource holding only requested species
+        cat = self.source[key]
+
+        assert cat.comm is self.comm
+
+        # view as a catalog mesh
+        mesh = CatalogMesh(cat,
+                BoxSize=self.attrs['BoxSize'],
+                Nmesh=self.attrs['Nmesh'],
+                dtype=self.dtype,
+                Weight=self.TotalWeight(key),
+                Value=cat[self.value],
+                Selection=cat[self.selection],
+                Position=self.RecenteredPosition(key),
+                interlaced=self.interlaced,
+                compensated=self.compensated,
+                resampler=self.window,
+            )
+
+        # attach attributes from self
+        return mesh.__finalize__(self)
+
     def recenter_box(self, BoxSize, BoxCenter):
         """
         Re-center the box by applying the new box center to the column specified
@@ -124,14 +158,6 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         :class:`~pmesh.pm.RealField` :
             the field object holding the FKP density field in real space
         """
-        # add necessary FKP columns for INTERNAL use
-        for name in self.source.species:
-
-            # a total weight for the mesh is completeness weight x FKP weight
-            self.source[name]['_TotalWeight'] = self.TotalWeight(name)
-
-            # position on the mesh is re-centered to [-BoxSize/2, BoxSize/2]
-            self.source[name]['_RecenteredPosition'] = self.RecenteredPosition(name)
 
         attrs = {}
 
@@ -160,11 +186,6 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         real.attrs.update(attrs)
         real.attrs.pop('data.shotnoise', None)
         real.attrs.pop('randoms.shotnoise', None)
-
-        # delete internal columns
-        for name in self.source.species:
-            del self.source[name+'/_RecenteredPosition']
-            del self.source[name+'/_TotalWeight']
 
         return real
 

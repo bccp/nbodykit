@@ -13,6 +13,7 @@ def test_boxsize_nmesh(comm):
     # the catalog
     source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42, comm=comm)
     source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84, comm=comm)
+
     cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2)
 
     # this should work (infer BoxSize)

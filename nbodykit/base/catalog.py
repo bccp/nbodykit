@@ -780,13 +780,13 @@ class CatalogSourceBase(object):
         return CatalogMesh(self, Nmesh=Nmesh,
                                  BoxSize=BoxSize,
                                  dtype=dtype,
-                                 weight=weight,
-                                 selection=selection,
-                                 value=value,
-                                 position=position,
+                                 Weight=self[weight],
+                                 Selection=self[selection],
+                                 Value=self[value],
+                                 Position=self[position],
                                  interlaced=interlaced,
                                  compensated=compensated,
-                                 window=window)
+                                 resampler=window)
 
 class CatalogSource(CatalogSourceBase):
     """

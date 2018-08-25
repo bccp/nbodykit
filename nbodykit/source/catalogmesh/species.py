@@ -1,3 +1,4 @@
+from nbodykit.base.catalogmesh import DeprecatedCatalogMesh
 from nbodykit.base.catalogmesh import CatalogMesh
 from nbodykit.base.catalog import CatalogSource
 from nbodykit.utils import attrs_to_dict
@@ -6,7 +7,7 @@ import numpy
 import logging
 from six import string_types
 
-class MultipleSpeciesCatalogMesh(CatalogMesh):
+class MultipleSpeciesCatalogMesh(DeprecatedCatalogMesh):
     """
     A subclass of :class:`~nbodykit.base.catalogmesh.CatalogMesh`
     designed to paint the density field from a sum of multiple types
@@ -46,7 +47,7 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
             raise TypeError(("the input source for MultipleSpeciesCatalogMesh "
                              "must be a MultipleSpeciesCatalog"))
 
-        CatalogMesh.__init__(self, source, *args, **kwargs)
+        DeprecatedCatalogMesh.__init__(self, source, *args, **kwargs)
 
     def __iter__(self):
         return iter(self.source)
@@ -71,13 +72,13 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
                     BoxSize=self.attrs['BoxSize'],
                     Nmesh=self.attrs['Nmesh'],
                     dtype=self.dtype,
-                    weight=self.weight,
-                    value=self.value,
-                    selection=self.selection,
-                    position=self.position,
+                    Weight=cat[self.weight],
+                    Value=cat[self.value],
+                    Selection=cat[self.selection],
+                    Position=cat[self.position],
                     interlaced=self.interlaced,
                     compensated=self.compensated,
-                    window=self.window,
+                    resampler=self.window,
                 )
 
             # attach attributes from self
