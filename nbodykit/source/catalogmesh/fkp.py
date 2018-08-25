@@ -56,8 +56,9 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         position = '_RecenteredPosition'
         weight = '_TotalWeight'
 
-        MultipleSpeciesCatalogMesh.__init__(self, source, BoxSize, Nmesh,
-                        dtype, weight, value, selection, position=position,
+        MultipleSpeciesCatalogMesh.__init__(self, source=source,
+                        BoxSize=BoxSize, Nmesh=Nmesh,
+                        dtype=dtype, weight=weight, value=value, selection=selection, position=position,
                         interlaced=interlaced, compensated=compensated, window=window)
 
         self._uncentered_position = uncentered_position

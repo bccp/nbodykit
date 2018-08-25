@@ -1,4 +1,3 @@
-from nbodykit.base.catalogmesh import DeprecatedCatalogMesh
 from nbodykit.base.catalogmesh import CatalogMesh
 from nbodykit.base.catalog import CatalogSource
 from nbodykit.utils import attrs_to_dict
@@ -7,7 +6,7 @@ import numpy
 import logging
 from six import string_types
 
-class MultipleSpeciesCatalogMesh(DeprecatedCatalogMesh):
+class MultipleSpeciesCatalogMesh(MeshSource):
     """
     A subclass of :class:`~nbodykit.base.catalogmesh.CatalogMesh`
     designed to paint the density field from a sum of multiple types
@@ -40,17 +39,31 @@ class MultipleSpeciesCatalogMesh(DeprecatedCatalogMesh):
     """
     logger = logging.getLogger('MultipleSpeciesCatalogMesh')
 
-    def __init__(self, source, *args, **kwargs):
+    def __init__(self, source, Nmesh, BoxSize, dtype,
+            selection, position, weight, value,
+            interlaced, compensated, window):
 
         from nbodykit.source.catalog import MultipleSpeciesCatalog
         if not isinstance(source, MultipleSpeciesCatalog):
             raise TypeError(("the input source for MultipleSpeciesCatalogMesh "
                              "must be a MultipleSpeciesCatalog"))
 
-        DeprecatedCatalogMesh.__init__(self, source, *args, **kwargs)
+        MeshSource.__init__(self, Nmesh=Nmesh, BoxSize=Boxsize, dtype=dtype, comm=source.comm)
+
+        self.source = source
+        self.weight = weight
+        self.position = position
+        self.value = value
+        self.selection = selection
+        self.interlaced = interlaced
+        self.compensated = compensated
+        self.resampler = resampler
+        self.dtype = dtype
+
+        self.species = source.species
 
     def __iter__(self):
-        return iter(self.source)
+        return iter(self.species)
 
     def __getitem__(self, key):
         """
@@ -61,10 +74,9 @@ class MultipleSpeciesCatalogMesh(DeprecatedCatalogMesh):
         If not a species name, this has the same behavior as
         :func:`CatalogSource.__getitem__`.
         """
-        # return a Mesh holding only the specific species
-        if isinstance(key, string_types) and key in self.source.species:
 
-            # CatalogSource holding only requested species
+        if key in self.source.species:
+
             cat = self.source[key]
 
             # view as a catalog mesh
@@ -78,13 +90,13 @@ class MultipleSpeciesCatalogMesh(DeprecatedCatalogMesh):
                     Position=cat[self.position],
                     interlaced=self.interlaced,
                     compensated=self.compensated,
-                    resampler=self.window,
+                    resampler=self.resampler,
                 )
 
             # attach attributes from self
             return mesh.__finalize__(self)
         else:
-            raise KeyError("species '%s' not found" % key)
+            raise KeyError("%s is not a species defined in the source" % key)
 
     def to_real_field(self, normalize=True):
         r"""
