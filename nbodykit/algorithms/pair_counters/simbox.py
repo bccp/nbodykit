@@ -213,7 +213,7 @@ class SimulationBoxPairCount(PairCountBase):
 
         elif attrs['mode'] == 'angular':
             from .corrfunc.mocks import DDtheta_mocks
-            func = DDtheta_mocks(attrs['edges'], show_progress=attrs['show_progress'])
+            func = DDtheta_mocks(attrs['edges'], comm=self.comm, show_progress=attrs['show_progress'])
 
         # do the calculation
         self.pairs = func(pos1, w1, pos2, w2, **attrs['config'])
