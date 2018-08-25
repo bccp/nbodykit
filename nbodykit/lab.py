@@ -7,7 +7,6 @@ import numpy
 # sources
 from nbodykit.source.catalog import *
 from nbodykit.source.mesh import *
-from nbodykit.base.catalogmesh import CatalogMesh
 
 # algorithms
 from nbodykit.algorithms import *

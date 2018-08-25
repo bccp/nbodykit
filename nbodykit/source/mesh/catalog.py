@@ -1,5 +1,4 @@
 from nbodykit.base.mesh import MeshSource
-from nbodykit.base.catalog import CatalogSource, CatalogSourceBase
 from nbodykit import _global_options
 import numpy
 import logging
@@ -68,6 +67,10 @@ class CatalogMesh(MeshSource):
                     Selection=None,
                     Weight=None,
                     **kwargs):
+        from nbodykit.base.catalog import CatalogSourceBase
+
+        assert isinstance(source, CatalogSourceBase)
+
         self._columns = {}
 
         # copy meta-data from source too
