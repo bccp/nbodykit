@@ -60,7 +60,7 @@ def test_real_save(comm):
     source.save(tmpfile, mode='complex')
 
     # load as a BigFileMesh
-    source2 = BigFileMesh(tmpfile, dataset='Field')
+    source2 = BigFileMesh(tmpfile, dataset='Field', comm=comm)
 
     # check sources
     for k in source.attrs:
