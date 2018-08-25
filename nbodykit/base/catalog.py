@@ -660,7 +660,7 @@ class CatalogSourceBase(object):
         """
         # an empty class
         type = self.__class__ if type is None else type
-        obj = CatalogSourceBase.create_instsance(type, comm=self.comm)
+        obj = CatalogSourceBase.create_instance(type, comm=self.comm)
 
         # propagate the size attributes
         obj._size = self.size
