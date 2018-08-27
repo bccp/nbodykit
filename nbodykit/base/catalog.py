@@ -793,7 +793,7 @@ class CatalogSourceBase(object):
                                  Position=self[position],
                                  interlaced=interlaced,
                                  compensated=compensated,
-                                 resampler=window)
+                                 resampler=resampler)
 
 class CatalogSource(CatalogSourceBase):
     """
