@@ -708,8 +708,8 @@ class CatalogSourceBase(object):
         return DecomposedCatalog(self, domain=domain, position=position, columns=columns)
 
     def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4', interlaced=False,
-                compensated=False, window='cic', weight='Weight',
-                value='Value', selection='Selection', position='Position'):
+                compensated=False, resampler='cic', weight='Weight',
+                value='Value', selection='Selection', position='Position', window=None):
         """
         Convert the CatalogSource to a MeshSource, using the specified
         parameters.
@@ -729,11 +729,11 @@ class CatalogSourceBase(object):
             the effects of aliasing on Fourier space quantities computed
             from the mesh
         compensated : bool, optional
-            whether to correct for the window introduced by the grid
+            whether to correct for the resampler window introduced by the grid
             interpolation scheme
-        window : str, optional
-            the string specifying which window interpolation scheme to use;
-            see `pmesh.window.methods`
+        resampler : str, optional
+            the string specifying which resampler interpolation scheme to use;
+            see `pmesh.resampler.methods`
         weight : str, optional
             the name of the column specifying the weight for each particle
         value: str, optional
@@ -744,6 +744,8 @@ class CatalogSourceBase(object):
         position : str, optional
             the name of the column that specifies the position data of the
             objects in the catalog
+        window : str, deprecated
+            use resampler instead.
 
         Returns
         -------
@@ -754,13 +756,18 @@ class CatalogSourceBase(object):
         from nbodykit.source.mesh import CatalogMesh
         from pmesh.window import methods
 
+        if window is not None:
+            resampler = window
+            import warnings
+            warnings.warn("The window argument is deprecated. Use `resampler=` instead", DeprecationWarning)
+
         # make sure all of the columns exist
         for col in [weight, selection]:
             if col not in self:
                 raise ValueError("column '%s' missing; cannot create mesh" %col)
 
-        if window not in methods:
-            raise ValueError("valid window methods: %s" %str(methods))
+        if resampler not in methods:
+            raise ValueError("valid resampler: %s" %str(methods))
 
         if BoxSize is None:
             try:

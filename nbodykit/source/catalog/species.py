@@ -158,8 +158,8 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
 
 
     def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4', interlaced=False,
-                compensated=False, weight='Weight', resampler='cic', window=None,
-                selection='Selection', value='Value', position='Position'):
+                compensated=False, resampler='cic', weight='Weight',
+                value='Value', selection='Selection', position='Position', window=None):
         """
         Convert the catalog to a mesh, which knows how to "paint" the
         the combined density field, summed over all particle species.
@@ -180,8 +180,6 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
         compensated : bool, optional
             whether to apply a Fourier-space transfer function to account for
             the effects of the gridding + aliasing
-        window : str, optional
-            the string name of the window to use when interpolating  (deprecated, use resampler)
         resampler: str, optional
             the string name of the resampler to use when interpolating the
         weight : str, optional
@@ -194,6 +192,8 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
         position : str, optional
             the name of the column that specifies the position data of the
             objects in the catalog
+        window : str, optional
+            the string name of the window to use when interpolating  (deprecated, use resampler)
         """
         from nbodykit.source.mesh.species import MultipleSpeciesCatalogMesh
 
