@@ -10,9 +10,7 @@ setup_logging()
 
 @MPITest([1])
 def test_default_columns(comm):
-    CurrentMPIComm.set(comm)
-
-    cat = UniformCatalog(nbar=100, BoxSize=1.0)
+    cat = UniformCatalog(nbar=100, BoxSize=1.0, comm=comm)
 
     # weight column is default
     assert cat['Weight'].is_default
@@ -26,7 +24,6 @@ def test_default_columns(comm):
 def test_save(comm):
 
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     import tempfile
     import shutil
@@ -39,7 +36,7 @@ def test_save(comm):
     tmpfile = comm.bcast(tmpfile)
 
     # initialize a uniform catalog
-    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
 
     # add a non-array attrs (saved as JSON)
     source.attrs['empty'] = None
@@ -52,7 +49,7 @@ def test_save(comm):
     assert not any(col in datasets for col in ['Value', 'Selection', 'Weight'])
 
     # load as a BigFileCatalog
-    source2 = BigFileCatalog(tmpfile, attrs={"Nmesh":32})
+    source2 = BigFileCatalog(tmpfile, attrs={"Nmesh":32}, comm=comm)
 
     # check sources
     for k in source.attrs:
@@ -70,9 +67,8 @@ def test_save(comm):
 
 @MPITest([1, 4])
 def test_tomesh(comm):
-    CurrentMPIComm.set(comm)
 
-    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
     source['Weight0'] = source['Velocity'][:, 0]
     source['Weight1'] = source['Velocity'][:, 1]
     source['Weight2'] = source['Velocity'][:, 2]
@@ -102,8 +98,7 @@ def test_tomesh(comm):
 
 @MPITest([4])
 def test_bad_column(comm):
-    CurrentMPIComm.set(comm)
-    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
 
     # read a missing column
     with pytest.raises(ValueError):
@@ -115,9 +110,8 @@ def test_bad_column(comm):
 
 @MPITest([4])
 def test_empty_slice(comm):
-    CurrentMPIComm.set(comm)
 
-    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
 
     # empty slice returns self
     source2 = source[source['Selection']]
@@ -135,9 +129,8 @@ def test_empty_slice(comm):
 
 @MPITest([4])
 def test_slice(comm):
-    CurrentMPIComm.set(comm)
 
-    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
 
     # slice a subset
     subset = source[:10]
@@ -159,9 +152,8 @@ def test_slice(comm):
 
 @MPITest([4])
 def test_dask_slice(comm):
-    CurrentMPIComm.set(comm)
 
-    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
 
     # add a selection column
     index = numpy.random.choice([True, False], size=len(source))
@@ -189,13 +181,13 @@ def test_index(comm):
 @MPITest([1 ,4])
 def test_transform(comm):
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
+
     data = numpy.ones(100, dtype=[
             ('Position', ('f4', 3)),
             ('Velocity', ('f4', 3))]
             )
 
-    source = ArrayCatalog(data, BoxSize=100, Nmesh=32)
+    source = ArrayCatalog(data, BoxSize=100, Nmesh=32, comm=comm)
 
     source['Velocity'] = source['Position'] + source['Velocity']
 
@@ -210,9 +202,8 @@ def test_transform(comm):
 
 @MPITest([1, 4])
 def test_getitem_columns(comm):
-    CurrentMPIComm.set(comm)
 
-    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
 
     # bad column name
     with pytest.raises(KeyError):
@@ -226,8 +217,7 @@ def test_getitem_columns(comm):
 @MPITest([1, 4])
 def test_delitem(comm):
 
-    CurrentMPIComm.set(comm)
-    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
 
     # add a test column
     test = numpy.ones(source.size)
@@ -245,9 +235,10 @@ def test_delitem(comm):
     del source['test']
     assert 'test' not in source
 
-def test_columnaccessor():
+@MPITest([1])
+def test_columnaccessor(comm):
     from nbodykit.base.catalog import ColumnAccessor
-    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
 
     c = source['Position']
     truth = c[0].compute()

@@ -66,7 +66,8 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
         if len(names) != len(species):
             raise ValueError("a name must be provided for each species catalog provided")
 
-        self.comm = species[0].comm
+        CatalogSourceBase.__init__(self, species[0].comm)
+
         self.attrs['species'] = names
 
         # update the dictionary with data/randoms attrs

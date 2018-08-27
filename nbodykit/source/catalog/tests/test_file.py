@@ -25,17 +25,14 @@ def test_hdf(comm):
         grp.create_dataset('Mass', data=dset['Mass']) # column as dataset
 
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
-    source = HDFCatalog(tmpfile, root='X', attrs={"Nmesh":32})
+    source = HDFCatalog(tmpfile, root='X', attrs={"Nmesh":32}, comm=comm)
     assert_allclose(source['Position'], dset['Position'])
 
     os.unlink(tmpfile)
 
 @MPITest([1])
 def test_csv(comm):
-
-    CurrentMPIComm.set(comm)
 
     with tempfile.NamedTemporaryFile() as ff:
 
@@ -45,7 +42,7 @@ def test_csv(comm):
 
         # read nrows
         names =['a', 'b', 'c', 'd', 'e']
-        f = CSVCatalog(ff.name, names, blocksize=100)
+        f = CSVCatalog(ff.name, names, blocksize=100, comm=comm)
 
         # make sure data is the same
         for i, name in enumerate(names):
@@ -57,7 +54,6 @@ def test_csv(comm):
 @MPITest([1])
 def test_stack_glob(comm):
 
-    CurrentMPIComm.set(comm)
     tmpfile1 = 'test-glob-1.dat'
     tmpfile2 = 'test-glob-2.dat'
 
@@ -68,7 +64,7 @@ def test_stack_glob(comm):
 
     # read using a glob
     names =['a', 'b', 'c', 'd', 'e']
-    f = CSVCatalog('test-glob-*', names, blocksize=100)
+    f = CSVCatalog('test-glob-*', names, blocksize=100, comm=comm)
 
     # make sure print works
     print(f)
@@ -87,7 +83,6 @@ def test_stack_glob(comm):
 @MPITest([1])
 def test_stack_list(comm):
 
-    CurrentMPIComm.set(comm)
     tmpfile1 = 'test-list-1.dat'
     tmpfile2 = 'test-list-2.dat'
 
@@ -98,7 +93,7 @@ def test_stack_list(comm):
 
     # read using a glob
     names =['a', 'b', 'c', 'd', 'e']
-    f = CSVCatalog(['test-list-1.dat', 'test-list-2.dat'], names, blocksize=100)
+    f = CSVCatalog(['test-list-1.dat', 'test-list-2.dat'], names, blocksize=100, comm=comm)
 
     # make sure print works
     print(f)

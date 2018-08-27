@@ -11,10 +11,10 @@ setup_logging("debug")
 NDATA = 1000
 NBAR = 1e-4
 
-def make_sources(cosmo):
+def make_sources(cosmo, comm):
 
-    data = RandomCatalog(NDATA, seed=42)
-    randoms = RandomCatalog(NDATA*10, seed=84)
+    data = RandomCatalog(NDATA, seed=42, comm=comm)
+    randoms = RandomCatalog(NDATA*10, seed=84, comm=comm)
 
     # add the random columns
     for s in [data, randoms]:
@@ -32,11 +32,10 @@ def make_sources(cosmo):
 @MPITest([1, 4])
 def test_diff_cross_boxsizes(comm):
 
-    CurrentMPIComm.set(comm)
     cosmo = cosmology.Planck15
 
     # make the sources
-    data, randoms = make_sources(cosmo)
+    data, randoms = make_sources(cosmo, comm)
     for s in [data, randoms]:
 
         # constant number density
@@ -63,11 +62,10 @@ def test_diff_cross_boxsizes(comm):
 @MPITest([1, 4])
 def test_true_cross_corr_fail(comm):
 
-    CurrentMPIComm.set(comm)
     cosmo = cosmology.Planck15
 
     # make the sources
-    data, randoms = make_sources(cosmo)
+    data, randoms = make_sources(cosmo, comm)
     for s in [data, randoms]:
         s['NZ'] = NBAR
 
@@ -87,11 +85,10 @@ def test_true_cross_corr_fail(comm):
 @MPITest([1, 4])
 def test_bad_cross_corr_columns(comm):
 
-    CurrentMPIComm.set(comm)
     cosmo = cosmology.Planck15
 
     # make the sources
-    data, randoms = make_sources(cosmo)
+    data, randoms = make_sources(cosmo, comm)
     for s in [data, randoms]:
         s['NZ'] = NBAR
 
@@ -110,11 +107,10 @@ def test_bad_cross_corr_columns(comm):
 @MPITest([1, 4])
 def test_cross_corr(comm):
 
-    CurrentMPIComm.set(comm)
     cosmo = cosmology.Planck15
 
     # make the sources
-    data, randoms = make_sources(cosmo)
+    data, randoms = make_sources(cosmo, comm)
     for s in [data, randoms]:
 
         # constant number density
@@ -145,11 +141,10 @@ def test_cross_corr(comm):
 @MPITest([1, 4])
 def test_bad_input(comm):
 
-    CurrentMPIComm.set(comm)
     cosmo = cosmology.Planck15
 
     # source has wrong type
-    data, randoms = make_sources(cosmo)
+    data, randoms = make_sources(cosmo, comm)
     for s in [data, randoms]:
         s['NZ'] = NBAR
         s['FKPWeight'] = 1.0 / (1 + 2e4*s['NZ'])
@@ -172,11 +167,10 @@ def test_bad_input(comm):
 @MPITest([4])
 def test_no_monopole(comm):
 
-    CurrentMPIComm.set(comm)
     cosmo = cosmology.Planck15
 
     # make the sources
-    data, randoms = make_sources(cosmo)
+    data, randoms = make_sources(cosmo, comm)
 
     # select in given redshift range
     for s in [data, randoms]:
@@ -196,11 +190,10 @@ def test_no_monopole(comm):
 @MPITest([4])
 def test_bad_normalization(comm):
 
-    CurrentMPIComm.set(comm)
     cosmo = cosmology.Planck15
 
     # make the sources
-    data, randoms = make_sources(cosmo)
+    data, randoms = make_sources(cosmo, comm)
 
     # select in given redshift range
     for s in [data, randoms]:
@@ -220,11 +213,10 @@ def test_bad_normalization(comm):
 @MPITest([4])
 def test_selection(comm):
 
-    CurrentMPIComm.set(comm)
     cosmo = cosmology.Planck15
 
     # make the sources
-    data, randoms = make_sources(cosmo)
+    data, randoms = make_sources(cosmo, comm)
 
     # select in given redshift range
     for s in [data, randoms]:
@@ -250,17 +242,16 @@ def test_selection(comm):
     r.save("conv-power-with-selection.json")
 
     # load and check output
-    r2 = ConvolvedFFTPower.load("conv-power-with-selection.json")
+    r2 = ConvolvedFFTPower.load("conv-power-with-selection.json", comm=comm)
     assert_array_equal(r.poles.data, r2.poles.data)
 
 @MPITest([1, 4])
 def test_run(comm):
 
-    CurrentMPIComm.set(comm)
     cosmo = cosmology.Planck15
 
     # make the sources
-    data, randoms = make_sources(cosmo)
+    data, randoms = make_sources(cosmo, comm)
     for s in [data, randoms]:
 
         # constant number density
@@ -299,11 +290,10 @@ def test_with_zhist(comm):
     NBAR = 1e-4
     FSKY = 0.15
 
-    CurrentMPIComm.set(comm)
     cosmo = cosmology.Planck15
 
     # make the sources
-    data, randoms = make_sources(cosmo)
+    data, randoms = make_sources(cosmo, comm)
 
     # initialize the FKP source
     fkp = FKPCatalog(data, randoms)

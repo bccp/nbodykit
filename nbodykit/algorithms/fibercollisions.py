@@ -57,7 +57,7 @@ class FiberCollisions(object):
         # make the source
         dt = numpy.dtype([('Position', (pos.dtype.str, 3))])
         pos = numpy.squeeze(pos.view(dtype=dt))
-        source = ArrayCatalog(pos, BoxSize=numpy.array([2., 2., 2.]))
+        source = ArrayCatalog(pos, BoxSize=numpy.array([2., 2., 2.]), comm=comm)
 
         self.source = source
         self.comm = source.comm

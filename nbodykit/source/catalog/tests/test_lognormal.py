@@ -12,11 +12,10 @@ setup_logging("debug")
 @MPITest([4])
 def test_lognormal_sparse(comm):
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     # this should generate 15 particles
     Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
-    source = LogNormalCatalog(Plin=Plin, nbar=1e-5, BoxSize=128., Nmesh=8, seed=42)
+    source = LogNormalCatalog(Plin=Plin, nbar=1e-5, BoxSize=128., Nmesh=8, seed=42, comm=comm)
 
     mesh = source.to_mesh(compensated=False)
 
@@ -26,10 +25,9 @@ def test_lognormal_sparse(comm):
 @MPITest([1, 4])
 def test_lognormal_dense(comm):
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
-    source = LogNormalCatalog(Plin=Plin, nbar=0.2e-2, BoxSize=128., Nmesh=8, seed=42)
+    source = LogNormalCatalog(Plin=Plin, nbar=0.2e-2, BoxSize=128., Nmesh=8, seed=42, comm=comm)
     mesh = source.to_mesh(compensated=False)
 
     real = mesh.compute(mode='real')
@@ -38,10 +36,9 @@ def test_lognormal_dense(comm):
 @MPITest([4])
 def test_lognormal_invariance(comm):
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
-    source = LogNormalCatalog(Plin=Plin, nbar=0.5e-2, BoxSize=128., Nmesh=32, seed=42)
+    source = LogNormalCatalog(Plin=Plin, nbar=0.5e-2, BoxSize=128., Nmesh=32, seed=42, comm=comm)
     source1 = LogNormalCatalog(Plin=Plin, nbar=0.5e-2, BoxSize=128., Nmesh=32, seed=42, comm=MPI.COMM_SELF)
 
     assert source.csize == source1.size
@@ -54,10 +51,9 @@ def test_lognormal_invariance(comm):
 @MPITest([1])
 def test_lognormal_velocity(comm):
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
-    source = LogNormalCatalog(Plin=Plin, nbar=0.5e-2, BoxSize=128., Nmesh=32, seed=42)
+    source = LogNormalCatalog(Plin=Plin, nbar=0.5e-2, BoxSize=128., Nmesh=32, seed=42, comm=comm)
 
     source['Value'] = source['Velocity'][:, 0]**2
     mesh = source.to_mesh(compensated=False)

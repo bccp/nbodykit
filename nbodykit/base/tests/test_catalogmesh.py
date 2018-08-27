@@ -8,11 +8,10 @@ import pytest
 # debug logging
 setup_logging("debug")
 
-@MPITest([4])
+@MPITest([1])
 def test_tsc_interlacing(comm):
 
-    CurrentMPIComm.set(comm)
-    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
 
     # interlacing with TSC
     mesh = source.to_mesh(window='tsc', Nmesh=64, interlaced=True, compensated=True)
@@ -24,8 +23,7 @@ def test_tsc_interlacing(comm):
 @MPITest([1])
 def test_paint_chunksize(comm):
 
-    CurrentMPIComm.set(comm)
-    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
 
     # interlacing with TSC
     mesh = source.to_mesh(window='tsc', Nmesh=64, interlaced=True, compensated=True)
@@ -38,11 +36,10 @@ def test_paint_chunksize(comm):
 
     assert_allclose(r1, r2)
 
-@MPITest([4])
+@MPITest([1])
 def test_cic_interlacing(comm):
 
-    CurrentMPIComm.set(comm)
-    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
 
     # interlacing with TSC
     mesh = source.to_mesh(window='cic', Nmesh=64, interlaced=True, compensated=True)
@@ -51,11 +48,10 @@ def test_cic_interlacing(comm):
     # if the compensation worked
     r = FFTPower(mesh, mode='1d', kmin=0.02)
 
-@MPITest([4])
+@MPITest([1])
 def test_setters(comm):
 
-    CurrentMPIComm.set(comm)
-    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
 
     # make the mesh
     mesh = source.to_mesh(window='cic', Nmesh=64, interlaced=True, compensated=True)
@@ -72,11 +68,10 @@ def test_setters(comm):
     mesh.window = 'tsc'
     assert mesh.window == 'tsc'
 
-@MPITest([4])
+@MPITest([1])
 def test_bad_window(comm):
 
-    CurrentMPIComm.set(comm)
-    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
 
     # make the mesh
     mesh = source.to_mesh(window='cic', Nmesh=64, interlaced=True, compensated=True)
@@ -85,11 +80,10 @@ def test_bad_window(comm):
     with pytest.raises(Exception):
         mesh.window = "BAD"
 
-@MPITest([4])
+@MPITest([1])
 def test_no_compensation(comm):
 
-    CurrentMPIComm.set(comm)
-    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
 
     # make the mesh
     mesh = source.to_mesh(window='cic', Nmesh=64, interlaced=True, compensated=True)
@@ -102,12 +96,11 @@ def test_no_compensation(comm):
         actions = mesh.actions
 
 
-@MPITest([4])
+@MPITest([1, 4])
 def test_view(comm):
-    CurrentMPIComm.set(comm)
 
     # the CatalogSource
-    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
     source['TEST'] = 10.
     source.attrs['TEST'] = 10.0
 
@@ -126,10 +119,9 @@ def test_view(comm):
 
 @MPITest([1, 4])
 def test_apply_nocompensation(comm):
-    CurrentMPIComm.set(comm)
 
     # the CatalogSource
-    source = UniformCatalog(nbar=2e-4, BoxSize=512, seed=42)
+    source = UniformCatalog(nbar=2e-4, BoxSize=512, seed=42, comm=comm)
     source['TEST'] = 10.
     source['Position2'] = source['Position']
     source.attrs['TEST'] = 10.0
@@ -156,10 +148,9 @@ def test_apply_nocompensation(comm):
 
 @MPITest([1])
 def test_apply_compensated(comm):
-    CurrentMPIComm.set(comm)
 
     # the CatalogSource
-    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
     source['TEST'] = 10.
     source['Position2'] = source['Position']
     source.attrs['TEST'] = 10.0

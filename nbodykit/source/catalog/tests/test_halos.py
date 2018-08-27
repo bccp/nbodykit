@@ -8,10 +8,8 @@ setup_logging()
 @MPITest([4])
 def test_bad_init(comm):
 
-    CurrentMPIComm.set(comm)
-
     # initialize a catalog
-    cat = UniformCatalog(nbar=100, BoxSize=1.0)
+    cat = UniformCatalog(nbar=100, BoxSize=1.0, comm=comm)
     cat['Mass'] = 1.0
 
     # cannot specify column as None
@@ -25,10 +23,8 @@ def test_bad_init(comm):
 @MPITest([4])
 def test_missing_boxsize(comm):
 
-    CurrentMPIComm.set(comm)
-
     # initialize a catalog
-    cat = UniformCatalog(nbar=100, BoxSize=1.0)
+    cat = UniformCatalog(nbar=100, BoxSize=1.0, comm=comm)
     cat['Mass'] = 1.0
 
     # initialize halos

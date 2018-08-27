@@ -12,19 +12,18 @@ def test_save(comm):
     N = 1000
     FSKY = 1.0
     
-    CurrentMPIComm.set(comm)
     cosmo = cosmology.Planck15
     
     # create the source
-    source = RandomCatalog(N, seed=42)
+    source = RandomCatalog(N, seed=42, comm=comm)
     source['z'] = source.rng.normal(loc=0.5, scale=0.1)
-    
+
     # compute the histogram
     r = RedshiftHistogram(source, FSKY, cosmo, redshift='z')
     r.run()    
     r.save('zhist-test.json')
 
-    r2 = RedshiftHistogram.load('zhist-test.json')
+    r2 = RedshiftHistogram.load('zhist-test.json', comm=comm)
 
     assert_array_equal(r.bin_edges, r.bin_edges)
     assert_array_equal(r.bin_centers, r2.bin_centers)
@@ -39,11 +38,10 @@ def test_unweighted(comm):
     N = 1000
     FSKY = 1.0
     
-    CurrentMPIComm.set(comm)
     cosmo = cosmology.Planck15
     
     # create the source
-    source = RandomCatalog(N, seed=42)
+    source = RandomCatalog(N, seed=42, comm=comm)
     source['z'] = source.rng.normal(loc=0.5, scale=0.1)
     
     # compute the histogram
@@ -58,11 +56,10 @@ def test_weighted(comm):
     N = 1000
     FSKY = 1.0
     
-    CurrentMPIComm.set(comm)
     cosmo = cosmology.Planck15
     
     # create the source
-    source = RandomCatalog(N, seed=42)
+    source = RandomCatalog(N, seed=42, comm=comm)
     source['z'] = source.rng.normal(loc=0.5, scale=0.1)
     source['weight'] = source.rng.uniform(0, high=1.)
     

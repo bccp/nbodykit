@@ -21,12 +21,11 @@ def test_sim_threeptcf(comm):
 
     import tempfile
 
-    CurrentMPIComm.set(comm)
     BoxSize = 400.0
 
     # load the test data
     filename = os.path.join(data_dir, 'threeptcf_sim_data.dat')
-    cat = CSVCatalog(filename, names=['x', 'y', 'z', 'w'])
+    cat = CSVCatalog(filename, names=['x', 'y', 'z', 'w'], comm=comm)
     cat['Position'] = transform.StackColumns(cat['x'], cat['y'], cat['z'])
     cat['Position'] *= BoxSize
 
@@ -55,7 +54,7 @@ def test_sim_threeptcf(comm):
     # save to temp file
     filename = 'test-threept-cf.json'
     r.save(filename)
-    r2 = SimulationBox3PCF.load(filename)
+    r2 = SimulationBox3PCF.load(filename, comm=comm)
     assert_array_equal(r.poles.data, r2.poles.data)
 
     if comm.rank == 0:
@@ -67,13 +66,12 @@ def test_survey_threeptcf(comm):
 
     import tempfile
 
-    CurrentMPIComm.set(comm)
     BoxSize = 400.0
     cosmo = cosmology.Planck15
 
     # load the test data
     filename = os.path.join(data_dir, 'threeptcf_sim_data.dat')
-    cat = CSVCatalog(filename, names=['x', 'y', 'z', 'w'])
+    cat = CSVCatalog(filename, names=['x', 'y', 'z', 'w'], comm=comm)
     cat['Position'] = transform.StackColumns(cat['x'], cat['y'], cat['z'])
     cat['Position'] *= BoxSize
 
@@ -105,7 +103,7 @@ def test_survey_threeptcf(comm):
     # save to temp file
     filename = 'test-threept-cf.json'
     r.save(filename)
-    r2 = SurveyData3PCF.load(filename)
+    r2 = SurveyData3PCF.load(filename, comm=comm)
     assert_array_equal(r.poles.data, r2.poles.data)
 
     if comm.rank == 0:
@@ -114,12 +112,11 @@ def test_survey_threeptcf(comm):
 @MPITest([1])
 def test_sim_threeptcf_pedantic(comm):
 
-    CurrentMPIComm.set(comm)
     BoxSize = 400.0
 
     # load the test data
     filename = os.path.join(data_dir, 'threeptcf_sim_data.dat')
-    cat = CSVCatalog(filename, names=['x', 'y', 'z', 'w'])
+    cat = CSVCatalog(filename, names=['x', 'y', 'z', 'w'], comm=comm)
     cat['Position'] = transform.StackColumns(cat['x'], cat['y'], cat['z'])
     cat['Position'] *= BoxSize
 
@@ -144,12 +141,11 @@ def test_sim_threeptcf_pedantic(comm):
 @MPITest([1])
 def test_sim_threeptcf_shuffled(comm):
 
-    CurrentMPIComm.set(comm)
     BoxSize = 400.0
 
     # load the test data
     filename = os.path.join(data_dir, 'threeptcf_sim_data.dat')
-    cat = CSVCatalog(filename, names=['x', 'y', 'z', 'w'])
+    cat = CSVCatalog(filename, names=['x', 'y', 'z', 'w'], comm=comm)
     cat['Position'] = transform.StackColumns(cat['x'], cat['y'], cat['z'])
     cat['Position'] *= BoxSize
 

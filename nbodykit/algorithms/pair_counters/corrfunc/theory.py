@@ -18,8 +18,8 @@ class CorrfuncTheoryCallable(MPICorrfuncCallable):
     """
     binning_dims = None
 
-    def __init__(self, func, edges, periodic, BoxSize, show_progress=True):
-        MPICorrfuncCallable.__init__(self, func, show_progress=show_progress)
+    def __init__(self, func, edges, periodic, BoxSize, comm, show_progress=True):
+        MPICorrfuncCallable.__init__(self, func, comm, show_progress=show_progress)
         self.edges = edges
         self.periodic = periodic
 
@@ -67,13 +67,14 @@ class DD(CorrfuncTheoryCallable):
     """
     binning_dims = ['r']
 
-    def __init__(self, edges, periodic, BoxSize, show_progress=True):
+    def __init__(self, edges, periodic, BoxSize, comm, show_progress=True):
         try:
             from Corrfunc.theory import DD
         except ImportError:
             raise MissingCorrfuncError()
 
         CorrfuncTheoryCallable.__init__(self, DD, [edges], periodic, BoxSize,
+                                        comm,
                                         show_progress=show_progress)
 
 class DDsmu(CorrfuncTheoryCallable):
@@ -82,7 +83,7 @@ class DDsmu(CorrfuncTheoryCallable):
     """
     binning_dims = ['s', 'mu']
 
-    def __init__(self, edges, Nmu, periodic, BoxSize, show_progress=True):
+    def __init__(self, edges, Nmu, periodic, BoxSize, comm, show_progress=True):
         try:
             from Corrfunc.theory import DDsmu
         except ImportError:
@@ -91,7 +92,7 @@ class DDsmu(CorrfuncTheoryCallable):
         self.Nmu = Nmu
         mu_edges = numpy.linspace(0., 1., Nmu+1)
         CorrfuncTheoryCallable.__init__(self, DDsmu, [edges, mu_edges],
-                                        periodic, BoxSize, show_progress=show_progress)
+                                        periodic, BoxSize, comm, show_progress=show_progress)
 
     def __call__(self, pos1, w1, pos2, w2, **config):
         config['nmu_bins'] = self.Nmu
@@ -104,7 +105,7 @@ class DDrppi(CorrfuncTheoryCallable):
     """
     binning_dims = ['rp', 'pi']
 
-    def __init__(self, edges, pimax, periodic, BoxSize, show_progress=True):
+    def __init__(self, edges, pimax, periodic, BoxSize, comm, show_progress=True):
         try:
             from Corrfunc.theory import DDrppi
         except ImportError:
@@ -113,7 +114,7 @@ class DDrppi(CorrfuncTheoryCallable):
         self.pimax = pimax
         pi_bins = numpy.linspace(0, pimax, pimax+1)
         CorrfuncTheoryCallable.__init__(self, DDrppi, [edges, pi_bins],
-                                        periodic, BoxSize, show_progress=show_progress)
+                                        periodic, BoxSize, comm, show_progress=show_progress)
 
     def __call__(self, pos1, w1, pos2, w2, **config):
         config['pimax'] = self.pimax

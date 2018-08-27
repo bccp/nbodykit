@@ -20,8 +20,8 @@ def get_spherical_volume(source):
 def gather_data(source, name):
     return numpy.concatenate(source.comm.allgather(source[name].compute()), axis=0)
 
-def generate_sim_data(seed):
-    s = UniformCatalog(nbar=1000, BoxSize=1.0, seed=seed)
+def generate_sim_data(seed, comm):
+    s = UniformCatalog(nbar=1000, BoxSize=1.0, seed=seed, comm=comm)
     s['RA'], s['DEC'] = transform.CartesianToEquatorial(s['Position'], observer=0.5*s.attrs['BoxSize'])
     return s
 
@@ -36,11 +36,10 @@ def reference_sim_tpcf(pos1, theta_edges, randoms=None, pos2=None):
 
 @MPITest([1, 4])
 def test_sim_nonperiodic_auto(comm):
-    CurrentMPIComm.set(comm)
 
     # uniform source of particles
-    source = generate_sim_data(seed=42)
-    randoms = generate_sim_data(seed=84)
+    source = generate_sim_data(seed=42, comm=comm)
+    randoms = generate_sim_data(seed=84, comm=comm)
 
     # make the bin edges
     theta_edges = numpy.linspace(0.1, 10.0, 20)
@@ -60,11 +59,10 @@ def test_sim_nonperiodic_auto(comm):
 
 @MPITest([1, 4])
 def test_sim_periodic_cross(comm):
-    CurrentMPIComm.set(comm)
 
     # uniform source of particles
-    data1 = generate_sim_data(seed=42)
-    data2 = generate_sim_data(seed=84)
+    data1 = generate_sim_data(seed=42, comm=comm)
+    data2 = generate_sim_data(seed=84, comm=comm)
 
     # make the bin edges
     theta_edges = numpy.linspace(0.1, 10.0, 20)
@@ -80,11 +78,10 @@ def test_sim_periodic_cross(comm):
 
 @MPITest([1, 4])
 def test_survey_auto(comm):
-    CurrentMPIComm.set(comm)
 
     # uniform source of particles
-    data = generate_sim_data(seed=42)
-    randoms = generate_sim_data(seed=84)
+    data = generate_sim_data(seed=42, comm=comm)
+    randoms = generate_sim_data(seed=84, comm=comm)
 
     # make the bin edges
     theta_edges = numpy.linspace(0.1, 10.0, 20)

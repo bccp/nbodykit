@@ -62,7 +62,6 @@ class FFTRecon(MeshSource):
         `LRR` is the random-random Lagrangian reconstruction.
     """
 
-    @CurrentMPIComm.enable
     def __init__(self,
             data,
             ran,
@@ -74,13 +73,16 @@ class FFTRecon(MeshSource):
             position='Position',
             revert_rsd_random=False,
             scheme='LGS',
-            BoxSize=None,
-            comm=None):
+            BoxSize=None):
 
         assert scheme in ['LGS', 'LF2', 'LRR']
 
         assert isinstance(data, CatalogSource)
         assert isinstance(ran, CatalogSource)
+
+        comm = data.comm
+
+        assert data.comm == ran.comm
 
         from pmesh.pm import ParticleMesh
 

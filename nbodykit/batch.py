@@ -145,8 +145,7 @@ class TaskManager(object):
 
         # split the comm between the workers
         self.comm = self.basecomm.Split(color, 0)
-        self.original_comm = CurrentMPIComm.get()
-        CurrentMPIComm.set(self.comm)
+        CurrentMPIComm.push(self.comm)
 
         return self
 
@@ -364,7 +363,7 @@ class TaskManager(object):
         if self.is_root():
             self.logger.debug("master is finished; terminating")
 
-        CurrentMPIComm.set(self.original_comm)
+        CurrentMPIComm.pop()
 
         if self.comm is not None:
             self.comm.Free()

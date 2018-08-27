@@ -10,13 +10,13 @@ setup_logging("debug")
 @MPITest([1, 4])
 def test_decomposed(comm):
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
-    source = LogNormalCatalog(Plin=Plin, nbar=1e-5, BoxSize=128., Nmesh=8, seed=42)
+    source = LogNormalCatalog(Plin=Plin, nbar=1e-5, BoxSize=128., Nmesh=8, seed=42, comm=comm)
 
     decomposed = source.decompose(domain=source.pm.domain, columns=None)
 
+    assert decomposed.comm == source.comm
     assert 'Position' in decomposed
     assert 'Velocity' in decomposed
 
@@ -24,6 +24,7 @@ def test_decomposed(comm):
     assert len(decomposed['Velocity'].compute()) == decomposed.size
 
     decomposed = source.decompose(domain=source.pm.domain, columns=['Position'])
+    assert decomposed.comm == source.comm
 
     assert 'Position' in decomposed
     assert 'Velocity' not in decomposed

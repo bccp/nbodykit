@@ -197,6 +197,8 @@ class SimulationBoxPairCount(PairCountBase):
 
         # get the Corrfunc callable based on mode
         kws = {k:attrs[k] for k in ['periodic', 'BoxSize', 'show_progress']}
+        kws['comm'] = self.comm
+
         if attrs['mode'] == '1d':
             from .corrfunc.theory import DD
             func = DD(attrs['edges'], **kws)
@@ -211,7 +213,7 @@ class SimulationBoxPairCount(PairCountBase):
 
         elif attrs['mode'] == 'angular':
             from .corrfunc.mocks import DDtheta_mocks
-            func = DDtheta_mocks(attrs['edges'], show_progress=attrs['show_progress'])
+            func = DDtheta_mocks(attrs['edges'], comm=self.comm, show_progress=attrs['show_progress'])
 
         # do the calculation
         self.pairs = func(pos1, w1, pos2, w2, **attrs['config'])

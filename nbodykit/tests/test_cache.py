@@ -1,9 +1,11 @@
 from nbodykit import GlobalCache
 from nbodykit.lab import UniformCatalog
 
-def test_cache():
+from runtests.mpi import MPITest
 
-    cat = UniformCatalog(nbar=10000, BoxSize=1.0)
+@MPITest([1])
+def test_cache(comm):
+    cat = UniformCatalog(nbar=10000, BoxSize=1.0, comm=comm)
     cat['test'] = cat['Position'] ** 5
     test = cat['test'].compute()
 

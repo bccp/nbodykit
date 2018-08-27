@@ -10,8 +10,7 @@ setup_logging("debug")
 @MPITest([4])
 def test_tsc_aliasing(comm):
 
-    CurrentMPIComm.set(comm)
-    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
     mesh = source.to_mesh(window='tsc', Nmesh=64, compensated=True)
 
     # compute the power spectrum -- should be flat shot noise
@@ -28,8 +27,7 @@ def test_tsc_aliasing(comm):
 @MPITest([4])
 def test_cic_aliasing(comm):
 
-    CurrentMPIComm.set(comm)
-    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
     mesh = source.to_mesh(window='cic', Nmesh=64, compensated=True)
 
     # compute the power spectrum -- should be flat shot noise
@@ -47,8 +45,7 @@ def test_cic_aliasing(comm):
 @MPITest([1])
 def test_fftpower_poles(comm):
 
-    CurrentMPIComm.set(comm)
-    source = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42, comm=comm)
 
     r = FFTPower(source, mode='2d', BoxSize=1024, Nmesh=32, poles=[0,2,4])
     pkmu = r.power['power'].real
@@ -63,8 +60,7 @@ def test_fftpower_poles(comm):
 @MPITest([1])
 def test_fftpower_unique(comm):
 
-    CurrentMPIComm.set(comm)
-    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
 
     r = FFTPower(source, mode='1d', Nmesh=32, dk=0)
     p = r.power
@@ -73,8 +69,7 @@ def test_fftpower_unique(comm):
 @MPITest([1])
 def test_fftpower_padding(comm):
 
-    CurrentMPIComm.set(comm)
-    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
 
     r = FFTPower(source, mode='1d', BoxSize=1024, Nmesh=32)
     assert r.attrs['N1'] != 0
@@ -83,13 +78,12 @@ def test_fftpower_padding(comm):
 @MPITest([1])
 def test_fftpower_save(comm):
 
-    CurrentMPIComm.set(comm)
-    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
 
     r = FFTPower(source, mode='2d', Nmesh=32)
     r.save('fftpower-test.json')
 
-    r2 = FFTPower.load('fftpower-test.json')
+    r2 = FFTPower.load('fftpower-test.json', comm=comm)
 
     assert_array_equal(r.power['k'], r2.power['k'])
     assert_array_equal(r.power['power'], r2.power['power'])
@@ -99,8 +93,7 @@ def test_fftpower_save(comm):
 @MPITest([1])
 def test_fftpower(comm):
 
-    CurrentMPIComm.set(comm)
-    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
 
     r = FFTPower(source, mode='1d', Nmesh=32)
     # the zero mode is cleared
@@ -110,11 +103,10 @@ def test_fftpower(comm):
 def test_fftpower_mismatch_boxsize(comm):
 
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     # input sources
-    source1 = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42)
-    source2 = UniformCatalog(nbar=3e-4, BoxSize=1024., seed=42)
+    source1 = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
+    source2 = UniformCatalog(nbar=3e-4, BoxSize=1024., seed=42, comm=comm)
 
     r = FFTPower(source1, second=source2, mode='1d', BoxSize=1024, Nmesh=32)
 
@@ -122,11 +114,10 @@ def test_fftpower_mismatch_boxsize(comm):
 def test_fftpower_mismatch_boxsize_fail(comm):
 
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     # input sources
-    mesh1 = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42).to_mesh(Nmesh=32)
-    mesh2 = UniformCatalog(nbar=3e-4, BoxSize=1024., seed=42).to_mesh(Nmesh=32)
+    mesh1 = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm).to_mesh(Nmesh=32)
+    mesh2 = UniformCatalog(nbar=3e-4, BoxSize=1024., seed=42, comm=comm).to_mesh(Nmesh=32)
 
     # raises an exception b/c meshes have different box sizes
     with pytest.raises(ValueError):
@@ -135,8 +126,7 @@ def test_fftpower_mismatch_boxsize_fail(comm):
 @MPITest([1])
 def test_projectedpower(comm):
 
-    CurrentMPIComm.set(comm)
-    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42)
+    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
 
     Nmesh = 64
     rp1 = ProjectedFFTPower(source, Nmesh=Nmesh, axes=[1])

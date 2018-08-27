@@ -174,7 +174,7 @@ class FOF(object):
             pass
         data = fof_catalog(self._source, self.labels, self.comm, peakcolumn=peakcolumn, periodic=self.attrs['periodic'])
         data = data[data['Length'] > 0]
-        halos = ArrayCatalog(data, **attrs)
+        halos = ArrayCatalog(data, comm=self.comm, **attrs)
         if posdef == 'cm':
             halos['Position'] = halos['CMPosition']
             halos['Velocity'] = halos['CMVelocity']

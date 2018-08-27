@@ -10,11 +10,9 @@ setup_logging()
 @MPITest([4])
 def test_missing_columns(comm):
 
-    CurrentMPIComm.set(comm)
-
     # create FKP catalog
-    source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42)
-    source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84)
+    source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42, comm=comm)
+    source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84, comm=comm)
     cat = FKPCatalog(source1, source2, BoxSize=512.0, BoxPad=0.02)
 
     with pytest.raises(ValueError):
@@ -23,11 +21,9 @@ def test_missing_columns(comm):
 @MPITest([4])
 def test_boxsize(comm):
 
-    CurrentMPIComm.set(comm)
-
     # data and randoms
-    source1 = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42)
-    source2 = UniformCatalog(nbar=3e-3, BoxSize=512., seed=84)
+    source1 = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42, comm=comm)
+    source2 = UniformCatalog(nbar=3e-3, BoxSize=512., seed=84, comm=comm)
 
     # add required columns
     source1['NZ']  = 1.0

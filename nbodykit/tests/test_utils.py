@@ -15,7 +15,6 @@ def test_json_quantity(comm):
     import json
     import tempfile
 
-    CurrentMPIComm.set(comm)
     cosmo = cosmology.Planck15
 
     # astropy quantity
@@ -43,7 +42,6 @@ def test_json_quantity(comm):
 
 @MPITest([2])
 def test_gather_array(comm):
-    CurrentMPIComm.set(comm)
 
     # object arrays must fail
     data1a = numpy.ones(10, dtype=[('test', 'f8')])
@@ -74,7 +72,6 @@ def test_gather_array(comm):
 
 @MPITest([2])
 def test_gather_objects(comm):
-    CurrentMPIComm.set(comm)
 
     # object arrays must fail
     data1 = numpy.ones(10, dtype=[('test', 'O')])
@@ -94,7 +91,6 @@ def test_gather_objects(comm):
 
 @MPITest([2])
 def test_scatter_objects(comm):
-    CurrentMPIComm.set(comm)
 
     # object arrays must fail
     if comm.rank == 0:
@@ -112,7 +108,6 @@ def test_scatter_objects(comm):
 
 @MPITest([2])
 def test_gather_bad_data(comm):
-    CurrentMPIComm.set(comm)
 
     # data
     if comm.rank == 0:
@@ -129,7 +124,6 @@ def test_gather_bad_data(comm):
 
 @MPITest([2])
 def test_gather_bad_dtype(comm):
-    CurrentMPIComm.set(comm)
 
     # data
     if comm.rank == 0:
@@ -146,7 +140,6 @@ def test_gather_bad_dtype(comm):
 
 @MPITest([2])
 def test_gather_bad_shape(comm):
-    CurrentMPIComm.set(comm)
 
     # data
     if comm.rank == 0:
@@ -163,7 +156,6 @@ def test_gather_bad_shape(comm):
 
 @MPITest([2])
 def test_gather_list(comm):
-    CurrentMPIComm.set(comm)
 
     # data
     data = numpy.ones(10, dtype=[('a', 'f')])
@@ -177,7 +169,6 @@ def test_gather_list(comm):
 
 @MPITest([2])
 def test_scatter_list(comm):
-    CurrentMPIComm.set(comm)
 
     # data
     if comm.rank == 0:
@@ -192,7 +183,6 @@ def test_scatter_list(comm):
 
 @MPITest([2])
 def test_scatter_wrong_counts(comm):
-    CurrentMPIComm.set(comm)
 
     # data
     if comm.rank == 0:
@@ -210,7 +200,6 @@ def test_scatter_wrong_counts(comm):
 
 @MPITest([4])
 def test_frontpad_array(comm):
-    CurrentMPIComm.set(comm)
 
     # object arrays must fail
     data1 = numpy.ones(10) * comm.rank

@@ -10,14 +10,13 @@ setup_logging("debug")
 def test_table(comm):
 
     from astropy.table import Table
-    CurrentMPIComm.set(comm)
 
     data = numpy.ones(100, dtype=[
             ('Position', ('f4', 3)),
             ('Velocity', ('f4', 3))]
             )
     data = Table(data)
-    source = ArrayCatalog(data, BoxSize=100, Nmesh=32)
+    source = ArrayCatalog(data, BoxSize=100, Nmesh=32, comm=comm)
 
     for col in ['Position', 'Velocity']:
         assert_array_equal(data[col], source[col])
@@ -27,12 +26,11 @@ def test_table(comm):
 def test_nonstructured_input(comm):
 
     from astropy.table import Table
-    CurrentMPIComm.set(comm)
 
     # data should be structured!
     data = numpy.ones(100)
     with pytest.raises(ValueError):
-        source = ArrayCatalog(data, BoxSize=100, Nmesh=32)
+        source = ArrayCatalog(data, BoxSize=100, Nmesh=32, comm=comm)
 
 
 
@@ -41,12 +39,12 @@ def test_nonstructured_input(comm):
 def test_array(comm):
 
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
+
     data = numpy.ones(100, dtype=[
             ('Position', ('f4', 3)),
             ('Velocity', ('f4', 3))]
             )
-    source = ArrayCatalog(data, BoxSize=100, Nmesh=32)
+    source = ArrayCatalog(data, BoxSize=100, Nmesh=32, comm=comm)
 
     assert source.csize == 100 * comm.size
     source['Velocity'] = source['Position'] + source['Velocity']
@@ -62,14 +60,14 @@ def test_array(comm):
 def test_dict(comm):
 
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
+
     data = numpy.ones(100, dtype=[
             ('Position', ('f4', 3)),
             ('Velocity', ('f4', 3))]
             )
     # use a dictionary
     data = dict(Position=data['Position'], Velocity=data['Velocity'])
-    source = ArrayCatalog(data, BoxSize=100, Nmesh=32)
+    source = ArrayCatalog(data, BoxSize=100, Nmesh=32, comm=comm)
 
     assert source.csize == 100 * comm.size
     source['Velocity'] = source['Position'] + source['Velocity']

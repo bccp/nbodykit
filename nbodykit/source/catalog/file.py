@@ -153,7 +153,7 @@ def FileCatalogFactory(name, filetype, examples=None):
     def __init__(self, *args, **kwargs):
         comm = kwargs.pop('comm', None)
         attrs = kwargs.pop('attrs', {})
-        FileCatalogBase.__init__(self, filetype=filetype, args=args, kwargs=kwargs)
+        FileCatalogBase.__init__(self, filetype=filetype, args=args, kwargs=kwargs, comm=comm)
         self.attrs.update(attrs)
 
     # make the doc string for this class
