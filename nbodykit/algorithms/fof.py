@@ -157,7 +157,7 @@ class FOF(object):
         :class:`~nbodykit.source.catalog.halos.HaloCatalog`
             a HaloCatalog at the specified cosmology and redshift
         """
-        from nbodykit.source import HaloCatalog
+        from nbodykit.source.catalog.halos import HaloCatalog
 
         assert posdef in ['cm', 'peak'], "``posdef`` should be 'cm' or 'peak'"
 

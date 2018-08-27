@@ -376,38 +376,41 @@ class CatalogMesh(MeshSource):
         return actions
 
     def _get_compensation(self):
-        """
-        Return the compensation function, which corrects for the
-        windowing kernel.
+        return get_compensation(self.interlaced, self.resampler)
 
-        The compensation function is computed as:
+def get_compensation(interlaced, resampler):
+    """
+    Return the compensation function, which corrects for the
+    windowing kernel.
 
-        - if ``interlaced = True``:
-          - :func:`CompensateCIC` if using CIC window
-          - :func:`CompensateTSC` if using TSC window
-          - :func:`CompensatePCS` if using PCS window
-        - if ``interlaced = False``:
-          - :func:`CompensateCICShotnoise` if using CIC window
-          - :func:`CompensateTSCShotnoise` if using TSC window
-          - :func:`CompensatePCSShotnoise` if using PCS window
-        """
-        if self.interlaced:
-            d = {'cic' : CompensateCIC,
-                 'tsc' : CompensateTSC,
-                 'pcs' : CompensatePCS,
-                }
-        else:
-            d = {'cic' : CompensateCICShotnoise,
-                 'tsc' : CompensateTSCShotnoise,
-                 'pcs' : CompensatePCSShotnoise,
-                }
+    The compensation function is computed as:
 
-        if not self.resampler in d:
-            raise ValueError("compensation for window %s is not defined" % self.resampler)
+    - if ``interlaced = True``:
+      - :func:`CompensateCIC` if using CIC window
+      - :func:`CompensateTSC` if using TSC window
+      - :func:`CompensatePCS` if using PCS window
+    - if ``interlaced = False``:
+      - :func:`CompensateCICShotnoise` if using CIC window
+      - :func:`CompensateTSCShotnoise` if using TSC window
+      - :func:`CompensatePCSShotnoise` if using PCS window
+    """
+    if interlaced:
+        d = {'cic' : CompensateCIC,
+             'tsc' : CompensateTSC,
+             'pcs' : CompensatePCS,
+            }
+    else:
+        d = {'cic' : CompensateCICShotnoise,
+             'tsc' : CompensateTSCShotnoise,
+             'pcs' : CompensatePCSShotnoise,
+            }
 
-        filter = d[self.resampler]
+    if not resampler in d:
+        raise ValueError("compensation for window %s is not defined" % resampler)
 
-        return [('complex', filter, "circular")]
+    filter = d[resampler]
+
+    return [('complex', filter, "circular")]
 
 def CompensateTSC(w, v):
     """

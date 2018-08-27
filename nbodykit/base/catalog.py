@@ -704,7 +704,7 @@ class CatalogSourceBase(object):
 
             `self.attrs` are carried over as a shallow copy to the returned object.
         """
-        from nbodykit.base.decomposed import DecomposedCatalog
+        from nbodykit.source.catalog import DecomposedCatalog
         return DecomposedCatalog(self, domain=domain, position=position, columns=columns)
 
     def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4', interlaced=False,

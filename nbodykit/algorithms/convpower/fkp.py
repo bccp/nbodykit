@@ -226,8 +226,8 @@ class ConvolvedFFTPower(object):
         self.attrs['BoxCenter'] = self.first.attrs['BoxCenter']
 
         # grab some mesh attrs, too
-        self.attrs['mesh.window'] = self.first.attrs['window']
-        self.attrs['mesh.interlaced'] = self.first.attrs['interlaced']
+        self.attrs['mesh.resampler'] = self.first.resampler
+        self.attrs['mesh.interlaced'] = self.first.interlaced
 
         # and run
         self.run()
@@ -464,12 +464,12 @@ class ConvolvedFFTPower(object):
         rfield1 = self.first.compute(Nmesh=self.attrs['Nmesh'])
         meta1 = rfield1.attrs.copy()
         if rank == 0:
-            self.logger.info("%s painting of 'first' done" %self.first.window)
+            self.logger.info("%s painting of 'first' done" %self.first.resampler)
 
         # store alpha: ratio of data to randoms
         self.attrs['alpha'] = meta1['alpha']
 
-        # FFT 1st density field and apply the paintbrush window transfer kernel
+        # FFT 1st density field and apply the resampler transfer kernel
         cfield = rfield1.r2c()
         if compensation['first'] is not None:
             cfield.apply(out=Ellipsis, **compensation['first'])
@@ -487,12 +487,12 @@ class ConvolvedFFTPower(object):
             # paint the second field
             rfield2 = self.second.compute(Nmesh=self.attrs['Nmesh'])
             meta2 = rfield2.attrs.copy()
-            if rank == 0: self.logger.info("%s painting of 'second' done" %self.second.window)
+            if rank == 0: self.logger.info("%s painting of 'second' done" %self.second.resampler)
 
             # need monopole of second field
             if 0 in self.attrs['poles']:
 
-                # FFT density field and apply the paintbrush window transfer kernel
+                # FFT density field and apply the resampler transfer kernel
                 A0_2 = rfield2.r2c()
                 A0_2[:] *= volume
                 if compensation['second'] is not None:
@@ -772,7 +772,7 @@ def get_compensation(mesh):
     try:
         compensation = mesh._get_compensation()
         toret = {'func':compensation[0][1], 'kind':compensation[0][2]}
-    except:
+    except ValueError:
         pass
     return toret
 

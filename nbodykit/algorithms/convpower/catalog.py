@@ -100,9 +100,9 @@ class FKPCatalog(MultipleSpeciesCatalog):
             self.logger.info("BoxCenter = %s" %str(self.attrs['BoxCenter']))
 
     def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4', interlaced=False,
-                compensated=False, window='cic', fkp_weight='FKPWeight',
+                compensated=False, resampler='cic', fkp_weight='FKPWeight',
                 comp_weight='Weight', nbar='NZ', selection='Selection',
-                position='Position'):
+                position='Position', window=None):
 
         """
         Convert the FKPCatalog to a mesh, which knows how to "paint" the
@@ -128,8 +128,8 @@ class FKPCatalog(MultipleSpeciesCatalog):
         compensated : bool, optional
             whether to apply a Fourier-space transfer function to account for
             the effects of the gridding + aliasing
-        window : str, optional
-            the string name of the window to use when interpolating the
+        resampler : str, optional
+            the string name of the resampler to use when interpolating the
             particles to the mesh; see ``pmesh.window.methods`` for choices
         fkp_weight : str, optional
             the name of the column in the source specifying the FKP weight;
@@ -148,8 +148,15 @@ class FKPCatalog(MultipleSpeciesCatalog):
         position : str, optional
             the name of the column that specifies the position data of the
             objects in the catalog
+        window : deprecated.
+            use resampler
         """
-        from nbodykit.source.catalogmesh import FKPCatalogMesh
+        from .catalogmesh import FKPCatalogMesh
+
+        if window is not None:
+            import warnings
+            resampler = window
+            warnings.warn("the window argument is deprecated. Use resampler= instead", DeprecationWarning)
 
         # verify that all of the required columns exist
         for name in self.species:
@@ -180,5 +187,5 @@ class FKPCatalog(MultipleSpeciesCatalog):
                               value='Value',
                               interlaced=interlaced,
                               compensated=compensated,
-                              window=window,
+                              resampler=resampler,
                               **kws)

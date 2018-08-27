@@ -158,7 +158,7 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
 
 
     def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4', interlaced=False,
-                compensated=False, window='cic', weight='Weight',
+                compensated=False, weight='Weight', resampler='cic', window=None,
                 selection='Selection', value='Value', position='Position'):
         """
         Convert the catalog to a mesh, which knows how to "paint" the
@@ -181,7 +181,9 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
             whether to apply a Fourier-space transfer function to account for
             the effects of the gridding + aliasing
         window : str, optional
-            the string name of the window to use when interpolating the
+            the string name of the window to use when interpolating  (deprecated, use resampler)
+        resampler: str, optional
+            the string name of the resampler to use when interpolating the
         weight : str, optional
             the name of the column specifying the weight for each particle
         selection : str, optional
@@ -193,7 +195,10 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
             the name of the column that specifies the position data of the
             objects in the catalog
         """
-        from nbodykit.source.catalogmesh import MultipleSpeciesCatalogMesh
+        from nbodykit.source.mesh.species import MultipleSpeciesCatalogMesh
+
+        if window is not None:
+            raise RuntimeError("use resampler instead")
 
         # verify that all of the required columns exist
         for name in self.species:
@@ -218,7 +223,7 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
                                           value=value,
                                           interlaced=interlaced,
                                           compensated=compensated,
-                                          window=window)
+                                          resampler=resampler)
 
 
 def check_species_metadata(name, attrs, species):

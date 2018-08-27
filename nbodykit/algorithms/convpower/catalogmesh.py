@@ -1,5 +1,5 @@
-from nbodykit.source.catalogmesh.species import MultipleSpeciesCatalogMesh
-from nbodykit.base.catalogmesh import CatalogMesh
+from nbodykit.source.mesh import MultipleSpeciesCatalogMesh
+from nbodykit.source.mesh import CatalogMesh
 from nbodykit.utils import attrs_to_dict
 import logging
 import numpy
@@ -46,9 +46,9 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
     def __init__(self, source, BoxSize, Nmesh, dtype, selection,
                     comp_weight, fkp_weight, nbar, value='Value',
                     position='Position', interlaced=False,
-                    compensated=False, window='cic'):
+                    compensated=False, resampler='cic'):
 
-        from nbodykit.source.catalog import FKPCatalog
+        from .catalog import FKPCatalog
         if not isinstance(source, FKPCatalog):
             raise TypeError("the input source for FKPCatalogMesh must be a FKPCatalog")
 
@@ -56,10 +56,12 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         position = '_RecenteredPosition'
         weight = '_TotalWeight'
 
+        self.attrs.update(source.attrs)
+
         MultipleSpeciesCatalogMesh.__init__(self, source=source,
                         BoxSize=BoxSize, Nmesh=Nmesh,
                         dtype=dtype, weight=weight, value=value, selection=selection, position=position,
-                        interlaced=interlaced, compensated=compensated, window=window)
+                        interlaced=interlaced, compensated=compensated, resampler=resampler)
 
         self._uncentered_position = uncentered_position
         self.comp_weight = comp_weight
@@ -93,11 +95,10 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
                 Position=self.RecenteredPosition(key),
                 interlaced=self.interlaced,
                 compensated=self.compensated,
-                resampler=self.window,
+                resampler=self.resampler,
             )
 
-        # attach attributes from self
-        return mesh.__finalize__(self)
+        return mesh
 
     def recenter_box(self, BoxSize, BoxCenter):
         """
