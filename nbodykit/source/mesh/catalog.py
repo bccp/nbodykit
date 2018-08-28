@@ -227,6 +227,8 @@ class CatalogMesh(MeshSource):
         # ensure the slices are synced, since decomposition is collective
         Nlocalmax = max(pm.comm.allgather(len(Position)))
 
+        H = pm.BoxSize / pm.Nmesh
+
         # paint data in chunks on each rank;
         # we do this by chunk 8 million is pretty big anyways.
         chunksize = _global_options['paint_chunk_size']
@@ -283,8 +285,6 @@ class CatalogMesh(MeshSource):
                 p = lay.exchange(position)
                 w = lay.exchange(weight)
                 v = lay.exchange(value)
-
-                H = pm.BoxSize / pm.Nmesh
 
                 # in mesh units
                 shifted = pm.affine.shift(0.5)
