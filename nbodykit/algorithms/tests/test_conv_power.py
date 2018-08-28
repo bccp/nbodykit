@@ -337,19 +337,16 @@ def test_with_zhist(comm):
     # compute NZ from randoms
     zhist = RedshiftHistogram(randoms, FSKY, cosmo, redshift='z')
 
+    # normalize NZ to the total size of the data catalog
+    alpha = 1.0 * data.csize / randoms.csize
     # add n(z) from randoms to the FKP source
-    nofz = InterpolatedUnivariateSpline(zhist.bin_centers, zhist.nbar)
+    nofz = InterpolatedUnivariateSpline(zhist.bin_centers, alpha * zhist.nbar)
 
     randoms['NZ'] = nofz(randoms['z'])
     data['NZ'] = nofz(data['z'])
 
     # initialize the FKP source
     fkp = FKPCatalog(data, randoms)
-
-    # normalize NZ to the total size of the data catalog
-    alpha = 1.0 * data.csize / randoms.csize
-    fkp['randoms']['NZ'] *= alpha
-    fkp['data']['NZ'] *= alpha
 
     # compute the multipoles
     r = ConvolvedFFTPower(fkp.to_mesh(Nmesh=128), poles=[0,2,4], dk=0.005)
