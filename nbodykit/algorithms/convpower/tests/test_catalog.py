@@ -7,18 +7,17 @@ import pytest
 
 setup_logging()
 
-@MPITest([4])
+@MPITest([1])
 def test_missing_columns(comm):
 
     # create FKP catalog
     source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42, comm=comm)
     source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84, comm=comm)
-    cat = FKPCatalog(source1, source2, BoxSize=512.0, BoxPad=0.02)
 
     with pytest.raises(ValueError):
-        mesh = cat.to_mesh(Nmesh=32)
+        cat = FKPCatalog(source1, source2, BoxSize=512.0, BoxPad=0.02)
 
-@MPITest([4])
+@MPITest([1])
 def test_boxsize(comm):
 
     # data and randoms

@@ -77,7 +77,8 @@ class FKPCatalog(MultipleSpeciesCatalog):
         MultipleSpeciesCatalog.__init__(self, ['data', 'randoms'], data, randoms)
 
         for i, name in enumerate(self.species):
-            assert nbar in self[name], "Column `%s` is not defined in `%s`" % (nbar, name)
+            if nbar not in self[name]:
+                raise ValueError("Column `%s` is not defined in `%s`" % (nbar, name))
 
         self.nbar = nbar
 
