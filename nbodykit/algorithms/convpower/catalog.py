@@ -47,8 +47,9 @@ class FKPCatalog(MultipleSpeciesCatalog):
     ----------
     data : CatalogSource
         the CatalogSource of particles representing the `data` catalog
-    randoms : CatalogSource
+    randoms : CatalogSource, or None
         the CatalogSource of particles representing the `randoms` catalog
+        if None is given an empty catalog is used.
     BoxSize : float, 3-vector, optional
         the size of the Cartesian box to use for the unified `data` and
         `randoms`; if not provided, the maximum Cartesian extent of the
@@ -72,6 +73,10 @@ class FKPCatalog(MultipleSpeciesCatalog):
         return "FKPCatalog(species=%s)" %str(self.attrs['species'])
 
     def __init__(self, data, randoms, BoxSize=None, BoxPad=0.02, P0=None, nbar='NZ'):
+
+        if randoms is None:
+            # create an empty catalog.
+            randoms = data[:0]
 
         # init the base class
         MultipleSpeciesCatalog.__init__(self, ['data', 'randoms'], data, randoms)
@@ -100,47 +105,52 @@ class FKPCatalog(MultipleSpeciesCatalog):
             BoxPad = numpy.ones(3)*BoxPad
         self.attrs['BoxPad'] = BoxPad
 
-    def _define_cartesian_box(self, position, selection):
+    def _define_bbox(self, position, selection, species):
         """
         Internal function to put the :attr:`randoms` CatalogSource in a
-        Cartesian box.
+        Cartesian bounding box, using the positions of the given species.
 
-        This function add two necessary attribues:
+        This function computings the size and center of the bounding box.
 
-        #. :attr:`BoxSize` : array_like, (3,)
+        #. `BoxSize` : array_like, (3,)
             if not provided, the BoxSize in each direction is computed from
             the maximum extent of the Cartesian coordinates of the :attr:`randoms`
             Source, with an optional, additional padding
-        #. :attr:`BoxCenter`: array_like, (3,)
+        #. `BoxCenter`: array_like, (3,)
             the mean coordinate value in each direction; this is used to re-center
             the Cartesian coordinates of the :attr:`data` and :attr:`randoms`
             to the range of ``[-BoxSize/2, BoxSize/2]``
+
         """
         from nbodykit.utils import get_data_bounds
 
         # compute the min/max of the position data
-        pos, sel = self['randoms'].read([position, selection])
+        pos, sel = self[species].read([position, selection])
         pos_min, pos_max = get_data_bounds(pos, self.comm, selection=sel)
+
+        self.logger.info("cartesian coordinate range: %s : %s" %(str(pos_min), str(pos_max)))
+
+        if numpy.isinf(pos_min).any() or numpy.isinf(pos_max).any():
+            raise ValueError("Range of positions from `%s` is infinite;"
+                    "try to use the other species with (bbox_from_species='data'." % species)
 
         # used to center the data in the first cartesian quadrant
         delta = abs(pos_max - pos_min)
-        self.attrs['BoxCenter'] = 0.5 * (pos_min + pos_max)
+        BoxCenter = 0.5 * (pos_min + pos_max)
 
         # BoxSize is padded diff of min/max coordinates
         if self.attrs['BoxSize'] is None:
             delta *= 1.0 + self.attrs['BoxPad']
-            self.attrs['BoxSize'] = numpy.ceil(delta) # round up to nearest integer
+            BoxSize = numpy.ceil(delta) # round up to nearest integer
+        else:
+            BoxSize = self.attrs['BoxSize']
 
-        # log some info
-        if self.comm.rank == 0:
-            self.logger.info("BoxSize = %s" %str(self.attrs['BoxSize']))
-            self.logger.info("cartesian coordinate range: %s : %s" %(str(pos_min), str(pos_max)))
-            self.logger.info("BoxCenter = %s" %str(self.attrs['BoxCenter']))
+        return BoxSize, BoxCenter
 
-    def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4', interlaced=False,
+    def to_mesh(self, Nmesh=None, BoxSize=None, BoxCenter=None, dtype='f4', interlaced=False,
                 compensated=False, resampler='cic', fkp_weight='FKPWeight',
                 comp_weight='Weight', selection='Selection',
-                position='Position', window=None, nbar=None):
+                position='Position', bbox_from_species=None, window=None, nbar=None):
 
         """
         Convert the FKPCatalog to a mesh, which knows how to "paint" the
@@ -155,9 +165,6 @@ class FKPCatalog(MultipleSpeciesCatalog):
         Nmesh : int, 3-vector, optional
             the number of cells per box side; if not specified in `attrs`, this
             must be provided
-        BoxSize : float, 3-vector, optional
-            the size of the box; if provided, this will use the default value
-            in `attrs`
         dtype : str, dtype, optional
             the data type of the mesh when painting
         interlaced : bool, optional
@@ -183,6 +190,9 @@ class FKPCatalog(MultipleSpeciesCatalog):
         position : str, optional
             the name of the column that specifies the position data of the
             objects in the catalog
+        bbox_from_species: str, optional
+            if given, use the species to infer a bbox.
+            if not give, will try random, then data (if random is empty)
         window : deprecated.
             use resampler=
         nbar: deprecated.
@@ -209,13 +219,27 @@ class FKPCatalog(MultipleSpeciesCatalog):
                                  "supplied and the FKP source does not define one in 'attrs'.")
 
         # first, define the Cartesian box
-        self._define_cartesian_box(position, selection)
+        if bbox_from_species is not None:
+            BoxSize1, BoxCenter1 = self._define_bbox(position, selection, bbox_from_species)
+        else:
+            if self['randoms'].csize > 0:
+                BoxSize1, BoxCenter1 = self._define_bbox(position, selection, "randoms")
+            else:
+                BoxSize1, BoxCenter1 = self._define_bbox(position, selection, "data")
 
         if BoxSize is None:
-            BoxSize = self.attrs['BoxSize']
+            BoxSize = BoxSize1
+
+        if BoxCenter is None:
+            BoxCenter = BoxCenter1
+
+        # log some info
+        if self.comm.rank == 0:
+            self.logger.info("BoxSize = %s" %str(BoxSize))
+            self.logger.info("BoxCenter = %s" %str(BoxCenter))
 
         # initialize the FKP mesh
-        kws = {'Nmesh':Nmesh, 'BoxSize':BoxSize, 'dtype':dtype, 'selection':selection}
+        kws = {'Nmesh':Nmesh, 'BoxSize':BoxSize, 'BoxCenter' : BoxCenter, 'dtype':dtype, 'selection':selection}
         return FKPCatalogMesh(self,
                               nbar=self.nbar,
                               comp_weight=comp_weight,

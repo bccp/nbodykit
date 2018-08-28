@@ -43,7 +43,7 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
     """
     logger = logging.getLogger('FKPCatalogMesh')
 
-    def __init__(self, source, BoxSize, Nmesh, dtype, selection,
+    def __init__(self, source, BoxSize, BoxCenter, Nmesh, dtype, selection,
                     comp_weight, fkp_weight, nbar, value='Value',
                     position='Position', interlaced=False,
                     compensated=False, resampler='cic'):
@@ -57,6 +57,8 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         weight = '_TotalWeight'
 
         self.attrs.update(source.attrs)
+
+        self.recenter_box(BoxSize, BoxCenter)
 
         MultipleSpeciesCatalogMesh.__init__(self, source=source,
                         BoxSize=BoxSize, Nmesh=Nmesh,
@@ -116,7 +118,6 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         # update meta-data
         for val, name in zip([BoxSize, BoxCenter], ['BoxSize', 'BoxCenter']):
             self.attrs[name] = val
-            self.source.attrs[name] = val
 
 
     def to_real_field(self):
@@ -166,23 +167,35 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         # determine alpha, the weighted number ratio
         for name in self.source.species:
             attrs[name+'.W'] = self.weighted_total(name)
+
         attrs['alpha'] = attrs['data.W'] / attrs['randoms.W']
 
-        # paint the randoms
-        real = self['randoms'].to_real_field(normalize=False)
-        real.attrs.update(attrs_to_dict(real, 'randoms.'))
-
-        # normalize the randoms by alpha
-        real[:] *= -1. * attrs['alpha']
-
         # paint the data
-        real2 = self['data'].to_real_field(normalize=False)
-        real[:] += real2[:]
-        real.attrs.update(attrs_to_dict(real2, 'data.'))
+        real = self['data'].to_real_field(normalize=False)
+        if self.comm.rank == 0:
+            self.logger.info("data painted.")
+
+        if self.source['randoms'].csize > 0:
+
+            # paint the randoms
+            real2 = self['randoms'].to_real_field(normalize=False)
+            real2.attrs.update(attrs_to_dict(real, 'randoms.'))
+
+            # normalize the randoms by alpha
+            real2[:] *= -1. * attrs['alpha']
+
+            if self.comm.rank == 0:
+                self.logger.info("randoms painted.")
+
+            real[:] += real2[:]
+            real.attrs.update(attrs_to_dict(real2, 'data.'))
 
         # divide by volume per cell to go from number to number density
         vol_per_cell = (self.pm.BoxSize/self.pm.Nmesh).prod()
         real[:] /= vol_per_cell
+
+        if self.comm.rank == 0:
+            self.logger.info("volume per cell is %g" % vol_per_cell)
 
         # remove shot noise estimates (they are inaccurate in this case)
         real.attrs.update(attrs)

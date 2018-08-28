@@ -506,25 +506,33 @@ class ConvolvedFFTPower(object):
         # proper normalization: same as equation 49 of Scoccimarro et al. 2015
         for name in ['data', 'randoms']:
             self.attrs[name+'.norm'] = self.normalization(name, self.attrs['alpha'])
-        norm = 1.0 / self.attrs['randoms.norm']
 
-        # check normalization
-        Adata = self.attrs['data.norm']
-        Aran = self.attrs['randoms.norm']
-        if not numpy.allclose(Adata, Aran, rtol=0.05):
-            msg = "normalization in ConvolvedFFTPower different by more than 5%; "
-            msg += ",algorithm requires they must be similar\n"
-            msg += "\trandoms.norm = %.6f, data.norm = %.6f\n" % (Aran, Adata)
-            msg += "\tpossible discrepancies could be related to normalization "
-            msg += "of n(z) column ('%s')\n" % self.first.nbar
-            msg += "\tor the consistency of the FKP weight column for 'data' "
-            msg += "and 'randoms';\n"
-            msg += "\tn(z) columns for 'data' and 'randoms' should be "
-            msg += "normalized to represent n(z) of the data catalog"
-            raise ValueError(msg)
+        if self.attrs['randoms.norm'] > 0:
+            norm = 1.0 / self.attrs['randoms.norm']
 
-        if rank == 0:
-            self.logger.info("normalized power spectrum with `randoms.norm = %.6f`" % Aran)
+            # check normalization
+            Adata = self.attrs['data.norm']
+            Aran = self.attrs['randoms.norm']
+            if not numpy.allclose(Adata, Aran, rtol=0.05):
+                msg = "normalization in ConvolvedFFTPower different by more than 5%; "
+                msg += ",algorithm requires they must be similar\n"
+                msg += "\trandoms.norm = %.6f, data.norm = %.6f\n" % (Aran, Adata)
+                msg += "\tpossible discrepancies could be related to normalization "
+                msg += "of n(z) column ('%s')\n" % self.first.nbar
+                msg += "\tor the consistency of the FKP weight column for 'data' "
+                msg += "and 'randoms';\n"
+                msg += "\tn(z) columns for 'data' and 'randoms' should be "
+                msg += "normalized to represent n(z) of the data catalog"
+                raise ValueError(msg)
+
+            if rank == 0:
+                self.logger.info("normalized power spectrum with `randoms.norm = %.6f`" % Aran)
+        else:
+            # an empty random catalog is provides, so we will ignore the normalization.
+            norm = 1.0
+            if rank == 0:
+                self.logger.info("normalization of power spectrum is neglected, as no random is provided.")
+
 
         # loop over the higher order multipoles (ell > 0)
         start = time.time()

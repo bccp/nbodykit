@@ -321,6 +321,36 @@ def test_run(comm):
     S = S_data + S_ran
     assert_allclose(S, r.attrs['shotnoise'])
 
+@MPITest([1, 4])
+def test_window_only(comm):
+    NDATA = 1000
+    NBAR = 1e-4
+    FSKY = 0.15
+    P0 = 1e4
+
+    cosmo = cosmology.Planck15
+
+    # make the sources
+    data, randoms = make_sources(cosmo, comm)
+
+    for s in [data, randoms]:
+
+        # constant number density
+        s['NZ'] = NBAR
+
+        # completeness weights
+        s['Weight'] = (1 + P0*s['NZ'])**2
+
+    empty = randoms[:0]
+    # initialize the FKP source with random as data, for measuring the window.
+    fkp = FKPCatalog(data=randoms, randoms=None, P0=P0)
+
+    # compute the multipoles
+    r = ConvolvedFFTPower(fkp.to_mesh(Nmesh=128), poles=[0,2,4], dk=0.005)
+
+    assert not numpy.isnan(r.poles['power_0']).any()
+    assert not numpy.isnan(r.poles['power_2']).any()
+    assert not numpy.isnan(r.poles['power_4']).any()
 
 @MPITest([1, 4])
 def test_with_zhist(comm):
