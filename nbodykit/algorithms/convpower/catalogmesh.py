@@ -111,9 +111,8 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         ``[-L/2,L/2]`` where ``L`` is the BoxSize.
         """
         # check input type
-        for val in [BoxSize, BoxCenter]:
-            if not isinstance(val, (list, numpy.ndarray)) or len(val) != 3:
-                raise ValueError("recenter_box arguments should be a vector of length 3")
+        BoxSize = numpy.ones(3) * BoxSize
+        BoxCenter = numpy.ones(3) * BoxCenter
 
         # update meta-data
         for val, name in zip([BoxSize, BoxCenter], ['BoxSize', 'BoxCenter']):
@@ -172,6 +171,7 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
 
         # paint the data
         real = self['data'].to_real_field(normalize=False)
+        real.attrs.update(attrs_to_dict(real, 'data.'))
         if self.comm.rank == 0:
             self.logger.info("data painted.")
 
@@ -179,7 +179,6 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
 
             # paint the randoms
             real2 = self['randoms'].to_real_field(normalize=False)
-            real2.attrs.update(attrs_to_dict(real, 'randoms.'))
 
             # normalize the randoms by alpha
             real2[:] *= -1. * attrs['alpha']
@@ -188,7 +187,7 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
                 self.logger.info("randoms painted.")
 
             real[:] += real2[:]
-            real.attrs.update(attrs_to_dict(real2, 'data.'))
+            real.attrs.update(attrs_to_dict(real2, 'randoms.'))
 
         # divide by volume per cell to go from number to number density
         vol_per_cell = (self.pm.BoxSize/self.pm.Nmesh).prod()
