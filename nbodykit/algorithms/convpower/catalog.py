@@ -4,6 +4,28 @@ from nbodykit.transform import ConstantArray
 import numpy
 import logging
 
+def FKPWeightFromNbar(P0, nbar):
+    """ Create FKPWeight from nbar, the number density of objects per redshift.
+
+        Parameters
+        ----------
+        P0 : float
+            the FKP normalization, when P0 == 0, returns 1.0, ignoring size / shape of nbar.
+
+        nbar : array_like
+            the number density of objects per redshift
+
+        Returns
+        -------
+        FKPWeight : the FKPWeight, can be assigned to a catalog as a column
+        to be consumed :class:`ConvolvedFFTPower`
+
+    """
+    if P0 != 0:
+        return 1.0 / (1. + P0 * nbar)
+
+    return 1.0
+
 
 class FKPCatalog(MultipleSpeciesCatalog):
     """
@@ -34,6 +56,11 @@ class FKPCatalog(MultipleSpeciesCatalog):
     BoxPad : float, 3-vector, optional
         optionally apply this additional buffer to the extent of the
         Cartesian box
+    nbar : str, optional
+        the name of the column specifying the number density as a function
+        of redshift. default is NZ.
+    P0 : float or None
+        if not None, a column named FKPWeight is added to data and random based on nbar.
 
     References
     ----------
@@ -44,15 +71,25 @@ class FKPCatalog(MultipleSpeciesCatalog):
     def __repr__(self):
         return "FKPCatalog(species=%s)" %str(self.attrs['species'])
 
-    def __init__(self, data, randoms, BoxSize=None, BoxPad=0.02):
+    def __init__(self, data, randoms, BoxSize=None, BoxPad=0.02, P0=None, nbar='NZ'):
 
         # init the base class
         MultipleSpeciesCatalog.__init__(self, ['data', 'randoms'], data, randoms)
 
-        # add a default FKP weight columns, if it doesnt exist
         for i, name in enumerate(self.species):
-            if 'FKPWeight' not in self[name]:
-                self[name]['FKPWeight'] = 1.0 # unity by default
+            assert nbar in self[name], "Column `%s` is not defined in `%s`" % (nbar, name)
+
+        self.nbar = nbar
+
+        if P0 is not None:
+            # create a default FKP weight column, based on nbar
+            for i, name in enumerate(self.species):
+                self[name]['FKPWeight'] = FKPWeightFromNbar(P0, self[name][self.nbar])
+        else:
+            # add a default FKP weight columns, based on nbar
+            for i, name in enumerate(self.species):
+                if 'FKPWeight' not in self[name]:
+                    self[name]['FKPWeight'] = 1.0
 
         # determine the BoxSize
         if numpy.isscalar(BoxSize):
@@ -101,8 +138,8 @@ class FKPCatalog(MultipleSpeciesCatalog):
 
     def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4', interlaced=False,
                 compensated=False, resampler='cic', fkp_weight='FKPWeight',
-                comp_weight='Weight', nbar='NZ', selection='Selection',
-                position='Position', window=None):
+                comp_weight='Weight', selection='Selection',
+                position='Position', window=None, nbar=None):
 
         """
         Convert the FKPCatalog to a mesh, which knows how to "paint" the
@@ -142,14 +179,13 @@ class FKPCatalog(MultipleSpeciesCatalog):
         selection : str, optional
             the name of the column used to select a subset of the source when
             painting
-        nbar : str, optional
-            the name of the column specifying the number density as a function
-            of redshift
         position : str, optional
             the name of the column that specifies the position data of the
             objects in the catalog
         window : deprecated.
-            use resampler
+            use resampler=
+        nbar: deprecated.
+            deprecated. set nbar in the call to FKPCatalog()
         """
         from .catalogmesh import FKPCatalogMesh
 
@@ -160,7 +196,7 @@ class FKPCatalog(MultipleSpeciesCatalog):
 
         # verify that all of the required columns exist
         for name in self.species:
-            for col in [fkp_weight, comp_weight, nbar]:
+            for col in [fkp_weight, comp_weight]:
                 if col not in self[name]:
                     raise ValueError("the '%s' species is missing the '%s' column" %(name, col))
 
@@ -180,7 +216,7 @@ class FKPCatalog(MultipleSpeciesCatalog):
         # initialize the FKP mesh
         kws = {'Nmesh':Nmesh, 'BoxSize':BoxSize, 'dtype':dtype, 'selection':selection}
         return FKPCatalogMesh(self,
-                              nbar=nbar,
+                              nbar=self.nbar,
                               comp_weight=comp_weight,
                               fkp_weight=fkp_weight,
                               position=position,

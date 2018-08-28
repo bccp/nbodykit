@@ -119,13 +119,6 @@ class ConvolvedFFTPower(object):
     dk : float, optional
         the spacing in wavenumber to use; if not provided; the fundamental mode
         of the box is used
-    use_fkp_weights : bool, optional
-        if ``True``, FKP weights will be added using ``P0_FKP`` such that the
-        fkp weight is given by ``1 / (1 + P0*NZ)`` where ``NZ`` is the number
-        density as a function of redshift column
-    P0_FKP : float, optional
-        the value of ``P0`` to use when computing FKP weights; must not be
-        ``None`` if ``use_fkp_weights=True``
 
     References
     ----------
@@ -141,8 +134,11 @@ class ConvolvedFFTPower(object):
                     Nmesh=None,
                     kmin=0.,
                     dk=None,
-                    use_fkp_weights=False,
+                    use_fkp_weights=None,
                     P0_FKP=None):
+
+        if use_fkp_weights is not None or P0_FKP is not None:
+            raise ValueError("use_fkp_weights and P0_FKP are deprecated. Assign a FKPWeight column to source['randoms']['FKPWeight'] and source['data']['FKPWeight'] with the help of the FKPWeightFromNbar(nbar) function")
 
         first = _cast_mesh(first, Nmesh=Nmesh)
         if second is not None:
@@ -188,36 +184,11 @@ class ConvolvedFFTPower(object):
         if numpy.isscalar(poles):
             poles = [poles]
 
-        if use_fkp_weights and P0_FKP is None:
-            raise ValueError(("please set the 'P0_FKP' keyword if you wish to automatically "
-                              "use FKP weights with 'use_fkp_weights=True'"))
-
-        # add FKP weights
-        if use_fkp_weights:
-            for mesh in [self.first, self.second]:
-                if self.comm.rank == 0:
-                    args = (mesh.fkp_weight, P0_FKP)
-                    self.logger.info("adding FKP weights as the '%s' column, using P0 = %.4e" %args)
-
-                for name in ['data', 'randoms']:
-
-                    # print a warning if we are overwriting a non-default column
-                    old_fkp_weights = mesh.source[name][mesh.fkp_weight]
-                    if mesh.source.compute(old_fkp_weights.sum()) != len(old_fkp_weights):
-                        warn = "it appears that we are overwriting FKP weights for the '%s' " %name
-                        warn += "source in FKPCatalog when using 'use_fkp_weights=True' in ConvolvedFFTPower"
-                        warnings.warn(warn)
-
-                    nbar = mesh.source[name][mesh.nbar]
-                    mesh.source[name][mesh.fkp_weight] = 1.0 / (1. + P0_FKP * nbar)
-
         # store meta-data
         self.attrs = {}
         self.attrs['poles'] = poles
         self.attrs['dk'] = dk
         self.attrs['kmin'] = kmin
-        self.attrs['use_fkp_weights'] = use_fkp_weights
-        self.attrs['P0_FKP'] = P0_FKP
 
         # store BoxSize and BoxCenter from source
         self.attrs['Nmesh'] = self.first.attrs['Nmesh'].copy()
@@ -748,6 +719,7 @@ class ConvolvedFFTPower(object):
 def _cast_mesh(mesh, Nmesh):
     """
     Cast an object to a MeshSource. Nmesh is used only on FKPCatalog
+
     """
     from .catalog import FKPCatalog
     from .catalogmesh import FKPCatalogMesh
@@ -757,8 +729,7 @@ def _cast_mesh(mesh, Nmesh):
 
     if isinstance(mesh, FKPCatalog):
         # if input is CatalogSource, use defaults to make it into a mesh
-        if not isinstance(mesh, FKPCatalogMesh):
-            mesh = mesh.to_mesh(Nmesh=Nmesh, dtype='f8', compensated=False)
+        mesh = mesh.to_mesh(Nmesh=Nmesh, dtype='f8', compensated=False)
 
     if Nmesh is not None and any(mesh.attrs['Nmesh'] != Nmesh):
         raise ValueError(("Mismatched Nmesh between __init__ and mesh.attrs; "

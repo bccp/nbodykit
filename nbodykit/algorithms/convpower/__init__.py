@@ -1,4 +1,4 @@
 
 from .fkp import ConvolvedFFTPower
-from .catalog import FKPCatalog
+from .catalog import FKPCatalog, FKPWeightFromNbar
 
