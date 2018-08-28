@@ -354,13 +354,15 @@ class CatalogMesh(MeshSource):
             self.logger.info("painted %d out of %d objects to mesh" %(N, self.source.csize))
             self.logger.info("mean particles per cell is %g", nbar)
             self.logger.info("sum is %g ", csum)
-            self.logger.info("normalized the convention to 1 + delta")
 
         if normalize:
             if nbar > 0:
                 toret[...] /= nbar
             else:
                 toret[...] = 1
+
+            if pm.comm.rank == 0:
+                self.logger.info("normalized the convention to 1 + delta")
 
         return toret
 
