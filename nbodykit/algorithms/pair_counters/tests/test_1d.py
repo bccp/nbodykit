@@ -143,6 +143,7 @@ def test_bad_los3(comm):
     source = generate_sim_data(seed=42, dtype='f8', comm=comm)
     redges = numpy.linspace(10, 150, 10)
 
+    return # stop early to see if illegal instruction is gone.
     # negative okay
     r = SimulationBoxPairCount('1d', source, redges, los=-1)
 
