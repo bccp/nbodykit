@@ -370,10 +370,9 @@ def test_with_zhist(comm):
     # normalize NZ to the total size of the data catalog
     alpha = 1.0 * data.csize / randoms.csize
     # add n(z) from randoms to the FKP source
-    nofz = InterpolatedUnivariateSpline(zhist.bin_centers, alpha * zhist.nbar)
 
-    randoms['NZ'] = nofz(randoms['z'])
-    data['NZ'] = nofz(data['z'])
+    randoms['NZ'] = zhist.interpolate(randoms['z']) * alpha
+    data['NZ'] = zhist.interpolate(data['z']) * alpha
 
     # initialize the FKP source
     fkp = FKPCatalog(data, randoms)

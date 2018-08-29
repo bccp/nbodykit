@@ -48,7 +48,22 @@ def test_unweighted(comm):
     r = RedshiftHistogram(source, FSKY, cosmo, redshift='z')
 
     assert (r.nbar*r.dV).sum() == N
-    
+
+@MPITest([1])
+def test_interp(comm):
+
+    N = 1000
+    FSKY = 1.0
+
+    cosmo = cosmology.Planck15
+
+    # create the source
+    source = RandomCatalog(N, seed=42, comm=comm)
+    source['z'] = source.rng.normal(loc=0.5, scale=0.1)
+
+    # compute the histogram
+    r = RedshiftHistogram(source, FSKY, cosmo, redshift='z')
+    # FIXME: add an assertion.
 
 @MPITest([1, 4])
 def test_weighted(comm):
