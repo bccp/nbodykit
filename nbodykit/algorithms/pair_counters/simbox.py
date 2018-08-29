@@ -90,12 +90,14 @@ class SimulationBoxPairCount(PairCountBase):
 
         # check input 'los'
         if isinstance(los, string_types):
-            assert los in 'xyz', "``los`` should be one of 'x', 'y', 'z'"
+            if not los in 'xyz':
+                raise ValueError("``los`` should be one of 'x', 'y', 'z'")
             los = 'xyz'.index(los)
-        elif isinstance(los, int):
+
+        if isinstance(los, int):
             if los < 0: los += 3
-            assert los in [0,1,2], "``los`` should be one of 0, 1, 2"
-        else:
+
+        if los not in [0,1,2]:
             raise ValueError("``los`` should be either ['x', 'y', 'z'] or [0,1,2]")
 
         # verify the input sources

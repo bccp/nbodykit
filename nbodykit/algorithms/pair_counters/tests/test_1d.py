@@ -126,7 +126,7 @@ def test_bad_los1(comm):
     redges = numpy.linspace(10, 150, 10)
 
     # should be 'x', 'y', 'z'
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         r = SimulationBoxPairCount('1d', source, redges, los='a')
 
 @MPITest([1])
@@ -135,7 +135,7 @@ def test_bad_los2(comm):
     redges = numpy.linspace(10, 150, 10)
 
     # should be [0,1,2]
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         r = SimulationBoxPairCount('1d', source, redges, los=3)
 
 @MPITest([1])
