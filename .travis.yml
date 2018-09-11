@@ -52,7 +52,10 @@ install:
     - pip install .[extras]
 
 script:
-    - python run-tests.py -v --mpirun='mpirun -n 4 gdb -batch -ex run -ex bt' --with-coverage
+    - |
+      python run-tests.py -v \
+      --mpirun='mpirun -n 4 gdb -return-child-result -ex run -ex thread -ex apply -ex all -ex bt -ex quit --args' \
+      --with-coverage
 
 after_success:
     - coveralls
