@@ -54,6 +54,7 @@ install:
 script:
     - ulimit -c unlimited
     - python run-tests.py -v --mpirun='mpirun -n 4' --with-coverage
+    - ls -l
     - gdb --batch --quiet -ex "thread apply all bt full" -ex "quit" python *.core
 
 after_success:
