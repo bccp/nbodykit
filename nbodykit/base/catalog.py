@@ -67,6 +67,18 @@ class ColumnAccessor(da.Array):
                 self.dtype,
                 self.shape)
 
+    @staticmethod
+    def __dask_optimize__(dsk, keys, **kwargs):
+        """
+        Notes
+        -----
+        The dask default optimizer induces too many (unnecesarry)
+        IO calls -- we turn this off feature off by default, and only apply a culling.
+        """
+        from dask.optimization import cull
+        dsk2, dependencies = cull(dsk, keys)
+        return dsk2
+
     def compute(self):
         return self.catalog.compute(self)
 
@@ -538,20 +550,12 @@ class CatalogSourceBase(object):
             collection, it's computed and the result is returned.
             Otherwise it's passed through unchanged.
 
-        Notes
-        -----
-        The dask default optimizer induces too many (unnecesarry)
-        IO calls -- we turn this off feature off by default. Eventually we
-        want our own optimizer probably.
         """
         import dask
 
         # return the base compute if it exists
         if self.base is not None:
             return self.base.compute(*args, **kwargs)
-
-        # do not optimize graph (can lead to slower optimizations)
-        kwargs.setdefault('optimize_graph', False)
 
         # compute using global cache
         with GlobalCache.get():
