@@ -1,4 +1,8 @@
 language: python
+addons:
+    apt:
+        packages:
+            - gdb
 python:
     - 2.7
     - 3.5
