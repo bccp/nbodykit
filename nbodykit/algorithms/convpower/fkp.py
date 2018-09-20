@@ -6,7 +6,7 @@ import warnings
 from nbodykit import CurrentMPIComm
 from nbodykit.utils import timer
 from nbodykit.binned_statistic import BinnedStatistic
-from nbodykit.algorithms.fftpower import project_to_basis
+from nbodykit.algorithms.fftpower import project_to_basis, _find_unique_edges
 from pmesh.pm import ComplexField
 
 def get_real_Ylm(l, m):
@@ -250,13 +250,23 @@ class ConvolvedFFTPower(object):
 
         # setup the binning in k out to the minimum nyquist frequency
         dk = 2*numpy.pi/pm.BoxSize.min() if self.attrs['dk'] is None else self.attrs['dk']
-        self.edges = numpy.arange(self.attrs['kmin'], numpy.pi*pm.Nmesh.min()/pm.BoxSize.max() + dk/2, dk)
+
+        if dk > 0:
+            kedges = numpy.arange(self.attrs['kmin'], numpy.pi*pm.Nmesh.min()/pm.BoxSize.max() + dk/2, dk)
+            kcoords = None
+        else:
+            k = pm.create_coords('complex')
+            kedges, kcoords = _find_unique_edges(k, 2 * numpy.pi / pm.BoxSize, pm.comm)
 
         # measure the binned 1D multipoles in Fourier space
-        poles = self._compute_multipoles()
+        result = self._compute_multipoles(kedges)
 
         # set all the necessary results
-        self.poles = BinnedStatistic(['k'], [self.edges], poles, fields_to_sum=['modes'], **self.attrs)
+        self.poles = BinnedStatistic(['k'], [kedges], result,
+                            fields_to_sum=['modes'],
+                            coords=[kcoords],
+                            **self.attrs)
+        self.edges = kedges
 
     def to_pkmu(self, mu_edges, max_ell):
         """
@@ -314,17 +324,22 @@ class ConvolvedFFTPower(object):
 
         dims = ['k', 'mu']
         edges = [self.poles.edges['k'], mu_edges]
-        return BinnedStatistic(dims=dims, edges=edges, data=data, **self.attrs)
+        return BinnedStatistic(dims=dims, edges=edges, data=data, coords=[self.poles.coords['k'], None], **self.attrs)
 
     def __getstate__(self):
-        state = dict(edges=self.edges,
-                     poles=self.poles.data,
+        state = dict(poles=self.poles.__getstate__(),
                      attrs=self.attrs)
         return state
 
     def __setstate__(self, state):
-        self.__dict__.update(state)
-        self.poles = BinnedStatistic(['k'], [self.edges], self.poles, fields_to_sum=['modes'])
+        self.attrs = state['attrs']
+        self.poles = BinnedStatistic.from_state(state['poles'])
+
+    def __setstate_pre000305__(self, state):
+        """ compatible version of setstate for files generated before 0.3.5 """
+        edges = state['edges']
+        sefl.attrs = state['attrs']
+        self.poles = BinnedStatistic(['k'], [edges], self.poles, fields_to_sum=['modes'])
 
     def save(self, output):
         """
@@ -349,13 +364,16 @@ class ConvolvedFFTPower(object):
 
     @classmethod
     @CurrentMPIComm.enable
-    def load(cls, output, comm=None):
+    def load(cls, output, comm=None, format='current'):
         """
         Load a saved ConvolvedFFTPower result, which has been saved to
         disk with :func:`ConvolvedFFTPower.save`.
 
         The current MPI communicator is automatically used
         if the ``comm`` keyword is ``None``
+
+        format can be 'current', or 'pre000305' for files generated before 0.3.5.
+
         """
         import json
         from nbodykit.utils import JSONDecoder
@@ -367,11 +385,16 @@ class ConvolvedFFTPower(object):
             state = None
         state = comm.bcast(state)
         self = object.__new__(cls)
-        self.__setstate__(state)
+
+        if format == 'current':
+            self.__setstate__(state)
+        elif format == 'pre000305':
+            self.__setstate_pre000305__(state)
+
         self.comm = comm
         return self
 
-    def _compute_multipoles(self):
+    def _compute_multipoles(self, kedges):
         """
         Compute the window-convoled power spectrum multipoles, for a data set
         with non-trivial survey geometry.
@@ -410,13 +433,13 @@ class ConvolvedFFTPower(object):
 
         # setup the 1D-binning
         muedges = numpy.linspace(0, 1, 2, endpoint=True)
-        edges = [self.edges, muedges]
+        edges = [kedges, muedges]
 
         # make a structured array to hold the results
         cols   = ['k'] + ['power_%d' %l for l in sorted(self.attrs['poles'])] + ['modes']
         dtype  = ['f8'] + ['c8']*len(self.attrs['poles']) + ['i8']
         dtype  = numpy.dtype(list(zip(cols, dtype)))
-        result = numpy.empty(len(self.edges)-1, dtype=dtype)
+        result = numpy.empty(len(kedges)-1, dtype=dtype)
 
         # offset the box coordinate mesh ([-BoxSize/2, BoxSize]) back to
         # the original (x,y,z) coords
