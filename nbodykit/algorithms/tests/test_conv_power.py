@@ -350,6 +350,34 @@ def test_run_unique_bins(comm):
     assert_allclose(pkmu.coords['k'], r.poles.coords['k'])
 
 @MPITest([1, 4])
+def test_run_unique_bins_windowonly(comm):
+
+    cosmo = cosmology.Planck15
+    P0 = 1e4
+
+    # make the sources
+    data, randoms = make_sources(cosmo, comm)
+    for s in [data, randoms]:
+
+        # constant number density
+        s['NZ'] = NBAR
+
+        # completeness weights
+        s['Weight'] = (1 + P0*s['NZ'])**2
+
+    # the FKP source
+    fkp = FKPCatalog(data=randoms, randoms=None, P0=P0, nbar='NZ')
+    fkp = fkp.to_mesh(Nmesh=128, dtype='f8', fkp_weight='FKPWeight', comp_weight='Weight', selection='Selection')
+
+    # compute the multipoles
+    r = ConvolvedFFTPower(fkp, poles=[0,2,4], dk=0)
+
+    # compute pkmu
+    mu_edges = numpy.linspace(0, 1, 6)
+    pkmu = r.to_pkmu(mu_edges=mu_edges, max_ell=4)
+    assert_allclose(pkmu.coords['k'], r.poles.coords['k'])
+
+@MPITest([1, 4])
 def test_window_only(comm):
     NDATA = 1000
     NBAR = 1e-4
