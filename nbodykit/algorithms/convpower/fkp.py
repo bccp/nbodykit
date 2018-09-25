@@ -257,6 +257,8 @@ class ConvolvedFFTPower(object):
         else:
             k = pm.create_coords('complex')
             kedges, kcoords = _find_unique_edges(k, 2 * numpy.pi / pm.BoxSize, pm.comm)
+            if comm.rank == 0:
+                self.logger.info('%d unique k values are found' % len(kcoords))
 
         # measure the binned 1D multipoles in Fourier space
         result = self._compute_multipoles(kedges)
