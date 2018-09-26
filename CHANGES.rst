@@ -1,8 +1,13 @@
 Changelog
 =========
 
-0.3.6 (Unreleased)
+0.3.7 (Unreleased)
 ------------------
+
+0.3.6 (2018-09-26)
+------------------
+* :issue:`518`:  Rework CurrentMPIComm
+* :issue:`521`:  Fix OOM errors with dask >= 0.19.0
 
 0.3.5 (2018-08-23)
 ------------------
