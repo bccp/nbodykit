@@ -121,21 +121,36 @@ def test_sim_periodic_cross(comm):
     assert_allclose(wsum, r.pairs['wnpairs'])
 
 @MPITest([1])
-def test_bad_los(comm):
-
+def test_bad_los1(comm):
     source = generate_sim_data(seed=42, dtype='f8', comm=comm)
     redges = numpy.linspace(10, 150, 10)
 
     # should be 'x', 'y', 'z'
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         r = SimulationBoxPairCount('1d', source, redges, los='a')
 
+@MPITest([1])
+def test_bad_los2(comm):
+    source = generate_sim_data(seed=42, dtype='f8', comm=comm)
+    redges = numpy.linspace(10, 150, 10)
+
     # should be [0,1,2]
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         r = SimulationBoxPairCount('1d', source, redges, los=3)
 
+@MPITest([1])
+def test_bad_los3(comm):
+    source = generate_sim_data(seed=42, dtype='f8', comm=comm)
+    redges = numpy.linspace(10, 150, 10)
+
+    return # stop early to see if illegal instruction is gone.
     # negative okay
     r = SimulationBoxPairCount('1d', source, redges, los=-1)
+
+@MPITest([1])
+def test_bad_los4(comm):
+    source = generate_sim_data(seed=42, dtype='f8', comm=comm)
+    redges = numpy.linspace(10, 150, 10)
 
     # vector is bad
     with pytest.raises(ValueError):

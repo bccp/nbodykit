@@ -1,12 +1,14 @@
-from nbodykit.base.catalogmesh import CatalogMesh
-from nbodykit.base.catalog import CatalogSource
-from nbodykit.utils import attrs_to_dict
-
+from nbodykit.base.mesh import MeshSource
+from nbodykit import _global_options
 import numpy
 import logging
-from six import string_types
+import warnings
 
-class MultipleSpeciesCatalogMesh(CatalogMesh):
+# for converting from particle to mesh
+from pmesh.pm import RealField
+
+from nbodykit.utils import attrs_to_dict
+class MultipleSpeciesCatalogMesh(MeshSource):
     """
     A subclass of :class:`~nbodykit.base.catalogmesh.CatalogMesh`
     designed to paint the density field from a sum of multiple types
@@ -39,17 +41,32 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
     """
     logger = logging.getLogger('MultipleSpeciesCatalogMesh')
 
-    def __init__(self, source, *args, **kwargs):
+    def __init__(self, source, Nmesh, BoxSize, dtype,
+            selection, position, weight, value,
+            interlaced, compensated, resampler):
 
         from nbodykit.source.catalog import MultipleSpeciesCatalog
+
         if not isinstance(source, MultipleSpeciesCatalog):
             raise TypeError(("the input source for MultipleSpeciesCatalogMesh "
                              "must be a MultipleSpeciesCatalog"))
 
-        CatalogMesh.__init__(self, source, *args, **kwargs)
+        MeshSource.__init__(self, Nmesh=Nmesh, BoxSize=BoxSize, dtype=dtype, comm=source.comm)
+
+        self.source = source
+        self.weight = weight
+        self.position = position
+        self.value = value
+        self.selection = selection
+        self.interlaced = interlaced
+        self.compensated = compensated
+        self.resampler = resampler
+        self.dtype = dtype
+
+        self.species = source.species
 
     def __iter__(self):
-        return iter(self.source)
+        return iter(self.species)
 
     def __getitem__(self, key):
         """
@@ -60,10 +77,10 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
         If not a species name, this has the same behavior as
         :func:`CatalogSource.__getitem__`.
         """
-        # return a Mesh holding only the specific species
-        if isinstance(key, string_types) and key in self.source.species:
+        from nbodykit.source.mesh import CatalogMesh
 
-            # CatalogSource holding only requested species
+        if key in self.source.species:
+
             cat = self.source[key]
 
             # view as a catalog mesh
@@ -71,19 +88,19 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
                     BoxSize=self.attrs['BoxSize'],
                     Nmesh=self.attrs['Nmesh'],
                     dtype=self.dtype,
-                    weight=self.weight,
-                    value=self.value,
-                    selection=self.selection,
-                    position=self.position,
+                    Weight=cat[self.weight],
+                    Value=cat[self.value],
+                    Selection=cat[self.selection],
+                    Position=cat[self.position],
                     interlaced=self.interlaced,
                     compensated=self.compensated,
-                    window=self.window,
+                    resampler=self.resampler,
                 )
 
             # attach attributes from self
             return mesh.__finalize__(self)
         else:
-            raise KeyError("species '%s' not found" % key)
+            raise KeyError("%s is not a species defined in the source" % key)
 
     def to_real_field(self, normalize=True):
         r"""
@@ -158,3 +175,8 @@ class MultipleSpeciesCatalogMesh(CatalogMesh):
             real.attrs['shotnoise'] += (this_weight/total_weight)**2 * this_Pshot
 
         return real
+
+    def _get_compensation(self):
+        from nbodykit.source.mesh.catalog import get_compensation
+        return get_compensation(self.interlaced, self.resampler)
+

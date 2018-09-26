@@ -2,7 +2,9 @@
 from .fftpower import FFTPower, ProjectedFFTPower
 from .fftcorr import FFTCorr
 from .fftrecon import FFTRecon
-from .convpower import ConvolvedFFTPower
+# alias FKPPower
+from .convpower import ConvolvedFFTPower, FKPCatalog, FKPWeightFromNbar
+FKPPower = ConvolvedFFTPower
 
 # grouping
 from .fof import FOF
@@ -22,6 +24,9 @@ __all__ = ['FFTPower',
            'ProjectedFFTPower',
            'FFTCorr',
            'ConvolvedFFTPower',
+           'FKPPower',
+           'FKPCatalog',
+           'FKPWeightFromNbar',
            'FOF',
            'FiberCollisions',
            'CylindricalGroups',

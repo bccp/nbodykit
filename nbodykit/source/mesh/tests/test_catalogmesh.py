@@ -21,6 +21,25 @@ def test_tsc_interlacing(comm):
     r = FFTPower(mesh, mode='1d', kmin=0.02)
 
 @MPITest([1])
+def test_paint_empty(comm):
+
+    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
+
+    source = source[:0]
+    assert source.csize == 0
+
+    # interlacing with TSC
+    mesh = source.to_mesh(window='tsc', Nmesh=64, interlaced=True, compensated=True)
+
+    # compute the power spectrum -- should be flat shot noise
+    # if the compensation worked
+    real = mesh.to_real_field(normalize=True)
+    assert_allclose(real, 1.0)
+
+    real = mesh.to_real_field(normalize=False)
+    assert_allclose(real, 0.0)
+
+@MPITest([1])
 def test_paint_chunksize(comm):
 
     source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)

@@ -1,6 +1,5 @@
 from nbodykit import CurrentMPIComm
-from nbodykit.base.catalog import CatalogSource
-from nbodykit.source import ArrayCatalog
+from nbodykit.source.catalog import ArrayCatalog
 
 from nbodykit.transform import SkyToUnitSphere
 import numpy
@@ -50,8 +49,8 @@ class FiberCollisions(object):
                     degrees=True, comm=None):
 
         # compute the pos
-        ra = CatalogSource.make_column(ra)
-        dec = CatalogSource.make_column(dec)
+        ra = ArrayCatalog.make_column(ra)
+        dec = ArrayCatalog.make_column(dec)
         pos = SkyToUnitSphere(ra, dec, degrees=degrees).compute()
 
         # make the source

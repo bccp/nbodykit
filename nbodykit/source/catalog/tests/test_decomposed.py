@@ -1,5 +1,5 @@
 from runtests.mpi import MPITest
-from nbodykit.base.decomposed import DecomposedCatalog
+from nbodykit.source.catalog import DecomposedCatalog
 from numpy.testing import assert_allclose, assert_array_equal
 from nbodykit import setup_logging
 import pytest

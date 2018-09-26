@@ -41,12 +41,12 @@ def test_paint(comm):
     mesh2 = source2.to_mesh(Nmesh=32, BoxSize=512)
 
     # update weights for source1 and source2
-    mesh1.source['Weight'] *= mesh1.source['FKPWeight']
-    mesh2.source['Weight'] *= mesh2.source['FKPWeight']
+    mesh1['Weight']   = source1['Weight'] * source1['FKPWeight']
+    mesh2['Weight']   = source2['Weight'] * source2['FKPWeight']
 
     # paint the re-centered Position
-    mesh1.source['Position'] -= mesh.attrs['BoxCenter']
-    mesh2.source['Position'] -= mesh.attrs['BoxCenter']
+    mesh1['Position'] = source1['Position'] - mesh.attrs['BoxCenter']
+    mesh2['Position'] = source2['Position'] - mesh.attrs['BoxCenter']
 
     # alpha is the sum of Weight
     alpha = 1. * source1.csize * WEIGHT1 / (source2.csize * WEIGHT2)

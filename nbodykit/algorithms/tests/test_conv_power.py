@@ -29,10 +29,43 @@ def make_sources(cosmo, comm):
 
     return data, randoms
 
+@MPITest([1])
+def test_add_fkpweight(comm):
+    cosmo = cosmology.Planck15
+
+    # make the sources
+    data, randoms = make_sources(cosmo, comm)
+    for s in [data, randoms]:
+        # constant number density
+        s['NZ'] = NBAR
+
+    P0 = 1e4
+
+    # two mesh objects from same FKP source
+    fkp = FKPCatalog(data, randoms, P0=P0)
+
+    assert_allclose(fkp['data']['FKPWeight'].compute(),
+                    FKPWeightFromNbar(P0, fkp['data']['NZ'].compute()))
+
+    assert_allclose(fkp['data']['FKPWeight'].compute(),
+                    FKPWeightFromNbar(P0, fkp['data']['NZ'].compute()))
+
+    # updating NZ shall affect FKPWeight if it is the default.
+    for s in [data, randoms]:
+        # constant number density
+        s['NZ'] = 2 * NBAR
+
+    assert_allclose(fkp['data']['FKPWeight'].compute(),
+                    FKPWeightFromNbar(P0, fkp['data']['NZ'].compute()))
+
+    assert_allclose(fkp['data']['FKPWeight'].compute(),
+                    FKPWeightFromNbar(P0, fkp['data']['NZ'].compute()))
+
 @MPITest([1, 4])
 def test_diff_cross_boxsizes(comm):
 
     cosmo = cosmology.Planck15
+    P0 = 1e4
 
     # make the sources
     data, randoms = make_sources(cosmo, comm)
@@ -42,18 +75,18 @@ def test_diff_cross_boxsizes(comm):
         s['NZ'] = NBAR
 
         # completeness weights
-        P0 = 1e4
         s['Weight'] = (1 + P0*s['NZ'])**2
 
+
     # two mesh objects from same FKP source
-    fkp = FKPCatalog(data, randoms)
-    mesh1 = fkp.to_mesh(Nmesh=128, dtype='f8', nbar='NZ')
+    fkp = FKPCatalog(data, randoms, P0=P0)
+    mesh1 = fkp.to_mesh(Nmesh=128, dtype='f8')
 
     # second mesh has larger box size
-    mesh2 = fkp.to_mesh(Nmesh=128, dtype='f8', nbar='NZ', BoxSize=1.1*mesh1.attrs['BoxSize'])
+    mesh2 = fkp.to_mesh(Nmesh=128, dtype='f8', BoxSize=1.1*mesh1.attrs['BoxSize'])
 
     # compute the multipoles
-    r = ConvolvedFFTPower(mesh1, second=mesh2, poles=[0,2,4], dk=0.005, use_fkp_weights=True, P0_FKP=P0)
+    r = ConvolvedFFTPower(mesh1, second=mesh2, poles=[0,2,4], dk=0.005)
 
     # make sure we matched the box sizes
     assert_array_equal(r.first.attrs['BoxSize'], r.second.attrs['BoxSize'])
@@ -63,19 +96,19 @@ def test_diff_cross_boxsizes(comm):
 def test_true_cross_corr_fail(comm):
 
     cosmo = cosmology.Planck15
+    P0 = 1e4
 
     # make the sources
     data, randoms = make_sources(cosmo, comm)
     for s in [data, randoms]:
         s['NZ'] = NBAR
 
-
     # two mesh objects from different FKP source
-    fkp1 = FKPCatalog(data, randoms)
-    fkp2 = FKPCatalog(data, randoms)
+    fkp1 = FKPCatalog(data, randoms, P0=P0)
+    fkp2 = FKPCatalog(data, randoms, P0=P0)
 
-    mesh1 = fkp1.to_mesh(Nmesh=128, dtype='f8', nbar='NZ')
-    mesh2 = fkp2.to_mesh(Nmesh=128, dtype='f8', nbar='NZ')
+    mesh1 = fkp1.to_mesh(Nmesh=128, dtype='f8')
+    mesh2 = fkp2.to_mesh(Nmesh=128, dtype='f8')
 
     # cannot do cross correlations with different data/randoms catalogs
     with pytest.raises(NotImplementedError):
@@ -89,6 +122,7 @@ def test_bad_cross_corr_columns(comm):
 
     # make the sources
     data, randoms = make_sources(cosmo, comm)
+
     for s in [data, randoms]:
         s['NZ'] = NBAR
 
@@ -97,10 +131,11 @@ def test_bad_cross_corr_columns(comm):
     fkp['data']['Selection2'] = fkp['data/Selection']
     fkp['randoms']['Selection2'] = fkp['randoms/Selection']
 
-    mesh1 = fkp.to_mesh(Nmesh=128, dtype='f8', nbar='NZ', selection='Selection')
-    mesh2 = fkp.to_mesh(Nmesh=128, dtype='f8', nbar='NZ', selection='Selection2')
+    mesh1 = fkp.to_mesh(Nmesh=128, dtype='f8', selection='Selection')
+    mesh2 = fkp.to_mesh(Nmesh=128, dtype='f8', selection='Selection2')
 
     # columns in mesh must be same except for weight
+    # YF: FIXME: why this limitation?
     with pytest.raises(NotImplementedError):
         r = ConvolvedFFTPower(mesh1, second=mesh2, poles=[0,2,4], dk=0.005)
 
@@ -111,22 +146,23 @@ def test_cross_corr(comm):
 
     # make the sources
     data, randoms = make_sources(cosmo, comm)
+    P0 = 1e4
+
     for s in [data, randoms]:
 
         # constant number density
         s['NZ'] = NBAR
 
         # completeness weights
-        P0 = 1e4
         s['Weight'] = (1 + P0*s['NZ'])**2
 
     # two mesh objects from same FKP source
-    fkp = FKPCatalog(data, randoms)
-    mesh1 = fkp.to_mesh(Nmesh=128, dtype='f8', nbar='NZ', fkp_weight='FKPWeight', comp_weight='Weight', selection='Selection')
-    mesh2 = fkp.to_mesh(Nmesh=128, dtype='f8', nbar='NZ', fkp_weight='FKPWeight', comp_weight='Weight', selection='Selection')
+    fkp = FKPCatalog(data, randoms, P0=P0)
+    mesh1 = fkp.to_mesh(Nmesh=128, dtype='f8', comp_weight='Weight', selection='Selection')
+    mesh2 = fkp.to_mesh(Nmesh=128, dtype='f8', comp_weight='Weight', selection='Selection')
 
     # compute the multipoles
-    r = ConvolvedFFTPower(mesh1, second=mesh2, poles=[0,2,4], dk=0.005, use_fkp_weights=True, P0_FKP=P0)
+    r = ConvolvedFFTPower(mesh1, second=mesh2, poles=[0,2,4], dk=0.005)
 
     # normalization
     assert_allclose(r.attrs['data.norm'], NDATA*NBAR)
@@ -155,12 +191,15 @@ def test_bad_input(comm):
     # the FKP source
     fkp = FKPCatalog(data, randoms)
 
+    for s in [data, randoms]:
+        assert_allclose(s['FKPWeight'], 1.0 / (1 + 2e4*s['NZ']))
+
     # must specify P0_FKP
     with pytest.raises(ValueError):
         r = ConvolvedFFTPower(fkp, poles=0, dk=0.005, use_fkp_weights=True, P0_FKP=None, Nmesh=64)
 
     # warn about overwriting FKP Weights
-    with pytest.warns(UserWarning):
+    with pytest.raises(ValueError):
         r = ConvolvedFFTPower(fkp, poles=0, dk=0.005, use_fkp_weights=True, P0_FKP=1e4, Nmesh=64)
 
 
@@ -177,8 +216,8 @@ def test_no_monopole(comm):
         s['NZ'] = NBAR
 
     # the FKP source
-    fkp = FKPCatalog(data, randoms)
-    fkp = fkp.to_mesh(Nmesh=128, dtype='f8', nbar='NZ')
+    fkp = FKPCatalog(data, randoms, nbar='NZ')
+    fkp = fkp.to_mesh(Nmesh=128, dtype='f8')
 
     # compute the multipoles
     r = ConvolvedFFTPower(fkp, poles=[2,4], dk=0.005)
@@ -203,8 +242,8 @@ def test_bad_normalization(comm):
     randoms['NZ'] *= 50.0
 
     # the FKP source
-    fkp = FKPCatalog(data, randoms)
-    fkp = fkp.to_mesh(Nmesh=128, dtype='f8', nbar='NZ')
+    fkp = FKPCatalog(data, randoms, nbar='NZ')
+    fkp = fkp.to_mesh(Nmesh=128, dtype='f8')
 
     # compute the multipoles
     with pytest.raises(ValueError):
@@ -224,8 +263,8 @@ def test_selection(comm):
         s['Selection'] = (s['z'] > 0.4)&(s['z'] < 0.6)
 
     # the FKP source
-    fkp = FKPCatalog(data, randoms)
-    fkp = fkp.to_mesh(Nmesh=128, dtype='f8', nbar='NZ', selection='Selection')
+    fkp = FKPCatalog(data, randoms, nbar='NZ')
+    fkp = fkp.to_mesh(Nmesh=128, dtype='f8', selection='Selection')
 
     # compute the multipoles
     r = ConvolvedFFTPower(fkp, poles=[0,2,4], dk=0.005)
@@ -249,6 +288,7 @@ def test_selection(comm):
 def test_run(comm):
 
     cosmo = cosmology.Planck15
+    P0 = 1e4
 
     # make the sources
     data, randoms = make_sources(cosmo, comm)
@@ -258,15 +298,14 @@ def test_run(comm):
         s['NZ'] = NBAR
 
         # completeness weights
-        P0 = 1e4
         s['Weight'] = (1 + P0*s['NZ'])**2
 
     # the FKP source
-    fkp = FKPCatalog(data, randoms)
-    fkp = fkp.to_mesh(Nmesh=128, dtype='f8', nbar='NZ', fkp_weight='FKPWeight', comp_weight='Weight', selection='Selection')
+    fkp = FKPCatalog(data, randoms, P0=P0, nbar='NZ')
+    fkp = fkp.to_mesh(Nmesh=128, dtype='f8', fkp_weight='FKPWeight', comp_weight='Weight', selection='Selection')
 
     # compute the multipoles
-    r = ConvolvedFFTPower(fkp, poles=[0,2,4], dk=0.005, use_fkp_weights=True, P0_FKP=P0)
+    r = ConvolvedFFTPower(fkp, poles=[0,2,4], dk=0.005)
 
     # compute pkmu
     mu_edges = numpy.linspace(0, 1, 6)
@@ -282,6 +321,92 @@ def test_run(comm):
     S = S_data + S_ran
     assert_allclose(S, r.attrs['shotnoise'])
 
+@MPITest([1, 4])
+def test_run_unique_bins(comm):
+
+    cosmo = cosmology.Planck15
+    P0 = 1e4
+
+    # make the sources
+    data, randoms = make_sources(cosmo, comm)
+    for s in [data, randoms]:
+
+        # constant number density
+        s['NZ'] = NBAR
+
+        # completeness weights
+        s['Weight'] = (1 + P0*s['NZ'])**2
+
+    # the FKP source
+    fkp = FKPCatalog(data, randoms, P0=P0, nbar='NZ')
+    fkp = fkp.to_mesh(Nmesh=128, dtype='f8', fkp_weight='FKPWeight', comp_weight='Weight', selection='Selection')
+
+    # compute the multipoles
+    r = ConvolvedFFTPower(fkp, poles=[0,2,4], dk=0)
+
+    # compute pkmu
+    mu_edges = numpy.linspace(0, 1, 6)
+    pkmu = r.to_pkmu(mu_edges=mu_edges, max_ell=4)
+    assert_allclose(pkmu.coords['k'], r.poles.coords['k'])
+
+@MPITest([1, 4])
+def test_run_unique_bins_windowonly(comm):
+
+    cosmo = cosmology.Planck15
+    P0 = 1e4
+
+    # make the sources
+    data, randoms = make_sources(cosmo, comm)
+    for s in [data, randoms]:
+
+        # constant number density
+        s['NZ'] = NBAR
+
+        # completeness weights
+        s['Weight'] = (1 + P0*s['NZ'])**2
+
+    # the FKP source
+    fkp = FKPCatalog(data=randoms, randoms=None, P0=P0, nbar='NZ')
+    fkp = fkp.to_mesh(Nmesh=128, dtype='f8', fkp_weight='FKPWeight', comp_weight='Weight', selection='Selection')
+
+    # compute the multipoles
+    r = ConvolvedFFTPower(fkp, poles=[0,2,4], dk=0)
+
+    # compute pkmu
+    mu_edges = numpy.linspace(0, 1, 6)
+    pkmu = r.to_pkmu(mu_edges=mu_edges, max_ell=4)
+    assert_allclose(pkmu.coords['k'], r.poles.coords['k'])
+
+@MPITest([1, 4])
+def test_window_only(comm):
+    NDATA = 1000
+    NBAR = 1e-4
+    FSKY = 0.15
+    P0 = 1e4
+
+    cosmo = cosmology.Planck15
+
+    # make the sources
+    data, randoms = make_sources(cosmo, comm)
+
+    for s in [data, randoms]:
+
+        # constant number density
+        s['NZ'] = NBAR
+
+        # completeness weights
+        s['Weight'] = (1 + P0*s['NZ'])**2
+
+    empty = randoms[:0]
+    # initialize the FKP source with random as data, for measuring the window.
+    fkp = FKPCatalog(data=randoms, randoms=None, P0=P0)
+
+    # compute the multipoles
+    r = ConvolvedFFTPower(fkp.to_mesh(Nmesh=128), poles=[0,2,4], dk=0.005)
+
+    assert not numpy.isnan(r.poles['power_0']).any()
+    assert not numpy.isnan(r.poles['power_2']).any()
+    assert not numpy.isnan(r.poles['power_4']).any()
 
 @MPITest([1, 4])
 def test_with_zhist(comm):
@@ -295,21 +420,18 @@ def test_with_zhist(comm):
     # make the sources
     data, randoms = make_sources(cosmo, comm)
 
-    # initialize the FKP source
-    fkp = FKPCatalog(data, randoms)
-
     # compute NZ from randoms
     zhist = RedshiftHistogram(randoms, FSKY, cosmo, redshift='z')
 
-    # add n(z) from randoms to the FKP source
-    nofz = InterpolatedUnivariateSpline(zhist.bin_centers, zhist.nbar)
-    fkp['randoms']['NZ'] = nofz(randoms['z'])
-    fkp['data']['NZ'] = nofz(data['z'])
-
     # normalize NZ to the total size of the data catalog
     alpha = 1.0 * data.csize / randoms.csize
-    fkp['randoms']['NZ'] *= alpha
-    fkp['data']['NZ'] *= alpha
+    # add n(z) from randoms to the FKP source
+
+    randoms['NZ'] = zhist.interpolate(randoms['z']) * alpha
+    data['NZ'] = zhist.interpolate(data['z']) * alpha
+
+    # initialize the FKP source
+    fkp = FKPCatalog(data, randoms)
 
     # compute the multipoles
     r = ConvolvedFFTPower(fkp.to_mesh(Nmesh=128), poles=[0,2,4], dk=0.005)

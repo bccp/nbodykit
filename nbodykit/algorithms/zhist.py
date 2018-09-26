@@ -4,6 +4,7 @@ from mpi4py import MPI
 
 from nbodykit import CurrentMPIComm
 from nbodykit.transform import ConstantArray
+from scipy.interpolate import InterpolatedUnivariateSpline
 
 class RedshiftHistogram(object):
     """
@@ -136,6 +137,19 @@ class RedshiftHistogram(object):
         self.bin_centers = 0.5*(edges[:-1] + edges[1:])
         self.dV          = dV
         self.nbar        = 1.*N/dV
+
+    def interpolate(self, z):
+        """ Interpoalte dndz as a function of redshift. 
+
+            The interpolation acts as a band pass filter, removing small scale
+            fluctuations in the estimator.
+
+            Returns
+            -------
+            n : n(z)
+        """
+        nofz = InterpolatedUnivariateSpline(self.bin_centers, self.nbar)
+        return nofz(z)
 
     def __getstate__(self):
         state = dict(

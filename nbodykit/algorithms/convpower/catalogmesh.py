@@ -1,4 +1,5 @@
-from nbodykit.source.catalogmesh.species import MultipleSpeciesCatalogMesh
+from nbodykit.source.mesh import MultipleSpeciesCatalogMesh
+from nbodykit.source.mesh import CatalogMesh
 from nbodykit.utils import attrs_to_dict
 import logging
 import numpy
@@ -42,12 +43,12 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
     """
     logger = logging.getLogger('FKPCatalogMesh')
 
-    def __init__(self, source, BoxSize, Nmesh, dtype, selection,
+    def __init__(self, source, BoxSize, BoxCenter, Nmesh, dtype, selection,
                     comp_weight, fkp_weight, nbar, value='Value',
                     position='Position', interlaced=False,
-                    compensated=False, window='cic'):
+                    compensated=False, resampler='cic'):
 
-        from nbodykit.source.catalog import FKPCatalog
+        from .catalog import FKPCatalog
         if not isinstance(source, FKPCatalog):
             raise TypeError("the input source for FKPCatalogMesh must be a FKPCatalog")
 
@@ -55,14 +56,51 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         position = '_RecenteredPosition'
         weight = '_TotalWeight'
 
-        MultipleSpeciesCatalogMesh.__init__(self, source, BoxSize, Nmesh,
-                        dtype, weight, value, selection, position=position,
-                        interlaced=interlaced, compensated=compensated, window=window)
+        self.attrs.update(source.attrs)
+
+        self.recenter_box(BoxSize, BoxCenter)
+
+        MultipleSpeciesCatalogMesh.__init__(self, source=source,
+                        BoxSize=BoxSize, Nmesh=Nmesh,
+                        dtype=dtype, weight=weight, value=value, selection=selection, position=position,
+                        interlaced=interlaced, compensated=compensated, resampler=resampler)
 
         self._uncentered_position = uncentered_position
         self.comp_weight = comp_weight
         self.fkp_weight = fkp_weight
         self.nbar = nbar
+
+    def __getitem__(self, key):
+        """
+        If indexed by a species name, return a CatalogMesh object holding
+        only the data columns for that species with the same parameters as
+        the current object.
+
+        If not a species name, this has the same behavior as
+        :func:`CatalogSource.__getitem__`.
+        """
+        assert key in self.source.species, "the species is not defined in the source"
+
+        # CatalogSource holding only requested species
+        cat = self.source[key]
+
+        assert cat.comm is self.comm
+
+        # view as a catalog mesh
+        mesh = CatalogMesh(cat,
+                BoxSize=self.attrs['BoxSize'],
+                Nmesh=self.attrs['Nmesh'],
+                dtype=self.dtype,
+                Weight=self.TotalWeight(key),
+                Value=cat[self.value],
+                Selection=cat[self.selection],
+                Position=self.RecenteredPosition(key),
+                interlaced=self.interlaced,
+                compensated=self.compensated,
+                resampler=self.resampler,
+            )
+
+        return mesh
 
     def recenter_box(self, BoxSize, BoxCenter):
         """
@@ -73,14 +111,12 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         ``[-L/2,L/2]`` where ``L`` is the BoxSize.
         """
         # check input type
-        for val in [BoxSize, BoxCenter]:
-            if not isinstance(val, (list, numpy.ndarray)) or len(val) != 3:
-                raise ValueError("recenter_box arguments should be a vector of length 3")
+        BoxSize = numpy.ones(3) * BoxSize
+        BoxCenter = numpy.ones(3) * BoxCenter
 
         # update meta-data
         for val, name in zip([BoxSize, BoxCenter], ['BoxSize', 'BoxCenter']):
             self.attrs[name] = val
-            self.source.attrs[name] = val
 
 
     def to_real_field(self):
@@ -124,47 +160,46 @@ class FKPCatalogMesh(MultipleSpeciesCatalogMesh):
         :class:`~pmesh.pm.RealField` :
             the field object holding the FKP density field in real space
         """
-        # add necessary FKP columns for INTERNAL use
-        for name in self.source.species:
-
-            # a total weight for the mesh is completeness weight x FKP weight
-            self.source[name]['_TotalWeight'] = self.TotalWeight(name)
-
-            # position on the mesh is re-centered to [-BoxSize/2, BoxSize/2]
-            self.source[name]['_RecenteredPosition'] = self.RecenteredPosition(name)
 
         attrs = {}
 
         # determine alpha, the weighted number ratio
         for name in self.source.species:
             attrs[name+'.W'] = self.weighted_total(name)
+
         attrs['alpha'] = attrs['data.W'] / attrs['randoms.W']
 
-        # paint the randoms
-        real = self['randoms'].to_real_field(normalize=False)
-        real.attrs.update(attrs_to_dict(real, 'randoms.'))
-
-        # normalize the randoms by alpha
-        real[:] *= -1. * attrs['alpha']
-
         # paint the data
-        real2 = self['data'].to_real_field(normalize=False)
-        real[:] += real2[:]
-        real.attrs.update(attrs_to_dict(real2, 'data.'))
+        real = self['data'].to_real_field(normalize=False)
+        real.attrs.update(attrs_to_dict(real, 'data.'))
+        if self.comm.rank == 0:
+            self.logger.info("data painted.")
+
+        if self.source['randoms'].csize > 0:
+
+            # paint the randoms
+            real2 = self['randoms'].to_real_field(normalize=False)
+
+            # normalize the randoms by alpha
+            real2[:] *= -1. * attrs['alpha']
+
+            if self.comm.rank == 0:
+                self.logger.info("randoms painted.")
+
+            real[:] += real2[:]
+            real.attrs.update(attrs_to_dict(real2, 'randoms.'))
 
         # divide by volume per cell to go from number to number density
         vol_per_cell = (self.pm.BoxSize/self.pm.Nmesh).prod()
         real[:] /= vol_per_cell
 
+        if self.comm.rank == 0:
+            self.logger.info("volume per cell is %g" % vol_per_cell)
+
         # remove shot noise estimates (they are inaccurate in this case)
         real.attrs.update(attrs)
         real.attrs.pop('data.shotnoise', None)
         real.attrs.pop('randoms.shotnoise', None)
-
-        # delete internal columns
-        for name in self.source.species:
-            del self.source[name+'/_RecenteredPosition']
-            del self.source[name+'/_TotalWeight']
 
         return real
 

@@ -6,7 +6,7 @@ import warnings
 from nbodykit import CurrentMPIComm
 from nbodykit.utils import timer
 from nbodykit.binned_statistic import BinnedStatistic
-from .fftpower import project_to_basis
+from nbodykit.algorithms.fftpower import project_to_basis, _find_unique_edges
 from pmesh.pm import ComplexField
 
 def get_real_Ylm(l, m):
@@ -119,13 +119,6 @@ class ConvolvedFFTPower(object):
     dk : float, optional
         the spacing in wavenumber to use; if not provided; the fundamental mode
         of the box is used
-    use_fkp_weights : bool, optional
-        if ``True``, FKP weights will be added using ``P0_FKP`` such that the
-        fkp weight is given by ``1 / (1 + P0*NZ)`` where ``NZ`` is the number
-        density as a function of redshift column
-    P0_FKP : float, optional
-        the value of ``P0`` to use when computing FKP weights; must not be
-        ``None`` if ``use_fkp_weights=True``
 
     References
     ----------
@@ -141,8 +134,11 @@ class ConvolvedFFTPower(object):
                     Nmesh=None,
                     kmin=0.,
                     dk=None,
-                    use_fkp_weights=False,
+                    use_fkp_weights=None,
                     P0_FKP=None):
+
+        if use_fkp_weights is not None or P0_FKP is not None:
+            raise ValueError("use_fkp_weights and P0_FKP are deprecated. Assign a FKPWeight column to source['randoms']['FKPWeight'] and source['data']['FKPWeight'] with the help of the FKPWeightFromNbar(nbar) function")
 
         first = _cast_mesh(first, Nmesh=Nmesh)
         if second is not None:
@@ -188,36 +184,11 @@ class ConvolvedFFTPower(object):
         if numpy.isscalar(poles):
             poles = [poles]
 
-        if use_fkp_weights and P0_FKP is None:
-            raise ValueError(("please set the 'P0_FKP' keyword if you wish to automatically "
-                              "use FKP weights with 'use_fkp_weights=True'"))
-
-        # add FKP weights
-        if use_fkp_weights:
-            for mesh in [self.first, self.second]:
-                if self.comm.rank == 0:
-                    args = (mesh.fkp_weight, P0_FKP)
-                    self.logger.info("adding FKP weights as the '%s' column, using P0 = %.4e" %args)
-
-                for name in ['data', 'randoms']:
-
-                    # print a warning if we are overwriting a non-default column
-                    old_fkp_weights = mesh.source[name][mesh.fkp_weight]
-                    if mesh.source.compute(old_fkp_weights.sum()) != len(old_fkp_weights):
-                        warn = "it appears that we are overwriting FKP weights for the '%s' " %name
-                        warn += "source in FKPCatalog when using 'use_fkp_weights=True' in ConvolvedFFTPower"
-                        warnings.warn(warn)
-
-                    nbar = mesh.source[name][mesh.nbar]
-                    mesh.source[name][mesh.fkp_weight] = 1.0 / (1. + P0_FKP * nbar)
-
         # store meta-data
         self.attrs = {}
         self.attrs['poles'] = poles
         self.attrs['dk'] = dk
         self.attrs['kmin'] = kmin
-        self.attrs['use_fkp_weights'] = use_fkp_weights
-        self.attrs['P0_FKP'] = P0_FKP
 
         # store BoxSize and BoxCenter from source
         self.attrs['Nmesh'] = self.first.attrs['Nmesh'].copy()
@@ -226,8 +197,8 @@ class ConvolvedFFTPower(object):
         self.attrs['BoxCenter'] = self.first.attrs['BoxCenter']
 
         # grab some mesh attrs, too
-        self.attrs['mesh.window'] = self.first.attrs['window']
-        self.attrs['mesh.interlaced'] = self.first.attrs['interlaced']
+        self.attrs['mesh.resampler'] = self.first.resampler
+        self.attrs['mesh.interlaced'] = self.first.interlaced
 
         # and run
         self.run()
@@ -279,13 +250,25 @@ class ConvolvedFFTPower(object):
 
         # setup the binning in k out to the minimum nyquist frequency
         dk = 2*numpy.pi/pm.BoxSize.min() if self.attrs['dk'] is None else self.attrs['dk']
-        self.edges = numpy.arange(self.attrs['kmin'], numpy.pi*pm.Nmesh.min()/pm.BoxSize.max() + dk/2, dk)
+
+        if dk > 0:
+            kedges = numpy.arange(self.attrs['kmin'], numpy.pi*pm.Nmesh.min()/pm.BoxSize.max() + dk/2, dk)
+            kcoords = None
+        else:
+            k = pm.create_coords('complex')
+            kedges, kcoords = _find_unique_edges(k, 2 * numpy.pi / pm.BoxSize, pm.comm)
+            if self.comm.rank == 0:
+                self.logger.info('%d unique k values are found' % len(kcoords))
 
         # measure the binned 1D multipoles in Fourier space
-        poles = self._compute_multipoles()
+        result = self._compute_multipoles(kedges)
 
         # set all the necessary results
-        self.poles = BinnedStatistic(['k'], [self.edges], poles, fields_to_sum=['modes'], **self.attrs)
+        self.poles = BinnedStatistic(['k'], [kedges], result,
+                            fields_to_sum=['modes'],
+                            coords=[kcoords],
+                            **self.attrs)
+        self.edges = kedges
 
     def to_pkmu(self, mu_edges, max_ell):
         """
@@ -343,17 +326,22 @@ class ConvolvedFFTPower(object):
 
         dims = ['k', 'mu']
         edges = [self.poles.edges['k'], mu_edges]
-        return BinnedStatistic(dims=dims, edges=edges, data=data, **self.attrs)
+        return BinnedStatistic(dims=dims, edges=edges, data=data, coords=[self.poles.coords['k'], None], **self.attrs)
 
     def __getstate__(self):
-        state = dict(edges=self.edges,
-                     poles=self.poles.data,
+        state = dict(poles=self.poles.__getstate__(),
                      attrs=self.attrs)
         return state
 
     def __setstate__(self, state):
-        self.__dict__.update(state)
-        self.poles = BinnedStatistic(['k'], [self.edges], self.poles, fields_to_sum=['modes'])
+        self.attrs = state['attrs']
+        self.poles = BinnedStatistic.from_state(state['poles'])
+
+    def __setstate_pre000305__(self, state):
+        """ compatible version of setstate for files generated before 0.3.5 """
+        edges = state['edges']
+        sefl.attrs = state['attrs']
+        self.poles = BinnedStatistic(['k'], [edges], self.poles, fields_to_sum=['modes'])
 
     def save(self, output):
         """
@@ -378,13 +366,16 @@ class ConvolvedFFTPower(object):
 
     @classmethod
     @CurrentMPIComm.enable
-    def load(cls, output, comm=None):
+    def load(cls, output, comm=None, format='current'):
         """
         Load a saved ConvolvedFFTPower result, which has been saved to
         disk with :func:`ConvolvedFFTPower.save`.
 
         The current MPI communicator is automatically used
         if the ``comm`` keyword is ``None``
+
+        format can be 'current', or 'pre000305' for files generated before 0.3.5.
+
         """
         import json
         from nbodykit.utils import JSONDecoder
@@ -396,11 +387,16 @@ class ConvolvedFFTPower(object):
             state = None
         state = comm.bcast(state)
         self = object.__new__(cls)
-        self.__setstate__(state)
+
+        if format == 'current':
+            self.__setstate__(state)
+        elif format == 'pre000305':
+            self.__setstate_pre000305__(state)
+
         self.comm = comm
         return self
 
-    def _compute_multipoles(self):
+    def _compute_multipoles(self, kedges):
         """
         Compute the window-convoled power spectrum multipoles, for a data set
         with non-trivial survey geometry.
@@ -439,13 +435,13 @@ class ConvolvedFFTPower(object):
 
         # setup the 1D-binning
         muedges = numpy.linspace(0, 1, 2, endpoint=True)
-        edges = [self.edges, muedges]
+        edges = [kedges, muedges]
 
         # make a structured array to hold the results
         cols   = ['k'] + ['power_%d' %l for l in sorted(self.attrs['poles'])] + ['modes']
         dtype  = ['f8'] + ['c8']*len(self.attrs['poles']) + ['i8']
         dtype  = numpy.dtype(list(zip(cols, dtype)))
-        result = numpy.empty(len(self.edges)-1, dtype=dtype)
+        result = numpy.empty(len(kedges)-1, dtype=dtype)
 
         # offset the box coordinate mesh ([-BoxSize/2, BoxSize]) back to
         # the original (x,y,z) coords
@@ -464,12 +460,12 @@ class ConvolvedFFTPower(object):
         rfield1 = self.first.compute(Nmesh=self.attrs['Nmesh'])
         meta1 = rfield1.attrs.copy()
         if rank == 0:
-            self.logger.info("%s painting of 'first' done" %self.first.window)
+            self.logger.info("%s painting of 'first' done" %self.first.resampler)
 
         # store alpha: ratio of data to randoms
         self.attrs['alpha'] = meta1['alpha']
 
-        # FFT 1st density field and apply the paintbrush window transfer kernel
+        # FFT 1st density field and apply the resampler transfer kernel
         cfield = rfield1.r2c()
         if compensation['first'] is not None:
             cfield.apply(out=Ellipsis, **compensation['first'])
@@ -487,12 +483,12 @@ class ConvolvedFFTPower(object):
             # paint the second field
             rfield2 = self.second.compute(Nmesh=self.attrs['Nmesh'])
             meta2 = rfield2.attrs.copy()
-            if rank == 0: self.logger.info("%s painting of 'second' done" %self.second.window)
+            if rank == 0: self.logger.info("%s painting of 'second' done" %self.second.resampler)
 
             # need monopole of second field
             if 0 in self.attrs['poles']:
 
-                # FFT density field and apply the paintbrush window transfer kernel
+                # FFT density field and apply the resampler transfer kernel
                 A0_2 = rfield2.r2c()
                 A0_2[:] *= volume
                 if compensation['second'] is not None:
@@ -535,25 +531,33 @@ class ConvolvedFFTPower(object):
         # proper normalization: same as equation 49 of Scoccimarro et al. 2015
         for name in ['data', 'randoms']:
             self.attrs[name+'.norm'] = self.normalization(name, self.attrs['alpha'])
-        norm = 1.0 / self.attrs['randoms.norm']
 
-        # check normalization
-        Adata = self.attrs['data.norm']
-        Aran = self.attrs['randoms.norm']
-        if not numpy.allclose(Adata, Aran, rtol=0.05):
-            msg = "normalization in ConvolvedFFTPower different by more than 5%; "
-            msg += ",algorithm requires they must be similar\n"
-            msg += "\trandoms.norm = %.6f, data.norm = %.6f\n" % (Aran, Adata)
-            msg += "\tpossible discrepancies could be related to normalization "
-            msg += "of n(z) column ('%s')\n" % self.first.nbar
-            msg += "\tor the consistency of the FKP weight column for 'data' "
-            msg += "and 'randoms';\n"
-            msg += "\tn(z) columns for 'data' and 'randoms' should be "
-            msg += "normalized to represent n(z) of the data catalog"
-            raise ValueError(msg)
+        if self.attrs['randoms.norm'] > 0:
+            norm = 1.0 / self.attrs['randoms.norm']
 
-        if rank == 0:
-            self.logger.info("normalized power spectrum with `randoms.norm = %.6f`" % Aran)
+            # check normalization
+            Adata = self.attrs['data.norm']
+            Aran = self.attrs['randoms.norm']
+            if not numpy.allclose(Adata, Aran, rtol=0.05):
+                msg = "normalization in ConvolvedFFTPower different by more than 5%; "
+                msg += ",algorithm requires they must be similar\n"
+                msg += "\trandoms.norm = %.6f, data.norm = %.6f\n" % (Aran, Adata)
+                msg += "\tpossible discrepancies could be related to normalization "
+                msg += "of n(z) column ('%s')\n" % self.first.nbar
+                msg += "\tor the consistency of the FKP weight column for 'data' "
+                msg += "and 'randoms';\n"
+                msg += "\tn(z) columns for 'data' and 'randoms' should be "
+                msg += "normalized to represent n(z) of the data catalog"
+                raise ValueError(msg)
+
+            if rank == 0:
+                self.logger.info("normalized power spectrum with `randoms.norm = %.6f`" % Aran)
+        else:
+            # an empty random catalog is provides, so we will ignore the normalization.
+            norm = 1.0
+            if rank == 0:
+                self.logger.info("normalization of power spectrum is neglected, as no random is provided.")
+
 
         # loop over the higher order multipoles (ell > 0)
         start = time.time()
@@ -748,16 +752,17 @@ class ConvolvedFFTPower(object):
 def _cast_mesh(mesh, Nmesh):
     """
     Cast an object to a MeshSource. Nmesh is used only on FKPCatalog
+
     """
-    from nbodykit.source.catalog import FKPCatalog
-    from nbodykit.source.catalogmesh import FKPCatalogMesh
+    from .catalog import FKPCatalog
+    from .catalogmesh import FKPCatalogMesh
+
     if not isinstance(mesh, (FKPCatalogMesh, FKPCatalog)):
         raise TypeError("input sources should be a FKPCatalog or FKPCatalogMesh")
 
     if isinstance(mesh, FKPCatalog):
         # if input is CatalogSource, use defaults to make it into a mesh
-        if not isinstance(mesh, FKPCatalogMesh):
-            mesh = mesh.to_mesh(Nmesh=Nmesh, dtype='f8', compensated=False)
+        mesh = mesh.to_mesh(Nmesh=Nmesh, dtype='f8', compensated=False)
 
     if Nmesh is not None and any(mesh.attrs['Nmesh'] != Nmesh):
         raise ValueError(("Mismatched Nmesh between __init__ and mesh.attrs; "
@@ -771,7 +776,7 @@ def get_compensation(mesh):
     try:
         compensation = mesh._get_compensation()
         toret = {'func':compensation[0][1], 'kind':compensation[0][2]}
-    except:
+    except ValueError:
         pass
     return toret
 
