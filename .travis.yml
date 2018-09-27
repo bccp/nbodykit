@@ -3,6 +3,9 @@ addons:
     apt:
         packages:
             - gdb
+sudo: required
+
+
 python:
     - 2.7
     - 3.5
