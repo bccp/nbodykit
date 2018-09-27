@@ -18,7 +18,7 @@ except:
 _global_options = {}
 _global_options['global_cache_size'] = 1e8 # 100 MB
 _global_options['dask_chunk_size'] = 100000
-_global_options['paint_chunk_size'] = 1024 * 1024 * 8
+_global_options['paint_chunk_size'] = 1024 * 1024 * 4
 
 from contextlib import contextmanager
 import logging
