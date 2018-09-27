@@ -56,7 +56,7 @@ install:
 
 script:
     - |
-      python run-tests.py -v \
+      python run-tests.py -v --capture=no \
       --mpirun='mpirun -n 4 gdb -return-child-result -ex run -ex thread -ex apply -ex all -ex bt -ex quit --args' \
       --with-coverage
 
