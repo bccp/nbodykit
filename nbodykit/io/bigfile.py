@@ -8,7 +8,7 @@ from .base import FileType
 from six import string_types
 import json
 from nbodykit.utils import JSONDecoder
-from glob import fnmatch
+from fnmatch import fnmatch
 
 
 class Automatic: pass
