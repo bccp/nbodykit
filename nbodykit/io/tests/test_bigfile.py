@@ -22,8 +22,18 @@ def temporary_data():
             with tmpff.create("Velocity", dtype=('f4', 3), size=1024) as bb:
                 bb.write(0, data['Velocity'])
             with tmpff.create("Header") as bb:
-                bb.attrs['Size'] = 1024.
-            
+                bb.attrs['Size'] = 1024
+                bb.attrs['Over'] = 0
+
+            with tmpff.create('1/.') as bb:
+                bb.attrs['Size'] = 1024
+                bb.attrs['Over'] = 1024
+
+            with tmpff.create("1/Position", dtype=('f4', 3), size=1024) as bb:
+                bb.write(0, data['Position'])
+            with tmpff.create("1/Velocity", dtype=('f4', 3), size=1024) as bb:
+                bb.write(0, data['Velocity'])
+
         yield (data, tmpdir)
     except:
         raise
@@ -35,7 +45,7 @@ def test_data(comm):
 
     with temporary_data() as (data, tmpfile):
         # read
-        ff = BigFile(tmpfile, header='Header')
+        ff = BigFile(tmpfile, header='Header', dataset='1')
 
         # check size
         assert ff.attrs['Size'] == 1024
@@ -47,10 +57,11 @@ def test_data(comm):
 @MPITest([1])
 def test_data_auto_header(comm):
     with temporary_data() as (data, tmpfile):
-        ff = BigFile(tmpfile)
+        ff = BigFile(tmpfile, dataset='1')
 
         # check size
         assert ff.attrs['Size'] == 1024
+        assert ff.attrs['Over'] == 1024
 
 @MPITest([1])
 def test_pickle(comm):
@@ -58,7 +69,7 @@ def test_pickle(comm):
     with temporary_data() as (data, tmpfile):
         
         # read
-        ff = BigFile(tmpfile, header='Header')
+        ff = BigFile(tmpfile, header='Header', excludes='1/*')
     
         # pickle
         s = pickle.dumps(ff)
