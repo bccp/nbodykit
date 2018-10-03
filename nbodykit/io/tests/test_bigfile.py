@@ -69,7 +69,7 @@ def test_pickle(comm):
     with temporary_data() as (data, tmpfile):
         
         # read
-        ff = BigFile(tmpfile, header='Header', excludes='1/*')
+        ff = BigFile(tmpfile, header='Header', exclude=['1/*', 'Header'])
     
         # pickle
         s = pickle.dumps(ff)
