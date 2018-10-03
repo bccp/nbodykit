@@ -8,6 +8,8 @@ from .base import FileType
 from six import string_types
 import json
 from nbodykit.utils import JSONDecoder
+from fnmatch import fnmatch
+
 
 class Automatic: pass
 
@@ -31,10 +33,14 @@ class BigFile(FileType):
     exclude : list of str, optional
         the data sets to exlude from loading within bigfile; default
         is the header. If any list is given, the name of the header column
-        must be given too if it is not part of the data set.
-    header : str, optional
+        must be given too if it is not part of the data set. The names
+        are shell glob patterns.
+
+    header : str, or list, optional
         the path to the header; default is to use a column 'Header'.
         It is relative to the file, not the dataset.
+        If a list is provided, the attributes is updated from the first entry to the last.
+
     dataset : str
         finding columns from a specific dataset in the bigfile;
         the default is start looking for columns from the root.
@@ -53,14 +59,20 @@ class BigFile(FileType):
 
         # the file path
         with bigfile.BigFile(filename=path) as ff:
-            columns = ff[self.dataset].blocks
-            header = self._find_header(header, ff)
+            columns = [block for block in ff[self.dataset].blocks]
+            headers = self._find_headers(header, dataset, ff)
 
             if exclude is None:
                 # by default exclude header only.
-                exclude = [header]
+                exclude = headers
 
-            columns = list(set(columns) - set(exclude))
+            if not isinstance(exclude, (list, tuple)):
+                exclude = [exclude]
+
+            columns = [
+                column
+                for column in set(columns) if not any(fnmatch(column, e) for e in exclude)
+                ]
 
             ds = bigfile.BigData(ff[self.dataset], columns)
 
@@ -68,24 +80,35 @@ class BigFile(FileType):
             self.dtype = ds.dtype
             self.size = ds.size
 
-            header = ff[header]
-            attrs = header.attrs
+            headers = [ff[header] for header in headers]
+            all_attrs = [ header.attrs for header in headers ]
+            for attrs in all_attrs:
+                # copy over the attrs
+                for k in attrs.keys():
 
-            # copy over the attrs
-            for k in attrs.keys():
+                    # load a JSON representation if str starts with json:://
+                    if isinstance(attrs[k], string_types) and attrs[k].startswith('json://'):
+                        self.attrs[k] = json.loads(attrs[k][7:], cls=JSONDecoder)
+                    # copy over an array
+                    else:
+                        self.attrs[k] = numpy.array(attrs[k], copy=True)
 
-                # load a JSON representation if str starts with json:://
-                if isinstance(attrs[k], string_types) and attrs[k].startswith('json://'):
-                    self.attrs[k] = json.loads(attrs[k][7:], cls=JSONDecoder)
-                # copy over an array
-                else:
-                    self.attrs[k] = numpy.array(attrs[k], copy=True)
-
-    def _find_header(self, header, ff):
+    def _find_headers(self, header, dataset, ff):
         """ Find header from the file block by default. """
         if header is Automatic:
-            for header in ['Header', 'header', '.']:
-                if header in ff.blocks: break
+            header = ['Header', 'header', '.']
+
+        if not isinstance(header, (tuple, list)):
+            header = [header]
+
+        r = []
+        for h in header:
+            if h in ff.blocks:
+                if h not in r:
+                    r.append(h)
+
+        # append the dataset itself
+        r.append(dataset.strip('/') + '/.')
 
         # shall not make the assertion here because header can be nested deep.
         # then not shown in ff.blocks. try catch may work better.
@@ -93,7 +116,7 @@ class BigFile(FileType):
         #    raise KeyError("header block `%s` is not defined in the bigfile. Candidates can be `%s`"
         #            % (header, str(ff.blocks))
 
-        return header
+        return r
 
     def read(self, columns, start, stop, step=1):
         """
