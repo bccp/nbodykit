@@ -66,9 +66,12 @@ class BigFile(FileType):
                 # by default exclude header only.
                 exclude = headers
 
+            if not isinstance(exclude, (list, tuple)):
+                exclude = [exclude]
+
             columns = [
                 column
-                for column in set(columns) if not any(fnmatch(e, column) for e in exclude)
+                for column in set(columns) if not any(fnmatch(column, e) for e in exclude)
                 ]
 
             ds = bigfile.BigData(ff[self.dataset], columns)
