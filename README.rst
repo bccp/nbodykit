@@ -92,3 +92,14 @@ On the Cori and Edison machines at NERSC, we maintain a nightly conda build of
 the latest stable release of nbodykit. See
 `the documentation <http://nbodykit.readthedocs.io/en/latest/install.html#nbodykit-on-nersc>`_
 for using nbodykit on NERSC for more details.
+
+Bumping to a new version
+------------------------
+
+1. git pull - confirm that the master branch is up-to-date
+2. Edit Changelog (CHANGES.rst) - Make sure to include all issues which have arisen since the last version. (git add ... -> git commit -m "Update Changelog" -> git push)
+3. Edit version.py -> git push ("bump version to ...")
+4. Go to https://travis-ci.org/bccp/nbodykit and make sure it merged without any problems.
+5. Go to bccp/conda-channel-bccp repo and do "Restart build"
+6. git tag 0.3.? -> git push --tags
+7. bump to a development version (0.3.?dev0)
