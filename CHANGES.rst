@@ -1,8 +1,14 @@
 Changelog
 =========
 
-0.3.7 (Unreleased)
+0.3.8 (Unreleased)
 ------------------
+
+0.3.7 (2018-10-17)
+------------------
+* :issue:`519`:  Rework the class hierarchy of Catalogmesh.
+* :issue:`526`:  Reduce the paint size for systems with lower mem per core
+* :issue:`527`:  Aggregate attrs of header and the main datasets.
 
 0.3.6 (2018-09-26)
 ------------------
