@@ -19,6 +19,51 @@ def test_default_columns(comm):
     cat['Weight'] = 10.
     assert not cat['Weight'].is_default
 
+@MPITest([1, 4])
+def test_save_dataset(comm):
+
+    cosmo = cosmology.Planck15
+
+    import tempfile
+    import shutil
+
+    # initialize an output directory
+    if comm.rank == 0:
+        tmpfile = tempfile.mkdtemp()
+    else:
+        tmpfile = None
+    tmpfile = comm.bcast(tmpfile)
+
+    data = numpy.ones(100, dtype=[
+            ('Position', ('f4', 3)),
+            ('Velocity', ('f4', 3))]
+            )
+
+    source = ArrayCatalog(data, BoxSize=100, Nmesh=32, comm=comm)
+
+    # add a non-array attrs (saved as JSON)
+    source.attrs['empty'] = None
+
+    # save to a BigFile
+    source.save(tmpfile, source.columns, dataset='1')
+
+    # load as a BigFileCatalog
+    source2 = BigFileCatalog(tmpfile, dataset='1', comm=comm)
+
+    # check sources
+    for k in source.attrs:
+        assert_array_equal(source2.attrs[k], source.attrs[k])
+
+    # check the data
+    def allconcat(data):
+        return numpy.concatenate(comm.allgather(data), axis=0)
+    assert_allclose(allconcat(source['Position']), allconcat(source2['Position']))
+    assert_allclose(allconcat(source['Velocity']), allconcat(source2['Velocity']))
+
+    comm.barrier()
+    if comm.rank == 0:
+        shutil.rmtree(tmpfile)
+
 
 @MPITest([1, 4])
 def test_save(comm):
