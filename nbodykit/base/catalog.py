@@ -565,7 +565,7 @@ class CatalogSourceBase(object):
         if len(toret) == 1: toret = toret[0]
         return toret
 
-    def save(self, output, columns, datasets=None, header='Header'):
+    def save(self, output, columns, dataset=None, datasets=None, header='Header'):
         """
         Save the CatalogSource to a :class:`bigfile.BigFile`.
 
@@ -578,9 +578,11 @@ class CatalogSourceBase(object):
             the name of the file to write to
         columns : list of str
             the names of the columns to save in the file
+        dataset : str, optional
+            dataset to store the columns under.
         datasets : list of str, optional
             names for the data set where each column is stored; defaults to
-            the name of the column
+            the name of the column (deprecated)
         header : str, optional
             the name of the data set holding the header information, where
             :attr:`attrs` is stored
@@ -594,10 +596,14 @@ class CatalogSourceBase(object):
         columns = [col for col in columns if not self[col].is_default]
 
         # also make sure no default columns in datasets
-        if datasets is None:
-            datasets = columns
+        if datasets is not None:
+            import warnings
+            warnings.warn("datasets argument is deprecated. Specify a single dataset prefix for all columns instead.")
         else:
-            datasets = [col for col in datasets if not self[col].is_default]
+            if dataset is not None:
+                datasets = [ dataset + '/' + col for col in columns ]
+            else:
+                datasets = columns
 
         if len(datasets) != len(columns):
             raise ValueError("`datasets` must have the same length as `columns`")
