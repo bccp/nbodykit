@@ -52,6 +52,8 @@ class FFTCorr(FFTBase):
         that each bin has a unique r value.
     rmin : float, optional
         the lower edge of the first ``r`` bin to use
+    rmax : float, optional
+        the upper limit of the last ``r`` bin to use
     poles : list of int, optional
         a list of multipole numbers ``ell`` to compute :math:`\xi_\ell(r)`
         from :math:`\xi(r,\mu)`
@@ -59,7 +61,7 @@ class FFTCorr(FFTBase):
     logger = logging.getLogger('FFTCorr')
 
     def __init__(self, first, mode, Nmesh=None, BoxSize=None, second=None,
-                    los=[0, 0, 1], Nmu=5, dr=None, rmin=0., poles=[]):
+                    los=[0, 0, 1], Nmu=5, dr=None, rmin=0., rmax=None, poles=[]):
 
         # mode is either '1d' or '2d'
         if mode not in ['1d', '2d']:
@@ -87,6 +89,7 @@ class FFTCorr(FFTBase):
 
         self.attrs['dr'] = dr
         self.attrs['rmin'] = rmin
+        self.attrs['rmax'] = rmax
 
         self.corr, self.poles = self.run()
 
@@ -158,11 +161,15 @@ class FFTCorr(FFTBase):
         # (accounting for possibly anisotropic box)
         dr = self.attrs['dr']
         rmin = self.attrs['rmin']
+        rmax = self.attrs['rmax']
+        if rmax is None:
+            rmax = 0.5 * y3d.BoxSize.min() + dr/2
         if dr > 0:
-            redges = numpy.arange(rmin, 0.5 * y3d.BoxSize.min() + dr/2, dr)
+            redges = numpy.arange(rmin, rmax, dr)
             rcenters = None
         else:
-            redges, rcenters = _find_unique_edges(y3d.x, y3d.BoxSize / y3d.Nmesh, self.comm)
+            redges, rcenters = _find_unique_edges(y3d.x, y3d.BoxSize / y3d.Nmesh, rmax, self.comm)
+
 
         # project on to the desired basis
         muedges = numpy.linspace(0, 1, self.attrs['Nmu']+1, endpoint=True)

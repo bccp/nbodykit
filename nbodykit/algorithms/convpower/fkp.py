@@ -116,6 +116,8 @@ class ConvolvedFFTPower(object):
         objects, i.e., the underlying ``data`` and ``randoms`` must be the same!
     kmin : float, optional
         the edge of the first wavenumber bin; default is 0
+    kmax : float, optional
+        the limit of the last wavenumber bin; default is None, no limit.
     dk : float, optional
         the spacing in wavenumber to use; if not provided; the fundamental mode
         of the box is used
@@ -133,6 +135,7 @@ class ConvolvedFFTPower(object):
                     second=None,
                     Nmesh=None,
                     kmin=0.,
+                    kmax=None,
                     dk=None,
                     use_fkp_weights=None,
                     P0_FKP=None):
@@ -189,6 +192,7 @@ class ConvolvedFFTPower(object):
         self.attrs['poles'] = poles
         self.attrs['dk'] = dk
         self.attrs['kmin'] = kmin
+        self.attrs['kmax'] = kmax
 
         # store BoxSize and BoxCenter from source
         self.attrs['Nmesh'] = self.first.attrs['Nmesh'].copy()
@@ -251,12 +255,17 @@ class ConvolvedFFTPower(object):
         # setup the binning in k out to the minimum nyquist frequency
         dk = 2*numpy.pi/pm.BoxSize.min() if self.attrs['dk'] is None else self.attrs['dk']
 
+        kmin = self.attrs['kmin']
+        kmax = self.attrs['kmax']
+        if kmax is None:
+            kmax = numpy.pi*pm.Nmesh.min()/pm.BoxSize.max() + dk/2
+
         if dk > 0:
-            kedges = numpy.arange(self.attrs['kmin'], numpy.pi*pm.Nmesh.min()/pm.BoxSize.max() + dk/2, dk)
+            kedges = numpy.arange(kmin, kmax, dk)
             kcoords = None
         else:
             k = pm.create_coords('complex')
-            kedges, kcoords = _find_unique_edges(k, 2 * numpy.pi / pm.BoxSize, pm.comm)
+            kedges, kcoords = _find_unique_edges(k, 2 * numpy.pi / pm.BoxSize, kmax, pm.comm)
             if self.comm.rank == 0:
                 self.logger.info('%d unique k values are found' % len(kcoords))
 
