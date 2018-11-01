@@ -3,6 +3,9 @@ Changelog
 
 0.3.8 (Unreleased)
 ------------------
+* :issue:`530`:  Use setuptools (need to change conda-build-bccp recipe)
+* :issue:`529`:  Add kmax(rmax) to FFTPower, FFTCorr, ConvPower.
+* :issue:`528`:  Add dataset= to Catalog.save, deprecate datasets=[]
 
 0.3.7 (2018-10-17)
 ------------------
