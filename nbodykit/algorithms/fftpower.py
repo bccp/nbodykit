@@ -182,6 +182,8 @@ class FFTPower(FFTBase):
         such that the modes contributing to the bin has identical modulus.
     kmin : float, optional
         the lower edge of the first ``k`` bin to use
+    kmin : float, optional
+        the upper limit of the last ``k`` bin to use (not exact)
     poles : list of int, optional
         a list of multipole numbers ``ell`` to compute :math:`P_\ell(k)`
         from :math:`P(k,\mu)`
@@ -189,7 +191,7 @@ class FFTPower(FFTBase):
     logger = logging.getLogger('FFTPower')
 
     def __init__(self, first, mode, Nmesh=None, BoxSize=None, second=None,
-                    los=[0, 0, 1], Nmu=5, dk=None, kmin=0., poles=[]):
+                    los=[0, 0, 1], Nmu=5, dk=None, kmin=0., kmax=None, poles=[]):
 
         # mode is either '1d' or '2d'
         if mode not in ['1d', '2d']:
@@ -217,6 +219,7 @@ class FFTPower(FFTBase):
 
         self.attrs['dk'] = dk
         self.attrs['kmin'] = kmin
+        self.attrs['kmax'] = kmax
 
         self.power, self.poles = self.run()
 
@@ -281,11 +284,15 @@ class FFTPower(FFTBase):
         # (accounting for possibly anisotropic box)
         dk = self.attrs['dk']
         kmin = self.attrs['kmin']
+        kmax = self.attrs['kmax']
+        if kmax is None:
+            kmax = numpy.pi*y3d.Nmesh.min()/y3d.BoxSize.max() + dk/2
+
         if dk > 0:
-            kedges = numpy.arange(kmin, numpy.pi*y3d.Nmesh.min()/y3d.BoxSize.max() + dk/2, dk)
+            kedges = numpy.arange(kmin, kmax, dk)
             kcoords = None
         else:
-            kedges, kcoords = _find_unique_edges(y3d.x, 2 * numpy.pi / y3d.BoxSize, y3d.pm.comm)
+            kedges, kcoords = _find_unique_edges(y3d.x, 2 * numpy.pi / y3d.BoxSize, kmax, y3d.pm.comm)
 
         # project on to the desired basis
         muedges = numpy.linspace(0, 1, self.attrs['Nmu']+1, endpoint=True)
@@ -721,14 +728,14 @@ def _cast_source(source, BoxSize, Nmesh):
 
     return source
 
-def _find_unique_edges(x, x0, comm):
+def _find_unique_edges(x, x0, xmax, comm):
     """ Construct unique edges based on x0.
 
         The modes along each direction are assumed to be multiples of x0
 
         Returns edges and the true centers
     """
-    def find_unique(x, x0):
+    def find_unique_local(x, x0):
         fx2 = 0
         for xi, x0i in zip(x, x0):
             fx2 = fx2 + xi ** 2
@@ -739,8 +746,9 @@ def _find_unique_edges(x, x0, comm):
         fx2 = fx2[ind]
         return fx2 ** 0.5
 
-    fx = find_unique(x, x0)
+    fx = find_unique_local(x, x0)
 
+    fx = fx[fx < xmax]
     fx = numpy.concatenate(comm.allgather(fx), axis=0)
     # may have duplicates after allgather
     fx = numpy.unique(fx)
