@@ -265,11 +265,11 @@ class CatalogSourceBase(object):
     def __contains__(self, col):
         return col in self.columns
 
-    def __slice__(self, index):
+    def _get_slice(self, index):
         """
         Select a subset of ``self`` according to a boolean index array.
 
-        Returns a new object of the same type as ``selff`` holding only the
+        Returns a new object of the same type as ``self`` holding only the
         data that satisfies the slice index.
 
         Parameters
@@ -278,23 +278,27 @@ class CatalogSourceBase(object):
             either a dask or numpy boolean array; this determines which
             rows are included in the returned object
         """
-        # compute the index slice if needed and get the size
-        if isinstance(index, da.Array):
-            index = self.compute(index)
-        elif isinstance(index, list):
-            index = numpy.array(index)
+        if isinstance(index, slice):
+            start, stop, stride = index.indices(self.size)
+            size = (stop - start) // stride
+        else:
+            # compute the index slice if needed and get the size
+            if isinstance(index, da.Array):
+                index = self.compute(index)
+            elif isinstance(index, list):
+                index = numpy.array(index)
 
-        if getattr(self, 'size', NotImplemented) is NotImplemented:
-            raise ValueError("cannot make catalog subset; self catalog doest not have a size")
+            if getattr(self, 'size', NotImplemented) is NotImplemented:
+                raise ValueError("cannot make catalog subset; self catalog doest not have a size")
 
-        # verify the index is a boolean array
-        if len(index) != self.size:
-            raise ValueError("slice index has length %d; should be %d" %(len(index), self.size))
-        if getattr(index, 'dtype', None) != '?':
-            raise ValueError("index used to slice CatalogSource must be boolean and array-like")
+            # verify the index is a boolean array
+            if len(index) != self.size:
+                raise ValueError("slice index has length %d; should be %d" %(len(index), self.size))
+            if getattr(index, 'dtype', None) != '?':
+                raise ValueError("index used to slice CatalogSource must be boolean and array-like")
 
-        # new size is just number of True entries
-        size = index.sum()
+            # new size is just number of True entries
+            size = index.sum()
 
         # if collective size is unchanged, just return self
         if self.comm.allreduce(size) == self.csize:
@@ -336,10 +340,10 @@ class CatalogSourceBase(object):
                 raise ValueError("cannot perform selection due to NotImplemented size")
 
             # convert slices to boolean arrays
-            if isinstance(sel, (slice, list)):
+            if isinstance(sel, (list, da.Array, numpy.ndarray)):
 
                 # select a subset of list of string column names
-                if isinstance(sel, list) and all(isinstance(ss, string_types) for ss in sel):
+                if all(isinstance(ss, string_types) for ss in sel):
                     invalid = set(sel) - set(self.columns)
                     if len(invalid):
                         msg = "cannot select subset of columns from "
@@ -352,19 +356,22 @@ class CatalogSourceBase(object):
                     toret.attrs.update(self.attrs)
                     return toret
 
+                # convert index to an array
+                sel = numpy.array(sel)
+
                 # list must be all integers
-                if isinstance(sel, list) and not numpy.array(sel).dtype == numpy.integer:
-                    raise KeyError("array like indexing via a list should be a list of integers")
+                if sel.dtype == numpy.integer:
+                    # convert into slice into boolean array
+                    index = numpy.zeros(self.size, dtype='?')
+                    index[sel] = True; sel = index
 
-                # convert into slice into boolean array
-                index = numpy.zeros(self.size, dtype='?')
-                index[sel] = True; sel = index
+                if sel.dtype == numpy.dtype('?'):
+                    return self._get_slice(sel)
 
-            # do the slicing
-            if not numpy.isscalar(sel):
-                return self.__slice__(sel)
-            else:
-                raise KeyError("strings and boolean arrays are the only supported indexing methods")
+            if isinstance(sel, slice):
+                return self._get_slice(sel)
+
+            raise KeyError("strings and list, or slice are the only supported indexing methods, %s received" % type(sel))
 
         # owner of the memory (either self or base)
         if self.base is None:
