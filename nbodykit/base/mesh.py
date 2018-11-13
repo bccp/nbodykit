@@ -305,7 +305,7 @@ class MeshSource(object):
         from pmesh.pm import _typestr_to_type
 
         var = var.cast(type=_typestr_to_type(mode), out=var)
-        pm = self.pm.resize(Nmesh)
+        pm = self.pm.reshape(Nmesh=Nmesh)
 
         if any(pm.Nmesh != self.pm.Nmesh):
             # resample if the output mesh mismatches

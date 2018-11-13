@@ -909,7 +909,7 @@ class BinnedStatistic(object):
         if leftover:
             sl = [slice(None, None)]*len(self.dims)
             sl[i] = slice(None, -leftover)
-            data = data[sl]
+            data = data[tuple(sl)]
             if weights is not None: weights = weights[sl]
             edges = edges[:-leftover]
             new_shape[i] = new_shape[i] - leftover
