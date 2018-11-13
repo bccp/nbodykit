@@ -283,10 +283,7 @@ class CatalogSourceBase(object):
             size = (stop - start) // stride
         else:
             # compute the index slice if needed and get the size
-            if isinstance(index, da.Array):
-                index = self.compute(index)
-            elif isinstance(index, list):
-                index = numpy.array(index)
+            index = CatalogSourceBase.make_column(index)
 
             if getattr(self, 'size', NotImplemented) is NotImplemented:
                 raise ValueError("cannot make catalog subset; self catalog doest not have a size")
@@ -294,11 +291,12 @@ class CatalogSourceBase(object):
             # verify the index is a boolean array
             if len(index) != self.size:
                 raise ValueError("slice index has length %d; should be %d" %(len(index), self.size))
+
             if getattr(index, 'dtype', None) != '?':
                 raise ValueError("index used to slice CatalogSource must be boolean and array-like")
 
             # new size is just number of True entries
-            size = index.sum()
+            size = index.sum().compute()
 
         # if collective size is unchanged, just return self
         if self.comm.allreduce(size) == self.csize:
@@ -328,7 +326,7 @@ class CatalogSourceBase(object):
 
         Notes
         -----
-        - Slicing with a boolean array is a **collective** operation
+        - Slicing is a **collective** operation
         - If the :attr:`base` attribute is set, columns will be returned
           from :attr:`base` instead of from ``self``.
         """
@@ -951,8 +949,14 @@ class CatalogSource(CatalogSourceBase):
         Execute a global slice of a CatalogSource.
 
         .. note::
+
             After the global slice is performed, the data is scattered
             evenly across all ranks.
+
+        .. note::
+
+            The current algorithm generates an index on the root rank
+            and does not scale well.
 
         Parameters
         ----------
