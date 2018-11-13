@@ -153,16 +153,21 @@ def test_bad_column(comm):
     with pytest.raises(ValueError):
         data = source.get_hardcolumn('BAD_COLUMN')
 
-@MPITest([4])
+@MPITest([1, 4])
 def test_empty_slice(comm):
 
     source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
 
-    # empty slice returns self
-    source2 = source[source['Selection']]
+    # Ellipsis slice returns self
+    source2 = source[...]
     assert source is source2
 
-    # non-empty selection on root only
+    # Empty slice dos not crash
+    subset = source[[]]
+    assert all(col in subset for col in source.columns)
+    assert isinstance(subset, source.__class__)
+
+    # any selection on root only
     sel = source.rng.choice([True, False])
     if comm.rank != 0:
         sel[...] = True
@@ -172,11 +177,12 @@ def test_empty_slice(comm):
     assert source is not source2
 
 
-@MPITest([4])
+@MPITest([1, 4])
 def test_slice(comm):
 
     source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
 
+    source['NZ'] = 1
     # slice a subset
     subset = source[:10]
     assert all(col in subset for col in source.columns)
