@@ -1,5 +1,5 @@
 from nbodykit.transform import ConstantArray
-from nbodykit import _global_options, CurrentMPIComm, GlobalCache
+from nbodykit import _global_options, CurrentMPIComm
 
 from six import string_types, add_metaclass
 import numpy
@@ -522,13 +522,7 @@ class CatalogSourceBase(object):
         This should be called on the return value of :func:`read`
         to converts any dask arrays to numpy arrays.
 
-        This uses the global cache as controlled by
-        :class:`nbodykit.GlobalCache` to cache dask task computations.
-        The default size is controlled by the ``global_cache_size`` global
-        option; see :class:`set_options`. To set the size, see
-        :func:`nbodykit.GlobalCache.resize`.
-
-        .. note::
+        . note::
             If the :attr:`base` attribute is set, ``compute()``
             will called using :attr:`base` instead of ``self``.
 
@@ -546,9 +540,7 @@ class CatalogSourceBase(object):
         if self.base is not None:
             return self.base.compute(*args, **kwargs)
 
-        # compute using global cache
-        with GlobalCache.get():
-            toret = dask.compute(*args, **kwargs)
+        toret = dask.compute(*args, **kwargs)
 
         # do not return tuples of length one
         if len(toret) == 1: toret = toret[0]

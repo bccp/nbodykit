@@ -172,12 +172,11 @@ class CurrentMPIComm(object):
         cls._stack[-1] = comm
         cls._stack[-1].barrier()
 
-class GlobalCache(object):
+import dask.cache
+class GlobalCache(dask.cache.Cache):
     """
-    A class to faciliate calculation using a global cache via
-    :class:`dask.cache.Cache`.
+        A Cache object.
     """
-    _instance = None
 
     @classmethod
     def get(cls):
@@ -191,33 +190,10 @@ class GlobalCache(object):
             the cache object, as provided by dask
         """
         # if not created, use default cache size
-        if not cls._instance:
-            from dask.cache import Cache
-            cls._instance = Cache(_global_options['global_cache_size'])
+        return _global_cache
 
-        return cls._instance
-
-    @classmethod
-    def resize(cls, size):
-        """
-        Re-size the global cache to the specified size in bytes.
-
-        Parameters
-        ----------
-        size : int, optional
-            the desired size of the returned cache in bytes; if not provided,
-            the ``global_cache_size`` global option is used
-        """
-        # get the cachey Cache
-        # NOTE: cachey cache stored as the cache attribute of Dask cache
-        cache = cls.get().cache
-
-        # set the new size
-        cache.available_bytes = size
-
-        # shrink the cache if we need to
-        # NOTE: only removes objects if we need to
-        cache.shrink()
+_global_cache = GlobalCache(_global_options['global_cache_size'])
+_global_cache.register()
 
 class set_options(object):
     """
@@ -239,13 +215,15 @@ class set_options(object):
         for key in sorted(kwargs):
             if key not in _global_options:
                 raise KeyError("Option `%s` is not supported" % key)
+
         _global_options.update(kwargs)
 
         # resize the global Cache!
-        self.updated_cache_size = False
+        # FIXME: after https://github.com/dask/cachey/pull/12
         if 'global_cache_size' in kwargs:
-            GlobalCache.resize(_global_options['global_cache_size'])
-            self.updated_cache_size = True
+            cache = GlobalCache.get().cache
+            cache.available_bytes = _global_options['global_cache_size']
+            cache.shrink()
 
     def __enter__(self):
         return
@@ -255,9 +233,10 @@ class set_options(object):
         _global_options.update(self.old)
 
         # resize Cache to original size
-        if self.updated_cache_size:
-            GlobalCache.resize(_global_options['global_cache_size'])
-
+        # FIXME: after https://github.com/dask/cachey/pull/12
+        cache = GlobalCache.get().cache
+        cache.available_bytes = _global_options['global_cache_size']
+        cache.shrink()
 
 _logging_handler = None
 def setup_logging(log_level="info"):
