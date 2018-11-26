@@ -23,6 +23,68 @@ _global_options['paint_chunk_size'] = 1024 * 1024 * 4
 from contextlib import contextmanager
 import logging
 
+def _unpickle(name):
+    return getattr(MPI, name)
+
+def _comm_pickle(obj):
+    if obj == MPI.COMM_NULL:
+        return unpickle, ('COMM_NULL',)
+    if obj == MPI.COMM_SELF:
+        return unpickle, ('COMM_SELF',)
+    if obj == MPI.COMM_WORLD:
+        return unpickle, ('COMM_WORLD',)
+    raise TypeError("cannot pickle object")
+
+def _setup_for_distributed():
+    CurrentMPIComm._stack[-1] = MPI.COMM_SELF
+
+    try:
+        import copyreg
+    except ImportError:  # Python 2
+        import copy_reg as copyreg
+
+    copyreg.pickle(MPI.Comm, _comm_pickle, _unpickle)
+    copyreg.pickle(MPI.Intracomm, _comm_pickle, _unpickle)
+
+    set_options(dask_chunk_size=1024 * 1024 * 2)
+
+def use_distributed(c=None):
+    """ Setup nbodykit to work with dask.distributed.
+        This will change the default MPI communicator to MPI.COMM_SELF,
+        such that each nbodykit object only reside on a single MPI rank.
+
+        This function shall only be used before any nbodykit object is created.
+
+        Parameters
+        ----------
+        c : Client
+            the distributed client. If not given, the default client is used.
+            Notice that if you switch a new client then this function
+            must be called again.
+
+    """
+    dask.config.set(scheduler="distributed")
+
+    if c is None:
+        import distributed
+        c = distributed.get_client()
+
+    c.register_worker_callbacks(setup=_setup_for_distributed)
+
+def use_mpi(comm=None):
+    """ Setup nbodykit to work with MPI.
+        This will change the default MPI communicator to MPI.COMM_WORLD,
+        such that each nbodykit object is partitioned to many MPI ranks.
+
+        This function shall only be used before any nbodykit object is created.
+
+    """
+    dask.config.set(scheduler='synchronous') 
+    if comm is None:
+        comm = MPI.COMM_WORLD
+    CurrentMPIComm._stack[-1] = comm
+    set_options(dask_chunk_size=1024 * 100)
+
 class CurrentMPIComm(object):
     """
     A class to faciliate getting and setting the current MPI communicator.
