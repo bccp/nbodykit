@@ -28,11 +28,11 @@ def _unpickle(name):
 
 def _comm_pickle(obj):
     if obj == MPI.COMM_NULL:
-        return unpickle, ('COMM_NULL',)
+        return _unpickle, ('COMM_NULL',)
     if obj == MPI.COMM_SELF:
-        return unpickle, ('COMM_SELF',)
+        return _unpickle, ('COMM_SELF',)
     if obj == MPI.COMM_WORLD:
-        return unpickle, ('COMM_WORLD',)
+        return _unpickle, ('COMM_WORLD',)
     raise TypeError("cannot pickle object")
 
 def _setup_for_distributed():
