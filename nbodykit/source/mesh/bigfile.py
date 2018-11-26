@@ -5,7 +5,7 @@ from __future__ import absolute_import
 from nbodykit.base.mesh import MeshSource
 from nbodykit import CurrentMPIComm
 from nbodykit.utils import JSONDecoder
-from bigfile import BigFileMPI
+from bigfile import FileMPI
 from pmesh.pm import ParticleMesh, ComplexField, RealField
 
 import numpy
@@ -43,7 +43,7 @@ class BigFileMesh(MeshSource):
 
         # update the meta-data
         self.attrs.update(kwargs)
-        with BigFileMPI(comm=self.comm, filename=path)[dataset] as ff:
+        with FileMPI(comm=self.comm, filename=path)[dataset] as ff:
             for key in ff.attrs:
                 v = ff.attrs[key]
                 if isinstance(v, string_types) and v.startswith('json://'):
@@ -96,7 +96,7 @@ class BigFileMesh(MeshSource):
         # the real field to paint to
         pmread = self.pm
 
-        with BigFileMPI(comm=self.comm, filename=self.path)[self.dataset] as ds:
+        with FileMPI(comm=self.comm, filename=self.path)[self.dataset] as ds:
             if self.comm.rank == 0:
                 self.logger.info("reading real field from %s" % self.path)
             real2 = RealField(pmread)
@@ -126,7 +126,7 @@ class BigFileMesh(MeshSource):
         if self.comm.rank == 0:
             self.logger.info("reading complex field from %s" % self.path)
 
-        with BigFileMPI(comm=self.comm, filename=self.path)[self.dataset] as ds:
+        with FileMPI(comm=self.comm, filename=self.path)[self.dataset] as ds:
             complex2 = ComplexField(pmread)
             assert self.comm.allreduce(complex2.size) == ds.size
             start = sum(self.comm.allgather(complex2.size)[:self.comm.rank])

@@ -589,7 +589,7 @@ class CatalogSourceBase(object):
         if len(datasets) != len(columns):
             raise ValueError("`datasets` must have the same length as `columns`")
 
-        with bigfile.BigFileMPI(comm=self.comm, filename=output, create=True) as ff:
+        with bigfile.FileMPI(comm=self.comm, filename=output, create=True) as ff:
             try:
                 bb = ff.open(header)
             except:

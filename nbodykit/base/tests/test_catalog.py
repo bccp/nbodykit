@@ -128,9 +128,9 @@ def test_tomesh(comm):
     with pytest.raises(ValueError):
         mesh = source.to_mesh(Nmesh=128, weight='Weight3')
 
-    # bad window name
+    # bad resampler name
     with pytest.raises(ValueError):
-        mesh = source.to_mesh(Nmesh=128, weight='Weight0', window='bad_window')
+        mesh = source.to_mesh(Nmesh=128, weight='Weight0', resampler='bad_window')
 
     # missing Nmesh
     with pytest.raises(ValueError):
