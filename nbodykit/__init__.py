@@ -69,6 +69,7 @@ def use_distributed(c=None):
         import distributed
         c = distributed.get_client()
 
+    _setup_for_distributed()
     c.register_worker_callbacks(setup=_setup_for_distributed)
 
 def use_mpi(comm=None):
