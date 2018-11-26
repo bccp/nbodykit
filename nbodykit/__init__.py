@@ -65,12 +65,29 @@ def use_distributed(c=None):
     """
     dask.config.set(scheduler="distributed")
 
+    import distributed
+
+    key = 'nbodykit_setup_for_distributed'
     if c is None:
-        import distributed
         c = distributed.get_client()
 
     _setup_for_distributed()
-    c.register_worker_callbacks(setup=_setup_for_distributed)
+
+    # use an lock to minimize chances of seeing KeyError from publish_dataset
+    # the error is annoyingly printed to stderr even if we caught it.
+    lock = distributed.Lock(key)
+    locked = lock.acquire(timeout=3)
+
+    if key not in c.list_datasets():
+        try:
+            c.publish_dataset(**{key : True})
+            c.register_worker_callbacks(setup=_setup_for_distributed)
+        except KeyError:
+            # already published, someone else is registering the callback.
+            pass
+
+    if locked:
+        lock.release()
 
 def use_mpi(comm=None):
     """ Setup nbodykit to work with MPI.
