@@ -279,9 +279,9 @@ class CatalogMesh(MeshSource):
 
             # if we are receiving too many particles, abort and retry with a smaller chunksize
             newlengths = pm.comm.allgather(lay.newlength)
-            if any(newlengths > 2 * max_chunksize)):
+            if any([newlength > 2 * max_chunksize for newlength in newlengths]):
                 if pm.comm.rank == 0:
-                    self.logger.info("Throttling chunksize as some ranks will receive too many particles. (%d > %d)" % max(newlengths, max_chunksize * 2))
+                    self.logger.info("Throttling chunksize as some ranks will receive too many particles. (%d > %d)" % (max(newlengths), max_chunksize * 2))
                 raise StopIteration
 
             p = lay.exchange(position)
