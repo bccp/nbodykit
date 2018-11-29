@@ -278,9 +278,10 @@ class CatalogMesh(MeshSource):
                 lay = pm.decompose(position, smoothing=1.0 * resampler.support)
 
             # if we are receiving too many particles, abort and retry with a smaller chunksize
-            if any(pm.comm.allgather(lay.newlength > 2 * max_chunksize)):
+            newlengths = pm.comm.allgather(lay.newlength)
+            if any(newlengths > 2 * max_chunksize)):
                 if pm.comm.rank == 0:
-                    self.logger.info("Throttling chunksize as some ranks will receive too many particles.")
+                    self.logger.info("Throttling chunksize as some ranks will receive too many particles. (%d > %d)" % max(newlengths, max_chunksize * 2))
                 raise StopIteration
 
             p = lay.exchange(position)
