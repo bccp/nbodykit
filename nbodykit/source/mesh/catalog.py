@@ -314,11 +314,12 @@ class CatalogMesh(MeshSource):
 
             try:
                 Nlocal1, Wlocal1 = dochunk(s)
+                chunksize = min(max_chunksize, int(chunksize * 1.5))
             except StopIteration:
                 chunksize = chunksize / 2
                 if chunksize < 1:
                     raise RuntimeError("Cannot find a chunksize that fits into memory.")
-                continue    
+                continue
             finally:
                 # collect unfreed items
                 gc.collect()
