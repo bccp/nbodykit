@@ -116,8 +116,8 @@ class FileType(object):
         return iter(self.keys())
 
     def __repr__(self):
-        args = (self.__class__.__name__, self.ncol, self.shape)
-        return "<%s with %d column(s) and shape %s>" %args
+        args = (self.__class__.__name__, self.path, self.dataset if hasattr(self, 'dataset') else "None", self.ncol, self.shape)
+        return "%s(path=%s, dataset=%s, ncolumns=%d, shape=%s>" % args
 
     def __contains__(self, col):
         return col in self.columns

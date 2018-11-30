@@ -70,6 +70,7 @@ class BinaryFile(FileType):
     def __init__(self, path, dtype, offsets=None, header_size=0, size=None):
 
         self.path = path
+        self.dataset = "*"
 
         # set the data type
         self.dtype = dtype

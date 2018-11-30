@@ -58,13 +58,19 @@ class HDFFile(FileType):
         list of path names to exclude; these can be absolute paths, or paths
         relative to ``root``
     """
-    def __init__(self, path, root='/', exclude=[]):
+    def __init__(self, path, dataset='/', exclude=[], root=None):
 
         if h5py is None:
             raise ImportError("please install h5py to use HDFFile")
 
         self.path = path
-        self.root = root
+
+        if root is not None:
+            import warnings
+            warnings.warn("Use dataset= argument, not root= ", DeprecationWarning, 2)
+            dataset = root
+
+        self.dataset = dataset
         self.attrs = {}
 
         # gather dtype and size information from file
@@ -72,21 +78,21 @@ class HDFFile(FileType):
         with h5py.File(self.path, 'r') as ff:
 
             # make sure root and any excluded paths are valid
-            if root not in ff:
-                raise ValueError("'%s' is not a valid path in HDF file" %root)
+            if self.dataset not in ff:
+                raise ValueError("'%s' is not a valid path in HDF file" % self.dataset)
 
             # verify and format the excluded names
             _exclude = []
             for excluded in exclude:
                 if excluded not in ff:
-                    if os.path.join(self.root, excluded) not in ff:
+                    if os.path.join(self.dataset, excluded) not in ff:
                         raise ValueError("'%s' is not a valid path name; cannot be excluded" %excluded)
                     else:
-                        excluded = os.path.join(self.root, excluded)
+                        excluded = os.path.join(self.dataset, excluded)
                 _exclude.append(excluded.lstrip('/'))
 
             # get the info about possible columns
-            sub = ff[root]
+            sub = ff[self.dataset]
             if isinstance(sub, h5py.Dataset):
                 find_datasets(info, self.attrs, '', sub)
             else:
@@ -94,7 +100,7 @@ class HDFFile(FileType):
 
         # exclude columns
         for col in list(info):
-            absname = os.path.join(self.root, col)
+            absname = os.path.join(self.dataset, col)
             if any(absname.lstrip('/').startswith(ex) for ex in _exclude):
                 self.logger.info("ignoring excluded column '%s'" %col)
                 info.pop(col)
@@ -127,9 +133,9 @@ class HDFFile(FileType):
         # set the root properly if columns stored as single structured array
         if single_structured_arr:
             name = list(unique_dsets)[0]
-            self.root = os.path.join(self.root, name)
+            self.dataset = os.path.join(self.dataset, name)
             self.attrs = self.attrs[name]
-            self.logger.info("detected single structured array stored as dataset; changing root of HDF file to %s" %self.root)
+            self.logger.info("detected single structured array stored as dataset; changing root of HDF file to %s" %self.dataset)
 
     def read(self, columns, start, stop, step=1):
         """
@@ -167,7 +173,7 @@ class HDFFile(FileType):
             for col in columns:
 
                 # absolute name of column (with root path prepended)
-                name = os.path.join(self.root, col)
+                name = os.path.join(self.dataset, col)
 
                 if name in ff:
                     # data from a h5py Dataset directly

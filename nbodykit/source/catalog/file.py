@@ -56,19 +56,16 @@ class FileCatalogBase(CatalogSource):
         self.attrs.update(self._source.attrs)
 
         if self.comm.rank == 0:
-            self.logger.info("Extra arguments to FileType: %s" % str(args))
+            self.logger.info("Extra arguments to FileType: %s" % str(args, kwargs))
 
         CatalogSource.__init__(self, comm=comm)
 
     def __repr__(self):
         path = self._source.path
         name = self.__class__.__name__
-        if isinstance(path, string_types):
-            args = (name, self.size, os.path.basename(path))
-            return "%s(size=%d, file='%s')" % args
-        else:
-            args = (name, self.size, self._source.nfiles)
-            return "%s(size=%d, nfiles=%d)" % args
+        args = (name, self.size, repr(self.source))
+
+        return "%s(size=%d, %s)" % args
 
     @property
     def hardcolumns(self):

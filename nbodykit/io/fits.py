@@ -28,6 +28,7 @@ class FITSFile(FileType):
             raise ImportError("please install fitsio: ``conda install -c bccp fitsio``")
 
         self.path = path
+        self.dataset = str(ext)
 
         # try to find the first Table HDU to read if not specified
         with fitsio.FITS(path) as ff:
