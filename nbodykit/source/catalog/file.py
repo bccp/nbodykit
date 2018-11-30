@@ -63,7 +63,7 @@ class FileCatalogBase(CatalogSource):
     def __repr__(self):
         path = self._source.path
         name = self.__class__.__name__
-        args = (name, self.size, repr(self.source))
+        args = (name, self.size, repr(self._source))
 
         return "%s(size=%d, %s)" % args
 
