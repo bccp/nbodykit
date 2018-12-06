@@ -151,9 +151,9 @@ def verify_input_sources(first, second, BoxSize, required_columns, inspect_boxsi
 
         BoxSize2 = second.attrs.get('BoxSize', None)
         if BoxSize1 is not None and BoxSize2 is not None:
-            if not numpy.array_equal(first.attrs['BoxSize'], BoxSize2):
+            if not numpy.all(first.attrs['BoxSize'] == BoxSize2):
                 raise ValueError("BoxSize mismatch between pair count cross-correlation sources")
-            if not numpy.array_equal(first.attrs['BoxSize'], _BoxSize):
+            if not numpy.all(first.attrs['BoxSize'] == _BoxSize):
                 raise ValueError("BoxSize mismatch between sources and the pair count algorithm")
 
         return _BoxSize
