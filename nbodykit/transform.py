@@ -349,14 +349,37 @@ def HaloConcentration(mass, cosmo, redshift, mdef='vir'):
     """
     from halotools.empirical_models import NFWProfile
 
-    if not isinstance(mass, da.Array):
-        mass = da.from_array(mass, chunks=100000)
+    mass, redshift = da.broadcast_arrays(mass, redshift)
 
-    # initialize the model
-    kws = {'cosmology':cosmo.to_astropy(), 'conc_mass_model':'dutton_maccio14', 'mdef':mdef, 'redshift':redshift}
-    model = NFWProfile(**kws)
+    if not isinstance(redshift, da.Array):
+        redshift = numpy.broadcast_to(redshift, mass.shape)
+        redshift = da.from_array(redshift, chunks=mass.chunks)
 
-    return mass.map_blocks(lambda mass: model.conc_NFWmodel(prim_haloprop=mass), dtype=mass.dtype)
+    kws = {'cosmology':cosmo.to_astropy(), 'conc_mass_model':'dutton_maccio14', 'mdef':mdef}
+
+    def work(mass, redshift):
+        kw1 = {}
+        kw1.update(kws)
+        kw1['redshift'] = redshift
+        model = NFWProfile(**kw1)
+        return model.conc_NFWmodel(prim_haloprop=mass)
+
+    return da.map_blocks(work, mass, redshift, dtype=mass.dtype)
+
+def HaloSigma(mass, cosmo, redshift, mdef='vir'):
+    """ Compute the velocity dispersion of halo from Mass.
+
+        This is a simple model suggested by Martin White.
+
+        See http://adsabs.harvard.edu/abs/2008ApJ...672..122E
+    """
+
+    mass, redshift = da.broadcast_arrays(mass, redshift)
+    def work(mass, redshift):
+        h = cosmo.efunc(redshift)
+        return 1100. * (h * mass / 1e15) ** 0.33333
+
+    return da.map_blocks(work, mass, redshift, dtype=mass.dtype)
 
 def HaloRadius(mass, cosmo, redshift, mdef='vir'):
     r"""
@@ -395,11 +418,14 @@ def HaloRadius(mass, cosmo, redshift, mdef='vir'):
     """
     from halotools.empirical_models import halo_mass_to_halo_radius
 
-    if not isinstance(mass, da.Array):
-        mass = da.from_array(mass, chunks=100000)
+    mass, redshift = da.broadcast_arrays(mass, redshift)
 
-    kws = {'cosmology':cosmo.to_astropy(), 'mdef':mdef, 'redshift':redshift}
-    return mass.map_blocks(lambda mass: halo_mass_to_halo_radius(mass=mass, **kws), dtype=mass.dtype)
+    kws = {'cosmology':cosmo.to_astropy(), 'mdef':mdef}
+
+    def work(mass, redshift):
+        return halo_mass_to_halo_radius(mass=mass, redshift=redshift, **kws)
+
+    return da.map_blocks(work, mass, redshift, dtype=mass.dtype)
 
 # deprecated functions
 vstack = deprecate("nbodykit.transform.vstack", StackColumns, "nbodykit.transform.StackColumns")

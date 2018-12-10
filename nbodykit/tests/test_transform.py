@@ -110,6 +110,29 @@ def test_stack_columns(comm):
         s['Position'] = transform.StackColumns(x,y,z)
 
 @MPITest([1, 4])
+def test_halofuncs(comm):
+    from nbodykit.cosmology import Planck15
+    # make two sources
+    # make source
+    s = RandomCatalog(csize=300000, seed=42, comm=comm)
+
+    s['mass'] = s.rng.uniform() * 1e13
+    s['z'] = s.rng.uniform()
+
+    r = transform.HaloRadius(s['mass'], redshift=s['z'], cosmo=Planck15)
+    r.compute()
+    r = transform.HaloConcentration(s['mass'], redshift=s['z'], cosmo=Planck15)
+    r.compute()
+    r = transform.HaloSigma(s['mass'], redshift=s['z'], cosmo=Planck15)
+    r.compute()
+    r = transform.HaloRadius(s['mass'], redshift=0, cosmo=Planck15)
+    r.compute()
+    r = transform.HaloConcentration(s['mass'], redshift=0, cosmo=Planck15)
+    r.compute()
+    r = transform.HaloSigma(s['mass'], redshift=0, cosmo=Planck15)
+    r.compute()
+
+@MPITest([1, 4])
 def test_combine(comm):
 
     # make two sources
