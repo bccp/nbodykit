@@ -178,15 +178,14 @@ def test_meshfilter(comm):
             return 2.0 * v
 
     cosmo = cosmology.Planck15
-    CurrentMPIComm.set(comm)
 
     Plin = cosmology.LinearPower(cosmo, redshift=0.55, transfer='EisensteinHu')
-    source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42)
+    source = LinearMesh(Plin, Nmesh=64, BoxSize=512, seed=42, comm=comm)
     source2 = source.apply(MyFilter)
     source3 = source.apply(MyFilter())
-    r1 = source.paint()
-    r2 = source2.paint()
-    r3 = source3.paint()
+    r1 = source.compute()
+    r2 = source2.compute()
+    r3 = source3.compute()
     assert_allclose(r1 * 2, r2)
     assert_allclose(r1 * 2, r3)
 
