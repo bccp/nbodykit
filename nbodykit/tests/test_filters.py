@@ -7,7 +7,7 @@ import pytest
 # debug logging
 setup_logging("debug")
 
-from nbodykit.filter import TopHat, Gaussian
+from nbodykit.filters import TopHat, Gaussian
 
 @MPITest([1])
 def test_tophat(comm):

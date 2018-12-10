@@ -15,7 +15,7 @@ from nbodykit.batch import TaskManager
 from nbodykit import cosmology
 from nbodykit import CurrentMPIComm, GlobalCache
 from nbodykit import transform
-from nbodykit import filter
+from nbodykit import filters
 from nbodykit import io as IO
 
 # HOD models

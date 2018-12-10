@@ -2,7 +2,7 @@ from nbodykit.base.mesh import MeshFilter
 
 import numpy
 
-class TopHatK(MeshFilter):
+class TopHat(MeshFilter):
     """ A TopHat filter defined in Fourier space.
 
         Notes
@@ -32,7 +32,7 @@ class TopHatK(MeshFilter):
         w[k == 0] = 1.0
         return w * v
 
-class GaussianK(MeshFilter):
+class Gaussian(MeshFilter):
     """ A gaussian filter
 
         .. math ::
