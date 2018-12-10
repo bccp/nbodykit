@@ -48,6 +48,7 @@ class HaloCatalog(CatalogSource):
 
         comm = source.comm
         self._source = source
+
         self.cosmo = cosmo
 
         # get the attrs from the source
@@ -261,17 +262,6 @@ class HaloCatalog(CatalogSource):
         # make halotools catalog
         halocat = self.to_halotools(BoxSize=BoxSize)
 
-        # gather the halo data to root
-        all_halos = GatherArray(halocat.halo_table.as_array(), self.comm, root=0)
-
-        # only the root rank needs to store the halo data
-        if self.comm.rank == 0:
-            data = {col:all_halos[col] for col in all_halos.dtype.names}
-            data.update({col:getattr(halocat, col) for col in ['Lbox', 'redshift', 'particle_mass']})
-            halocat = UserSuppliedHaloCatalog(**data)
-        else:
-            halocat = None
-
         # cache the model so we have option to call repopulate later
         self.model = model
 
@@ -346,49 +336,32 @@ def _populate_mock(cat, model, seed=None, halocat=None, inplace=False, **params)
 
     # set the seed randomly if it is None
     if seed is None:
-        if cat.comm.rank == 0:
-            seed = numpy.random.randint(0, 4294967295)
-        seed = cat.comm.bcast(seed)
+        seed = numpy.random.randint(0, 4294967295)
+
+    # use uncorrelated seed per rank
+    rng = numpy.random.RandomState(seed=seed)
+    seed = rng.randint(0, 4294967295, size=cat.comm.size)[cat.comm.rank]
 
     # the types of galaxies we are populating
     gal_types = getattr(model, 'gal_types', [])
 
-    exception = None
-    try:
-        # the root will do the mock population
-        if cat.comm.rank == 0:
+    # re-populate the mock (without halo catalog pre-processing)
+    kws = {'seed':seed, 'Num_ptcl_requirement':0, 'halo_mass_column_key':cat.attrs['halo_mass_key']}
+    if hasattr(model, 'mock'):
+        model.mock.populate(**kws)
+    # populating model for the first time (initialization costs)
+    else:
+        if halocat is None:
+            raise ValueError("halocat cannot be None if we are populating for the first time")
+        model.populate_mock(halocat=halocat, **kws)
 
-            # re-populate the mock (without halo catalog pre-processing)
-            kws = {'seed':seed, 'Num_ptcl_requirement':0, 'halo_mass_column_key':cat.attrs['halo_mass_key']}
-            if hasattr(model, 'mock'):
-                model.mock.populate(**kws)
-            # populating model for the first time (initialization costs)
-            else:
-                if halocat is None:
-                    raise ValueError("halocat cannot be None if we are populating for the first time")
-                model.populate_mock(halocat=halocat, **kws)
+    # enumerate gal types as integers
+    # NOTE: necessary to avoid "O" type columns
+    _enum_gal_types(model.mock.galaxy_table, gal_types)
 
-            # enumerate gal types as integers
-            # NOTE: necessary to avoid "O" type columns
-            _enum_gal_types(model.mock.galaxy_table, gal_types)
-
-            # crash if any object dtypes
-            # NOTE: we cannot use GatherArray/ScatterArray on objects
-            data = _test_for_objects(model.mock.galaxy_table).as_array()
-
-        else:
-            data = None
-
-    except Exception as e:
-        exception = e
-
-    # re-raise the error
-    exception = cat.comm.bcast(exception, root=0)
-    if exception is not None:
-        raise exception
-
-    # re-scatter the data evenly
-    data = ScatterArray(data, cat.comm, root=0)
+    # crash if any object dtypes
+    # NOTE: we cannot use GatherArray/ScatterArray on objects
+    data = _test_for_objects(model.mock.galaxy_table).as_array()
 
     # re-initialize with new source
     if inplace:
@@ -417,11 +390,7 @@ def _populate_mock(cat, model, seed=None, halocat=None, inplace=False, **params)
     galcat.attrs['gal_types'] = {t:i for i,t in enumerate(gal_types)}
 
     # propagate total number of halos for logging
-    if galcat.comm.rank == 0:
-        Nhalos = len(galcat.model.mock.halo_table)
-    else:
-        Nhalos = None
-    Nhalos = galcat.comm.bcast(Nhalos, root=0)
+    Nhalos = galcat.comm.allreduce(len(galcat.model.mock.halo_table))
 
     # and log some info
     _log_populated_stats(galcat, Nhalos)
