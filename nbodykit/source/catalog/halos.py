@@ -340,13 +340,13 @@ def _populate_mock(cat, model, seed=None, halocat=None, inplace=False, **params)
 
     # use uncorrelated seed per rank
     rng = numpy.random.RandomState(seed=seed)
-    seed = rng.randint(0, 4294967295, size=cat.comm.size)[cat.comm.rank]
+    seed1 = rng.randint(0, 4294967295, size=cat.comm.size)[cat.comm.rank]
 
     # the types of galaxies we are populating
     gal_types = getattr(model, 'gal_types', [])
 
     # re-populate the mock (without halo catalog pre-processing)
-    kws = {'seed':seed, 'Num_ptcl_requirement':0, 'halo_mass_column_key':cat.attrs['halo_mass_key']}
+    kws = {'seed':seed1, 'Num_ptcl_requirement':0, 'halo_mass_column_key':cat.attrs['halo_mass_key']}
     if hasattr(model, 'mock'):
         model.mock.populate(**kws)
     # populating model for the first time (initialization costs)
