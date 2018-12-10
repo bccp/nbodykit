@@ -224,7 +224,7 @@ def _assign_labels(minid, comm, thresh):
     # we need to work in sorted fofid
     data['fofid'] = minid
     data['origind'] = numpy.arange(len(data), dtype='u4')
-    data['origind'] += sum(comm.allgather(len(data))[:comm.rank]) \
+    data['origind'] += numpy.sum(comm.allgather(len(data))[:comm.rank], dtype='intp') \
 
     data = DistributedArray(data, comm)
 
@@ -284,7 +284,7 @@ def _fof_local(layout, pos, boxsize, ll, comm):
     del fof
 
     PID = numpy.arange(N, dtype='intp')
-    PID += sum(comm.allgather(N)[:comm.rank])
+    PID += numpy.sum(comm.allgather(N)[:comm.rank], dtype='intp')
 
     PID = layout.exchange(PID)
     # initialize global labels
@@ -696,7 +696,7 @@ class DistributedArray(object):
             else:
                 Nunique = len(junk)
 
-        label += sum(self.comm.allgather(Nunique)[:self.comm.rank])
+        label += numpy.sum(self.comm.allgather(Nunique)[:self.comm.rank], dtype='intp')
         return DistributedArray(label, self.comm)
 
     def bincount(self, local=False):
