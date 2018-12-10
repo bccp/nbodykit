@@ -12,7 +12,7 @@ from .lognormal import LogNormalCatalog
 from .uniform import UniformCatalog, RandomCatalog
 from .halos import HaloCatalog
 from .species import MultipleSpeciesCatalog
-from .decomposed import DecomposedCatalog
+from .subvolumes import SubVolumesCatalog
 
 __all__ = ['CSVCatalog',
            'BinaryCatalog',
@@ -25,5 +25,5 @@ __all__ = ['CSVCatalog',
            'LogNormalCatalog',
            'UniformCatalog', 'RandomCatalog',
            'HaloCatalog',
-           'DecomposedCatalog',
+           'SubVolumesCatalog',
            'MultipleSpeciesCatalog']

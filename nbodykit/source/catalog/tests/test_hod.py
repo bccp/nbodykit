@@ -153,7 +153,10 @@ def test_save(comm):
     try:
         # check attrs
         for name in hod.attrs:
-            numpy.testing.assert_array_equal(cat.attrs[name], hod.attrs[name])
+            if any(comm.allgather(name not in cat.attrs)):
+                raise KeyError("attribute %s not defined" % name)
+            if any(comm.allgather(numpy.any(cat.attrs[name] != hod.attrs[name]))):
+                raise AssertionError('attribute "%s" not equal.' % name)
 
         # check same size
         assert hod.csize == cat.csize

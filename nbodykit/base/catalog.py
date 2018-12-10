@@ -671,7 +671,7 @@ class CatalogSourceBase(object):
         # attach the necessary attributes from self
         return obj.__finalize__(self)
 
-    def decompose(self, domain, position='Position', columns=None):
+    def to_subvolumes(self, domain=None, position='Position', columns=None):
         """
         Domain Decompose a catalog, sending items to the ranks according to the
         supplied domain object. Using the `position` column as the Position.
@@ -680,7 +680,9 @@ class CatalogSourceBase(object):
 
         Parameters
         ----------
-        domain : :pyclass:`pmesh.domain.GridND` object
+        domain : :pyclass:`pmesh.domain.GridND` object, or None
+            The domain to distribute the catalog. If None, try to evenly divide
+            spatially.
             An easiest way to find a domain object is to use `pm.domain`, where `pm`
             is a :pyclass:`pmesh.pm.ParticleMesh` object.
 
@@ -699,8 +701,8 @@ class CatalogSourceBase(object):
 
             `self.attrs` are carried over as a shallow copy to the returned object.
         """
-        from nbodykit.source.catalog import DecomposedCatalog
-        return DecomposedCatalog(self, domain=domain, position=position, columns=columns)
+        from nbodykit.source.catalog import SubVolumesCatalog 
+        return SubVolumesCatalog(self, domain=domain, position=position, columns=columns)
 
     def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4', interlaced=False,
                 compensated=False, resampler='cic', weight='Weight',
