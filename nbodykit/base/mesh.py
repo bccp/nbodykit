@@ -123,12 +123,14 @@ class MeshSource(object):
 
         Parameters
         ----------
-        func : callable
+        func : callable or a :class:`MeshFilter` object
             func(x, y) where x is a list of ``r`` (``k``) values that broadcasts
             into a full array, when ``mode`` is 'real' ('complex');
             the value of x depends on ``kind``. ``y`` is the value of
             the mesh field on the corresponding locations.
+
         kind : string, optional
+            if a `MeshFilter` object is given as func, this is ignored.
             The kind of value in x.
 
             - When ``mode`` is 'complex':
@@ -142,6 +144,7 @@ class MeshSource(object):
               - 'relative' means distance from [-0.5 Boxsize, 0.5 BoxSize).
               - 'index' means [0, Nmesh )
         mode : 'complex' or 'real', optional
+            if a `MeshFilter` object is given as func, this is ignored.
             whether to apply the function to the mesh in configuration space
             or Fourier space
 
@@ -151,6 +154,15 @@ class MeshSource(object):
             a view of the mesh object with the :attr:`actions` attribute
             updated to include the new action
         """
+        if isinstance(func, type) and issubclass(func, MeshFilter):
+            # create an instance automatically
+            func = func()
+
+        if isinstance(func, MeshFilter):
+            mode = func.mode
+            kind = func.kind
+            func = func.filter
+
         assert mode in ['complex', 'real'], "``mode`` should be 'complex' or 'real'"
         if mode == 'real':
             assert kind in ['relative', 'index']
@@ -398,3 +410,23 @@ class MeshSource(object):
                             bb.attrs[key] = json_str
                         except:
                             warnings.warn("attribute %s of type %s is unsupported and lost while saving MeshSource" % (key, type(value)))
+
+class MeshFilter(object):
+    """ A filter function that can be applied to a Mesh. 
+        Refer to :module:`nbodykit.filters` for a list of filters.
+
+    """
+    kind = None
+    mode = None
+
+    def filter(self, x, v):
+        """ Apply a filter based on coordinate variables x and field value v.
+
+            It shall return the new field value with the same shape of v.
+            Parameters
+            ----------
+            x : list
+                a list of arrays for the coordiantes of v
+        """
+
+        raise NotImplementedError
