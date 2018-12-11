@@ -159,7 +159,7 @@ class Gadget1File(BinaryFile):
         self.defs = defs
 
         BinaryFile.__init__(self, path, dtype=dtype, header_size=256+4+4, offsets=offsets, size=int(header['Npart'][ptype]))
-
+        self.dataset = str(ptype)
 
     def read(self, columns, start, stop, step=1):
         """

@@ -385,7 +385,7 @@ class MeshSource(object):
 
         field = self.compute(mode=mode)
 
-        with bigfile.BigFileMPI(self.pm.comm, output, create=True) as ff:
+        with bigfile.FileMPI(self.pm.comm, output, create=True) as ff:
             data = numpy.empty(shape=field.size, dtype=field.dtype)
             field.ravel(out=data)
             with ff.create_from_array(dataset, data) as bb:

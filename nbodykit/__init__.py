@@ -23,6 +23,86 @@ _global_options['paint_chunk_size'] = 1024 * 1024 * 4
 from contextlib import contextmanager
 import logging
 
+def _unpickle(name):
+    return getattr(MPI, name)
+
+def _comm_pickle(obj):
+    if obj == MPI.COMM_NULL:
+        return _unpickle, ('COMM_NULL',)
+    if obj == MPI.COMM_SELF:
+        return _unpickle, ('COMM_SELF',)
+    if obj == MPI.COMM_WORLD:
+        return _unpickle, ('COMM_WORLD',)
+    raise TypeError("cannot pickle object")
+
+def _setup_for_distributed():
+    CurrentMPIComm._stack[-1] = MPI.COMM_SELF
+
+    try:
+        import copyreg
+    except ImportError:  # Python 2
+        import copy_reg as copyreg
+
+    copyreg.pickle(MPI.Comm, _comm_pickle, _unpickle)
+    copyreg.pickle(MPI.Intracomm, _comm_pickle, _unpickle)
+
+    set_options(dask_chunk_size=1024 * 1024 * 2)
+
+def use_distributed(c=None):
+    """ Setup nbodykit to work with dask.distributed.
+        This will change the default MPI communicator to MPI.COMM_SELF,
+        such that each nbodykit object only reside on a single MPI rank.
+
+        This function shall only be used before any nbodykit object is created.
+
+        Parameters
+        ----------
+        c : Client
+            the distributed client. If not given, the default client is used.
+            Notice that if you switch a new client then this function
+            must be called again.
+
+    """
+    dask.config.set(scheduler="distributed")
+
+    import distributed
+
+    key = 'nbodykit_setup_for_distributed'
+    if c is None:
+        c = distributed.get_client()
+
+    _setup_for_distributed()
+
+    # use an lock to minimize chances of seeing KeyError from publish_dataset
+    # the error is annoyingly printed to stderr even if we caught it.
+    lock = distributed.Lock(key)
+    locked = lock.acquire(timeout=3)
+
+    if key not in c.list_datasets():
+        try:
+            c.publish_dataset(**{key : True})
+            c.register_worker_callbacks(setup=_setup_for_distributed)
+        except KeyError:
+            # already published, someone else is registering the callback.
+            pass
+
+    if locked:
+        lock.release()
+
+def use_mpi(comm=None):
+    """ Setup nbodykit to work with MPI.
+        This will change the default MPI communicator to MPI.COMM_WORLD,
+        such that each nbodykit object is partitioned to many MPI ranks.
+
+        This function shall only be used before any nbodykit object is created.
+
+    """
+    dask.config.set(scheduler='synchronous') 
+    if comm is None:
+        comm = MPI.COMM_WORLD
+    CurrentMPIComm._stack[-1] = comm
+    set_options(dask_chunk_size=1024 * 100)
+
 class CurrentMPIComm(object):
     """
     A class to faciliate getting and setting the current MPI communicator.
@@ -109,12 +189,11 @@ class CurrentMPIComm(object):
         cls._stack[-1] = comm
         cls._stack[-1].barrier()
 
-class GlobalCache(object):
+import dask.cache
+class GlobalCache(dask.cache.Cache):
     """
-    A class to faciliate calculation using a global cache via
-    :class:`dask.cache.Cache`.
+        A Cache object.
     """
-    _instance = None
 
     @classmethod
     def get(cls):
@@ -128,33 +207,10 @@ class GlobalCache(object):
             the cache object, as provided by dask
         """
         # if not created, use default cache size
-        if not cls._instance:
-            from dask.cache import Cache
-            cls._instance = Cache(_global_options['global_cache_size'])
+        return _global_cache
 
-        return cls._instance
-
-    @classmethod
-    def resize(cls, size):
-        """
-        Re-size the global cache to the specified size in bytes.
-
-        Parameters
-        ----------
-        size : int, optional
-            the desired size of the returned cache in bytes; if not provided,
-            the ``global_cache_size`` global option is used
-        """
-        # get the cachey Cache
-        # NOTE: cachey cache stored as the cache attribute of Dask cache
-        cache = cls.get().cache
-
-        # set the new size
-        cache.available_bytes = size
-
-        # shrink the cache if we need to
-        # NOTE: only removes objects if we need to
-        cache.shrink()
+_global_cache = GlobalCache(_global_options['global_cache_size'])
+_global_cache.register()
 
 class set_options(object):
     """
@@ -176,13 +232,15 @@ class set_options(object):
         for key in sorted(kwargs):
             if key not in _global_options:
                 raise KeyError("Option `%s` is not supported" % key)
+
         _global_options.update(kwargs)
 
         # resize the global Cache!
-        self.updated_cache_size = False
+        # FIXME: after https://github.com/dask/cachey/pull/12
         if 'global_cache_size' in kwargs:
-            GlobalCache.resize(_global_options['global_cache_size'])
-            self.updated_cache_size = True
+            cache = GlobalCache.get().cache
+            cache.available_bytes = _global_options['global_cache_size']
+            cache.shrink()
 
     def __enter__(self):
         return
@@ -192,9 +250,10 @@ class set_options(object):
         _global_options.update(self.old)
 
         # resize Cache to original size
-        if self.updated_cache_size:
-            GlobalCache.resize(_global_options['global_cache_size'])
-
+        # FIXME: after https://github.com/dask/cachey/pull/12
+        cache = GlobalCache.get().cache
+        cache.available_bytes = _global_options['global_cache_size']
+        cache.shrink()
 
 _logging_handler = None
 def setup_logging(log_level="info"):

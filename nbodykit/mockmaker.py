@@ -304,7 +304,7 @@ def poisson_sample_to_points(delta, displacement, pm, nbar, bias=1., seed=None, 
     # generate poissons. Note that we use ravel/unravel to
     # maintain MPI invariane.
     Nravel = rng.poisson(lam=cellmean.ravel())
-    N = delta.pm.create(mode='real')
+    N = delta.pm.create(type='real')
     N.unravel(Nravel)
 
     Ntot = N.csum()

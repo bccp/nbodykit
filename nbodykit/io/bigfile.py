@@ -58,7 +58,7 @@ class BigFile(FileType):
         self.attrs = {}
 
         # the file path
-        with bigfile.BigFile(filename=path) as ff:
+        with bigfile.File(filename=path) as ff:
             columns = [block for block in ff[self.dataset].blocks]
             headers = self._find_headers(header, dataset, ff)
 
@@ -74,7 +74,7 @@ class BigFile(FileType):
                 for column in set(columns) if not any(fnmatch(column, e) for e in exclude)
                 ]
 
-            ds = bigfile.BigData(ff[self.dataset], columns)
+            ds = bigfile.Dataset(ff[self.dataset], columns)
 
             # set the data type and size
             self.dtype = ds.dtype
@@ -129,6 +129,6 @@ class BigFile(FileType):
         import bigfile
         if isinstance(columns, string_types): columns = [columns]
 
-        with bigfile.BigFile(filename=self.path)[self.dataset] as f:
-            ds = bigfile.BigData(f, columns)
+        with bigfile.File(filename=self.path)[self.dataset] as f:
+            ds = bigfile.Dataset(f, columns)
             return ds[start:stop][::step]

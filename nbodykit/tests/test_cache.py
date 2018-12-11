@@ -11,8 +11,11 @@ def test_cache(comm):
 
     # cache should no longer be empty
     cache = GlobalCache.get()
+
     assert cache.cache.total_bytes > 0
 
     # resize
-    GlobalCache.resize(100)
+    cache.cache.available_bytes = 100
+    cache.cache.shrink()
+
     assert cache.cache.total_bytes < 100

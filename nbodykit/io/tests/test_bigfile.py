@@ -16,7 +16,7 @@ def temporary_data():
         data['Velocity'] = numpy.random.random(size=(1024,3))
 
         tmpdir = tempfile.mkdtemp()
-        with bigfile.BigFile(tmpdir, create=True) as tmpff:
+        with bigfile.File(tmpdir, create=True) as tmpff:
             with tmpff.create("Position", dtype=('f4', 3), size=1024) as bb:
                 bb.write(0, data['Position'])
             with tmpff.create("Velocity", dtype=('f4', 3), size=1024) as bb:

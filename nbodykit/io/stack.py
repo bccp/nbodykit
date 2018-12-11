@@ -56,6 +56,9 @@ class FileStack(FileType):
         self.dtype = self.files[0].dtype
         self.size  = self.sizes.sum()
 
+    def __repr__(self):
+        return "FileStack(%s, ... %d files)" % (repr(self.files[0]), self.nfiles)
+
     @property
     def attrs(self):
         """

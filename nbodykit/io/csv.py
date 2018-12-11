@@ -245,6 +245,7 @@ class CSVFile(FileType):
                     usecols=None, delim_whitespace=True, **config):
 
         self.path      = path
+        self.dataset   = "*"
         self.names     = names if usecols is None else usecols
         self.blocksize = blocksize
 

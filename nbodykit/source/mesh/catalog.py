@@ -278,9 +278,10 @@ class CatalogMesh(MeshSource):
                 lay = pm.decompose(position, smoothing=1.0 * resampler.support)
 
             # if we are receiving too many particles, abort and retry with a smaller chunksize
-            if any(pm.comm.allgather(lay.newlength > 2 * max_chunksize)):
+            newlengths = pm.comm.allgather(lay.newlength)
+            if any([newlength > 2 * max_chunksize for newlength in newlengths]):
                 if pm.comm.rank == 0:
-                    self.logger.info("Throttling chunksize as some ranks will receive too many particles.")
+                    self.logger.info("Throttling chunksize as some ranks will receive too many particles. (%d > %d)" % (max(newlengths), max_chunksize * 2))
                 raise StopIteration
 
             p = lay.exchange(position)
@@ -313,11 +314,12 @@ class CatalogMesh(MeshSource):
 
             try:
                 Nlocal1, Wlocal1 = dochunk(s)
+                chunksize = min(max_chunksize, int(chunksize * 1.5))
             except StopIteration:
                 chunksize = chunksize / 2
                 if chunksize < 1:
                     raise RuntimeError("Cannot find a chunksize that fits into memory.")
-                continue    
+                continue
             finally:
                 # collect unfreed items
                 gc.collect()
