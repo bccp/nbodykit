@@ -564,9 +564,10 @@ class CatalogSourceBase(object):
         datasets : list of str, optional
             names for the data set where each column is stored; defaults to
             the name of the column (deprecated)
-        header : str, optional
+        header : str, optional, or None
             the name of the data set holding the header information, where
             :attr:`attrs` is stored
+            if header is None, do not save the header.
         """
         import bigfile
         import json
@@ -590,21 +591,6 @@ class CatalogSourceBase(object):
             raise ValueError("`datasets` must have the same length as `columns`")
 
         with bigfile.FileMPI(comm=self.comm, filename=output, create=True) as ff:
-            try:
-                bb = ff.open(header)
-            except:
-                bb = ff.create(header)
-            with bb :
-                for key in self.attrs:
-                    try:
-                        bb.attrs[key] = self.attrs[key]
-                    except ValueError:
-                        try:
-                            json_str = 'json://'+json.dumps(self.attrs[key], cls=JSONEncoder)
-                            bb.attrs[key] = json_str
-                        except:
-                            raise ValueError("cannot save '%s' key in attrs dictionary" % key)
-
             for column, dataset in zip(columns, datasets):
                 c = self[column]
 
@@ -613,6 +599,25 @@ class CatalogSourceBase(object):
                     if hasattr(c, 'attrs'):
                         for key in c.attrs:
                             bb.attrs[key] = c.attrs[key]
+
+            # writer header afterwards, such that header can be a block that saves
+            # data.
+            if header is not None:
+                try:
+                    bb = ff.open(header)
+                except:
+                    bb = ff.create(header)
+                with bb :
+                    for key in self.attrs:
+                        try:
+                            bb.attrs[key] = self.attrs[key]
+                        except ValueError:
+                            try:
+                                json_str = 'json://'+json.dumps(self.attrs[key], cls=JSONEncoder)
+                                bb.attrs[key] = json_str
+                            except:
+                                raise ValueError("cannot save '%s' key in attrs dictionary" % key)
+
 
     def read(self, columns):
         """
