@@ -176,7 +176,6 @@ def test_combine(comm):
 def test_constarray(comm):
     a = ConstantArray(1.0, 1, chunks=1000)
     assert len(a) == 1
-    print(a.shape)
     assert a.shape == (1,)
     a = ConstantArray([1.0, 1.0], 1, chunks=1000)
     assert a.shape == (1, 2)
