@@ -5,7 +5,7 @@ import re
 from warnings import warn
 
 
-__version__ = '0.2.3'
+__version__ = '0.2.4'
 
 __author__ = 'Philipp Sommer'
 
@@ -206,7 +206,6 @@ class DocstringProcessor(object):
         ...     ----------
         ...     %(not_dedented.parameters)s'''
         ...     pass
-
 
     """
 
@@ -474,6 +473,12 @@ class DocstringProcessor(object):
         documentation without the description of the param. This method works
         for the ``'Parameters'`` sections.
 
+        The new docstring without the selected parts will be accessible as
+        ``base_key + '.no_' + '|'.join(params)``, e.g.
+        ``'original_key.no_param1|param2'``.
+
+        See the :meth:`keep_params` method for an example.
+
         Parameters
         ----------
         base_key: str
@@ -484,7 +489,7 @@ class DocstringProcessor(object):
 
         See Also
         --------
-        delete_types"""
+        delete_types, keep_params"""
         self.params[
             base_key + '.no_' + '|'.join(params)] = self.delete_params_s(
                 self.params[base_key], params)
@@ -590,6 +595,9 @@ class DocstringProcessor(object):
         documentation without the description of the param. This method works
         for ``'Results'`` like sections.
 
+
+        See the :meth:`keep_types` method for an example.
+
         Parameters
         ----------
         base_key: str
@@ -639,6 +647,10 @@ class DocstringProcessor(object):
         documentation with only the description of the param. This method works
         for ``'Parameters'`` like sections.
 
+        The new docstring with the selected parts will be accessible as
+        ``base_key + '.' + '|'.join(params)``, e.g.
+        ``'original_key.param1|param2'``
+
         Parameters
         ----------
         base_key: str
@@ -649,7 +661,68 @@ class DocstringProcessor(object):
 
         See Also
         --------
-        keep_types"""
+        keep_types, delete_params
+
+        Examples
+        --------
+        To extract just two parameters from a function and reuse their
+        docstrings, you can type::
+
+            >>> from docrep import DocstringProcessor
+            >>> d = DocstringProcessor()
+            >>> @d.get_sectionsf('do_something')
+            ... def do_something(a=1, b=2, c=3):
+            ...     '''
+            ...     That's %(doc_key)s
+            ...
+            ...     Parameters
+            ...     ----------
+            ...     a: int, optional
+            ...         A dummy parameter description
+            ...     b: int, optional
+            ...         A second dummy parameter that will be excluded
+            ...     c: float, optional
+            ...         A third parameter'''
+            ...     print(a)
+
+            >>> d.keep_params('do_something.parameters', 'a', 'c')
+
+            >>> @d.dedent
+            ... def do_less(a=1, c=4):
+            ...     '''
+            ...     My second function with only `a` and `c`
+            ...
+            ...     Parameters
+            ...     ----------
+            ...     %(do_something.parameters.a|c)s'''
+            ...     pass
+
+            >>> print(do_less.__doc__)
+            My second function with only `a` and `c`
+            <BLANKLINE>
+            Parameters
+            ----------
+            a: int, optional
+                A dummy parameter description
+            c: float, optional
+                A third parameter
+
+        Equivalently, you can use the :meth:`delete_params` method to remove
+        parameters::
+
+            >>> d.delete_params('do_something.parameters', 'b')
+
+            >>> @d.dedent
+            ... def do_less(a=1, c=4):
+            ...     '''
+            ...     My second function with only `a` and `c`
+            ...
+            ...     Parameters
+            ...     ----------
+            ...     %(do_something.parameters.no_b)s'''
+            ...     pass
+
+        """
         self.params[base_key + '.' + '|'.join(params)] = self.keep_params_s(
             self.params[base_key], params)
 
@@ -699,7 +772,63 @@ class DocstringProcessor(object):
 
         See Also
         --------
-        keep_params"""
+        delete_types, keep_params
+
+        Examples
+        --------
+        To extract just two return arguments from a function and reuse their
+        docstrings, you can type::
+
+            >>> from docrep import DocstringProcessor
+            >>> d = DocstringProcessor()
+            >>> @d.get_sectionsf('do_something', sections=['Returns'])
+            ... def do_something():
+            ...     '''
+            ...     That's %(doc_key)s
+            ...
+            ...     Returns
+            ...     -------
+            ...     float
+            ...         A random number
+            ...     int
+            ...         A random integer'''
+            ...     return 1.0, 4
+
+            >>> d.keep_types('do_something.returns', 'int_only', 'int')
+
+            >>> @d.dedent
+            ... def do_less():
+            ...     '''
+            ...     My second function that only returns an integer
+            ...
+            ...     Returns
+            ...     -------
+            ...     %(do_something.returns.int_only)s'''
+            ...     return do_something()[1]
+
+            >>> print(do_less.__doc__)
+            My second function that only returns an integer
+            <BLANKLINE>
+            Returns
+            -------
+            int
+                A random integer
+
+        Equivalently, you can use the :meth:`delete_types` method to remove
+        parameters::
+
+            >>> d.delete_types('do_something.returns', 'no_float', 'float')
+
+            >>> @d.dedent
+            ... def do_less():
+            ...     '''
+            ...     My second function with only `a` and `c`
+            ...
+            ...     Returns
+            ...     ----------
+            ...     %(do_something.returns.no_float)s'''
+            ...     return do_something()[1]
+        """
         self.params['%s.%s' % (base_key, out_key)] = self.keep_types_s(
             self.params[base_key], types)
 
