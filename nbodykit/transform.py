@@ -110,7 +110,7 @@ def ConstantArray(value, size, chunks=100000):
     return da.from_array(toret, chunks=chunks, name=False)
 
 
-def CartesianToEquatorial(pos, observer=[0,0,0]):
+def CartesianToEquatorial(pos, observer=[0,0,0], frame='icrs'):
     """
     Convert Cartesian position coordinates to equatorial right ascension
     and declination, using the specified observer location.
@@ -125,6 +125,9 @@ def CartesianToEquatorial(pos, observer=[0,0,0]):
         a N x 3 array holding the Cartesian position coordinates
     observer : array_like
         a length 3 array holding the observer location
+    frame : string
+        A string, 'icrs' or 'galactic'. The frame of the input position.
+        Use 'icrs' if the cartesian position is already in Equatorial.
 
     Returns
     -------
@@ -135,20 +138,38 @@ def CartesianToEquatorial(pos, observer=[0,0,0]):
     # recenter based on observer
     pos = pos - observer
 
-    s = da.hypot(pos[:,0], pos[:,1])
-    lon = da.arctan2(pos[:,1], pos[:,0])
-    lat = da.arctan2(pos[:,2], s)
+    if frame == 'icrs':
+        # from equatorial to equatorial
+        s = da.hypot(pos[:,0], pos[:,1])
+        lon = da.arctan2(pos[:,1], pos[:,0])
+        lat = da.arctan2(pos[:,2], s)
 
-    # convert to degrees
-    lon = da.rad2deg(lon)
-    lat = da.rad2deg(lat)
+        # convert to degrees
+        lon = da.rad2deg(lon)
+        lat = da.rad2deg(lat)
+        # wrap lon to [0,360]
+        lon = da.mod(lon-360., 360.)
+        ra, dec = lon, lat
+    else:
+        from astropy.coordinates import SkyCoord
 
-    # wrap lon to [0,360]
-    lon = da.mod(lon-360., 360.)
+        def convert_coord(pos):
+            x, y, z = pos.T
+            sc = SkyCoord(x, y, z, representation_type='cartesian', frame=frame)
+            scg = sc.transform_to(frame='icrs')
+            scg.representation = 'unitspherical'
+            ra, dec = scg.ra.value, scg.dec.value
+            # must preserve the shape.
+            ang = numpy.stack([ra, dec, dec], axis=1)
+            return ang
 
-    return lon, lat
+        ang = da.map_blocks(convert_coord, pos, dtype=pos.dtype)
 
-def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0], zmax=100.):
+        ra, dec, junk = ang.T
+
+    return ra, dec
+
+def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0], zmax=100., frame='icrs'):
     r"""
     Convert Cartesian position coordinates to RA/Dec and redshift,
     using the specified cosmology to convert radial distances from
@@ -178,6 +199,8 @@ def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0], zmax=100.):
         the maximum possible redshift, should be set to a reasonably large
         value to avoid interpolation failure going from comoving distance
         to redshift
+    frame : string ('icrs' or 'galactic')
+        speciefies which frame the Cartesian coordinates is. 
 
     Returns
     -------
@@ -210,7 +233,7 @@ def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0], zmax=100.):
     pos = pos - observer
 
     # RA,dec coordinates (in degrees)
-    ra, dec = CartesianToEquatorial(pos)
+    ra, dec = CartesianToEquatorial(pos, frame=frame)
 
     # the distance from the origin
     r = da.linalg.norm(pos, axis=-1)
@@ -231,7 +254,7 @@ def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0], zmax=100.):
 
     return ra, dec, z
 
-def SkyToUnitSphere(ra, dec, degrees=True):
+def SkyToUnitSphere(ra, dec, degrees=True, frame='icrs'):
     """
     Convert sky coordinates (``ra``, ``dec``) to Cartesian coordinates on
     the unit sphere.
@@ -244,6 +267,8 @@ def SkyToUnitSphere(ra, dec, degrees=True):
         the declination angular coordinate
     degrees : bool, optional
         specifies whether ``ra`` and ``dec`` are in degrees or radians
+    frame : string ('icrs' or 'galactic')
+        speciefies which frame the Cartesian coordinates is. 
 
     Returns
     -------
@@ -259,18 +284,38 @@ def SkyToUnitSphere(ra, dec, degrees=True):
     if not all(isinstance(col, da.Array) for col in [ra, dec]):
         raise TypeError("both ``ra`` and ``dec`` must be dask arrays")
 
-    # put into radians from degrees
-    if degrees:
-        ra  = da.deg2rad(ra)
-        dec = da.deg2rad(dec)
+    if frame == 'icrs':
+        # no frame transformation
+        # put into radians from degrees
+        if degrees:
+            ra  = da.deg2rad(ra)
+            dec = da.deg2rad(dec)
 
-    # cartesian coordinates
-    x = da.cos( dec ) * da.cos( ra )
-    y = da.cos( dec ) * da.sin( ra )
-    z = da.sin( dec )
-    return da.vstack([x,y,z]).T
+        # cartesian coordinates
+        x = da.cos( dec ) * da.cos( ra )
+        y = da.cos( dec ) * da.sin( ra )
+        z = da.sin( dec )
+        return da.vstack([x,y,z]).T
+    else:
+        from astropy.coordinates import SkyCoord
 
-def SkyToCartesian(ra, dec, redshift, cosmo, degrees=True):
+        if degrees:
+            ra  = da.deg2rad(ra)
+            dec = da.deg2rad(dec)
+
+        def convert_coord(data):
+            assert data.shape[-1] == 3
+            ra, dec, junk = data.T
+            sc = SkyCoord(ra, dec, unit='rad', representation_type='unitspherical', frame='icrs')
+            scg = sc.transform_to(frame=frame)
+            scg = scg.cartesian
+            x, y, z = scg.x.value, scg.y.value, scg.z.value
+            return numpy.stack([x, y, z], axis=1)
+
+        data = da.stack([ra, dec, ra], axis=1).rechunk((ra.chunks[0], 3))
+        return da.map_blocks(convert_coord, data, dtype=data.dtype)
+
+def SkyToCartesian(ra, dec, redshift, cosmo, degrees=True, frame='icrs'):
     """
     Convert sky coordinates (``ra``, ``dec``, ``redshift``) to a
     Cartesian ``Position`` column.
@@ -291,6 +336,8 @@ def SkyToCartesian(ra, dec, redshift, cosmo, degrees=True):
         the cosmology used to meausre the comoving distance from ``redshift``
     degrees : bool, optional
         specifies whether ``ra`` and ``dec`` are in degrees
+    frame : string ('icrs' or 'galactic')
+        speciefies which frame the Cartesian coordinates is. 
 
     Returns
     -------

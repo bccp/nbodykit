@@ -44,6 +44,12 @@ def test_cartesian_to_equatorial(comm):
     assert ((ra >= 0.)&(ra < 360.)).all().compute()
     assert ((dec >= -90)&(dec < 90.)).all().compute()
 
+    ra, dec = transform.CartesianToEquatorial(s['Position'], observer=[0.5, 0.5, 0.5], frame='galactic')
+
+    # check bounds
+    assert ((ra >= 0.)&(ra < 360.)).all().compute()
+    assert ((dec >= -90)&(dec < 90.)).all().compute()
+
 @MPITest([1, 4])
 def test_cartesian_to_sky(comm):
     cosmo = cosmology.Planck15
@@ -60,6 +66,24 @@ def test_cartesian_to_sky(comm):
 
     # reverse and check
     pos2 = transform.SkyToCartesian(ra, dec, z, cosmo)
+    numpy.testing.assert_allclose(s['Position'], pos2, rtol=1e-5)
+
+@MPITest([1, 4])
+def test_cartesian_to_sky_galactic(comm):
+    cosmo = cosmology.Planck15
+
+    # make source
+    s = UniformCatalog(nbar=10000, BoxSize=1.0, seed=42, comm=comm)
+
+    # get RA, DEC, Z
+    ra, dec, z = transform.CartesianToSky(s['Position'], cosmo, frame='galactic')
+
+    # pos needs to be a dask array
+    with pytest.raises(TypeError):
+        _ = transform.CartesianToSky(s['Position'].compute(), cosmo, frame='galactic')
+
+    # reverse and check
+    pos2 = transform.SkyToCartesian(ra, dec, z, cosmo, frame='galactic')
     numpy.testing.assert_allclose(s['Position'], pos2, rtol=1e-5)
 
 @MPITest([1, 4])
