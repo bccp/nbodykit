@@ -307,7 +307,7 @@ def SkyToCartesian(ra, dec, redshift, cosmo, degrees=True):
         raise TypeError("input ra, dec, and redshift objects must be dask arrays")
 
     # pos on the unit sphere
-    pos = SkyToUnitSphere(ra, dec, degrees=degrees)
+    pos = SkyToUnitSphere(ra, dec, degrees=degrees, frame=frame)
 
     # multiply by the comoving distance in Mpc/h
     r = redshift.map_blocks(lambda z: cosmo.comoving_distance(z), dtype=redshift.dtype)
@@ -357,16 +357,16 @@ def HaloConcentration(mass, cosmo, redshift, mdef='vir'):
 
     kws = {'cosmology':cosmo.to_astropy(), 'conc_mass_model':'dutton_maccio14', 'mdef':mdef}
 
-    def work(mass, redshift):
+    def get_nfw_conc(mass, redshift):
         kw1 = {}
         kw1.update(kws)
         kw1['redshift'] = redshift
         model = NFWProfile(**kw1)
         return model.conc_NFWmodel(prim_haloprop=mass)
 
-    return da.map_blocks(work, mass, redshift, dtype=mass.dtype)
+    return da.map_blocks(get_nfw_conc, mass, redshift, dtype=mass.dtype)
 
-def HaloSigma(mass, cosmo, redshift, mdef='vir'):
+def HaloVelocityDispersion(mass, cosmo, redshift, mdef='vir'):
     """ Compute the velocity dispersion of halo from Mass.
 
         This is a simple model suggested by Martin White.
@@ -375,11 +375,11 @@ def HaloSigma(mass, cosmo, redshift, mdef='vir'):
     """
 
     mass, redshift = da.broadcast_arrays(mass, redshift)
-    def work(mass, redshift):
+    def compute_vdisp(mass, redshift):
         h = cosmo.efunc(redshift)
         return 1100. * (h * mass / 1e15) ** 0.33333
 
-    return da.map_blocks(work, mass, redshift, dtype=mass.dtype)
+    return da.map_blocks(compute_vdisp, mass, redshift, dtype=mass.dtype)
 
 def HaloRadius(mass, cosmo, redshift, mdef='vir'):
     r"""
@@ -422,10 +422,10 @@ def HaloRadius(mass, cosmo, redshift, mdef='vir'):
 
     kws = {'cosmology':cosmo.to_astropy(), 'mdef':mdef}
 
-    def work(mass, redshift):
+    def mass_to_radius(mass, redshift):
         return halo_mass_to_halo_radius(mass=mass, redshift=redshift, **kws)
 
-    return da.map_blocks(work, mass, redshift, dtype=mass.dtype)
+    return da.map_blocks(mass_to_radius, mass, redshift, dtype=mass.dtype)
 
 # deprecated functions
 vstack = deprecate("nbodykit.transform.vstack", StackColumns, "nbodykit.transform.StackColumns")
