@@ -611,7 +611,6 @@ class CatalogSourceBase(object):
                         # chunked in the first dimension, thus the start
                         # of first dim is the offset of write
                         loffset = block_info['array-location'][0][0]
-                        print(offset + loffset, size)
                         bb.write(offset + loffset, block)
                         return 0
 
