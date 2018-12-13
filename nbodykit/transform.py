@@ -167,7 +167,7 @@ def CartesianToEquatorial(pos, observer=[0,0,0], frame='icrs'):
 
         ra, dec, junk = ang.T
 
-    return ra, dec
+    return da.stack((ra, dec), axis=0)
 
 def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0], zmax=100., frame='icrs'):
     r"""
@@ -251,7 +251,7 @@ def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0], zmax=100., frame
         vpec =  (pos*velocity).sum(axis=-1) / r
         z += vpec / c.to('km/s').value * (1 + z)
 
-    return ra, dec, z
+    return da.stack((ra, dec, z), axis=0)
 
 def SkyToUnitSphere(ra, dec, degrees=True, frame='icrs'):
     """
