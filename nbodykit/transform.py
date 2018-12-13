@@ -24,9 +24,7 @@ def StackColumns(*cols):
     TypeError
         If the input columns are not dask arrays
     """
-    if not all(isinstance(col, da.Array) for col in cols):
-        raise TypeError("all input columns in `vstack` must be dask arrays")
-
+    cols = da.broadcast_arrays(*cols)
     return da.vstack(cols).T
 
 def ConcatenateSources(*sources, **kwargs):
@@ -227,7 +225,7 @@ def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0], zmax=100., frame
     from scipy.interpolate import interp1d
 
     if not isinstance(pos, da.Array):
-        raise TypeError("``pos`` should be a dask array")
+        pos = da.from_array(pos, chunks=len(pos))
 
     # recenter position
     pos = pos - observer
@@ -281,8 +279,7 @@ def SkyToUnitSphere(ra, dec, degrees=True, frame='icrs'):
     TypeError
         If the input columns are not dask arrays
     """
-    if not all(isinstance(col, da.Array) for col in [ra, dec]):
-        raise TypeError("both ``ra`` and ``dec`` must be dask arrays")
+    ra, dec = da.broadcast_arrays(ra, dec)
 
     if frame == 'icrs':
         # no frame transformation
@@ -350,8 +347,7 @@ def SkyToCartesian(ra, dec, redshift, cosmo, degrees=True, frame='icrs'):
     TypeError
         If the input columns are not dask arrays
     """
-    if not all(isinstance(col, da.Array) for col in [ra, dec, redshift]):
-        raise TypeError("input ra, dec, and redshift objects must be dask arrays")
+    ra, dec, redshift = da.broadcast_arrays(ra, dec, redshift)
 
     # pos on the unit sphere
     pos = SkyToUnitSphere(ra, dec, degrees=degrees, frame=frame)
@@ -397,10 +393,6 @@ def HaloConcentration(mass, cosmo, redshift, mdef='vir'):
     from halotools.empirical_models import NFWProfile
 
     mass, redshift = da.broadcast_arrays(mass, redshift)
-
-    if not isinstance(redshift, da.Array):
-        redshift = numpy.broadcast_to(redshift, mass.shape)
-        redshift = da.from_array(redshift, chunks=mass.chunks)
 
     kws = {'cosmology':cosmo.to_astropy(), 'conc_mass_model':'dutton_maccio14', 'mdef':mdef}
 

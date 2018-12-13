@@ -27,9 +27,7 @@ def test_sky_to_cartesian(comm):
     with pytest.warns(FutureWarning):
         s['Position0'] = transform.SkyToCartesion(s['ra'], s['dec'], s['z'], cosmo)
 
-    # requires dask array
-    with pytest.raises(TypeError):
-        s['Position1'] = transform.SkyToCartesian(s['ra'].compute(), s['dec'], s['z'], cosmo)
+    s['Position1'] = transform.SkyToCartesian(s['ra'].compute(), s['dec'], s['z'], cosmo)
 
 @MPITest([1, 4])
 def test_cartesian_to_equatorial(comm):
@@ -60,13 +58,11 @@ def test_cartesian_to_sky(comm):
     # get RA, DEC, Z
     ra, dec, z = transform.CartesianToSky(s['Position'], cosmo)
 
-    # pos needs to be a dask array
-    with pytest.raises(TypeError):
-        _ = transform.CartesianToSky(s['Position'].compute(), cosmo)
-
     # reverse and check
     pos2 = transform.SkyToCartesian(ra, dec, z, cosmo)
     numpy.testing.assert_allclose(s['Position'], pos2, rtol=1e-5)
+
+    _ = transform.CartesianToSky(s['Position'].compute(), cosmo)
 
 @MPITest([1, 4])
 def test_cartesian_to_sky_galactic(comm):
@@ -78,9 +74,7 @@ def test_cartesian_to_sky_galactic(comm):
     # get RA, DEC, Z
     ra, dec, z = transform.CartesianToSky(s['Position'], cosmo, frame='galactic')
 
-    # pos needs to be a dask array
-    with pytest.raises(TypeError):
-        _ = transform.CartesianToSky(s['Position'].compute(), cosmo, frame='galactic')
+    _ = transform.CartesianToSky(s['Position'].compute(), cosmo, frame='galactic')
 
     # reverse and check
     pos2 = transform.SkyToCartesian(ra, dec, z, cosmo, frame='galactic')
@@ -130,8 +124,7 @@ def test_stack_columns(comm):
     numpy.testing.assert_array_equal(pos, s['Position'])
 
     # requires dask array
-    with pytest.raises(TypeError):
-        s['Position'] = transform.StackColumns(x,y,z)
+    s['Position'] = transform.StackColumns(x,y,z)
 
 @MPITest([1, 4])
 def test_halofuncs(comm):
