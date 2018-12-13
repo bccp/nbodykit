@@ -160,12 +160,12 @@ def CartesianToEquatorial(pos, observer=[0,0,0], frame='icrs'):
             scg.representation = 'unitspherical'
             ra, dec = scg.ra.value, scg.dec.value
             # must preserve the shape.
-            ang = numpy.stack([ra, dec, dec], axis=1)
+            ang = numpy.stack([ra, dec], axis=1)
             return ang
 
-        ang = da.map_blocks(convert_coord, pos, dtype=pos.dtype)
+        ang = da.map_blocks(convert_coord, pos, dtype=pos.dtype, chunks=(pos.chunks[0], (2,)))
 
-        ra, dec, junk = ang.T
+        ra, dec = ang.T
 
     return da.stack((ra, dec), axis=0)
 
@@ -301,17 +301,14 @@ def SkyToUnitSphere(ra, dec, degrees=True, frame='icrs'):
             ra  = da.deg2rad(ra)
             dec = da.deg2rad(dec)
 
-        def convert_coord(data):
-            assert data.shape[-1] == 3
-            ra, dec, junk = data.T
-            sc = SkyCoord(ra, dec, unit='rad', representation_type='unitspherical', frame='icrs')
+        def convert_coord(ra, dec):
+            sc = SkyCoord(ra[:, 0], dec[:, 0], unit='rad', representation_type='unitspherical', frame='icrs')
             scg = sc.transform_to(frame=frame)
             scg = scg.cartesian
             x, y, z = scg.x.value, scg.y.value, scg.z.value
             return numpy.stack([x, y, z], axis=1)
 
-        data = da.stack([ra, dec, ra], axis=1).rechunk((ra.chunks[0], 3))
-        return da.map_blocks(convert_coord, data, dtype=data.dtype)
+        return da.map_blocks(convert_coord, ra[:, None], dec[:, None], dtype=ra.dtype, chunks=(ra.chunks[0], (3,)))
 
 def SkyToCartesian(ra, dec, redshift, cosmo, degrees=True, frame='icrs'):
     """
