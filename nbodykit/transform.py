@@ -133,6 +133,8 @@ def CartesianToEquatorial(pos, observer=[0,0,0], frame='icrs'):
         the right ascension and declination coordinates, in degrees. RA
         will be in the range [0,360] and DEC in the range [-90, 90]
     """
+    pos, observer = da.broadcast_arrays(pos, observer)
+
     # recenter based on observer
     pos = pos - observer
 
@@ -224,8 +226,7 @@ def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0], zmax=100., frame
     from astropy.constants import c
     from scipy.interpolate import interp1d
 
-    if not isinstance(pos, da.Array):
-        pos = da.from_array(pos, chunks=len(pos))
+    pos, observer = da.broadcast_arrays(pos, observer)
 
     # recenter position
     pos = pos - observer
