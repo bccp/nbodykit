@@ -134,7 +134,8 @@ def CartesianToEquatorial(pos, observer=[0,0,0], frame='icrs'):
         will be in the range [0,360] and DEC in the range [-90, 90]
     """
 
-    pos = da.rechunk(pos, chunks=_global_options['dask_chunk_size'])
+    if isinstance(pos, da.Array):
+        pos = da.rechunk(pos, chunks=_global_options['dask_chunk_size'])
     pos, observer = da.broadcast_arrays(pos, observer)
 
     # recenter based on observer
@@ -228,7 +229,8 @@ def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0], zmax=100., frame
     from astropy.constants import c
     from scipy.interpolate import interp1d
 
-    pos = da.rechunk(pos, chunks=_global_options['dask_chunk_size'])
+    if isinstance(pos, da.Array):
+        pos = da.rechunk(pos, chunks=_global_options['dask_chunk_size'])
     pos, observer = da.broadcast_arrays(pos, observer)
 
     # recenter position
