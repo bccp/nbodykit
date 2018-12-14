@@ -158,7 +158,10 @@ def CartesianToEquatorial(pos, observer=[0,0,0], frame='icrs'):
 
         def convert_coord(pos):
             x, y, z = pos.T
-            sc = SkyCoord(x, y, z, representation_type='cartesian', frame=frame)
+            try:
+                sc = SkyCoord(x, y, z, representation_type='cartesian', frame=frame)
+            except:
+                sc = SkyCoord(x, y, z, representation='cartesian', frame=frame)
             scg = sc.transform_to(frame='icrs')
             scg.representation = 'unitspherical'
             ra, dec = scg.ra.value, scg.dec.value
@@ -307,7 +310,10 @@ def SkyToUnitSphere(ra, dec, degrees=True, frame='icrs'):
             dec = da.deg2rad(dec)
 
         def convert_coord(ra, dec):
-            sc = SkyCoord(ra[:, 0], dec[:, 0], unit='rad', representation_type='unitspherical', frame='icrs')
+            try:
+                sc = SkyCoord(ra[:, 0], dec[:, 0], unit='rad', representation_type='unitspherical', frame='icrs')
+            except:
+                sc = SkyCoord(ra[:, 0], dec[:, 0], unit='rad', representation='unitspherical', frame='icrs')
             scg = sc.transform_to(frame=frame)
             scg = scg.cartesian
             x, y, z = scg.x.value, scg.y.value, scg.z.value
