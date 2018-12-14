@@ -2,7 +2,7 @@ import numpy
 import dask.array as da
 from six import string_types
 from nbodykit.utils import deprecate
-
+from nbodykit import _global_options
 def StackColumns(*cols):
     """
     Stack the input dask arrays vertically, column by column.
@@ -133,6 +133,8 @@ def CartesianToEquatorial(pos, observer=[0,0,0], frame='icrs'):
         the right ascension and declination coordinates, in degrees. RA
         will be in the range [0,360] and DEC in the range [-90, 90]
     """
+
+    pos = da.rechunk(pos, chunks=_global_options['dask_chunk_size'])
     pos, observer = da.broadcast_arrays(pos, observer)
 
     # recenter based on observer
@@ -226,6 +228,7 @@ def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0], zmax=100., frame
     from astropy.constants import c
     from scipy.interpolate import interp1d
 
+    pos = da.rechunk(pos, chunks=_global_options['dask_chunk_size'])
     pos, observer = da.broadcast_arrays(pos, observer)
 
     # recenter position
