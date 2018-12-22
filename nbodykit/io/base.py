@@ -170,6 +170,7 @@ class FileType(object):
                 raise IndexError("invalid string keys: %s; run keys() for valid options" %str(invalid))
 
             # create a new object, with slice of dtype
+            # FIXME: the new object shall be a different type.
             obj = object.__new__(self.__class__)
             obj.dtype = numpy.dtype([(col, self.dtype[col]) for col in s])
             obj.size = self.size
@@ -243,7 +244,8 @@ class FileType(object):
         # try to view the output as a single numpy array
         if len(self.dtype) == 0:
             try:
-                toret = toret.view(self.dtype)
+                # FIXME: shall we ensure read always returns C-contiguous?
+                toret = numpy.ascontiguousarray(toret).view(self.dtype)
                 if len(self.shape) > 1:
                     toret = toret.reshape((-1, self.shape[1]))
             except Exception as e:
@@ -320,6 +322,7 @@ class FileType(object):
             raise ValueError("cannot convert data types of different types to single numpy array")
 
         # create the new object
+        # FIXME: the new object shall be a different type.
         obj = object.__new__(self.__class__)
 
         # the second axis of the shape
