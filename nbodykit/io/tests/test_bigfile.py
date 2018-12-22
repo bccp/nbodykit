@@ -54,6 +54,8 @@ def test_data(comm):
         numpy.testing.assert_almost_equal(data['Position'], ff['Position'][:])
         numpy.testing.assert_almost_equal(data['Velocity'], ff['Velocity'][:])
 
+        numpy.testing.assert_almost_equal(data['Velocity'][::2], ff['Velocity'][::2])
+
 @MPITest([1])
 def test_data_auto_header(comm):
     with temporary_data() as (data, tmpfile):
