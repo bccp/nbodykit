@@ -281,8 +281,9 @@ class CatalogSourceBase(object):
         if index is Ellipsis:
            return self
         elif isinstance(index, slice):
-            start, stop, stride = index.indices(self.size)
-            size = (stop - start) // stride
+            start, stop, step = index.indices(self.size)
+            # from https://stackoverflow.com/a/36188683
+            size = max(0, (stop - start + (step - (1 if step > 0 else -1))) // step)
         else:
             # compute the index slice if needed and get the size
             index = CatalogSourceBase.make_column(index)
@@ -302,7 +303,12 @@ class CatalogSourceBase(object):
                 size = len(index)
 
         # initialize subset Source of right size
-        subset_data = {col:self[col][index] for col in self}
+        subset_data = {col:self[col][index] for col in self if not self[col].is_default}
+        if size <= 0.51 * self.size:
+            # if the subsample ratio is substential, then always make
+            # a copy to decouple from the original data
+            subset_data = {col:subset_data[col].map_blocks(numpy.copy) for col in subset_data}
+
         cls = self.__class__ if self.base is None else self.base.__class__
         toret = cls._from_columns(size, self.comm, **subset_data)
 

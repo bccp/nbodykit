@@ -107,7 +107,7 @@ def ConstantArray(value, size, chunks=100000):
     """
     ele = numpy.array(value)
     toret = numpy.lib.stride_tricks.as_strided(ele, [size] + list(ele.shape), [0] + list(ele.strides))
-    return da.from_array(toret, chunks=chunks)
+    return da.from_array(toret, chunks=chunks, name=False)
 
 
 def CartesianToEquatorial(pos, observer=[0,0,0]):
