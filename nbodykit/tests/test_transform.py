@@ -27,9 +27,7 @@ def test_sky_to_cartesian(comm):
     with pytest.warns(FutureWarning):
         s['Position0'] = transform.SkyToCartesion(s['ra'], s['dec'], s['z'], cosmo)
 
-    # requires dask array
-    with pytest.raises(TypeError):
-        s['Position1'] = transform.SkyToCartesian(s['ra'].compute(), s['dec'], s['z'], cosmo)
+    s['Position1'] = transform.SkyToCartesian(s['ra'].compute(), s['dec'], s['z'], cosmo)
 
 @MPITest([1, 4])
 def test_cartesian_to_equatorial(comm):
@@ -39,6 +37,12 @@ def test_cartesian_to_equatorial(comm):
 
     # get RA, DEC
     ra, dec = transform.CartesianToEquatorial(s['Position'], observer=[0.5, 0.5, 0.5])
+
+    # check bounds
+    assert ((ra >= 0.)&(ra < 360.)).all().compute()
+    assert ((dec >= -90)&(dec < 90.)).all().compute()
+
+    ra, dec = transform.CartesianToEquatorial(s['Position'], observer=[0.5, 0.5, 0.5], frame='galactic')
 
     # check bounds
     assert ((ra >= 0.)&(ra < 360.)).all().compute()
@@ -54,12 +58,26 @@ def test_cartesian_to_sky(comm):
     # get RA, DEC, Z
     ra, dec, z = transform.CartesianToSky(s['Position'], cosmo)
 
-    # pos needs to be a dask array
-    with pytest.raises(TypeError):
-        _ = transform.CartesianToSky(s['Position'].compute(), cosmo)
-
     # reverse and check
     pos2 = transform.SkyToCartesian(ra, dec, z, cosmo)
+    numpy.testing.assert_allclose(s['Position'], pos2, rtol=1e-5)
+
+    _ = transform.CartesianToSky(s['Position'].compute(), cosmo)
+
+@MPITest([1, 4])
+def test_cartesian_to_sky_galactic(comm):
+    cosmo = cosmology.Planck15
+
+    # make source
+    s = UniformCatalog(nbar=10000, BoxSize=1.0, seed=42, comm=comm)
+
+    # get RA, DEC, Z
+    ra, dec, z = transform.CartesianToSky(s['Position'], cosmo, frame='galactic')
+
+    _ = transform.CartesianToSky(s['Position'].compute(), cosmo, frame='galactic')
+
+    # reverse and check
+    pos2 = transform.SkyToCartesian(ra, dec, z, cosmo, frame='galactic')
     numpy.testing.assert_allclose(s['Position'], pos2, rtol=1e-5)
 
 @MPITest([1, 4])
@@ -106,8 +124,7 @@ def test_stack_columns(comm):
     numpy.testing.assert_array_equal(pos, s['Position'])
 
     # requires dask array
-    with pytest.raises(TypeError):
-        s['Position'] = transform.StackColumns(x,y,z)
+    s['Position'] = transform.StackColumns(x,y,z)
 
 @MPITest([1, 4])
 def test_halofuncs(comm):
@@ -123,13 +140,13 @@ def test_halofuncs(comm):
     r.compute()
     r = transform.HaloConcentration(s['mass'], redshift=s['z'], cosmo=Planck15)
     r.compute()
-    r = transform.HaloSigma(s['mass'], redshift=s['z'], cosmo=Planck15)
+    r = transform.HaloVelocityDispersion(s['mass'], redshift=s['z'], cosmo=Planck15)
     r.compute()
     r = transform.HaloRadius(s['mass'], redshift=0, cosmo=Planck15)
     r.compute()
     r = transform.HaloConcentration(s['mass'], redshift=0, cosmo=Planck15)
     r.compute()
-    r = transform.HaloSigma(s['mass'], redshift=0, cosmo=Planck15)
+    r = transform.HaloVelocityDispersion(s['mass'], redshift=0, cosmo=Planck15)
     r.compute()
 
 @MPITest([1, 4])
@@ -159,7 +176,6 @@ def test_combine(comm):
 def test_constarray(comm):
     a = ConstantArray(1.0, 1, chunks=1000)
     assert len(a) == 1
-    print(a.shape)
     assert a.shape == (1,)
     a = ConstantArray([1.0, 1.0], 1, chunks=1000)
     assert a.shape == (1, 2)

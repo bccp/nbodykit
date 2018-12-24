@@ -2,7 +2,7 @@ import numpy
 import dask.array as da
 from six import string_types
 from nbodykit.utils import deprecate
-
+from nbodykit import _global_options
 def StackColumns(*cols):
     """
     Stack the input dask arrays vertically, column by column.
@@ -24,9 +24,7 @@ def StackColumns(*cols):
     TypeError
         If the input columns are not dask arrays
     """
-    if not all(isinstance(col, da.Array) for col in cols):
-        raise TypeError("all input columns in `vstack` must be dask arrays")
-
+    cols = da.broadcast_arrays(*cols)
     return da.vstack(cols).T
 
 def ConcatenateSources(*sources, **kwargs):
@@ -110,7 +108,7 @@ def ConstantArray(value, size, chunks=100000):
     return da.from_array(toret, chunks=chunks, name=False)
 
 
-def CartesianToEquatorial(pos, observer=[0,0,0]):
+def CartesianToEquatorial(pos, observer=[0,0,0], frame='icrs'):
     """
     Convert Cartesian position coordinates to equatorial right ascension
     and declination, using the specified observer location.
@@ -125,6 +123,9 @@ def CartesianToEquatorial(pos, observer=[0,0,0]):
         a N x 3 array holding the Cartesian position coordinates
     observer : array_like
         a length 3 array holding the observer location
+    frame : string
+        A string, 'icrs' or 'galactic'. The frame of the input position.
+        Use 'icrs' if the cartesian position is already in Equatorial.
 
     Returns
     -------
@@ -132,23 +133,49 @@ def CartesianToEquatorial(pos, observer=[0,0,0]):
         the right ascension and declination coordinates, in degrees. RA
         will be in the range [0,360] and DEC in the range [-90, 90]
     """
+
+    if isinstance(pos, da.Array):
+        pos = da.rechunk(pos, chunks=_global_options['dask_chunk_size'])
+    pos, observer = da.broadcast_arrays(pos, observer)
+
     # recenter based on observer
     pos = pos - observer
 
-    s = da.hypot(pos[:,0], pos[:,1])
-    lon = da.arctan2(pos[:,1], pos[:,0])
-    lat = da.arctan2(pos[:,2], s)
+    if frame == 'icrs':
+        # from equatorial to equatorial
+        s = da.hypot(pos[:,0], pos[:,1])
+        lon = da.arctan2(pos[:,1], pos[:,0])
+        lat = da.arctan2(pos[:,2], s)
 
-    # convert to degrees
-    lon = da.rad2deg(lon)
-    lat = da.rad2deg(lat)
+        # convert to degrees
+        lon = da.rad2deg(lon)
+        lat = da.rad2deg(lat)
+        # wrap lon to [0,360]
+        lon = da.mod(lon-360., 360.)
+        ra, dec = lon, lat
+    else:
+        from astropy.coordinates import SkyCoord
 
-    # wrap lon to [0,360]
-    lon = da.mod(lon-360., 360.)
+        def convert_coord(pos):
+            x, y, z = pos.T
+            try:
+                sc = SkyCoord(x, y, z, representation_type='cartesian', frame=frame)
+            except:
+                sc = SkyCoord(x, y, z, representation='cartesian', frame=frame)
+            scg = sc.transform_to(frame='icrs')
+            scg.representation = 'unitspherical'
+            ra, dec = scg.ra.value, scg.dec.value
+            # must preserve the shape.
+            ang = numpy.stack([ra, dec], axis=1)
+            return ang
 
-    return lon, lat
+        ang = da.map_blocks(convert_coord, pos, dtype=pos.dtype, chunks=(pos.chunks[0], (2,)))
 
-def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0], zmax=100.):
+        ra, dec = ang.T
+
+    return da.stack((ra, dec), axis=0)
+
+def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0], zmax=100., frame='icrs'):
     r"""
     Convert Cartesian position coordinates to RA/Dec and redshift,
     using the specified cosmology to convert radial distances from
@@ -178,6 +205,8 @@ def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0], zmax=100.):
         the maximum possible redshift, should be set to a reasonably large
         value to avoid interpolation failure going from comoving distance
         to redshift
+    frame : string ('icrs' or 'galactic')
+        speciefies which frame the Cartesian coordinates is. 
 
     Returns
     -------
@@ -203,14 +232,15 @@ def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0], zmax=100.):
     from astropy.constants import c
     from scipy.interpolate import interp1d
 
-    if not isinstance(pos, da.Array):
-        raise TypeError("``pos`` should be a dask array")
+    if isinstance(pos, da.Array):
+        pos = da.rechunk(pos, chunks=_global_options['dask_chunk_size'])
+    pos, observer = da.broadcast_arrays(pos, observer)
 
     # recenter position
     pos = pos - observer
 
     # RA,dec coordinates (in degrees)
-    ra, dec = CartesianToEquatorial(pos)
+    ra, dec = CartesianToEquatorial(pos, frame=frame)
 
     # the distance from the origin
     r = da.linalg.norm(pos, axis=-1)
@@ -229,9 +259,9 @@ def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0], zmax=100.):
         vpec =  (pos*velocity).sum(axis=-1) / r
         z += vpec / c.to('km/s').value * (1 + z)
 
-    return ra, dec, z
+    return da.stack((ra, dec, z), axis=0)
 
-def SkyToUnitSphere(ra, dec, degrees=True):
+def SkyToUnitSphere(ra, dec, degrees=True, frame='icrs'):
     """
     Convert sky coordinates (``ra``, ``dec``) to Cartesian coordinates on
     the unit sphere.
@@ -244,6 +274,8 @@ def SkyToUnitSphere(ra, dec, degrees=True):
         the declination angular coordinate
     degrees : bool, optional
         specifies whether ``ra`` and ``dec`` are in degrees or radians
+    frame : string ('icrs' or 'galactic')
+        speciefies which frame the Cartesian coordinates is. 
 
     Returns
     -------
@@ -256,21 +288,40 @@ def SkyToUnitSphere(ra, dec, degrees=True):
     TypeError
         If the input columns are not dask arrays
     """
-    if not all(isinstance(col, da.Array) for col in [ra, dec]):
-        raise TypeError("both ``ra`` and ``dec`` must be dask arrays")
+    ra, dec = da.broadcast_arrays(ra, dec)
 
-    # put into radians from degrees
-    if degrees:
-        ra  = da.deg2rad(ra)
-        dec = da.deg2rad(dec)
+    if frame == 'icrs':
+        # no frame transformation
+        # put into radians from degrees
+        if degrees:
+            ra  = da.deg2rad(ra)
+            dec = da.deg2rad(dec)
 
-    # cartesian coordinates
-    x = da.cos( dec ) * da.cos( ra )
-    y = da.cos( dec ) * da.sin( ra )
-    z = da.sin( dec )
-    return da.vstack([x,y,z]).T
+        # cartesian coordinates
+        x = da.cos( dec ) * da.cos( ra )
+        y = da.cos( dec ) * da.sin( ra )
+        z = da.sin( dec )
+        return da.vstack([x,y,z]).T
+    else:
+        from astropy.coordinates import SkyCoord
 
-def SkyToCartesian(ra, dec, redshift, cosmo, degrees=True):
+        if degrees:
+            ra  = da.deg2rad(ra)
+            dec = da.deg2rad(dec)
+
+        def convert_coord(ra, dec):
+            try:
+                sc = SkyCoord(ra[:, 0], dec[:, 0], unit='rad', representation_type='unitspherical', frame='icrs')
+            except:
+                sc = SkyCoord(ra[:, 0], dec[:, 0], unit='rad', representation='unitspherical', frame='icrs')
+            scg = sc.transform_to(frame=frame)
+            scg = scg.cartesian
+            x, y, z = scg.x.value, scg.y.value, scg.z.value
+            return numpy.stack([x, y, z], axis=1)
+
+        return da.map_blocks(convert_coord, ra[:, None], dec[:, None], dtype=ra.dtype, chunks=(ra.chunks[0], (3,)))
+
+def SkyToCartesian(ra, dec, redshift, cosmo, degrees=True, frame='icrs'):
     """
     Convert sky coordinates (``ra``, ``dec``, ``redshift``) to a
     Cartesian ``Position`` column.
@@ -291,6 +342,8 @@ def SkyToCartesian(ra, dec, redshift, cosmo, degrees=True):
         the cosmology used to meausre the comoving distance from ``redshift``
     degrees : bool, optional
         specifies whether ``ra`` and ``dec`` are in degrees
+    frame : string ('icrs' or 'galactic')
+        speciefies which frame the Cartesian coordinates is. 
 
     Returns
     -------
@@ -303,11 +356,10 @@ def SkyToCartesian(ra, dec, redshift, cosmo, degrees=True):
     TypeError
         If the input columns are not dask arrays
     """
-    if not all(isinstance(col, da.Array) for col in [ra, dec, redshift]):
-        raise TypeError("input ra, dec, and redshift objects must be dask arrays")
+    ra, dec, redshift = da.broadcast_arrays(ra, dec, redshift)
 
     # pos on the unit sphere
-    pos = SkyToUnitSphere(ra, dec, degrees=degrees)
+    pos = SkyToUnitSphere(ra, dec, degrees=degrees, frame=frame)
 
     # multiply by the comoving distance in Mpc/h
     r = redshift.map_blocks(lambda z: cosmo.comoving_distance(z), dtype=redshift.dtype)
@@ -351,22 +403,18 @@ def HaloConcentration(mass, cosmo, redshift, mdef='vir'):
 
     mass, redshift = da.broadcast_arrays(mass, redshift)
 
-    if not isinstance(redshift, da.Array):
-        redshift = numpy.broadcast_to(redshift, mass.shape)
-        redshift = da.from_array(redshift, chunks=mass.chunks)
-
     kws = {'cosmology':cosmo.to_astropy(), 'conc_mass_model':'dutton_maccio14', 'mdef':mdef}
 
-    def work(mass, redshift):
+    def get_nfw_conc(mass, redshift):
         kw1 = {}
         kw1.update(kws)
         kw1['redshift'] = redshift
         model = NFWProfile(**kw1)
         return model.conc_NFWmodel(prim_haloprop=mass)
 
-    return da.map_blocks(work, mass, redshift, dtype=mass.dtype)
+    return da.map_blocks(get_nfw_conc, mass, redshift, dtype=mass.dtype)
 
-def HaloSigma(mass, cosmo, redshift, mdef='vir'):
+def HaloVelocityDispersion(mass, cosmo, redshift, mdef='vir'):
     """ Compute the velocity dispersion of halo from Mass.
 
         This is a simple model suggested by Martin White.
@@ -375,11 +423,11 @@ def HaloSigma(mass, cosmo, redshift, mdef='vir'):
     """
 
     mass, redshift = da.broadcast_arrays(mass, redshift)
-    def work(mass, redshift):
+    def compute_vdisp(mass, redshift):
         h = cosmo.efunc(redshift)
         return 1100. * (h * mass / 1e15) ** 0.33333
 
-    return da.map_blocks(work, mass, redshift, dtype=mass.dtype)
+    return da.map_blocks(compute_vdisp, mass, redshift, dtype=mass.dtype)
 
 def HaloRadius(mass, cosmo, redshift, mdef='vir'):
     r"""
@@ -422,10 +470,10 @@ def HaloRadius(mass, cosmo, redshift, mdef='vir'):
 
     kws = {'cosmology':cosmo.to_astropy(), 'mdef':mdef}
 
-    def work(mass, redshift):
+    def mass_to_radius(mass, redshift):
         return halo_mass_to_halo_radius(mass=mass, redshift=redshift, **kws)
 
-    return da.map_blocks(work, mass, redshift, dtype=mass.dtype)
+    return da.map_blocks(mass_to_radius, mass, redshift, dtype=mass.dtype)
 
 # deprecated functions
 vstack = deprecate("nbodykit.transform.vstack", StackColumns, "nbodykit.transform.StackColumns")
