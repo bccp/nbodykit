@@ -1,8 +1,21 @@
 Changelog
 =========
 
-0.3.8 (Unreleased)
+0.3.9 (Unreleased)
+
+0.3.8 (2018-12-29)
 ------------------
+* :issue:`543`:  Further performance improvements on catalog slicing.
+* :issue:`542`:  The IO module shall make sure buffer is c-contiguous before reshaping
+* :issue:`541`:  Allow setting cartesian / sphericial transformation reference frame
+* :issue:`540`:  Allow not saving the header in Catalog.save
+* :issue:`539`:  Allow non-uniform redshifts in halo property transformations.
+* :issue:`538`:  Stop gathering catalog to a single rank in HaloCatalog
+* :issue:`537`:  Use numpy.sum for summing of integers.
+* :issue:`536`:  Fix boxsize mismatch comparision in pair counters.
+* :issue:`535`:  Improve working with a dask cluster.
+* :issue:`532`:  Improve speed of slicing of a catalog.
+* :issue:`531`:  Additional throttling during painting.
 * :issue:`530`:  Use setuptools (need to change conda-build-bccp recipe)
 * :issue:`529`:  Add kmax(rmax) to FFTPower, FFTCorr, ConvPower.
 * :issue:`528`:  Add dataset= to Catalog.save, deprecate datasets=[]
