@@ -57,6 +57,27 @@ def test_paint_chunksize(comm):
 
     assert_allclose(r1, r2)
 
+@MPITest([1, 4])
+def test_shotnoise(comm):
+
+    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
+    source['Weight'] = source.rng.uniform()
+
+    # interlacing with TSC
+    mesh = source.to_mesh(resampler='tsc', Nmesh=64, interlaced=True, compensated=True, weight='Weight')
+
+    with set_options(paint_chunk_size=source.csize // 4):
+        r1 = mesh.compute()
+
+    with set_options(paint_chunk_size=source.csize):
+        r2 = mesh.compute()
+    assert_allclose(r1, r2)
+
+    # expected shotnoise for uniform weights between 0 and 1
+    SN = 4 / 3.0 * 1 / (3e-4)
+    assert_allclose(r1.attrs['shotnoise'], SN, rtol=1e-2)
+    assert_allclose(r2.attrs['shotnoise'], SN, rtol=1e-2)
+
 @MPITest([1])
 def test_cic_interlacing(comm):
 
