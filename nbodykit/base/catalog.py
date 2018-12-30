@@ -612,17 +612,7 @@ class CatalogSourceBase(object):
 
                 # save column attrs too
                 with ff.create(dataset, dtype, size, Nfile) as bb:
-                    def save_column(block, block_info=None):
-                        block_info = block_info[0] # first arg
-                        # chunked in the first dimension, thus the start
-                        # of first dim is the offset of write
-                        loffset = block_info['array-location'][0][0]
-                        bb.write(offset + loffset, block)
-                        return 0
-
-                    array1 = array.rechunk(chunks=_global_options['dask_chunk_size'])
-                    # do the writing in parallel
-                    array1.map_blocks(save_column, dtype='i4', name='save-to-disk/%s' % dataset).compute()
+                    array.store(bb, regions=(slice(offset, offset + len(array)),))
 
                     if hasattr(array, 'attrs'):
                         for key in array.attrs:
