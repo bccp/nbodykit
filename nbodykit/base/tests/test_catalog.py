@@ -51,7 +51,7 @@ def test_save_dataset(comm):
     source.attrs['empty'] = None
 
     # save to a BigFile
-    source.save(tmpfile, source.columns, dataset='1')
+    source.save(tmpfile, dataset='1')
 
     # load as a BigFileCatalog
     source2 = BigFileCatalog(tmpfile, dataset='1', comm=comm)
@@ -68,7 +68,7 @@ def test_save_dataset(comm):
     assert_allclose(allconcat(source['Velocity']), allconcat(source2['Velocity']))
     assert_allclose(allconcat(source['Mass']), allconcat(source2['Mass']))
 
-    subsample.save(tmpfile, subsample.columns, dataset='2')
+    subsample.save(tmpfile, dataset='2')
     subsample2 = BigFileCatalog(tmpfile, dataset='2', comm=comm)
 
     assert_allclose(allconcat(subsample['Position']), allconcat(subsample2['Position']))
