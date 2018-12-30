@@ -195,6 +195,7 @@ class CatalogMesh(MeshSource):
         pm = self.pm
         Nlocal = 0 # (unweighted) number of particles read on local rank
         Wlocal = 0 # (weighted) number of particles read on local rank
+        W2local = 0 # sum of weight square. This is used to estimate shotnoise.
 
         # the paint brush window
         resampler = window.methods[self.resampler]
@@ -270,6 +271,7 @@ class CatalogMesh(MeshSource):
             # track total (selected) number and sum of weights
             Nlocal = len(position)
             Wlocal = weight.sum()
+            W2local = (weight ** 2).sum()
 
             # no interlacing
             if not self.interlaced:
@@ -300,7 +302,7 @@ class CatalogMesh(MeshSource):
                 pm.paint(p, mass=w * v, resampler=resampler, hold=True, out=real1)
                 pm.paint(p, mass=w * v, resampler=resampler, transform=shifted, hold=True, out=real2)
 
-            return Nlocal, Wlocal
+            return Nlocal, Wlocal, W2local
 
         import gc
         i = 0
@@ -313,7 +315,7 @@ class CatalogMesh(MeshSource):
                 self.logger.info("Chunk %d ~ %d / %d " % (i, i + chunksize, Nlocalmax))
 
             try:
-                Nlocal1, Wlocal1 = dochunk(s)
+                Nlocal1, Wlocal1, W2local1 = dochunk(s)
                 chunksize = min(max_chunksize, int(chunksize * 1.5))
             except StopIteration:
                 chunksize = chunksize / 2
@@ -326,6 +328,7 @@ class CatalogMesh(MeshSource):
 
             Nlocal += Nlocal1
             Wlocal += Wlocal1
+            W2local += W2local1
 
             Nglobal = pm.comm.allreduce(Nlocal)
 
@@ -364,6 +367,9 @@ class CatalogMesh(MeshSource):
         # weighted number of objects
         W = pm.comm.allreduce(Wlocal)
 
+        # weighted number of objects
+        W2 = pm.comm.allreduce(W2local)
+
         # weighted number density (objs/cell)
         nbar = 1. * W / numpy.prod(pm.Nmesh)
 
@@ -376,13 +382,14 @@ class CatalogMesh(MeshSource):
                         )
 
         # shot noise is volume / un-weighted number
-        shotnoise = numpy.prod(pm.BoxSize) / N
+        shotnoise = numpy.prod(pm.BoxSize) * W2 / W ** 2
 
         # save some meta-data
         toret.attrs = {}
         toret.attrs['shotnoise'] = shotnoise
         toret.attrs['N'] = N
         toret.attrs['W'] = W
+        toret.attrs['W2'] = W
         toret.attrs['num_per_cell'] = nbar
 
         csum = toret.csum()
