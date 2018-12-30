@@ -629,6 +629,11 @@ class CatalogSourceBase(object):
                                 assert stop1 == array.shape[1]
                             self.bb.write(start, value)
 
+                    # ensure only the first dimension is chunked
+                    # because bigfile only support writing with slices in first dimension.
+                    rechunk = dict([(ind, -1) for ind in range(1, array.ndim)])
+                    array = array.rechunk(rechunk)
+
                     array.store(ColumnWrapper(bb), regions=(slice(offset, offset + len(array)),))
 
                     if hasattr(array, 'attrs'):

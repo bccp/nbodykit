@@ -44,7 +44,10 @@ def test_save_dataset(comm):
     data['Position'] = numpy.arange(len(data) * 3).reshape(data['Position'].shape)
     data['Velocity'] = numpy.arange(len(data) * 3).reshape(data['Velocity'].shape)
 
+    import dask.array as da
     source = ArrayCatalog(data, BoxSize=100, Nmesh=32, comm=comm)
+    source['Rogue'] = da.ones((3, len(data)), chunks=(1, 1)).T
+
     subsample = source[::4]
 
     # add a non-array attrs (saved as JSON)
