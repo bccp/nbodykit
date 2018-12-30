@@ -613,7 +613,23 @@ class CatalogSourceBase(object):
 
                 # save column attrs too
                 with ff.create(dataset, dtype, size, Nfile) as bb:
-                    array.store(bb, regions=(slice(offset, offset + len(array)),))
+                    # FIXME: merge this logic into bigfile
+                    # the slice writing support in bigfile 0.1.47 does not
+                    # support tuple indices.
+                    class ColumnWrapper:
+                        def __init__(self, bb):
+                            self.bb = bb
+                        def __setitem__(self, sl, value):
+                            start, stop, step = sl[0].indices(self.bb.size)
+                            assert step == 1
+                            if len(sl) > 1:
+                                start1, stop1, step1 = sl[1].indices(array.shape[1])
+                                assert step1 == 1
+                                assert start1 == 0
+                                assert stop1 == array.shape[1]
+                            self.bb.write(start, value)
+
+                    array.store(ColumnWrapper(bb), regions=(slice(offset, offset + len(array)),))
 
                     if hasattr(array, 'attrs'):
                         for key in array.attrs:
