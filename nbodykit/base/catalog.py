@@ -620,6 +620,8 @@ class CatalogSourceBase(object):
                         def __init__(self, bb):
                             self.bb = bb
                         def __setitem__(self, sl, value):
+                            assert len(sl) <= 2 # no array shall be of higher dimension.
+                            # use regions argument to pick the offset.
                             start, stop, step = sl[0].indices(self.bb.size)
                             assert step == 1
                             if len(sl) > 1:
