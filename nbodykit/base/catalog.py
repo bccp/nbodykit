@@ -781,7 +781,7 @@ class CatalogSourceBase(object):
         if window is not None:
             resampler = window
             import warnings
-            warnings.warn("The window argument is deprecated. Use `resampler=` instead", DeprecationWarning)
+            warnings.warn("The window argument is deprecated. Use `resampler=` instead", DeprecationWarning, stacklevel=2)
 
         # make sure all of the columns exist
         for col in [weight, selection]:

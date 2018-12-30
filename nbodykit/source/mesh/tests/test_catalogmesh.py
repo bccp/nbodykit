@@ -14,11 +14,13 @@ def test_tsc_interlacing(comm):
     source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
 
     # interlacing with TSC
-    mesh = source.to_mesh(window='tsc', Nmesh=64, interlaced=True, compensated=True)
+    mesh = source.to_mesh(resampler='tsc', Nmesh=64, interlaced=True, compensated=True)
 
     # compute the power spectrum -- should be flat shot noise
     # if the compensation worked
     r = FFTPower(mesh, mode='1d', kmin=0.02)
+    # skip a few large scale modes that are noisier (fewer modes)
+    assert_allclose(r.power['power'][5:], 1 / (3e-4), rtol=1e-1)
 
 @MPITest([1])
 def test_paint_empty(comm):
@@ -29,7 +31,7 @@ def test_paint_empty(comm):
     assert source.csize == 0
 
     # interlacing with TSC
-    mesh = source.to_mesh(window='tsc', Nmesh=64, interlaced=True, compensated=True)
+    mesh = source.to_mesh(resampler='tsc', Nmesh=64, interlaced=True, compensated=True)
 
     # compute the power spectrum -- should be flat shot noise
     # if the compensation worked
@@ -45,7 +47,7 @@ def test_paint_chunksize(comm):
     source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
 
     # interlacing with TSC
-    mesh = source.to_mesh(window='tsc', Nmesh=64, interlaced=True, compensated=True)
+    mesh = source.to_mesh(resampler='tsc', Nmesh=64, interlaced=True, compensated=True)
 
     with set_options(paint_chunk_size=source.csize // 4):
         r1 = mesh.compute()
@@ -55,13 +57,34 @@ def test_paint_chunksize(comm):
 
     assert_allclose(r1, r2)
 
+@MPITest([1, 4])
+def test_shotnoise(comm):
+
+    source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
+    source['Weight'] = source.rng.uniform()
+
+    # interlacing with TSC
+    mesh = source.to_mesh(resampler='tsc', Nmesh=64, interlaced=True, compensated=True, weight='Weight')
+
+    with set_options(paint_chunk_size=source.csize // 4):
+        r1 = mesh.compute()
+
+    with set_options(paint_chunk_size=source.csize):
+        r2 = mesh.compute()
+    assert_allclose(r1, r2)
+
+    # expected shotnoise for uniform weights between 0 and 1
+    SN = 4 / 3.0 * 1 / (3e-4)
+    assert_allclose(r1.attrs['shotnoise'], SN, rtol=1e-2)
+    assert_allclose(r2.attrs['shotnoise'], SN, rtol=1e-2)
+
 @MPITest([1])
 def test_cic_interlacing(comm):
 
     source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
 
     # interlacing with TSC
-    mesh = source.to_mesh(window='cic', Nmesh=64, interlaced=True, compensated=True)
+    mesh = source.to_mesh(resampler='cic', Nmesh=64, interlaced=True, compensated=True)
 
     # compute the power spectrum -- should be flat shot noise
     # if the compensation worked
@@ -73,7 +96,7 @@ def test_setters(comm):
     source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
 
     # make the mesh
-    mesh = source.to_mesh(window='cic', Nmesh=64, interlaced=True, compensated=True)
+    mesh = source.to_mesh(resampler='cic', Nmesh=64, interlaced=True, compensated=True)
 
     assert mesh.compensated == True
     mesh.compensated = False
@@ -93,7 +116,7 @@ def test_bad_window(comm):
     source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
 
     # make the mesh
-    mesh = source.to_mesh(window='cic', Nmesh=64, interlaced=True, compensated=True)
+    mesh = source.to_mesh(resampler='cic', Nmesh=64, interlaced=True, compensated=True)
 
     # no such window
     with pytest.raises(Exception):
@@ -105,7 +128,7 @@ def test_no_compensation(comm):
     source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
 
     # make the mesh
-    mesh = source.to_mesh(window='cic', Nmesh=64, interlaced=True, compensated=True)
+    mesh = source.to_mesh(resampler='cic', Nmesh=64, interlaced=True, compensated=True)
 
     # no compensation for this window
     mesh.window = 'db6'
