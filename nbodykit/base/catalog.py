@@ -552,7 +552,7 @@ class CatalogSourceBase(object):
         if len(toret) == 1: toret = toret[0]
         return toret
 
-    def save(self, output, columns, dataset=None, datasets=None, header='Header'):
+    def save(self, output, columns=None, dataset=None, datasets=None, header='Header'):
         """
         Save the CatalogSource to a :class:`bigfile.BigFile`.
 
@@ -564,7 +564,7 @@ class CatalogSourceBase(object):
         output : str
             the name of the file to write to
         columns : list of str
-            the names of the columns to save in the file
+            the names of the columns to save in the file, or None to use all columns
         dataset : str, optional
             dataset to store the columns under.
         datasets : list of str, optional
@@ -581,6 +581,7 @@ class CatalogSourceBase(object):
 
         # trim out any default columns; these do not need to be saved as
         # they are automatically available to every Catalog
+        if columns is None: columns = self.columns
         columns = [col for col in columns if not self[col].is_default]
 
         # also make sure no default columns in datasets
