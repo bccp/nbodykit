@@ -5,7 +5,7 @@ import re
 from warnings import warn
 
 
-__version__ = '0.2.4'
+__version__ = '0.2.5'
 
 __author__ = 'Philipp Sommer'
 
@@ -20,8 +20,8 @@ except ImportError:
 
 
 substitution_pattern = re.compile(
-    r"""(?<!%)(%%)*%(?!%)   # uneven number of %
-        \((?P<key>(?s).*?)\)# key enclosed in brackets""", re.VERBOSE)
+    r"""(?s)(?<!%)(%%)*%(?!%)   # uneven number of %
+        \((?P<key>.*?)\)# key enclosed in brackets""", re.VERBOSE)
 
 
 summary_patt = re.compile(r'(?s).*?(?=(\n\s*\n)|$)')
