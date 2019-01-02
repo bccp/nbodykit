@@ -102,7 +102,7 @@ class BigFileMesh(MeshSource):
             real2 = RealField(pmread)
             start = numpy.sum(self.comm.allgather(real2.size)[:self.comm.rank], dtype='intp')
             end = start + real2.size
-            real2.unsort(ds[start:end])
+            real2.unravel(ds[start:end])
 
         return real2
 
@@ -131,6 +131,6 @@ class BigFileMesh(MeshSource):
             assert self.comm.allreduce(complex2.size) == ds.size
             start = numpy.sum(self.comm.allgather(complex2.size)[:self.comm.rank], dtype='intp')
             end = start + complex2.size
-            complex2.unsort(ds[start:end])
+            complex2.unravel(ds[start:end])
 
         return complex2

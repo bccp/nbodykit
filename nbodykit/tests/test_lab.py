@@ -37,7 +37,7 @@ def test_compute(comm):
         source['Position'] += source['VelocityOffset'] * [0,0,1]
 
         # convert to mesh, with Painter specifics
-        source = source.to_mesh(Nmesh=64, BoxSize=1380., interlaced=True, window='tsc', compensated=True)
+        source = source.to_mesh(Nmesh=64, BoxSize=1380., interlaced=True, resampler='tsc', compensated=True)
 
         def filter(k, v):
             kk = sum(ki ** 2 for ki in k)

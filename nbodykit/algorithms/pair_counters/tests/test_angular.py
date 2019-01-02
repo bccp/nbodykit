@@ -36,7 +36,7 @@ def reference_paircount(pos1, w1, edges, pos2=None, w2=None):
 
     # run the pair count
     bins = sphere.AngularBinning(edges)
-    pc = correlate.paircount(tree1, tree2, bins, np=0, usefast=False, compute_mean_coords=True)
+    pc = correlate.paircount(tree1, tree2, bins, np=0, compute_mean_coords=True)
 
     return numpy.nan_to_num(pc.pair_counts), numpy.nan_to_num(pc.mean_centers), pc.sum1
 

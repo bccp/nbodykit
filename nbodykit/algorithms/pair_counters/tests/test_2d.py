@@ -38,7 +38,7 @@ def reference_sim_paircount(pos1, w1, redges, Nmu, boxsize, pos2=None, w2=None, 
         tree2 = correlate.points(pos2, boxsize=boxsize, weights=w2)
 
     bins = correlate.FlatSkyBinning(redges, Nmu, los=los, mu_min=0., absmu=True,)
-    pc = correlate.paircount(tree1, tree2, bins, np=0, usefast=False, compute_mean_coords=True)
+    pc = correlate.paircount(tree1, tree2, bins, np=0, compute_mean_coords=True)
     return numpy.nan_to_num(pc.pair_counts), numpy.nan_to_num(pc.mean_centers[0]), pc.sum1
 
 def reference_survey_paircount(pos1, w1, redges, Nmu, pos2=None, w2=None, los=2):
@@ -51,7 +51,7 @@ def reference_survey_paircount(pos1, w1, redges, Nmu, pos2=None, w2=None, los=2)
         tree2 = correlate.points(pos2, boxsize=None, weights=w2)
 
     bins = correlate.RmuBinning(redges, Nmu, observer=(0,0,0), mu_min=0., absmu=True)
-    pc = correlate.paircount(tree1, tree2, bins, np=0, usefast=False, compute_mean_coords=True)
+    pc = correlate.paircount(tree1, tree2, bins, np=0, compute_mean_coords=True)
     return numpy.nan_to_num(pc.pair_counts), numpy.nan_to_num(pc.mean_centers[0]), pc.sum1
 
 

@@ -76,7 +76,7 @@ class PairCountBase(object):
             dims, edges = ['r', 'mu'], [edges, muedges]
 
         elif self.attrs['mode'] == 'projected':
-            piedges = numpy.linspace(0, self.attrs['pimax'], self.attrs['pimax']+1)
+            piedges = numpy.linspace(0, self.attrs['pimax'], int(self.attrs['pimax']+1))
             dims, edges = ['rp', 'pi'], [edges, piedges]
 
         elif self.attrs['mode'] == 'angular':
