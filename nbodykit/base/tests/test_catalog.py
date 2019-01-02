@@ -36,16 +36,25 @@ def test_save_dataset(comm):
 
     data = numpy.ones(100, dtype=[
             ('Position', ('f4', 3)),
-            ('Velocity', ('f4', 3))]
+            ('Velocity', ('f4', 3)),
+            ('Mass', ('f4'))]
             )
 
+    data['Mass'] = numpy.arange(len(data))
+    data['Position'] = numpy.arange(len(data) * 3).reshape(data['Position'].shape)
+    data['Velocity'] = numpy.arange(len(data) * 3).reshape(data['Velocity'].shape)
+
+    import dask.array as da
     source = ArrayCatalog(data, BoxSize=100, Nmesh=32, comm=comm)
+    source['Rogue'] = da.ones((3, len(data)), chunks=(1, 1)).T
+
+    subsample = source[::4]
 
     # add a non-array attrs (saved as JSON)
     source.attrs['empty'] = None
 
     # save to a BigFile
-    source.save(tmpfile, source.columns, dataset='1')
+    source.save(tmpfile, dataset='1')
 
     # load as a BigFileCatalog
     source2 = BigFileCatalog(tmpfile, dataset='1', comm=comm)
@@ -57,8 +66,17 @@ def test_save_dataset(comm):
     # check the data
     def allconcat(data):
         return numpy.concatenate(comm.allgather(data), axis=0)
+
     assert_allclose(allconcat(source['Position']), allconcat(source2['Position']))
     assert_allclose(allconcat(source['Velocity']), allconcat(source2['Velocity']))
+    assert_allclose(allconcat(source['Mass']), allconcat(source2['Mass']))
+
+    subsample.save(tmpfile, dataset='2')
+    subsample2 = BigFileCatalog(tmpfile, dataset='2', comm=comm)
+
+    assert_allclose(allconcat(subsample['Position']), allconcat(subsample2['Position']))
+    assert_allclose(allconcat(subsample['Velocity']), allconcat(subsample2['Velocity']))
+    assert_allclose(allconcat(subsample['Mass']), allconcat(subsample2['Mass']))
 
     comm.barrier()
     if comm.rank == 0:

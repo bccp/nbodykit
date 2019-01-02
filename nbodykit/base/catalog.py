@@ -552,7 +552,7 @@ class CatalogSourceBase(object):
         if len(toret) == 1: toret = toret[0]
         return toret
 
-    def save(self, output, columns, dataset=None, datasets=None, header='Header'):
+    def save(self, output, columns=None, dataset=None, datasets=None, header='Header'):
         """
         Save the CatalogSource to a :class:`bigfile.BigFile`.
 
@@ -564,7 +564,7 @@ class CatalogSourceBase(object):
         output : str
             the name of the file to write to
         columns : list of str
-            the names of the columns to save in the file
+            the names of the columns to save in the file, or None to use all columns
         dataset : str, optional
             dataset to store the columns under.
         datasets : list of str, optional
@@ -581,6 +581,7 @@ class CatalogSourceBase(object):
 
         # trim out any default columns; these do not need to be saved as
         # they are automatically available to every Catalog
+        if columns is None: columns = self.columns
         columns = [col for col in columns if not self[col].is_default]
 
         # also make sure no default columns in datasets
@@ -612,17 +613,30 @@ class CatalogSourceBase(object):
 
                 # save column attrs too
                 with ff.create(dataset, dtype, size, Nfile) as bb:
-                    def save_column(block, block_info=None):
-                        block_info = block_info[0] # first arg
-                        # chunked in the first dimension, thus the start
-                        # of first dim is the offset of write
-                        loffset = block_info['array-location'][0][0]
-                        bb.write(offset + loffset, block)
-                        return 0
+                    # FIXME: merge this logic into bigfile
+                    # the slice writing support in bigfile 0.1.47 does not
+                    # support tuple indices.
+                    class ColumnWrapper:
+                        def __init__(self, bb):
+                            self.bb = bb
+                        def __setitem__(self, sl, value):
+                            assert len(sl) <= 2 # no array shall be of higher dimension.
+                            # use regions argument to pick the offset.
+                            start, stop, step = sl[0].indices(self.bb.size)
+                            assert step == 1
+                            if len(sl) > 1:
+                                start1, stop1, step1 = sl[1].indices(array.shape[1])
+                                assert step1 == 1
+                                assert start1 == 0
+                                assert stop1 == array.shape[1]
+                            self.bb.write(start, value)
 
-                    array1 = array.rechunk(chunks=_global_options['dask_chunk_size'])
-                    # do the writing in parallel
-                    array1.map_blocks(save_column, dtype='i4', name='save-to-disk/%s' % dataset).compute()
+                    # ensure only the first dimension is chunked
+                    # because bigfile only support writing with slices in first dimension.
+                    rechunk = dict([(ind, -1) for ind in range(1, array.ndim)])
+                    array = array.rechunk(rechunk)
+
+                    array.store(ColumnWrapper(bb), regions=(slice(offset, offset + len(array)),))
 
                     if hasattr(array, 'attrs'):
                         for key in array.attrs:
