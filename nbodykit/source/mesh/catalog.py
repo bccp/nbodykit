@@ -318,7 +318,7 @@ class CatalogMesh(MeshSource):
                 Nlocal1, Wlocal1, W2local1 = dochunk(s)
                 chunksize = min(max_chunksize, int(chunksize * 1.5))
             except StopIteration:
-                chunksize = chunksize / 2
+                chunksize = chunksize // 2
                 if chunksize < 1:
                     raise RuntimeError("Cannot find a chunksize that fits into memory.")
                 continue

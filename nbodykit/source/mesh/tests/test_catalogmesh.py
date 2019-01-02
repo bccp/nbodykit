@@ -137,6 +137,19 @@ def test_no_compensation(comm):
     with pytest.raises(ValueError):
         actions = mesh.actions
 
+@MPITest([4])
+def test_odd_chunksize(comm):
+    # no errors shall occur. This is a regression test.
+
+    source = ArrayCatalog({
+        'Position': numpy.ones((2000, 3)),
+    }, BoxSize=512., comm=comm)
+
+    # make the mesh
+    mesh = source.to_mesh(resampler='cic', Nmesh=64, interlaced=True, compensated=True)
+    
+    with set_options(paint_chunk_size=1111):
+        mesh.compute()
 
 @MPITest([1, 4])
 def test_view(comm):
