@@ -1204,7 +1204,7 @@ def _sort_data(comm, cat, rankby, reverse=False, usecols=None):
 
         # make an integer key for floating columns
         if issubclass(dt.type, numpy.floating):
-            data['_sortkey'] = numpy.fromstring(data[col].tobytes(), dtype='i8')
+            data['_sortkey'] = numpy.frombuffer(data[col].tobytes(), dtype='i8')
             if reverse:
                 data['_sortkey'] *= -1
             rankby_name = '_sortkey'

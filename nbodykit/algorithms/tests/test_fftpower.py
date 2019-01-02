@@ -11,7 +11,7 @@ setup_logging("debug")
 def test_tsc_aliasing(comm):
 
     source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
-    mesh = source.to_mesh(window='tsc', Nmesh=64, compensated=True)
+    mesh = source.to_mesh(resampler='tsc', Nmesh=64, compensated=True)
 
     # compute the power spectrum -- should be flat shot noise
     # if the compensation worked
@@ -28,7 +28,7 @@ def test_tsc_aliasing(comm):
 def test_cic_aliasing(comm):
 
     source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
-    mesh = source.to_mesh(window='cic', Nmesh=64, compensated=True)
+    mesh = source.to_mesh(resampler='cic', Nmesh=64, compensated=True)
 
     # compute the power spectrum -- should be flat shot noise
     # if the compensation worked

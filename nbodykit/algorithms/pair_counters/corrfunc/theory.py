@@ -112,7 +112,7 @@ class DDrppi(CorrfuncTheoryCallable):
             raise MissingCorrfuncError()
 
         self.pimax = pimax
-        pi_bins = numpy.linspace(0, pimax, pimax+1)
+        pi_bins = numpy.linspace(0, pimax, int(pimax+1))
         CorrfuncTheoryCallable.__init__(self, DDrppi, [edges, pi_bins],
                                         periodic, BoxSize, comm, show_progress=show_progress)
 

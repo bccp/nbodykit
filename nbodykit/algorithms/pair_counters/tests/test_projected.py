@@ -36,7 +36,7 @@ def reference_sim_paircount(pos1, redges, pimax, boxsize, pos2=None, los=2):
     pos1 = pos1[:,axes_order]
 
     # the pi bins
-    pibins = numpy.linspace(0, pimax, pimax+1)
+    pibins = numpy.linspace(0, pimax, int(pimax+1))
 
     if pos2 is None:
         pos2 = pos1

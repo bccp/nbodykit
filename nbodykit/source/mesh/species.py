@@ -137,7 +137,7 @@ class MultipleSpeciesCatalogMesh(MeshSource):
         attrs = {'num_per_cell':0., 'N':0}
 
         # initialize an empty real field
-        real = self.pm.create(mode='real', value=0)
+        real = self.pm.create(type='real', value=0)
 
         # loop over each species
         for name in self.source.species:
