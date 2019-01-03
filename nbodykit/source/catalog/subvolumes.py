@@ -9,7 +9,7 @@ class SubVolumesCatalog(CatalogSource):
 
         Attributes
         ----------
-        domain : :pyclass:`pmesh.domain.GridND`;
+        domain : :class:`pmesh.domain.GridND`;
             The domain objects for decomposition. If None, generate
             a domain to decompose the catalog into a 3d grid.
 

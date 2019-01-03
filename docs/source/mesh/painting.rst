@@ -14,7 +14,7 @@ on to a mesh and how users can customize this procedure.
 The Painted Field
 -----------------
 
-The :func:`~nbodykit.base.mesh.MeshSource.paint` function paints mass-weighted
+The :func:`~nbodykit.base.mesh.MeshSource.compute` function paints mass-weighted
 (or equivalently, number-weighted) fields to a mesh. So, when painting a
 :class:`CatalogSource` to a mesh, the field :math:`F(\vx)` that is painted
 is:
@@ -43,6 +43,69 @@ via the :func:`~CatalogSource.to_mesh` function. Specifically, the
 the column in the :class:`CatalogSource` to use for :math:`W(\vx)`
 and :math:`V(\vx)`. See :ref:`additional-mesh-config` for more details
 on these keywords.
+
+Operations
+----------
+
+The painted field is an instance of :class:`pmesh.pm.RealField`. Methods
+are provided for Fourier transforms (to a :class:`pmesh.pm.ComplexField` object),
+and transfer functions on both the Real and Complex fields:
+
+.. code:: python
+
+   field = mesh.compute()
+
+   def tf(k, v):
+      return 1j * k[2] / k.normp(zeromode=1) ** 0.5 * v
+
+   gradz = field.apply(tf).c2r()
+
+The underlying numerical values of the field can be accessed via indexing.
+A RealField is distributed across the entire MPI communicator of the mesh object,
+and in general each single rank in the MPI communicator only sees a region of the
+field.
+
+- numpy methods (e.g. `field[...].std()`
+  that operates on the local field values only compute the results on
+  a single rank, thus only correct when a single rank is used:
+
+- collective methods provide the correct result that has been reduced
+  on the entire MPI communicator. For example, to compute the standard
+  deviation of the field in a script that runs on sevearl MPI ranks,
+  we shall use `((field ** 2).cmean() - field.cmean() ** 2) ** 0.5` instead
+  of `field[...].std()`.
+
+The positions of the grid points on which the field value resides
+can be obtained from
+
+.. code:: python
+
+   field = mesh.compute()
+
+   grid = field.pm.generate_uniform_particle_grid(shift=0)
+
+A low resolution projected preview of the field can be obtained
+(the example is along x-y plain)
+
+.. code:: python
+
+   field = mesh.compute()
+
+   imshow(field.preview(Nmesh=64, axes=[0, 1]).T,
+          origin='lower',
+          extent=(0, field.BoxSize[0], 0, field.BoxSize[1]))
+
+Shot-noise
+----------
+
+The shot-noise level of a weighted field is given by
+
+.. math::
+
+    SN = L^3 \frac{\sum W^2}{(\sum W)^2}
+
+where `L^3` is the total volume of the box, and `W` is the weight of individual objects.
+We see in the limit where `W=1` everywhere, the shotnoise is simply :math:`1 / bar{n}`.
 
 Default Behavior
 ----------------

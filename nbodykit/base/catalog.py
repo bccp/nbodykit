@@ -719,11 +719,11 @@ class CatalogSourceBase(object):
 
         Parameters
         ----------
-        domain : :pyclass:`pmesh.domain.GridND` object, or None
+        domain : :class:`pmesh.domain.GridND` object, or None
             The domain to distribute the catalog. If None, try to evenly divide
             spatially.
             An easiest way to find a domain object is to use `pm.domain`, where `pm`
-            is a :pyclass:`pmesh.pm.ParticleMesh` object.
+            is a :class:`pmesh.pm.ParticleMesh` object.
 
         position : string_like
             column to use to compute the position.

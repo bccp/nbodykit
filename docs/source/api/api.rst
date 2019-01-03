@@ -135,26 +135,30 @@ And subclasses:
   ~lognormal.LogNormalCatalog
   ~uniform.UniformCatalog
   ~uniform.RandomCatalog
-  ~fkp.FKPCatalog
+  ~nbodykit.algorithms.convpower.catalog.FKPCatalog
   ~species.MultipleSpeciesCatalog
   ~nbodykit.tutorials.DemoHaloCatalog
 
 Interpolating Objects to a Mesh
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The base class:
+For simple object catalogs:
 
 .. autosummary::
 
-    ~nbodykit.base.catalogmesh.CatalogMesh
+    ~nbodykit.source.mesh.catalog.CatalogMesh
 
-And subclasses:
+And Multiple Species
 
 .. autosummary::
 
-    ~nbodykit.source.catalogmesh.species.MultipleSpeciesCatalogMesh
-    ~nbodykit.source.catalogmesh.fkp.FKPCatalogMesh
+    ~nbodykit.source.mesh.species.MultipleSpeciesCatalogMesh
 
+And Survey Catalogs with a window / mask:
+
+.. autosummary::
+
+    ~nbodykit.algorithms.convpower.catalogmesh.FKPCatalogMesh
 
 .. _api-mesh-data:
 
