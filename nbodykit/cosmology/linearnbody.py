@@ -4,27 +4,27 @@ from scipy.integrate import solve_ivp
 
 class LinearNbody:
     """ 
-        Perturbations of matter under matter only interaction on an expanding cosmology
-        background. Ignoring interaction with radiation.
+    Perturbations of matter under matter only interaction on an expanding cosmology
+    background. Ignoring interaction with radiation.
 
-        This can be considered the linear order perturbative model of hydro nbody-simulations.
+    This can be considered the linear order perturbative model of hydro nbody-simulations.
 
-        For technical notes, see https://www.overleaf.com/read/pqsgzjssmptb
+    For technical notes, see https://www.overleaf.com/read/pqsgzjssmptb
 
-        Parameters
-        ----------
-        c_b : float
-            baryon velocity in km/s. set to zero to evolve as cdm. Related
-            to the thermal history of baryons. 
+    Parameters
+    ----------
+    c_b : float
+        baryon velocity in km/s. set to zero to evolve as cdm. Related
+        to the thermal history of baryons. 
 
-        background : object
-            an object with attributes:
-                efunc(z), Omega_b(z), Omega_cdm(z), Omega_ncdm(z) and m_ncdm
-            For example, a Cosmology object from nbodykit will work here.
+    background : object
+        an object with attributes:
+            efunc(z), Omega_b(z), Omega_cdm(z), Omega_ncdm(z) and m_ncdm
+        For example, a Cosmology object from nbodykit will work here.
 
-        c_ncdm_1ev_z0 : float
-            neutrino velocity in km/s at z=0 for 1ev. The default number 134.423 is widely used.
-            set to zero to evolve as cdm.  `c_ncdm = cncdm_1ev_z0 / a / m_ncdm`
+    c_ncdm_1ev_z0 : float
+        neutrino velocity in km/s at z=0 for 1ev. The default number 134.423 is widely used.
+        set to zero to evolve as cdm.  `c_ncdm = cncdm_1ev_z0 / a / m_ncdm`
 
     """
     def __init__(self, background, c_b=0, c_ncdm_1ev_z0=134.423):
@@ -51,37 +51,38 @@ class LinearNbody:
 
     def integrate(self, k, q0, p0, a, rtol=1e-4):
         """ 
-            Solve the 3 fluid model from initial position and momentum q0, and p0, at
-            times a.
+        Solve the 3 fluid model from initial position and momentum q0, and p0, at
+        times a.
 
-            This can be slow if neutrino velocity and baryon velocity
-            are non-zero. (200,000+ function evaluations with RK45, when rtol=1e-7)
+        This can be slow if neutrino velocity and baryon velocity
+        are non-zero. (200,000+ function evaluations with RK45, when rtol=1e-7)
 
-            Parameters
-            ----------
-            a : array_like
-                scale factor requesting the output.
+        Parameters
+        ----------
+        a : array_like
+            scale factor requesting the output.
 
-            k : array_like,
-                 k values to compute the solution, in h/Mpc. From classylss's transfer function.
+        k : array_like,
+             k values to compute the solution, in h/Mpc. From classylss's transfer function.
 
-            q0 : array_like (Nk, 3)
-                initial position, -d, produced by `seed` from CLASSylss transfer function
-                three species are cdm, baryon and ncdm.
-            p0 : array_like (Nk, 3)
-                initial momentum, a * v, from `seed`. 
-                three species are cdm, baryon and ncdm.
-            rtol : float
-                relative accuracy. It appears 1e-4 is good for k ~ 10 with reasonable velocities.
+        q0 : array_like (Nk, 3)
+            initial position, -d, produced by `seed` from CLASSylss transfer function
+            three species are cdm, baryon and ncdm.
+        p0 : array_like (Nk, 3)
+            initial momentum, a * v, from `seed`. 
+            three species are cdm, baryon and ncdm.
+        rtol : float
+            relative accuracy. It appears 1e-4 is good for k ~ 10 with reasonable velocities.
 
-            Returns
-            -------
-            a : array_like (Na), very close but not in general identical to input a.
+        Returns
+        -------
+        a : array_like (Na), very close but not in general identical to input a.
 
-            q : array_like (Na, Nk, 3)
-                position (-d) at different requested a's
-            p : array_like (Na, Nk, 3)
-                momentum (a * v) at different requested a's. v is peculiar velocity.
+        q : array_like (Na, Nk, 3)
+            position (-d) at different requested a's
+        p : array_like (Na, Nk, 3)
+            momentum (a * v) at different requested a's. v is peculiar velocity.
+
         """
         def marshal(q0, p0):
             vector = numpy.concatenate([q0.ravel(), p0.ravel()], axis=0)
@@ -114,7 +115,8 @@ class LinearNbody:
         return numpy.exp(r.t), q.transpose((2, 0, 1)), p.transpose((2, 0, 1))
 
     def J(self, k, a):
-        """ The potential term. Use internally in the ODE.
+        """
+        The potential term. Use internally in the ODE.
         """
         z = 1./ a - 1.
         E = self.efunc(z)
@@ -145,34 +147,34 @@ class LinearNbody:
     @staticmethod
     def seed_from_synchronous(cosmology, a0, Tk=None):
         """
-            Convert synchronuous gauge velocity (h_prime) to the momentum in n-body gauge.
+        Convert synchronuous gauge velocity (h_prime) to the momentum in n-body gauge.
 
-            This function repacks the columns to cdm, baryon and ncdm for both q and p, such
-            that at a = a0,
+        This function repacks the columns to cdm, baryon and ncdm for both q and p, such
+        that at a = a0,
 
-            .. code::
+        .. code:: python
 
-                q = - d
+            q = - d
 
-                p = a v = - a dd / dt
+            p = a v = - a dd / dt
 
-            Parameters
-            ----------
-            cosmology : object, Cosmology.
-                the cosmology object to obtain hubble (with dimension of time unit)
-            a0 : float
-                the scaling factor to seed, 0.01 for z=99
-            Tk : structured array
-                use a precomputed transfer function, must be
-                the same format as the output of Cosmology.get_transfer(),
-                with 'k' in h/Mpc units, 'd_cdm', 'd_b', 'd_ncdm[0]' and
-                'h_prime'.
+        Parameters
+        ----------
+        cosmology : object, Cosmology.
+            the cosmology object to obtain hubble (with dimension of time unit)
+        a0 : float
+            the scaling factor to seed, 0.01 for z=99
+        Tk : structured array
+            use a precomputed transfer function, must be
+            the same format as the output of Cosmology.get_transfer(),
+            with 'k' in h/Mpc units, 'd_cdm', 'd_b', 'd_ncdm[0]' and
+            'h_prime'.
 
-            Returns
-            -------
-            k: array of (Nk)
-            q0: array of (Nk, 3)
-            p0: array of (Nk, 3)
+        Returns
+        -------
+        k: array of (Nk)
+        q0: array of (Nk, 3)
+        p0: array of (Nk, 3)
 
         """
         if Tk is None:

@@ -412,8 +412,9 @@ class MeshSource(object):
                             warnings.warn("attribute %s of type %s is unsupported and lost while saving MeshSource" % (key, type(value)))
 
 class MeshFilter(object):
-    """ A filter function that can be applied to a Mesh. 
-        Refer to :module:`nbodykit.filters` for a list of filters.
+    """
+    A filter function that can be applied to a Mesh
+    Refer to :mod:`nbodykit.filters` for a list of filters.
 
     """
     kind = None
