@@ -613,10 +613,11 @@ class CatalogSourceBase(object):
 
                 # save column attrs too
                 with ff.create(dataset, dtype, size, Nfile) as bb:
+
                     # FIXME: merge this logic into bigfile
                     # the slice writing support in bigfile 0.1.47 does not
                     # support tuple indices.
-                    class ColumnWrapper:
+                    class _ColumnWrapper:
                         def __init__(self, bb):
                             self.bb = bb
                         def __setitem__(self, sl, value):
@@ -625,10 +626,10 @@ class CatalogSourceBase(object):
                             start, stop, step = sl[0].indices(self.bb.size)
                             assert step == 1
                             if len(sl) > 1:
-                                start1, stop1, step1 = sl[1].indices(array.shape[1])
+                                start1, stop1, step1 = sl[1].indices(value.shape[1])
                                 assert step1 == 1
                                 assert start1 == 0
-                                assert stop1 == array.shape[1]
+                                assert stop1 == value.shape[1]
                             self.bb.write(start, value)
 
                     # ensure only the first dimension is chunked
@@ -636,7 +637,8 @@ class CatalogSourceBase(object):
                     rechunk = dict([(ind, -1) for ind in range(1, array.ndim)])
                     array = array.rechunk(rechunk)
 
-                    array.store(ColumnWrapper(bb), regions=(slice(offset, offset + len(array)),))
+                    # lock=False to avoid dask from pickling the lock with the object.
+                    array.store(_ColumnWrapper(bb), regions=(slice(offset, offset + len(array)),), lock=False)
 
                     if hasattr(array, 'attrs'):
                         for key in array.attrs:
