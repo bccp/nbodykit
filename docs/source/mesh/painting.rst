@@ -72,8 +72,8 @@ field.
 - collective methods provide the correct result that has been reduced
   on the entire MPI communicator. For example, to compute the standard
   deviation of the field in a script that runs on sevearl MPI ranks,
-  we shall use `((field ** 2).cmean() - field.cmean() ** 2) ** 0.5` instead
-  of `field[...].std()`.
+  we shall use :code:`((field ** 2).cmean() - field.cmean() ** 2) ** 0.5` instead
+  of :code:`field[...].std()`.
 
 The positions of the grid points on which the field value resides
 can be obtained from
@@ -105,7 +105,7 @@ The shot-noise level of a weighted field is given by
     SN = L^3 \frac{\sum W^2}{(\sum W)^2}
 
 where `L^3` is the total volume of the box, and `W` is the weight of individual objects.
-We see in the limit where `W=1` everywhere, the shotnoise is simply :math:`1 / bar{n}`.
+We see in the limit where `W=1` everywhere, the shotnoise is simply :math:`1 / \bar{n}`.
 
 Default Behavior
 ----------------
