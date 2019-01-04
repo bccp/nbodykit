@@ -187,4 +187,4 @@ class SurveyDataPairCount(PairCountBase):
 
         # squeeze the result if '1d' (single mu bin was used)
         if mode == '1d':
-            self.pairs = self.pairs.squeeze()
+            self.pairs = self.pairs.squeeze(dim='mu')

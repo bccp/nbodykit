@@ -46,6 +46,8 @@ class BasePairCount2PCF(object):
 
         self.comm = data1.comm
 
+        edges = numpy.array(edges)
+
         # store the attributes
         self.attrs = {'mode':mode, 'edges':edges, 'Nmu':Nmu, 'pimax':pimax}
         self.attrs.update(kws)
