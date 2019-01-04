@@ -134,14 +134,14 @@ class CurrentMPIComm(object):
 
         Example:
 
-        .. code ::
+        .. code:: python
 
             with CurrentMPIComm.enter(comm):
                 cat = UniformCatalog(...)
 
         is identical to 
 
-        .. code ::
+        .. code:: python
 
             cat = UniformCatalog(..., comm=comm)
 

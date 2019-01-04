@@ -41,7 +41,6 @@ class AutoCosmoSummary(Autosummary):
 
     @staticmethod
     def get_members(clazz, obj, typ):
-
         names = set()
         items = []
 

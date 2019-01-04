@@ -32,6 +32,7 @@ class ColumnAccessor(da.Array):
     is_default : bool, optional
         whether this column is a default column; default columns are not
         serialized to disk, as they are automatically available as columns
+
     """
     def __new__(cls, catalog, daskarray, is_default=False):
         self = da.Array.__new__(ColumnAccessor,
@@ -70,10 +71,13 @@ class ColumnAccessor(da.Array):
     @staticmethod
     def __dask_optimize__(dsk, keys, **kwargs):
         """
-        Notes
-        -----
-        The dask default optimizer induces too many (unnecesarry)
-        IO calls -- we turn this off feature off by default, and only apply a culling.
+        Optimize the dask object.
+
+        .. note::
+
+            The dask default optimizer induces too many (unnecesarry)
+            IO calls. We turn this feature off by default, and only apply a culling.
+
         """
         from dask.optimization import cull
         dsk2, dependencies = cull(dsk, keys)
@@ -129,11 +133,14 @@ class ColumnFinder(abc.ABCMeta):
 
     1. ``_defaults`` : default columns, specified by passing ``default=True`` to
     the :func:`column` decorator.
+
     2. ``_hardcolumns`` : non-default, hard-coded columns
 
     .. note::
+
         This is a subclass of :class:`abc.ABCMeta` so subclasses can
         define abstract properties, if they need to.
+
     """
     def __init__(cls, clsname, bases, attrs):
 
@@ -721,11 +728,11 @@ class CatalogSourceBase(object):
 
         Parameters
         ----------
-        domain : :pyclass:`pmesh.domain.GridND` object, or None
+        domain : :class:`pmesh.domain.GridND` object, or None
             The domain to distribute the catalog. If None, try to evenly divide
             spatially.
             An easiest way to find a domain object is to use `pm.domain`, where `pm`
-            is a :pyclass:`pmesh.pm.ParticleMesh` object.
+            is a :class:`pmesh.pm.ParticleMesh` object.
 
         position : string_like
             column to use to compute the position.

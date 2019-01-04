@@ -14,7 +14,7 @@ class WedgeBinnedStatistic(BinnedStatistic):
 
         To select a mu_range, use
 
-        .. code::
+        .. code:: python
 
             poles = self.sel(mu=slice(*mu_range), method='nearest').to_poles(poles)
 
