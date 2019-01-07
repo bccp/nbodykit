@@ -1,9 +1,18 @@
 Changelog
 =========
 
-0.3.9 (Unreleased)
+0.3.10 (Unreleased)
 ------------------
 
+0.3.9 (2019-01-07)
+------------------
+* :issue:`544,549`: Use dask.store to save a catalog.
+* :issue:`545`: Fix shotnoise estimation of weighted to_mesh() calls.
+* :issue:`546`: Fix IndexError in painting during throttling.
+* :issue:`547`: Update docrep
+* :issue:`548`: Fix many deprecation warnings
+* :issue:`550`: Documentation updates
+* :issue:`553`: Fix error in TPCF module when there is only 1 bin.
 
 0.3.8 (2018-12-29)
 ------------------
