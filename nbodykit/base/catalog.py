@@ -604,7 +604,26 @@ class CatalogSourceBase(object):
         if len(datasets) != len(columns):
             raise ValueError("`datasets` must have the same length as `columns`")
 
+        # FIXME: merge this logic into bigfile
+        # the slice writing support in bigfile 0.1.47 does not
+        # support tuple indices.
+        class _ColumnWrapper:
+            def __init__(self, bb):
+                self.bb = bb
+            def __setitem__(self, sl, value):
+                assert len(sl) <= 2 # no array shall be of higher dimension.
+                # use regions argument to pick the offset.
+                start, stop, step = sl[0].indices(self.bb.size)
+                assert step == 1
+                if len(sl) > 1:
+                    start1, stop1, step1 = sl[1].indices(value.shape[1])
+                    assert step1 == 1
+                    assert start1 == 0
+                    assert stop1 == value.shape[1]
+                self.bb.write(start, value)
+
         with bigfile.FileMPI(comm=self.comm, filename=output, create=True) as ff:
+            futures = []
             for column, dataset in zip(columns, datasets):
                 array = self[column]
                 # ensure data is only chunked in the first dimension
@@ -618,38 +637,30 @@ class CatalogSourceBase(object):
 
                 dtype = numpy.dtype((array.dtype, array.shape[1:]))
 
-                # save column attrs too
-                with ff.create(dataset, dtype, size, Nfile) as bb:
+                bb = ff.create(dataset, dtype, size, Nfile)
 
-                    # FIXME: merge this logic into bigfile
-                    # the slice writing support in bigfile 0.1.47 does not
-                    # support tuple indices.
-                    class _ColumnWrapper:
-                        def __init__(self, bb):
-                            self.bb = bb
-                        def __setitem__(self, sl, value):
-                            assert len(sl) <= 2 # no array shall be of higher dimension.
-                            # use regions argument to pick the offset.
-                            start, stop, step = sl[0].indices(self.bb.size)
-                            assert step == 1
-                            if len(sl) > 1:
-                                start1, stop1, step1 = sl[1].indices(value.shape[1])
-                                assert step1 == 1
-                                assert start1 == 0
-                                assert stop1 == value.shape[1]
-                            self.bb.write(start, value)
+                # ensure only the first dimension is chunked
+                # because bigfile only support writing with slices in first dimension.
+                rechunk = dict([(ind, -1) for ind in range(1, array.ndim)])
+                array = array.rechunk(rechunk)
 
-                    # ensure only the first dimension is chunked
-                    # because bigfile only support writing with slices in first dimension.
-                    rechunk = dict([(ind, -1) for ind in range(1, array.ndim)])
-                    array = array.rechunk(rechunk)
+                # lock=False to avoid dask from pickling the lock with the object.
+                # create futures to allow saving of all columns at the same time.
+                futures.append(( bb,
+                    array.store(_ColumnWrapper(bb),
+                            regions=(slice(offset, offset + len(array)),),
+                            lock=False, compute=False)
+                    )
+                )
 
-                    # lock=False to avoid dask from pickling the lock with the object.
-                    array.store(_ColumnWrapper(bb), regions=(slice(offset, offset + len(array)),), lock=False)
+                # save column attrs immediately
+                if hasattr(array, 'attrs'):
+                    for key in array.attrs:
+                        bb.attrs[key] = array.attrs[key]
 
-                    if hasattr(array, 'attrs'):
-                        for key in array.attrs:
-                            bb.attrs[key] = array.attrs[key]
+            print(da.compute(futures))
+            for bb, delayed in da.compute(*futures):
+                bb.close()
 
             # writer header afterwards, such that header can be a block that saves
             # data.
