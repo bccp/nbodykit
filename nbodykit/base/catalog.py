@@ -621,6 +621,9 @@ class CatalogSourceBase(object):
                 # save column attrs too
                 with ff.create(dataset, dtype, size, Nfile) as bb:
 
+                    if self.comm.rank == 0:
+                        self.logger.info("writing column %s" % column)
+
                     # FIXME: merge this logic into bigfile
                     # the slice writing support in bigfile 0.1.47 does not
                     # support tuple indices.
@@ -646,6 +649,9 @@ class CatalogSourceBase(object):
 
                     # lock=False to avoid dask from pickling the lock with the object.
                     array.store(_ColumnWrapper(bb), regions=(slice(offset, offset + len(array)),), lock=False)
+
+                    if self.comm.rank == 0:
+                        self.logger.info("finished writing column %s" % column)
 
                     if hasattr(array, 'attrs'):
                         for key in array.attrs:
