@@ -630,7 +630,8 @@ class CatalogSourceBase(object):
                 size = self.comm.allreduce(len(array))
                 offset = numpy.sum(self.comm.allgather(len(array))[:self.comm.rank], dtype='i8')
 
-                self.logger.info("creating task for writing column %s" % column)
+                if self.comm.rank == 0:
+                    self.logger.info("creating task for writing column %s" % column)
                 # sane value -- 32 million items per physical file
                 sizeperfile = 32 * 1024 * 1024
 
@@ -640,29 +641,34 @@ class CatalogSourceBase(object):
 
                 bb = ff.create(dataset, dtype, size, Nfile)
 
-                self.logger.info("started rechunking task for writing column %s" % column)
+                if self.comm.rank == 0:
+                    self.logger.info("started rechunking task for writing column %s" % column)
                 # ensure only the first dimension is chunked
                 # because bigfile only support writing with slices in first dimension.
                 rechunk = dict([(ind, -1) for ind in range(1, array.ndim)])
                 array = array.rechunk(rechunk)
-                self.logger.info("finished rechunking task for writing column %s" % column)
+                if self.comm.rank == 0:
+                    self.logger.info("finished rechunking task for writing column %s" % column)
 
                 # lock=False to avoid dask from pickling the lock with the object.
                 # create futures to allow saving of all columns at the same time.
-                futures.append(( bb,
+                futures.append((column, bb,
                     array.store(_ColumnWrapper(bb),
                             regions=(slice(offset, offset + len(array)),),
                             lock=False, compute=False)
                     )
                 )
 
-                self.logger.info("created task for writing column %s" % column)
+                if self.comm.rank == 0:
+                    self.logger.info("created task for writing column %s" % column)
                 # save column attrs immediately
                 if hasattr(array, 'attrs'):
                     for key in array.attrs:
                         bb.attrs[key] = array.attrs[key]
 
-            for bb, delayed in da.compute(*futures):
+            for column, bb, delayed in da.compute(*futures):
+                if self.comm.rank == 0:
+                    self.logger.info("finished task for writing column %s" % column)
                 bb.close()
 
             # writer header afterwards, such that header can be a block that saves
