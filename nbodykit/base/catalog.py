@@ -559,7 +559,7 @@ class CatalogSourceBase(object):
         if len(toret) == 1: toret = toret[0]
         return toret
 
-    def save(self, output, columns=None, dataset=None, datasets=None, header='Header'):
+    def save(self, output, columns=None, dataset=None, datasets=None, header='Header', compute=True):
         """
         Save the CatalogSource to a :class:`bigfile.BigFile`.
 
@@ -581,6 +581,10 @@ class CatalogSourceBase(object):
             the name of the data set holding the header information, where
             :attr:`attrs` is stored
             if header is None, do not save the header.
+        compute : boolean, default True
+            if True, wait till the store operations finish
+            if False, return a dictionary with column name and a future object for the store.
+            use dask.compute() to wait for the store operations on the result.
         """
         import bigfile
         import json
@@ -604,6 +608,8 @@ class CatalogSourceBase(object):
         if len(datasets) != len(columns):
             raise ValueError("`datasets` must have the same length as `columns`")
 
+        r = {}
+
         with bigfile.FileMPI(comm=self.comm, filename=output, create=True) as ff:
             for column, dataset in zip(columns, datasets):
                 array = self[column]
@@ -619,8 +625,14 @@ class CatalogSourceBase(object):
                 dtype = numpy.dtype((array.dtype, array.shape[1:]))
 
                 # save column attrs too
+                # first create the block on disk
                 with ff.create(dataset, dtype, size, Nfile) as bb:
+                    if hasattr(array, 'attrs'):
+                        for key in array.attrs:
+                            bb.attrs[key] = array.attrs[key]
 
+                # first then open it for writing
+                with ff.open(dataset) as bb:
                     if self.comm.rank == 0:
                         self.logger.info("writing column %s" % column)
 
@@ -648,14 +660,15 @@ class CatalogSourceBase(object):
                     array = array.rechunk(rechunk)
 
                     # lock=False to avoid dask from pickling the lock with the object.
-                    array.store(_ColumnWrapper(bb), regions=(slice(offset, offset + len(array)),), lock=False)
+                    future = array.store(_ColumnWrapper(bb), regions=(slice(offset, offset + len(array)),), lock=False, compute=False)
+                    if compute:
+                        future.compute()
+                    else:
+                        r[column] = future
 
                     if self.comm.rank == 0:
                         self.logger.info("finished writing column %s" % column)
 
-                    if hasattr(array, 'attrs'):
-                        for key in array.attrs:
-                            bb.attrs[key] = array.attrs[key]
 
             # writer header afterwards, such that header can be a block that saves
             # data.
@@ -674,7 +687,10 @@ class CatalogSourceBase(object):
                                 bb.attrs[key] = json_str
                             except:
                                 raise ValueError("cannot save '%s' key in attrs dictionary" % key)
-
+        if compute:
+            return None
+        else:
+            return r
 
     def read(self, columns):
         """
