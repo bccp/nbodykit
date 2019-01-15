@@ -633,8 +633,9 @@ class CatalogSourceBase(object):
 
                 # first then open it for writing
                 with ff.open(dataset) as bb:
-                    if self.comm.rank == 0:
-                        self.logger.info("writing column %s" % column)
+                    if compute:
+                        if self.comm.rank == 0:
+                            self.logger.info("writing column %s" % column)
 
                     # FIXME: merge this logic into bigfile
                     # the slice writing support in bigfile 0.1.47 does not
@@ -666,8 +667,9 @@ class CatalogSourceBase(object):
                     else:
                         r[column] = future
 
-                    if self.comm.rank == 0:
-                        self.logger.info("finished writing column %s" % column)
+                    if compute:
+                        if self.comm.rank == 0:
+                            self.logger.info("finished writing column %s" % column)
 
 
             # writer header afterwards, such that header can be a block that saves
