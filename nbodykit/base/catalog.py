@@ -687,7 +687,8 @@ class CatalogSourceBase(object):
             if compute:
                 # write blocks one by one
                 for column, source, target, region in zip(columns, sources, targets, regions):
-                    self.logger.info("started writing column %s" % column)
+                    if self.comm.rank == 0:
+                        self.logger.info("started writing column %s" % column)
                     source.store(target, regions=region, lock=False, compute=True)
                     target.bb.close()
                     if self.comm.rank == 0:
