@@ -186,7 +186,6 @@ class SimulationBoxPairCount(PairCountBase):
             # and then convert to RA,DEC
             pos1 = shift_to_box_center(first['Position'], BoxSize, self.comm)
             first['ra'], first['dec'] = CartesianToEquatorial(pos1)
-
             # do the same thing for second source
             if second is not None and second is not first:
                 pos2 = shift_to_box_center(second['Position'], BoxSize, self.comm)
