@@ -134,6 +134,10 @@ def CartesianToEquatorial(pos, observer=[0,0,0], frame='icrs'):
         will be in the range [0,360] and DEC in the range [-90, 90]
     """
 
+    # split x, y, z to signify that we do not need to have pos
+    # as a full chunk in the last dimension.
+    # this is useful when we use apply_gufunc.
+
     x, y, z = [pos[..., i] - observer[i] for i in range(3)]
 
     if frame == 'icrs':
