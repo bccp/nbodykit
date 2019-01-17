@@ -2,6 +2,7 @@ from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 from nbodykit.transform import ConstantArray
+from numpy.testing import assert_allclose
 import pytest
 
 # debug logging
@@ -74,7 +75,11 @@ def test_cartesian_to_sky_galactic(comm):
     # get RA, DEC, Z
     ra, dec, z = transform.CartesianToSky(s['Position'], cosmo, frame='galactic')
 
-    _ = transform.CartesianToSky(s['Position'].compute(), cosmo, frame='galactic')
+    ra1, dec1, z1 = transform.CartesianToSky(s['Position'].compute(), cosmo, frame='galactic')
+
+    assert_allclose(ra, ra1)
+    assert_allclose(dec, dec1)
+    assert_allclose(z, z1)
 
     # reverse and check
     pos2 = transform.SkyToCartesian(ra, dec, z, cosmo, frame='galactic')

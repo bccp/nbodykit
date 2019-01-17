@@ -160,18 +160,18 @@ def CartesianToEquatorial(pos, observer=[0,0,0], frame='icrs'):
             x, y, z = pos.T
             try:
                 sc = SkyCoord(x, y, z, representation_type='cartesian', frame=frame)
+                scg = sc.transform_to(frame='icrs')
+                scg.representation_type = 'unitspherical'
             except:
                 sc = SkyCoord(x, y, z, representation='cartesian', frame=frame)
-            scg = sc.transform_to(frame='icrs')
-            scg.representation = 'unitspherical'
+                scg = sc.transform_to(frame='icrs')
+                scg.representation = 'unitspherical'
+
             ra, dec = scg.ra.value, scg.dec.value
-            # must preserve the shape.
-            ang = numpy.stack([ra, dec], axis=1)
-            return ang
 
-        ang = da.map_blocks(convert_coord, pos, dtype=pos.dtype, chunks=(pos.chunks[0], (2,)))
+            return ra, dec
 
-        ra, dec = ang.T
+        ra, dec = da.apply_gufunc(convert_coord, '(i)->(),()', pos, output_dtypes=[pos.dtype, pos.dtype])
 
     return da.stack((ra, dec), axis=0)
 
@@ -311,15 +311,18 @@ def SkyToUnitSphere(ra, dec, degrees=True, frame='icrs'):
 
         def convert_coord(ra, dec):
             try:
-                sc = SkyCoord(ra[:, 0], dec[:, 0], unit='rad', representation_type='unitspherical', frame='icrs')
+                sc = SkyCoord(ra, dec, unit='rad', representation_type='unitspherical', frame='icrs')
             except:
-                sc = SkyCoord(ra[:, 0], dec[:, 0], unit='rad', representation='unitspherical', frame='icrs')
+                sc = SkyCoord(ra, dec, unit='rad', representation='unitspherical', frame='icrs')
+
             scg = sc.transform_to(frame=frame)
             scg = scg.cartesian
+
             x, y, z = scg.x.value, scg.y.value, scg.z.value
             return numpy.stack([x, y, z], axis=1)
 
-        return da.map_blocks(convert_coord, ra[:, None], dec[:, None], dtype=ra.dtype, chunks=(ra.chunks[0], (3,)))
+        arr = da.apply_gufunc(convert_coord, '(),()->(p)', ra, dec, output_dtypes=[ra.dtype], output_sizes={'p': 3})
+        return arr
 
 def SkyToCartesian(ra, dec, redshift, cosmo, degrees=True, frame='icrs'):
     """
@@ -398,6 +401,7 @@ def HaloConcentration(mass, cosmo, redshift, mdef='vir'):
     ----------
     Dutton and Maccio, "Cold dark matter haloes in the Planck era: evolution
     of structural parameters for Einasto and NFW profiles", 2014, arxiv:1402.7073
+
     """
     from halotools.empirical_models import NFWProfile
 
