@@ -134,10 +134,7 @@ def CartesianToEquatorial(pos, observer=[0,0,0], frame='icrs'):
         will be in the range [0,360] and DEC in the range [-90, 90]
     """
 
-    pos, observer = da.broadcast_arrays(pos, observer)
-
-    # recenter based on observer
-    pos = pos - observer
+    x, y, z = [pos[..., i] - observer[i] for i in range(3)]
 
     if frame == 'icrs':
         # FIXME: Convert these to a gufunc that uses astropy?
@@ -157,8 +154,7 @@ def CartesianToEquatorial(pos, observer=[0,0,0], frame='icrs'):
     else:
         from astropy.coordinates import SkyCoord
 
-        def cart_to_eq(pos):
-            x, y, z = pos.T
+        def cart_to_eq(x, y, z):
             try:
                 sc = SkyCoord(x, y, z, representation_type='cartesian', frame=frame)
                 scg = sc.transform_to(frame='icrs')
@@ -172,7 +168,8 @@ def CartesianToEquatorial(pos, observer=[0,0,0], frame='icrs'):
 
             return ra, dec
 
-        ra, dec = da.apply_gufunc(cart_to_eq, '(i)->(),()', pos, output_dtypes=[pos.dtype, pos.dtype])
+        dtype = pos.dtype
+        ra, dec = da.apply_gufunc(cart_to_eq, '(),(),()->(),()', x, y, z, output_dtypes=[dtype, dtype])
 
     return da.stack((ra, dec), axis=0)
 
@@ -235,11 +232,10 @@ def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0], zmax=100., frame
     from astropy.constants import c
     from scipy.interpolate import interp1d
 
-    pos, observer = da.broadcast_arrays(pos, observer)
+    if not isinstance(pos, da.Array):
+        pos = da.from_array(pos, chunks=100000)
 
-    # recenter position
     pos = pos - observer
-
     # RA,dec coordinates (in degrees)
     ra, dec = CartesianToEquatorial(pos, frame=frame)
 
@@ -257,7 +253,9 @@ def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0], zmax=100., frame
 
     # add in velocity offsets?
     if velocity is not None:
-        vpec =  (pos*velocity).sum(axis=-1) / r
+
+        vpec = (pos * velocity).sum(axis=-1) / r
+
         z += vpec / c.to('km/s').value * (1 + z)
 
     return da.stack((ra, dec, z), axis=0)
