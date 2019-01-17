@@ -141,9 +141,9 @@ def CartesianToEquatorial(pos, observer=[0,0,0], frame='icrs'):
         # might be a step backward.
 
         # from equatorial to equatorial
-        s = da.hypot(pos[:,0], pos[:,1])
-        lon = da.arctan2(pos[:,1], pos[:,0])
-        lat = da.arctan2(pos[:,2], s)
+        s = da.hypot(x, y)
+        lon = da.arctan2(y, x)
+        lat = da.arctan2(z, s)
 
         # convert to degrees
         lon = da.rad2deg(lon)
@@ -325,7 +325,7 @@ def SkyToUnitSphere(ra, dec, degrees=True, frame='icrs'):
         arr = da.apply_gufunc(eq_to_cart, '(),()->(p)', ra, dec, output_dtypes=[ra.dtype], output_sizes={'p': 3})
         return arr
 
-def SkyToCartesian(ra, dec, redshift, cosmo, degrees=True, frame='icrs'):
+def SkyToCartesian(ra, dec, redshift, cosmo, observer=[0, 0, 0], degrees=True, frame='icrs'):
     """
     Convert sky coordinates (``ra``, ``dec``, ``redshift``) to a
     Cartesian ``Position`` column.
@@ -368,7 +368,7 @@ def SkyToCartesian(ra, dec, redshift, cosmo, degrees=True, frame='icrs'):
     # multiply by the comoving distance in Mpc/h
     r = redshift.map_blocks(lambda z: cosmo.comoving_distance(z), dtype=redshift.dtype)
 
-    return r[:,None] * pos
+    return r[:,None] * pos + observer
 
 def HaloConcentration(mass, cosmo, redshift, mdef='vir'):
     """

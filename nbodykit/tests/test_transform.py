@@ -57,11 +57,11 @@ def test_cartesian_to_sky(comm):
     s = UniformCatalog(nbar=10000, BoxSize=1.0, seed=42, comm=comm)
 
     # get RA, DEC, Z
-    ra, dec, z = transform.CartesianToSky(s['Position'], cosmo)
+    ra, dec, z = transform.CartesianToSky(s['Position'], cosmo, observer=[0.5, 0.5, 0.5])
 
     # reverse and check
-    pos2 = transform.SkyToCartesian(ra, dec, z, cosmo)
-    numpy.testing.assert_allclose(s['Position'], pos2, rtol=1e-5)
+    pos2 = transform.SkyToCartesian(ra, dec, z, cosmo, observer=[0.5, 0.5, 0.5])
+    assert_allclose(s['Position'], pos2, rtol=1e-5, atol=1e-7)
 
     _ = transform.CartesianToSky(s['Position'].compute(), cosmo)
 
