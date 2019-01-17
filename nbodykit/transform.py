@@ -134,15 +134,15 @@ def CartesianToEquatorial(pos, observer=[0,0,0], frame='icrs'):
         will be in the range [0,360] and DEC in the range [-90, 90]
     """
 
-#    if isinstance(pos, da.Array):
-#        pos = da.rechunk(pos, chunks=_global_options['dask_chunk_size'])
-
     pos, observer = da.broadcast_arrays(pos, observer)
 
     # recenter based on observer
     pos = pos - observer
 
     if frame == 'icrs':
+        # FIXME: Convert these to a gufunc that uses astropy?
+        # might be a step backward.
+
         # from equatorial to equatorial
         s = da.hypot(pos[:,0], pos[:,1])
         lon = da.arctan2(pos[:,1], pos[:,0])
@@ -157,7 +157,7 @@ def CartesianToEquatorial(pos, observer=[0,0,0], frame='icrs'):
     else:
         from astropy.coordinates import SkyCoord
 
-        def convert_coord(pos):
+        def cart_to_eq(pos):
             x, y, z = pos.T
             try:
                 sc = SkyCoord(x, y, z, representation_type='cartesian', frame=frame)
@@ -172,7 +172,7 @@ def CartesianToEquatorial(pos, observer=[0,0,0], frame='icrs'):
 
             return ra, dec
 
-        ra, dec = da.apply_gufunc(convert_coord, '(i)->(),()', pos, output_dtypes=[pos.dtype, pos.dtype])
+        ra, dec = da.apply_gufunc(cart_to_eq, '(i)->(),()', pos, output_dtypes=[pos.dtype, pos.dtype])
 
     return da.stack((ra, dec), axis=0)
 
@@ -207,7 +207,9 @@ def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0], zmax=100., frame
         value to avoid interpolation failure going from comoving distance
         to redshift
     frame : string ('icrs' or 'galactic')
-        speciefies which frame the Cartesian coordinates is. 
+        speciefies which frame the Cartesian coordinates is. Useful if you know
+        the simulation (usually cartesian) is in galactic units but you want
+        to convert to the icrs (ra, dec) usually used in surveys.
 
     Returns
     -------
@@ -232,9 +234,6 @@ def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0], zmax=100., frame
     """
     from astropy.constants import c
     from scipy.interpolate import interp1d
-
-#    if isinstance(pos, da.Array):
-#        pos = da.rechunk(pos, chunks=_global_options['dask_chunk_size'])
 
     pos, observer = da.broadcast_arrays(pos, observer)
 
@@ -277,7 +276,9 @@ def SkyToUnitSphere(ra, dec, degrees=True, frame='icrs'):
     degrees : bool, optional
         specifies whether ``ra`` and ``dec`` are in degrees or radians
     frame : string ('icrs' or 'galactic')
-        speciefies which frame the Cartesian coordinates is. 
+        speciefies which frame the Cartesian coordinates is. Useful if you know
+        the simulation (usually cartesian) is in galactic units but you want
+        to convert to the icrs (ra, dec) usually used in surveys.
 
     Returns
     -------
@@ -311,7 +312,7 @@ def SkyToUnitSphere(ra, dec, degrees=True, frame='icrs'):
             ra  = da.deg2rad(ra)
             dec = da.deg2rad(dec)
 
-        def convert_coord(ra, dec):
+        def eq_to_cart(ra, dec):
             try:
                 sc = SkyCoord(ra, dec, unit='rad', representation_type='unitspherical', frame='icrs')
             except:
@@ -323,7 +324,7 @@ def SkyToUnitSphere(ra, dec, degrees=True, frame='icrs'):
             x, y, z = scg.x.value, scg.y.value, scg.z.value
             return numpy.stack([x, y, z], axis=1)
 
-        arr = da.apply_gufunc(convert_coord, '(),()->(p)', ra, dec, output_dtypes=[ra.dtype], output_sizes={'p': 3})
+        arr = da.apply_gufunc(eq_to_cart, '(),()->(p)', ra, dec, output_dtypes=[ra.dtype], output_sizes={'p': 3})
         return arr
 
 def SkyToCartesian(ra, dec, redshift, cosmo, degrees=True, frame='icrs'):
