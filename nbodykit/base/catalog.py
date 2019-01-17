@@ -559,7 +559,7 @@ class CatalogSourceBase(object):
         if len(toret) == 1: toret = toret[0]
         return toret
 
-    def save(self, output, columns=None, dataset=None, datasets=None, header='Header'):
+    def save(self, output, columns=None, dataset=None, datasets=None, header='Header', compute=True):
         """
         Save the CatalogSource to a :class:`bigfile.BigFile`.
 
@@ -581,6 +581,10 @@ class CatalogSourceBase(object):
             the name of the data set holding the header information, where
             :attr:`attrs` is stored
             if header is None, do not save the header.
+        compute : boolean, default True
+            if True, wait till the store operations finish
+            if False, return a dictionary with column name and a future object for the store.
+            use dask.compute() to wait for the store operations on the result.
         """
         import bigfile
         import json
@@ -604,7 +608,31 @@ class CatalogSourceBase(object):
         if len(datasets) != len(columns):
             raise ValueError("`datasets` must have the same length as `columns`")
 
+        # FIXME: merge this logic into bigfile
+        # the slice writing support in bigfile 0.1.47 does not
+        # support tuple indices.
+        class _ColumnWrapper:
+            def __init__(self, bb):
+                self.bb = bb
+            def __setitem__(self, sl, value):
+                assert len(sl) <= 2 # no array shall be of higher dimension.
+                # use regions argument to pick the offset.
+                start, stop, step = sl[0].indices(self.bb.size)
+                assert step == 1
+                if len(sl) > 1:
+                    start1, stop1, step1 = sl[1].indices(value.shape[1])
+                    assert step1 == 1
+                    assert start1 == 0
+                    assert stop1 == value.shape[1]
+                self.bb.write(start, value)
+
         with bigfile.FileMPI(comm=self.comm, filename=output, create=True) as ff:
+
+            sources = []
+            targets = []
+            regions = []
+
+            # save meta data and create blocks, prepare for the write.
             for column, dataset in zip(columns, datasets):
                 array = self[column]
                 # ensure data is only chunked in the first dimension
@@ -619,43 +647,23 @@ class CatalogSourceBase(object):
                 dtype = numpy.dtype((array.dtype, array.shape[1:]))
 
                 # save column attrs too
+                # first create the block on disk
                 with ff.create(dataset, dtype, size, Nfile) as bb:
-
-                    if self.comm.rank == 0:
-                        self.logger.info("writing column %s" % column)
-
-                    # FIXME: merge this logic into bigfile
-                    # the slice writing support in bigfile 0.1.47 does not
-                    # support tuple indices.
-                    class _ColumnWrapper:
-                        def __init__(self, bb):
-                            self.bb = bb
-                        def __setitem__(self, sl, value):
-                            assert len(sl) <= 2 # no array shall be of higher dimension.
-                            # use regions argument to pick the offset.
-                            start, stop, step = sl[0].indices(self.bb.size)
-                            assert step == 1
-                            if len(sl) > 1:
-                                start1, stop1, step1 = sl[1].indices(value.shape[1])
-                                assert step1 == 1
-                                assert start1 == 0
-                                assert stop1 == value.shape[1]
-                            self.bb.write(start, value)
-
-                    # ensure only the first dimension is chunked
-                    # because bigfile only support writing with slices in first dimension.
-                    rechunk = dict([(ind, -1) for ind in range(1, array.ndim)])
-                    array = array.rechunk(rechunk)
-
-                    # lock=False to avoid dask from pickling the lock with the object.
-                    array.store(_ColumnWrapper(bb), regions=(slice(offset, offset + len(array)),), lock=False)
-
-                    if self.comm.rank == 0:
-                        self.logger.info("finished writing column %s" % column)
-
                     if hasattr(array, 'attrs'):
                         for key in array.attrs:
                             bb.attrs[key] = array.attrs[key]
+
+                # first then open it for writing
+                bb = ff.open(dataset)
+
+                # ensure only the first dimension is chunked
+                # because bigfile only support writing with slices in first dimension.
+                rechunk = dict([(ind, -1) for ind in range(1, array.ndim)])
+                array = array.rechunk(rechunk)
+
+                targets.append(_ColumnWrapper(bb))
+                sources.append(array)
+                regions.append((slice(offset, offset + len(array)),))
 
             # writer header afterwards, such that header can be a block that saves
             # data.
@@ -675,6 +683,24 @@ class CatalogSourceBase(object):
                             except:
                                 raise ValueError("cannot save '%s' key in attrs dictionary" % key)
 
+            # lock=False to avoid dask from pickling the lock with the object.
+            if compute:
+                # write blocks one by one
+                for column, source, target, region in zip(columns, sources, targets, regions):
+                    if self.comm.rank == 0:
+                        self.logger.info("started writing column %s" % column)
+                    source.store(target, regions=region, lock=False, compute=True)
+                    target.bb.close()
+                    if self.comm.rank == 0:
+                        self.logger.info("finished writing column %s" % column)
+                future = None
+            else:
+                # return a future that writes all blocks at the same time.
+                # Note that must pass in lists, not tuples or da.store is confused.
+                # c.f https://github.com/dask/dask/issues/4393
+                future = da.store(sources, targets, regions=regions, lock=False, compute=False)
+
+        return future
 
     def read(self, columns):
         """
