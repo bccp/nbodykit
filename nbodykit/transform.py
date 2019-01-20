@@ -440,7 +440,7 @@ def HaloVelocityDispersion(mass, cosmo, redshift, mdef='vir'):
 
 def HaloRadius(mass, cosmo, redshift, mdef='vir'):
     r"""
-    Return halo radius from halo mass, based on the specified mass definition.
+    Return proper halo radius from halo mass, based on the specified mass definition.
     This is independent of halo profile, and simply returns
 
     .. math::
@@ -471,7 +471,9 @@ def HaloRadius(mass, cosmo, redshift, mdef='vir'):
     Returns
     -------
     radius : :class:`dask.array.Array`
-        a dask array holding the halo radius
+        a dask array holding the halo radius in 'physical Mpc/h [sic]'.
+        This is proper Mpc/h, to convert to comoving, divide this by scaling factor.
+
     """
     from halotools.empirical_models import halo_mass_to_halo_radius
 
