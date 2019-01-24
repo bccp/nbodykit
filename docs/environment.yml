@@ -34,7 +34,7 @@ dependencies:
 - halotools
 - fitsio
 - numpydoc
-- sphinx<1.6
+- sphinx
 - IPython
 - pip
 - pip:
