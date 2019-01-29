@@ -95,10 +95,11 @@ def test_sim_periodic_auto(comm):
 
     # make the bin edges
     redges = numpy.linspace(0.01, 20, 10)
-
+    source1 = ArrayCatalog(dict([(col, source[col]) for col in source.columns if col != 'Position']), comm=comm, **source.attrs)
+    source1['Position1'] = source["Position"]
     # compute 2PCF
     pimax = 50.
-    r = SimulationBox2PCF('projected', source, redges, pimax=pimax, periodic=True)
+    r = SimulationBox2PCF('projected', source1, redges, pimax=pimax, periodic=True, position='Position1')
 
     # verify with halotools
     pos = gather_data(source, "Position")
