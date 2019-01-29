@@ -231,15 +231,16 @@ class SimulationBox3PCF(Base3PCF):
     """
     logger = logging.getLogger("SimulationBox3PCF")
 
-    def __init__(self, source, poles, edges, BoxSize=None, periodic=True, weight='Weight'):
+    def __init__(self, source, poles, edges, BoxSize=None, periodic=True, weight='Weight', position='Position'):
 
         # initialize the base class
-        required_cols = ['Position', weight]
+        required_cols = [position, weight]
         Base3PCF.__init__(self, source, poles, edges, required_cols,
                             BoxSize=BoxSize, periodic=periodic)
 
         # save the weight column
         self.attrs['weight'] = weight
+        self.attrs['position'] = position
 
         # check largest possible separation
         if periodic:
