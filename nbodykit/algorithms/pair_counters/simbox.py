@@ -31,7 +31,7 @@ class SimulationBoxPairCount(PairCountBase):
         compute pair counts as a function of the specified coordinate basis;
         see the Notes section below for specifics
     first : CatalogSource
-        the first source of particles, providing the 'Position' column
+        the first source of particles, providing the position column
     edges : array_like
         the separation bin edges along the first coordinate dimension;
         depending on ``mode``, the options are :math:`r`, :math:`r_p`, or
@@ -58,6 +58,8 @@ class SimulationBoxPairCount(PairCountBase):
         along the :math:`\pi` direction.
     weight : str, optional
         the name of the column in the source specifying the particle weights
+    position : str, optional
+        name of the column of the position of particles
     show_progress : bool, optional
         if ``True``, perform the pair counting calculation in 10 iterations,
         logging the progress after each iteration; this is useful for
@@ -86,7 +88,7 @@ class SimulationBoxPairCount(PairCountBase):
 
     def __init__(self, mode, first, edges, BoxSize=None, periodic=True,
                     second=None, los='z', Nmu=None, pimax=None,
-                    weight='Weight', show_progress=False, **config):
+                    weight='Weight', position='Position', show_progress=False, **config):
 
         # check input 'los'
         if isinstance(los, string_types):
@@ -101,7 +103,7 @@ class SimulationBoxPairCount(PairCountBase):
             raise ValueError("``los`` should be either ['x', 'y', 'z'] or [0,1,2]")
 
         # verify the input sources
-        required_cols = ['Position', weight]
+        required_cols = [position, weight]
         BoxSize = verify_input_sources(first, second, BoxSize, required_cols)
 
         # init the base class (this verifies input arguments)
@@ -111,6 +113,7 @@ class SimulationBoxPairCount(PairCountBase):
         self.attrs['BoxSize'] = BoxSize
         self.attrs['periodic'] = periodic
         self.attrs['weight'] = weight
+        self.attrs['position'] = position
         self.attrs['config'] = config
         self.attrs['los'] = los
 
@@ -184,11 +187,11 @@ class SimulationBoxPairCount(PairCountBase):
 
             # make sure Position is shifted to an observer at box center
             # and then convert to RA,DEC
-            pos1 = shift_to_box_center(first['Position'], BoxSize, self.comm)
+            pos1 = shift_to_box_center(first[attrs['position']], BoxSize, self.comm)
             first['ra'], first['dec'] = CartesianToEquatorial(pos1)
             # do the same thing for second source
             if second is not None and second is not first:
-                pos2 = shift_to_box_center(second['Position'], BoxSize, self.comm)
+                pos2 = shift_to_box_center(second[attrs['position']], BoxSize, self.comm)
                 second['ra'], second['dec'] = CartesianToEquatorial(pos2)
 
             # domain decompose the data

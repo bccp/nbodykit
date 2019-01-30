@@ -86,7 +86,7 @@ def decompose_box_data(first, second, attrs, logger, smoothing):
         logger.info("using cpu grid decomposition: %s" %str(np))
 
     # get the (periodic-enforced) position for first
-    pos1 = first['Position']
+    pos1 = first[attrs['position']]
     if attrs['periodic']:
         pos1 %= attrs['BoxSize']
     pos1, w1 = first.compute(pos1, first[attrs['weight']])
@@ -94,7 +94,7 @@ def decompose_box_data(first, second, attrs, logger, smoothing):
 
     # get the (periodic-enforced) position for second
     if second is not None:
-        pos2 = second['Position']
+        pos2 = second[attrs['position']]
         if attrs['periodic']:
             pos2 %= attrs['BoxSize']
         pos2, w2 = second.compute(pos2, second[attrs['weight']])

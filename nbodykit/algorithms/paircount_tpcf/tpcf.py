@@ -96,9 +96,9 @@ class BasePairCount2PCF(object):
         if 'periodic' in attrs and attrs['periodic'] and self.randoms1 is None:
 
             if attrs['mode'] == 'angular':
-                self.data1 = _restrict_to_spherical_volume(self.data1)
+                self.data1 = _restrict_to_spherical_volume(self.data1, self.data1[attrs['position']], self.data1.attrs['BoxSize'])
                 if self.data2 is not None:
-                    self.data2 = _restrict_to_spherical_volume(self.data2)
+                    self.data2 = _restrict_to_spherical_volume(self.data2, self.data2[attrs['position']], self.data2.attrs['BoxSize'])
                 if self.comm.rank == 0:
                     msg = "when using analytic randoms for the angular correlation function, "
                     msg += "we restrict the input data to a spherical volume, throwing away objects. "
@@ -215,7 +215,7 @@ class SimulationBox2PCF(BasePairCount2PCF):
     mode : '1d', '2d', 'projected', 'angular'
         the type of two-point correlation function to compute; see the Notes below
     data1 : CatalogSource
-        the data catalog; must have a 'Position' column
+        the data catalog;
     edges : array_like
         the separation bin edges along the first coordinate dimension;
         depending on ``mode``, the options are :math:`r`, :math:`r_p`, or
@@ -230,7 +230,7 @@ class SimulationBox2PCF(BasePairCount2PCF):
         depth. For instance, if ``pimax=40``, then 40 bins will be created
         along the :math:`\pi` direction.
     data2 : CatalogSource, optional
-        the second data catalog to cross-correlate; must have a 'Position' column
+        the second data catalog to cross-correlate;
     randoms1 : CatalogSource, optional
         the catalog specifying the un-clustered, random distribution for ``data1``;
         if not provided, analytic randoms will be used
@@ -250,6 +250,8 @@ class SimulationBox2PCF(BasePairCount2PCF):
         the equivalent integer number of the axis
     weight : str, optional
         the name of the column in the source specifying the particle weights
+    position : str, optional
+        the name of the column in the source specifying the particle positions
     show_progress : bool, optional
         if ``True``, perform the pair counting calculation in 10 iterations,
         logging the progress after each iteration; this is useful for
@@ -278,7 +280,7 @@ class SimulationBox2PCF(BasePairCount2PCF):
     def __init__(self, mode, data1, edges, Nmu=None, pimax=None,
                     data2=None, randoms1=None, randoms2=None, R1R2=None,
                     periodic=True, BoxSize=None, los='z',
-                    weight='Weight', show_progress=False, **config):
+                    weight='Weight', position='Position', show_progress=False, **config):
 
         # format the input arguments
         args = dict(locals())
@@ -348,7 +350,7 @@ class SurveyData2PCF(BasePairCount2PCF):
     mode : '1d', '2d', 'projected', 'angular'
         the type of two-point correlation function to compute; see the Notes below
     data1 : CatalogSource
-        the data catalog; must have a 'Position' column
+        the data catalog; must have ra, dec, redshift, columns
     randoms1 : CatalogSource
         the catalog specifying the un-clustered, random distribution for ``data1``
     edges : array_like
@@ -368,7 +370,7 @@ class SurveyData2PCF(BasePairCount2PCF):
         depth. For instance, if ``pimax=40``, then 40 bins will be created
         along the :math:`\pi` direction.
     data2 : CatalogSource, optional
-        the second data catalog to cross-correlate; must have a 'Position' column
+        the second data catalog to cross-correlate;
     randoms2 : CatalogSource, optional
         the catalog specifying the un-clustered, random distribution for ``data2``;
         if not specified and ``data2`` is provied, then ``randoms1`` will be used
@@ -487,7 +489,7 @@ def _compute_wp(corr):
 
     return toret
 
-def _restrict_to_spherical_volume(source):
+def _restrict_to_spherical_volume(source, position, BoxSize):
     """
     Slice the input source such that it only includes a spherical volume
     instead the simulation box.
@@ -497,7 +499,7 @@ def _restrict_to_spherical_volume(source):
     """
     # compute the distance from box center
     origin = 0.5 * source.attrs['BoxSize']
-    pos = source['Position'] - origin
+    pos = position - origin
     r = (pos**2).sum(axis=-1)**0.5
 
     # restrict to sphere less than half of box size
