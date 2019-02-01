@@ -138,17 +138,24 @@ class RedshiftHistogram(object):
         self.dV          = dV
         self.nbar        = 1.*N/dV
 
-    def interpolate(self, z):
+    def interpolate(self, z, ext='zeros'):
         """ Interpoalte dndz as a function of redshift. 
 
             The interpolation acts as a band pass filter, removing small scale
             fluctuations in the estimator.
 
+            Parameters
+            ----------
+            z : array_like
+                redshift
+            ext : 'extrapolate', 'zeros', 'raise', 'const'
+                how to deal with values out of bound.
+
             Returns
             -------
             n : n(z)
         """
-        nofz = InterpolatedUnivariateSpline(self.bin_centers, self.nbar)
+        nofz = InterpolatedUnivariateSpline(self.bin_centers, self.nbar, ext=ext)
         return nofz(z)
 
     def __getstate__(self):
