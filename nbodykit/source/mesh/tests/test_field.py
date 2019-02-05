@@ -10,7 +10,7 @@ def test_paint(comm):
     from pmesh.pm import ParticleMesh
 
     pm = ParticleMesh(Nmesh=(8, 8, 8), BoxSize=(128, 128, 128.), comm=comm)
-    real = pm.generate_whitenoise(mode='real', seed=3333)
+    real = pm.generate_whitenoise(type='real', seed=3333)
     complex = real.r2c()
 
     realmesh = FieldMesh(real)

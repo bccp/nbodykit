@@ -56,9 +56,6 @@ class MultipleSpeciesCatalog(CatalogSourceBase):
 
     def __init__(self, names, *species, **kwargs):
 
-        # input checks
-        if len(species) < 2:
-            raise ValueError("need at least 2 particle species to initialize MultipleSpeciesCatalog")
         if len(set(names)) != len(names):
             raise ValueError("each species must have a unique name")
         if not all(cat.comm is species[0].comm for cat in species):

@@ -86,21 +86,14 @@ class CatalogMesh(MeshSource):
         # store others as straight attributes
         self.dtype = dtype
 
-        self['Position'] = Position
-        self['Weight'] = Weight
-        self['Value'] = Value
-        self['Selection'] = Selection
+        self.Position = Position
+        self.Weight = Weight
+        self.Value = Value
+        self.Selection = Selection
 
         self.attrs['interlaced'] = interlaced
         self.attrs['compensated'] = compensated
         self.attrs['resampler'] = str(resampler)
-
-    def __getitem__(self, key):
-        return self._columns[key]
-    def __setitem__(self, key, value):
-        self._columns[key] = value
-    def __contains__(self, key, value):
-        return key in self._columns
 
     @property
     def interlaced(self):
@@ -220,10 +213,10 @@ class CatalogMesh(MeshSource):
             real2 = RealField(pm)
             real2[:] = 0
 
-        Position = self['Position']
-        Weight = self['Weight']
-        Value = self['Value']
-        Selection = self['Selection']
+        Position = self.Position
+        Weight = self.Weight
+        Value = self.Value
+        Selection = self.Selection
 
         # ensure the slices are synced, since decomposition is collective
         Nlocalmax = max(pm.comm.allgather(len(Position)))

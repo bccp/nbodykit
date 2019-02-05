@@ -72,6 +72,23 @@ def test_compute(comm):
     assert_allclose(combined.value, (real1.value + real2.value)/norm, atol=1e-5)
 
 @MPITest([1, 4])
+def test_actions_compensated(comm):
+
+    # the test case fails only if there is enough particles to trigger
+    # the second loop of the interlaced painter; these parameters will do it.
+
+    # the catalog
+    source1 = UniformCatalog(nbar=1e-0, BoxSize=111, seed=111, comm=comm)
+    source2 = UniformCatalog(nbar=1e-0, BoxSize=111, seed=111, comm=comm)
+    source1['Weight'] = 1.0
+    source2['Weight'] = 0.1
+    cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2)
+
+    # the meshes
+    mesh = cat.to_mesh(Nmesh=32, compensated=True)
+    assert len(mesh.actions) > 0
+
+@MPITest([1, 4])
 def test_paint_interlaced(comm):
 
     # the test case fails only if there is enough particles to trigger
