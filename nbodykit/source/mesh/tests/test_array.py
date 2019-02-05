@@ -13,7 +13,7 @@ def test_paint(comm):
 
     # initialize a random white noise field in real space
     pm = ParticleMesh(Nmesh=(8, 8, 8), BoxSize=(128, 128, 128.), comm=comm)
-    real = pm.generate_whitenoise(mode='real', seed=3333) # a RealField
+    real = pm.generate_whitenoise(type='real', seed=3333) # a RealField
 
     # FFT to a ComplexField
     complex = real.r2c()
