@@ -51,7 +51,7 @@ class ArrayMesh(MeshSource):
 
         MeshSource.__init__(self, comm, Nmesh, BoxSize, empty.real.dtype)
 
-        self.field = self.pm.create(mode='real')
+        self.field = self.pm.create(type='real')
 
         if comm.rank != root:
             array = empty # ignore data from other ranks.
