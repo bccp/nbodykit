@@ -29,7 +29,8 @@ def temporary_data():
             grp = ff.create_group('Y')
             grp.create_dataset('Position', data=dset['Position']) # column as dataset
             grp.create_dataset('Mass', data=dset['Mass']) # column as dataset
-            
+            hdr = ff.create_dataset("Header", shape=(0,), dtype='f4')
+            hdr.attrs['Value'] = 333
         yield (dset, tmpfile)
     except:
         raise
@@ -44,12 +45,14 @@ def test_data(comm):
     with temporary_data() as (data, tmpfile):
 
         # read
-        f = HDFFile(tmpfile)
+        f = HDFFile(tmpfile, header='Header')
 
         # check columns
         cols = ['X/Mass', 'X/Position', 'Y/Mass', 'Y/Position']
         assert(all(col in cols for col in f.columns))
-        
+
+        assert f.attrs['Value'] == 333
+
         # make sure data is the same
         for col in cols:
             field = col.rsplit('/', 1)[-1]
@@ -72,15 +75,15 @@ def test_nonzero_root(comm):
     with temporary_data() as (data, tmpfile):
         
         # read
-        f = HDFFile(tmpfile, root='Y')
+        f = HDFFile(tmpfile, dataset='Y')
         
         # non-zero root
-        f = HDFFile(tmpfile, root='Y')
+        f = HDFFile(tmpfile, dataset='Y')
         assert(all(col in ['Mass', 'Position'] for col in f.columns))
         
         # wrong root
         with pytest.raises(ValueError):
-            f = HDFFile(tmpfile, root='Z')
+            f = HDFFile(tmpfile, dataset='Z')
     
 
 @MPITest([1])
@@ -90,14 +93,14 @@ def test_nonzero_exclude(comm):
     with temporary_data() as (data, tmpfile):
         
         # read
-        f = HDFFile(tmpfile, exclude=['Y'])
+        f = HDFFile(tmpfile, exclude=['Y', 'Header'])
         
         # non-zero exclude
-        f = HDFFile(tmpfile, exclude=['Y'])
+        f = HDFFile(tmpfile, exclude=['Y', 'Header'])
         assert(all(col in ['Mass', 'Position'] for col in f.columns))
         
         # non-zero exclude and root
-        f = HDFFile(tmpfile, exclude=['Mass'], root='Y')
+        f = HDFFile(tmpfile, exclude=['Mass'], dataset='Y')
         assert all(col in ['Position'] for col in f.columns)
         
         # bad exclude

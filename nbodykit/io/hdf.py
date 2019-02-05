@@ -58,7 +58,7 @@ class HDFFile(FileType):
         list of path names to exclude; these can be absolute paths, or paths
         relative to ``root``
     """
-    def __init__(self, path, dataset='/', exclude=[], root=None):
+    def __init__(self, path, dataset='/', exclude=[], header=None, root=None):
 
         if h5py is None:
             raise ImportError("please install h5py to use HDFFile")
@@ -90,6 +90,14 @@ class HDFFile(FileType):
                     else:
                         excluded = os.path.join(self.dataset, excluded)
                 _exclude.append(excluded.lstrip('/'))
+
+            if header is not None:
+                if header not in ff:
+                    raise ValueError("'%s' is not a valid path in HDF file" % header)
+                ds = ff[header]
+                for key in ds.attrs:
+                    self.attrs[key] = ds.attrs[key]
+                _exclude.append(header)
 
             # get the info about possible columns
             sub = ff[self.dataset]
