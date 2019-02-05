@@ -1,4 +1,4 @@
-from nbodykit.base.mesh import MeshSource
+from nbodykit.source.mesh.catalog import CatalogMesh
 from nbodykit import _global_options
 import numpy
 import logging
@@ -8,7 +8,7 @@ import warnings
 from pmesh.pm import RealField
 
 from nbodykit.utils import attrs_to_dict
-class MultipleSpeciesCatalogMesh(MeshSource):
+class MultipleSpeciesCatalogMesh(CatalogMesh):
     """
     A subclass of :class:`~nbodykit.base.catalogmesh.CatalogMesh`
     designed to paint the density field from a sum of multiple types
@@ -51,19 +51,24 @@ class MultipleSpeciesCatalogMesh(MeshSource):
             raise TypeError(("the input source for MultipleSpeciesCatalogMesh "
                              "must be a MultipleSpeciesCatalog"))
 
-        MeshSource.__init__(self, Nmesh=Nmesh, BoxSize=BoxSize, dtype=dtype, comm=source.comm)
-
-        self.source = source
-        self.weight = weight
-        self.position = position
-        self.value = value
-        self.selection = selection
-        self.interlaced = interlaced
-        self.compensated = compensated
-        self.resampler = resampler
-        self.dtype = dtype
+        CatalogMesh.__init__(self,
+                    source=source,
+                    Nmesh=Nmesh, BoxSize=BoxSize, dtype=dtype,
+                    Position=None,
+                    Selection=None,
+                    Weight=None,
+                    Value=None,
+                    resampler=resampler,
+                    compensated=compensated,
+                    interlaced=interlaced,
+                    comm=source.comm)
 
         self.species = source.species
+
+        self.position = position
+        self.selection = selection
+        self.weight = weight
+        self.value = value
 
     def __iter__(self):
         return iter(self.species)
@@ -175,8 +180,3 @@ class MultipleSpeciesCatalogMesh(MeshSource):
             real.attrs['shotnoise'] += (this_weight/total_weight)**2 * this_Pshot
 
         return real
-
-    def _get_compensation(self):
-        from nbodykit.source.mesh.catalog import get_compensation
-        return get_compensation(self.interlaced, self.resampler)
-
