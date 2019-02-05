@@ -47,10 +47,6 @@ def test_bad_input(comm):
     source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42, comm=comm)
     source2 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=84, comm=comm)
 
-    # need 2 species
-    with pytest.raises(ValueError):
-        cat = MultipleSpeciesCatalog(['data'], source1)
-
     # non-unique names
     with pytest.raises(ValueError):
         cat = MultipleSpeciesCatalog(['data', 'data'], source1, source2)
