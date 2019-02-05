@@ -436,5 +436,5 @@ def test_with_zhist(comm):
     # compute the multipoles
     r = ConvolvedFFTPower(fkp.to_mesh(Nmesh=128), poles=[0,2,4], dk=0.005)
 
-    assert_allclose(r.attrs['data.norm'], 0.000388338522187, rtol=1e-5)
-    assert_allclose(r.attrs['randoms.norm'], 0.000395808747269, rtol=1e-5)
+    assert_allclose(r.attrs['data.norm'], 0.000388338522187, rtol=1e-4)
+    assert_allclose(r.attrs['randoms.norm'], 0.000395808747269, rtol=1e-4)
