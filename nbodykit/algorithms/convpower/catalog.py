@@ -128,7 +128,8 @@ class FKPCatalog(MultipleSpeciesCatalog):
         pos, sel = self[species].read([position, selection])
         pos_min, pos_max = get_data_bounds(pos, self.comm, selection=sel)
 
-        self.logger.info("cartesian coordinate range: %s : %s" %(str(pos_min), str(pos_max)))
+        if self.comm.rank == 0:
+            self.logger.info("cartesian coordinate range: %s : %s" %(str(pos_min), str(pos_max)))
 
         if numpy.isinf(pos_min).any() or numpy.isinf(pos_max).any():
             raise ValueError("Range of positions from `%s` is infinite;"
