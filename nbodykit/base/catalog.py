@@ -1244,7 +1244,13 @@ def _sort_data(comm, cat, rankby, reverse=False, usecols=None):
         rankby_name = col
 
         # make an integer key for floating columns
-        if issubclass(dt.type, numpy.floating):
+        # this assumes the lexial order of float as integer is consistant.
+        if issubclass(dt.type, numpy.float32):
+            data['_sortkey'] = numpy.frombuffer(data[col].tobytes(), dtype='i4')
+            if reverse:
+                data['_sortkey'] *= -1
+            rankby_name = '_sortkey'
+        elif issubclass(dt.type, numpy.float64):
             data['_sortkey'] = numpy.frombuffer(data[col].tobytes(), dtype='i8')
             if reverse:
                 data['_sortkey'] *= -1

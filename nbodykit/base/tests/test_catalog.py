@@ -448,3 +448,14 @@ def test_view(comm):
     # make sure attrs are dependent.
     source.attrs['foo'] = 123
     assert 'foo' in view.attrs
+
+@MPITest([4])
+def test_sort(comm):
+    # the CatalogSource
+    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
+
+    source['ranks'] = numpy.float32(source.csize - source.Index)
+    s = source.sort('ranks')
+
+    arr = numpy.concatenate(comm.allgather(s['ranks'].compute()))
+    assert (numpy.diff(arr) > 0).all()
