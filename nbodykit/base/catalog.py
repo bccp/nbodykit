@@ -1075,6 +1075,28 @@ class CatalogSource(CatalogSourceBase):
         toret = self.__class__._from_columns(size, self.comm, **evendata)
         return toret.__finalize__(self)
 
+    def persist(self, columns=None):
+        """
+        Return a CatalogSource, where the selected columns are
+        computed and persist in memory.
+        """
+
+        import dask.array as da
+        if columns is None:
+            columns = self.columns
+
+        r = {}
+        for key in columns:
+            r[key] = self[key]
+
+        r = da.compute(r)[0] # particularity of dask
+
+        from nbodykit.source.catalog.array import ArrayCatalog
+        c = ArrayCatalog(r, comm=self.comm)
+        c.attrs.update(self.attrs)
+
+        return c
+
     def sort(self, keys, reverse=False, usecols=None):
         """
         Return a CatalogSource, sorted globally across all MPI ranks

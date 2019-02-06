@@ -450,6 +450,15 @@ def test_view(comm):
     assert 'foo' in view.attrs
 
 @MPITest([4])
+def test_persist(comm):
+    # the CatalogSource
+    source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
+    source1 = source.persist(columns=['Position'])
+
+    for key in source1.columns:
+        assert_allclose(source[key], source1[key])
+
+@MPITest([4])
 def test_sort(comm):
     # the CatalogSource
     source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
