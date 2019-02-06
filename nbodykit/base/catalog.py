@@ -1075,6 +1075,28 @@ class CatalogSource(CatalogSourceBase):
         toret = self.__class__._from_columns(size, self.comm, **evendata)
         return toret.__finalize__(self)
 
+    def persist(self, columns=None):
+        """
+        Return a CatalogSource, where the selected columns are
+        computed and persist in memory.
+        """
+
+        import dask.array as da
+        if columns is None:
+            columns = self.columns
+
+        r = {}
+        for key in columns:
+            r[key] = self[key]
+
+        r = da.compute(r)[0] # particularity of dask
+
+        from nbodykit.source.catalog.array import ArrayCatalog
+        c = ArrayCatalog(r, comm=self.comm)
+        c.attrs.update(self.attrs)
+
+        return c
+
     def sort(self, keys, reverse=False, usecols=None):
         """
         Return a CatalogSource, sorted globally across all MPI ranks
@@ -1244,7 +1266,13 @@ def _sort_data(comm, cat, rankby, reverse=False, usecols=None):
         rankby_name = col
 
         # make an integer key for floating columns
-        if issubclass(dt.type, numpy.floating):
+        # this assumes the lexial order of float as integer is consistant.
+        if issubclass(dt.type, numpy.float32):
+            data['_sortkey'] = numpy.frombuffer(data[col].tobytes(), dtype='i4')
+            if reverse:
+                data['_sortkey'] *= -1
+            rankby_name = '_sortkey'
+        elif issubclass(dt.type, numpy.float64):
             data['_sortkey'] = numpy.frombuffer(data[col].tobytes(), dtype='i8')
             if reverse:
                 data['_sortkey'] *= -1
