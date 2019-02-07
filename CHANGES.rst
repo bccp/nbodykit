@@ -1,8 +1,20 @@
 Changelog
 =========
 
-0.3.10 (Unreleased)
+0.3.11 (Unreleased)
 ------------------
+
+0.3.10 (2019-02-07)
+------------------
+* :issue:`555,556`: Impove dask interpolation in Catalog.save.
+* :issue:`557`: Use dask's gufunc for sky transforms
+* :issue:`558`: Note the unit of HaloRadius (proper, not comoving. bite me)
+* :issue:`561`: Allow setting the position column in 2PCF.
+* :issue:`563`: RedshiftHistogram extrapolates to zero rather than any number.
+* :issue:`564`: Fix missing compensations with Multi-species meshes.
+* :issue:`565`: add keyward header to HDFCatalog for reading additional meta data
+* :issue:`566`: fix a bug sorting on float32, and add a persist method to Catalog.
+* :issue:`567`: suppress redundant output in convpower.
 
 0.3.9 (2019-01-07)
 ------------------
