@@ -216,3 +216,59 @@ def test_frontpad_array(comm):
 
     for i in range(comm.rank):
         assert_array_equal(data2[(comm.rank - i - 1) * 10:(comm.rank - i)* 10], comm.rank - i - 1)
+
+@MPITest([4])
+def test_distributed_array_topo(comm):
+    from nbodykit.utils import DistributedArray, EmptyRank
+    data = numpy.arange(10)
+    if comm.rank == 1:
+        data = data[:0]
+
+    da = DistributedArray(data, comm)
+
+    prev = da.topology.prev()
+    next = da.topology.next()
+    assert_array_equal(
+        comm.allgather(prev), [EmptyRank, 9, 9, 9])
+    assert_array_equal(
+        comm.allgather(next), [0, 0, 0, EmptyRank])
+
+
+@MPITest([4])
+def test_distributed_array_unique_labels(comm):
+    from nbodykit.utils import DistributedArray, EmptyRank
+
+    data = numpy.array(comm.scatter(
+        [numpy.array([0, 1, 2, 3], 'i4'),
+         numpy.array([3, 4, 5, 6], 'i4'),
+         numpy.array([], 'i4'),
+         numpy.array([6], 'i4'),
+        ]))
+
+    da = DistributedArray(data, comm)
+    da.sort()
+
+    labels = da.unique_labels()
+
+    assert_array_equal(
+        numpy.concatenate(comm.allgather(labels.local)),
+        [0, 1, 2, 3, 3, 4, 5, 6, 6]
+    )
+
+@MPITest([4])
+def test_distributed_array_bincount(comm):
+    from nbodykit.utils import DistributedArray, EmptyRank
+
+    data = numpy.array(comm.scatter(
+        [numpy.array([0, 1, 2, 3], 'i4'),
+         numpy.array([3, 4, 5, 6], 'i4'),
+         numpy.array([], 'i4'),
+         numpy.array([6], 'i4'),
+        ]))
+
+    da = DistributedArray(data, comm)
+
+    N = da.bincount()
+    assert_array_equal( numpy.concatenate(comm.allgather(N.local)),
+        [1, 1, 1, 2, 2, 1, 1, 2, 2])
+

@@ -547,9 +547,15 @@ class DistributedArray(object):
 
     """
     def __init__(self, local, comm):
-        self.local = local
+        local = numpy.array(local)
+        dtypes = comm.allgather(local.dtype if len(local) else None)
+        dtypes = set([dtype for dtype in dtypes if dtype is not None])
+        if len(dtypes) > 1:
+            raise TypeError("Type of local array is inconsistent between ranks; got %s" % dtypes)
+
         self.comm = comm
         self.topology = LinearTopology(local, comm)
+        self.local = local
 
     def sort(self, orderby=None):
         """
@@ -569,7 +575,7 @@ class DistributedArray(object):
 
         .. warning ::
 
-            local data must be sorted, and of simple type. (numpy.unique)
+            local data must be globally sorted, and of simple type. (numpy.unique)
 
         Returns
         -------
@@ -602,16 +608,18 @@ class DistributedArray(object):
         label += numpy.sum(self.comm.allgather(Nunique)[:self.comm.rank], dtype='intp')
         return DistributedArray(label, self.comm)
 
-    def bincount(self, local=False):
+    def bincount(self, weights=None, local=False):
         """
         Assign count numbers from sorted local data.
 
         .. warning ::
 
-            local data must be sorted, and of integer type. (numpy.bincount)
+            local data must be globally sorted, and of integer type. (numpy.bincount)
 
         Parameters
         ----------
+        weights: array-like
+            if given, count the weight instead of the number of objects.
         local : boolean
             if local is True, only count the local array.
 
@@ -625,6 +633,7 @@ class DistributedArray(object):
         --------
         if the local array is [ (0, 0), (0, 1)],
         Then the counts array is [ (3, ), (3, 1)]
+
         """
         prev = self.topology.prev()
         if prev is not EmptyRank:
@@ -635,8 +644,9 @@ class DistributedArray(object):
         else:
             offset = 0
 
-        N = numpy.bincount(self.local - offset)
-
+        print(self.comm.rank, weights, self.local, offset, self.local - offset)
+        N = numpy.bincount(self.local - offset, weights)
+        print(self.comm.rank, N)
         if local:
             return N
 
@@ -656,9 +666,15 @@ class DistributedArray(object):
 
         return DistributedArray(N, self.comm)
 
+def _get_empty_rank():
+    return EmptyRank
+
 class EmptyRankType(object):
     def __repr__(self):
         return "EmptyRank"
+    def __reduce__(self):
+        return (_get_empty_rank, ())
+
 EmptyRank = EmptyRankType()
 
 class LinearTopology(object):
@@ -715,16 +731,11 @@ class LinearTopology(object):
 
         """
 
-        tails = [EmptyRank]
-        oldtail = EmptyRank
-        for tail in self.tails():
-            if tail is EmptyRank:
-                tails.append(oldtail)
-            else:
-                tails.append(tail)
-                oldtail = tail
-        prev = tails[self.comm.rank]
-        return prev
+        tails = self.tails()
+        for prev in reversed(tails[:self.comm.rank]):
+            if prev is not EmptyRank:
+                return prev
+        return EmptyRank
 
     def next(self):
         """
@@ -742,15 +753,8 @@ class LinearTopology(object):
             Item after local data, or EmptyRank if all ranks after this rank is empty.
 
         """
-        heads = []
-        oldhead = EmptyRank
-        for head in self.heads():
-            if head is EmptyRank:
-                heads.append(oldhead)
-            else:
-                heads.append(head)
-                oldhead = head
-        heads.append(EmptyRank)
-
-        next = heads[self.comm.rank + 1]
-        return next
+        heads = self.heads()
+        for next in heads[self.comm.rank + 1:]:
+            if next is not EmptyRank:
+                return next
+        return EmptyRank
