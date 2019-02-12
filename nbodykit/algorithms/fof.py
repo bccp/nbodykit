@@ -265,8 +265,12 @@ def _assign_labels(minid, comm, thresh):
 
     # sort the labels by halo size
     arg = Nlocal[1:].argsort()[::-1] + 1
-    P = numpy.arange(Nhalo0, dtype='i4')
-    P[arg] = numpy.arange(len(arg), dtype='i4') + 1
+    if Nhalo0 > 2**31:
+        dtype = 'i8'
+    else:
+        dtype = 'i4'
+    P = numpy.arange(Nhalo0, dtype=dtype)
+    P[arg] = numpy.arange(len(arg), dtype=dtype) + 1
     label = P[label]
 
     return label
