@@ -272,3 +272,12 @@ def test_distributed_array_bincount(comm):
     assert_array_equal( numpy.concatenate(comm.allgather(N.local)),
         [1, 1, 1, 2, 2, 1, 1, 2, 2])
 
+    weights = numpy.ones_like(data)
+    N = da.bincount(weights)
+    assert_array_equal( numpy.concatenate(comm.allgather(N.local)),
+        [1, 1, 1, 2, 2, 1, 1, 2, 2])
+
+    N = da.bincount(weights, shared_edges=False)
+    assert_array_equal( numpy.concatenate(comm.allgather(N.local)),
+        [1, 1, 1, 2,  1, 1, 2])
+

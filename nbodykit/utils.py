@@ -608,7 +608,7 @@ class DistributedArray(object):
         label += numpy.sum(self.comm.allgather(Nunique)[:self.comm.rank], dtype='intp')
         return DistributedArray(label, self.comm)
 
-    def bincount(self, weights=None, local=False):
+    def bincount(self, weights=None, local=False, shared_edges=True):
         """
         Assign count numbers from sorted local data.
 
@@ -622,6 +622,9 @@ class DistributedArray(object):
             if given, count the weight instead of the number of objects.
         local : boolean
             if local is True, only count the local array.
+        shared_edges : boolean
+            if True, keep the counts at edges that are shared between ranks on both ranks.
+            if False, keep the counts at shared edges to the rank on the left.
 
         Returns
         -------
@@ -644,9 +647,8 @@ class DistributedArray(object):
         else:
             offset = 0
 
-        print(self.comm.rank, weights, self.local, offset, self.local - offset)
         N = numpy.bincount(self.local - offset, weights)
-        print(self.comm.rank, N)
+
         if local:
             return N
 
@@ -660,6 +662,9 @@ class DistributedArray(object):
             for i in reversed(range(self.comm.rank)):
                 if tails[i] == self.local[0]:
                     N[0] += tailsN[i]
+                    if not shared_edges:
+                        # remove the edge as it is already on the left rank.
+                        N = N[1:]
             for i in range(self.comm.rank + 1, self.comm.size):
                 if heads[i] == self.local[-1]:
                     N[-1] += headsN[i]
