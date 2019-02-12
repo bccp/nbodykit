@@ -547,13 +547,14 @@ class DistributedArray(object):
 
     """
     def __init__(self, local, comm):
-        local = numpy.array(local)
-        dtypes = comm.allgather(local.dtype if len(local) else None)
+        # guess the dtype
+        dtypes = comm.allgather(numpy.array(local, copy=False).dtype if len(local) else None)
         dtypes = set([dtype for dtype in dtypes if dtype is not None])
         if len(dtypes) > 1:
             raise TypeError("Type of local array is inconsistent between ranks; got %s" % dtypes)
 
         self.comm = comm
+        # directly use the original local array.
         self.topology = LinearTopology(local, comm)
         self.local = local
 
