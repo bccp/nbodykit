@@ -659,15 +659,20 @@ class DistributedArray(object):
         headsN, tailsN = distN.topology.heads(), distN.topology.tails()
 
         if len(N) > 0:
+            anyshared = False
             for i in reversed(range(self.comm.rank)):
                 if tails[i] == self.local[0]:
                     N[0] += tailsN[i]
-                    if not shared_edges:
-                        # remove the edge as it is already on the left rank.
-                        N = N[1:]
+                    anyshared = True
+
             for i in range(self.comm.rank + 1, self.comm.size):
                 if heads[i] == self.local[-1]:
                     N[-1] += headsN[i]
+
+            if not shared_edges:
+                # remove the edge from me, as it s already on the left rank.
+                if anyshared:
+                    N = N[1:]
 
         return DistributedArray(N, self.comm)
 
