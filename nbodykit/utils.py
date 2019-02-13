@@ -535,7 +535,7 @@ class DistributedArray(object):
     """
     Distributed Array Object
 
-    A distributed array is striped along ranks
+    A distributed array is striped along ranks, along first dimension
 
     Attributes
     ----------
@@ -549,14 +549,60 @@ class DistributedArray(object):
     def __init__(self, local, comm):
         # guess the dtype
         dtypes = comm.allgather(numpy.array(local, copy=False).dtype if len(local) else None)
+        shapes = comm.allgather(numpy.array(local, copy=False).shape)
         dtypes = set([dtype for dtype in dtypes if dtype is not None])
+        shapes = set(shape[1:] for shape in shapes)
+
         if len(dtypes) > 1:
             raise TypeError("Type of local array is inconsistent between ranks; got %s" % dtypes)
 
+        if len(shapes) > 1:
+            raise TypeError("Shape of local array is inconsistent between ranks; got %s" % shapes)
+
         self.comm = comm
-        # directly use the original local array.
         self.topology = LinearTopology(local, comm)
+        self.dtype = next(iter(dtypes))
+
+        # directly use the original local array.
         self.local = local
+        clen = comm.allreduce(len(local))
+        self.cshape = tuple([clen] + list(next(iter(shapes))))
+        self.coffset = sum(comm.allgather(len(local))[:comm.rank])
+
+    @classmethod
+    def concat(kls, *args, localsize=None):
+        """
+        Append several distributed arrays into one.
+
+        Parameters
+        ----------
+        localsize : None
+
+        """
+
+        comm = args[0].comm
+
+        localsize_in = sum([len(arg.local) for arg in args])
+
+        if localsize is None:
+            localsize = sum([len(arg.local) for arg in args])
+
+        eldtype = numpy.result_type(*[arg.local for arg in args])
+
+        dtype = [('index', 'intp'), ('el', eldtype)]
+
+        inp = numpy.empty(localsize_in, dtype=dtype)
+        out = numpy.empty(localsize, dtype=dtype)
+
+        go = 0
+        o = 0
+        for arg in args:
+            inp['index'][o:o + len(arg.local)] = go + arg.coffset + numpy.arange(len(arg.local), dtype='intp')
+            inp['el'][o:o + len(arg.local)]    = arg.local
+            o = o + len(arg.local)
+            go = go + arg.cshape[0]
+        mpsort.sort(inp, orderby='index', out=out, comm=comm)
+        return DistributedArray(out['el'].copy(), comm=comm)
 
     def sort(self, orderby=None):
         """

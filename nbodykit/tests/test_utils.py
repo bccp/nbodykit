@@ -256,6 +256,31 @@ def test_distributed_array_unique_labels(comm):
     )
 
 @MPITest([4])
+def test_distributed_array_concat(comm):
+    from nbodykit.utils import DistributedArray, EmptyRank
+
+    data = numpy.array(comm.scatter(
+        [numpy.array([0, 1, ], 'i4'),
+         numpy.array([2, 3, ], 'i4'),
+         numpy.array([], 'i4'),
+         numpy.array([4, ], 'i4'),
+        ]))
+
+    da = DistributedArray(data, comm)
+    assert da.cshape[0] == 5
+    assert_array_equal(
+        comm.allgather(da.coffset),
+        [ 0, 2, 4, 4]
+    )
+
+    cc = DistributedArray.concat(da, da)
+
+    assert_array_equal(
+        numpy.concatenate(comm.allgather(cc.local)),
+        [0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
+    )
+    
+@MPITest([4])
 def test_distributed_array_bincount(comm):
     from nbodykit.utils import DistributedArray, EmptyRank
 
