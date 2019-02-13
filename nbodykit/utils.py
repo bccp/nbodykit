@@ -570,7 +570,7 @@ class DistributedArray(object):
         self.coffset = sum(comm.allgather(len(local))[:comm.rank])
 
     @classmethod
-    def concat(kls, *args, localsize=None):
+    def concat(kls, *args, **kwargs):
         """
         Append several distributed arrays into one.
 
@@ -579,6 +579,8 @@ class DistributedArray(object):
         localsize : None
 
         """
+
+        localsize = kwargs.pop('localsize', None)
 
         comm = args[0].comm
 
