@@ -546,28 +546,59 @@ class DistributedArray(object):
         the local data
 
     """
-    def __init__(self, local, comm):
+
+    @staticmethod
+    def _find_dtype(dtype, comm):
         # guess the dtype
-        dtypes = comm.allgather(numpy.array(local, copy=False).dtype if len(local) else None)
-        shapes = comm.allgather(numpy.array(local, copy=False).shape)
+        dtypes = comm.allgather(dtype)
         dtypes = set([dtype for dtype in dtypes if dtype is not None])
-        shapes = set(shape[1:] for shape in shapes)
 
         if len(dtypes) > 1:
             raise TypeError("Type of local array is inconsistent between ranks; got %s" % dtypes)
+        return next(iter(dtypes))
+
+    @staticmethod
+    def _find_cshape(shape, comm):
+        # guess the dtype
+        shapes = comm.allgather(shape)
+
+        shapes = set(shape[1:] for shape in shapes)
 
         if len(shapes) > 1:
             raise TypeError("Shape of local array is inconsistent between ranks; got %s" % shapes)
 
+        clen = comm.allreduce(shape[0])
+        cshape = tuple([clen] + list(shape[1:]))
+        return cshape
+
+    def __init__(self, local, comm):
         self.comm = comm
-        self.topology = LinearTopology(local, comm)
-        self.dtype = next(iter(dtypes))
+
+        shape = numpy.array(local, copy=False).shape
+        dtype = numpy.array(local, copy=False).dtype if len(local) else None
+
+        self.dtype = DistributedArray._find_dtype(dtype, comm)
+        self.cshape = DistributedArray._find_cshape(shape, comm)
 
         # directly use the original local array.
         self.local = local
-        clen = comm.allreduce(len(local))
-        self.cshape = tuple([clen] + list(next(iter(shapes))))
-        self.coffset = sum(comm.allgather(len(local))[:comm.rank])
+        self.topology = LinearTopology(local, comm)
+
+        self.coffset = sum(comm.allgather(shape[0])[:comm.rank])
+
+    @classmethod
+    def cempty(kls, cshape, dtype, comm):
+        """ Create an empty array collectively """
+        dtype = DistributedArray._find_dtype(dtype, comm)
+        cshape = tuple(cshape)
+        llen = cshape[0] * (comm.rank + 1) // comm.size - cshape[0] * (comm.rank) // comm.size
+        shape = tuple([llen] + list(cshape[1:]))
+        cshape1 = DistributedArray._find_cshape(shape, comm)
+        if cshape != cshape1:
+            raise ValueError("input cshape is inconsistent %s %s" % (cshape, cshape1))
+
+        local = numpy.empty(shape, dtype=dtype)
+        return DistributedArray(local, comm=comm)
 
     @classmethod
     def concat(kls, *args, **kwargs):

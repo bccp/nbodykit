@@ -256,6 +256,16 @@ def test_distributed_array_unique_labels(comm):
     )
 
 @MPITest([4])
+def test_distributed_array_cempty(comm):
+    from nbodykit.utils import DistributedArray, EmptyRank
+
+    da = DistributedArray.cempty((20, 3), dtype=('f4', 3), comm=comm)
+
+    assert_array_equal(comm.allgather(da.cshape), [(20, 3, 3)] * comm.size)
+
+    assert_array_equal(da.local.shape, [5, 3, 3])
+
+@MPITest([4])
 def test_distributed_array_concat(comm):
     from nbodykit.utils import DistributedArray, EmptyRank
 
