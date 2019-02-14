@@ -529,3 +529,322 @@ def captured_output(comm, root=0):
         finally:
             sys.stdout = old_stdout
             sys.stderr = old_stderr
+
+import mpsort
+class DistributedArray(object):
+    """
+    Distributed Array Object
+
+    A distributed array is striped along ranks, along first dimension
+
+    Attributes
+    ----------
+    comm : :py:class:`mpi4py.MPI.Comm`
+        the communicator
+
+    local : array_like
+        the local data
+
+    """
+
+    @staticmethod
+    def _find_dtype(dtype, comm):
+        # guess the dtype
+        dtypes = comm.allgather(dtype)
+        dtypes = set([dtype for dtype in dtypes if dtype is not None])
+
+        if len(dtypes) > 1:
+            raise TypeError("Type of local array is inconsistent between ranks; got %s" % dtypes)
+        return next(iter(dtypes))
+
+    @staticmethod
+    def _find_cshape(shape, comm):
+        # guess the dtype
+        shapes = comm.allgather(shape)
+
+        shapes = set(shape[1:] for shape in shapes)
+
+        if len(shapes) > 1:
+            raise TypeError("Shape of local array is inconsistent between ranks; got %s" % shapes)
+
+        clen = comm.allreduce(shape[0])
+        cshape = tuple([clen] + list(shape[1:]))
+        return cshape
+
+    def __init__(self, local, comm):
+        self.comm = comm
+
+        shape = numpy.array(local, copy=False).shape
+        dtype = numpy.array(local, copy=False).dtype if len(local) else None
+
+        self.dtype = DistributedArray._find_dtype(dtype, comm)
+        self.cshape = DistributedArray._find_cshape(shape, comm)
+
+        # directly use the original local array.
+        self.local = local
+        self.topology = LinearTopology(local, comm)
+
+        self.coffset = sum(comm.allgather(shape[0])[:comm.rank])
+
+    @classmethod
+    def cempty(kls, cshape, dtype, comm):
+        """ Create an empty array collectively """
+        dtype = DistributedArray._find_dtype(dtype, comm)
+        cshape = tuple(cshape)
+        llen = cshape[0] * (comm.rank + 1) // comm.size - cshape[0] * (comm.rank) // comm.size
+        shape = tuple([llen] + list(cshape[1:]))
+        cshape1 = DistributedArray._find_cshape(shape, comm)
+        if cshape != cshape1:
+            raise ValueError("input cshape is inconsistent %s %s" % (cshape, cshape1))
+
+        local = numpy.empty(shape, dtype=dtype)
+        return DistributedArray(local, comm=comm)
+
+    @classmethod
+    def concat(kls, *args, **kwargs):
+        """
+        Append several distributed arrays into one.
+
+        Parameters
+        ----------
+        localsize : None
+
+        """
+
+        localsize = kwargs.pop('localsize', None)
+
+        comm = args[0].comm
+
+        localsize_in = sum([len(arg.local) for arg in args])
+
+        if localsize is None:
+            localsize = sum([len(arg.local) for arg in args])
+
+        eldtype = numpy.result_type(*[arg.local for arg in args])
+
+        dtype = [('index', 'intp'), ('el', eldtype)]
+
+        inp = numpy.empty(localsize_in, dtype=dtype)
+        out = numpy.empty(localsize, dtype=dtype)
+
+        go = 0
+        o = 0
+        for arg in args:
+            inp['index'][o:o + len(arg.local)] = go + arg.coffset + numpy.arange(len(arg.local), dtype='intp')
+            inp['el'][o:o + len(arg.local)]    = arg.local
+            o = o + len(arg.local)
+            go = go + arg.cshape[0]
+        mpsort.sort(inp, orderby='index', out=out, comm=comm)
+        return DistributedArray(out['el'].copy(), comm=comm)
+
+    def sort(self, orderby=None):
+        """
+        Sort array globally by key orderby.
+
+        Due to a limitation of mpsort, self[orderby] must be u8.
+
+        """
+        mpsort.sort(self.local, orderby, comm=self.comm)
+
+    def __getitem__(self, key):
+        return DistributedArray(self.local[key], self.comm)
+
+    def unique_labels(self):
+        """
+        Assign unique labels to sorted local.
+
+        .. warning ::
+
+            local data must be globally sorted, and of simple type. (numpy.unique)
+
+        Returns
+        -------
+        label   :  :py:class:`DistributedArray`
+            the new labels, starting from 0
+
+        """
+        prev, next = self.topology.prev(), self.topology.next()
+
+        junk, label = numpy.unique(self.local, return_inverse=True)
+
+        if len(label) == 0:
+            # work around numpy bug (<=1.13.3) when label is empty it
+            # spits out booleans?? booleans!!
+            # this causes issues when type cast rules in numpy
+            # are tighten up.
+            label = numpy.int64(label)
+
+        if len(self.local) == 0:
+            Nunique = 0
+        else:
+            # watch out: this is to make sure after shifting first
+            # labels on the next rank is the same as my last label
+            # when there is a spill-over.
+            if next == self.local[-1]:
+                Nunique = len(junk) - 1
+            else:
+                Nunique = len(junk)
+
+        label += numpy.sum(self.comm.allgather(Nunique)[:self.comm.rank], dtype='intp')
+        return DistributedArray(label, self.comm)
+
+    def bincount(self, weights=None, local=False, shared_edges=True):
+        """
+        Assign count numbers from sorted local data.
+
+        .. warning ::
+
+            local data must be globally sorted, and of integer type. (numpy.bincount)
+
+        Parameters
+        ----------
+        weights: array-like
+            if given, count the weight instead of the number of objects.
+        local : boolean
+            if local is True, only count the local array.
+        shared_edges : boolean
+            if True, keep the counts at edges that are shared between ranks on both ranks.
+            if False, keep the counts at shared edges to the rank on the left.
+
+        Returns
+        -------
+        N :  :py:class:`DistributedArray`
+            distributed counts array. If items of the same value spans other
+            chunks of array, they are added to N as well.
+
+        Examples
+        --------
+        if the local array is [ (0, 0), (0, 1)],
+        Then the counts array is [ (3, ), (3, 1)]
+
+        """
+        prev = self.topology.prev()
+        if prev is not EmptyRank:
+            offset = prev
+            if len(self.local) > 0:
+                if prev != self.local[0]:
+                    offset = self.local[0]
+        else:
+            offset = 0
+
+        N = numpy.bincount(self.local - offset, weights)
+
+        if local:
+            return N
+
+        heads = self.topology.heads()
+        tails = self.topology.tails()
+
+        distN = DistributedArray(N, self.comm)
+        headsN, tailsN = distN.topology.heads(), distN.topology.tails()
+
+        if len(N) > 0:
+            anyshared = False
+            for i in reversed(range(self.comm.rank)):
+                if tails[i] == self.local[0]:
+                    N[0] += tailsN[i]
+                    anyshared = True
+
+            for i in range(self.comm.rank + 1, self.comm.size):
+                if heads[i] == self.local[-1]:
+                    N[-1] += headsN[i]
+
+            if not shared_edges:
+                # remove the edge from me, as it s already on the left rank.
+                if anyshared:
+                    N = N[1:]
+
+        return DistributedArray(N, self.comm)
+
+def _get_empty_rank():
+    return EmptyRank
+
+class EmptyRankType(object):
+    def __repr__(self):
+        return "EmptyRank"
+    def __reduce__(self):
+        return (_get_empty_rank, ())
+
+EmptyRank = EmptyRankType()
+
+class LinearTopology(object):
+    """ Helper object for the topology of a distributed array
+    """
+    def __init__(self, local, comm):
+        self.local = local
+        self.comm = comm
+
+    def heads(self):
+        """
+        The first items on each rank.
+
+        Returns
+        -------
+        heads : list
+            a list of first items, EmptyRank is used for empty ranks
+        """
+
+        head = EmptyRank
+        if len(self.local) > 0:
+            head = self.local[0]
+
+        return self.comm.allgather(head)
+
+    def tails(self):
+        """
+        The last items on each rank.
+
+        Returns
+        -------
+        tails: list
+            a list of last items, EmptyRank is used for empty ranks
+        """
+        tail = EmptyRank
+        if len(self.local) > 0:
+            tail = self.local[-1]
+
+        return self.comm.allgather(tail)
+
+    def prev(self):
+        """
+        The item before the local data.
+
+        This method fetches the last item before the local data.
+        If the rank before is empty, the rank before is used.
+
+        If no item is before this rank, EmptyRank is returned
+
+        Returns
+        -------
+        prev : scalar
+            Item before local data, or EmptyRank if all ranks before this rank is empty.
+
+        """
+
+        tails = self.tails()
+        for prev in reversed(tails[:self.comm.rank]):
+            if prev is not EmptyRank:
+                return prev
+        return EmptyRank
+
+    def next(self):
+        """
+        The item after the local data.
+
+        This method the first item after the local data.
+        If the rank after current rank is empty,
+        item after that rank is used.
+
+        If no item is after local data, EmptyRank is returned.
+
+        Returns
+        -------
+        next : scalar
+            Item after local data, or EmptyRank if all ranks after this rank is empty.
+
+        """
+        heads = self.heads()
+        for next in heads[self.comm.rank + 1:]:
+            if next is not EmptyRank:
+                return next
+        return EmptyRank

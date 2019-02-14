@@ -216,3 +216,103 @@ def test_frontpad_array(comm):
 
     for i in range(comm.rank):
         assert_array_equal(data2[(comm.rank - i - 1) * 10:(comm.rank - i)* 10], comm.rank - i - 1)
+
+@MPITest([4])
+def test_distributed_array_topo(comm):
+    from nbodykit.utils import DistributedArray, EmptyRank
+    data = numpy.arange(10)
+    if comm.rank == 1:
+        data = data[:0]
+
+    da = DistributedArray(data, comm)
+
+    prev = da.topology.prev()
+    next = da.topology.next()
+    assert_array_equal(
+        comm.allgather(prev), [EmptyRank, 9, 9, 9])
+    assert_array_equal(
+        comm.allgather(next), [0, 0, 0, EmptyRank])
+
+
+@MPITest([4])
+def test_distributed_array_unique_labels(comm):
+    from nbodykit.utils import DistributedArray, EmptyRank
+
+    data = numpy.array(comm.scatter(
+        [numpy.array([0, 1, 2, 3], 'i4'),
+         numpy.array([3, 4, 5, 6], 'i4'),
+         numpy.array([], 'i4'),
+         numpy.array([6], 'i4'),
+        ]))
+
+    da = DistributedArray(data, comm)
+    da.sort()
+
+    labels = da.unique_labels()
+
+    assert_array_equal(
+        numpy.concatenate(comm.allgather(labels.local)),
+        [0, 1, 2, 3, 3, 4, 5, 6, 6]
+    )
+
+@MPITest([4])
+def test_distributed_array_cempty(comm):
+    from nbodykit.utils import DistributedArray, EmptyRank
+
+    da = DistributedArray.cempty((20, 3), dtype=('f4', 3), comm=comm)
+
+    assert_array_equal(comm.allgather(da.cshape), [(20, 3, 3)] * comm.size)
+
+    assert_array_equal(da.local.shape, [5, 3, 3])
+
+@MPITest([4])
+def test_distributed_array_concat(comm):
+    from nbodykit.utils import DistributedArray, EmptyRank
+
+    data = numpy.array(comm.scatter(
+        [numpy.array([0, 1, ], 'i4'),
+         numpy.array([2, 3, ], 'i4'),
+         numpy.array([], 'i4'),
+         numpy.array([4, ], 'i4'),
+        ]))
+
+    da = DistributedArray(data, comm)
+    assert da.cshape[0] == 5
+    assert_array_equal(
+        comm.allgather(da.coffset),
+        [ 0, 2, 4, 4]
+    )
+
+    cc = DistributedArray.concat(da, da)
+
+    assert_array_equal(
+        numpy.concatenate(comm.allgather(cc.local)),
+        [0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
+    )
+    
+@MPITest([4])
+def test_distributed_array_bincount(comm):
+    from nbodykit.utils import DistributedArray, EmptyRank
+
+    data = numpy.array(comm.scatter(
+        [numpy.array([0, 1, 2, 3], 'i4'),
+         numpy.array([3, 3, 3, 3], 'i4'),
+         numpy.array([], 'i4'),
+         numpy.array([3], 'i4'),
+        ]))
+
+    da = DistributedArray(data, comm)
+
+    N = da.bincount()
+    assert_array_equal( numpy.concatenate(comm.allgather(N.local)),
+        [1, 1, 1, 6, 6, 6])
+
+    weights = numpy.ones_like(data)
+    N = da.bincount(weights)
+    assert_array_equal( numpy.concatenate(comm.allgather(N.local)),
+        [1, 1, 1, 6, 6, 6])
+
+    N = da.bincount(weights, shared_edges=False)
+    assert_array_equal( numpy.concatenate(comm.allgather(N.local)),
+        [1, 1, 1, 6])
+
