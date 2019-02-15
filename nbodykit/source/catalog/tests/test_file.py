@@ -26,7 +26,7 @@ def test_hdf(comm):
 
     cosmo = cosmology.Planck15
 
-    source = HDFCatalog(tmpfile, root='X', attrs={"Nmesh":32}, comm=comm)
+    source = HDFCatalog(tmpfile, dataset='X', attrs={"Nmesh":32}, comm=comm)
     assert_allclose(source['Position'], dset['Position'])
 
     region = source.query_range(32, 64)
