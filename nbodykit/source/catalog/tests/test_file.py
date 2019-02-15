@@ -29,7 +29,47 @@ def test_hdf(comm):
     source = HDFCatalog(tmpfile, root='X', attrs={"Nmesh":32}, comm=comm)
     assert_allclose(source['Position'], dset['Position'])
 
+    region = source.query_range(32, 64)
+    assert_allclose(region['Position'], dset['Position'][32:64])
+
     os.unlink(tmpfile)
+
+@MPITest([1, 4])
+def test_query_range(comm):
+
+    import h5py
+
+    # fake structured array
+    dset = numpy.empty(1024, dtype=[('Position', ('f8', 3)), ('Mass', 'f8'), ('Index', 'i8')])
+    dset['Index'] = numpy.arange(1024)
+    dset['Position'] = numpy.random.random(size=(1024, 3))
+    dset['Mass'] = numpy.random.random(size=1024)
+
+    if comm.rank == 0:
+        tmpfile = tempfile.mkstemp()[1]
+
+        with h5py.File(tmpfile , 'w') as ff:
+            ds = ff.create_dataset('X', data=dset) # store structured array as dataset
+            ds.attrs['BoxSize'] = 1.0
+
+        tmpfile = comm.bcast(tmpfile)
+    else:
+        tmpfile = comm.bcast(None)
+
+    cosmo = cosmology.Planck15
+
+    source = HDFCatalog(tmpfile, dataset='X', attrs={"Nmesh":32}, comm=comm)
+
+    correct_region = source.gslice(32, 64)
+    region = source.query_range(32, 64)
+
+    assert_allclose(
+        numpy.concatenate(comm.allgather(region['Index'].compute())), 
+        numpy.arange(32, 64)
+    )
+
+    if comm.rank == 0:
+        os.unlink(tmpfile)
 
 @MPITest([1])
 def test_csv(comm):
