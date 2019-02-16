@@ -47,10 +47,16 @@ class FileCatalogBase(CatalogSource):
             self._source = None
         self._source = self.comm.bcast(self._source)
 
-        # compute the size
-        start = self.comm.rank * self._source.size // self.comm.size
-        end = (self.comm.rank  + 1) * self._source.size // self.comm.size
-        self._size = end - start
+        # compute the size; start with full file.
+        lstart = self.comm.rank * self._source.size // self.comm.size
+        lend = (self.comm.rank  + 1) * self._source.size // self.comm.size
+        self._size = lend - lstart
+
+        self.start = 0
+        self.end = self._source.size
+
+        self._lstart = lstart # offset in the file for this rank
+        self._lend = lend     # offset in the file for this rank
 
         # update the meta-data
         self.attrs.update(self._source.attrs)
@@ -59,6 +65,39 @@ class FileCatalogBase(CatalogSource):
             self.logger.info("Extra arguments to FileType: %s %s" % (str(args), str(kwargs)))
 
         CatalogSource.__init__(self, comm=comm)
+
+    def query_range(self, start, end):
+        """
+            Seek to a range in the file catalog.
+
+            Parameters
+            ----------
+            start : int
+                start of the file relative to the physical file
+
+            end : int
+                end of the file relative to the physical file
+
+            Returns
+            -------
+            A new catalog that only accesses the given region of the file.
+
+            If the original catalog (self) contains any assigned columns not directly
+            obtained from the file, then the function will raise ValueError, since
+            the operation in that case is not well defined.
+
+        """
+        if len(CatalogSource.hardcolumns.fget(self)) > 0:
+            raise ValueError("cannot seek if columns have been attached to the FileCatalog")
+
+        other = self.copy()
+        other._lstart = self.start + start +  self.comm.rank * (end - start) // self.comm.size
+        other._lend = self.start + start + (self.comm.rank + 1) * (end - start) // self.comm.size
+        other._size = other._lend - other._lstart
+        other.start = start
+        other.end = end
+        CatalogSource.__init__(other, comm=self.comm)
+        return other
 
     def __repr__(self):
         path = self._source.path
@@ -82,9 +121,7 @@ class FileCatalogBase(CatalogSource):
         Columns are returned as dask arrays.
         """
         if col in self._source.dtype.names:
-            start = self.comm.rank * self._source.size // self.comm.size
-            end = (self.comm.rank  + 1) * self._source.size // self.comm.size
-            return self._source.get_dask(col)[start:end]
+            return self._source.get_dask(col)[self._lstart:self._lend]
         else:
             return CatalogSource.get_hardcolumn(self, col)
 
