@@ -349,8 +349,8 @@ class ConvolvedFFTPower(object):
     def __setstate_pre000305__(self, state):
         """ compatible version of setstate for files generated before 0.3.5 """
         edges = state['edges']
-        sefl.attrs = state['attrs']
-        self.poles = BinnedStatistic(['k'], [edges], self.poles, fields_to_sum=['modes'])
+        self.attrs = state['attrs']
+        self.poles = BinnedStatistic(['k'], [edges], state['poles'], fields_to_sum=['modes'])
 
     def save(self, output):
         """
