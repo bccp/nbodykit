@@ -71,12 +71,19 @@ class Gadget1File(BinaryFile):
         if ptype not in [0, 1, 2, 3, 4, 5]:
             raise ValueError("ptype shall be 0 ~ 5.")
 
+        # if the file has 
+        self.has_columnnames = numpy.fromfile(path, dtype='i4', count=1)[0]['header'] == 8
+
         hdtype = numpy.dtype(hdtype)
         hdtype_padded = numpy.dtype([
                                      ('f77', 'i4'),
                                      ('header', hdtype),
                                      ('padding', ('u1', 256 - hdtype.itemsize))])
-        header = numpy.fromfile(path, dtype=hdtype_padded, count=1)[0]['header']
+
+        with open(path, 'rb') as ff:
+            if ff.has_columnnames:
+                ff.seek(4 + 4 + 4)
+            header = numpy.fromfile(ff, dtype=hdtype_padded, count=1)[0]['header']
 
         attrs = {}
 
@@ -92,9 +99,11 @@ class Gadget1File(BinaryFile):
         dtype = []
         defs = []
 
-        with open(path, 'r') as ff:
+        with open(path, 'rb') as ff:
             offsets = {}
             ptr = 256 + 4 + 4
+            if ff.has_columnnames:
+                ptr = ptr + 4 + 4 + 4
             for column, spec, ptypes in columndefs:
                 if not isinstance(spec, tuple):
                     spec = spec, ()
@@ -115,6 +124,8 @@ class Gadget1File(BinaryFile):
                     N += int(header['Npart'][i])
 
                 if N != 0: # block exists
+                    if ff.has_columnnames:
+                        ptr = ptr + 4 + 4 + 4
                     ff.seek(ptr, 0)
                     a = numpy.fromfile(ff, dtype='i4', count=1)[0]
                     ptr += 4
