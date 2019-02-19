@@ -124,7 +124,7 @@ class Gadget1File(BinaryFile):
                     N += int(header['Npart'][i])
 
                 if N != 0: # block exists
-                    if ff.has_columnnames:
+                    if self.has_columnnames:
                         ptr = ptr + 4 + 4 + 4
                     ff.seek(ptr, 0)
                     a = numpy.fromfile(ff, dtype='i4', count=1)[0]
