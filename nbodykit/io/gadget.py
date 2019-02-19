@@ -71,8 +71,8 @@ class Gadget1File(BinaryFile):
         if ptype not in [0, 1, 2, 3, 4, 5]:
             raise ValueError("ptype shall be 0 ~ 5.")
 
-        # if the file has 
-        self.has_columnnames = numpy.fromfile(path, dtype='i4', count=1)[0]['header'] == 8
+        # if the file has block names before blocks
+        self.has_columnnames = numpy.fromfile(path, dtype='i4', count=1)[0] == 8
 
         hdtype = numpy.dtype(hdtype)
         hdtype_padded = numpy.dtype([
