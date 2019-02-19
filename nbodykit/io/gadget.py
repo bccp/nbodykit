@@ -82,7 +82,7 @@ class Gadget1File(BinaryFile):
 
         with open(path, 'rb') as ff:
             if self.has_columnnames:
-                ff.seek(4 + 4 + 4)
+                ff.seek(4 + 8 + 4)
             header = numpy.fromfile(ff, dtype=hdtype_padded, count=1)[0]['header']
 
         attrs = {}
@@ -103,7 +103,7 @@ class Gadget1File(BinaryFile):
             offsets = {}
             ptr = 256 + 4 + 4
             if self.has_columnnames:
-                ptr = ptr + 4 + 4 + 4
+                ptr = ptr + 4 + 8 + 4
             for column, spec, ptypes in columndefs:
                 if not isinstance(spec, tuple):
                     spec = spec, ()
@@ -125,7 +125,7 @@ class Gadget1File(BinaryFile):
 
                 if N != 0: # block exists
                     if self.has_columnnames:
-                        ptr = ptr + 4 + 4 + 4
+                        ptr = ptr + 4 + 8 + 4
                     ff.seek(ptr, 0)
                     a = numpy.fromfile(ff, dtype='i4', count=1)[0]
                     ptr += 4
