@@ -81,7 +81,7 @@ class Gadget1File(BinaryFile):
                                      ('padding', ('u1', 256 - hdtype.itemsize))])
 
         with open(path, 'rb') as ff:
-            if ff.has_columnnames:
+            if self.has_columnnames:
                 ff.seek(4 + 4 + 4)
             header = numpy.fromfile(ff, dtype=hdtype_padded, count=1)[0]['header']
 
@@ -102,7 +102,7 @@ class Gadget1File(BinaryFile):
         with open(path, 'rb') as ff:
             offsets = {}
             ptr = 256 + 4 + 4
-            if ff.has_columnnames:
+            if self.has_columnnames:
                 ptr = ptr + 4 + 4 + 4
             for column, spec, ptypes in columndefs:
                 if not isinstance(spec, tuple):
