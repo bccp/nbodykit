@@ -721,11 +721,16 @@ class DistributedArray(object):
         prev = self.topology.prev()
         if prev is not EmptyRank:
             offset = prev
+            # two cases: either start counting from the last bin
+            # of prev rank, or from next bin, depending on the
+            # first value of my local data.
             if len(self.local) > 0:
                 if prev != self.local[0]:
-                    offset = self.local[0]
+                    offset = prev + 1
         else:
             offset = 0
+
+        # locally, we will bincount from offset to whereever we end
 
         N = numpy.bincount(self.local - offset, weights)
 

@@ -289,30 +289,51 @@ def test_distributed_array_concat(comm):
         numpy.concatenate(comm.allgather(cc.local)),
         [0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
     )
-    
+
 @MPITest([4])
 def test_distributed_array_bincount(comm):
     from nbodykit.utils import DistributedArray, EmptyRank
 
     data = numpy.array(comm.scatter(
-        [numpy.array([0, 1, 2, 3], 'i4'),
-         numpy.array([3, 3, 3, 3], 'i4'),
+        [numpy.array([0, 1, 2, 3, ], 'i4'),
+         numpy.array([3, 3, 3, 3, ], 'i4'),
          numpy.array([], 'i4'),
-         numpy.array([3], 'i4'),
+         numpy.array([3, 5], 'i4'),
         ]))
 
     da = DistributedArray(data, comm)
 
     N = da.bincount()
     assert_array_equal( numpy.concatenate(comm.allgather(N.local)),
-        [1, 1, 1, 6, 6, 6])
+        [1, 1, 1, 6, 6, 6, 0, 1])
 
     weights = numpy.ones_like(data)
     N = da.bincount(weights)
     assert_array_equal( numpy.concatenate(comm.allgather(N.local)),
-        [1, 1, 1, 6, 6, 6])
+        [1, 1, 1, 6, 6, 6, 0, 1])
 
     N = da.bincount(weights, shared_edges=False)
     assert_array_equal( numpy.concatenate(comm.allgather(N.local)),
-        [1, 1, 1, 6])
+        [1, 1, 1, 6, 0, 1])
+
+@MPITest([4])
+def test_distributed_array_bincount_gaps(comm):
+    from nbodykit.utils import DistributedArray, EmptyRank
+
+    data = numpy.array(comm.scatter(
+        [numpy.array([0, 1, ], 'i4'),
+         numpy.array([3, 3, 3, 3, ], 'i4'),
+         numpy.array([], 'i4'),
+         numpy.array([5, 5], 'i4'),
+        ]))
+
+    da = DistributedArray(data, comm)
+
+    N = da.bincount(shared_edges=True)
+    assert_array_equal( numpy.concatenate(comm.allgather(N.local)),
+        [1, 1, 0, 4, 0, 2])
+
+    N = da.bincount(shared_edges=False)
+    assert_array_equal( numpy.concatenate(comm.allgather(N.local)),
+        [1, 1, 0, 4, 0, 2])
 
