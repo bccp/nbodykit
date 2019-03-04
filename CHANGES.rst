@@ -3,6 +3,7 @@ Changelog
 
 0.3.11 (Unreleased)
 ------------------
+* :issue:`575`: Fix bug in painting particles to mesh in CatalogMesh
 
 0.3.10 (2019-02-07)
 ------------------

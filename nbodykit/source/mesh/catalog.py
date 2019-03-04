@@ -309,7 +309,6 @@ class CatalogMesh(MeshSource):
 
             try:
                 Nlocal1, Wlocal1, W2local1 = dochunk(s)
-                chunksize = min(max_chunksize, int(chunksize * 1.5))
             except StopIteration:
                 chunksize = chunksize // 2
                 if chunksize < 1:
@@ -330,6 +329,7 @@ class CatalogMesh(MeshSource):
                     % (Nglobal, self.source.csize))
 
             i = i + chunksize
+            chunksize = min(max_chunksize, int(chunksize * 1.5))
 
         # now the loop over particles is done
 
