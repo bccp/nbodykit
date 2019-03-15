@@ -9,6 +9,8 @@ class ArrayCatalog(CatalogSource):
     A CatalogSource initialized from an in-memory :obj:`dict`,
     structured :class:`numpy.ndarray`, or :class:`astropy.table.Table`.
 
+    See :ref:`the documentation <array-data>` for examples.
+
     Parameters
     ----------
     data : obj:`dict`, :class:`numpy.ndarray`, :class:`astropy.table.Table`
@@ -20,6 +22,7 @@ class ArrayCatalog(CatalogSource):
         current communicator
     **kwargs :
         additional keywords to store as meta-data in :attr:`attrs`
+
     """
     @CurrentMPIComm.enable
     def __init__(self, data, comm=None, **kwargs):
