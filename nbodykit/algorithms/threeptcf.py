@@ -404,6 +404,7 @@ class YlmCache(object):
         import sympy as sp
         from sympy.utilities.lambdify import implemented_function
         from sympy.parsing.sympy_parser import parse_expr
+        from sympy.core import sympify
 
         self.ells = numpy.asarray(ells).astype(int)
         self.max_ell = max(self.ells)
@@ -430,7 +431,7 @@ class YlmCache(object):
                 for e in range(2, max(ells)+1):
                     name = var + '**' + str(e)
                     if name in expr:
-                        matches.append((name, 'cached_'+var, str(e)))
+                        matches.append((sympify(name), 'cached_'+var, str(e)))
                 args[lm] = matches
 
 
@@ -450,7 +451,7 @@ class YlmCache(object):
         for lm, expr in exprs:
             expr = parse_expr(expr, local_dict={'zhat':zhat, 'xpyhat':xpyhat})
             for var in args[lm]:
-                expr = expr.replace(var[0], 'from_cache(%s, %s)' %var[1:])
+                expr = expr.replace(var[0], sympify('from_cache(%s, %s)' %var[1:]))
             self._Ylms[lm] = sp.lambdify((xpyhat, zhat), expr)
 
     def __call__(self, xpyhat, zhat):
