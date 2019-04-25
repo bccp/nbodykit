@@ -9,7 +9,6 @@ channels:
 - defaults
 - bccp
 - astropy
-- conda-forge
 
 dependencies:
 - python=3.6
@@ -23,17 +22,16 @@ dependencies:
 - mpsort
 - bigfile
 - pandas
-- dask>=0.14.2
+- dask
 - cachey
 - sympy
 - numexpr
 - corrfunc
 - mcfit
-- classylss>=0.2
+- classylss
 - h5py
 - halotools
 - fitsio
-- numpydoc
 - sphinx
 - IPython
 - pip
@@ -41,3 +39,4 @@ dependencies:
   - nbsphinx
   - sphinx_bootstrap_theme
   - sphinx-issues
+  - numpydoc
