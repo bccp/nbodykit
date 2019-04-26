@@ -31,7 +31,7 @@ def xi_to_pk(r, xi, ell=0, extrap=False):
     InterpolatedUnivariateSpline :
         a spline holding the interpolated power spectrum values
     """
-    P = mcfit.xi2P(r, l=ell)
+    P = mcfit.xi2P(r, l=ell, lowring=True)
     kk, Pk = P(xi, extrap=extrap)
     return InterpolatedUnivariateSpline(kk, Pk)
 
@@ -62,7 +62,7 @@ def pk_to_xi(k, Pk, ell=0, extrap=True):
     InterpolatedUnivariateSpline :
         a spline holding the interpolated correlation function values
     """
-    xi = mcfit.P2xi(k, l=ell)
+    xi = mcfit.P2xi(k, l=ell, lowring=True)
     rr, CF = xi(Pk, extrap=extrap)
     return InterpolatedUnivariateSpline(rr, CF)
 

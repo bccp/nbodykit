@@ -213,7 +213,7 @@ class LinearPower(object):
 
         k = numpy.logspace(numpy.log10(kmin), numpy.log10(kmax), 1024)
         Pk = self(k)
-        R, sigmasq = mcfit.TophatVar(k)(Pk)
+        R, sigmasq = mcfit.TophatVar(k, lowring=True)(Pk, extrap=True)
 
         return spline(R, sigmasq)(r)**0.5
 
