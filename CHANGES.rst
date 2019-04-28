@@ -1,9 +1,20 @@
 Changelog
 =========
 
-0.3.11 (Unreleased)
+0.3.12 (Unreleased)
 ------------------
-* :issue:`575`: Fix bug in painting particles to mesh in CatalogMesh
+
+0.3.11 (2019-04-28)
+------------------
+* :issue:`575,576`: Fix bug in painting particles to mesh in CatalogMesh
+* :issue:`569`: Upgrade DistributedArray
+* :issue:`570`: Add initial Query interface to FileCatalog.
+* :issue:`571`: Typo in FKP
+* :issue:`573`: Support Gadget variant binary format (with 4 byte header)
+* :issue:`574`: DistributedArray.bincount fix
+* :issue:`577`: Add doc examples for CVS and ArrayCatalog.
+* :issue:`579`: compat-fix for mcfit-0.0.16
+* :issue:`581`: compat-fix for sympy-1.4
 
 0.3.10 (2019-02-07)
 ------------------
