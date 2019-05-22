@@ -253,6 +253,12 @@ def _assign_labels(minid, comm, thresh):
 
     data['fofid'].local[:] = data['fofid'].unique_labels().local[:]
 
+    # unique_labels may miss the 0 index representing disconnected
+    # particles if there are no such particles.
+    # shift the fofoid by 1 in that case.
+    anysmall = comm.allreduce(small.sum()) != 0
+    if not anysmall: data['fofid'].local[:] += 1
+
     data.sort('origind')
 
     label = data['fofid'].local.view('i8').copy()
@@ -272,7 +278,6 @@ def _assign_labels(minid, comm, thresh):
     P = numpy.arange(Nhalo0, dtype=dtype)
     P[arg] = numpy.arange(len(arg), dtype=dtype) + 1
     label = P[label]
-
     return label
 
 def _fof_local(layout, pos, boxsize, ll, comm):
