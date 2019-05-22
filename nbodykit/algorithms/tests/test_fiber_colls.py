@@ -2,6 +2,7 @@ from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 from nbodykit.utils import ScatterArray, GatherArray
+from numpy.testing import assert_array_equal
 
 # debug logging
 setup_logging("debug")
@@ -9,7 +10,7 @@ setup_logging("debug")
 @MPITest([1, 4])
 def test_fibercolls(comm):
 
-    from scipy.spatial.distance import pdist, squareform 
+    from scipy.spatial.distance import pdist, squareform
 
 
     N = 10000
@@ -48,4 +49,18 @@ def test_fibercolls(comm):
         # one object in the clean sample
         ncolls_per = (dists[idx] <= rad).sum(axis=-1)
         assert (ncolls_per >= 1).all(), "objects in 'collided' sample that do not collide with any objects!"
+
+@MPITest([1])
+def test_fibercolls_issue584_4pt(comm):
+    ra = numpy.array([0.,1.,2., 10])
+    dec = numpy.array([0.,0.,0., 0])
+    labels = FiberCollisions(ra,dec,collision_radius=1.5,seed=None, comm=comm).labels
+    assert_array_equal(labels['Collided'].compute(), [0, 1, 0, 0])
+
+@MPITest([1])
+def test_fibercolls_issue584_3pt(comm):
+    ra = numpy.array([0.,1.,2.])
+    dec = numpy.array([0.,0.,0.])
+    labels = FiberCollisions(ra,dec,collision_radius=1.5,seed=None, comm=comm).labels
+    assert_array_equal(labels['Collided'].compute(), [0, 1, 0])
 
