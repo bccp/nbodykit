@@ -2,7 +2,7 @@ from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 
-from numpy.testing import assert_allclose
+from numpy.testing import assert_allclose, assert_array_equal
 
 # debug logging
 setup_logging("debug")
@@ -31,10 +31,11 @@ def test_fof_parallel_no_merge(comm):
     cat = ArrayCatalog({'Position' : Q}, BoxSize=pm.BoxSize, Nmesh=pm.Nmesh, comm=comm)
 
     fof = FOF(cat, linking_length=0.9, nmin=0)
-    
+
     labels = numpy.concatenate(comm.allgather((fof.labels)), axis=0)
     # one particle per group
-    assert max(labels) == cat.csize - 1
+    assert max(labels) == cat.csize
+    assert min(labels) == 1
 
 @MPITest([1, 4])
 def test_fof_parallel_merge(comm):
@@ -53,8 +54,9 @@ def test_fof_parallel_merge(comm):
     fof = FOF(cat, linking_length=0.011 * 3 ** 0.5, nmin=0, absolute=True)
 
     labels = numpy.concatenate(comm.allgather((fof.labels)), axis=0)
-    assert max(labels) == pm.Nmesh.prod() - 1
-    assert all(numpy.bincount(labels) == 4)
+    assert max(labels) == pm.Nmesh.prod()
+    assert min(labels) == 1
+    assert all(numpy.bincount(labels)[1:] == 4)
 
 @MPITest([1, 4])
 def test_fof_nonperiodic(comm):
@@ -82,3 +84,16 @@ def test_fof_nonperiodic(comm):
     assert_allclose(peaks1['CMVelocity'], peaks2['CMVelocity'], rtol=1e-6)
     assert_allclose(peaks1['PeakPosition'] + 200.0, peaks2['PeakPosition'], rtol=1e-6)
     assert_allclose(peaks1['PeakVelocity'], peaks2['PeakVelocity'], rtol=1e-6)
+
+@MPITest([1, 4])
+def test_fof_fully_connected(comm):
+    from pmesh.pm import ParticleMesh
+    pm = ParticleMesh(BoxSize=[4, 4, 4], Nmesh=[4, 4, 4], comm=comm)
+    Q = pm.generate_uniform_particle_grid(shift=0)
+    cat = ArrayCatalog({'Position' : 
+            numpy.concatenate([Q], axis=0)}, BoxSize=pm.BoxSize, Nmesh=pm.Nmesh, comm=comm)
+
+    fof = FOF(cat, linking_length=2, nmin=63, absolute=True)
+
+    labels = numpy.concatenate(comm.allgather((fof.labels)), axis=0)
+    assert_array_equal(labels, 1)
