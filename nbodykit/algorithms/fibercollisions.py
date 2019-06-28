@@ -51,12 +51,12 @@ class FiberCollisions(object):
         # compute the pos
         ra = ArrayCatalog.make_column(ra)
         dec = ArrayCatalog.make_column(dec)
-        pos = SkyToUnitSphere(ra, dec, degrees=degrees).compute()
+        pos = (SkyToUnitSphere(ra, dec, degrees=degrees) + 1.1).compute()
 
         # make the source
         dt = numpy.dtype([('Position', (pos.dtype.str, 3))])
         pos = numpy.squeeze(pos.view(dtype=dt))
-        source = ArrayCatalog(pos, BoxSize=numpy.array([2., 2., 2.]), comm=comm)
+        source = ArrayCatalog(pos, BoxSize=numpy.array([2.2, 2.2, 2.2]), comm=comm)
 
         self.source = source
         self.comm = source.comm
