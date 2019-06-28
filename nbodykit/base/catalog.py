@@ -36,11 +36,11 @@ class ColumnAccessor(da.Array):
     """
     def __new__(cls, catalog, daskarray, is_default=False):
         self = da.Array.__new__(ColumnAccessor,
-                daskarray.dask,
-                daskarray.name,
-                daskarray.chunks,
-                daskarray.dtype,
-                daskarray.shape)
+                dask=daskarray.dask,
+                name=daskarray.name,
+                chunks=daskarray.chunks,
+                dtype=daskarray.dtype,
+                shape=daskarray.shape)
         self.catalog = catalog
         self.is_default = is_default
         self.attrs = {}
