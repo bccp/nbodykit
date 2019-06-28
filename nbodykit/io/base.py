@@ -80,6 +80,10 @@ class FileType(object):
         self._shape = val
 
     @property
+    def ndim(self):
+        return len(self.shape)
+
+    @property
     def size(self):
         """
         The size of the file, i.e., number of rows
