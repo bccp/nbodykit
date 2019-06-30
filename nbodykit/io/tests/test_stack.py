@@ -36,14 +36,15 @@ def test_data(comm):
             with open(fname, 'wb') as ff:
                 hdr.tofile(ff)
                 pos[sl].tofile(ff); vel[sl].tofile(ff); uid[sl].tofile(ff)
-            
+
         # initialize the stack
         path = os.path.join(tmpdir, 'tpm.00*')
         f = FileStack(TPMBinaryFile, path, precision='f4')
-        
+
         # check size
         assert f.size == 2048
-        
+        assert f.ndim == 1
+
         # and data
         numpy.testing.assert_almost_equal(pos, f['Position'][:])
         numpy.testing.assert_almost_equal(vel, f['Velocity'][:])
