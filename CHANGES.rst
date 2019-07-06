@@ -1,8 +1,15 @@
 Changelog
 =========
 
-0.3.12 (Unreleased)
-------------------
+0.3.13 (Unreleased)
+-------------------
+
+0.3.12 (2019-07-06)
+-------------------
+* :issue:`592`: Update for new dask (ndim)
+* :issue:`587`: Reserve label == 0 for unconnected particles.
+* :issue:`586`: Center the particles in fiber collision
+* :issue:`582`: documentation infra update.
 
 0.3.11 (2019-04-28)
 ------------------
