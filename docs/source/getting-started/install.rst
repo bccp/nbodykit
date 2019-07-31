@@ -157,6 +157,8 @@ nbodykit on NERSC
 .. note::
 
     This section covers using nbodykit on the computing nodes of NERSC.
+    The development of nbodykit is supported by NERSC under the allocation m3035.
+
     The computing nodes requires special care because they do not work with
     the simple MPI provided from Anaconda.
 
@@ -172,7 +174,7 @@ nbodykit on NERSC
 Development and testing of nbodykit was performed on the `NERSC`_ super-computing
 machines at Lawrence Berkeley National Laboratory. We maintain a daily build of
 the latest stable version of nbodykit on NERSC systems for Python versions
-2.7, 3.5, and 3.6 and provide a tool to automatically load
+2.7, 3.6, and 3.7 and provide a tool to automatically load
 the appropriate environment when running jobs on either the `Edison`_ or `Cori`_
 machines.
 
@@ -181,9 +183,8 @@ should be added to the beginning of the user's job script:
 
 .. code-block:: bash
 
-  # load python 3.6 with latest stable nbodykit
-  # can also specify 2.7 or 3.5 here
-  source /usr/common/contrib/bccp/conda-activate.sh 3.6
+  # load python 3.7 with latest stable nbodykit
+  source /global/common/software/m3035/conda-activate.sh 3.7
 
 
 If instead the user wishes to install the latest development version
@@ -191,12 +192,11 @@ of nbodykit, the following lines should be added to the job script:
 
 .. code-block:: bash
 
-  # first load python 3.6 with latest stable nbodykit
-  # can also specify 2.7 or 3.5 here
-  source /usr/common/contrib/bccp/conda-activate.sh 3.6
+  # first load python 3.7 with latest stable nbodykit
+  source /global/common/software/m3035/conda-activate.sh 3.7
 
   # overwrite nbodykit with the latest version from the tip of master
-  bcast-pip git+git://github.com/bccp/nbodykit.git
+  bcast-pip https://github.com/bccp/nbodykit/archive/master.zip
 
 In the nbodykit source directory, we include an example Python script
 and job script for users. To run this example on NERSC, first download
@@ -233,7 +233,7 @@ the Python script in parallel, in this case, using 16 CPUs.
     #SBATCH -n 16
 
     # load nbodykit
-    source /usr/common/contrib/bccp/conda-activate.sh 3.6
+    source /global/common/software/m3035/conda-activate.sh 3.7
 
     # run the main nbodykit example
     srun -n 16 python example.py
