@@ -5,18 +5,15 @@ import re
 from warnings import warn
 
 
-__version__ = '0.2.5'
+def dedents(s):
+    warn("The dedent function has been depreceated and will be removed soon. "
+         "Use inspect.cleandoc instead", DeprecationWarning, stacklevel=2)
+    return inspect.cleandoc(s)
+
+
+__version__ = '0.2.7'
 
 __author__ = 'Philipp Sommer'
-
-
-try:
-    from matplotlib.cbook import dedent as dedents
-except ImportError:
-    from textwrap import dedent as _dedents
-
-    def dedents(s):
-        return '\n'.join(_dedents(s or '').splitlines()[1:])
 
 
 substitution_pattern = re.compile(
@@ -338,7 +335,7 @@ class DocstringProcessor(object):
             # look for the first line with content
             first = next((i for i, l in enumerate(lines) if l.strip()), 0)
             # dedent the lines
-            s = dedents('\n' + '\n'.join(lines[first:]))
+            s = inspect.cleandoc('\n' + '\n'.join(lines[first:]))
         return s
 
     def _get_section(self, s, section):
@@ -409,7 +406,7 @@ class DocstringProcessor(object):
         stacklevel: int
             The stacklevel for the warning raised in :func:`safe_module` when
             encountering an invalid key in the string"""
-        s = dedents(s)
+        s = inspect.cleandoc(s)
         return safe_modulo(s, self.params, stacklevel=stacklevel)
 
     def with_indent(self, indent=0):
@@ -852,7 +849,8 @@ class DocstringProcessor(object):
         str
             The modified string `s` with only the descriptions of `types`
         """
-        patt = '|'.join('(?<=\n)' + s + '\n(?s).+?\n(?=\S+|$)' for s in types)
+        patt = '(?s)' + '|'.join(
+            '(?<=\n)' + s + '\n.+?\n(?=\S+|$)' for s in types)
         return ''.join(re.findall(patt, '\n' + s.strip() + '\n')).rstrip()
 
     def save_docstring(self, key):
