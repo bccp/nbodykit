@@ -44,7 +44,10 @@ class CSVPartition(object):
             return self._value
         except AttributeError:
             from io import BytesIO
-            from dask.bytes.utils import read_block
+            try:
+                from dask.bytes.core import read_block
+            except ImportError:
+                from dask.bytes.utils import read_block
 
             # read the relevant bytes
             with open(self.filename, 'rb') as f:
@@ -87,7 +90,10 @@ def make_partitions(filename, blocksize, config, delimiter="\n"):
     sizes : list of int
         the list of the number of rows in each partition
     """
-    from dask.bytes.utils import read_block
+    try:
+        from dask.bytes.core import read_block
+    except ImportError:
+        from dask.bytes.utils import read_block
 
     config = config.copy()
 
