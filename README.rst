@@ -103,3 +103,13 @@ Bumping to a new version
 5. Go to bccp/conda-channel-bccp repo and do "Restart build"
 6. git tag 0.3.? -> git push --tags
 7. bump to a development version (0.3.?dev0)
+
+
+Acknowledgement
+---------------
+
+The work on nbodykit is supported by
+the Berkeley Center for Cosmological Physics, University of California Berkeley,
+by
+the National Energy Research Scientific Computing Center of the Lawrence Berkeley National Lab via the allocation m3035,
+and by users and contributors.

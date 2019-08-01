@@ -4,7 +4,7 @@
 #SBATCH -n 16
 
 # load nbodykit
-source /usr/common/contrib/bccp/conda-activate.sh 3.6
+source /global/common/software/m3035/conda-activate.sh 3.7
 
 # run the main nbodykit example
 srun -n 16 python example.py
