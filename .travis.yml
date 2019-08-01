@@ -38,9 +38,6 @@ install:
     # install base dependencies
     - conda install --yes --file requirements-extras.txt
 
-    # pin h5py due to https://github.com/astropy/astropy/pull/7509
-    # we use astropy 2.x so this is not yet fixed.
-    - conda install --yes -f h5py=2.7
     #
     # submitting coverage to coveralls
     - pip install coveralls
