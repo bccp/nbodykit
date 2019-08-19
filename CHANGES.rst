@@ -1,8 +1,14 @@
 Changelog
 =========
 
-0.3.13 (Unreleased)
+0.3.14 (Unreleased)
 -------------------
+
+0.3.13 (2019-08-01)
+-------------------
+* :issue:`000`: Update for new dask (csv)
+* :issue:`597`: Update docrep.py
+* :issue:`596`: Update documentation for NERSC usage. Python 3.5 is no longer supported on NERSC.
 
 0.3.12 (2019-07-06)
 -------------------

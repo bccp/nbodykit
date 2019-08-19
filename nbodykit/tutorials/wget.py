@@ -9,7 +9,7 @@ import re
 
 
 # where the main nbodykit data examples live
-data_url = "http://portal.nersc.gov/project/m779/nbodykit/example-data"
+data_url = "http://portal.nersc.gov/project/m3035/nbodykit/example-data"
 
 re_url = re.compile(r'^(([a-zA-Z_-]+)://([^/]+))(/.*)?$')
 

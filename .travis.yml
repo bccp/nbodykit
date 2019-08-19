@@ -18,6 +18,7 @@ before_install:
     - chmod +x miniconda.sh
     - ./miniconda.sh -b -p $HOME/miniconda
     - export PATH=$HOME/miniconda/bin:$PATH
+    - export PYTHONHTTPSVERIFY=0  # For python-2.7 certificate issue. Remove after 01/01/2020.
     - conda update --yes conda
 
 install:
