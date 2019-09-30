@@ -486,6 +486,52 @@ def HaloRadius(mass, cosmo, redshift, mdef='vir'):
 
     return da.map_blocks(mass_to_radius, mass, redshift, dtype=mass.dtype)
 
+def IDToPosition(ID, strides, scale, shift, sizes):
+    """
+    Convert ID to position assuming a regular grid labelling scheme.
+
+    ID = i * strides[0] + j * strides[1] + k * strides[2]
+    position = transpose([i, j, k]) * scale + shift
+
+    i, j, k are between `[0, sizes[.])`.
+
+    Parameters
+    ----------
+    ID : array_like
+      particle ID, starting from 0.
+    strides : array_like broadcast to shape = (3,)
+      the strides; `cat.attrs['q.strides']`
+    scale : array_like broadcast to shape = (3,)
+      the scale; `cat.attrs['q.scale']`
+    shift : array_like, broadcast to shape = (3,)
+      the shift. In the position units. `cat.attrs['q.shift']`
+    sizes: array_like broadcast to shape = (3,)
+      the size; `cat.attrs['q.sizes']` or Nc.
+
+    Returns
+    -------
+    position : position according to the formula.
+
+    """
+
+    strides, scale, shift, sizes, _ = numpy.broadcast_arrays(strides,
+                                                             scale,
+                                                             shift,
+                                                             sizes,
+                                                             numpy.ones(3))
+    def id_to_position(ID):
+        j = ID
+        qq = numpy.empty_like(ID, dtype='f8')
+        for d in range(ID.shape[-1]):
+            qq[:, d] = (ID[:, d] // strides[d]) % sizes[d]
+        return qq*scale + shift
+
+    if not isinstance(ID, da.Array):
+        ID = da.from_array(ID, chunks=100000)
+
+    ID, _  = da.broadcast_arrays(ID[:, None], numpy.ones(3))
+    return da.map_blocks(id_to_position, ID, dtype='f8')
+
 # deprecated functions
 vstack = deprecate("nbodykit.transform.vstack", StackColumns, "nbodykit.transform.StackColumns")
 concatenate = deprecate("nbodykit.transform.concatenate", ConcatenateSources, "nbodykit.transform.ConcatenateSources")
