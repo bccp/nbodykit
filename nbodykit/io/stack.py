@@ -3,6 +3,7 @@ from . import tools
 from six import string_types
 import numpy
 import os
+from glob import glob
 import inspect
 
 class FileStack(FileType):
@@ -20,7 +21,7 @@ class FileStack(FileType):
         the type of file class to initialize
     path : str
         list of file names, or string specifying single file or
-        containing a glob-like '*' pattern
+        a glob pattern.
     *args :
         additional arguments to pass to the ``filetype`` instance
         during initialization
@@ -40,13 +41,9 @@ class FileStack(FileType):
         if isinstance(path, list):
             filenames = path
         elif isinstance(path, string_types):
-            if '*' in path:
-                from glob import glob
-                filenames = list(map(os.path.abspath, sorted(glob(path))))
-            else:
-                if not os.path.exists(path):
-                    raise FileNotFoundError(path)
-                filenames = [os.path.abspath(path)]
+            filenames = list(map(os.path.abspath, sorted(glob(path))))
+            if len(filenames) == 0:
+                raise FileNotFoundError(path)
         else:
             raise ValueError("'path' should be a string or a list of strings")
         self.files = [filetype(fn, *args, **kwargs) for fn in filenames]
