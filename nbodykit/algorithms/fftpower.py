@@ -194,8 +194,8 @@ class FFTPower(FFTBase):
                     los=[0, 0, 1], Nmu=5, dk=None, kmin=0., kmax=None, poles=[]):
 
         # mode is either '1d' or '2d'
-        if mode not in ['1d', '2d']:
-            raise ValueError("`mode` should be either '1d' or '2d'")
+        if mode not in ['1d', '2d'] and not isinstance(mode, AdvancedProjection):
+            raise ValueError("`mode` should be either '1d' or '2d', or an AdvancedProjection")
 
         if poles is None:
             poles = []
@@ -208,8 +208,9 @@ class FFTPower(FFTBase):
 
         FFTBase.__init__(self, first, second, Nmesh, BoxSize)
 
+        self.mode = mode
         # save meta-data
-        self.attrs['mode'] = mode
+        self.attrs['mode'] = str(mode)
         self.attrs['los'] = los
         self.attrs['Nmu'] = Nmu
         self.attrs['poles'] = poles
@@ -280,6 +281,11 @@ class FFTPower(FFTBase):
         # measure the 3D power (y3d is a ComplexField)
         y3d, attrs = self._compute_3d_power(self.first, self.second)
 
+        if isinstance(self.mode, AdvancedProjection):
+            # advanced projection
+            return self.mode.project(y3d, 'power'), None
+
+
         # binning in k out to the minimum nyquist frequency
         # (accounting for possibly anisotropic box)
         dk = self.attrs['dk']
@@ -298,6 +304,7 @@ class FFTPower(FFTBase):
         muedges = numpy.linspace(0, 1, self.attrs['Nmu']+1, endpoint=True)
         edges = [kedges, muedges]
         coords = [kcoords, None]
+
         result, pole_result = project_to_basis(y3d, edges,
                                                poles=self.attrs['poles'],
                                                los=self.attrs['los'])
@@ -503,6 +510,166 @@ class ProjectedFFTPower(FFTBase):
         self.__dict__.update(state)
         self.power = BinnedStatistic(['k'], [self.edges], self.power)
 
+class AdvancedProjection:
+    """ An advanced projection projects a field object to a certain set of
+        basis to create a BinnedStatistic.
+
+        The bases of the basis are labeled by 'names'. The usual label
+        is given by the center of edges. But subclasses can override them
+        by modifying the coords attribute of the corresponding name. This
+        is for example done in MagPoleProjection to set the labels of
+        poles to the correct values.
+
+        Subclass shall override the basis() function and / or the
+        get_coords() function.
+
+        basis() generates a basis vector of the same type as the input variable
+        (y3d) for the given index in the label space. Usually
+        (the default implementation), the basis is a binning mask, which is set
+        to 1 when the point falls into the bin, and zero otherwise.
+        Override basis() to use more complicated basis, e.g. Legendre polynormials.
+
+        get_coords() convert the coordinates on original field object to 
+        the coords corresponding to the labels.
+
+    """
+
+    def __init__(self, names, edges, **kwargs):
+        self.names = names
+        self.edges = dict(zip(names, edges))
+        self.attrs = {}
+        self.attrs.update(kwargs)
+
+        # use default centers
+        self.coords = [None for e in edges]
+
+    def project(self, y3d, valuename):
+        data = numpy.zeros(shape=[len(self.edges[dim]) - 1 for dim in self.names],
+            # one column per dim
+            dtype=[(name, 'f8') for name in self.names] +
+            # one colum for the value and one column for the number of modes
+                  [(valuename, 'c16'), ('modes', 'f8')]
+            )
+
+        unitary = y3d.copy()
+        unitary[:] = 1.0
+
+        # generate the full coords vectors for central values
+        full_coords = {}
+        for dim in self.names:
+            def filter(k, v):
+                return self.get_coords(k, dim)
+            full_coords[dim] = y3d.copy().apply(filter)
+
+        for index in numpy.ndindex(data.shape):
+            basis = self.basis(index, y3d)
+            modes = basis.cdot(unitary).real
+            data[index]['modes'] = modes
+            if modes > 0:
+                data[index][valuename] = basis.cdot(y3d) / modes
+                # compute central coords
+                for dim in self.names:
+                    data[index][dim] = basis.cdot(full_coords[dim]).real / modes
+
+        return BinnedStatistic(self.names, [self.edges[dim] for dim in self.names], data, coords=self.coords, **self.attrs)
+
+    def basis(self, index, y3d):
+        """ default basis are just binning. Override for fancier basis, e.g. P_leg(mu) """
+        def filter(k, v):
+            mask = True
+            for i, dim in enumerate(self.edges):
+                min, max = self.get_range(index[i], dim)
+                coords = self.get_coords(k, dim)
+                mask = mask & ((coords >= min) & (coords < max))
+            return 1.0 * mask
+        return y3d.copy().apply(filter)
+
+    def get_range(self, ind, dim):
+        kmin = self.edges[dim][ind]
+        kmax = self.edges[dim][ind + 1]
+        return numpy.array([kmin, kmax])
+
+    def get_coords(self, k, dim):
+        if dim == 'k':
+            return k.normp(2) ** 0.5
+
+        if dim == 'pole':
+            return 0
+
+        if dim == 'mu':
+            # this uses special attr 'los', defined only by some of the Projections.
+            mu = 0
+            for i in range(len(k)):
+                mu = mu + k[i] * self.attrs['los'][i]
+
+            knorm = k.normp(2, zeromode=1.0) ** 0.5
+            mu = mu / knorm
+            return mu
+
+
+class MagProjection(AdvancedProjection):
+    def __init__(self, kedges):
+        """ Magnitude projection, edges=[0, 2 pi / L, ...] """
+        AdvancedProjection.__init__(self, names=['k'], edges=[kedges])
+
+class ZRhoProjection(AdvancedProjection):
+    def __init__(self, zedges, rhoedges, los):
+        """ Magnitude projection, edges=[0, 2 pi / L, ...] """
+        AdvancedProjection.__init__(self, names=['k_z', 'k_r'], edges=[zedges, rhoedges], los=los)
+
+    def get_coords(self, k, dim):
+        if dim == 'k_z':
+            return AdvancedProjection.get_coords(self, k, 'mu') * k.normp(2) ** 0.5
+        if dim == 'k_r':
+            return (k.normp(2) - self.get_coords(k, 'k_z') ** 2) ** 0.5
+
+class MagMuProjection(AdvancedProjection):
+    def __init__(self, kedges, muedges, los):
+        AdvancedProjection.__init__(self,
+            names=['k', 'mu'],
+            edges=[kedges, muedges],
+            los=los
+            )
+
+    def get_coords(self, k, dim):
+        if dim == 'mu':
+            return abs(AdvancedProjection.get_coords(self, k, dim))
+        else:
+            return AdvancedProjection.get_coords(self, k, dim)
+
+
+class MagPoleProjection(AdvancedProjection):
+    def __init__(self, kedges, poles, los):
+        # pad the poles at the end because we never touch the last mode.
+        poles = numpy.array(list(poles) + [-1])
+        AdvancedProjection.__init__(self,
+            names=['k', 'pole'],
+            edges=[kedges, poles],
+            los=los
+            )
+        self.coords[1] = poles[:-1]
+
+    def basis(self, index, y3d):
+        from scipy.special import legendre
+        pole = self.edges['pole'][index[1]]
+        legpoly = legendre(pole)
+        min, max = self.get_range(index[0], 'k')
+
+        def filter(k, v):
+            kcoords = self.get_coords(k, 'k')
+            mask = ((kcoords >= min) & (kcoords < max))
+            mu = self.get_coords(k, 'mu')
+            L = legpoly(mu)
+            return L * mask
+
+        return y3d.copy().apply(filter)
+
+    def project(self, y3d, valuename):
+        r = AdvancedProjection.project(self, y3d, valuename)
+        # patch up pole value because we can't compute it with simple avaraging.
+        r['pole'][...] = self.coords[1][None, :]
+        return r
+
 def project_to_basis(y3d, edges, los=[0, 0, 1], poles=[]):
     """
     Project a 3D statistic on to the specified basis. The basis will be one
@@ -535,11 +702,6 @@ def project_to_basis(y3d, edges, los=[0, 0, 1], poles=[]):
     poles : list of int, optional
         if provided, a list of integers specifying multipole numbers to
         project the 2d `(x, mu)` bins on to
-    hermitian_symmetric : bool, optional
-        Whether the input array `y3d` is Hermitian-symmetric, i.e., the negative
-        frequency terms are just the complex conjugates of the corresponding
-        positive-frequency terms; if ``True``, the positive frequency terms
-        will be explicitly double-counted to account for this symmetry
 
     Returns
     -------
@@ -568,6 +730,11 @@ def project_to_basis(y3d, edges, los=[0, 0, 1], poles=[]):
     """
     comm = y3d.pm.comm
     x3d = y3d.x
+
+    #    Whether the input array `y3d` is Hermitian-symmetric, i.e., the negative
+    #    frequency terms are just the complex conjugates of the corresponding
+    #    positive-frequency terms; if ``True``, the positive frequency terms
+    #    will be explicitly double-counted to account for this symmetry
     hermitian_symmetric = numpy.iscomplexobj(y3d)
 
     from scipy.special import legendre
