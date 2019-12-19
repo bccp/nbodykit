@@ -443,7 +443,7 @@ class ConvolvedFFTPower(object):
         pm   = self.first.pm
 
         # setup the 1D-binning
-        muedges = numpy.linspace(0, 1, 2, endpoint=True)
+        muedges = numpy.linspace(-1, 1, 2, endpoint=True)
         edges = [kedges, muedges]
 
         # make a structured array to hold the results

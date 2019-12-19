@@ -295,7 +295,7 @@ class FFTPower(FFTBase):
             kedges, kcoords = _find_unique_edges(y3d.x, 2 * numpy.pi / y3d.BoxSize, kmax, y3d.pm.comm)
 
         # project on to the desired basis
-        muedges = numpy.linspace(0, 1, self.attrs['Nmu']+1, endpoint=True)
+        muedges = numpy.linspace(-1, 1, self.attrs['Nmu']+1, endpoint=True)
         edges = [kedges, muedges]
         coords = [kcoords, None]
         result, pole_result = project_to_basis(y3d, edges,
@@ -568,7 +568,7 @@ def project_to_basis(y3d, edges, los=[0, 0, 1], poles=[]):
     """
     comm = y3d.pm.comm
     x3d = y3d.x
-    hermitian_symmetric = numpy.iscomplexobj(y3d)
+    hermitian_symmetric = False
 
     from scipy.special import legendre
 
@@ -618,7 +618,7 @@ def project_to_basis(y3d, edges, los=[0, 0, 1], poles=[]):
 
         # get the bin indices for mu on the slab
         mu = slab.mu(los) # defined with respect to specified LOS
-        dig_mu = numpy.digitize(abs(mu).flat, muedges)
+        dig_mu = numpy.digitize(mu.flat, muedges)
 
         # make the multi-index
         multi_index = numpy.ravel_multi_index([dig_x, dig_mu], (Nx+2,Nmu+2))
@@ -662,7 +662,7 @@ def project_to_basis(y3d, edges, los=[0, 0, 1], poles=[]):
 
         # sum up the absolute mag of mu in each bin (accounting for negative freqs)
         mu[:] *= slab.hermitian_weights
-        musum.flat += numpy.bincount(multi_index, weights=abs(mu).flat, minlength=musum.size)
+        musum.flat += numpy.bincount(multi_index, weights=mu.flat, minlength=musum.size)
 
     # sum binning arrays across all ranks
     xsum  = comm.allreduce(xsum)
