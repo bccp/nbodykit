@@ -148,9 +148,6 @@ class ConvolvedFFTPower(object):
             second = _cast_mesh(second, Nmesh=Nmesh)
         else:
             second = first
-        print('first dtype',first.dtype)
-        print('second dtype',second.dtype)
-        #print('first',first)
 
         # data/randoms of second must be same as second
         # only difference can be FKP weight currently
@@ -622,7 +619,6 @@ class ConvolvedFFTPower(object):
                 Aell[islab,...] = norm * A0_1[islab] * Aell[islab].conj()
 
             # project on to 1d k-basis (averaging over mu=[0,1])
-            print('Aell dtype',Aell.dtype)
             proj_result, _ = project_to_basis(Aell, edges)
             result['power_%d' %ell][:] = numpy.squeeze(proj_result[2])
 
@@ -772,9 +768,6 @@ def _cast_mesh(mesh, Nmesh):
     
     if not isinstance(mesh, (FKPCatalogMesh, FKPCatalog)):
         raise TypeError("input sources should be a FKPCatalog or FKPCatalogMesh")
-
-    from catalogmesh import FKPCatalogMesh
-
 
     if isinstance(mesh, FKPCatalog):
         # if input is CatalogSource, use defaults to make it into a mesh
