@@ -568,7 +568,7 @@ def project_to_basis(y3d, edges, los=[0, 0, 1], poles=[]):
     """
     comm = y3d.pm.comm
     x3d = y3d.x
-    hermitian_symmetric = False
+    hermitian_symmetric = y3d.compressed
 
     from scipy.special import legendre
 
