@@ -611,31 +611,31 @@ def project_to_basis(y3d, edges, los=[0, 0, 1], poles=[]):
         if len(xslab.flat) == 0: continue
 
         # get the bin indices for x on the slab
-        dig_x = numpy.digitize(xslab.flat, x2edges)
+        dig_x = numpy.digitize(xslab.real.flat, x2edges)
 
         # make xslab just x
         xslab **= 0.5
 
         # get the bin indices for mu on the slab
         mu = slab.mu(los) # defined with respect to specified LOS
-        dig_mu = numpy.digitize(mu.flat, muedges)
+        dig_mu = numpy.digitize(mu.real.flat, muedges)
 
         # make the multi-index
         multi_index = numpy.ravel_multi_index([dig_x, dig_mu], (Nx+2,Nmu+2))
 
         # sum up x in each bin (accounting for negative freqs)
         xslab[:] *= slab.hermitian_weights
-        xsum.flat += numpy.bincount(multi_index, weights=xslab.flat, minlength=xsum.size)
+        xsum.flat += numpy.bincount(multi_index, weights=xslab.real.flat, minlength=xsum.size)
 
         # count number of modes in each bin (accounting for negative freqs)
-        Nslab = numpy.ones_like(xslab) * slab.hermitian_weights
+        Nslab = numpy.ones_like(xslab.real) * slab.hermitian_weights
         Nsum.flat += numpy.bincount(multi_index, weights=Nslab.flat, minlength=Nsum.size)
 
         # compute multipoles by weighting by Legendre(ell, mu)
         for iell, ell in enumerate(_poles):
 
             # weight the input 3D array by the appropriate Legendre polynomial
-            weighted_y3d = legpoly[iell](mu) * y3d[slab.index]
+            weighted_y3d = legpoly[iell](mu.real) * y3d[slab.index]
 
             # add conjugate for this kx, ky, kz, corresponding to
             # the (-kx, -ky, -kz) --> need to make mu negative for conjugate
@@ -662,7 +662,7 @@ def project_to_basis(y3d, edges, los=[0, 0, 1], poles=[]):
 
         # sum up the absolute mag of mu in each bin (accounting for negative freqs)
         mu[:] *= slab.hermitian_weights
-        musum.flat += numpy.bincount(multi_index, weights=mu.flat, minlength=musum.size)
+        musum.flat += numpy.bincount(multi_index, weights=mu.real.flat, minlength=musum.size)
 
     # sum binning arrays across all ranks
     xsum  = comm.allreduce(xsum)
