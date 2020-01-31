@@ -149,8 +149,7 @@ class FKPCatalog(MultipleSpeciesCatalog):
 
         return BoxSize, BoxCenter
 
-    def to_mesh(self, Nmesh=None, BoxSize=None, BoxCenter=None, fast_even_multipoles=False,
-    dtype='f4', interlaced=False,
+    def to_mesh(self, Nmesh=None, BoxSize=None, BoxCenter=None, dtype='c16', interlaced=False,
                 compensated=False, resampler='cic', fkp_weight='FKPWeight',
                 comp_weight='Weight', selection='Selection',
                 position='Position', bbox_from_species=None, window=None, nbar=None):
@@ -168,12 +167,14 @@ class FKPCatalog(MultipleSpeciesCatalog):
         Nmesh : int, 3-vector, optional
             the number of cells per box side; if not specified in `attrs`, this
             must be provided
-        fast_even_multipoles : bool, optional
-            if True, assume Hermitian symmetry of the input field (\delta(x) = 
-            \delta^{*}(-x)), and store it as an N x N x N/2+1 real array
-            (dtype='f8'). This speeds evaluation of even multipoles but yields 
+        dtype : str, dtype, optional
+            the data type of the mesh when painting. dtype='f8' assumes
+            Hermitian symmetry of the input field (\delta(x) = 
+            \delta^{*}(-x)), and stores it as an N x N x N/2+1 real array.
+            This speeds evaluation of even multipoles but yields 
             incorrect odd multipoles in the presence of the wide-angle effect.
-            If False, store the field as an N x N x N complex array (dtype='c16').
+            dtype='c16' stores the field as an N x N x N complex array 
+            to correctly recover the odd multipoles.
         interlaced : bool, optional
             whether to use interlacing to reduce aliasing when painting the
             particles on the mesh
@@ -207,12 +208,6 @@ class FKPCatalog(MultipleSpeciesCatalog):
         """
         from .catalogmesh import FKPCatalogMesh
         
-        # translate fast_even_multipoles to mesh data type
-        if fast_even_multipoles:
-            dtype = 'f8'
-        else:
-            dtype = 'c16'
-
         if window is not None:
             import warnings
             resampler = window
