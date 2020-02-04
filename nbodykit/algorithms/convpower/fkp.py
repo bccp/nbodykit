@@ -765,7 +765,7 @@ def _cast_mesh(mesh, Nmesh):
     """
     from .catalog import FKPCatalog
     from .catalogmesh import FKPCatalogMesh
-    
+
     if not isinstance(mesh, (FKPCatalogMesh, FKPCatalog)):
         raise TypeError("input sources should be a FKPCatalog or FKPCatalogMesh")
 

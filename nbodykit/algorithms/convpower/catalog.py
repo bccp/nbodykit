@@ -1,5 +1,4 @@
-#from nbodykit.source.catalog.species import MultipleSpeciesCatalog
-from species import MultipleSpeciesCatalog
+from nbodykit.source.catalog.species import MultipleSpeciesCatalog
 from nbodykit.transform import ConstantArray
 
 import numpy
@@ -168,12 +167,12 @@ class FKPCatalog(MultipleSpeciesCatalog):
             the number of cells per box side; if not specified in `attrs`, this
             must be provided
         dtype : str, dtype, optional
-            the data type of the mesh when painting. dtype='f8' assumes
+            the data type of the mesh when painting. dtype='f8' or 'f4' assumes
             Hermitian symmetry of the input field (\delta(x) = 
             \delta^{*}(-x)), and stores it as an N x N x N/2+1 real array.
             This speeds evaluation of even multipoles but yields 
             incorrect odd multipoles in the presence of the wide-angle effect.
-            dtype='c16' stores the field as an N x N x N complex array 
+            dtype='c16' or 'c8' stores the field as an N x N x N complex array 
             to correctly recover the odd multipoles.
         interlaced : bool, optional
             whether to use interlacing to reduce aliasing when painting the
@@ -207,7 +206,7 @@ class FKPCatalog(MultipleSpeciesCatalog):
             deprecated. set nbar in the call to FKPCatalog()
         """
         from .catalogmesh import FKPCatalogMesh
-        
+
         if window is not None:
             import warnings
             resampler = window
