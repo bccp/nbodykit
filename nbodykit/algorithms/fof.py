@@ -63,10 +63,12 @@ class FOF(object):
 
         # linking length relative to mean separation
         if not absolute:
-            try:
+            if 'Nmesh' in source.attrs:
                 ndim = len(source.attrs['Nmesh'])
-            except KeyError:
+            elif 'Position' in source:
                 ndim = source['Position'].shape[1]
+            else:
+                raise AttributeError('Missing attributes to infer the dimension')
             mean_separation = pow(numpy.prod(source.attrs['BoxSize']) / source.csize, 1.0 / ndim)
             linking_length *= mean_separation
         self._linking_length = linking_length
