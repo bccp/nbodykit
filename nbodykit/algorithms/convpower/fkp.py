@@ -443,7 +443,7 @@ class ConvolvedFFTPower(object):
         pm   = self.first.pm
 
         # setup the 1D-binning
-        muedges = numpy.linspace(0, 1, 2, endpoint=True)
+        muedges = numpy.linspace(-1, 1, 2, endpoint=True)
         edges = [kedges, muedges]
 
         # make a structured array to hold the results
@@ -771,7 +771,7 @@ def _cast_mesh(mesh, Nmesh):
 
     if isinstance(mesh, FKPCatalog):
         # if input is CatalogSource, use defaults to make it into a mesh
-        mesh = mesh.to_mesh(Nmesh=Nmesh, dtype='f8', compensated=False)
+        mesh = mesh.to_mesh(Nmesh=Nmesh, dtype='c16', compensated=False)
 
     if Nmesh is not None and any(mesh.attrs['Nmesh'] != Nmesh):
         raise ValueError(("Mismatched Nmesh between __init__ and mesh.attrs; "
