@@ -132,8 +132,13 @@ class MeshSlab(object):
         array_like, (slab.shape)
             the `mu` value at each point in the slab
         """
+        norm = self.norm2()**0.5
+        
         with numpy.errstate(invalid='ignore', divide='ignore'):
-            return sum(self.coords(i) * los[i] for i in range(self.ndim)) / self.norm2()**0.5
+            result = sum(self.coords(i) * los[i] for i in range(self.ndim)) / norm
+        
+        result[norm == 0.0] = 0.0
+        return result
 
     @property
     def nonsingular(self):
