@@ -11,7 +11,7 @@ bigfile
 pandas
 dask>=0.14.2
 cachey
-sympy
+sympy=1.5.1
 numexpr
 Corrfunc
 mcfit
