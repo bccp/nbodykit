@@ -1,8 +1,16 @@
 Changelog
 =========
 
-0.3.14 (Unreleased)
+0.3.15 (UNRELEASED)
+------------------
+
+0.3.14 (2020-07-08)
 -------------------
+* :issue:`622`: meshtools sets mu to zero instead of nan when appropriate.
+* :issue:`618`: zhist fix
+* :issue:`613`: gaussian filter fix (was not applied)
+* :issue:`610`: odd multipole and wide angle fix in ConvFFTPower
+* :issue:`604`: Allow any glob pattern.
 
 0.3.13 (2019-08-01)
 -------------------
