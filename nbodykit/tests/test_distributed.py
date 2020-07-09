@@ -30,4 +30,4 @@ def test_save(comm):
 
     tmpfile = tempfile.mkdtemp()
     cat.save(tmpfile, dataset='data')
-    shutil.rmtree(tmpfile)
+    shutil.rmtree(tmpfile, ignore_errors=True)
