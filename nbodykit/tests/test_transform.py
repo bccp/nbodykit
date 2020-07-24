@@ -187,3 +187,26 @@ def test_constarray(comm):
 
     a = ConstantArray([1.0, 1.0], 3, chunks=1000)
     assert a.shape == (3, 2)
+
+@MPITest([1])
+def test_idtoposition(comm):
+    ID = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+    strides = [1, 4, 2]
+    sizes = 2
+    shift = 0.1
+    scale = 10.
+    pos = transform.IDToPosition(ID, strides=strides,
+                                          sizes=sizes,
+                                          shift=shift,
+                                          scale=scale)
+    numpy.testing.assert_array_equal(pos, [
+        [0.1, 0.1, 0.1],
+        [10.1, 0.1, 0.1],
+        [0.1, 0.1, 10.1],
+        [10.1, 0.1, 10.1],
+        [0.1, 10.1, 0.1],
+        [10.1, 10.1, 0.1],
+        [0.1, 10.1, 10.1],
+        [10.1, 10.1, 10.1],
+        [0.1, 0.1, 0.1],
+    ])
