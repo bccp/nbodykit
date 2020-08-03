@@ -293,7 +293,7 @@ class CSVFile(FileType):
             dtype = {col:dtype for col in self.names}
 
         # store the dtype as a list
-        self.dtype = []
+        dtype_ = []
         for col in self.names:
             if col in dtype:
                 dt = dtype[col]
@@ -303,17 +303,19 @@ class CSVFile(FileType):
                 dt = inferred_dtype[col]
             else:
                 raise ValueError("data type for column '%s' cannot be inferred from file" %col)
-            self.dtype.append((col, dt))
-        self.dtype = numpy.dtype(self.dtype)
+            dtype_.append((col, dt))
+        dtype = numpy.dtype(dtype_)
 
         # add the dtype and names to the pandas config
         if config['engine'] == 'c':
-            self.pandas_config['dtype'] = {col:self.dtype[col] for col in self.names}
+            self.pandas_config['dtype'] = {col:dtype[col] for col in self.names}
         self.pandas_config['names'] = names
 
         # make the partitions
         self.partitions, self._sizes = make_partitions(path, blocksize, self.pandas_config)
-        self.size = numpy.sum(self._sizes, dtype='intp')
+        size = numpy.sum(self._sizes, dtype='intp')
+
+        FileType.__init__(self, dtype=dtype, size=int(size))
 
     def read(self, columns, start, stop, step=1):
         """
@@ -339,7 +341,6 @@ class CSVFile(FileType):
             structured array holding the requested columns over
             the specified range of rows
         """
-        if isinstance(columns, string_types): columns = [columns]
 
         toret = []
         for fnum in tools.get_file_slice(self._sizes, start, stop):

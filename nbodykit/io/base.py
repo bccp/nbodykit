@@ -13,6 +13,10 @@ class FileType(object):
     """
     logger = logging.getLogger("FileType")
 
+    def __init__(self, dtype, size):
+        self.dtype = numpy.dtype(dtype)
+        self.size = size
+
     @abstractmethod
     def read(self, columns, start, stop, step=1):
         """

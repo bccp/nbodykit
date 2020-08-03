@@ -122,7 +122,7 @@ def test_wrong_size(comm):
         # size must be an int
         dtype = [('Position', ('f8', 3)), ('Velocity', ('f8', 3))]
         with pytest.raises(TypeError):
-            f = BinaryFile(ff.name, dtype, header_size=hdr.nbytes, size=1024.0)
+            f = BinaryFile(ff.name, dtype, header_size=hdr.nbytes, size=1024.5)
     
     # cleanup
     os.remove(tmpfile)

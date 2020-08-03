@@ -76,10 +76,6 @@ class BigFile(FileType):
 
             ds = bigfile.Dataset(ff[self.dataset], columns)
 
-            # set the data type and size
-            self.dtype = ds.dtype
-            self.size = ds.size
-
             headers = [ff[header] for header in headers]
             all_attrs = [ header.attrs for header in headers ]
             for attrs in all_attrs:
@@ -92,6 +88,10 @@ class BigFile(FileType):
                     # copy over an array
                     else:
                         self.attrs[k] = numpy.array(attrs[k], copy=True)
+
+            # set the data type and size
+            FileType.__init__(self, dtype=ds.dtype, size=ds.size)
+
 
     def _find_headers(self, header, dataset, ff):
         """ Find header from the file block by default. """
@@ -127,7 +127,6 @@ class BigFile(FileType):
         which is the total size of the binary file (in particles)
         """
         import bigfile
-        if isinstance(columns, string_types): columns = [columns]
 
         with bigfile.File(filename=self.path)[self.dataset] as f:
             ds = bigfile.Dataset(f, columns)

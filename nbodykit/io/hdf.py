@@ -1,6 +1,5 @@
 from .base import FileType
 from . import tools
-from six import string_types
 import numpy
 import os
 from collections import  namedtuple
@@ -123,7 +122,6 @@ class HDFFile(FileType):
         # empty file check
         if not len(sizes):
             raise ValueError("HDF file appears to contain datasets")
-        self.size = list(sizes)[0]
 
         # if single Dataset with structured array, allow relative names
         unique_dsets = set([info[col].dset for col in info])
@@ -136,7 +134,6 @@ class HDFFile(FileType):
             if single_structured_arr:
                 name = name.rsplit('/', 1)[-1]
             dtype.append((name, info[col].dtype))
-        self.dtype = numpy.dtype(dtype)
 
         # set the root properly if columns stored as single structured array
         if single_structured_arr:
@@ -144,6 +141,9 @@ class HDFFile(FileType):
             self.dataset = os.path.join(self.dataset, name)
             self.attrs = self.attrs[name]
             self.logger.info("detected single structured array stored as dataset; changing root of HDF file to %s" %self.dataset)
+
+        FileType.__init__(self, dtype=numpy.dtype(dtype), size=list(sizes)[0])
+
 
     def read(self, columns, start, stop, step=1):
         """
@@ -169,7 +169,6 @@ class HDFFile(FileType):
             structured array holding the requested columns over
             the specified range of rows
         """
-        if isinstance(columns, string_types): columns = [columns]
 
         dt = [(col, self.dtype[col]) for col in columns]
         toret = numpy.empty(tools.get_slice_size(start, stop, step), dtype=dt)

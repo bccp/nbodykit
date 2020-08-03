@@ -3,7 +3,6 @@ import os
 
 from .base import FileType
 from . import tools
-from six import string_types
 
 def getsize(filename, header_size, rowsize):
     """
@@ -72,20 +71,18 @@ class BinaryFile(FileType):
         self.path = path
         self.dataset = "*"
 
-        # set the data type
-        self.dtype = dtype
-        if not isinstance(self.dtype, numpy.dtype):
-            self.dtype = numpy.dtype(self.dtype)
-
+        dtype = numpy.dtype(dtype)
         # determine the size (either an int or a function)
         if size is None:
-            size = lambda fn: getsize(fn, header_size, self.dtype.itemsize)
+            size = lambda fn: getsize(fn, header_size, dtype.itemsize)
         if callable(size):
-            self.size = size(self.path)
-        elif isinstance(size, int):
-            self.size = size
-        else:
+            size = size(self.path)
+        if size != int(size):
             raise TypeError("`size` keyword should be a callable or integer")
+
+        # set the data type
+        FileType.__init__(self, dtype=dtype,
+                                size=int(size))
 
         # use the input offsets dict
         if offsets is not None:
@@ -144,8 +141,6 @@ class BinaryFile(FileType):
             structured array holding the requested columns over
             the specified range of rows
         """
-        if isinstance(columns, string_types): columns = [columns]
-
         dt = [(col, self.dtype[col]) for col in columns]
         toret = numpy.empty(tools.get_slice_size(start, stop, step), dtype=dt)
 
