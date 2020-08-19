@@ -75,7 +75,7 @@ def test_real_save(comm):
         shutil.rmtree(tmpfile)
 
 @MPITest([1,4])
-def test_real_save(comm):
+def test_complex_save(comm):
 
     cosmo = cosmology.Planck15
 
@@ -94,7 +94,7 @@ def test_real_save(comm):
     source.attrs['empty'] = None
 
     # save to bigfile
-    source.save(tmpfile, mode='real')
+    source.save(tmpfile, mode='complex')
 
     # load as a BigFileMesh
     source2 = BigFileMesh(tmpfile, dataset='Field', comm=comm)
@@ -104,7 +104,7 @@ def test_real_save(comm):
         assert_array_equal(source2.attrs[k], source.attrs[k])
 
     # check data
-    assert_array_equal(source2.compute(mode='real'), source.compute(mode='real'))
+    assert_array_equal(source2.compute(mode='complex'), source.compute(mode='complex'))
 
     # cleanup
     comm.barrier()
