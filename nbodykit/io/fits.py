@@ -55,8 +55,8 @@ class FITSFile(FileType):
 
         # size and dtype
         with fitsio.FITS(path) as ff:
-            self.size = ff[ext].get_nrows()
-            self.dtype = ff[ext].get_rec_dtype()[0]
+            FileType.__init__(self, size=ff[ext].get_nrows(),
+                                    dtype=ff[ext].get_rec_dtype()[0])
 
     def read(self, columns, start, stop, step=1):
         """
@@ -82,7 +82,6 @@ class FITSFile(FileType):
             structured array holding the requested columns over
             the specified range of rows
         """
-        if isinstance(columns, string_types): columns = [columns]
 
         kws = {'ext':self.attrs['ext'], 'columns':columns, 'rows':range(start, stop, step)}
         return fitsio.read(self.path, **kws)

@@ -50,8 +50,8 @@ class FileStack(FileType):
         self.sizes = numpy.array([len(f) for f in self.files], dtype='i8')
 
         # set dtype and size
-        self.dtype = self.files[0].dtype
-        self.size  = self.sizes.sum()
+        FileType.__init__(self, dtype=self.files[0].dtype,
+                                size=self.sizes.sum())
 
     def __repr__(self):
         return "FileStack(%s, ... %d files)" % (repr(self.files[0]), self.nfiles)
@@ -94,7 +94,6 @@ class FileStack(FileType):
         data : array_like
             a numpy structured array holding the requested data
         """
-        if isinstance(columns, string_types): columns = [columns]
 
         toret = []
         for fnum in tools.get_file_slice(self.sizes, start, stop):
