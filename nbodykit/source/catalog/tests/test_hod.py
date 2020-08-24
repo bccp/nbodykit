@@ -101,6 +101,30 @@ def test_hod_cm(comm):
     r = FFTPower(hod.to_mesh(Nmesh=128), mode='2d', Nmu=5, los=[0,0,1])
 
 @MPITest([1, 4])
+def test_hod_cm_200c(comm):
+
+    redshift = 0.55
+    cosmo = cosmology.Planck15
+    BoxSize = 512
+
+    # lognormal particles
+    Plin = cosmology.LinearPower(cosmo, redshift=redshift, transfer='EisensteinHu')
+    source = LogNormalCatalog(Plin=Plin, nbar=3e-3, BoxSize=BoxSize, Nmesh=128, seed=42, comm=comm)
+
+    # run FOF
+    r = FOF(source, linking_length=0.2, nmin=20)
+    halos = r.to_halos(cosmo=cosmo, redshift=redshift, particle_mass=1e12, mdef='200c', posdef='cm')
+
+    # make the HOD catalog from halotools catalog
+    hod = halos.populate(Zheng07Model, seed=42)
+
+    # RSD offset in 'z' direction
+    hod['Position'] += hod['VelocityOffset'] * [0, 0, 1]
+
+    # compute the power
+    r = FFTPower(hod.to_mesh(Nmesh=128), mode='2d', Nmu=5, los=[0,0,1])
+
+@MPITest([1, 4])
 def test_hod_peak(comm):
 
     redshift = 0.55
