@@ -400,7 +400,7 @@ def fof(source, linking_length, comm, periodic, domain_factor, logger):
 
     layout = domain.decompose(Position, smoothing=linking_length * 1)
 
-    np = comm.allgather(layout.newlength)
+    np = comm.allgather(layout.recvlength)
     if comm.rank == 0:
         logger.info("Number of particles max/min = %d / %d after spatial decomposition" % (max(np), min(np)))
 

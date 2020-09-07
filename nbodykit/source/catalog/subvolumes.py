@@ -44,7 +44,7 @@ class SubVolumesCatalog(CatalogSource):
 
         layout = domain.decompose(source[position].compute())
 
-        self._size = layout.newlength
+        self._size = layout.recvlength
 
         CatalogSource.__init__(self, comm=comm)
         self.attrs.update(source.attrs)
