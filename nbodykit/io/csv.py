@@ -179,6 +179,12 @@ def verify_data(path, names, nrows=10, **config):
     """
     # read the first few lines to get the the dtype
     try:
+        # first check no columns are missing to avoid silent data loss:
+        #   https://github.com/pandas-dev/pandas/issues/26218
+        df = read_csv(path, nrows=nrows, **config)
+        if len(df.columns) != len(names):
+            raise ValueError("Number of columns does not match, excepting len(names) == %d" % len(df.columns))
+
         df = read_csv(path, nrows=nrows, names=names, **config)
 
         if df.isnull().sum().any():
