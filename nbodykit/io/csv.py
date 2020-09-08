@@ -181,7 +181,10 @@ def verify_data(path, names, nrows=10, **config):
     try:
         # first check no columns are missing to avoid silent data loss:
         #   https://github.com/pandas-dev/pandas/issues/26218
-        df = read_csv(path, nrows=nrows, **config)
+        config_without_usecols = {}
+        config_without_usecols.update(config)
+        config_without_usecols.pop('usecols', None)
+        df = read_csv(path, nrows=nrows, **config_without_usecols)
         if len(df.columns) != len(names):
             raise ValueError("Number of columns does not match, excepting len(names) == %d" % len(df.columns))
 
