@@ -1,8 +1,15 @@
 Changelog
 =========
 
-0.3.15 (UNRELEASED)
+0.3.16 (UNRELEASED)
 ------------------
+
+0.3.15 (2020-09-08)
+------------------
+* :issue:`628`: FileType and FileCatalog clean up.
+* :issue:`630`: Fix wrong shape (length of 6 instead of 3) of complex mesh stored in attrs.
+* :issue:`640`: update for pmesh 0.1.56
+* :issue:`641`: update for pandas 1.1.
 
 0.3.14 (2020-07-08)
 -------------------
