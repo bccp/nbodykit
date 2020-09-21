@@ -157,7 +157,7 @@ Building a Docker Image with example Notebooks
 
 Here we setup a basic docker image packages with an example notebook (lognormal mock).
 
-1. Write the following docker file.
+Write the following docker file.
 
 .. code-block:: bash
 
