@@ -149,6 +149,61 @@ This command will compile and install the dependencies of nbodykit and then
 install nbodykit. Again, a different installation directory can be specified via
 the ``--user`` or ``--root <dir>`` options of the ``pip install`` command.
 
+
+Building a Docker Image with example Notebooks
+----------------------------------------------
+
+(Instructions contributed by Peter Nugent)
+
+Here we setup a basic docker image packages with an example notebook (lognormal mock).
+
+1. Write the following docker file.
+
+.. code-block:: bash
+
+    FROM continuumio/miniconda3:4.7.10
+
+    MAINTAINER Your Name <yourname@yourorg.edu>
+
+    # Install bccp software
+    RUN conda install -c bccp nbodykit notebook matplotlib
+
+    RUN mkdir -p /opt/notebooks
+
+    COPY lognormal-mocks.ipynb /opt/notebooks
+
+
+In the directory with the Dockerfile copied the 
+`lognormal-mocks.ipynb` (from `nbodykit-cookbook <https://github.com/bccp/nbodykit-cookbook>`_) into it and then build the image with:
+
+There is an example of the docker file in the nbodykit-cookbook repository
+linked above.
+
+.. code-block:: bash
+
+    docker build --tag bccp:1.0 .
+
+The commands need access to the internet due to the conda command.
+If this is not enabled by default, (e.g. Fedora 32), add `--network=host`
+to the command line.
+
+Once built, start the docker with:
+
+
+.. code-block:: bash
+
+    docker run -it -p 8888:8888 bccp:1.0 /bin/bash
+
+Then inside the image run:
+
+
+.. code-block:: bash
+
+    /opt/conda/bin/jupyter notebook --notebook-dir=/opt/notebooks --allow-root --ip 0.0.0.0 --port 8888
+
+It'll point you to the location to pull up the notebook and voila, the lognormal notebook is there and works.
+
+
 .. _nbodykit-on-NERSC:
 
 nbodykit on NERSC
