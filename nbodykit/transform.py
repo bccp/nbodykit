@@ -486,6 +486,35 @@ def HaloRadius(mass, cosmo, redshift, mdef='vir'):
 
     return da.map_blocks(mass_to_radius, mass, redshift, dtype=mass.dtype)
 
+
+def VectorProjection(vector, direction):
+    """
+    Vector component of a given vector in a given direction.
+
+    .. math::
+
+        \mathbf{v}_d &= (\mathbf{v} \cdot \hat{\mathbf{d}}) \hat{\mathbf{d}} \\
+        \hat{\mathbf{d}} &= \frac{\mathbf{b}}{\|\mathbf{b}\|}
+
+    Parameters
+    ----------
+    vector : array_like, (..., D)
+        array of vectors to be projected
+    direction : array_like, (D,)
+        projection direction. It does not have to be normalized
+
+    Returns
+    -------
+    projection : array_like, (..., D)
+        vector component of the given vector in the given direction
+    """
+    direction = direction / numpy.sqrt(direction ** 2)
+    projection = numpy.dot(vector, direction)[..., None]
+    projection = projection * direction
+
+    return projection
+
+
 # deprecated functions
 vstack = deprecate("nbodykit.transform.vstack", StackColumns, "nbodykit.transform.StackColumns")
 concatenate = deprecate("nbodykit.transform.concatenate", ConcatenateSources, "nbodykit.transform.ConcatenateSources")
