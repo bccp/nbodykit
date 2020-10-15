@@ -95,7 +95,7 @@ def test_hod_cm(comm):
     hod = halos.populate(Zheng07Model, seed=42)
 
     # RSD offset in 'z' direction
-    hod['Position'] += VectorProjecition(hod['VelocityOffset'], [0, 0, 1])
+    hod['Position'] += VectorProjection(hod['VelocityOffset'], [0, 0, 1])
 
     # compute the power
     r = FFTPower(hod.to_mesh(Nmesh=128), mode='2d', Nmu=5, los=[0,0,1])
