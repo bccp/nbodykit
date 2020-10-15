@@ -508,6 +508,7 @@ def VectorProjection(vector, direction):
     projection : array_like, (..., D)
         vector component of the given vector in the given direction
     """
+    direction = numpy.asarray(direction)
     direction = direction / numpy.sqrt(direction ** 2)
     projection = numpy.dot(vector, direction)[..., None]
     projection = projection * direction
