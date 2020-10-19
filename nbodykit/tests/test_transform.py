@@ -170,7 +170,7 @@ def test_combine(comm):
 
     # only one column
     cat = transform.ConcatenateSources(s1, s2, columns='Position')
-    pos = numpy.concatenate([s1['Position'], s2['Position']], axis=0)
+    pos = numpy.concatenate([numpy.array(s1['Position']), numpy.array(s2['Position'])], axis=0)
     numpy.testing.assert_array_equal(pos, cat['Position'])
 
     # fail on invalid column
