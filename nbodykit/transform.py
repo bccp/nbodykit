@@ -489,7 +489,7 @@ def HaloRadius(mass, cosmo, redshift, mdef='vir'):
 
 def VectorProjection(vector, direction):
     """
-    Vector component of a given vector in a given direction.
+    Vector components of given vectors in a given direction.
 
     .. math::
 
@@ -506,7 +506,7 @@ def VectorProjection(vector, direction):
     Returns
     -------
     projection : array_like, (..., D)
-        vector component of the given vector in the given direction
+        vector components of the given vectors in the given direction
     """
     direction = numpy.asarray(direction, dtype='f8')
     direction = direction / (direction ** 2).sum() ** 0.5
