@@ -508,10 +508,10 @@ def VectorProjection(vector, direction):
     projection : array_like, (..., D)
         vector component of the given vector in the given direction
     """
-    direction = numpy.asarray(direction)
-    direction = direction / numpy.sqrt(direction ** 2)
-    projection = numpy.dot(vector, direction)[..., None]
-    projection = projection * direction
+    direction = numpy.asarray(direction, dtype='f8')
+    direction = direction / (direction ** 2).sum() ** 0.5
+    projection = (vector * direction).sum(axis=-1)
+    projection = projection[:, None] * direction[None, :]
 
     return projection
 
