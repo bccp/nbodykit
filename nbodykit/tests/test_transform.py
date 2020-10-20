@@ -170,7 +170,7 @@ def test_combine(comm):
 
     # only one column
     cat = transform.ConcatenateSources(s1, s2, columns='Position')
-    pos = numpy.concatenate([s1['Position'], s2['Position']], axis=0)
+    pos = numpy.concatenate([numpy.array(s1['Position']), numpy.array(s2['Position'])], axis=0)
     numpy.testing.assert_array_equal(pos, cat['Position'])
 
     # fail on invalid column
@@ -187,3 +187,30 @@ def test_constarray(comm):
 
     a = ConstantArray([1.0, 1.0], 3, chunks=1000)
     assert a.shape == (3, 2)
+
+@MPITest([1, 4])
+def test_vector_projection(comm):
+    cosmo = cosmology.Planck15
+
+    # make source
+    s = UniformCatalog(nbar=1e-5, BoxSize=1380., seed=42, comm=comm)
+
+    x = transform.VectorProjection(s['Position'], [1, 0, 0])
+    y = transform.VectorProjection(s['Position'], [0, 1, 0])
+    z = transform.VectorProjection(s['Position'], [0, 0, 1])
+    d = transform.VectorProjection(s['Position'], [1, 1, 1])
+
+    nx = transform.VectorProjection(s['Position'], [-2, 0, 0])
+    ny = transform.VectorProjection(s['Position'], [0, -2, 0])
+    nz = transform.VectorProjection(s['Position'], [0, 0, -2])
+    nd = transform.VectorProjection(s['Position'], [-2, -2, -2])
+
+    numpy.testing.assert_allclose(x, s['Position'] * [1, 0, 0], rtol=1e-3)
+    numpy.testing.assert_allclose(y, s['Position'] * [0, 1, 0], rtol=1e-3)
+    numpy.testing.assert_allclose(z, s['Position'] * [0, 0, 1], rtol=1e-3)
+    numpy.testing.assert_allclose(d[:, 0], s['Position'].sum(axis=-1) / 3., rtol=1e-3)
+
+    numpy.testing.assert_allclose(nx, s['Position'] * [1, 0, 0], rtol=1e-3)
+    numpy.testing.assert_allclose(ny, s['Position'] * [0, 1, 0], rtol=1e-3)
+    numpy.testing.assert_allclose(nz, s['Position'] * [0, 0, 1], rtol=1e-3)
+    numpy.testing.assert_allclose(nd[:, 0], s['Position'].sum(axis=-1) / 3., rtol=1e-3)
