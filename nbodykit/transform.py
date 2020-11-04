@@ -488,7 +488,7 @@ def HaloRadius(mass, cosmo, redshift, mdef='vir'):
 
 
 def VectorProjection(vector, direction):
-    """
+    r"""
     Vector components of given vectors in a given direction.
 
     .. math::
