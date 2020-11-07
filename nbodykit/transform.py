@@ -493,8 +493,8 @@ def VectorProjection(vector, direction):
 
     .. math::
 
-        \mathbf{v}_d &= (\mathbf{v} \cdot \hat{\mathbf{d}}) \hat{\mathbf{d}} \\
-        \hat{\mathbf{d}} &= \frac{\mathbf{b}}{\|\mathbf{b}\|}
+        \mathbf{v}_\mathbf{d} &= (\mathbf{v} \cdot \hat{\mathbf{d}}) \hat{\mathbf{d}} \\
+        \hat{\mathbf{d}} &= \frac{\mathbf{d}}{\|\mathbf{d}\|}
 
     Parameters
     ----------
