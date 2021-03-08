@@ -48,7 +48,7 @@ jobs:
       uses: conda-incubator/setup-miniconda@v2.0.1
       with:
         activate-environment: test
-        channels: bccp
+        channels: bccp,conda-forge
         show-channel-urls: true
         use-only-tar-bz2: false
         auto-update-conda: true
@@ -60,9 +60,10 @@ jobs:
                python=${{ matrix.python-version }} \
                numpy=${{ matrix.numpy-version }} \
                nose cython mpi4py \
+               compilers \
                --file requirements.txt \
                --file requirements-extras.txt
-        conda install -q -y -c conda-forge compilers
+
         # submitting coverage to coveralls
         pip install coveralls
         # install nbodykit itself
