@@ -25,7 +25,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest, macos-latest ]
-        numpy-version: [ 1.16 ]
+        numpy-version: [ 1.18 ]
         python-version: [ 3.8 ]
         include:
           - {deploy: true, os: ubuntu-latest, numpy-version: 1.16, python-version: 3.8 }
