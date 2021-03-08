@@ -50,7 +50,7 @@ jobs:
         activate-environment: test
         channels: bccp,conda-forge
         show-channel-urls: true
-        use-only-tar-bz2: true
+        use-only-tar-bz2: false
         auto-update-conda: true
         python-version: ${{ matrix.python-version }}
 
@@ -60,10 +60,10 @@ jobs:
                python=${{ matrix.python-version }} \
                numpy=${{ matrix.numpy-version }} \
                nose cython mpi4py \
-               compilers
-        # install base dependencies
-        conda install --yes --file requirements.txt
-        conda install --yes --file requirements-extras.txt
+               compilers \
+               --file requirements.txt \
+               --file requirements-extras.txt
+
         # submitting coverage to coveralls
         pip install coveralls
         # install nbodykit itself
