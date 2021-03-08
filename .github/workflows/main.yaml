@@ -48,7 +48,7 @@ jobs:
       uses: conda-incubator/setup-miniconda@v2.0.1
       with:
         activate-environment: test
-        channels: conda-forge,bccp
+        channels: bccp
         show-channel-urls: true
         use-only-tar-bz2: false
         auto-update-conda: true
@@ -60,7 +60,6 @@ jobs:
                python=${{ matrix.python-version }} \
                numpy=${{ matrix.numpy-version }} \
                nose cython mpi4py \
-               compilers \
                --file requirements.txt \
                --file requirements-extras.txt
 
@@ -68,6 +67,16 @@ jobs:
         pip install coveralls
         # install nbodykit itself
         pip install .[extras]
+
+#    - name: Install Compilers For OSX
+#      if: ${{ runner.os == "macOS" }}
+#      run: |
+#        conda install -q -y clang_osx-64 clangxx_osx-64 gfortran_osx-64
+
+#    - name: Install Compilers For Linux
+#      if: ${{ runner.os == "Linux" }}
+#      run: |
+#        conda install -q -y gcc_linux-64 gxx_linux-64 gfortran_linux-64
 
     - name: Python Unit tests
       run: |
