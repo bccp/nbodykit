@@ -2,6 +2,7 @@ from runtests.mpi import MPITest
 from nbodykit import set_options, GlobalCache, use_distributed, use_mpi
 from numpy.testing import assert_array_equal
 from nbodykit.lab import UniformCatalog
+import pytest
 
 def setup():
     from distributed import LocalCluster, Client
@@ -21,6 +22,10 @@ def test_pickle(comm):
     
     assert_array_equal(cat['Position'], cat2['Position'])
 
+import distributed
+
+@pytest.mark.xfail(distributed.__version__ in ['2021.03.0',],
+    reason="https://github.com/dask/distributed/issues/4565")
 @MPITest([1])
 def test_save(comm):
     cat = UniformCatalog(1e-3, 512, comm=comm)
