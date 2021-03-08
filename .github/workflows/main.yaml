@@ -48,7 +48,7 @@ jobs:
       uses: conda-incubator/setup-miniconda@v2.0.1
       with:
         activate-environment: test
-        channels: bccp,conda-forge
+        channels: conda-forge,bccp
         show-channel-urls: true
         use-only-tar-bz2: false
         auto-update-conda: true
