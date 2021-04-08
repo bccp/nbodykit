@@ -107,7 +107,7 @@ easily manipulate the existing column data or add new columns:
 
     BoxSize = 2500.
     catalog['Position'] *= BoxSize # re-normalize units of Position
-    catalog['Mass'] = 10**(numpy.random(12, 15, size=len(catalog))) # add some random mass values
+    catalog['Mass'] = 10**(numpy.random.uniform(12, 15, size=len(catalog))) # add some random mass values
 
 We can generate a representation of the density field on a mesh using our
 catalog of objects. Here, we interpolate the particles onto a mesh of
