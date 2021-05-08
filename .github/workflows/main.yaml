@@ -70,7 +70,7 @@ jobs:
         pip install coveralls
         # install nbodykit itself
         pip install .[extras]
-        conda list
+        conda list --explicit
 #
 #    - name: Install Compilers For OSX
 #      if: ${{ runner.os == "macOS" }}
