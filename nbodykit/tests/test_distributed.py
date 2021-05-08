@@ -24,8 +24,8 @@ def test_pickle(comm):
 
 import distributed
 
-@pytest.mark.xfail(distributed.__version__ in ['2021.03.0',],
-    reason="https://github.com/dask/distributed/issues/4565")
+#@pytest.mark.xfail(distributed.__version__ in ['2021.03.0', '2021.04.0'],
+#    reason="https://github.com/dask/distributed/issues/4565")
 @MPITest([1])
 def test_save(comm):
     cat = UniformCatalog(1e-3, 512, comm=comm)
