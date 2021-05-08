@@ -25,9 +25,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Disable os-latest as we run into a dask error for now.
-        # os: [ ubuntu-latest, macos-latest ]
-        os: [ ubuntu-latest ]
+        os: [ ubuntu-latest, macos-latest ]
         numpy-version: [ 1.18 ]
         python-version: [ 3.8 ]
         include:
