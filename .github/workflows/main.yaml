@@ -70,15 +70,13 @@ jobs:
         pip install .[extras]
         conda list --explicit
 
-    - name: Install Compilers For OSX
-      if: ${{ runner.os == "macOS" }}
+    - name: Install Compilers
       run: |
-        conda install -q -y clang_osx-64 clangxx_osx-64 gfortran_osx-64
-
-    - name: Install Compilers For Linux
-      if: ${{ runner.os == "Linux" }}
-      run: |
-        conda install -q -y gcc_linux-64 gxx_linux-64 gfortran_linux-64
+        if [ "$RUNNER_OS" == "macOS" ]; then
+          conda install -q -y clang_osx-64 clangxx_osx-64 gfortran_osx-64
+        else
+          conda install -q -y gcc_linux-64 gxx_linux-64 gfortran_linux-64
+        fi
 
     - name: Python Unit tests
       run: |
