@@ -26,10 +26,10 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest, macos-latest ]
-        numpy-version: [ 1.20 ]
+        numpy-version: [ '1.20' ]
         python-version: [ 3.8 ]
         include:
-          - {deploy: true, os: ubuntu-latest, numpy-version: 1.20, python-version: 3.8 }
+          - {deploy: true, os: ubuntu-latest, numpy-version: '1.20', python-version: 3.8 }
     steps:
 
     - name: Checkout source code
