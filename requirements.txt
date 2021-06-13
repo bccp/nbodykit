@@ -1,7 +1,6 @@
 numpy
 scipy
 astropy
-pyerfa==1.7.1  # 2.0.0 on anaconda requires numpy 1.20.
 mpi4py
 six
 runtests
