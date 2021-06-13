@@ -5,7 +5,7 @@ name: main
 
 on:
   schedule:
-    - cron:  '* * * * 5'   # Runs on every Friday.
+    - cron:  '0 0 * * 5'   # Runs on every Friday.
   push:
     branches: [ '*', $default-branch ]
     tags: ['[0-9]*']   # anything looks like a version.
