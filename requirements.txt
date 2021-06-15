@@ -1,6 +1,7 @@
 numpy
 scipy
 astropy
+pyerfa
 mpi4py
 six
 runtests

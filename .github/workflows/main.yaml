@@ -5,7 +5,7 @@ name: main
 
 on:
   schedule:
-    - cron:  '* * * * 5'   # Runs on every Friday.
+    - cron:  '0 0 * * 5'   # Runs on every Friday.
   push:
     branches: [ '*', $default-branch ]
     tags: ['[0-9]*']   # anything looks like a version.
@@ -25,13 +25,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Disable os-latest as we run into a dask error for now.
-        # os: [ ubuntu-latest, macos-latest ]
-        os: [ ubuntu-latest ]
-        numpy-version: [ 1.18 ]
+        os: [ ubuntu-latest, macos-latest ]
+        numpy-version: [ '1.20' ]
         python-version: [ 3.8 ]
         include:
-          - {deploy: true, os: ubuntu-latest, numpy-version: 1.18, python-version: 3.8 }
+          - {deploy: true, os: ubuntu-latest, numpy-version: '1.20', python-version: 3.8 }
     steps:
 
     - name: Checkout source code
@@ -70,16 +68,15 @@ jobs:
         pip install coveralls
         # install nbodykit itself
         pip install .[extras]
+        conda list --explicit
 
-#    - name: Install Compilers For OSX
-#      if: ${{ runner.os == "macOS" }}
-#      run: |
-#        conda install -q -y clang_osx-64 clangxx_osx-64 gfortran_osx-64
-
-#    - name: Install Compilers For Linux
-#      if: ${{ runner.os == "Linux" }}
-#      run: |
-#        conda install -q -y gcc_linux-64 gxx_linux-64 gfortran_linux-64
+    - name: Install Compilers
+      run: |
+        if [ "$RUNNER_OS" == "macOS" ]; then
+          conda install -q -y clang_osx-64 clangxx_osx-64 gfortran_osx-64
+        else
+          conda install -q -y gcc_linux-64 gxx_linux-64 gfortran_linux-64
+        fi
 
     - name: Python Unit tests
       run: |
