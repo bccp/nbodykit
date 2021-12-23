@@ -227,7 +227,6 @@ class GalaxyPower(object):
         """
 
         Pk=self.linear_power(k)
-        constant=1e-6
         total_bias=self.corrected_bias(k)      
         
         Pgal = Pk * total_bias**2
