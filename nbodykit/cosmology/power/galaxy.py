@@ -3,7 +3,7 @@ from . import transfers
 from ..cosmology import Cosmology
 from .linear import LinearPower
 
-class GalaxyPower(object):
+class FNLGalaxyPower(object):
     """
     An object to compute the galaxy/redshift power spectrum and related quantities,
     using a transfer function from the CLASS code or the analytic
@@ -22,8 +22,9 @@ class GalaxyPower(object):
     b0 : float
         the linear bias of the galaxy in a gaussian field
     fnl : float
-        the non-gaussian parameter
+        primordial non-gaussian parameter
     p : float
+        correction term due to galaxy selection beyond a Poisson sampling of the halos of a given mass.
         p takes a between 1 and 1.6. 
         p=1 for objects populating a fair sample of all the halos
         p=1.6 for objects that populate only recently merged halos
@@ -47,7 +48,7 @@ class GalaxyPower(object):
         the type of transfer function used
     """
     
-    def __init__(self, cosmo, redshift ,b0 ,fNL ,p ,Omega_m ,H0=73.8 ,c=3e5 ,transfer='CLASS'):
+    def __init__(self, cosmo, redshift ,b0 ,fNL ,p ,c=3e5 ,transfer='CLASS'):
         from astropy.cosmology import FLRW
 
         # convert astropy
@@ -58,12 +59,12 @@ class GalaxyPower(object):
         # store a copy of the cosmology
         self.cosmo = cosmo.clone()
         
-        #get the linear bias,p,fNL
+        #get the linear bias,p,fNL,omega_m,H0,c
         self.b=b0
         self.p=p
         self.fnl=fNL
-        self.omega_m=Omega_m
-        self.H0=H0
+        self.omega_m=cosmo.Omega0_m
+        self.H0=cosmo.H0
         self.c=c
 
         self.transfer = transfer
@@ -72,9 +73,9 @@ class GalaxyPower(object):
         self.redshift = redshift
         
     
-    def corrected_bias(self, k):
+    def total_bias(self, k):
         """
-        Returns the total/corrected galaxy bias in a non-gaussian field at the redshift
+        Returns the total galaxy bias in a non-gaussian field at the redshift
         specified by :attr:`redshift`.
         
         Parameters
@@ -85,7 +86,7 @@ class GalaxyPower(object):
         Returns
         -------
         total_bias : float, array_like
-            the corrected galaxy bias in a non-gaussian field
+            the total bias
         
         """
         Plin=LinearPower(self.cosmo, self.redshift, transfer=self.transfer)
@@ -121,7 +122,7 @@ class GalaxyPower(object):
 
         Plin=LinearPower(self.cosmo, self.redshift, transfer=self.transfer)
         Pk=Plin(k)
-        total_bias=self.corrected_bias(k)      
+        total_bias=self.total_bias(k)      
         
         Pgal = Pk * total_bias**2
         
