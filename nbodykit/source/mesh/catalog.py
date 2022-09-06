@@ -382,7 +382,7 @@ class CatalogMesh(MeshSource):
         toret.attrs['shotnoise'] = shotnoise
         toret.attrs['N'] = N
         toret.attrs['W'] = W
-        toret.attrs['W2'] = W
+        toret.attrs['W2'] = W2
         toret.attrs['num_per_cell'] = nbar
 
         csum = toret.csum()
