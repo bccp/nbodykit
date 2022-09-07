@@ -1,7 +1,7 @@
-from nbodykit.cosmology import Cosmology, LinearPower, HalofitPower, ZeldovichPower
+from nbodykit.cosmology import Cosmology, LinearPower, HalofitPower, ZeldovichPower ,FNLGalaxyPower
 from nbodykit.cosmology import EHPower, NoWiggleEHPower
 import numpy
-from numpy.testing import assert_allclose
+from numpy.testing import assert_allclose, assert_equal
 import pytest
 
 def test_bad_transfer():
@@ -160,3 +160,45 @@ def test_zeldovich():
     D2 = c.scale_independent_growth_factor(0.)
     D3 = c.scale_independent_growth_factor(0.55)
     assert_allclose(Pk2.max()/Pk3.max(), (D2/D3)**2, rtol=1e-2)
+    
+def test_galaxy():
+    
+    # initialize the power
+    c = Cosmology().match(sigma8=0.82)
+    P = FNLGalaxyPower(c, redshift=0, b0=1, fNL=10, p=1, c=3e5, transfer='CLASS')
+
+    # desired wavenumbers (in h/Mpc)
+    k = numpy.logspace(-3, 2, 500)
+
+    # initialize EH power
+    P1 = FNLGalaxyPower(c, redshift=0, b0=1, fNL=10, p=1, c=3e5, transfer="CLASS")
+    P2 = FNLGalaxyPower(c, redshift=0, b0=1, fNL=10, p=1, c=3e5, transfer='EisensteinHu')
+    P3 = FNLGalaxyPower(c, redshift=0, b0=1, fNL=10, p=1, c=3e5, transfer='NoWiggleEisensteinHu')
+
+    # check different transfers (very roughly)
+    Pk1 = P1(k)
+    Pk2 = P2(k)
+    Pk3 = P3(k)
+    assert_allclose(Pk1 / Pk1.max(), Pk2 / Pk2.max(), rtol=0.1)
+    assert_allclose(Pk1 / Pk1.max(), Pk3 / Pk3.max(), rtol=0.1)
+
+    # also try scalar
+    Pk = P(0.1)
+    
+    # check if bias and total bias are same for a gaussian field (i.e.,fnl=0) for any k
+    bias=1
+    P = FNLGalaxyPower(c, redshift=0, b0=bias, fNL=0, p=1, c=3e5, transfer='CLASS')
+    assert_equal(P.total_bias(0.1),bias)
+    assert_equal(P.total_bias(0.3),bias)
+    
+def test_gaussian():
+    
+    # initialize linear power
+    c = Cosmology().match(sigma8=0.82)
+    Plin = LinearPower(c, redshift=0, transfer='CLASS')
+    
+    # initialize galaxy power for a gaussian field (i.e.,fnl=0) with bias=1
+    Pgal = FNLGalaxyPower(c, redshift=0, b0=1, fNL=0, p=1, c=3e5, transfer='CLASS')
+    
+    # check if they are equal
+    assert_equal(Pgal(0.1),Plin(0.1))
