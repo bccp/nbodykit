@@ -142,6 +142,11 @@ class BinnedStatistic(object):
     """
     def __init__(self, dims, edges, data, fields_to_sum=[], coords=None, **kwargs):
 
+        # save and track metadata
+        self.attrs = {}
+        for k in kwargs:
+             self.attrs[k] = kwargs[k]
+
         # number of dimensions must match
         if len(dims) != len(edges):
             raise ValueError("size mismatch between specified `dims` and `edges`")
@@ -163,6 +168,8 @@ class BinnedStatistic(object):
         for i, dim in enumerate(self.dims):
             if coords is not None and coords[i] is not None:
                 self.coords[dim] = numpy.copy(coords[i])
+            elif self.attrs["logkBins"] and dim == 'k':
+                self.coords[dim] = 10. ** (0.5 * (numpy.log10(edges[i][1:]) + numpy.log10(edges[i][:-1])))
             else:
                 self.coords[dim] = 0.5 * (edges[i][1:] + edges[i][:-1])
 
@@ -178,9 +185,6 @@ class BinnedStatistic(object):
         # fields that we wish to sum, instead of averaging
         self._fields_to_sum = fields_to_sum
 
-        # save and track metadata
-        self.attrs = {}
-        for k in kwargs: self.attrs[k] = kwargs[k]
 
     @classmethod
     def from_state(kls, state):
@@ -276,7 +280,10 @@ class BinnedStatistic(object):
             else:
                 idx = [0]
             edges[dim] = self.edges[dim][idx]
-            coords[dim] = 0.5 * (edges[dim][1:] + edges[dim][:-1])
+            if self.attrs["logkBins"] and dim == "k":
+                coords[dim] = 0.5 * (edges[dim][1:] + edges[dim][:-1])
+            else:
+                coords[dim] = 10.**( 0.5 * (numpy.log10(edges[dim][1:]) + numpy.log10(edges[dim][:-1])) )
 
         return edges, coords
 
@@ -815,7 +822,10 @@ class BinnedStatistic(object):
             A new BinnedStatistic, with data averaged along one dimension,
             which reduces the number of dimension by one
         """
-        spacing = (self.edges[dim][-1] - self.edges[dim][0])
+        if self.attrs["logkBins"] and dim == "k":
+            spacing = (numpy.log10(self.edges[dim][-1]) - numpy.log10(self.edges[dim][0]))
+        else:
+            spacing = (self.edges[dim][-1] - self.edges[dim][0])
         toret = self.reindex(dim, spacing, **kwargs)
         return toret.sel(**{dim:toret.coords[dim][0]})
 
@@ -876,7 +886,10 @@ class BinnedStatistic(object):
         fields_to_sum += self._fields_to_sum
 
         # determine the new binning
-        old_spacings = numpy.diff(self.coords[dim])
+        if self.attrs["logkBins"] and dim == "k" :
+            old_spacings = numpy.diff(numpy.log10(self.coords[dim]))
+        else:
+            old_spacings = numpy.diff(self.coords[dim])
         if not numpy.array_equal(old_spacings, old_spacings):
             raise ValueError("`reindex` requires even bin spacings")
         old_spacing = old_spacings[0]
@@ -917,7 +930,10 @@ class BinnedStatistic(object):
         # new edges
         new_shape[i] /= factor
         new_shape[i] = int(new_shape[i])
-        new_edges = numpy.linspace(edges[0], edges[-1], new_shape[i]+1)
+        if self.attrs["logkBins"] and dim=="k" :
+            new_edges = 10. ** numpy.linspace(numpy.log10(edges[0]), numpy.log10(edges[-1]), new_shape[i]+1)
+        else:
+            new_edges = numpy.linspace(edges[0], edges[-1], new_shape[i]+1)
 
         # the re-binned data
         new_data = numpy.empty(new_shape, dtype=self.data.dtype)
@@ -937,7 +953,10 @@ class BinnedStatistic(object):
         # construct new object
         kw = self.__copy_attrs__()
         kw['edges'][dim] = new_edges
-        kw['coords'][dim] = 0.5*(new_edges[1:] + new_edges[:-1])
+        if self.attrs["logkBins"] and dim == 'k':
+            kw['coords'][dim] = 10. ** (0.5*(numpy.log10(new_edges[1:]) + numpy.log10(new_edges[:-1])))
+        else:
+            kw['coords'][dim] = 0.5*(new_edges[1:] + new_edges[:-1])
         toret = self.__construct_direct__(new_data, new_mask, **kw)
 
         return (toret, spacing) if return_spacing else toret
