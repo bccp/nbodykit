@@ -3,6 +3,8 @@ import dask.array as da
 from six import string_types
 from nbodykit.utils import deprecate
 from nbodykit import _global_options
+from nbodykit.cosmology import Cosmology
+
 def StackColumns(*cols):
     """
     Stack the input dask arrays vertically, column by column.
@@ -233,6 +235,11 @@ def CartesianToSky(pos, cosmo, velocity=None, observer=[0,0,0], zmax=100., frame
     TypeError
         If the input columns are not dask arrays
     """
+    if not isinstance(cosmo, Cosmology):
+        raise TypeError("Please convert the cosmo object to "
+                        "nbodykit.cosmology.Cosmology. See, e.g. "
+                        "Cosmology.from_astropy.")
+
     from astropy.constants import c
     from scipy.interpolate import interp1d
 
@@ -364,6 +371,11 @@ def SkyToCartesian(ra, dec, redshift, cosmo, observer=[0, 0, 0], degrees=True, f
     TypeError
         If the input columns are not dask arrays
     """
+    if not isinstance(cosmo, Cosmology):
+        raise TypeError("Please convert the cosmo object to "
+                        "nbodykit.cosmology.Cosmology. See, e.g. "
+                        "Cosmology.from_astropy.")
+
     ra, dec, redshift = da.broadcast_arrays(ra, dec, redshift)
 
     # pos on the unit sphere
@@ -408,6 +420,11 @@ def HaloConcentration(mass, cosmo, redshift, mdef='vir'):
     of structural parameters for Einasto and NFW profiles", 2014, arxiv:1402.7073
 
     """
+    if not isinstance(cosmo, Cosmology):
+        raise TypeError("Please convert the cosmo object to "
+                        "nbodykit.cosmology.Cosmology. See, e.g. "
+                        "Cosmology.from_astropy.")
+
     from halotools.empirical_models import NFWProfile
 
     mass, redshift = da.broadcast_arrays(mass, redshift)
@@ -430,6 +447,10 @@ def HaloVelocityDispersion(mass, cosmo, redshift, mdef='vir'):
 
         See http://adsabs.harvard.edu/abs/2008ApJ...672..122E
     """
+    if not isinstance(cosmo, Cosmology):
+        raise TypeError("Please convert the cosmo object to "
+                        "nbodykit.cosmology.Cosmology. See, e.g. "
+                        "Cosmology.from_astropy.")
 
     mass, redshift = da.broadcast_arrays(mass, redshift)
     def compute_vdisp(mass, redshift):
@@ -475,6 +496,11 @@ def HaloRadius(mass, cosmo, redshift, mdef='vir'):
         This is proper Mpc/h, to convert to comoving, divide this by scaling factor.
 
     """
+    if not isinstance(cosmo, Cosmology):
+        raise TypeError("Please convert the cosmo object to "
+                        "nbodykit.cosmology.Cosmology. See, e.g. "
+                        "Cosmology.from_astropy.")
+
     from halotools.empirical_models import halo_mass_to_halo_radius
 
     mass, redshift = da.broadcast_arrays(mass, redshift)
