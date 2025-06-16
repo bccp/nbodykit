@@ -3,7 +3,7 @@ import numpy
 from scipy.integrate import solve_ivp
 
 class LinearNbody:
-    """ 
+    """
     Perturbations of matter under matter only interaction on an expanding cosmology
     background. Ignoring interaction with radiation.
 
@@ -15,7 +15,7 @@ class LinearNbody:
     ----------
     c_b : float
         baryon velocity in km/s. set to zero to evolve as cdm. Related
-        to the thermal history of baryons. 
+        to the thermal history of baryons.
 
     background : object
         an object with attributes:
@@ -50,7 +50,7 @@ class LinearNbody:
         return self.background.m_ncdm
 
     def integrate(self, k, q0, p0, a, rtol=1e-4):
-        """ 
+        """
         Solve the 3 fluid model from initial position and momentum q0, and p0, at
         times a.
 
@@ -63,13 +63,13 @@ class LinearNbody:
             scale factor requesting the output.
 
         k : array_like,
-             k values to compute the solution, in h/Mpc. From classylss's transfer function.
+             k values to compute the solution, in h/Mpc. From classy's transfer function.
 
         q0 : array_like (Nk, 3)
             initial position, -d, produced by `seed` from CLASSylss transfer function
             three species are cdm, baryon and ncdm.
         p0 : array_like (Nk, 3)
-            initial momentum, a * v, from `seed`. 
+            initial momentum, a * v, from `seed`.
             three species are cdm, baryon and ncdm.
         rtol : float
             relative accuracy. It appears 1e-4 is good for k ~ 10 with reasonable velocities.
