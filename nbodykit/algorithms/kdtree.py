@@ -4,7 +4,7 @@ import logging
 
 from nbodykit.utils import split_size_3d
 from pmesh.domain import GridND
-from scipy.spatial.ckdtree import cKDTree as KDTree
+from scipy.spatial import cKDTree as KDTree
 
 class KDDensity(object):
     """
