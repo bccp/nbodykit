@@ -9,7 +9,7 @@ import contextlib
 import pytest
 
 try: import fitsio
-except ImportError: fitsio is None
+except ImportError: fitsio = None
 
 @contextlib.contextmanager
 def temporary_data(data='table'):
