@@ -1,6 +1,9 @@
 from runtests.mpi import MPITest
-from nbodykit.lab import *
 from nbodykit import setup_logging
+from nbodykit import CurrentMPIComm
+from nbodykit.batch import TaskManager
+from nbodykit.source.catalog import UniformCatalog
+from nbodykit.algorithms import FFTPower
 
 import pytest
 
@@ -14,7 +17,7 @@ def test_missing_ranks(comm):
     with CurrentMPIComm.enter(comm):
         cpus_per_task = 2
         with pytest.raises(ValueError):
-            with TaskManager(cpus_per_task, debug=True, use_all_cpus=True) as tm:
+            with TaskManager(cpus_per_task, debug=True, use_all_cpus=True):
                 pass
 
 @MPITest([2])
@@ -23,14 +26,12 @@ def test_no_workers(comm):
     with CurrentMPIComm.enter(comm):
         cpus_per_task = 2
         with pytest.raises(ValueError):
-            with TaskManager(cpus_per_task, debug=True, use_all_cpus=False) as tm:
+            with TaskManager(cpus_per_task, debug=True, use_all_cpus=False):
                 pass
 
 
 @MPITest([2, 4])
 def test_iterate(comm):
-
-    cosmo = cosmology.Planck15
 
     cpus_per_task = 2
     with CurrentMPIComm.enter(comm):
@@ -55,8 +56,6 @@ def test_iterate(comm):
 
 @MPITest([4])
 def test_map(comm):
-
-    cosmo = cosmology.Planck15
 
     cpus_per_task = 2
 

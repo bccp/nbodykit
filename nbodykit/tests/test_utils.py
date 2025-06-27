@@ -1,5 +1,6 @@
 from runtests.mpi import MPITest
-from nbodykit.lab import *
+import numpy
+from nbodykit import cosmology
 from nbodykit import setup_logging
 from nbodykit.utils import ScatterArray, GatherArray, FrontPadArray
 from numpy.testing import assert_array_equal
@@ -236,7 +237,7 @@ def test_distributed_array_topo(comm):
 
 @MPITest([4])
 def test_distributed_array_unique_labels(comm):
-    from nbodykit.utils import DistributedArray, EmptyRank
+    from nbodykit.utils import DistributedArray
 
     data = numpy.array(comm.scatter(
         [numpy.array([0, 1, 2, 3], 'i4'),
@@ -257,7 +258,7 @@ def test_distributed_array_unique_labels(comm):
 
 @MPITest([4])
 def test_distributed_array_cempty(comm):
-    from nbodykit.utils import DistributedArray, EmptyRank
+    from nbodykit.utils import DistributedArray
 
     da = DistributedArray.cempty((20, 3), dtype=('f4', 3), comm=comm)
 
@@ -267,7 +268,7 @@ def test_distributed_array_cempty(comm):
 
 @MPITest([4])
 def test_distributed_array_concat(comm):
-    from nbodykit.utils import DistributedArray, EmptyRank
+    from nbodykit.utils import DistributedArray
 
     data = numpy.array(comm.scatter(
         [numpy.array([0, 1, ], 'i4'),
@@ -292,7 +293,7 @@ def test_distributed_array_concat(comm):
 
 @MPITest([4])
 def test_distributed_array_bincount(comm):
-    from nbodykit.utils import DistributedArray, EmptyRank
+    from nbodykit.utils import DistributedArray
 
     data = numpy.array(comm.scatter(
         [numpy.array([0, 1, 2, 3, ], 'i4'),
@@ -318,7 +319,7 @@ def test_distributed_array_bincount(comm):
 
 @MPITest([4])
 def test_distributed_array_bincount_gaps(comm):
-    from nbodykit.utils import DistributedArray, EmptyRank
+    from nbodykit.utils import DistributedArray
 
     data = numpy.array(comm.scatter(
         [numpy.array([0, 1, ], 'i4'),

@@ -4,7 +4,6 @@ from nbodykit.mpirng import MPIRandomState
 from numpy.testing import assert_array_equal
 import numpy
 from mpi4py import MPI
-import os
 import pytest
 
 setup_logging("debug")

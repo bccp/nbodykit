@@ -1,5 +1,8 @@
 from runtests.mpi import MPITest
-from nbodykit.lab import *
+import numpy
+from nbodykit import cosmology
+from nbodykit import transform
+from nbodykit.source.catalog import RandomCatalog, UniformCatalog
 from nbodykit import setup_logging
 from nbodykit.transform import ConstantArray
 from numpy.testing import assert_allclose
@@ -190,8 +193,6 @@ def test_constarray(comm):
 
 @MPITest([1, 4])
 def test_vector_projection(comm):
-    cosmo = cosmology.Planck15
-
     # make source
     s = UniformCatalog(nbar=1e-5, BoxSize=1380., seed=42, comm=comm)
 

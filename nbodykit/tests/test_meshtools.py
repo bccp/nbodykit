@@ -1,5 +1,5 @@
 from runtests.mpi import MPITest
-from nbodykit.lab import *
+import numpy
 from nbodykit import setup_logging
 from nbodykit.meshtools import SlabIterator
 
@@ -83,7 +83,7 @@ def test_hermitian_weights(comm):
         # weights == 2 when iterating frequency is positive
         if numpy.float(slab.coords(2)) > 0.:
             assert weights > 1
-            assert numpy.all(nonsig == True)
+            assert numpy.all(nonsig)
         else:
             assert weights == 1.0
-            assert numpy.all(nonsig == False)
+            assert numpy.all(numpy.logical_not(nonsig))

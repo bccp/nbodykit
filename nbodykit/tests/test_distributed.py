@@ -1,8 +1,7 @@
 from runtests.mpi import MPITest
-from nbodykit import set_options, GlobalCache, use_distributed, use_mpi
+from nbodykit import use_distributed, use_mpi
 from numpy.testing import assert_array_equal
 from nbodykit.lab import UniformCatalog
-import pytest
 
 def setup():
     # only initializes the local cluster this on the root rank.

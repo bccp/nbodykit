@@ -1,6 +1,6 @@
-from runtests.mpi import MPITest
-from nbodykit.lab import *
+from nbodykit import cosmology
 from nbodykit import setup_logging
+from nbodykit.hod import Zheng07Model, Hearin15Model, Leauthaud11Model
 import pytest
 
 setup_logging()
