@@ -166,7 +166,7 @@ class TaskManager(object):
         try:
             return self._valid_worker
         except:
-            raise ValeuError("workers are only defined when inside the ``with TaskManager()`` context")
+            raise ValueError("workers are only defined when inside the ``with TaskManager()`` context")
 
     def _get_tasks(self):
         """
