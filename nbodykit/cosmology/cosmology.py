@@ -2,8 +2,6 @@ from classylss.binding import ClassEngine, Background, Spectra, Perturbs, Primor
 from classylss.astropy_compat import AstropyCompat
 
 import numpy
-from six import string_types
-import os
 import functools
 
 def store_user_kwargs():
