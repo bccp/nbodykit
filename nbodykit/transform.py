@@ -2,7 +2,6 @@ import numpy
 import dask.array as da
 from six import string_types
 from nbodykit.utils import deprecate
-from nbodykit import _global_options
 def StackColumns(*cols):
     """
     Stack the input dask arrays vertically, column by column.

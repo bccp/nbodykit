@@ -279,7 +279,7 @@ def setup_logging(log_level="info"):
             }
 
     import time
-    logger = logging.getLogger();
+    logger = logging.getLogger()
     t0 = time.time()
 
     rank = MPI.COMM_WORLD.rank

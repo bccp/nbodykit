@@ -1,9 +1,8 @@
 import numpy
 from mpi4py import MPI
 import warnings
-import functools
 import contextlib
-import os, sys
+import sys
 
 def is_structured_array(arr):
     """
@@ -264,7 +263,6 @@ def ScatterArray(data, comm, root=0, counts=None):
     recvbuffer : array_like
         the chunk of `data` that each rank gets
     """
-    import logging
 
     if counts is not None:
         counts = numpy.asarray(counts, order='C')

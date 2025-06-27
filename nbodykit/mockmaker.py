@@ -1,10 +1,6 @@
 import numpy
 import numbers
-from mpi4py import MPI
 
-from pmesh.pm import RealField, ComplexField
-from nbodykit.meshtools import SlabIterator
-from nbodykit.utils import GatherArray, ScatterArray
 from nbodykit.mpirng import MPIRandomState
 import mpsort
 
