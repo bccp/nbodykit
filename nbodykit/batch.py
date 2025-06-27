@@ -120,7 +120,8 @@ class TaskManager(object):
         # split the ranks
         for i, ranks in split_ranks(self.size, self.cpus_per_task, include_all=self.use_all_cpus):
             chain_ranks.append(ranks[0])
-            if self.rank in ranks: color = i+1
+            if self.rank in ranks:
+                color = i+1
             total_ranks += len(ranks)
             nworkers = nworkers + 1
         self.workers = nworkers # store the total number of workers
@@ -237,7 +238,7 @@ class TaskManager(object):
         while closed_workers < self.workers:
 
             # look for tags from the workers
-            data = self.basecomm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=self.status)
+            _ = self.basecomm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=self.status)
             source = self.status.Get_source()
             tag = self.status.Get_tag()
 

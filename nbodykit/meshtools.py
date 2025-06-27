@@ -92,7 +92,8 @@ class MeshSlab(object):
             the coordinate array for dimension `i` on the slab; see the
             note about the shape of the return array for details
         """
-        if i < 0: i += self.ndim
+        if i < 0:
+            i += self.ndim
         assert 0 <= i < self.ndim, "i should be between 0 and %d" %self.ndim
 
         if i != self.axis:
@@ -133,10 +134,10 @@ class MeshSlab(object):
             the `mu` value at each point in the slab
         """
         norm = self.norm2()**0.5
-        
+
         with numpy.errstate(invalid='ignore', divide='ignore'):
             result = sum(self.coords(i) * los[i] for i in range(self.ndim)) / norm
-        
+
         result[norm == 0.0] = 0.0
         return result
 
@@ -235,9 +236,11 @@ def SlabIterator(coords, axis=0, symmetry_axis=None):
         raise NotImplementedError("SlabIterator can only be used on 3D or 2D arrays")
 
     # account for negative axes
-    if axis < 0: axis += ndim
+    if axis < 0:
+        axis += ndim
     assert 0 <= axis < ndim, "axis should be between 0 and %d" %ndim
-    if symmetry_axis is not None and symmetry_axis < 0: symmetry_axis += ndim
+    if symmetry_axis is not None and symmetry_axis < 0:
+        symmetry_axis += ndim
 
     # this will only work if shapes are: [(Nx, 1, 1), (1, Ny, 1), (1, 1, Nz)]
     # mainly a sanity check to make sure things work

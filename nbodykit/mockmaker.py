@@ -85,12 +85,14 @@ def gaussian_complex_fields(pm, linear_power, seed,
     if logger and pm.comm.rank == 0:
         logger.info("Write noise generated")
 
-    if inverted_phase: delta_k[...] *= -1
+    if inverted_phase:
+        delta_k[...] *= -1
 
     # initialize the displacement fields for (x,y,z)
     if compute_displacement:
         disp_k = [pm.create(type='untransposedcomplex') for i in range(delta_k.ndim)]
-        for i in range(delta_k.ndim): disp_k[i][:] = 1j
+        for i in range(delta_k.ndim):
+            disp_k[i][:] = 1j
     else:
         disp_k = None
 

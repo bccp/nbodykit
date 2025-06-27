@@ -45,7 +45,8 @@ def bin_ndarray(ndarray, new_shape, weights=None, operation=numpy.mean):
     compression_pairs = [(d, c//d) for d, c in zip(new_shape, ndarray.shape)]
     flattened = [l for p in compression_pairs for l in p]
     ndarray = ndarray.reshape(flattened)
-    if weights is not None: weights = weights.reshape(flattened)
+    if weights is not None:
+        weights = weights.reshape(flattened)
 
     for i in range(len(new_shape)):
         if weights is not None:
@@ -180,7 +181,8 @@ class BinnedStatistic(object):
 
         # save and track metadata
         self.attrs = {}
-        for k in kwargs: self.attrs[k] = kwargs[k]
+        for k in kwargs:
+            self.attrs[k] = kwargs[k]
 
     @classmethod
     def from_state(kls, state):
@@ -228,7 +230,8 @@ class BinnedStatistic(object):
         data :
         """
         obj = object.__new__(cls)
-        for k in kwargs: setattr(obj, k, kwargs[k])
+        for k in kwargs:
+            setattr(obj, k, kwargs[k])
 
         for k, d in zip(['data', 'mask'], [data, mask]):
             setattr(obj, k, d)
@@ -310,7 +313,8 @@ class BinnedStatistic(object):
         names = list(self.data.dtype.names) # make copy
         if key in names:
             i = names.index(key)
-            dtype.pop(i); names.pop(i)
+            dtype.pop(i)
+            names.pop(i)
         dtype += [(key, data.dtype.type)]
 
         # add old variables
@@ -699,7 +703,8 @@ class BinnedStatistic(object):
 
         # flatten the masks, will keep items that are true everywhere
         mask = numpy.ones(self.shape, dtype='?')
-        for m in masks: mask = mask & m
+        for m in masks:
+            mask = mask & m
 
         indices = [numpy.ones(self.shape[i], dtype='?') for i in range(len(self.dims))]
 
@@ -787,7 +792,9 @@ class BinnedStatistic(object):
         # remove the dimension from the grid
         i = self.dims.index(dim)
         toret = self.copy()
-        toret.dims.pop(i); toret.edges.pop(dim); toret.coords.pop(dim)
+        toret.dims.pop(i)
+        toret.edges.pop(dim)
+        toret.coords.pop(dim)
         if not len(toret.dims):
             raise ValueError("cannot squeeze the only remaining axis")
 
@@ -910,7 +917,8 @@ class BinnedStatistic(object):
             sl = [slice(None, None)]*len(self.dims)
             sl[i] = slice(None, -leftover)
             data = data[tuple(sl)]
-            if weights is not None: weights = weights[sl]
+            if weights is not None:
+                weights = weights[sl]
             edges = edges[:-leftover]
             new_shape[i] = new_shape[i] - leftover
 
@@ -926,7 +934,8 @@ class BinnedStatistic(object):
             weights_ = weights
             if weights is not None or name in fields_to_sum:
                 operation = numpy.nansum
-                if name in fields_to_sum: weights_ = None
+                if name in fields_to_sum:
+                    weights_ = None
             new_data[name] = bin_ndarray(data[name], new_shape, weights=weights_, operation=operation)
 
         # the new mask
@@ -995,9 +1004,11 @@ def _Read2DPlainText(filename):
 
         # read the edges for k and mu bins
         edges = []
-        l1 = int(lines[N].split()[-1]); N = N+1
+        l1 = int(lines[N].split()[-1])
+        N = N+1
         edges.append(numpy.array([float(line) for line in lines[N:N+l1]]))
-        l2 = int(lines[N+l1].split()[-1]); N = N+l1+1
+        l2 = int(lines[N+l1].split()[-1])
+        N = N+l1+1
         edges.append(numpy.array([float(line) for line in lines[N:N+l2]]))
         metadata['edges'] = edges
 
@@ -1060,7 +1071,8 @@ def _Read1DPlainText(filename):
         while True:
 
             # break if we are at the EOF
-            if currline == len(lines): break
+            if currline == len(lines):
+                break
             line = lines[currline]
 
             if not line:

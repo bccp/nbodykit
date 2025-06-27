@@ -3,6 +3,13 @@ from mpi4py import MPI
 import warnings
 import contextlib
 import sys
+#For DistributedArray
+import mpsort
+#For JSONEncoder
+import json
+from astropy.units import Quantity, Unit
+from nbodykit.cosmology import Cosmology
+
 
 def is_structured_array(arr):
     """
@@ -90,7 +97,6 @@ def split_size_3d(s):
         integers such that a * b * c == s and a <= b <= c
     """
     a = int(s** 0.3333333) + 1
-    d = s
     while a > 1:
         if s % a == 0:
             s = s // a
@@ -192,7 +198,8 @@ def GatherArray(data, comm, root=0):
         bad_shape = any(s[1:] != shapes[0][1:] for s in shapes[1:])
         bad_dtype = any(dt != dtypes[0] for dt in dtypes[1:])
     else:
-        bad_shape = None; bad_dtype = None
+        bad_shape = None
+        bad_dtype = None
 
     bad_shape, bad_dtype = comm.bcast((bad_shape, bad_dtype))
 
@@ -371,10 +378,6 @@ def attrs_to_dict(obj, prefix):
         d[prefix + key] = value
     return d
 
-import json
-from astropy.units import Quantity, Unit
-from nbodykit.cosmology import Cosmology
-
 class JSONEncoder(json.JSONEncoder):
     """
     A subclass of :class:`json.JSONEncoder` that can also handle numpy arrays,
@@ -528,7 +531,6 @@ def captured_output(comm, root=0):
             sys.stdout = old_stdout
             sys.stderr = old_stderr
 
-import mpsort
 class DistributedArray(object):
     """
     Distributed Array Object
@@ -661,7 +663,7 @@ class DistributedArray(object):
             the new labels, starting from 0
 
         """
-        prev, next = self.topology.prev(), self.topology.next()
+        next = self.topology.next()
 
         junk, label = numpy.unique(self.local, return_inverse=True)
 
