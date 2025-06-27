@@ -172,12 +172,6 @@ def HODModelFactory(name, func_name):
         if isinstance(cosmo, Cosmology):
             cosmo = cosmo.to_astropy()
 
-        # determine concentration key
-        if concentration_key is None:
-            conc_mass_model = 'dutton_maccio14'
-        else:
-            conc_mass_model = 'direct_from_halo_catalog'
-
         # determine mass column
         mass_key = 'halo_m' + mdef
 
