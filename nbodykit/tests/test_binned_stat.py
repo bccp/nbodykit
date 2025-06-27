@@ -198,7 +198,7 @@ def test_sel(comm):
     # slice in a specific k-range
     sliced = dataset.sel(k=slice(0.02, 0.15), mu=[0.5], method='nearest')
     assert sliced.shape[1] == 1
-    assert numpy.alltrue((sliced['k'] >= 0.02)&(sliced['k'] <= 0.15))
+    assert numpy.all((sliced['k'] >= 0.02)&(sliced['k'] <= 0.15))
 
 @MPITest([1])
 def test_take(comm):
@@ -291,7 +291,7 @@ def test_reindex(comm):
         new, spacing = dataset.reindex('k', 0.02, weights='weights', force=True, return_spacing=True)
 
         diff = numpy.diff(new.coords['k'])
-        assert numpy.alltrue(diff > numpy.diff(dataset.coords['k'])[0])
+        assert numpy.all(diff > numpy.diff(dataset.coords['k'])[0])
 
         with pytest.raises(ValueError):
             new = dataset.reindex('mu', 0.4, force=False)

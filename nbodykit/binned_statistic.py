@@ -37,7 +37,7 @@ def bin_ndarray(ndarray, new_shape, weights=None, operation=numpy.mean):
         raise ValueError("why are we re-binning if the new shape equals the old shape?")
     if ndarray.ndim != len(new_shape):
         raise ValueError("Shape mismatch: {} -> {}".format(ndarray.shape, new_shape))
-    if numpy.sometrue(numpy.mod(ndarray.shape, new_shape)):
+    if numpy.any(numpy.mod(ndarray.shape, new_shape)):
         args = (str(new_shape), str(ndarray.shape))
         msg = "desired shape of %s must be integer factor smaller than the old shape %s" %args
         raise ValueError(msg)
