@@ -179,6 +179,15 @@ def verify_data(path, names, nrows=10, **config):
     """
     # read the first few lines to get the the dtype
     try:
+        # first check no columns are missing to avoid silent data loss:
+        #   https://github.com/pandas-dev/pandas/issues/26218
+        config_without_usecols = {}
+        config_without_usecols.update(config)
+        config_without_usecols.pop('usecols', None)
+        df = read_csv(path, nrows=nrows, **config_without_usecols)
+        if len(df.columns) != len(names):
+            raise ValueError("Number of columns does not match, excepting len(names) == %d" % len(df.columns))
+
         df = read_csv(path, nrows=nrows, names=names, **config)
 
         if df.isnull().sum().any():
@@ -293,7 +302,7 @@ class CSVFile(FileType):
             dtype = {col:dtype for col in self.names}
 
         # store the dtype as a list
-        self.dtype = []
+        dtype_ = []
         for col in self.names:
             if col in dtype:
                 dt = dtype[col]
@@ -303,17 +312,19 @@ class CSVFile(FileType):
                 dt = inferred_dtype[col]
             else:
                 raise ValueError("data type for column '%s' cannot be inferred from file" %col)
-            self.dtype.append((col, dt))
-        self.dtype = numpy.dtype(self.dtype)
+            dtype_.append((col, dt))
+        dtype = numpy.dtype(dtype_)
 
         # add the dtype and names to the pandas config
         if config['engine'] == 'c':
-            self.pandas_config['dtype'] = {col:self.dtype[col] for col in self.names}
+            self.pandas_config['dtype'] = {col:dtype[col] for col in self.names}
         self.pandas_config['names'] = names
 
         # make the partitions
         self.partitions, self._sizes = make_partitions(path, blocksize, self.pandas_config)
-        self.size = numpy.sum(self._sizes, dtype='intp')
+        size = numpy.sum(self._sizes, dtype='intp')
+
+        FileType.__init__(self, dtype=dtype, size=int(size))
 
     def read(self, columns, start, stop, step=1):
         """
@@ -339,7 +350,6 @@ class CSVFile(FileType):
             structured array holding the requested columns over
             the specified range of rows
         """
-        if isinstance(columns, string_types): columns = [columns]
 
         toret = []
         for fnum in tools.get_file_slice(self._sizes, start, stop):

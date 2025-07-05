@@ -1,6 +1,7 @@
 numpy
 scipy
 astropy
+pyerfa
 mpi4py
 six
 runtests
@@ -11,7 +12,7 @@ bigfile
 pandas
 dask>=0.14.2
 cachey
-sympy
+sympy!=1.6.0,!=1.6.1
 numexpr
 Corrfunc
 mcfit

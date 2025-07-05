@@ -189,7 +189,7 @@ def autogen_lab_module():
     # get all functions, modules, and classes
     trim = lambda typ: sorted([m for m in members if isinstance(d[m], typ)])
     modules = trim(types.ModuleType)
-    classes = trim(types.ClassType)
+    classes = trim(type(object))
     functions = trim(types.FunctionType)
 
     # the header

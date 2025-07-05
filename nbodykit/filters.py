@@ -55,5 +55,5 @@ class Gaussian(MeshFilter):
     def filter(self, k, v):
         r = self.r
         k2 = sum(ki ** 2 for ki in k)
-        return numpy.exp(- 0.5 * k2 * r**2)
+        return numpy.exp(- 0.5 * k2 * r**2) * v
 

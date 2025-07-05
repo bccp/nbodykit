@@ -1,0 +1,95 @@
+# main test workflow; ported from .travis.yaml
+
+
+name: main
+
+on:
+  schedule:
+    - cron:  '0 0 * * 5'   # Runs on every Friday.
+  push:
+    branches: [ '*', $default-branch ]
+    tags: ['[0-9]*']   # anything looks like a version.
+  pull_request:
+    branches: [ $default-branch ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    env:
+      OMP_NUM_THREADS: 1
+
+    defaults:
+      run:
+        shell: bash -l {0}   # for conda.
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-latest ]
+        numpy-version: [ '1.20' ]
+        python-version: [ 3.8 ]
+        include:
+          - {deploy: true, os: ubuntu-latest, numpy-version: '1.20', python-version: 3.8 }
+    steps:
+
+    - name: Checkout source code
+      uses: actions/checkout@v2
+
+    - name: Cache conda
+      uses: actions/cache@v1
+      env:
+        # Increase this value to reset cache.
+        CACHE_NUMBER: 0
+      with:
+        path: ~/conda_pkgs_dir
+        key:
+          ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}
+
+    - name: Setup Conda Environment
+      uses: conda-incubator/setup-miniconda@v2.0.1
+      with:
+        activate-environment: test
+        channels: bccp
+        show-channel-urls: true
+        use-only-tar-bz2: false
+        auto-update-conda: true
+        python-version: ${{ matrix.python-version }}
+
+    - name: Setup test env
+      run: |
+        conda install -q -y \
+               python=${{ matrix.python-version }} \
+               numpy=${{ matrix.numpy-version }} \
+               nose cython mpi4py \
+               --file requirements.txt \
+               --file requirements-extras.txt
+
+        # submitting coverage to coveralls
+        pip install coveralls
+        # install nbodykit itself
+        pip install .[extras]
+        conda list --explicit
+
+    - name: Install Compilers
+      run: |
+        if [ "$RUNNER_OS" == "macOS" ]; then
+          conda install -q -y clang_osx-64 clangxx_osx-64 gfortran_osx-64
+        else
+          conda install -q -y gcc_linux-64 gxx_linux-64 gfortran_linux-64
+        fi
+
+    - name: Python Unit tests
+      run: |
+        python run-tests.py -v --mpirun='mpirun -n 4' --with-coverage
+
+    - name: Build Python sdist
+      if: startsWith(github.ref, 'refs/tags') && matrix.deploy
+      run: |
+        bash check_tag.sh "${GITHUB_REF##*/}" bigfile/version.py
+        python setup.py sdist
+
+    - name: Publish distribution to PyPI
+      uses: pypa/gh-action-pypi-publish@master
+      if: startsWith(github.ref, 'refs/tags') && matrix.deploy
+      with:
+        password: ${{ secrets.PYPI_SECRET }}

@@ -148,3 +148,35 @@ def test_stack_list(comm):
 
     os.unlink(tmpfile1)
     os.unlink(tmpfile2)
+
+
+# MyFileType is Used by test_file_type
+from nbodykit.io.base import FileType
+
+class MyFileType(FileType):
+    def __init__(self, path):
+        FileType.__init__(self,
+            size=7,
+            dtype=numpy.dtype([("Position", ('f4', 3))])
+        )
+        self.path = path
+
+    def read(self, columns, start, end, step=1):
+        # TODO: read data from path
+        data = numpy.empty(self.size, dtype=self.dtype)
+        data["Position"] = numpy.arange(self.size)[:, None]
+        return data[list(columns)][start:end:step]
+
+@MPITest([1, 4])
+def test_file_type(comm):
+    from nbodykit.source.catalog.file import FileCatalog
+
+    # MyFileType is defined on module level to avoid pickling errors.
+    f = FileCatalog(MyFileType, path=["%d" % i for i in range(32)], comm=comm)
+
+    data = numpy.concatenate(comm.allgather(f['Position'][:]), axis=0)
+    data = data.reshape(32, 7, 3)
+    expected = numpy.broadcast_to(numpy.arange(7)[None, :, None],
+            (32, 7, 3))
+
+    numpy.testing.assert_equal(data, expected)

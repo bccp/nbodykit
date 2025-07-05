@@ -148,7 +148,7 @@ class FKPCatalog(MultipleSpeciesCatalog):
 
         return BoxSize, BoxCenter
 
-    def to_mesh(self, Nmesh=None, BoxSize=None, BoxCenter=None, dtype='f4', interlaced=False,
+    def to_mesh(self, Nmesh=None, BoxSize=None, BoxCenter=None, dtype='c16', interlaced=False,
                 compensated=False, resampler='cic', fkp_weight='FKPWeight',
                 comp_weight='Weight', selection='Selection',
                 position='Position', bbox_from_species=None, window=None, nbar=None):
@@ -167,7 +167,13 @@ class FKPCatalog(MultipleSpeciesCatalog):
             the number of cells per box side; if not specified in `attrs`, this
             must be provided
         dtype : str, dtype, optional
-            the data type of the mesh when painting
+            the data type of the mesh when painting. dtype='f8' or 'f4' assumes
+            Hermitian symmetry of the input field (\delta(x) = 
+            \delta^{*}(-x)), and stores it as an N x N x N/2+1 real array.
+            This speeds evaluation of even multipoles but yields 
+            incorrect odd multipoles in the presence of the wide-angle effect.
+            dtype='c16' or 'c8' stores the field as an N x N x N complex array 
+            to correctly recover the odd multipoles.
         interlaced : bool, optional
             whether to use interlacing to reduce aliasing when painting the
             particles on the mesh

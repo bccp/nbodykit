@@ -60,8 +60,8 @@ class RedshiftHistogram(object):
             if self.comm.rank == 0:
                 self.logger.info("computing %d equally spaced bins" %bins)
             z = source.compute(source[redshift])
-            maxval = comm.allreduce(z.max(), op=MPI.MAX)
-            minval = comm.allreduce(z.min(), op=MPI.MIN)
+            maxval = self.comm.allreduce(z.max(), op=MPI.MAX)
+            minval = self.comm.allreduce(z.min(), op=MPI.MIN)
             bins = linspace(minval, maxval, bins + 1, endpoint=True)
 
         self.source = source

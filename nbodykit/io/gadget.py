@@ -1,6 +1,5 @@
 from .binary import BinaryFile
 import numpy
-from six import string_types
 from . import tools
 import warnings
 
@@ -196,7 +195,6 @@ class Gadget1File(BinaryFile):
             structured array holding the requested columns over
             the specified range of rows
         """
-        if isinstance(columns, string_types): columns = [columns]
 
         if stop > self.size or start > self.size or start < 0 or stop < 0:
             raise IndexError("start : %d stop %d beyond size of data set %d"

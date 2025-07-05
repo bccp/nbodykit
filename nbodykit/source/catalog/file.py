@@ -24,6 +24,7 @@ class FileCatalogBase(CatalogSource):
     filetype : subclass of :class:`~nbodykit.io.base.FileType`
         the file-like class used to load the data from file; should be a
         subclass of :class:`nbodykit.io.base.FileType`
+    path : string or list. If string, it is expanded as a glob pattern.
     args : tuple, optional
         the arguments to pass to the ``filetype`` class when constructing
         each file object
@@ -35,14 +36,14 @@ class FileCatalogBase(CatalogSource):
         current communicator
     """
     @CurrentMPIComm.enable
-    def __init__(self, filetype, args=(), kwargs={}, comm=None):
+    def __init__(self, filetype, path, args=(), kwargs={}, comm=None):
 
         self.comm = comm
         self.filetype = filetype
 
         # bcast the FileStack
         if self.comm.rank == 0:
-            self._source = FileStack(filetype, *args, **kwargs)
+            self._source = FileStack(filetype, path, *args, **kwargs)
         else:
             self._source = None
         self._source = self.comm.bcast(self._source)
@@ -184,10 +185,10 @@ def FileCatalogFactory(name, filetype, examples=None):
     subclass of :class:`FileCatalogBase` :
         the ``CatalogSource`` object that reads data using ``filetype``
     """
-    def __init__(self, *args, **kwargs):
+    def __init__(self, path, *args, **kwargs):
         comm = kwargs.pop('comm', None)
         attrs = kwargs.pop('attrs', {})
-        FileCatalogBase.__init__(self, filetype=filetype, args=args, kwargs=kwargs, comm=comm)
+        FileCatalogBase.__init__(self, filetype=filetype, path=path, args=args, kwargs=kwargs, comm=comm)
         self.attrs.update(attrs)
 
     # make the doc string for this class
@@ -196,6 +197,37 @@ def FileCatalogFactory(name, filetype, examples=None):
     # make the new class object and return it
     newclass = type(name, (FileCatalogBase,),{"__init__": __init__, "__doc__":__doc__})
     return newclass
+
+
+class FileCatalog(FileCatalogBase):
+    """
+    Base class to create a source of particles from a
+    single file, or multiple files, on disk.
+
+    Files of a specific type should be subclasses of this class.
+
+    Parameters
+    ----------
+    filetype : subclass of :class:`~nbodykit.io.base.FileType`
+        the file-like class used to load the data from file; should be a
+        subclass of :class:`nbodykit.io.base.FileType`
+    path : string or list. If string, it is expanded as a glob pattern.
+    attrs : dict, attributes to set to the Catalog.
+    args : tuple, optional
+        the arguments to pass to the ``filetype`` class when constructing
+        each file object
+    kwargs : dict, optional
+        the keyword arguments to pass to the ``filetype`` class when
+        constructing each file object
+    comm : MPI Communicator, optional
+        the MPI communicator instance; default (``None``) sets to the
+        current communicator
+    """
+    def __init__(self, filetype, path, *args, **kwargs): 
+        comm = kwargs.pop('comm', None)
+        attrs = kwargs.pop('attrs', {})
+        FileCatalogBase.__init__(self, filetype=filetype, path=path, args=args, kwargs=kwargs, comm=comm)
+        self.attrs.update(attrs)
 
 CSVCatalog       = FileCatalogFactory("CSVCatalog", io.CSVFile, examples='csv-data')
 BinaryCatalog    = FileCatalogFactory("BinaryCatalog", io.BinaryFile, examples='binary-data')

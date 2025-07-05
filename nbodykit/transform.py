@@ -532,6 +532,34 @@ def IDToPosition(ID, strides, scale, shift, sizes):
     ID, _  = da.broadcast_arrays(ID[:, None], numpy.ones(3))
     return da.map_blocks(id_to_position, ID, dtype='f8')
 
+def VectorProjection(vector, direction):
+    r"""
+    Vector components of given vectors in a given direction.
+
+    .. math::
+
+        \mathbf{v}_\mathbf{d} &= (\mathbf{v} \cdot \hat{\mathbf{d}}) \hat{\mathbf{d}} \\
+        \hat{\mathbf{d}} &= \frac{\mathbf{d}}{\|\mathbf{d}\|}
+
+    Parameters
+    ----------
+    vector : array_like, (..., D)
+        array of vectors to be projected
+    direction : array_like, (D,)
+        projection direction. It does not have to be normalized
+
+    Returns
+    -------
+    projection : array_like, (..., D)
+        vector components of the given vectors in the given direction
+    """
+    direction = numpy.asarray(direction, dtype='f8')
+    direction = direction / (direction ** 2).sum() ** 0.5
+    projection = (vector * direction).sum(axis=-1)
+    projection = projection[:, None] * direction[None, :]
+
+    return projection
+
 # deprecated functions
 vstack = deprecate("nbodykit.transform.vstack", StackColumns, "nbodykit.transform.StackColumns")
 concatenate = deprecate("nbodykit.transform.concatenate", ConcatenateSources, "nbodykit.transform.ConcatenateSources")

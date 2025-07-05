@@ -273,10 +273,10 @@ class CatalogMesh(MeshSource):
                 lay = pm.decompose(position, smoothing=1.0 * resampler.support)
 
             # if we are receiving too many particles, abort and retry with a smaller chunksize
-            newlengths = pm.comm.allgather(lay.newlength)
-            if any([newlength > 2 * max_chunksize for newlength in newlengths]):
+            recvlengths = pm.comm.allgather(lay.recvlength)
+            if any([recvlength > 2 * max_chunksize for recvlength in recvlengths]):
                 if pm.comm.rank == 0:
-                    self.logger.info("Throttling chunksize as some ranks will receive too many particles. (%d > %d)" % (max(newlengths), max_chunksize * 2))
+                    self.logger.info("Throttling chunksize as some ranks will receive too many particles. (%d > %d)" % (max(recvlengths), max_chunksize * 2))
                 raise StopIteration
 
             p = lay.exchange(position)
@@ -382,7 +382,7 @@ class CatalogMesh(MeshSource):
         toret.attrs['shotnoise'] = shotnoise
         toret.attrs['N'] = N
         toret.attrs['W'] = W
-        toret.attrs['W2'] = W
+        toret.attrs['W2'] = W2
         toret.attrs['num_per_cell'] = nbar
 
         csum = toret.csum()

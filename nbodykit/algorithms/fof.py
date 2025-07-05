@@ -63,7 +63,13 @@ class FOF(object):
 
         # linking length relative to mean separation
         if not absolute:
-            mean_separation = pow(numpy.prod(source.attrs['BoxSize']) / source.csize, 1.0 / len(source.attrs['Nmesh']))
+            if 'Nmesh' in source.attrs:
+                ndim = len(source.attrs['Nmesh'])
+            elif 'Position' in source:
+                ndim = source['Position'].shape[1]
+            else:
+                raise AttributeError('Missing attributes to infer the dimension')
+            mean_separation = pow(numpy.prod(source.attrs['BoxSize']) / source.csize, 1.0 / ndim)
             linking_length *= mean_separation
         self._linking_length = linking_length
 
@@ -394,7 +400,7 @@ def fof(source, linking_length, comm, periodic, domain_factor, logger):
 
     layout = domain.decompose(Position, smoothing=linking_length * 1)
 
-    np = comm.allgather(layout.newlength)
+    np = comm.allgather(layout.recvlength)
     if comm.rank == 0:
         logger.info("Number of particles max/min = %d / %d after spatial decomposition" % (max(np), min(np)))
 

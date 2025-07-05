@@ -390,11 +390,11 @@ class MeshSource(object):
             field.ravel(out=data)
             with ff.create_from_array(dataset, data) as bb:
                 if isinstance(field, RealField):
-                    bb.attrs['ndarray.shape'] = field.pm.Nmesh
+                    bb.attrs['ndarray.shape'] = field.cshape
                     bb.attrs['BoxSize'] = field.pm.BoxSize
                     bb.attrs['Nmesh'] = field.pm.Nmesh
                 elif isinstance(field, BaseComplexField):
-                    bb.attrs['ndarray.shape'] = field.Nmesh, field.Nmesh, field.Nmesh // 2 + 1
+                    bb.attrs['ndarray.shape'] = field.cshape
                     bb.attrs['BoxSize'] = field.pm.BoxSize
                     bb.attrs['Nmesh'] = field.pm.Nmesh
 
