@@ -33,10 +33,10 @@ jobs:
     steps:
 
     - name: Checkout source code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     - name: Cache conda
-      uses: actions/cache@v1
+      uses: actions/cache@v4
       env:
         # Increase this value to reset cache.
         CACHE_NUMBER: 0
