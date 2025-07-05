@@ -121,6 +121,8 @@ class ConvolvedFFTPower(object):
     dk : float, optional
         the spacing in wavenumber to use; if not provided; the fundamental mode
         of the box is used
+    logkBins : bool, optional; default is False
+        use logarithmic binning
 
     References
     ----------
@@ -138,7 +140,8 @@ class ConvolvedFFTPower(object):
                     kmax=None,
                     dk=None,
                     use_fkp_weights=None,
-                    P0_FKP=None):
+                    P0_FKP=None,
+                    logkBins=False):
 
         if use_fkp_weights is not None or P0_FKP is not None:
             raise ValueError("use_fkp_weights and P0_FKP are deprecated. Assign a FKPWeight column to source['randoms']['FKPWeight'] and source['data']['FKPWeight'] with the help of the FKPWeightFromNbar(nbar) function")
@@ -193,6 +196,7 @@ class ConvolvedFFTPower(object):
         self.attrs['dk'] = dk
         self.attrs['kmin'] = kmin
         self.attrs['kmax'] = kmax
+        self.attrs['logkBins'] = logkBins
 
         # store BoxSize and BoxCenter from source
         self.attrs['Nmesh'] = self.first.attrs['Nmesh'].copy()
@@ -252,17 +256,28 @@ class ConvolvedFFTPower(object):
         """
         pm = self.first.pm
 
+        if (self.attrs['dk'] is None or self.attrs['kmin'] == 0.0) and self.attrs["logkBins"]:
+            msg = ("Use of logkBins requires dk to be specified explicitly and kmin>=0.0")
+            raise ValueError(msg)
+
         # setup the binning in k out to the minimum nyquist frequency
         dk = 2*numpy.pi/pm.BoxSize.min() if self.attrs['dk'] is None else self.attrs['dk']
 
         kmin = self.attrs['kmin']
         kmax = self.attrs['kmax']
         if kmax is None:
-            kmax = numpy.pi*pm.Nmesh.min()/pm.BoxSize.max() + dk/2
+            if self.attrs["logkBins"]:
+                kmax = 10.0 ** (numpy.log10(numpy.pi*pm.Nmesh.min()/pm.BoxSize.max()) + dk/2)
+            else:
+                kmax = numpy.pi*pm.Nmesh.min()/pm.BoxSize.max() + dk/2
 
         if dk > 0:
-            kedges = numpy.arange(kmin, kmax, dk)
-            kcoords = None
+            if not self.attrs["logkBins"]:
+                kedges = numpy.arange(kmin, kmax, dk)
+                kcoords = None
+            else:
+                kedges = 10.**numpy.arange(numpy.log10(kmin), numpy.log10(kmax), dk)
+                kcoords = None
         else:
             k = pm.create_coords('complex')
             kedges, kcoords = _find_unique_edges(k, 2 * numpy.pi / pm.BoxSize, kmax, pm.comm)
