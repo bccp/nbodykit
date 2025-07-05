@@ -63,7 +63,7 @@ jobs:
                --file requirements-extras.txt
 
         # submitting coverage to coveralls
-        pip install coveralls
+        pip install coveralls build
         # install nbodykit itself
         pip install .[extras]
         conda list --explicit
