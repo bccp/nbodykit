@@ -11,12 +11,11 @@ channels:
 - astropy
 
 dependencies:
-- python=3.6
+- python
 - numpy
 - scipy
 - astropy
 - mpi4py
-- runtests
 - pmesh
 - kdcount
 - mpsort
