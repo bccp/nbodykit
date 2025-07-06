@@ -1,14 +1,14 @@
-from runtests.mpi import MPITest
 from nbodykit.io.bigfile import BigFile
 import shutil
 import numpy
 import tempfile
 import pickle
 import contextlib
+from mpi4py import MPI
 
 @contextlib.contextmanager
 def temporary_data():
-    
+
     import bigfile
     try:
         data = numpy.empty(1024, dtype=[('Position', ('f8', 3)), ('Velocity', ('f8',3))])
@@ -40,7 +40,8 @@ def temporary_data():
     finally:
         shutil.rmtree(tmpdir)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_data(comm):
 
     with temporary_data() as (data, tmpfile):
@@ -56,7 +57,8 @@ def test_data(comm):
 
         numpy.testing.assert_almost_equal(data['Velocity'][::2], ff['Velocity'][::2])
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_data_auto_header(comm):
     with temporary_data() as (data, tmpfile):
         ff = BigFile(tmpfile, dataset='1')
@@ -65,21 +67,22 @@ def test_data_auto_header(comm):
         assert ff.attrs['Size'] == 1024
         assert ff.attrs['Over'] == 1024
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_pickle(comm):
-    
+
     with temporary_data() as (data, tmpfile):
-        
+
         # read
         ff = BigFile(tmpfile, header='Header', exclude=['1/*', 'Header'])
-    
+
         # pickle
         s = pickle.dumps(ff)
         ff2 = pickle.loads(s)
 
         # check size
         assert ff2.attrs['Size'] == 1024
-        
+
         # and data
         numpy.testing.assert_almost_equal(data['Position'], ff2['Position'][:])
         numpy.testing.assert_almost_equal(data['Velocity'], ff2['Velocity'][:])

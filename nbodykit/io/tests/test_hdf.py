@@ -1,4 +1,3 @@
-from runtests.mpi import MPITest
 from nbodykit.io.hdf import HDFFile
 import os
 import numpy
@@ -6,6 +5,7 @@ import tempfile
 import pickle
 import contextlib
 import pytest
+from mpi4py import MPI
 
 # h5py is an optional dependency
 try: import h5py
@@ -36,9 +36,10 @@ def temporary_data():
         raise
     finally:
         os.unlink(tmpfile)
-        
-        
-@MPITest([1])
+
+
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 @pytest.mark.skipif(h5py is None, "h5py is not installed")
 def test_data(comm):
 
@@ -57,7 +58,7 @@ def test_data(comm):
         for col in cols:
             field = col.rsplit('/', 1)[-1]
             numpy.testing.assert_almost_equal(data[field], f[col][:])
-            
+
         # try a slice
         data2 = f.read(cols, 0, 512, 1)
         for col in cols:
@@ -68,83 +69,87 @@ def test_data(comm):
         numpy.testing.assert_equal(f.size, 1024)
 
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 @pytest.mark.skipif(h5py is None, "h5py is not installed")
 def test_nonzero_root(comm):
-    
+
     with temporary_data() as (data, tmpfile):
-        
+
         # read
         f = HDFFile(tmpfile, dataset='Y')
-        
+
         # non-zero root
         f = HDFFile(tmpfile, dataset='Y')
         assert(all(col in ['Mass', 'Position'] for col in f.columns))
-        
+
         # wrong root
         with pytest.raises(ValueError):
             f = HDFFile(tmpfile, dataset='Z')
-    
 
-@MPITest([1])
+
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 @pytest.mark.skipif(h5py is None, "h5py is not installed")
 def test_nonzero_exclude(comm):
-    
+
     with temporary_data() as (data, tmpfile):
-        
+
         # read
         f = HDFFile(tmpfile, exclude=['Y', 'Header'])
-        
+
         # non-zero exclude
         f = HDFFile(tmpfile, exclude=['Y', 'Header'])
         assert(all(col in ['Mass', 'Position'] for col in f.columns))
-        
+
         # non-zero exclude and root
         f = HDFFile(tmpfile, exclude=['Mass'], dataset='Y')
         assert all(col in ['Position'] for col in f.columns)
-        
+
         # bad exclude
         with pytest.raises(ValueError):
             f = HDFFile(tmpfile, exclude=['Z'])
-        
 
-@MPITest([1])
+
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 @pytest.mark.skipif(h5py is None, "h5py is not installed")
 def test_data_mismatch(comm):
-    
+
     # generate data
     pos = numpy.random.random(size=(1024, 3))
     mass = numpy.random.random(size=512)
-    
+
     # write to file
     tmpfile = tempfile.mkstemp()[1]
     with h5py.File(tmpfile , 'w') as ff:
-        ff.create_dataset('Mass', data=mass) 
+        ff.create_dataset('Mass', data=mass)
         ff.create_dataset('Position', data=pos)
-    
+
     # fails due to mismatched sizes
     with pytest.raises(ValueError):
         f = HDFFile(tmpfile)
-    
+
     # only one dataset now, so this works
     f = HDFFile(tmpfile, exclude=['Mass'])
     assert f.size == 1024
 
-    os.unlink(tmpfile) 
-     
-   
-@MPITest([1])
+    os.unlink(tmpfile)
+
+
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 @pytest.mark.skipif(h5py is None, "h5py is not installed")
 def test_empty(comm):
-    
+
     # create empty file
     tmpfile = tempfile.mkstemp()[1]
     with h5py.File(tmpfile , 'w') as ff:
-        ff.create_group('Y') 
-    
+        ff.create_group('Y')
+
     # no datasets!
     with pytest.raises(ValueError):
         f = HDFFile(tmpfile)
-    
-    os.unlink(tmpfile) 
-        
+
+    os.unlink(tmpfile)
+

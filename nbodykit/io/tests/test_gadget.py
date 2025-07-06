@@ -1,4 +1,3 @@
-from runtests.mpi import MPITest
 from nbodykit.io.gadget import Gadget1File
 import numpy
 import base64
@@ -6,11 +5,13 @@ import base64
 import tempfile
 import os
 import pytest
+from mpi4py import MPI
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_data(comm):
     tmpfile = tempfile.mktemp()
-    with open(tmpfile, 'wb') as ff: 
+    with open(tmpfile, 'wb') as ff:
 
         ff.write(base64.b64decode(CONTENT))
 

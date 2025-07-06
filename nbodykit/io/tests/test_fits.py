@@ -1,4 +1,3 @@
-from runtests.mpi import MPITest
 from nbodykit.io.fits import FITSFile
 
 import os
@@ -7,6 +6,7 @@ import tempfile
 import pickle
 import contextlib
 import pytest
+from mpi4py import MPI
 
 try: import fitsio
 except ImportError: fitsio = None
@@ -37,7 +37,8 @@ def temporary_data(data='table'):
         os.unlink(tmpfile)
 
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 @pytest.mark.skipif(fitsio is None, "fitsio is not installed")
 def test_data(comm):
 
@@ -63,7 +64,8 @@ def test_data(comm):
         numpy.testing.assert_equal(f.size, 1024)
 
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 @pytest.mark.skipif(fitsio is None, "fitsio is not installed")
 def test_string_ext(comm):
 
@@ -83,7 +85,8 @@ def test_string_ext(comm):
         with pytest.raises(ValueError):
             f = FITSFile(tmpfile, ext='WrongName')
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 @pytest.mark.skipif(fitsio is None, "fitsio is not installed")
 def test_wrong_ext(comm):
 
@@ -97,7 +100,8 @@ def test_wrong_ext(comm):
         with pytest.raises(ValueError):
             f = FITSFile(tmpfile, ext=2)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 @pytest.mark.skipif(fitsio is None, "fitsio is not installed")
 def test_no_tabular_data(comm):
 
