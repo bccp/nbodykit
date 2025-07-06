@@ -1,4 +1,4 @@
-from runtests.mpi import MPITest
+from mpi4py import MPI
 import numpy
 from nbodykit import cosmology
 from nbodykit import transform
@@ -11,7 +11,8 @@ import pytest
 # debug logging
 setup_logging("debug")
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_sky_to_cartesian(comm):
 
     cosmo = cosmology.Planck15
@@ -33,7 +34,8 @@ def test_sky_to_cartesian(comm):
 
     s['Position1'] = transform.SkyToCartesian(s['ra'].compute(), s['dec'], s['z'], cosmo)
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_cartesian_to_equatorial(comm):
 
     # make source
@@ -52,7 +54,8 @@ def test_cartesian_to_equatorial(comm):
     assert ((ra >= 0.)&(ra < 360.)).all().compute()
     assert ((dec >= -90)&(dec < 90.)).all().compute()
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_cartesian_to_sky(comm):
     cosmo = cosmology.Planck15
 
@@ -68,7 +71,8 @@ def test_cartesian_to_sky(comm):
 
     _ = transform.CartesianToSky(s['Position'].compute(), cosmo)
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_cartesian_to_sky_galactic(comm):
     cosmo = cosmology.Planck15
 
@@ -88,7 +92,8 @@ def test_cartesian_to_sky_galactic(comm):
     pos2 = transform.SkyToCartesian(ra, dec, z, cosmo, frame='galactic')
     numpy.testing.assert_allclose(s['Position'], pos2, rtol=1e-5)
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_cartesian_to_sky_velocity(comm):
     cosmo = cosmology.Planck15
 
@@ -112,7 +117,8 @@ def test_cartesian_to_sky_velocity(comm):
 
 
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_stack_columns(comm):
 
     # make source
@@ -134,7 +140,8 @@ def test_stack_columns(comm):
     # requires dask array
     s['Position'] = transform.StackColumns(x,y,z)
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_halofuncs(comm):
     from nbodykit.cosmology import Planck15
     # make two sources
@@ -157,7 +164,8 @@ def test_halofuncs(comm):
     r = transform.HaloVelocityDispersion(s['mass'], redshift=0, cosmo=Planck15)
     r.compute()
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_combine(comm):
 
     # make two sources
@@ -180,7 +188,8 @@ def test_combine(comm):
     with pytest.raises(ValueError):
         cat = transform.ConcatenateSources(s1, s2, columns='InvalidColumn')
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_constarray(comm):
     a = ConstantArray(1.0, 1, chunks=1000)
     assert len(a) == 1
@@ -191,7 +200,8 @@ def test_constarray(comm):
     a = ConstantArray([1.0, 1.0], 3, chunks=1000)
     assert a.shape == (3, 2)
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_vector_projection(comm):
     # make source
     s = UniformCatalog(nbar=1e-5, BoxSize=1380., seed=42, comm=comm)

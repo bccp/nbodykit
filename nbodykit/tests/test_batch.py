@@ -1,4 +1,4 @@
-from runtests.mpi import MPITest
+from mpi4py import MPI
 from nbodykit import setup_logging
 from nbodykit import CurrentMPIComm
 from nbodykit.batch import TaskManager
@@ -11,7 +11,8 @@ import pytest
 setup_logging("debug")
 
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_missing_ranks(comm):
 
     with CurrentMPIComm.enter(comm):
@@ -20,7 +21,8 @@ def test_missing_ranks(comm):
             with TaskManager(cpus_per_task, debug=True, use_all_cpus=True):
                 pass
 
-@MPITest([2])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_no_workers(comm):
 
     with CurrentMPIComm.enter(comm):
@@ -30,7 +32,8 @@ def test_no_workers(comm):
                 pass
 
 
-@MPITest([2, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_iterate(comm):
 
     cpus_per_task = 2
@@ -54,7 +57,8 @@ def test_iterate(comm):
                 print(e)
                 raise
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_map(comm):
 
     cpus_per_task = 2

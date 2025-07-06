@@ -1,4 +1,3 @@
-from runtests.mpi import MPITest
 import numpy
 from nbodykit import cosmology
 from nbodykit import setup_logging
@@ -6,10 +5,11 @@ from nbodykit.utils import ScatterArray, GatherArray, FrontPadArray
 from numpy.testing import assert_array_equal
 import os
 import pytest
-
+from mpi4py import MPI
 setup_logging("debug")
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_json_quantity(comm):
 
     from nbodykit.utils import JSONEncoder, JSONDecoder
@@ -41,7 +41,8 @@ def test_json_quantity(comm):
 
     os.remove(tmpfile)
 
-@MPITest([2])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_gather_array(comm):
 
     # object arrays must fail
@@ -71,7 +72,8 @@ def test_gather_array(comm):
     assert len(data1) == 10 * comm.size
 
 
-@MPITest([2])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_gather_objects(comm):
 
     # object arrays must fail
@@ -90,7 +92,8 @@ def test_gather_objects(comm):
     with pytest.raises(ValueError):
         data2 = GatherArray(data2, comm, root=Ellipsis)
 
-@MPITest([2])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_scatter_objects(comm):
 
     # object arrays must fail
@@ -107,7 +110,8 @@ def test_scatter_objects(comm):
     with pytest.raises(ValueError):
         data2 = ScatterArray(data2, comm, root=0)
 
-@MPITest([2])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_gather_bad_data(comm):
 
     # data
@@ -123,7 +127,8 @@ def test_gather_bad_data(comm):
     with pytest.raises(ValueError):
         data = GatherArray(data, comm, root=Ellipsis)
 
-@MPITest([2])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_gather_bad_dtype(comm):
 
     # data
@@ -139,7 +144,8 @@ def test_gather_bad_dtype(comm):
     with pytest.raises(ValueError):
         data = GatherArray(data, comm, root=Ellipsis)
 
-@MPITest([2])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_gather_bad_shape(comm):
 
     # data
@@ -155,7 +161,8 @@ def test_gather_bad_shape(comm):
     with pytest.raises(ValueError):
         data = GatherArray(data, comm, root=Ellipsis)
 
-@MPITest([2])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_gather_list(comm):
 
     # data
@@ -168,7 +175,8 @@ def test_gather_list(comm):
     with pytest.raises(ValueError):
         data = GatherArray(list(data), comm, root=Ellipsis)
 
-@MPITest([2])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_scatter_list(comm):
 
     # data
@@ -182,7 +190,8 @@ def test_scatter_list(comm):
         data = ScatterArray(data, comm, root=0)
 
 
-@MPITest([2])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_scatter_wrong_counts(comm):
 
     # data
@@ -199,7 +208,8 @@ def test_scatter_wrong_counts(comm):
     with pytest.raises(ValueError):
         data = ScatterArray(data, comm, root=0, counts=[5, 7])
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_frontpad_array(comm):
 
     # object arrays must fail
@@ -218,7 +228,8 @@ def test_frontpad_array(comm):
     for i in range(comm.rank):
         assert_array_equal(data2[(comm.rank - i - 1) * 10:(comm.rank - i)* 10], comm.rank - i - 1)
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_distributed_array_topo(comm):
     from nbodykit.utils import DistributedArray, EmptyRank
     data = numpy.arange(10)
@@ -235,7 +246,8 @@ def test_distributed_array_topo(comm):
         comm.allgather(next), [0, 0, 0, EmptyRank])
 
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_distributed_array_unique_labels(comm):
     from nbodykit.utils import DistributedArray
 
@@ -256,7 +268,8 @@ def test_distributed_array_unique_labels(comm):
         [0, 1, 2, 3, 3, 4, 5, 6, 6]
     )
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_distributed_array_cempty(comm):
     from nbodykit.utils import DistributedArray
 
@@ -266,7 +279,8 @@ def test_distributed_array_cempty(comm):
 
     assert_array_equal(da.local.shape, [5, 3, 3])
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_distributed_array_concat(comm):
     from nbodykit.utils import DistributedArray
 
@@ -291,7 +305,8 @@ def test_distributed_array_concat(comm):
         [0, 1, 2, 3, 4, 0, 1, 2, 3, 4]
     )
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_distributed_array_bincount(comm):
     from nbodykit.utils import DistributedArray
 
@@ -317,7 +332,8 @@ def test_distributed_array_bincount(comm):
     assert_array_equal( numpy.concatenate(comm.allgather(N.local)),
         [1, 1, 1, 6, 0, 1])
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_distributed_array_bincount_gaps(comm):
     from nbodykit.utils import DistributedArray
 

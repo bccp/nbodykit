@@ -1,14 +1,16 @@
 from nbodykit import cosmology
 from nbodykit import setup_logging
-from runtests.mpi import MPITest
+import pytest
 from nbodykit.base.mesh import MeshFilter
 from nbodykit.filters import TopHat
 from nbodykit.source.mesh import LinearMesh
+from mpi4py import MPI
 
 # debug logging
 setup_logging("debug")
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_tophat(comm):
     cosmo = cosmology.Planck15
 

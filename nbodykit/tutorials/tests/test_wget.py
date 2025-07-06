@@ -1,4 +1,4 @@
-from runtests.mpi import MPITest
+from mpi4py import MPI
 from nbodykit.tutorials import download_example_data
 from nbodykit import setup_logging, CurrentMPIComm
 from six.moves.urllib.error import HTTPError
@@ -10,7 +10,8 @@ import tempfile
 setup_logging()
 
 @pytest.mark.xfail(raises=HTTPError)
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_download_directory(comm):
 
     # download Gadget1P snapshots directory
@@ -25,7 +26,8 @@ def test_download_directory(comm):
     shutil.rmtree(filename)
 
 @pytest.mark.xfail(raises=HTTPError)
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_download_file(comm):
 
     # download TPM snapshot file
@@ -39,7 +41,8 @@ def test_download_file(comm):
     os.remove(filename)
 
 @pytest.mark.xfail(raises=HTTPError)
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_download_failure(comm):
 
     filename = 'MISSING'
@@ -47,14 +50,16 @@ def test_download_failure(comm):
         download_example_data(filename)
 
 @pytest.mark.xfail(raises=HTTPError)
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_missing_dirname(comm):
 
     with pytest.raises(ValueError):
         download_example_data('Gadget1P', download_dirname='MISSING')
 
 @pytest.mark.xfail(raises=HTTPError)
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_download_to_location(comm):
 
     # download Gadget1P snapshots directory to specific directory

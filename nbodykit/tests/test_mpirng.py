@@ -1,4 +1,3 @@
-from runtests.mpi import MPITest
 from nbodykit import setup_logging
 from nbodykit.mpirng import MPIRandomState
 from numpy.testing import assert_array_equal
@@ -8,7 +7,8 @@ import pytest
 
 setup_logging("debug")
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_mpirng_large_chunk(comm):
     rng = MPIRandomState(comm, seed=1234, size=1, chunksize=10)
 
@@ -21,7 +21,8 @@ def test_mpirng_large_chunk(comm):
 
     assert_array_equal(all, correct)
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_mpirng_small_chunk(comm):
     rng = MPIRandomState(comm, seed=1234, size=10, chunksize=3)
 
@@ -34,7 +35,8 @@ def test_mpirng_small_chunk(comm):
 
     assert_array_equal(all, correct)
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_mpirng_unique(comm):
     rng = MPIRandomState(comm, seed=1234, size=10, chunksize=3)
 
@@ -44,7 +46,8 @@ def test_mpirng_unique(comm):
     # it shouldn't be the same!
     assert (local1 != local2).any()
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_mpirng_args(comm):
     rng = MPIRandomState(comm, seed=1234, size=10, chunksize=3)
 
@@ -57,7 +60,8 @@ def test_mpirng_args(comm):
 
     assert_array_equal(all, correct)
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_mpirng_itemshape(comm):
     rng = MPIRandomState(comm, seed=1234, size=10, chunksize=3)
 
@@ -70,7 +74,8 @@ def test_mpirng_itemshape(comm):
 
     assert_array_equal(all, correct)
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_mpirng_poisson(comm):
     rng = MPIRandomState(comm, seed=1234, size=10, chunksize=3)
 

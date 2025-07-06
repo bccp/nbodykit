@@ -1,6 +1,6 @@
 from nbodykit import set_options, GlobalCache, use_distributed, use_mpi
 import pytest
-from runtests.mpi import MPITest
+from mpi4py import MPI
 
 def test_bad_options():
     with pytest.raises(KeyError):
@@ -12,6 +12,7 @@ def test_cache_size():
         cache = GlobalCache.get()
         assert cache.cache.available_bytes == 100
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_use_mpi(comm):
     use_mpi(comm)

@@ -1,9 +1,10 @@
 from nbodykit import GlobalCache
 from nbodykit.lab import UniformCatalog
 
-from runtests.mpi import MPITest
+from mpi4py import MPI
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_cache(comm):
     cat = UniformCatalog(nbar=10000, BoxSize=1.0, comm=comm)
     cat['test'] = cat['Position'] ** 5
