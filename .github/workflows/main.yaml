@@ -37,7 +37,7 @@ jobs:
         python -m build
     - name: Install
       run: |
-        python -m pip install --user dist/bigfile*whl
+        python -m pip install --user dist/nbodykit*whl
     - name: Build in place for tests
       run: |
         python setup.py build_ext --inplace
