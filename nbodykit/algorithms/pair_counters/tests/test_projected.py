@@ -1,9 +1,9 @@
-from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 from numpy.testing import assert_array_equal, assert_allclose
 import os
 import pytest
+from mpi4py import MPI
 
 setup_logging()
 
@@ -104,7 +104,8 @@ def reference_survey_paircount(pos1, w1, rp_bins, pimax, pos2=None, w2=None, los
     return npairs, numpy.nan_to_num(rpavg/npairs), numpy.nan_to_num(wnpairs)
 
 
-@MPITest([1, 3])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_sim_periodic_auto(comm):
 
     # uniform source of particles
@@ -126,7 +127,8 @@ def test_sim_periodic_auto(comm):
     npairs = reference_sim_paircount(pos, redges, pimax, source.attrs['BoxSize'])
     assert_allclose(npairs, r.pairs['npairs'])
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_sim_diff_los(comm):
 
     # uniform source of particles
@@ -147,7 +149,8 @@ def test_sim_diff_los(comm):
     npairs = reference_sim_paircount(pos, redges, pimax, source.attrs['BoxSize'], los=0)
     assert_allclose(npairs, r.pairs['npairs'])
 
-@MPITest([1, 3])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_sim_nonperiodic_auto(comm):
 
     # uniform source of particles
@@ -166,8 +169,8 @@ def test_sim_nonperiodic_auto(comm):
     npairs = reference_sim_paircount(pos, redges, pimax, None)
     assert_allclose(npairs, r.pairs['npairs'])
 
-
-@MPITest([1, 3])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_sim_periodic_cross(comm):
 
     # generate data
@@ -188,7 +191,8 @@ def test_sim_periodic_cross(comm):
     npairs = reference_sim_paircount(pos1, redges, pimax, first.attrs['BoxSize'], pos2=pos2)
     assert_allclose(npairs, r.pairs['npairs'])
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_survey_auto(comm):
     cosmo = cosmology.Planck15
 
@@ -212,7 +216,8 @@ def test_survey_auto(comm):
     assert_allclose(npairs, r.pairs['npairs'])
     assert_allclose(wnpairs, r.pairs['wnpairs'])
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_survey_cross(comm):
     cosmo = cosmology.Planck15
 
@@ -247,7 +252,8 @@ def test_survey_cross(comm):
 
     if comm.rank == 0: os.remove('paircount-test.json')
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_missing_pimax(comm):
 
     # generate data
@@ -262,7 +268,8 @@ def test_missing_pimax(comm):
     with pytest.raises(ValueError):
         r = SimulationBoxPairCount('1d', source, redges, pimax=10.)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_bad_pimax(comm):
 
     # generate data

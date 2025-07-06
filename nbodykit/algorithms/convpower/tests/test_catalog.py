@@ -1,13 +1,14 @@
-from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 
 from numpy.testing import assert_allclose
 import pytest
+from mpi4py import MPI
 
 setup_logging()
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_missing_columns(comm):
 
     # create FKP catalog
@@ -17,7 +18,8 @@ def test_missing_columns(comm):
     with pytest.raises(ValueError):
         cat = FKPCatalog(source1, source2, BoxSize=512.0, BoxPad=0.02)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_boxsize(comm):
 
     # data and randoms

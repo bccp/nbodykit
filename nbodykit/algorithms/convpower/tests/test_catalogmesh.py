@@ -1,4 +1,3 @@
-from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 
@@ -7,7 +6,12 @@ import pytest
 
 setup_logging()
 
-@MPITest([1, 4])
+from mpi4py import MPI
+
+setup_logging()
+
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_paint(comm):
 
     NBAR1 = 3e-5; WEIGHT1 = 1.05

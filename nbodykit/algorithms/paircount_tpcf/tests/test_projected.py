@@ -1,4 +1,3 @@
-from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 
@@ -6,6 +5,7 @@ from numpy.testing import assert_array_equal, assert_allclose
 import kdcount.correlate as correlate
 import os
 import pytest
+from mpi4py import MPI
 
 setup_logging()
 
@@ -87,7 +87,8 @@ def reference_sim_tpcf(pos1, redges, pimax, BoxSize, randoms=None, pos2=None):
     return rp_pi_tpcf(pos1, redges, pi_bins, period=BoxSize, sample2=pos2,
                     randoms=randoms, estimator=estimator, do_auto=do_auto)
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_sim_periodic_auto(comm):
 
     # uniform source of particles
@@ -106,7 +107,8 @@ def test_sim_periodic_auto(comm):
     cf = reference_sim_tpcf(pos, redges, pimax, source.attrs['BoxSize'])
     assert_allclose(cf, r.corr['corr'])
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_sim_nonperiodic_auto(comm):
 
     # uniform source of particles
@@ -126,7 +128,8 @@ def test_sim_nonperiodic_auto(comm):
     cf = reference_sim_tpcf(pos_d, redges, pimax, None, randoms=pos_r)
     assert_allclose(cf, r.corr['corr'], rtol=1e-5, atol=1e-3)
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_sim_periodic_cross(comm):
 
     # uniform source of particles
@@ -153,7 +156,8 @@ def test_sim_periodic_cross(comm):
     if comm.rank == 0: os.remove('paircount-test.json')
 
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_survey_cross(comm):
     cosmo = cosmology.Planck15
 

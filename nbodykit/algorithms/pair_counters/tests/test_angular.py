@@ -1,4 +1,3 @@
-from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 
@@ -7,6 +6,7 @@ import pytest
 import numpy
 from numpy.testing import assert_array_equal, assert_allclose
 from kdcount import correlate, sphere
+from mpi4py import MPI
 
 # debug logging
 setup_logging()
@@ -40,7 +40,8 @@ def reference_paircount(pos1, w1, edges, pos2=None, w2=None):
 
     return numpy.nan_to_num(pc.pair_counts), numpy.nan_to_num(pc.mean_centers), pc.sum1
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_survey_auto(comm):
 
     # random particles
@@ -68,7 +69,8 @@ def test_survey_auto(comm):
     assert_allclose(npairs, r.pairs['npairs'])
     assert_allclose(wsum, r.pairs['wnpairs'])
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_survey_cross(comm):
 
     # random particles with weights
@@ -103,7 +105,8 @@ def test_survey_cross(comm):
 
     if comm.rank == 0: os.remove('angular-paircount-test.json')
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_sim_auto(comm):
 
     # random particles
@@ -131,7 +134,8 @@ def test_sim_auto(comm):
     assert_allclose(npairs, r.pairs['npairs'])
     assert_allclose(wsum, r.pairs['wnpairs'])
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_sim_cross(comm):
 
     # random particles with weights
@@ -163,8 +167,8 @@ def test_sim_cross(comm):
 
     if comm.rank == 0: os.remove('angular-paircount-test.json')
 
-
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_missing_columns(comm):
 
     source = generate_survey_data(seed=42, comm=comm)

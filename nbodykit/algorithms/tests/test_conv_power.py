@@ -1,10 +1,10 @@
-from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 
 from scipy.interpolate import InterpolatedUnivariateSpline
 from numpy.testing import assert_allclose, assert_array_equal
 import pytest
+from mpi4py import MPI
 
 setup_logging("debug")
 
@@ -29,7 +29,8 @@ def make_sources(cosmo, comm):
 
     return data, randoms
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_add_fkpweight(comm):
     cosmo = cosmology.Planck15
 
@@ -61,7 +62,8 @@ def test_add_fkpweight(comm):
     assert_allclose(fkp['data']['FKPWeight'].compute(),
                     FKPWeightFromNbar(P0, fkp['data']['NZ'].compute()))
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_diff_cross_boxsizes(comm):
 
     cosmo = cosmology.Planck15
@@ -92,7 +94,8 @@ def test_diff_cross_boxsizes(comm):
     assert_array_equal(r.first.attrs['BoxSize'], r.second.attrs['BoxSize'])
     assert_array_equal(r.first.attrs['BoxCenter'], r.second.attrs['BoxCenter'])
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_true_cross_corr_fail(comm):
 
     cosmo = cosmology.Planck15
@@ -115,7 +118,8 @@ def test_true_cross_corr_fail(comm):
         r = ConvolvedFFTPower(mesh1, second=mesh2, poles=[0,2,4], dk=0.005)
 
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_bad_cross_corr_columns(comm):
 
     cosmo = cosmology.Planck15
@@ -139,7 +143,8 @@ def test_bad_cross_corr_columns(comm):
     with pytest.raises(NotImplementedError):
         r = ConvolvedFFTPower(mesh1, second=mesh2, poles=[0,2,4], dk=0.005)
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_cross_corr(comm):
 
     cosmo = cosmology.Planck15
@@ -174,7 +179,8 @@ def test_cross_corr(comm):
     S = S_data + S_ran
     assert_allclose(S, r.attrs['shotnoise'])
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_bad_input(comm):
 
     cosmo = cosmology.Planck15
@@ -203,7 +209,8 @@ def test_bad_input(comm):
         r = ConvolvedFFTPower(fkp, poles=0, dk=0.005, use_fkp_weights=True, P0_FKP=1e4, Nmesh=64)
 
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_no_monopole(comm):
 
     cosmo = cosmology.Planck15
@@ -226,7 +233,8 @@ def test_no_monopole(comm):
     assert 'power_2' in r.poles.variables
     assert 'power_4' in r.poles.variables
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_bad_normalization(comm):
 
     cosmo = cosmology.Planck15
@@ -249,7 +257,8 @@ def test_bad_normalization(comm):
     with pytest.raises(ValueError):
         r = ConvolvedFFTPower(fkp, poles=[0,2,4], dk=0.005)
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_selection(comm):
 
     cosmo = cosmology.Planck15
@@ -284,7 +293,8 @@ def test_selection(comm):
     r2 = ConvolvedFFTPower.load("conv-power-with-selection.json", comm=comm)
     assert_array_equal(r.poles.data, r2.poles.data)
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_run(comm):
 
     cosmo = cosmology.Planck15
@@ -321,7 +331,8 @@ def test_run(comm):
     S = S_data + S_ran
     assert_allclose(S, r.attrs['shotnoise'])
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_run_unique_bins(comm):
 
     cosmo = cosmology.Planck15
@@ -349,7 +360,8 @@ def test_run_unique_bins(comm):
     pkmu = r.to_pkmu(mu_edges=mu_edges, max_ell=4)
     assert_allclose(pkmu.coords['k'], r.poles.coords['k'])
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_run_unique_bins_windowonly(comm):
 
     cosmo = cosmology.Planck15
@@ -377,7 +389,8 @@ def test_run_unique_bins_windowonly(comm):
     pkmu = r.to_pkmu(mu_edges=mu_edges, max_ell=4)
     assert_allclose(pkmu.coords['k'], r.poles.coords['k'])
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_window_only(comm):
     NDATA = 1000
     NBAR = 1e-4
@@ -408,7 +421,8 @@ def test_window_only(comm):
     assert not numpy.isnan(r.poles['power_2']).any()
     assert not numpy.isnan(r.poles['power_4']).any()
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_with_zhist(comm):
 
     NDATA = 1000

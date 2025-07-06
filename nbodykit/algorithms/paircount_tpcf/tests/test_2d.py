@@ -1,4 +1,3 @@
-from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 
@@ -6,6 +5,7 @@ from numpy.testing import assert_array_equal, assert_allclose
 import kdcount.correlate as correlate
 import os
 import pytest
+from mpi4py import MPI
 
 setup_logging()
 
@@ -87,7 +87,8 @@ def reference_survey_tpcf(data1, randoms1, redges, Nmu, data2=None, randoms2=Non
     R1R2 = R1R2.reshape((-1,Nmu))
     return D1D2, D1R2, D2R1, R1R2, CF
 
-@MPITest([3])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_sim_periodic_auto(comm):
 
     # uniform source of particles
@@ -105,7 +106,8 @@ def test_sim_periodic_auto(comm):
     cf = reference_sim_tpcf(pos, redges, Nmu, source.attrs['BoxSize'])
     assert_allclose(cf, r.corr['corr'])
 
-@MPITest([3])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_sim_nonperiodic_auto(comm):
 
     # uniform source of particles
@@ -125,7 +127,8 @@ def test_sim_nonperiodic_auto(comm):
     cf = reference_sim_tpcf(pos_d, redges, Nmu, None, randoms=pos_r)
     assert_allclose(cf, r.corr['corr'], rtol=1e-5, atol=1e-3)
 
-@MPITest([3])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_sim_periodic_cross(comm):
 
     # uniform source of particles
@@ -145,7 +148,8 @@ def test_sim_periodic_cross(comm):
     cf = reference_sim_tpcf(pos1, redges, Nmu, data1.attrs['BoxSize'], pos2=pos2)
     assert_allclose(cf, r.corr['corr'])
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_survey_cross(comm):
     cosmo = cosmology.Planck15
 
@@ -176,7 +180,8 @@ def test_survey_cross(comm):
     assert_allclose(R1R2['npairs'], r.R1R2['npairs'])
 
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_xil(comm):
     cosmo = cosmology.Planck15
 

@@ -1,8 +1,8 @@
-from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 from numpy.testing import assert_allclose, assert_array_equal
 import os
+from mpi4py import MPI
 
 setup_logging("debug")
 
@@ -16,7 +16,8 @@ setup_logging("debug")
 
 data_dir = os.path.join(os.path.split(os.path.abspath(__file__))[0], 'data')
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_sim_threeptcf(comm):
 
     import tempfile
@@ -61,7 +62,8 @@ def test_sim_threeptcf(comm):
         os.remove(filename)
 
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_survey_threeptcf(comm):
 
     import tempfile
@@ -109,7 +111,8 @@ def test_survey_threeptcf(comm):
     if comm.rank == 0:
         os.remove(filename)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_sim_threeptcf_pedantic(comm):
 
     BoxSize = 400.0
@@ -138,7 +141,8 @@ def test_sim_threeptcf_pedantic(comm):
         x2 = p_pedantic['corr_%d' %ell]
         assert_allclose(x1, x2)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_sim_threeptcf_shuffled(comm):
 
     BoxSize = 400.0

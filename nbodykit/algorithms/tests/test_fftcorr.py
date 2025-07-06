@@ -1,13 +1,14 @@
-from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 from numpy.testing import assert_array_equal, assert_allclose
 import pytest
+from mpi4py import MPI
 
 # debug logging
 setup_logging("debug")
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_fftcorr_poles(comm):
 
     source = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42, comm=comm)
@@ -22,7 +23,8 @@ def test_fftcorr_poles(comm):
     assert_array_equal(modes_1d, r.poles['modes'])
     assert_allclose(mono_from_pkmu, mono)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_fftcorr_unique(comm):
 
     source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
@@ -31,7 +33,8 @@ def test_fftcorr_unique(comm):
     p = r.corr
     assert_allclose(p.coords['r'], p['r'], rtol=1e-6)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_fftcorr_padding(comm):
 
     source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
@@ -40,7 +43,8 @@ def test_fftcorr_padding(comm):
     assert r.attrs['N1'] != 0
     assert r.attrs['N2'] != 0
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_fftcorr_save(comm):
 
     source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
@@ -56,7 +60,8 @@ def test_fftcorr_save(comm):
     assert_array_equal(r.corr['modes'], r2.corr['modes'])
 
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_fftcorr_mismatch_boxsize(comm):
 
     cosmo = cosmology.Planck15
@@ -67,7 +72,8 @@ def test_fftcorr_mismatch_boxsize(comm):
 
     r = FFTCorr(source1, second=source2, mode='1d', BoxSize=1024, Nmesh=32)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_fftcorr_mismatch_boxsize_fail(comm):
 
     cosmo = cosmology.Planck15
