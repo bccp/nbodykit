@@ -1,11 +1,12 @@
-from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 from numpy.testing import assert_allclose
 import tempfile
 import os
+from mpi4py import MPI
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_hdf(comm):
 
     import h5py
@@ -34,7 +35,8 @@ def test_hdf(comm):
 
     os.unlink(tmpfile)
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_query_range(comm):
 
     import h5py
@@ -64,14 +66,15 @@ def test_query_range(comm):
     region = source.query_range(32, 64)
 
     assert_allclose(
-        numpy.concatenate(comm.allgather(region['Index'].compute())), 
+        numpy.concatenate(comm.allgather(region['Index'].compute())),
         numpy.arange(32, 64)
     )
 
     if comm.rank == 0:
         os.unlink(tmpfile)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_csv(comm):
 
     with tempfile.NamedTemporaryFile() as ff:
@@ -91,7 +94,8 @@ def test_csv(comm):
         # make sure all the columns are there
         assert all(col in f for col in names)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_stack_glob(comm):
 
     tmpfile1 = 'test-glob-1.dat'
@@ -120,7 +124,8 @@ def test_stack_glob(comm):
     os.unlink(tmpfile1)
     os.unlink(tmpfile2)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_stack_list(comm):
 
     tmpfile1 = 'test-list-1.dat'
@@ -167,7 +172,8 @@ class MyFileType(FileType):
         data["Position"] = numpy.arange(self.size)[:, None]
         return data[list(columns)][start:end:step]
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_file_type(comm):
     from nbodykit.source.catalog.file import FileCatalog
 

@@ -1,12 +1,13 @@
-from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 from numpy.testing import assert_allclose, assert_array_equal
 import pytest
+from mpi4py import MPI
 
 setup_logging("debug")
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_table(comm):
 
     from astropy.table import Table
@@ -22,7 +23,8 @@ def test_table(comm):
         assert_array_equal(data[col], source[col])
 
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_nonstructured_input(comm):
 
     from astropy.table import Table
@@ -35,7 +37,8 @@ def test_nonstructured_input(comm):
 
 
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_array(comm):
 
     cosmo = cosmology.Planck15
@@ -56,7 +59,8 @@ def test_array(comm):
     assert_allclose(source['Position'], 3)
 
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_dict(comm):
 
     cosmo = cosmology.Planck15

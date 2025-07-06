@@ -1,11 +1,12 @@
-from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 import pytest
+from mpi4py import MPI
 
 setup_logging()
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_bad_init(comm):
 
     # initialize a catalog
@@ -20,7 +21,8 @@ def test_bad_init(comm):
     with pytest.raises(ValueError):
         halos = HaloCatalog(cat, cosmology.Planck15, 0., mass='MISSING')
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_missing_boxsize(comm):
 
     # initialize a catalog

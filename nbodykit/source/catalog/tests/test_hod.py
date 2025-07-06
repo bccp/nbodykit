@@ -1,4 +1,3 @@
-from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit.tutorials import DemoHaloCatalog
 from nbodykit import setup_logging
@@ -8,7 +7,8 @@ import pytest
 
 setup_logging()
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_no_seed(comm):
 
     halos = DemoHaloCatalog('bolshoi', 'rockstar', 0.5, comm=comm)
@@ -17,7 +17,8 @@ def test_no_seed(comm):
     # seed is set randomly
     assert hod.attrs['seed'] is not None
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_bad_model(comm):
 
     halos = DemoHaloCatalog('bolshoi', 'rockstar', 0.5, comm=comm)
@@ -25,7 +26,8 @@ def test_bad_model(comm):
         hod = halos.populate('Zheng07Model')
 
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_failed_populate(comm):
 
     # the demo halos
@@ -38,7 +40,8 @@ def test_failed_populate(comm):
         hod = halos.populate(model)
 
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_no_galaxies(comm):
 
     halos = DemoHaloCatalog('bolshoi', 'rockstar', 0.5, comm=comm)
@@ -48,7 +51,8 @@ def test_no_galaxies(comm):
     with pytest.raises(ValueError):
         hod = halos.populate(Zheng07Model, seed=42, logMmin=17)
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_repopulate(comm):
 
     # initialize the halos
@@ -76,7 +80,8 @@ def test_repopulate(comm):
         hod.repopulate(seed=42, bad_param_name=1.0)
 
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_hod_cm(comm):
 
     redshift = 0.55
@@ -100,7 +105,8 @@ def test_hod_cm(comm):
     # compute the power
     r = FFTPower(hod.to_mesh(Nmesh=128), mode='2d', Nmu=5, los=[0,0,1])
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_hod_peak(comm):
 
     redshift = 0.55
@@ -126,7 +132,8 @@ def test_hod_peak(comm):
     # compute the power
     r = FFTPower(hod.to_mesh(Nmesh=128), mode='2d', Nmu=5, los=[0,0,1])
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_save(comm):
 
     redshift = 0.55
