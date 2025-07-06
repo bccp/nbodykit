@@ -307,7 +307,8 @@ def test_index(comm):
     assert_array_equal(r, range(source.csize))
     assert source.Index.dtype == numpy.dtype('i8')
 
-@MPITest([1 ,4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_transform(comm):
     cosmo = cosmology.Planck15
 
