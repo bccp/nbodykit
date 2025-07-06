@@ -14,67 +14,24 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       OMP_NUM_THREADS: 1
-
     defaults:
       run:
         shell: bash -l {0}   # for conda.
-
     strategy:
-      fail-fast: false
       matrix:
-        os: [ ubuntu-latest, macos-latest ]
+        os: [ubuntu-latest]
         python-version: [ '3.8', '3.10', '3.13' ]
-        exclude:
-          - os: macos-latest
-            python-version: '3.10'
-          - os: macos-latest
-            python-version: '3.13'
     steps:
-
     - name: Checkout source code
       uses: actions/checkout@v4
-
-    - name: Cache conda
-      uses: actions/cache@v4
-      env:
-        # Increase this value to reset cache.
-        CACHE_NUMBER: 1
-      with:
-        path: ~/conda_pkgs_dir
-        key:
-          ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}
-    - name: Setup Conda Environment
-      uses: conda-incubator/setup-miniconda@v3.2.0
-      with:
-        activate-environment: test
-        channels: bccp
-        show-channel-urls: true
-        use-only-tar-bz2: false
-        auto-update-conda: true
-        python-version: ${{ matrix.python-version }}
-
     - name: Setup test env
       run: |
-        conda install -q -y \
-               python=${{ matrix.python-version }} \
-               numpy=${{ matrix.numpy-version }} \
-               nose cython mpi4py \
-               --file requirements.txt \
-               --file requirements-extras.txt
-
-        # submitting coverage to coveralls
-        pip install coveralls build
-        # install nbodykit itself
-        pip install .[extras]
-        conda list --explicit
-
-    - name: Install Compilers
-      run: |
-        if [ "$RUNNER_OS" == "macOS" ]; then
-          conda install -q -y clang_osx-64 clangxx_osx-64 gfortran_osx-64
-        else
-          conda install -q -y gcc_linux-64 gxx_linux-64 gfortran_linux-64
-        fi
+        sudo apt update
+        sudo apt install -y build-essential libopenmpi-dev openmpi-bin python3-numpy python3-scipy python3-mpi4py python3-sympy python3-astropy
+        python -m pip install --upgrade pip
+        pip install build coveralls runtests
+        pip install -r requirements.txt
+        pip install -r requirements-extras.txt
     - name: Build
       run: |
         python -m build
