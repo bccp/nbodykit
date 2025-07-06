@@ -1,13 +1,14 @@
-from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 
 from numpy.testing import assert_array_equal, assert_allclose
 import pytest
+from mpi4py import MPI
 
 setup_logging()
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_boxsize_nmesh(comm):
 
     # the catalog
@@ -28,7 +29,8 @@ def test_boxsize_nmesh(comm):
     with pytest.raises(ValueError):
         mesh = cat.to_mesh(Nmesh=32)
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_getitem(comm):
 
     # the catalog
@@ -43,7 +45,8 @@ def test_getitem(comm):
         submesh = mesh[name] # should be equal to source
         assert submesh.source is cat[name]
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_compute(comm):
 
     # the catalog
@@ -71,7 +74,8 @@ def test_compute(comm):
     # must be the same
     assert_allclose(combined.value, (real1.value + real2.value)/norm, atol=1e-5)
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_actions_compensated(comm):
 
     # the test case fails only if there is enough particles to trigger
@@ -88,7 +92,8 @@ def test_actions_compensated(comm):
     mesh = cat.to_mesh(Nmesh=32, compensated=True)
     assert len(mesh.actions) > 0
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_paint_interlaced(comm):
 
     # the test case fails only if there is enough particles to trigger

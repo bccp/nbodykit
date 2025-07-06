@@ -1,12 +1,13 @@
-from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 
 from numpy.testing import assert_allclose, assert_array_equal
+from mpi4py import MPI
 
 setup_logging()
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_paint(comm):
 
     from pmesh.pm import ParticleMesh
