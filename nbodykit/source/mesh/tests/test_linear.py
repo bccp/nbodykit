@@ -1,5 +1,6 @@
 from nbodykit.lab import *
 from nbodykit import setup_logging
+import pytest
 
 from numpy.testing import assert_allclose
 from mpi4py import MPI

@@ -4,6 +4,7 @@ from numpy.testing import assert_allclose
 import tempfile
 import os
 from mpi4py import MPI
+import pytest
 
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi

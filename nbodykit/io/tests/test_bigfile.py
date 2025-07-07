@@ -5,6 +5,7 @@ import tempfile
 import pickle
 import contextlib
 from mpi4py import MPI
+import pytest
 
 @contextlib.contextmanager
 def temporary_data():

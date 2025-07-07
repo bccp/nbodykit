@@ -1,6 +1,7 @@
 from nbodykit.lab import *
 from nbodykit import setup_logging, set_options, GlobalCache
 from mpi4py import MPI
+import pytest
 
 # debug logging
 setup_logging("debug")

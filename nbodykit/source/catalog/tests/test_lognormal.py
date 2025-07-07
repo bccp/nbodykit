@@ -1,6 +1,7 @@
 from nbodykit.lab import *
 from nbodykit import setup_logging
 from nbodykit.utils import GatherArray
+import pytest
 
 from numpy.testing import assert_allclose
 from numpy.testing import assert_array_equal

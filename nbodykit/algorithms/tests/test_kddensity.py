@@ -2,7 +2,7 @@ from nbodykit.lab import *
 from nbodykit import setup_logging
 from numpy.testing import assert_array_equal, assert_allclose
 from mpi4py import MPI
-
+import pytest
 from nbodykit.algorithms.kdtree import KDDensity
 
 # debug logging

@@ -1,5 +1,6 @@
 from nbodykit import GlobalCache
 from nbodykit.lab import UniformCatalog
+import pytest
 
 from mpi4py import MPI
 

@@ -3,6 +3,7 @@ from nbodykit import setup_logging
 from numpy.testing import assert_allclose, assert_array_equal
 import os
 from mpi4py import MPI
+import pytest
 
 setup_logging("debug")
 

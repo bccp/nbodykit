@@ -3,6 +3,7 @@ from nbodykit.lab import CurrentMPIComm
 from nbodykit.utils import GatherArray
 from numpy.testing import assert_array_equal
 from mpi4py import MPI
+import pytest
 
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi

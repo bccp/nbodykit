@@ -3,7 +3,7 @@ from nbodykit import setup_logging
 from nbodykit.utils import ScatterArray, GatherArray
 from numpy.testing import assert_array_equal
 from mpi4py import MPI
-
+import pytest
 # debug logging
 setup_logging("debug")
 
