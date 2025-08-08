@@ -167,11 +167,11 @@ def test_cosmology_sane():
     # total density in 10e10 Msun/h unit
     assert_allclose(c.rho_crit(0), 27.754999)
 
-    # comoving distance to z=1.0 in Mpc/h unit.
-    assert_allclose(c.comoving_distance(1.0), 3396.157391 * c.h)
-
     # conformal time in Mpc unit.
-    assert_allclose(c.tau(1.0), 3396.157391)
+    assert_allclose(c.tau(1.0), 3396.158162)
+
+    # comoving distance to z=1.0 in Mpc/h unit.
+    assert_allclose(c.comoving_distance(1.0), c.tau(1.0) * c.h)
 
     assert_allclose(c.efunc(0), 1.) # hubble in Mpc/h km/s unit
     assert_allclose(c.efunc(0) - c.efunc(1 / 0.9999 - 1),
