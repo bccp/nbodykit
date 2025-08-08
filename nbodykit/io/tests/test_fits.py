@@ -39,7 +39,7 @@ def temporary_data(data='table'):
 
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
-@pytest.mark.skipif(fitsio is None, "fitsio is not installed")
+@pytest.mark.skipif(fitsio is None, reason="fitsio is not installed")
 def test_data(comm):
 
     with temporary_data() as (data, tmpfile):
@@ -66,7 +66,7 @@ def test_data(comm):
 
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
-@pytest.mark.skipif(fitsio is None, "fitsio is not installed")
+@pytest.mark.skipif(fitsio is None, reason="fitsio is not installed")
 def test_string_ext(comm):
 
     with temporary_data() as (data, tmpfile):
@@ -87,7 +87,7 @@ def test_string_ext(comm):
 
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
-@pytest.mark.skipif(fitsio is None, "fitsio is not installed")
+@pytest.mark.skipif(fitsio is None, reason="fitsio is not installed")
 def test_wrong_ext(comm):
 
     with temporary_data() as (data, tmpfile):
@@ -102,7 +102,7 @@ def test_wrong_ext(comm):
 
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
-@pytest.mark.skipif(fitsio is None, "fitsio is not installed")
+@pytest.mark.skipif(fitsio is None, reason="fitsio is not installed")
 def test_no_tabular_data(comm):
 
     with temporary_data(data='image') as (data, tmpfile):

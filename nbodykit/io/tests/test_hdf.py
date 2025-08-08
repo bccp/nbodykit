@@ -40,7 +40,7 @@ def temporary_data():
 
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
-@pytest.mark.skipif(h5py is None, "h5py is not installed")
+@pytest.mark.skipif(h5py is None, reason="h5py is not installed")
 def test_data(comm):
 
     with temporary_data() as (data, tmpfile):
@@ -71,7 +71,7 @@ def test_data(comm):
 
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
-@pytest.mark.skipif(h5py is None, "h5py is not installed")
+@pytest.mark.skipif(h5py is None, reason="h5py is not installed")
 def test_nonzero_root(comm):
 
     with temporary_data() as (data, tmpfile):
@@ -90,7 +90,7 @@ def test_nonzero_root(comm):
 
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
-@pytest.mark.skipif(h5py is None, "h5py is not installed")
+@pytest.mark.skipif(h5py is None, reason="h5py is not installed")
 def test_nonzero_exclude(comm):
 
     with temporary_data() as (data, tmpfile):
@@ -113,7 +113,7 @@ def test_nonzero_exclude(comm):
 
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
-@pytest.mark.skipif(h5py is None, "h5py is not installed")
+@pytest.mark.skipif(h5py is None, reason="h5py is not installed")
 def test_data_mismatch(comm):
 
     # generate data
@@ -139,7 +139,7 @@ def test_data_mismatch(comm):
 
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
-@pytest.mark.skipif(h5py is None, "h5py is not installed")
+@pytest.mark.skipif(h5py is None, reason="h5py is not installed")
 def test_empty(comm):
 
     # create empty file
