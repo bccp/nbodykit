@@ -207,9 +207,9 @@ def test_cosmology_vect():
 def test_cosmology_transfer():
     c = Cosmology()
     t = c.get_transfer(z=0)
-    assert 'h_prime' in t.dtype.names
-    assert 'k' in t.dtype.names
-    assert 'd_cdm' in t.dtype.names
+    assert 'h_prime' in t.keys()
+    assert 'k' in t.keys()
+    assert 'd_cdm' in t.keys()
 
 def test_cosmology_get_pk():
     c = Cosmology()
