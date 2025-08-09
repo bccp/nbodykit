@@ -212,7 +212,7 @@ def GatherArray(data, comm, root=0):
     dtype = data.dtype
 
     # setup the custom dtype
-    duplicity = numpy.product(numpy.array(shape[1:], 'intp'))
+    duplicity = numpy.prod(numpy.array(shape[1:], 'intp'))
     itemsize = duplicity * dtype.itemsize
     dt = MPI.BYTE.Create_contiguous(itemsize)
     dt.Commit()
@@ -311,7 +311,7 @@ def ScatterArray(data, comm, root=0, counts=None):
         data = numpy.empty(0, dtype=np_dtype)
 
     # setup the custom dtype
-    duplicity = numpy.product(numpy.array(shape[1:], 'intp'))
+    duplicity = numpy.prod(numpy.array(shape[1:], 'intp'))
     itemsize = duplicity * dtype.itemsize
     dt = MPI.BYTE.Create_contiguous(itemsize)
     dt.Commit()
