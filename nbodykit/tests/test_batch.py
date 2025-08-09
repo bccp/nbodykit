@@ -12,7 +12,7 @@ setup_logging("debug")
 
 
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
-@pytest.mark.mpi
+@pytest.mark.mpi(min_size=2)
 def test_missing_ranks(comm):
 
     with CurrentMPIComm.enter(comm):
@@ -22,7 +22,7 @@ def test_missing_ranks(comm):
                 pass
 
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
-@pytest.mark.mpi
+@pytest.mark.mpi(min_size=2)
 def test_no_workers(comm):
 
     with CurrentMPIComm.enter(comm):
@@ -33,7 +33,7 @@ def test_no_workers(comm):
 
 
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
-@pytest.mark.mpi
+@pytest.mark.mpi(min_size=2)
 def test_iterate(comm):
 
     cpus_per_task = 2
@@ -58,7 +58,7 @@ def test_iterate(comm):
                 raise
 
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
-@pytest.mark.mpi
+@pytest.mark.mpi(min_size=2)
 def test_map(comm):
 
     cpus_per_task = 2
