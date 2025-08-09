@@ -170,7 +170,7 @@ class MeshSlab(object):
             if self.symmetry_axis == self.axis:
 
                 # check if current iteration value is positive
-                if numpy.float(self.coords(self.axis)) <= 0.:
+                if float(self.coords(self.axis)) <= 0.:
                     idx = numpy.zeros(self.shape, dtype=bool)
 
             # one of slab dimensions is symmetry axis
@@ -204,7 +204,7 @@ class MeshSlab(object):
             # iteration axis is symmetry axis
             elif self.axis == self.symmetry_axis:
                 toret = 1.
-                if numpy.float(self.coords(self.symmetry_axis)) > 0.:
+                if float(self.coords(self.symmetry_axis)) > 0.:
                     toret = 2.
             # only nonsingular plane gets factor of 2
             else:

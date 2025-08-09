@@ -85,7 +85,7 @@ def test_hermitian_weights(comm):
         weights = slab.hermitian_weights
 
         # weights == 2 when iterating frequency is positive
-        if numpy.float(slab.coords(2)) > 0.:
+        if float(slab.coords(2)) > 0.:
             assert weights > 1
             assert numpy.all(nonsig)
         else:
