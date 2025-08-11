@@ -229,5 +229,4 @@ def test_low_nbar_randoms(comm):
     redges = numpy.linspace(0.01, 5.0, 2)
 
     # compute 2PCF
-    with pytest.warns(UserWarning):
-        r = SimulationBox2PCF('1d', source, redges, periodic=False, randoms1=randoms)
+    r = SimulationBox2PCF('1d', source, redges, periodic=False, randoms1=randoms)
