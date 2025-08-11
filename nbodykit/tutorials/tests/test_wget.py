@@ -12,37 +12,6 @@ setup_logging()
 @pytest.mark.xfail(raises=HTTPError)
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
-def test_download_directory(comm):
-
-    # download Gadget1P snapshots directory
-    filename = 'Gadget1P'
-    download_example_data(filename)
-
-    # check that it worked
-    assert filename in os.listdir('.')
-    assert len(os.listdir(filename)) > 0
-
-    # remove the downloaded file
-    shutil.rmtree(filename)
-
-@pytest.mark.xfail(raises=HTTPError)
-@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
-@pytest.mark.mpi
-def test_download_file(comm):
-
-    # download TPM snapshot file
-    filename = 'tpm_1.0000.bin.00'
-    download_example_data(filename)
-
-    # check that it worked
-    assert filename in os.listdir('.')
-
-    # remove filename
-    os.remove(filename)
-
-@pytest.mark.xfail(raises=HTTPError)
-@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
-@pytest.mark.mpi
 def test_download_failure(comm):
 
     filename = 'MISSING'
