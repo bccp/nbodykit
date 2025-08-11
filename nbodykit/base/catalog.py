@@ -304,7 +304,7 @@ class CatalogSourceBase(object):
                 size = index.sum().compute()
             else:
 
-                if len(index) > 0 and numpy.issubdtype(index.dtype, numpy.integer):
+                if len(index) > 0 and not numpy.issubdtype(index.dtype, numpy.integer):
                     raise KeyError("slice index has must be boolean, integer. got %s" %(index.dtype))
 
                 size = len(index)
