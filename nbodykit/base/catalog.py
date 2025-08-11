@@ -304,7 +304,7 @@ class CatalogSourceBase(object):
                 size = index.sum().compute()
             else:
 
-                if len(index) > 0 and index.dtype != numpy.integer:
+                if len(index) > 0 and numpy.issubdtype(index.dtype, numpy.integer):
                     raise KeyError("slice index has must be boolean, integer. got %s" %(index.dtype))
 
                 size = len(index)
@@ -781,7 +781,7 @@ class CatalogSourceBase(object):
 
             `self.attrs` are carried over as a shallow copy to the returned object.
         """
-        from nbodykit.source.catalog import SubVolumesCatalog 
+        from nbodykit.source.catalog import SubVolumesCatalog
         return SubVolumesCatalog(self, domain=domain, position=position, columns=columns)
 
     def to_mesh(self, Nmesh=None, BoxSize=None, dtype='f4', interlaced=False,
