@@ -34,10 +34,10 @@ def test_save_future(comm):
     data = numpy.ones(100, dtype=[
             ('Position', ('f4', 3)),
             ('Velocity', ('f4', 3)),
-            ('Mass', ('f4'))]
+            ('Mass', ('f4', 1))]
             )
 
-    data['Mass'] = numpy.arange(len(data))
+    data['Mass'] = numpy.arange(len(data)).reshape(data['Mass'].shape)
     data['Position'] = numpy.arange(len(data) * 3).reshape(data['Position'].shape)
     data['Velocity'] = numpy.arange(len(data) * 3).reshape(data['Velocity'].shape)
 
@@ -90,10 +90,10 @@ def test_save_dataset(comm):
     data = numpy.ones(100, dtype=[
             ('Position', ('f4', 3)),
             ('Velocity', ('f4', 3)),
-            ('Mass', ('f4'))]
+            ('Mass', ('f4', 1))]
             )
 
-    data['Mass'] = numpy.arange(len(data))
+    data['Mass'] = numpy.arange(len(data)).reshape(data['Mass'].shape)
     data['Position'] = numpy.arange(len(data) * 3).reshape(data['Position'].shape)
     data['Velocity'] = numpy.arange(len(data) * 3).reshape(data['Velocity'].shape)
 
