@@ -44,8 +44,7 @@ jobs:
     - name: Python Unit tests
       run: |
         cd nbodykit
-        mpirun -n 1 python -m pytest --with-mpi
-        mpirun -n 2 python -m pytest --with-mpi
+        python -m pytest --with-mpi
         mpirun -n 4 --oversubscribe python -m pytest --with-mpi
         cd ../
     - name: Store the distribution packages
