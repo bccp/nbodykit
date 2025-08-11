@@ -3,6 +3,7 @@ from nbodykit import use_distributed, use_mpi
 from numpy.testing import assert_array_equal
 from nbodykit.lab import UniformCatalog
 import pytest
+import pytest_mpi
 
 def setup():
     # only initializes the local cluster this on the root rank.
@@ -27,12 +28,8 @@ def test_pickle(comm):
 
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
-def test_save(comm):
+def test_save(comm, mpi_tmp_path):
     cat = UniformCatalog(1e-3, 512, comm=comm)
 
-    import tempfile
-    import shutil
-
-    tmpfile = tempfile.mkdtemp()
+    tmpfile = str(mpi_tmp_path)
     cat.save(tmpfile, dataset='data')
-    shutil.rmtree(tmpfile, ignore_errors=True)

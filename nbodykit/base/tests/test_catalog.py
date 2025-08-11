@@ -3,6 +3,7 @@ from nbodykit import setup_logging, set_options
 
 import os
 import pytest
+import pytest_mpi
 from mpi4py import MPI
 from numpy.testing import assert_allclose, assert_array_equal
 
@@ -22,14 +23,11 @@ def test_default_columns(comm):
 
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
-def test_save_future(comm):
+def test_save_future(comm, mpi_tmp_path):
 
     cosmo = cosmology.Planck15
 
-    import tempfile
-    import shutil
-
-    tmpfile = tempfile.mkdtemp()
+    tmpfile = str(mpi_tmp_path)
 
     data = numpy.ones(100, dtype=[
             ('Position', ('f4', 3)),
@@ -73,19 +71,11 @@ def test_save_future(comm):
 
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
-def test_save_dataset(comm):
+def test_save_dataset(comm, mpi_tmp_path):
 
     cosmo = cosmology.Planck15
 
-    import tempfile
-    import shutil
-
-    # initialize an output directory
-    if comm.rank == 0:
-        tmpfile = tempfile.mkdtemp()
-    else:
-        tmpfile = None
-    tmpfile = comm.bcast(tmpfile)
+    tmpfile = str(mpi_tmp_path)
 
     data = numpy.ones(100, dtype=[
             ('Position', ('f4', 3)),
@@ -131,26 +121,13 @@ def test_save_dataset(comm):
     assert_allclose(allconcat(subsample['Velocity']), allconcat(subsample2['Velocity']))
     assert_allclose(allconcat(subsample['Mass']), allconcat(subsample2['Mass']))
 
-    comm.barrier()
-    if comm.rank == 0:
-        shutil.rmtree(tmpfile)
-
-
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
-def test_save(comm):
+def test_save(comm, mpi_tmp_path):
 
     cosmo = cosmology.Planck15
 
-    import tempfile
-    import shutil
-
-    # initialize an output directory
-    if comm.rank == 0:
-        tmpfile = tempfile.mkdtemp()
-    else:
-        tmpfile = None
-    tmpfile = comm.bcast(tmpfile)
+    tmpfile = str(mpi_tmp_path)
 
     # initialize a uniform catalog
     source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
@@ -177,10 +154,6 @@ def test_save(comm):
         return numpy.concatenate(comm.allgather(data), axis=0)
     assert_allclose(allconcat(source['Position']), allconcat(source2['Position']))
     assert_allclose(allconcat(source['Velocity']), allconcat(source2['Velocity']))
-
-    comm.barrier()
-    if comm.rank == 0:
-        shutil.rmtree(tmpfile)
 
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
