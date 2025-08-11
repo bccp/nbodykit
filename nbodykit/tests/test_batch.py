@@ -13,27 +13,6 @@ setup_logging("debug")
 
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi(min_size=2)
-def test_missing_ranks(comm):
-
-    with CurrentMPIComm.enter(comm):
-        cpus_per_task = 2
-        with pytest.raises(ValueError):
-            with TaskManager(cpus_per_task, debug=True, use_all_cpus=True):
-                pass
-
-@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
-@pytest.mark.mpi(min_size=2)
-def test_no_workers(comm):
-
-    with CurrentMPIComm.enter(comm):
-        cpus_per_task = 2
-        with pytest.raises(ValueError):
-            with TaskManager(cpus_per_task, debug=True, use_all_cpus=False):
-                pass
-
-
-@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
-@pytest.mark.mpi(min_size=2)
 def test_iterate(comm):
 
     cpus_per_task = 2

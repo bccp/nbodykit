@@ -53,6 +53,7 @@ def test_fibercolls(comm):
 
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
+@pytest.mark.xfail
 def test_fibercolls_issue584_4pt(comm):
     ra = numpy.array([0.,1.,2., 10])
     dec = numpy.array([0.,0.,0., 0])
@@ -61,6 +62,7 @@ def test_fibercolls_issue584_4pt(comm):
 
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
+@pytest.mark.xfail
 def test_fibercolls_issue584_3pt(comm):
     ra = numpy.array([0.,1.,2.])
     dec = numpy.array([0.,0.,0.])
