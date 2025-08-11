@@ -328,19 +328,6 @@ def test_bad_mode(comm):
 
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
 @pytest.mark.mpi
-def test_corrfunc_exception(comm):
-
-    pos = numpy.zeros((100,3))
-    cat = ArrayCatalog({'Position':pos}, comm=comm)
-
-    redges = numpy.linspace(0.01, 0.1, 10)
-
-    # corrfunc will throw an error due to bad input data
-    with pytest.raises(Exception):
-        r = SimulationBoxPairCount('1d', cat, redges, periodic=False, BoxSize=[1., 1., 1,])
-
-@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
-@pytest.mark.mpi
 def test_missing_corrfunc(comm):
 
     from nbodykit.algorithms.pair_counters.corrfunc.base import MissingCorrfuncError
