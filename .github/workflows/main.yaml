@@ -43,9 +43,11 @@ jobs:
         python setup.py build_ext --inplace
     - name: Python Unit tests
       run: |
-        python -m pytest --with-mpi
+        cd nbodykit
+        mpirun -n 1 python -m pytest --with-mpi
         mpirun -n 2 python -m pytest --with-mpi
         mpirun -n 4 --oversubscribe python -m pytest --with-mpi
+        cd ../
     - name: Store the distribution packages
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10' #Only do this once!
       uses: actions/upload-artifact@v4
