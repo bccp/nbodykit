@@ -5,9 +5,10 @@ import tempfile
 import os
 from mpi4py import MPI
 import pytest
+import pytest_mpi
 
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
-@pytest.mark.mpi
+@pytest.mark.mpi_skip
 def test_hdf(comm):
 
     import h5py
@@ -37,7 +38,7 @@ def test_hdf(comm):
     os.unlink(tmpfile)
 
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
-@pytest.mark.mpi
+@pytest.mark.mpi_skip
 def test_query_range(comm):
 
     import h5py
@@ -75,7 +76,7 @@ def test_query_range(comm):
         os.unlink(tmpfile)
 
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
-@pytest.mark.mpi
+@pytest.mark.mpi_skip
 def test_csv(comm):
 
     with tempfile.NamedTemporaryFile() as ff:
@@ -96,7 +97,7 @@ def test_csv(comm):
         assert all(col in f for col in names)
 
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
-@pytest.mark.mpi
+@pytest.mark.mpi_skip
 def test_stack_glob(comm):
 
     tmpfile1 = 'test-glob-1.dat'
@@ -126,7 +127,7 @@ def test_stack_glob(comm):
     os.unlink(tmpfile2)
 
 @pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
-@pytest.mark.mpi
+@pytest.mark.mpi_skip
 def test_stack_list(comm):
 
     tmpfile1 = 'test-list-1.dat'
