@@ -7,6 +7,7 @@ from nbodykit.binned_statistic import BinnedStatistic
 from nbodykit.meshtools import SlabIterator
 from nbodykit.base.catalog import CatalogSourceBase
 from nbodykit.base.mesh import MeshSource
+from mpi4py import MPI
 
 class FFTBase(object):
     """
@@ -143,7 +144,7 @@ class FFTBase(object):
 
 
 class FFTPower(FFTBase):
-    """
+    r"""
     Algorithm to compute the 1d or 2d power spectrum and/or multipoles
     in a periodic box, using a Fast Fourier Transform (FFT).
 
@@ -227,10 +228,10 @@ class FFTPower(FFTBase):
         self.attrs.update(self.power.attrs)
 
     def run(self):
-        """
+        r"""
         Compute the power spectrum in a periodic box, using FFTs.
 
-        Returns 
+        Returns
         -------
         power : :class:`~nbodykit.binned_statistic.BinnedStatistic`
             a BinnedStatistic object that holds the measured :math:`P(k)` or
@@ -735,24 +736,27 @@ def _find_unique_edges(x, x0, xmax, comm):
 
         Returns edges and the true centers
     """
-    def find_unique_local(x, x0):
-        fx2 = 0
-        for xi, x0i in zip(x, x0):
-            fx2 = fx2 + xi ** 2
+    fx2 = 0
+    for xi in x:
+        fx2 = fx2 + xi ** 2
 
+    def find_unique_local(fx2, binning):
+        """Find unique values in a floating point array by making integer bins"""
         fx2 = numpy.ravel(fx2)
-        ix2 = numpy.int64(fx2 / (x0.min() * 0.5) ** 2 + 0.5)
+        ix2 = numpy.int64(fx2 / binning + 0.5)
         ix2, ind = numpy.unique(ix2, return_index=True)
         fx2 = fx2[ind]
-        return fx2 ** 0.5
+        return fx2
 
-    fx = find_unique_local(x, x0)
+    binning = (x0.min() * 0.05)**2
+    fx = find_unique_local(fx2, binning)**0.5
 
     fx = fx[fx < xmax]
     fx = numpy.concatenate(comm.allgather(fx), axis=0)
-    # may have duplicates after allgather
-    fx = numpy.unique(fx)
-    fx.sort()
+    # May have duplicates after allgather: need to re-bin.
+    # We want to be picky about duplicates, so use a small bin size
+    minx0 = comm.allreduce(x0.min(), op=MPI.MIN)
+    fx = find_unique_local(fx, minx0 * 1e-5)
 
     # now make some reasonable bins.
     width = numpy.diff(fx)
