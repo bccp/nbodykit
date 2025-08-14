@@ -350,7 +350,7 @@ def SkyToCartesian(ra, dec, redshift, cosmo, observer=[0, 0, 0], degrees=True, f
     degrees : bool, optional
         specifies whether ``ra`` and ``dec`` are in degrees
     frame : string ('icrs' or 'galactic')
-        speciefies which frame the Cartesian coordinates is. 
+        speciefies which frame the Cartesian coordinates is.
 
     Returns
     -------
