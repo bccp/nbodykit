@@ -1,5 +1,5 @@
-from runtests.mpi import MPITest
-from nbodykit.lab import *
+from mpi4py import MPI
+import numpy
 from nbodykit import setup_logging
 from nbodykit.meshtools import SlabIterator
 
@@ -10,7 +10,8 @@ from numpy.testing import assert_array_equal
 # debug logging
 setup_logging("debug")
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_wrong_ndim(comm):
 
     numpy.random.seed(42)
@@ -25,7 +26,8 @@ def test_wrong_ndim(comm):
         for slab in SlabIterator([rfield.x[0]], axis=0, symmetry_axis=None):
             pass
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_wrong_coords_shape(comm):
 
     numpy.random.seed(42)
@@ -43,7 +45,8 @@ def test_wrong_coords_shape(comm):
             pass
 
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_2d_slab(comm):
 
     numpy.random.seed(42)
@@ -60,7 +63,8 @@ def test_2d_slab(comm):
         assert_array_equal(slab.hermitian_weights, numpy.ones(slab.shape))
         assert_array_equal(rfield[slab.index],  data[i])
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_hermitian_weights(comm):
 
     numpy.random.seed(42)
@@ -81,9 +85,9 @@ def test_hermitian_weights(comm):
         weights = slab.hermitian_weights
 
         # weights == 2 when iterating frequency is positive
-        if numpy.float(slab.coords(2)) > 0.:
+        if float(slab.coords(2)) > 0.:
             assert weights > 1
-            assert numpy.all(nonsig == True)
+            assert numpy.all(nonsig)
         else:
             assert weights == 1.0
-            assert numpy.all(nonsig == False)
+            assert numpy.all(numpy.logical_not(nonsig))

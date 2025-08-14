@@ -1,5 +1,4 @@
 from .cosmology import Cosmology
-from .background import PerturbationGrowth
 from .power import *
 from .correlation import CorrelationFunction, xi_to_pk, pk_to_xi
 

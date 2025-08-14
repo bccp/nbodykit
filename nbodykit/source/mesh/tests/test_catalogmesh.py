@@ -1,14 +1,14 @@
-from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import set_options
 from nbodykit import setup_logging
 from numpy.testing import assert_array_equal, assert_allclose
 import pytest
-
+from mpi4py import MPI
 # debug logging
 setup_logging("debug")
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_tsc_interlacing(comm):
 
     source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
@@ -22,7 +22,8 @@ def test_tsc_interlacing(comm):
     # skip a few large scale modes that are noisier (fewer modes)
     assert_allclose(r.power['power'][5:], 1 / (3e-4), rtol=1e-1)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_paint_empty(comm):
 
     source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
@@ -41,7 +42,8 @@ def test_paint_empty(comm):
     real = mesh.to_real_field(normalize=False)
     assert_allclose(real, 0.0)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_paint_chunksize(comm):
 
     source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
@@ -57,7 +59,8 @@ def test_paint_chunksize(comm):
 
     assert_allclose(r1, r2)
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_shotnoise(comm):
 
     source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
@@ -78,7 +81,8 @@ def test_shotnoise(comm):
     assert_allclose(r1.attrs['shotnoise'], SN, rtol=1e-2)
     assert_allclose(r2.attrs['shotnoise'], SN, rtol=1e-2)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_cic_interlacing(comm):
 
     source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
@@ -90,7 +94,8 @@ def test_cic_interlacing(comm):
     # if the compensation worked
     r = FFTPower(mesh, mode='1d', kmin=0.02)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_setters(comm):
 
     source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
@@ -110,7 +115,8 @@ def test_setters(comm):
     mesh.window = 'tsc'
     assert mesh.window == 'tsc'
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_bad_window(comm):
 
     source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
@@ -122,7 +128,8 @@ def test_bad_window(comm):
     with pytest.raises(Exception):
         mesh.window = "BAD"
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_no_compensation(comm):
 
     source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
@@ -137,7 +144,8 @@ def test_no_compensation(comm):
     with pytest.raises(ValueError):
         actions = mesh.actions
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_odd_chunksize(comm):
     # no errors shall occur. This is a regression test.
 
@@ -147,11 +155,12 @@ def test_odd_chunksize(comm):
 
     # make the mesh
     mesh = source.to_mesh(resampler='cic', Nmesh=64, interlaced=True, compensated=True)
-    
+
     with set_options(paint_chunk_size=1111):
         mesh.compute()
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_view(comm):
 
     # the CatalogSource
@@ -172,7 +181,8 @@ def test_view(comm):
     for k in mesh.attrs:
         assert k in view.attrs
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_apply_nocompensation(comm):
 
     # the CatalogSource
@@ -201,7 +211,8 @@ def test_apply_nocompensation(comm):
     for k in mesh.attrs:
         assert k in view.attrs
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_apply_compensated(comm):
 
     # the CatalogSource

@@ -1,11 +1,13 @@
-from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging, set_options, GlobalCache
+from mpi4py import MPI
+import pytest
 
 # debug logging
 setup_logging("debug")
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_fftpower(comm):
     cosmo = cosmology.Planck15
 
@@ -24,7 +26,8 @@ def test_fftpower(comm):
         output = "./test_fftpower-%d.json" % comm.size
         result.save(output)
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_compute(comm):
     cosmo = cosmology.Planck15
 
@@ -52,14 +55,16 @@ def test_compute(comm):
         source.save(output="./test_paint-real-%d.bigfile" % comm.size, mode='real')
         source.save(output="./test_paint-complex-%d.bigfile" % comm.size, mode='complex')
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_current_mpicomm(comm):
     cosmo = cosmology.Planck15
 
     with CurrentMPIComm.enter(comm):
         pass
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_set_options(comm):
 
     with CurrentMPIComm.enter(comm):

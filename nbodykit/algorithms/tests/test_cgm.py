@@ -1,13 +1,14 @@
-from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 from numpy.testing import assert_array_equal
 import pytest
+from mpi4py import MPI
 
 setup_logging("debug")
 
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_bad_input(comm):
 
     source = UniformCatalog(3e-4, BoxSize=256, seed=42, comm=comm)
@@ -36,7 +37,8 @@ def test_bad_input(comm):
         r = CylindricalGroups(source, 'gal_type', 10, 10, BoxSize=256.0, periodic=True)
 
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_periodic_cgm(comm):
 
     source = UniformCatalog(3e-4, BoxSize=256, seed=42, comm=comm)
@@ -76,7 +78,8 @@ def test_periodic_cgm(comm):
     assert_array_equal(cgm_gal_type, cgm_gal_type2)
 
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_nonperiodic_cgm(comm):
 
     source = UniformCatalog(3e-4, BoxSize=256, seed=42, comm=comm)

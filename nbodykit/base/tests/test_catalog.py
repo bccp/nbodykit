@@ -1,14 +1,16 @@
-from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging, set_options
 
 import os
 import pytest
+import pytest_mpi
+from mpi4py import MPI
 from numpy.testing import assert_allclose, assert_array_equal
 
 setup_logging()
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_default_columns(comm):
     cat = UniformCatalog(nbar=100, BoxSize=1.0, comm=comm)
 
@@ -19,23 +21,21 @@ def test_default_columns(comm):
     cat['Weight'] = 10.
     assert not cat['Weight'].is_default
 
-@MPITest([1])
-def test_save_future(comm):
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
+def test_save_future(comm, mpi_tmp_path):
 
     cosmo = cosmology.Planck15
 
-    import tempfile
-    import shutil
-
-    tmpfile = tempfile.mkdtemp()
+    tmpfile = str(mpi_tmp_path)
 
     data = numpy.ones(100, dtype=[
             ('Position', ('f4', 3)),
             ('Velocity', ('f4', 3)),
-            ('Mass', ('f4'))]
+            ('Mass', ('f4', 1))]
             )
 
-    data['Mass'] = numpy.arange(len(data))
+    data['Mass'] = numpy.arange(len(data)).reshape(data['Mass'].shape)
     data['Position'] = numpy.arange(len(data) * 3).reshape(data['Position'].shape)
     data['Velocity'] = numpy.arange(len(data) * 3).reshape(data['Velocity'].shape)
 
@@ -69,28 +69,21 @@ def test_save_future(comm):
     assert_allclose(allconcat(source['Velocity']), allconcat(source2['Velocity']))
     assert_allclose(allconcat(source['Mass']), allconcat(source2['Mass']))
 
-@MPITest([1, 4])
-def test_save_dataset(comm):
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
+def test_save_dataset(comm, mpi_tmp_path):
 
     cosmo = cosmology.Planck15
 
-    import tempfile
-    import shutil
-
-    # initialize an output directory
-    if comm.rank == 0:
-        tmpfile = tempfile.mkdtemp()
-    else:
-        tmpfile = None
-    tmpfile = comm.bcast(tmpfile)
+    tmpfile = str(mpi_tmp_path)
 
     data = numpy.ones(100, dtype=[
             ('Position', ('f4', 3)),
             ('Velocity', ('f4', 3)),
-            ('Mass', ('f4'))]
+            ('Mass', ('f4', 1))]
             )
 
-    data['Mass'] = numpy.arange(len(data))
+    data['Mass'] = numpy.arange(len(data)).reshape(data['Mass'].shape)
     data['Position'] = numpy.arange(len(data) * 3).reshape(data['Position'].shape)
     data['Velocity'] = numpy.arange(len(data) * 3).reshape(data['Velocity'].shape)
 
@@ -128,25 +121,13 @@ def test_save_dataset(comm):
     assert_allclose(allconcat(subsample['Velocity']), allconcat(subsample2['Velocity']))
     assert_allclose(allconcat(subsample['Mass']), allconcat(subsample2['Mass']))
 
-    comm.barrier()
-    if comm.rank == 0:
-        shutil.rmtree(tmpfile)
-
-
-@MPITest([1, 4])
-def test_save(comm):
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
+def test_save(comm, mpi_tmp_path):
 
     cosmo = cosmology.Planck15
 
-    import tempfile
-    import shutil
-
-    # initialize an output directory
-    if comm.rank == 0:
-        tmpfile = tempfile.mkdtemp()
-    else:
-        tmpfile = None
-    tmpfile = comm.bcast(tmpfile)
+    tmpfile = str(mpi_tmp_path)
 
     # initialize a uniform catalog
     source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
@@ -174,11 +155,8 @@ def test_save(comm):
     assert_allclose(allconcat(source['Position']), allconcat(source2['Position']))
     assert_allclose(allconcat(source['Velocity']), allconcat(source2['Velocity']))
 
-    comm.barrier()
-    if comm.rank == 0:
-        shutil.rmtree(tmpfile)
-
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_tomesh(comm):
 
     source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
@@ -209,7 +187,8 @@ def test_tomesh(comm):
     with pytest.raises(ValueError):
         mesh = source.to_mesh(Nmesh=128)
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_bad_column(comm):
     source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
 
@@ -221,7 +200,8 @@ def test_bad_column(comm):
     with pytest.raises(ValueError):
         data = source.get_hardcolumn('BAD_COLUMN')
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_empty_slice(comm):
 
     source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
@@ -245,7 +225,8 @@ def test_empty_slice(comm):
     assert source is not source2
 
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_slice(comm):
 
     source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
@@ -269,7 +250,8 @@ def test_slice(comm):
     with pytest.raises(KeyError):
         col = source['BAD_COLUMN']
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_dask_slice(comm):
 
     source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
@@ -283,7 +265,8 @@ def test_dask_slice(comm):
     pos2 = pos[source['Selection']]
     assert_array_equal(pos.compute()[index], pos2.compute())
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_index(comm):
 
     source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
@@ -297,7 +280,8 @@ def test_index(comm):
     assert_array_equal(r, range(source.csize))
     assert source.Index.dtype == numpy.dtype('i8')
 
-@MPITest([1 ,4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_transform(comm):
     cosmo = cosmology.Planck15
 
@@ -319,7 +303,8 @@ def test_transform(comm):
 
     mesh = source.to_mesh()
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_getitem_columns(comm):
 
     source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
@@ -333,7 +318,8 @@ def test_getitem_columns(comm):
     for col in subset:
         assert_array_equal(subset[col].compute(), source[col].compute())
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_delitem(comm):
 
     source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
@@ -354,7 +340,8 @@ def test_delitem(comm):
     del source['test']
     assert 'test' not in source
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_columnaccessor(comm):
     from nbodykit.base.catalog import ColumnAccessor
     source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
@@ -386,7 +373,8 @@ def test_columnaccessor(comm):
     assert source['Selection'].catalog is source
     assert source['Selection2'].catalog is source
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_copy(comm):
 
     source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
@@ -423,7 +411,8 @@ def test_copy(comm):
     source.attrs['foo'] = 123
     assert 'foo' not in copy.attrs
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_view(comm):
     # the CatalogSource
     source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
@@ -449,7 +438,8 @@ def test_view(comm):
     source.attrs['foo'] = 123
     assert 'foo' in view.attrs
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_persist(comm):
     # the CatalogSource
     source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)
@@ -458,7 +448,8 @@ def test_persist(comm):
     for key in source1.columns:
         assert_allclose(source[key], source1[key])
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_sort(comm):
     # the CatalogSource
     source = UniformCatalog(nbar=2e-4, BoxSize=512., seed=42, comm=comm)

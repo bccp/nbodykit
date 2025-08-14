@@ -1,4 +1,3 @@
-from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 
@@ -6,6 +5,7 @@ from numpy.testing import assert_array_equal, assert_allclose
 import kdcount.correlate as correlate
 import os
 import pytest
+from mpi4py import MPI
 
 setup_logging()
 
@@ -34,7 +34,8 @@ def reference_sim_tpcf(pos1, theta_edges, randoms=None, pos2=None):
     return angular_tpcf(pos1, theta_edges, sample2=pos2, randoms=randoms,
                             estimator=estimator, do_auto=do_auto)
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_sim_nonperiodic_auto(comm):
 
     # uniform source of particles
@@ -57,7 +58,8 @@ def test_sim_nonperiodic_auto(comm):
     #cf = reference_sim_tpcf(numpy.vstack([ra1,dec1]).T, theta_edges, randoms=numpy.vstack([ra2,dec2]).T)
     assert_allclose(cf, r.corr['corr'], rtol=1e-5, atol=1e-3)
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_sim_periodic_cross(comm):
 
     # uniform source of particles
@@ -76,7 +78,8 @@ def test_sim_periodic_cross(comm):
     cf = reference_sim_tpcf(sample1, theta_edges, pos2=sample2)
     assert_allclose(cf, r.corr['corr'])
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_survey_auto(comm):
 
     # uniform source of particles

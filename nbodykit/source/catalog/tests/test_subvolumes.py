@@ -1,13 +1,14 @@
-from runtests.mpi import MPITest
 from nbodykit.source.catalog import SubVolumesCatalog
 from numpy.testing import assert_allclose, assert_array_equal
 from nbodykit import setup_logging
 import pytest
 from nbodykit.lab import *
+from  mpi4py import MPI
 
 setup_logging("debug")
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_decomposed(comm):
     cosmo = cosmology.Planck15
 

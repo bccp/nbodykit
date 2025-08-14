@@ -4,7 +4,6 @@ astropy
 pyerfa
 mpi4py
 six
-runtests
 pmesh
 kdcount
 mpsort

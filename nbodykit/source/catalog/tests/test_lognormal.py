@@ -1,7 +1,7 @@
-from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 from nbodykit.utils import GatherArray
+import pytest
 
 from numpy.testing import assert_allclose
 from numpy.testing import assert_array_equal
@@ -9,7 +9,8 @@ from mpi4py import MPI
 
 setup_logging("debug")
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_lognormal_sparse(comm):
     cosmo = cosmology.Planck15
 
@@ -22,7 +23,8 @@ def test_lognormal_sparse(comm):
     real = mesh.compute(mode='real')
     assert_allclose(real.cmean(), 1.0, 1e-5)
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_lognormal_dense(comm):
     cosmo = cosmology.Planck15
 
@@ -33,7 +35,8 @@ def test_lognormal_dense(comm):
     real = mesh.compute(mode='real')
     assert_allclose(real.cmean(), 1.0, rtol=1e-5)
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_lognormal_invariance(comm):
     cosmo = cosmology.Planck15
 
@@ -48,7 +51,8 @@ def test_lognormal_invariance(comm):
     alldis = GatherArray(source['Velocity'].compute(), root=Ellipsis, comm=comm)
     assert_allclose(alldis, source1['Velocity'])
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_lognormal_velocity(comm):
     cosmo = cosmology.Planck15
 

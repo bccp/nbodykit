@@ -1,4 +1,4 @@
-from runtests.mpi import MPITest
+from mpi4py import MPI
 from nbodykit import setup_logging
 from nbodykit.binned_statistic import BinnedStatistic
 
@@ -12,7 +12,8 @@ data_dir = os.path.join(os.path.split(os.path.abspath(__file__))[0], 'data')
 setup_logging("debug")
 
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_to_json(comm):
 
     # load from JSON
@@ -30,7 +31,8 @@ def test_to_json(comm):
     # cleanup
     os.remove(ff.name)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_1d_load(comm):
 
     # load plaintext format
@@ -48,7 +50,8 @@ def test_1d_load(comm):
     for name in ds1:
         testing.assert_almost_equal(ds1[name], ds2[name])
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_2d_load(comm):
 
     # load plaintext format
@@ -62,7 +65,8 @@ def test_2d_load(comm):
     for name in ds1:
         testing.assert_almost_equal(ds1[name], ds2[name])
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_str(comm):
 
     dataset = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_2d.json'))
@@ -78,7 +82,8 @@ def test_str(comm):
     # this is the same as str
     r = repr(dataset)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_getitem(comm):
 
     dataset = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_2d.json'))
@@ -103,7 +108,8 @@ def test_getitem(comm):
     with pytest.raises(IndexError):
         bad = dataset[0,0]
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_array_slice(comm):
 
     dataset = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_2d.json'))
@@ -121,7 +127,8 @@ def test_array_slice(comm):
     assert sliced.dims == ['k', 'mu']
 
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_list_array_slice(comm):
 
     dataset = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_2d.json'))
@@ -136,7 +143,8 @@ def test_list_array_slice(comm):
         testing.assert_array_equal(dataset[var][:,[0,-1]], sliced[var])
 
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_variable_set(comm):
 
     dataset = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_2d.json'))
@@ -155,7 +163,8 @@ def test_variable_set(comm):
         dataset['TEST'] = 10.
 
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_copy(comm):
 
     dataset = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_2d.json'))
@@ -163,7 +172,8 @@ def test_copy(comm):
     for var in dataset:
         testing.assert_array_equal(dataset[var], copy[var])
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_rename_variable(comm):
 
     dataset = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_2d.json'))
@@ -174,7 +184,8 @@ def test_rename_variable(comm):
     assert 'renamed_test' in dataset
     assert 'test' not in dataset
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_sel(comm):
 
     dataset = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_2d.json'))
@@ -198,9 +209,10 @@ def test_sel(comm):
     # slice in a specific k-range
     sliced = dataset.sel(k=slice(0.02, 0.15), mu=[0.5], method='nearest')
     assert sliced.shape[1] == 1
-    assert numpy.alltrue((sliced['k'] >= 0.02)&(sliced['k'] <= 0.15))
+    assert numpy.all((sliced['k'] >= 0.02)&(sliced['k'] <= 0.15))
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_take(comm):
 
     dataset = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_2d.json'))
@@ -222,7 +234,8 @@ def test_take(comm):
     dataset.take(dataset['k'] < 0.3)
     assert len(sliced.dims) == 2
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_squeeze(comm):
 
     dataset = BinnedStatistic.from_json(os.path.join(data_dir, 'dataset_2d.json'))
@@ -242,7 +255,8 @@ def test_squeeze(comm):
     assert squeezed.shape[0] == sliced.shape[0]
 
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_average(comm):
     import warnings
 
@@ -274,7 +288,8 @@ def test_average(comm):
             testing.assert_allclose(x, avg[var])
 
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_reindex(comm):
     import warnings
 
@@ -291,13 +306,14 @@ def test_reindex(comm):
         new, spacing = dataset.reindex('k', 0.02, weights='weights', force=True, return_spacing=True)
 
         diff = numpy.diff(new.coords['k'])
-        assert numpy.alltrue(diff > numpy.diff(dataset.coords['k'])[0])
+        assert numpy.all(diff > numpy.diff(dataset.coords['k'])[0])
 
         with pytest.raises(ValueError):
             new = dataset.reindex('mu', 0.4, force=False)
         new = dataset.reindex('mu', 0.4, force=True)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_subclass_copy_sel(comm):
     # this test asserts the sel returns instance of subclass.
     # and the copy method can change the class.

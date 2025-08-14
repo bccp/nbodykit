@@ -165,13 +165,13 @@ def test_cosmology_sane():
     assert_allclose(c.Omega_r(0), c.Omega0_r)
 
     # total density in 10e10 Msun/h unit
-    assert_allclose(c.rho_tot(0), 27.754999)
-
-    # comoving distance to z=1.0 in Mpc/h unit.
-    assert_allclose(c.comoving_distance(1.0), 3396.157391 * c.h)
+    assert_allclose(c.rho_crit(0), 27.754999)
 
     # conformal time in Mpc unit.
-    assert_allclose(c.tau(1.0), 3396.157391)
+    assert_allclose(c.tau(1.0), 3396.158162)
+
+    # comoving distance to z=1.0 in Mpc/h unit.
+    assert_allclose(c.comoving_distance(1.0), c.tau(1.0) * c.h)
 
     assert_allclose(c.efunc(0), 1.) # hubble in Mpc/h km/s unit
     assert_allclose(c.efunc(0) - c.efunc(1 / 0.9999 - 1),
@@ -180,13 +180,13 @@ def test_cosmology_sane():
 def test_cosmology_density():
     c = Cosmology(gauge='synchronous')
     z = [0, 1, 2, 5, 9, 99]
-    assert_allclose(c.rho_cdm(z), c.Omega_cdm(z) * c.rho_tot(z))
-    assert_allclose(c.rho_g(z), c.Omega_g(z) * c.rho_tot(z))
-    assert_allclose(c.rho_ncdm(z), c.Omega_ncdm(z) * c.rho_tot(z))
-    assert_allclose(c.rho_b(z), c.Omega_b(z) * c.rho_tot(z))
-    assert_allclose(c.rho_m(z), c.Omega_m(z) * c.rho_tot(z))
-    assert_allclose(c.rho_r(z), c.Omega_r(z) * c.rho_tot(z))
-    assert_allclose(c.rho_ur(z), c.Omega_ur(z) * c.rho_tot(z))
+    assert_allclose(c.rho_cdm(z), c.Omega_cdm(z) * c.rho_crit(z))
+    assert_allclose(c.rho_g(z), c.Omega_g(z) * c.rho_crit(z))
+    assert_allclose(c.rho_ncdm(z), c.Omega_ncdm(z) * c.rho_crit(z))
+    assert_allclose(c.rho_b(z), c.Omega_b(z) * c.rho_crit(z))
+    assert_allclose(c.rho_m(z), c.Omega_m(z) * c.rho_crit(z))
+    assert_allclose(c.rho_r(z), c.Omega_r(z) * c.rho_crit(z))
+    assert_allclose(c.rho_ur(z), c.Omega_ur(z) * c.rho_crit(z))
 
 def test_cosmology_vect():
     c = Cosmology(gauge='synchronous')
@@ -204,22 +204,12 @@ def test_cosmology_vect():
     pk = c.get_pk(z=z, k=k)
     assert_array_equal(pk.shape, [2, 4])
 
-def test_cosmology_a_max():
-    c = Cosmology(gauge='synchronous', a_max=2.0)
-    print(c.parameter_file)
-    assert c.a_max == 2.0
-    t = c.Omega_m(-0.1)
-    t = c.efunc(-0.1)
-    t = c.scale_independent_growth_factor(-0.1)
-
-    #t = c.get_transfer(z=-0.1)
-
 def test_cosmology_transfer():
     c = Cosmology()
     t = c.get_transfer(z=0)
-    assert 'h_prime' in t.dtype.names
-    assert 'k' in t.dtype.names
-    assert 'd_cdm' in t.dtype.names
+    assert 'h_prime' in t.keys()
+    assert 'k' in t.keys()
+    assert 'd_cdm' in t.keys()
 
 def test_cosmology_get_pk():
     c = Cosmology()

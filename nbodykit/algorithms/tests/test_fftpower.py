@@ -1,13 +1,14 @@
-from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 from numpy.testing import assert_array_equal, assert_allclose
 import pytest
+from mpi4py import MPI
 
 # debug logging
 setup_logging("debug")
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_tsc_aliasing(comm):
 
     source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
@@ -24,7 +25,8 @@ def test_tsc_aliasing(comm):
     red_chi2 = (residual**2).sum()/len(Pk) # should be about 0.5-0.6
     assert red_chi2 < 1.0
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_cic_aliasing(comm):
 
     source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
@@ -42,7 +44,8 @@ def test_cic_aliasing(comm):
     assert red_chi2 < 1.0
 
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_fftpower_poles(comm):
 
     source = UniformCatalog(nbar=3e-3, BoxSize=512., seed=42, comm=comm)
@@ -57,7 +60,8 @@ def test_fftpower_poles(comm):
     assert_array_equal(modes_1d, r.poles['modes'])
     assert_allclose(mono_from_pkmu, mono)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_fftpower_unique(comm):
 
     source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
@@ -66,7 +70,8 @@ def test_fftpower_unique(comm):
     p = r.power
     assert_allclose(p.coords['k'], p['k'], rtol=1e-6)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_fftpower_padding(comm):
 
     source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
@@ -75,7 +80,8 @@ def test_fftpower_padding(comm):
     assert r.attrs['N1'] != 0
     assert r.attrs['N2'] != 0
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_fftpower_save(comm):
 
     source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
@@ -90,7 +96,8 @@ def test_fftpower_save(comm):
     assert_array_equal(r.power['mu'], r2.power['mu'])
     assert_array_equal(r.power['modes'], r2.power['modes'])
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_fftpower(comm):
 
     source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)
@@ -99,7 +106,8 @@ def test_fftpower(comm):
     # the zero mode is cleared
     assert_array_equal(r.power['power'][0], 0)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_fftpower_mismatch_boxsize(comm):
 
     cosmo = cosmology.Planck15
@@ -110,7 +118,8 @@ def test_fftpower_mismatch_boxsize(comm):
 
     r = FFTPower(source1, second=source2, mode='1d', BoxSize=1024, Nmesh=32)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_fftpower_mismatch_boxsize_fail(comm):
 
     cosmo = cosmology.Planck15
@@ -123,7 +132,8 @@ def test_fftpower_mismatch_boxsize_fail(comm):
     with pytest.raises(ValueError):
         r = FFTPower(mesh1, second=mesh2, mode='1d', BoxSize=1024, Nmesh=32)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_projectedpower(comm):
 
     source = UniformCatalog(nbar=3e-4, BoxSize=512., seed=42, comm=comm)

@@ -1,14 +1,15 @@
-from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 
 from numpy.testing import assert_array_equal
 import pytest
+from mpi4py import MPI
 
 setup_logging()
 
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_get_syntax(comm):
 
     source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42, comm=comm)
@@ -25,7 +26,8 @@ def test_get_syntax(comm):
     assert_array_equal(cat['data/test2'], cat['data']['test2'])
 
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_columns(comm):
 
     source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42, comm=comm)
@@ -41,7 +43,8 @@ def test_columns(comm):
         assert 'data/' + col in cat
         assert 'randoms/' + col in cat
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_bad_input(comm):
 
     source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42, comm=comm)
@@ -61,7 +64,8 @@ def test_bad_input(comm):
         cat = MultipleSpeciesCatalog(['data', 'randoms'], source1, source2)
 
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_getitem(comm):
 
     source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42, comm=comm)
@@ -78,7 +82,8 @@ def test_getitem(comm):
             assert k in source.attrs
 
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_setitem(comm):
 
     source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42, comm=comm)
@@ -102,7 +107,8 @@ def test_setitem(comm):
     with pytest.raises(ValueError):
         cat['data/test'] = test[:10]
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_bad_slice(comm):
 
     source1 = UniformCatalog(nbar=3e-5, BoxSize=512., seed=42, comm=comm)

@@ -230,8 +230,8 @@ def _assign_labels(minid, comm, thresh):
     # assign origind for recovery of ordering, since
     # we need to work in sorted fofid
     data['fofid'] = minid
-    data['origind'] = numpy.arange(len(data), dtype='u4')
-    data['origind'] += numpy.sum(comm.allgather(len(data))[:comm.rank], dtype='intp') \
+    data['origind'] = numpy.arange(len(data), dtype='u8')
+    data['origind'] += numpy.sum(comm.allgather(int(len(data)))[:comm.rank], dtype='u8')
 
     data = DistributedArray(data, comm)
 

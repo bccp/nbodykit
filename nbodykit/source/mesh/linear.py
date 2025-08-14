@@ -84,7 +84,11 @@ class LinearMesh(MeshSource):
                     compute_displacement=False)
         # set normalization to 1 + \delta.
         def filter(k, v):
-            mask = numpy.bitwise_and.reduce([ki == 0 for ki in k])
+            """Find the 0,0,0 mode and set it to 1.0 to normalise."""
+            mask = (k[0] == 0)
+            #Use a loop because k is raggedy list of arrays and broadcasting or comprehensions won't work well.
+            for ki in k[1:]:
+                mask = mask & (ki == 0)
             v[mask] = 1.0
             return v
 

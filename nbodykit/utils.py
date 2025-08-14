@@ -1,9 +1,15 @@
 import numpy
 from mpi4py import MPI
 import warnings
-import functools
 import contextlib
-import os, sys
+import sys
+#For DistributedArray
+import mpsort
+#For JSONEncoder
+import json
+from astropy.units import Quantity, Unit
+from nbodykit.cosmology import Cosmology
+
 
 def is_structured_array(arr):
     """
@@ -91,7 +97,6 @@ def split_size_3d(s):
         integers such that a * b * c == s and a <= b <= c
     """
     a = int(s** 0.3333333) + 1
-    d = s
     while a > 1:
         if s % a == 0:
             s = s // a
@@ -193,7 +198,8 @@ def GatherArray(data, comm, root=0):
         bad_shape = any(s[1:] != shapes[0][1:] for s in shapes[1:])
         bad_dtype = any(dt != dtypes[0] for dt in dtypes[1:])
     else:
-        bad_shape = None; bad_dtype = None
+        bad_shape = None
+        bad_dtype = None
 
     bad_shape, bad_dtype = comm.bcast((bad_shape, bad_dtype))
 
@@ -206,7 +212,7 @@ def GatherArray(data, comm, root=0):
     dtype = data.dtype
 
     # setup the custom dtype
-    duplicity = numpy.product(numpy.array(shape[1:], 'intp'))
+    duplicity = numpy.prod(numpy.array(shape[1:], 'intp'))
     itemsize = duplicity * dtype.itemsize
     dt = MPI.BYTE.Create_contiguous(itemsize)
     dt.Commit()
@@ -264,7 +270,6 @@ def ScatterArray(data, comm, root=0, counts=None):
     recvbuffer : array_like
         the chunk of `data` that each rank gets
     """
-    import logging
 
     if counts is not None:
         counts = numpy.asarray(counts, order='C')
@@ -306,7 +311,7 @@ def ScatterArray(data, comm, root=0, counts=None):
         data = numpy.empty(0, dtype=np_dtype)
 
     # setup the custom dtype
-    duplicity = numpy.product(numpy.array(shape[1:], 'intp'))
+    duplicity = numpy.prod(numpy.array(shape[1:], 'intp'))
     itemsize = duplicity * dtype.itemsize
     dt = MPI.BYTE.Create_contiguous(itemsize)
     dt.Commit()
@@ -372,10 +377,6 @@ def attrs_to_dict(obj, prefix):
     for key, value in obj.attrs.items():
         d[prefix + key] = value
     return d
-
-import json
-from astropy.units import Quantity, Unit
-from nbodykit.cosmology import Cosmology
 
 class JSONEncoder(json.JSONEncoder):
     """
@@ -530,7 +531,6 @@ def captured_output(comm, root=0):
             sys.stdout = old_stdout
             sys.stderr = old_stderr
 
-import mpsort
 class DistributedArray(object):
     """
     Distributed Array Object
@@ -663,7 +663,7 @@ class DistributedArray(object):
             the new labels, starting from 0
 
         """
-        prev, next = self.topology.prev(), self.topology.next()
+        next = self.topology.next()
 
         junk, label = numpy.unique(self.local, return_inverse=True)
 

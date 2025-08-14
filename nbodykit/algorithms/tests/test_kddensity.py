@@ -1,14 +1,15 @@
-from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 from numpy.testing import assert_array_equal, assert_allclose
-
+from mpi4py import MPI
+import pytest
 from nbodykit.algorithms.kdtree import KDDensity
 
 # debug logging
 setup_logging("debug")
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_kddensity(comm):
     cosmo = cosmology.Planck15
 

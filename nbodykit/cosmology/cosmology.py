@@ -2,8 +2,6 @@ from classylss.binding import ClassEngine, Background, Spectra, Perturbs, Primor
 from classylss.astropy_compat import AstropyCompat
 
 import numpy
-from six import string_types
-import os
 import functools
 
 def store_user_kwargs():
@@ -177,7 +175,7 @@ class Cosmology(object):
         Return a dict string when printed
         """
         return dict(self).__str__()
-    
+
     def __iter__(self):
         """
         Allows dict() to be used on class.
@@ -461,7 +459,7 @@ def astropy_to_dict(cosmo):
     args = {}
     args['h'] = cosmo.h
     args['T0_cmb'] = cosmo.Tcmb0.value
-    if cosmo.Ob0 is not None:
+    if cosmo.Ob0 is not None and cosmo.Ob0 > 0:
         args['Omega0_b'] = cosmo.Ob0
     else:
         raise ValueError("please specify a value 'Ob0' ")

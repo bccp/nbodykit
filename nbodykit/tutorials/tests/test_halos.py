@@ -1,11 +1,12 @@
-from runtests.mpi import MPITest
+from mpi4py import MPI
 from nbodykit.tutorials import DemoHaloCatalog
 from nbodykit import setup_logging
 import pytest
 
 setup_logging()
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_download(comm):
 
     from halotools.sim_manager import UserSuppliedHaloCatalog
@@ -22,8 +23,8 @@ def test_download(comm):
     with pytest.raises(Exception):
         cat = DemoHaloCatalog('BAD', 'rockstar', 0.5)
 
-
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_download_failure(comm):
     # initialize with bad redshift
     BAD_REDSHIFT = 100.0

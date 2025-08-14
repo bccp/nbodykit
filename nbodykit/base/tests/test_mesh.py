@@ -1,7 +1,7 @@
-from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 
+from mpi4py import MPI
 import pytest
 import tempfile
 import shutil
@@ -9,7 +9,8 @@ from numpy.testing import assert_allclose, assert_array_equal
 
 setup_logging()
 
-@MPITest([1,4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_lost_attrs(comm):
 
     cosmo = cosmology.Planck15
@@ -37,7 +38,8 @@ def test_lost_attrs(comm):
     if comm.rank == 0:
         shutil.rmtree(tmpfile)
 
-@MPITest([1,4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_real_save(comm):
 
     cosmo = cosmology.Planck15
@@ -74,7 +76,8 @@ def test_real_save(comm):
     if comm.rank == 0:
         shutil.rmtree(tmpfile)
 
-@MPITest([1,4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_complex_save(comm):
 
     cosmo = cosmology.Planck15
@@ -111,7 +114,8 @@ def test_complex_save(comm):
     if comm.rank == 0:
         shutil.rmtree(tmpfile)
 
-@MPITest([1,4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_preview(comm):
 
     cosmo = cosmology.Planck15
@@ -130,7 +134,8 @@ def test_preview(comm):
     preview[...] **= 2
     assert_allclose(preview.sum(), real.csum(), rtol=1e-5)
 
-@MPITest([1,4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_resample(comm):
 
     cosmo = cosmology.Planck15
@@ -153,7 +158,8 @@ def test_resample(comm):
     #preview[...] **= 2
     #assert_allclose(preview.sum(), real.csum(), rtol=1e-5)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_bad_mode(comm):
 
     cosmo = cosmology.Planck15
@@ -168,7 +174,8 @@ def test_bad_mode(comm):
     with pytest.raises(ValueError):
         field = source.compute(mode='BAD')
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_meshfilter(comm):
     from nbodykit.base.mesh import MeshFilter
     class MyFilter(MeshFilter):
@@ -189,7 +196,8 @@ def test_meshfilter(comm):
     assert_allclose(r1 * 2, r2)
     assert_allclose(r1 * 2, r3)
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_view(comm):
 
     from nbodykit.base.mesh import MeshSource

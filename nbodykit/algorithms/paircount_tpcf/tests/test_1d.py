@@ -1,4 +1,3 @@
-from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 
@@ -6,6 +5,7 @@ from numpy.testing import assert_array_equal, assert_allclose
 import kdcount.correlate as correlate
 import os
 import pytest
+from mpi4py import MPI
 
 setup_logging()
 
@@ -83,7 +83,8 @@ def reference_survey_tpcf(data1, randoms1, redges, data2=None, randoms2=None):
 
     return D1D2, D1R2, D2R1, R1R2, CF
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_sim_periodic_auto(comm):
 
     # uniform source of particles
@@ -101,7 +102,8 @@ def test_sim_periodic_auto(comm):
     assert_allclose(cf, r.corr['corr'])
 
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_sim_nonperiodic_auto(comm):
 
     # uniform source of particles
@@ -127,7 +129,8 @@ def test_sim_nonperiodic_auto(comm):
     #cf = reference_sim_tpcf(pos_d, redges, None, randoms=pos_r)
     assert_allclose(cf, r.corr['corr'], rtol=1e-5, atol=1e-5)
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_sim_periodic_cross(comm):
 
     # uniform source of particles
@@ -146,7 +149,8 @@ def test_sim_periodic_cross(comm):
     cf = reference_sim_tpcf(pos1, redges, data1.attrs['BoxSize'], pos2=pos2)
     assert_allclose(cf, r.corr['corr'])
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_survey_auto(comm):
     cosmo = cosmology.Planck15
 
@@ -177,7 +181,8 @@ def test_survey_auto(comm):
     assert_allclose(DR, r.D1R2['npairs'])
     assert_allclose(RR, r.R1R2['npairs'])
 
-@MPITest([4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_survey_cross(comm):
     cosmo = cosmology.Planck15
 
@@ -212,7 +217,8 @@ def test_survey_cross(comm):
     assert_allclose(D2R1['npairs'], r.D2R1['npairs'])
     assert_allclose(R1R2['npairs'], r.R1R2['npairs'])
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_low_nbar_randoms(comm):
 
     # uniform source of particles
@@ -223,5 +229,4 @@ def test_low_nbar_randoms(comm):
     redges = numpy.linspace(0.01, 5.0, 2)
 
     # compute 2PCF
-    with pytest.warns(UserWarning):
-        r = SimulationBox2PCF('1d', source, redges, periodic=False, randoms1=randoms)
+    r = SimulationBox2PCF('1d', source, redges, periodic=False, randoms1=randoms)

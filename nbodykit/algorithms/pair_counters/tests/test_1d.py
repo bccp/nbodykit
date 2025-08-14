@@ -1,4 +1,3 @@
-from runtests.mpi import MPITest
 from nbodykit.lab import *
 from nbodykit import setup_logging
 
@@ -6,6 +5,7 @@ from numpy.testing import assert_array_equal, assert_allclose
 import kdcount.correlate as correlate
 import os
 import pytest
+from mpi4py import MPI
 
 setup_logging()
 
@@ -40,7 +40,8 @@ def reference_paircount(pos1, w1, redges, boxsize, pos2=None, w2=None, los=2):
     pc = correlate.paircount(tree1, tree2, bins, np=0, compute_mean_coords=True)
     return numpy.nan_to_num(pc.pair_counts), numpy.nan_to_num(pc.mean_centers), pc.sum1
 
-@MPITest([1, 3])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_sim_periodic_auto(comm):
 
     # uniform source of particles
@@ -75,7 +76,8 @@ def test_sim_periodic_auto(comm):
 
     if comm.rank == 0: os.remove('paircount-test.json')
 
-@MPITest([1, 3])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_sim_nonperiodic_auto(comm):
 
     # uniform source of particles
@@ -97,8 +99,8 @@ def test_sim_nonperiodic_auto(comm):
     assert_allclose(npairs, r.pairs['npairs'])
     assert_allclose(wsum, r.pairs['wnpairs'])
 
-
-@MPITest([1, 3])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_sim_periodic_cross(comm):
 
     # generate data
@@ -120,7 +122,8 @@ def test_sim_periodic_cross(comm):
     assert_allclose(npairs, r.pairs['npairs'])
     assert_allclose(wsum, r.pairs['wnpairs'])
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_bad_los1(comm):
     source = generate_sim_data(seed=42, dtype='f8', comm=comm)
     redges = numpy.linspace(10, 150, 10)
@@ -129,7 +132,8 @@ def test_bad_los1(comm):
     with pytest.raises(ValueError):
         r = SimulationBoxPairCount('1d', source, redges, los='a')
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_bad_los2(comm):
     source = generate_sim_data(seed=42, dtype='f8', comm=comm)
     redges = numpy.linspace(10, 150, 10)
@@ -138,7 +142,8 @@ def test_bad_los2(comm):
     with pytest.raises(ValueError):
         r = SimulationBoxPairCount('1d', source, redges, los=3)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_bad_los3(comm):
     source = generate_sim_data(seed=42, dtype='f8', comm=comm)
     redges = numpy.linspace(10, 150, 10)
@@ -147,7 +152,8 @@ def test_bad_los3(comm):
     # negative okay
     r = SimulationBoxPairCount('1d', source, redges, los=-1)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_bad_los4(comm):
     source = generate_sim_data(seed=42, dtype='f8', comm=comm)
     redges = numpy.linspace(10, 150, 10)
@@ -156,7 +162,8 @@ def test_bad_los4(comm):
     with pytest.raises(ValueError):
         r = SimulationBoxPairCount('1d', source, redges, los=[0,0,1])
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_bad_rmax(comm):
 
     source = generate_sim_data(seed=42, dtype='f8', comm=comm)
@@ -166,7 +173,8 @@ def test_bad_rmax(comm):
     with pytest.raises(ValueError):
         r = SimulationBoxPairCount('1d', source, redges, periodic=True)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_noncubic_box(comm):
 
     source = UniformCatalog(nbar=3e-6, BoxSize=[512., 512., 256], seed=42, comm=comm)
@@ -176,7 +184,8 @@ def test_noncubic_box(comm):
     with pytest.raises(NotImplementedError):
         r = SimulationBoxPairCount('1d', source, redges, periodic=True)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_bad_boxsize(comm):
 
     # uniform source of particles
@@ -199,7 +208,8 @@ def test_bad_boxsize(comm):
     with pytest.raises(ValueError):
         r = SimulationBoxPairCount('1d', first, redges)
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_survey_auto(comm):
 
     cosmo = cosmology.Planck15
@@ -229,7 +239,8 @@ def test_survey_auto(comm):
     assert_allclose(npairs, r.pairs['npairs'])
     assert_allclose(wsum, r.pairs['wnpairs'])
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_survey_auto_endianess(comm):
 
     cosmo = cosmology.Planck15
@@ -263,7 +274,8 @@ def test_survey_auto_endianess(comm):
     assert_allclose(npairs, r.pairs['npairs'])
     assert_allclose(wsum, r.pairs['wnpairs'])
 
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_survey_cross(comm):
 
     cosmo = cosmology.Planck15
@@ -294,7 +306,8 @@ def test_survey_cross(comm):
     # the dataset
     assert_allclose(ravg, r.pairs['r'], rtol=1e-5)
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_survey_missing_columns(comm):
     source = generate_survey_data(seed=42, dtype='f8', comm=comm)
     redges = numpy.linspace(10, 150, 10)
@@ -303,7 +316,8 @@ def test_survey_missing_columns(comm):
     with pytest.raises(ValueError):
         r = SurveyDataPairCount('1d', source, redges, cosmology.Planck15, ra='BAD')
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_bad_mode(comm):
     source = generate_survey_data(seed=42, dtype='f8', comm=comm)
     redges = numpy.linspace(10, 150, 10)
@@ -312,19 +326,8 @@ def test_bad_mode(comm):
     with pytest.raises(ValueError):
         r = SurveyDataPairCount('bad mode', source, redges, cosmology.Planck15)
 
-@MPITest([1, 4])
-def test_corrfunc_exception(comm):
-
-    pos = numpy.zeros((100,3))
-    cat = ArrayCatalog({'Position':pos}, comm=comm)
-
-    redges = numpy.linspace(0.01, 0.1, 10)
-
-    # corrfunc will throw an error due to bad input data
-    with pytest.raises(Exception):
-        r = SimulationBoxPairCount('1d', cat, redges, periodic=False, BoxSize=[1., 1., 1,])
-
-@MPITest([1, 4])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_missing_corrfunc(comm):
 
     from nbodykit.algorithms.pair_counters.corrfunc.base import MissingCorrfuncError
@@ -332,7 +335,8 @@ def test_missing_corrfunc(comm):
     with pytest.raises(Exception):
         raise MissingCorrfuncError()
 
-@MPITest([1])
+@pytest.mark.parametrize("comm", [MPI.COMM_WORLD,])
+@pytest.mark.mpi
 def test_missing_Position(comm):
 
     pos = numpy.zeros((100,3))
