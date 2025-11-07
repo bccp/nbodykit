@@ -29,6 +29,9 @@ class LogNormalCatalog(CatalogSource):
     seed : int, optional
         the global random seed; if set to ``None``, the seed will be set
         randomly
+    cosmo_seed : int, optional
+        the random seed used for constructing the density box; if set to ``None``,
+        this will be set to 'seed'
     cosmo : :class:`nbodykit.cosmology.core.Cosmology`, optional
         this must be supplied if ``Plin`` does not carry ``cosmo`` attribute
     redshift : float, optional
@@ -43,13 +46,13 @@ class LogNormalCatalog(CatalogSource):
     `Agrawal et al. 2017 <https://arxiv.org/abs/1706.09195>`_
     """
     def __repr__(self):
-        return "LogNormalCatalog(seed=%(seed)d, bias=%(bias)g)" %self.attrs
+        return "LogNormalCatalog(seed=%(seed)d, cosmo_seed=%(cosmo_seed)d, bias=%(bias)g)" %self.attrs
 
     logger = logging.getLogger("LogNormalCatalog")
 
     @CurrentMPIComm.enable
     def __init__(self, Plin, nbar, BoxSize, Nmesh, bias=2., seed=None,
-                    cosmo=None, redshift=None,
+                    cosmo_seed=None, cosmo=None, redshift=None,
                     unitary_amplitude=False, inverted_phase=False, comm=None):
 
         self.comm = comm
@@ -83,7 +86,14 @@ class LogNormalCatalog(CatalogSource):
         if seed is None:
             if self.comm.rank == 0:
                 seed = numpy.random.randint(0, 4294967295)
+                if cosmo_seed is None:
+                    cosmo_seed = seed
+            cosmo_seed = self.comm.bcast(cosmo_seed)
             seed = self.comm.bcast(seed)
+        elif cosmo_seed is None:
+            cosmo_seed = seed
+
+        self.attrs['cosmo_seed'] = cosmo_seed
         self.attrs['seed'] = seed
 
         # make the actual source
@@ -141,7 +151,7 @@ class LogNormalCatalog(CatalogSource):
             self.logger.info("Growth Rate is %g" % f)
 
         # compute the linear overdensity and displacement fields
-        delta, disp = mockmaker.gaussian_real_fields(pm, self.Plin, self.attrs['seed'],
+        delta, disp = mockmaker.gaussian_real_fields(pm, self.Plin, self.attrs['cosmo_seed'],
                     unitary_amplitude=self.attrs['unitary_amplitude'],
                     inverted_phase=self.attrs['inverted_phase'],
                     compute_displacement=True,
