@@ -188,11 +188,15 @@ class FFTPower(FFTBase):
     poles : list of int, optional
         a list of multipole numbers ``ell`` to compute :math:`P_\ell(k)`
         from :math:`P(k,\mu)`
+    use_negative_mu : bool, optional
+        set to True if you want ``mu`` bins to range from -1 to 1
+        else they range from 0 to 1
     """
     logger = logging.getLogger('FFTPower')
 
     def __init__(self, first, mode, Nmesh=None, BoxSize=None, second=None,
-                    los=[0, 0, 1], Nmu=5, dk=None, kmin=0., kmax=None, poles=[]):
+                    los=[0, 0, 1], Nmu=5, dk=None, kmin=0., kmax=None, poles=[],
+                    use_negative_mu=False):
 
         # mode is either '1d' or '2d'
         if mode not in ['1d', '2d']:
@@ -214,6 +218,8 @@ class FFTPower(FFTBase):
         self.attrs['los'] = los
         self.attrs['Nmu'] = Nmu
         self.attrs['poles'] = poles
+        
+        self.use_negative_mu = use_negative_mu
 
         if dk is None:
             dk = 2 * numpy.pi / self.attrs['BoxSize'].min()
@@ -296,7 +302,11 @@ class FFTPower(FFTBase):
             kedges, kcoords = _find_unique_edges(y3d.x, 2 * numpy.pi / y3d.BoxSize, kmax, y3d.pm.comm)
 
         # project on to the desired basis
-        muedges = numpy.linspace(-1, 1, self.attrs['Nmu']+1, endpoint=True)
+        if self.use_negative_mu:
+            mu_min = -1
+        else:
+            mu_min = 0
+        muedges = numpy.linspace(mu_min, 1, self.attrs['Nmu']+1, endpoint=True)
         edges = [kedges, muedges]
         coords = [kcoords, None]
         result, pole_result = project_to_basis(y3d, edges,
